@@ -81,6 +81,17 @@ export const MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS = readPublicEnvMs(
 );
 
 /**
+ * 탭이 백그라운드(다른 탭·창 작업 중)일 때 수신 통화 목록 백업 GET.
+ * 이전에는 hidden 일 때 폴링을 건너뛰어 실시간 지연 시 벨이 아예 안 뜨는 경우가 있었다.
+ */
+export const MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_HIDDEN_MS",
+  4000,
+  1500,
+  30_000
+);
+
+/**
  * Broadcast·푸시·Realtime INSERT 가 같은 초에 겹칠 때 GET 이 여러 번 나가지 않게 — 즉시 1회 + 이(ms) 뒤 최대 1회.
  * (카카오/텔레그램류: 힌트 채널 + 단일 스냅샷 동기화에 가깝게)
  */

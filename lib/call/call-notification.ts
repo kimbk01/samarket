@@ -21,13 +21,13 @@ function defaultCallDeepLink(sessionId: string): string {
 }
 
 /**
- * 탭이 숨겨진 경우에만 로컬 알림(브라우저 Notification).
- * 포그라운드에서는 호출하지 않는 것을 권장(전역 오버레이와 중복 방지).
+ * 수신 통화 — 브라우저 시스템 알림(권한 granted 시).
+ * 탭이 보이는 중에도 호출 가능: 다른 사이트/탭에 집중 중일 때 오버레이만으로는 놓치는 경우를 줄인다.
+ * 동일 `sessionId`·`tag` 로 브라우저가 알림을 갱신·중복 완화.
  */
-export function showLocalIncomingCallNotificationIfEligible(input: LocalIncomingCallNotificationInput): boolean {
+export function showIncomingCallBrowserNotification(input: LocalIncomingCallNotificationInput): boolean {
   if (typeof window === "undefined") return false;
   if (input.suppressed) return false;
-  if (window.document.visibilityState === "visible" && !window.document.hidden) return false;
   if (!("Notification" in window)) return false;
   if (Notification.permission !== "granted") return false;
 
@@ -64,6 +64,17 @@ export function showLocalIncomingCallNotificationIfEligible(input: LocalIncoming
     return false;
   }
   return true;
+}
+
+/**
+ * 탭이 숨겨진 경우에만 로컬 알림(브라우저 Notification).
+ * 포그라운드 전용 중복을 피하려면 `showIncomingCallBrowserNotification` 대신 이 함수만 쓴다.
+ */
+export function showLocalIncomingCallNotificationIfEligible(input: LocalIncomingCallNotificationInput): boolean {
+  if (typeof window === "undefined") return false;
+  if (input.suppressed) return false;
+  if (window.document.visibilityState === "visible" && !window.document.hidden) return false;
+  return showIncomingCallBrowserNotification(input);
 }
 
 /** 같은 탭에서 생성한 수신 통화 로컬 알림 닫기 */

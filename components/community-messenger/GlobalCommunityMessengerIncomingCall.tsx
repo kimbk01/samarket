@@ -31,7 +31,7 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
-import { showLocalIncomingCallNotificationIfEligible } from "@/lib/call/call-notification";
+import { showIncomingCallBrowserNotification } from "@/lib/call/call-notification";
 import { requestCloseMessengerCallNotifications } from "@/lib/push/push-manager";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -43,6 +43,7 @@ import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
   MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS,
+  MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS,
   MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS,
   MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
@@ -95,8 +96,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingRealtimeOkRef = useRef(false);
   /** 수신 목록에 세션이 처음 잡힌 시각(서버 startedAt 대비) — 발신→수신 체감 지연 */
   const incomingSurfaceLoggedRef = useRef<Set<string>>(new Set());
-  /** 백그라운드 탭에서 동일 세션에 대한 로컬 Notification 중복 방지 */
-  const backgroundNotifiedIdsRef = useRef<Set<string>>(new Set());
+  /** 시스템 Notification(API) — 세션당 1회 (포그라운드·백그라운드 공통, tag 로 브라우저도 중복 완화) */
+  const incomingCallBrowserNotifiedIdsRef = useRef<Set<string>>(new Set());
   /** 직전 렌더에서 ringing 이었던 세션 — 링 종료 시 SW/로컬 수신 알림 정리 */
   const prevRingingIdsRef = useRef<Set<string>>(new Set());
   const [soundPolicyEpoch, setSoundPolicyEpoch] = useState(0);
@@ -275,16 +276,18 @@ export function GlobalCommunityMessengerIncomingCall() {
 
     const schedulePoll = () => {
       if (cancelled) return;
-      const ms = incomingRealtimeOkRef.current
-        ? ringingDirectCalleeRef.current
-          ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
-          : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
-        : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
+      const hidden = document.visibilityState !== "visible" || document.hidden;
+      const ms = hidden
+        ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
+        : incomingRealtimeOkRef.current
+          ? ringingDirectCalleeRef.current
+            ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
+            : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
+          : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
       pollTimer = window.setTimeout(() => {
         pollTimer = null;
-        if (!cancelled && document.visibilityState === "visible") {
-          void refreshRef.current(true);
-        }
+        /* 백그라운드에서도 폴링 — 탭 전환·다른 창 작업 중 Realtime 지연 시 수신 누락 방지 */
+        if (!cancelled) void refreshRef.current(true);
         schedulePoll();
       }, ms);
     };
@@ -537,26 +540,28 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (!userId) return;
-    const hidden = document.visibilityState !== "visible" || document.hidden;
-    if (!hidden) return;
 
     for (const session of sessions) {
       if (session.status !== "ringing") continue;
       if (session.isMineInitiator) continue;
       if (!session.recipientUserId || !messengerUserIdsEqual(session.recipientUserId, userId)) continue;
-      if (backgroundNotifiedIdsRef.current.has(session.id)) continue;
-      backgroundNotifiedIdsRef.current.add(session.id);
-      showLocalIncomingCallNotificationIfEligible({
+      if (incomingCallBrowserNotifiedIdsRef.current.has(session.id)) continue;
+      const suppressed = getMessengerCallSoundConfigCache()?.suppress_incoming_local_notifications === true;
+      const shown = showIncomingCallBrowserNotification({
         sessionId: session.id,
         peerLabel: session.peerLabel,
         callKind: session.callKind,
-        suppressed: getMessengerCallSoundConfigCache()?.suppress_incoming_local_notifications === true,
+        suppressed,
       });
+      /* 거부·관리자 억제 시에만 세션당 1회로 고정; granted 전(default)에는 이후 권한 허용 시 재시도 */
+      if (shown || suppressed || (typeof Notification !== "undefined" && Notification.permission === "denied")) {
+        incomingCallBrowserNotifiedIdsRef.current.add(session.id);
+      }
     }
 
-    for (const id of [...backgroundNotifiedIdsRef.current]) {
+    for (const id of [...incomingCallBrowserNotifiedIdsRef.current]) {
       const stillRinging = sessions.some((s) => s.id === id && s.status === "ringing");
-      if (!stillRinging) backgroundNotifiedIdsRef.current.delete(id);
+      if (!stillRinging) incomingCallBrowserNotifiedIdsRef.current.delete(id);
     }
   }, [sessions, userId]);
 

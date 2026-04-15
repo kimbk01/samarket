@@ -1013,10 +1013,37 @@ export function CommunityMessengerCallClient({
     })();
   }, [joinCall]);
 
+  const applyTerminalSessionAfterPatch = useCallback(
+    (
+      json: SessionResponse,
+      fallbackRoomId: string,
+      fallbackId: string,
+      optimisticTerminal: CommunityMessengerCallSession["status"]
+    ) => {
+      if (json.session && isTerminalCallSessionStatus(json.session.status)) {
+        setSession(json.session);
+      } else if (isTerminalCallSessionStatus(optimisticTerminal)) {
+        const endedAt = new Date().toISOString();
+        setSession((prev) => {
+          if (!prev || prev.id !== fallbackId) return prev;
+          return { ...prev, status: optimisticTerminal, endedAt };
+        });
+      }
+      joiningRef.current = false;
+      setJoined(false);
+      joinedRef.current = false;
+      setRemoteJoined(false);
+      router.replace(`/community-messenger/rooms/${encodeURIComponent(fallbackRoomId)}`);
+    },
+    [router]
+  );
+
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
     stopCommunityMessengerCallFeedback();
     setBusy("reject");
+    const roomId = session.roomId;
+    const sid = session.id;
     try {
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
@@ -1034,8 +1061,19 @@ export function CommunityMessengerCallClient({
         void refreshSession(true);
         return;
       }
-      await disposeCallMedia();
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+      if (json.session && isTerminalCallSessionStatus(json.session.status)) {
+        setSession(json.session);
+      } else {
+        setSession((prev) =>
+          prev && prev.id === sid ? { ...prev, status: "rejected", endedAt: new Date().toISOString() } : prev
+        );
+      }
+      joiningRef.current = false;
+      setJoined(false);
+      joinedRef.current = false;
+      setRemoteJoined(false);
+      void disposeCallMedia().catch(() => {});
+      router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
     } finally {
       setBusy(null);
     }
@@ -1045,6 +1083,8 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     stopCommunityMessengerCallFeedback();
     setBusy("end");
+    const roomId = session.roomId;
+    const sid = session.id;
     try {
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
         method: "PATCH",
@@ -1062,12 +1102,15 @@ export function CommunityMessengerCallClient({
         void refreshSession(true);
         return;
       }
-      await disposeCallMedia();
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+      /* 서버 응답을 즉시 반영하고, Agora leave 등은 기다리지 않는다 — 수신 종료 시 UI가 active 에 고정되던 문제 */
+      const optimisticEnd =
+        session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
+      applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
+      void disposeCallMedia().catch(() => {});
     } finally {
       setBusy(null);
     }
-  }, [disposeCallMedia, elapsedSeconds, refreshSession, router, session]);
+  }, [applyTerminalSessionAfterPatch, disposeCallMedia, elapsedSeconds, refreshSession, router, session]);
 
   const requestUpgradeToVideo = useCallback(async () => {
     const s = sessionRef.current;
