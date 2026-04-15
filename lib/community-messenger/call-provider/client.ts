@@ -97,8 +97,9 @@ async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
 
 async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
   const { videoDeviceId } = readPreferredCommunityMessengerDeviceIds();
+  /* 720p + 원격·로컬 동시 디코드는 저사양/모바일 웹에서 프레임 드랍 유발 → 480p 기본 */
   const base = {
-    encoderConfig: "720p_2" as const,
+    encoderConfig: "480p_2" as const,
     optimizationMode: "motion" as const,
   };
   try {

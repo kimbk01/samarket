@@ -53,6 +53,10 @@ export function useCommunityMessengerHomeBootstrap({
   const loadedRef = useRef(false);
   const silentRefreshBusyRef = useRef(false);
   const silentRefreshAgainRef = useRef(false);
+  /** 사일런트 홈 sync 폭주 방지(Realtime 버스트/포커스 연속) */
+  const lastSilentRefreshAtRef = useRef(0);
+  /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
+  const silentBackoffUntilRef = useRef(0);
 
   // 복귀/재진입 시 첫 페인트부터 캐시를 시드로 잡아 "한 박자 늦는" 리렌더를 방지한다.
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => {
@@ -66,6 +70,12 @@ export function useCommunityMessengerHomeBootstrap({
   // NOTE: 위 초기 state에서 이미 캐시를 시드로 반영하므로 layoutEffect로 덮어쓰기 필요 없음.
 
   const refresh = useCallback(async (silent = false) => {
+    if (silent) {
+      const now = Date.now();
+      if (now < silentBackoffUntilRef.current) return;
+      if (now - lastSilentRefreshAtRef.current < 380) return;
+      lastSilentRefreshAtRef.current = now;
+    }
     if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
       return;
     }
@@ -82,6 +92,11 @@ export function useCommunityMessengerHomeBootstrap({
       if (silent) {
         const tSilentFetch = typeof performance !== "undefined" ? performance.now() : null;
         const { res, json } = await fetchCommunityMessengerHomeSilentLists();
+        if (res.status === 429) {
+          const ra = res.headers.get("Retry-After");
+          const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
+          silentBackoffUntilRef.current = Date.now() + sec * 1000;
+        }
         if (res.ok && json.ok) {
           setData((prev) => {
             const base = prev ?? peekBootstrapCache();

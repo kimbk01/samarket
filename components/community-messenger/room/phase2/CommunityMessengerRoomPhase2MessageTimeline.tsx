@@ -4,6 +4,9 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
@@ -51,16 +54,41 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 
 export function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+
+  /**
+   * 스크롤은 초당 수십~수백 번 이벤트가 발생할 수 있어, state set 을 그대로 두면
+   * 장시간 사용 시 렌더/GC 부담이 누적된다. rAF 로 1프레임 1회만 처리한다.
+   */
+  const scrollRafRef = useRef<number | null>(null);
+  const onScroll = useCallback(() => {
+    vm.updateStickToBottomFromScroll();
+    if (vm.messageActionItem) vm.setMessageActionItem(null);
+    if (vm.callStubSheet) vm.setCallStubSheet(null);
+  }, [vm]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current != null) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const scheduleScroll = useCallback(() => {
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      onScroll();
+    });
+  }, [onScroll]);
+
   return (
     <>
       <div
         ref={vm.messagesViewportRef}
         className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
-        onScroll={() => {
-          vm.updateStickToBottomFromScroll();
-          vm.setMessageActionItem(null);
-          vm.setCallStubSheet(null);
-        }}
+        onScroll={scheduleScroll}
       >
         <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (

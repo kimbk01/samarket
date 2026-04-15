@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { CallActionItem } from "./call-ui.types";
 import {
   Headphones,
@@ -14,47 +15,71 @@ import {
   VolumeX,
 } from "lucide-react";
 
-function bgClassForAction(item: CallActionItem) {
-  const { icon, tone, active, disabled } = item;
-  if (tone === "danger" || icon === "end" || icon === "decline") return "bg-red-500";
-  if (tone === "accept" || icon === "accept") return "bg-blue-500";
-
-  if (icon === "mic") return active ? "bg-blue-500" : "bg-blue-500";
-  if (icon === "video") return disabled ? "bg-blue-500" : "bg-blue-500";
-  if (icon === "camera") return active ? "bg-blue-500" : "bg-blue-500";
-  if (icon === "speaker") return active ? "bg-blue-500" : "bg-blue-500";
-
-  return "bg-blue-500";
+/** 앞·뒤 카메라 전환 — 허용 lucide 세트에 없어 전용 SVG 사용 */
+function CameraSwitchGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 10a8 8 0 0 0-15.5-2M4 14a8 8 0 0 0 15.5 2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="m4 10-2-2 2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="m20 14 2 2-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function CallActionIcon({ item }: { item: CallActionItem }) {
+function diskClassForAction(item: CallActionItem): string {
+  const { icon, tone, active } = item;
+  if (tone === "danger" || icon === "end" || icon === "decline") {
+    return "bg-red-500 text-white shadow-[0_12px_28px_rgba(239,68,68,0.38)]";
+  }
+  if (tone === "accept" || icon === "accept") return "bg-blue-500 text-white";
+
+  if (icon === "camera" && active) return "bg-white text-slate-900 shadow-[0_12px_30px_rgba(0,0,0,0.22)]";
+  if (icon === "camera" && !active) return "bg-black/38 text-white";
+
+  if (icon === "camera-switch") return "bg-black/38 text-white";
+  if (icon === "mic") return "bg-black/38 text-white";
+  if (icon === "video-off") return "bg-black/38 text-white";
+  if (icon === "speaker") return "bg-black/38 text-white";
+
+  if (icon === "video") return "bg-black/38 text-white";
+
+  return "bg-black/38 text-white";
+}
+
+function CallActionGlyph({ item }: { item: CallActionItem }) {
   const { icon, tone, active, disabled } = item;
 
   const SIZE = 24;
 
-  if (tone === "danger" || icon === "end" || icon === "decline") return <PhoneOff size={SIZE} />;
-  if (tone === "accept" || icon === "accept") return <Phone size={SIZE} />;
+  if (tone === "danger" || icon === "end" || icon === "decline") return <PhoneOff size={SIZE} className="text-white" />;
+  if (tone === "accept" || icon === "accept") return <Phone size={SIZE} className="text-white" />;
 
-  if (icon === "mic") return active ? <Mic size={SIZE} /> : <MicOff size={SIZE} />;
-  if (icon === "video") return disabled ? <VideoOff size={SIZE} /> : <Video size={SIZE} />;
-  if (icon === "camera") return active ? <Video size={SIZE} /> : <VideoOff size={SIZE} />;
+  if (icon === "mic") return active ? <Mic size={SIZE} className="text-white" /> : <MicOff size={SIZE} className="text-white" />;
+  if (icon === "video") return disabled ? <VideoOff size={SIZE} className="text-white" /> : <Video size={SIZE} className="text-white" />;
+  if (icon === "video-off") return <VideoOff size={SIZE} className="text-white" />;
+  if (icon === "camera") {
+    return active ? <Video size={SIZE} className="text-slate-900" /> : <VideoOff size={SIZE} className="text-white" />;
+  }
 
-  // speakerEnabled=false(이어폰) -> VolumeX, true -> Volume2
-  if (icon === "speaker") return active ? <Volume2 size={SIZE} /> : <VolumeX size={SIZE} />;
+  if (icon === "speaker") return active ? <Volume2 size={SIZE} className="text-white" /> : <VolumeX size={SIZE} className="text-white" />;
 
-  // 나머지 레거시 액션은 지정된 아이콘만 사용 가능 → 가장 중립적인 아이콘으로 통일
-  if (icon === "camera-switch") return <Video size={SIZE} />;
-  if (icon === "retry") return <Phone size={SIZE} />;
-  if (icon === "close") return <PhoneOff size={SIZE} />;
-  if (icon === "back") return <Phone size={SIZE} />;
-  if (icon === "message") return <Monitor size={SIZE} />;
+  if (icon === "camera-switch") return <CameraSwitchGlyph className="text-white" />;
+  if (icon === "retry") return <Phone size={SIZE} className="text-white" />;
+  if (icon === "close") return <PhoneOff size={SIZE} className="text-white" />;
+  if (icon === "back") return <Phone size={SIZE} className="text-white" />;
+  if (icon === "message") return <Monitor size={SIZE} className="text-white" />;
 
-  // 화면 공유/헤드셋 등 확장 시에도 허용된 아이콘만 사용
-  return active ? <Headphones size={SIZE} /> : <Headphones size={SIZE} />;
+  return <Headphones size={SIZE} className="text-white" />;
 }
 
-export function CallActionButton({ item }: { item: CallActionItem }) {
-  const bgClass = bgClassForAction(item);
+export const CallActionButton = memo(function CallActionButton({ item }: { item: CallActionItem }) {
+  const disk = diskClassForAction(item);
 
   return (
     <button
@@ -63,10 +88,12 @@ export function CallActionButton({ item }: { item: CallActionItem }) {
       disabled={item.disabled}
       className="call-btn items-center text-center disabled:opacity-40"
     >
-      <span className={`call-btn__disk ${bgClass}`.trim()}>
-        <CallActionIcon item={item} />
+      <span className={`call-btn__disk ${disk}`.trim()}>
+        <CallActionGlyph item={item} />
       </span>
-      <span className="text-[12px] font-medium leading-tight text-white/92">{item.label}</span>
+      <span className="text-[12px] font-medium leading-tight text-white/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]">
+        {item.label}
+      </span>
     </button>
   );
-}
+});

@@ -1,25 +1,43 @@
-import { MESSENGER_CALL_GRADIENT_SURFACE } from "@/lib/community-messenger/messenger-call-gradient";
+"use client";
+
+import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { CallBackground } from "@/components/messenger/call/CallBackground";
+import { CallHeader } from "@/components/messenger/call/CallHeader";
 
 /**
- * 통화 라우트 전환·무거운 클라이언트 청크 로드 동안 즉시 보여 줄 풀스크린 골격.
+ * 통화 라우트(RSC 대기·클라 청크 로드) 동안 실제 통화 화면과 동일한 골격을 유지한다.
+ * 별도 보라 스피너 화면으로 바뀌지 않아 체감 단절·이중 전환을 줄인다.
  */
 export function CommunityMessengerCallRouteLoading() {
   return (
-    <div
-      className={`flex min-h-[100dvh] min-h-0 flex-col ${MESSENGER_CALL_GRADIENT_SURFACE}`}
-      data-messenger-shell
-    >
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
-        <div className="relative flex h-[72px] w-[72px] items-center justify-center" aria-hidden>
-          <span className="absolute inset-0 animate-ping rounded-full bg-white/15 opacity-40" />
-          <span className="absolute inset-2 rounded-full border-2 border-white/25" />
-          <span className="h-9 w-9 rounded-full bg-white/20 shadow-[0_0_24px_rgba(255,255,255,0.12)]" />
+    <CallScreenShell variant="page" className="min-h-[100dvh] overflow-hidden">
+      <CallBackground mode="video" phase="connecting" showVideo={false} />
+      <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+        <CallHeader onBack={null} topLabel={null} trailing={null} />
+        <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-4 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-2">
+          <div className="flex min-h-0 flex-1 flex-col justify-start pt-[min(18vh,140px)]">
+            <div className="w-full max-w-md self-center px-2">
+              <div className="px-6 text-center">
+                <div
+                  className="mx-auto h-10 max-w-[220px] animate-pulse rounded-xl bg-white/22 sm:h-11"
+                  aria-hidden
+                />
+                <p className="mt-3 text-[16px] font-medium text-white/76 sm:text-[17px]">통화 화면을 불러오는 중</p>
+                <p className="mt-2 text-[13px] leading-snug text-white/60 sm:text-[14px]">
+                  연결 준비가 끝나면 바로 표시됩니다
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-t-3xl bg-gradient-to-t from-black/70 via-black/32 to-transparent px-1 pt-12 pb-1">
+            <div className="flex w-full flex-wrap items-start justify-center gap-x-5 gap-y-4" aria-hidden>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex h-[72px] w-[72px] shrink-0 animate-pulse rounded-full bg-white/18" />
+              ))}
+            </div>
+          </div>
         </div>
-        <p className="mt-8 text-[16px] font-semibold text-white/95">통화 화면을 불러오는 중</p>
-        <p className="mt-2 max-w-[260px] text-center text-[13px] leading-snug text-white/50">
-          연결 준비가 끝나면 바로 표시됩니다
-        </p>
       </div>
-    </div>
+    </CallScreenShell>
   );
 }

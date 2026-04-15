@@ -1,8 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Phone } from "lucide-react";
-
 export function CallHeader({
   onBack,
   backLabel = "뒤로",
@@ -29,6 +27,10 @@ export function CallHeader({
       <div className="rounded-full bg-white/12 px-3 py-1.5 text-[12px] font-medium text-white/90 backdrop-blur-sm">{topLabel}</div>
     );
 
+  if (!onBack && chip == null && (trailing == null || trailing === false)) {
+    return null;
+  }
+
   return (
     <div className="relative z-[2] flex items-center justify-between px-4 pt-[max(12px,env(safe-area-inset-top))]">
       <div className="min-w-[72px]">
@@ -36,10 +38,9 @@ export function CallHeader({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-11 items-center gap-1 rounded-full px-2 text-[15px] font-medium text-white/95 transition active:scale-[0.98]"
+            className="inline-flex h-11 items-center gap-0.5 rounded-full px-2 text-[15px] font-medium text-white/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] transition active:scale-[0.98]"
           >
-            {/* 아이콘은 lucide 단일 세트만: 뒤로는 텍스트/전화 아이콘으로 통일 */}
-            <Phone size={20} />
+            <span className="pb-0.5 text-[26px] font-light leading-none">‹</span>
             <span>{backLabel}</span>
           </button>
         ) : null}

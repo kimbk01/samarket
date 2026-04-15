@@ -21,6 +21,7 @@ export type MediaState = {
 export type CallActionIcon =
   | "speaker"
   | "video"
+  | "video-off"
   | "mic"
   | "end"
   | "accept"

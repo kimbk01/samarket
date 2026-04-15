@@ -1,4 +1,5 @@
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
+import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const STORAGE_KEY = "samarket:cm:room_nav_t0.v1";
 const TTL_MS = 15_000;
@@ -62,12 +63,14 @@ export function consumeCommunityMessengerRoomNavTap(roomId: string): number | nu
   if (!row || row.roomId !== id) return null;
   const dt = Math.round(nowMs() - row.at);
   if (!Number.isFinite(dt) || dt < 0 || dt > TTL_MS) return null;
+  const roomIdSuffix = id.length <= 8 ? id : id.slice(-8);
+  logClientPerf("messenger-room.enter", { phase: "tap_to_mount", ms: dt, roomIdSuffix });
   messengerMonitorRecord({
     category: "chat.room_nav",
     metric: "tap_to_mount",
     value: dt,
     unit: "ms",
-    labels: { roomIdSuffix: id.length <= 8 ? id : id.slice(-8) },
+    labels: { roomIdSuffix },
   });
   return dt;
 }

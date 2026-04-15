@@ -112,6 +112,32 @@ export function messengerMonitorCallConnection(
   });
 }
 
+/**
+ * 1:1 직접통화 퍼널 — 세션 GET·수락·로컬 퍼블리시·상대 미디어 등 단계별 지연.
+ * `metric` 은 `flow_call_*` 로 통일해 대시보드·임계값과 매핑한다.
+ */
+export function messengerMonitorCallFlowPhase(
+  sessionId: string,
+  metric:
+    | "flow_call_session_shell"
+    | "flow_call_outgoing_bootstrap"
+    | "flow_call_accept_patch"
+    | "flow_call_agora_publish"
+    | "flow_call_accept_to_publish"
+    | "flow_call_remote_after_publish"
+    | "flow_call_incoming_surface_skew",
+  durationMs: number,
+  labels?: Record<string, string>
+): void {
+  messengerMonitorRecord({
+    category: "call.connection",
+    metric,
+    value: durationMs,
+    unit: "ms",
+    labels: { sessionIdSuffix: sessionId.slice(-8), ...(labels ?? {}) },
+  });
+}
+
 export function messengerMonitorCallPacketLoss(sessionId: string, percent: number): void {
   messengerMonitorRecord({
     category: "call.network",

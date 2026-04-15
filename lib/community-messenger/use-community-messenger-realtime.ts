@@ -278,117 +278,123 @@ export function useCommunityMessengerRoomRealtime(args: {
     );
     /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
     const voiceRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_VOICE_AUX_DEBOUNCE_MS);
-    const channels: RealtimeChannel[] = [];
+    const channels: Array<{ stop: () => void }> = [];
 
     /** 한 Realtime 채널에 postgres_changes 만 묶어 WS 구독 수를 줄임 */
-    const roomChannel = sb
-      .channel(`community-messenger-room:bundle:${args.roomId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_messages",
-          filter: `room_id=eq.${args.roomId}`,
-        },
-        (payload) => {
-          const eventType = payload.eventType;
-          const nextMessage =
-            eventType === "DELETE"
-              ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
-              : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
-          if (nextMessage && messageCallbackRef.current) {
-            messageCallbackRef.current({
-              eventType,
-              message: nextMessage,
-            });
-            if (eventType === "INSERT" && args.roomId) {
-              const created = new Date(nextMessage.createdAt).getTime();
-              const delay = Date.now() - created;
-              if (delay >= 0 && delay < 180_000) {
-                messengerMonitorRealtimeMessageInsertDelay(args.roomId, delay);
-              }
-            }
-            if (nextMessage.messageType === "call_stub" && !cancelled) {
-              callRefreshScheduler.schedule();
-            }
-            if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
-              voiceRefreshScheduler.schedule();
-            }
-            return;
-          }
-          if (!cancelled) messageFallbackRefreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_participants",
-          filter: `room_id=eq.${args.roomId}`,
-        },
-        () => {
-          if (!cancelled) metaRefreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_rooms",
-          filter: `id=eq.${args.roomId}`,
-        },
-        () => {
-          if (!cancelled) metaRefreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_logs",
-          filter: `room_id=eq.${args.roomId}`,
-        },
-        () => {
-          if (!cancelled) callRefreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_sessions",
-          filter: `room_id=eq.${args.roomId}`,
-        },
-        () => {
-          if (!cancelled) callRefreshScheduler.schedule();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "community_messenger_call_session_participants",
-          filter: `room_id=eq.${args.roomId}`,
-        },
-        () => {
-          if (!cancelled) callRefreshScheduler.schedule();
-        }
-      )
-      .subscribe((status) => {
+    const roomBundle = subscribeWithRetry({
+      sb,
+      name: `community-messenger-room:bundle:${args.roomId}`,
+      scope: `community-messenger-room:bundle`,
+      isCancelled: () => cancelled,
+      onStatus: (status) => {
         const scope = `community-messenger-room:bundle`;
         if (status === "SUBSCRIBED") {
           messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
         }
-      });
-    channels.push(roomChannel);
+      },
+      build: (channel) =>
+        channel
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_messages",
+              filter: `room_id=eq.${args.roomId}`,
+            },
+            (payload) => {
+              const eventType = payload.eventType;
+              const nextMessage =
+                eventType === "DELETE"
+                  ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
+                  : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
+              if (nextMessage && messageCallbackRef.current) {
+                messageCallbackRef.current({
+                  eventType,
+                  message: nextMessage,
+                });
+                if (eventType === "INSERT" && args.roomId) {
+                  const created = new Date(nextMessage.createdAt).getTime();
+                  const delay = Date.now() - created;
+                  if (delay >= 0 && delay < 180_000) {
+                    messengerMonitorRealtimeMessageInsertDelay(args.roomId, delay);
+                  }
+                }
+                if (nextMessage.messageType === "call_stub" && !cancelled) {
+                  callRefreshScheduler.schedule();
+                }
+                if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
+                  voiceRefreshScheduler.schedule();
+                }
+                return;
+              }
+              if (!cancelled) messageFallbackRefreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_participants",
+              filter: `room_id=eq.${args.roomId}`,
+            },
+            () => {
+              if (!cancelled) metaRefreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_rooms",
+              filter: `id=eq.${args.roomId}`,
+            },
+            () => {
+              if (!cancelled) metaRefreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_logs",
+              filter: `room_id=eq.${args.roomId}`,
+            },
+            () => {
+              if (!cancelled) callRefreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_sessions",
+              filter: `room_id=eq.${args.roomId}`,
+            },
+            () => {
+              if (!cancelled) callRefreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_session_participants",
+              filter: `room_id=eq.${args.roomId}`,
+            },
+            () => {
+              if (!cancelled) callRefreshScheduler.schedule();
+            }
+          ),
+    });
+    channels.push(roomBundle);
 
     return () => {
       cancelled = true;
@@ -397,7 +403,7 @@ export function useCommunityMessengerRoomRealtime(args: {
       callRefreshScheduler.cancel();
       voiceRefreshScheduler.cancel();
       for (const channel of channels) {
-        void sb.removeChannel(channel);
+        channel.stop();
       }
     };
   }, [args.enabled, args.roomId, callbackRef]);

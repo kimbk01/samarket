@@ -88,6 +88,13 @@ export function shouldAlertLatency(
     const cap = isVideo ? MESSENGER_PERF_THRESHOLDS.videoConnectMs : MESSENGER_PERF_THRESHOLDS.voiceConnectMs;
     return valueMs > cap ? (isVideo ? "videoConnectMs" : "voiceConnectMs") : null;
   }
+  if (category === "call.connection" && metric.startsWith("flow_call_")) {
+    /* 링 시작(서버 시각)~클라 목록 반영 — 시계 편차·백그라운드 탭으로 값이 커질 수 있음 */
+    if (metric === "flow_call_incoming_surface_skew") return null;
+    const isVideo = labels?.media === "video";
+    const cap = isVideo ? MESSENGER_PERF_THRESHOLDS.videoConnectMs : MESSENGER_PERF_THRESHOLDS.voiceConnectMs;
+    return valueMs > cap ? (isVideo ? "videoConnectMs" : "voiceConnectMs") : null;
+  }
   if (category === "chat.realtime" && metric === "message_insert_delay") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.realtimeEventDelayMs ? "realtimeEventDelayMs" : null;
   }

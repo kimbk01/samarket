@@ -4,6 +4,7 @@ import {
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { messengerMonitorRoomLoad } from "@/lib/community-messenger/monitoring/client";
+import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -38,7 +39,18 @@ export function createMessengerRoomBootstrapRefresh(
     silentRoomRefreshAgainRef,
   } = deps;
 
+  /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
+  let lastSilentRefreshAt = 0;
+  /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
+  let silentBackoffUntil = 0;
+
   async function refresh(silent = false): Promise<void> {
+    if (silent) {
+      const now = Date.now();
+      if (now < silentBackoffUntil) return;
+      if (now - lastSilentRefreshAt < 420) return;
+      lastSilentRefreshAt = now;
+    }
     if (!tryEnterSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef)) {
       return;
     }
@@ -71,6 +83,11 @@ export function createMessengerRoomBootstrapRefresh(
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
           cache: "no-store",
         });
+        if (res.status === 429) {
+          const ra = res.headers.get("Retry-After");
+          const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
+          silentBackoffUntil = Date.now() + sec * 1000;
+        }
         const raw = await res.json().catch(() => null);
         return { roomRes: res, snap: parseCommunityMessengerRoomSnapshotResponse(raw) };
       });
@@ -83,6 +100,17 @@ export function createMessengerRoomBootstrapRefresh(
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
         messengerMonitorRoomLoad(roomId, elapsed);
+        if (shouldBlock) {
+          const suf = roomId.trim();
+          logClientPerf("messenger-room.enter", {
+            phase: "bootstrap_fetch",
+            blocking: true,
+            silent,
+            mode: wantMinimal ? "lite" : "default",
+            ms: elapsed,
+            roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
+          });
+        }
       } else if (!primed) {
         setSnapshot(null);
       }

@@ -58,6 +58,7 @@ import { takeDetachedCommunityCallCleanup } from "@/lib/community-messenger/dire
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { formatMessengerAgoraLastMileLine } from "@/lib/community-messenger/call-provider/agora-network-quality";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
+import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -73,6 +74,8 @@ import {
   MESSENGER_CALL_SESSION_SILENT_GAP_REALTIME_MS,
   MESSENGER_CALL_SESSION_SILENT_GAP_UI_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
+import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
+import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 
@@ -209,6 +212,13 @@ export function CommunityMessengerCallClient({
   const callTerminalSoundPrevRef = useRef<{ id: string; status: CommunityMessengerCallSession["status"] } | null>(null);
   /** Peer upgraded session to video — publish local camera once (cleared on failure / new session). */
   const autoVideoPublishAttemptedRef = useRef<string | null>(null);
+  /** Agora `network-quality` 는 초당 여러 번 올 수 있어 UI state 갱신을 묶는다 */
+  const networkQualityFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNetworkQualityRef = useRef<{ u: number; d: number } | null>(null);
+  /** 수락~로컬 퍼블리시·로컬~첫 원격 미디어 구간 측정 */
+  const callFlowAcceptStartRef = useRef<number | null>(null);
+  const callFlowLocalPublishAtRef = useRef<number | null>(null);
+  const callFlowPrevRemoteJoinedRef = useRef(false);
 
   useLayoutEffect(() => {
     stopCommunityMessengerCallFeedback();
@@ -217,6 +227,9 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     setSessionRealtimeSubscribed(false);
     sessionSilentRefreshBackoffUntilRef.current = 0;
+    callFlowAcceptStartRef.current = null;
+    callFlowLocalPublishAtRef.current = null;
+    callFlowPrevRemoteJoinedRef.current = false;
   }, [sessionId]);
 
   useEffect(() => {
@@ -379,6 +392,11 @@ export function CommunityMessengerCallClient({
   }, []);
 
   const cleanupClient = useCallback(async () => {
+    if (networkQualityFlushTimerRef.current != null) {
+      clearTimeout(networkQualityFlushTimerRef.current);
+      networkQualityFlushTimerRef.current = null;
+    }
+    pendingNetworkQualityRef.current = null;
     const client = clientRef.current;
     clientRef.current = null;
     joinedRef.current = false;
@@ -503,8 +521,6 @@ export function CommunityMessengerCallClient({
     if (!session || session.callKind !== "video" || !joined) return;
     const remote = remoteVideoTrackRef.current;
     const local = localTracksRef.current?.videoTrack ?? null;
-    remote?.stop();
-    local?.stop();
     const remoteEl = layoutSwapped ? smallVideoRef.current : largeVideoRef.current;
     const localEl = layoutSwapped ? largeVideoRef.current : smallVideoRef.current;
     if (remoteEl) remoteEl.innerHTML = "";
@@ -762,6 +778,7 @@ export function CommunityMessengerCallClient({
       joiningRef.current = true;
       setBusy("join");
       setErrorMessage(null);
+      const joinT0 = perfNow();
 
       const runJoinAttempt = async (): Promise<void> => {
         const {
@@ -820,9 +837,17 @@ export function CommunityMessengerCallClient({
           }
         });
         client.on("network-quality", (stats: { uplinkNetworkQuality: number; downlinkNetworkQuality: number }) => {
-          setLastMileLine(
-            formatMessengerAgoraLastMileLine(stats.uplinkNetworkQuality ?? 0, stats.downlinkNetworkQuality ?? 0)
-          );
+          pendingNetworkQualityRef.current = {
+            u: stats.uplinkNetworkQuality ?? 0,
+            d: stats.downlinkNetworkQuality ?? 0,
+          };
+          if (networkQualityFlushTimerRef.current != null) return;
+          networkQualityFlushTimerRef.current = setTimeout(() => {
+            networkQualityFlushTimerRef.current = null;
+            const p = pendingNetworkQualityRef.current;
+            if (!p) return;
+            setLastMileLine(formatMessengerAgoraLastMileLine(p.u, p.d));
+          }, 480);
         });
 
         await joinCommunityMessengerAgoraChannel({
@@ -890,6 +915,8 @@ export function CommunityMessengerCallClient({
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
     const s = sessionRef.current;
     if (!s) return null;
+    const acceptT0 = perfNow();
+    callFlowAcceptStartRef.current = acceptT0;
     setBusy("accept");
     setErrorMessage(null);
     try {
@@ -915,10 +942,22 @@ export function CommunityMessengerCallClient({
                 ? "통화 정보를 찾을 수 없습니다."
                 : "통화 수락 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
         setErrorMessage(msg);
+        callFlowAcceptStartRef.current = null;
         return null;
       }
+      const patchMs = Math.round(perfNow() - acceptT0);
+      messengerMonitorCallFlowPhase(s.id, "flow_call_accept_patch", patchMs, { media: s.callKind, role: "callee" });
+      logClientPerf("messenger-call.accept", {
+        phase: "patch_ok",
+        ms: patchMs,
+        sessionIdSuffix: s.id.slice(-8),
+        media: s.callKind,
+      });
       setSession(json.session);
       return json.session;
+    } catch (e) {
+      callFlowAcceptStartRef.current = null;
+      throw e;
     } finally {
       setBusy(null);
     }
@@ -1139,39 +1178,46 @@ export function CommunityMessengerCallClient({
       showMessengerSnackbar("이 통화에서는 음성으로 전환할 수 없습니다.");
       return;
     }
-    if (!joinedRef.current || s.status !== "active") {
-      showMessengerSnackbar("통화가 연결된 후에 전환할 수 있어요.");
+    if (s.callKind !== "video") {
+      showMessengerSnackbar("이미 음성 통화입니다.");
       return;
     }
-    if (s.callKind !== "video") return;
+    const ringingDowngrade = s.status === "ringing";
+    const activeDowngrade = joinedRef.current && s.status === "active";
+    if (!ringingDowngrade && !activeDowngrade) {
+      showMessengerSnackbar("지금은 음성으로 전환할 수 없어요.");
+      return;
+    }
     setBusy("join");
     setErrorMessage(null);
     try {
-      const client = clientRef.current;
-      const vt = localTracksRef.current?.videoTrack;
-      if (client && vt) {
-        try {
-          await client.unpublish([vt]);
-        } catch {
-          /* ignore */
+      if (activeDowngrade) {
+        const client = clientRef.current;
+        const vt = localTracksRef.current?.videoTrack;
+        if (client && vt) {
+          try {
+            await client.unpublish([vt]);
+          } catch {
+            /* ignore */
+          }
+          try {
+            vt.stop();
+          } catch {
+            /* ignore */
+          }
+          try {
+            vt.close();
+          } catch {
+            /* ignore */
+          }
+          const tracks = localTracksRef.current;
+          if (tracks) {
+            localTracksRef.current = { ...tracks, videoTrack: null };
+          }
         }
-        try {
-          vt.stop();
-        } catch {
-          /* ignore */
-        }
-        try {
-          vt.close();
-        } catch {
-          /* ignore */
-        }
-        const tracks = localTracksRef.current;
-        if (tracks) {
-          localTracksRef.current = { ...tracks, videoTrack: null };
-        }
+        setLocalVideoReady(false);
+        setCameraSwitchSupported(false);
       }
-      setLocalVideoReady(false);
-      setCameraSwitchSupported(false);
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1194,6 +1240,8 @@ export function CommunityMessengerCallClient({
       setLayoutSwapped(false);
       autoVideoPublishAttemptedRef.current = null;
       bindLocalVideoTrack();
+      setSpeakerEnabled(false);
+      showMessengerSnackbar("음성 통화로 바꿨어요.");
     } catch (e) {
       setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
     } finally {
@@ -1203,6 +1251,7 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     let cancelled = false;
+    const shellT0 = perfNow();
     const bootstrap = async () => {
       const prevDetached = takeDetachedCommunityCallCleanup(sessionId);
       if (prevDetached) {
@@ -1212,6 +1261,19 @@ export function CommunityMessengerCallClient({
       const sessionUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`;
 
       if (fromServer != null) {
+        const ms = Math.round(perfNow() - shellT0);
+        messengerMonitorCallFlowPhase(sessionId, "flow_call_session_shell", ms, {
+          media: fromServer.callKind,
+          role: fromServer.isMineInitiator ? "initiator" : "callee",
+          source: "rsc",
+        });
+        logClientPerf("messenger-call.session.shell", {
+          phase: "rsc_seed",
+          ms,
+          sessionIdSuffix: sessionId.slice(-8),
+          media: fromServer.callKind,
+          initiator: fromServer.isMineInitiator,
+        });
         setSession(fromServer);
         setLoading(false);
         /* 토큰은 아래 prefetch useEffect 한 경로만 호출 — bootstrap 과 중복 /token 요청 방지 */
@@ -1230,6 +1292,22 @@ export function CommunityMessengerCallClient({
         if (cancelled) return;
         const json = (await sessionRes.json().catch(() => ({}))) as SessionResponse;
         const nextSession = sessionRes.ok && json.ok && json.session ? json.session : null;
+        const ms = Math.round(perfNow() - shellT0);
+        logClientPerf("messenger-call.session.shell", {
+          phase: nextSession ? "fetch_ok" : "fetch_miss",
+          ms,
+          sessionIdSuffix: sessionId.slice(-8),
+          ...(nextSession
+            ? { media: nextSession.callKind, initiator: nextSession.isMineInitiator }
+            : {}),
+        });
+        if (nextSession) {
+          messengerMonitorCallFlowPhase(sessionId, "flow_call_session_shell", ms, {
+            media: nextSession.callKind,
+            role: nextSession.isMineInitiator ? "initiator" : "callee",
+            source: "fetch",
+          });
+        }
         setSession(nextSession);
         if (!nextSession) {
           setErrorMessage("통화 세션을 찾지 못했습니다.");
@@ -1358,14 +1436,18 @@ export function CommunityMessengerCallClient({
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
       autoAcceptRef.current = true;
-      void acceptIncoming().then((nextSession) => {
-        if (nextSession) {
-          void joinCall(nextSession);
-          return;
-        }
-        /* 수락 API 실패 시 한 번만 막아 둔 플래그를 풀어, 화면에서 「수락」 재시도가 가능하게 한다 */
-        autoAcceptRef.current = false;
-      });
+      void acceptIncoming()
+        .then((nextSession) => {
+          if (nextSession) {
+            void joinCall(nextSession);
+            return;
+          }
+          /* 수락 API 실패 시 한 번만 막아 둔 플래그를 풀어, 화면에서 「수락」 재시도가 가능하게 한다 */
+          autoAcceptRef.current = false;
+        })
+        .catch(() => {
+          autoAcceptRef.current = false;
+        });
       return;
     }
     if (autoJoinBlockedRef.current) return;
@@ -1400,6 +1482,33 @@ export function CommunityMessengerCallClient({
     if (!Number.isFinite(startedAtMs)) return;
     setRingStartAt((prev) => prev ?? startedAtMs);
   }, [session?.id, session?.startedAt]);
+
+  useEffect(() => {
+    const sid = session?.id;
+    if (!sid) return;
+    if (!joined) {
+      callFlowPrevRemoteJoinedRef.current = remoteJoined;
+      return;
+    }
+    const prevR = callFlowPrevRemoteJoinedRef.current;
+    if (remoteJoined && !prevR && session) {
+      const t0 = callFlowLocalPublishAtRef.current;
+      if (t0 != null) {
+        const ms = Math.round(perfNow() - t0);
+        const media = session.callKind === "video" ? "video" : "voice";
+        const role = session.isMineInitiator ? "initiator" : "callee";
+        messengerMonitorCallFlowPhase(sid, "flow_call_remote_after_publish", ms, { media, role });
+        logClientPerf("messenger-call.remote", {
+          phase: "first_media",
+          ms,
+          sessionIdSuffix: sid.slice(-8),
+          media,
+          role,
+        });
+      }
+    }
+    callFlowPrevRemoteJoinedRef.current = remoteJoined;
+  }, [joined, remoteJoined, session]);
 
   useEffect(() => {
     if (!session || session.status !== "active") return;
@@ -1443,15 +1552,7 @@ export function CommunityMessengerCallClient({
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
   if (loading && !session) {
-    return (
-      <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[#0e0e12] px-6 text-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-2 border-sam-surface/15 border-t-[#665CAC]" aria-hidden />
-        <div>
-          <p className="text-[16px] font-semibold text-white/95">통화 준비 중</p>
-          <p className="mt-1.5 text-[13px] text-white/45">세션을 불러오는 중입니다</p>
-        </div>
-      </div>
-    );
+    return <CommunityMessengerCallRouteLoading />;
   }
 
   if (!session) {
@@ -1547,20 +1648,21 @@ export function CommunityMessengerCallClient({
       }
     );
   } else if (videoCall) {
+    const mediaReady = joined;
     primaryActions.push(
       {
         id: "switch-camera",
         label: "전환",
         icon: "camera-switch",
-        disabled: !cameraSwitchSupported || busy === "camera" || !joined,
+        disabled: !mediaReady || !cameraSwitchSupported || busy === "camera",
         onClick: () => void switchCameraFacing(),
       },
       {
         id: "camera",
-        label: camOff ? "카메라 꺼짐" : "카메라",
+        label: "영상",
         icon: "camera",
         active: !camOff,
-        disabled: busy === "join",
+        disabled: !mediaReady || busy === "join" || busy === "upgrade",
         onClick: () => void toggleCamEnabled(),
       },
       {
@@ -1651,7 +1753,7 @@ export function CommunityMessengerCallClient({
   const statusText =
     directPhase === "ringing"
       ? session.isMineInitiator
-        ? "Ringing..."
+        ? "연결 요청 중…"
         : videoCall
           ? "영상 통화"
           : "음성 통화"
@@ -1689,8 +1791,8 @@ export function CommunityMessengerCallClient({
     peerAvatarUrl: null,
     statusText,
     subStatusText,
-    topLabel: videoCall && directPhase === "connected" ? "음성 통화" : null,
-    onTopLabelClick: videoCall && directPhase === "connected" ? () => void requestDowngradeToVoice() : null,
+    topLabel: null,
+    onTopLabelClick: null,
     footerNote: showCallerMediaGate
       ? "브라우저 권한을 허용해야 실제 연결이 시작됩니다."
       : directPhase === "ringing" && ringStartAt
@@ -1721,7 +1823,7 @@ export function CommunityMessengerCallClient({
     ) : undefined,
     showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady && !layoutSwapped : false,
     showLocalVideo: videoCall ? joined && localVideoReady && !camOff && !layoutSwapped : false,
-    participantsSummary: "1:1 통화",
+    participantsSummary: null,
     autoCloseMs: directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed" ? 2400 : null,
   };
 

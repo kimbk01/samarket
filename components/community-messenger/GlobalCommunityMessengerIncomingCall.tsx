@@ -44,6 +44,8 @@ import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
 } from "@/lib/community-messenger/native-call-receive";
+import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
+import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -79,6 +81,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
   /** Realtime 수신이 살아 있으면 폴링은 백업 역할만(간격은 기존 로직 유지, 강제 refresh는 줄임) */
   const incomingRealtimeOkRef = useRef(false);
+  /** 수신 목록에 세션이 처음 잡힌 시각(서버 startedAt 대비) — 발신→수신 체감 지연 */
+  const incomingSurfaceLoggedRef = useRef<Set<string>>(new Set());
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
@@ -88,6 +92,32 @@ export function GlobalCommunityMessengerIncomingCall() {
       setUserId(value);
     });
   }, []);
+
+  useEffect(() => {
+    incomingSurfaceLoggedRef.current.clear();
+  }, [userId]);
+
+  useEffect(() => {
+    const now = Date.now();
+    for (const s of sessions) {
+      if (s.status !== "ringing" || s.sessionMode !== "direct") continue;
+      if (incomingSurfaceLoggedRef.current.has(s.id)) continue;
+      incomingSurfaceLoggedRef.current.add(s.id);
+      const serverStart = s.startedAt ? new Date(s.startedAt).getTime() : NaN;
+      const skew = Number.isFinite(serverStart) ? Math.max(0, Math.round(now - serverStart)) : -1;
+      if (skew >= 0) {
+        messengerMonitorCallFlowPhase(s.id, "flow_call_incoming_surface_skew", skew, {
+          media: s.callKind,
+          role: "callee",
+        });
+      }
+      logClientPerf("messenger-call.incoming.surface", {
+        sessionIdSuffix: s.id.slice(-8),
+        media: s.callKind,
+        serverSkewMs: skew >= 0 ? skew : null,
+      });
+    }
+  }, [sessions]);
 
   useEffect(() => {
     void fetchMessengerCallSoundConfig();

@@ -26,7 +26,6 @@ export function CallBackground({
         <>
           <div className="absolute inset-0">{videoSlot}</div>
           <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.22)_0%,rgba(0,0,0,0.08)_24%,rgba(0,0,0,0.48)_100%)]" />
-          <div className="absolute inset-0 backdrop-blur-[1px]" />
         </>
       ) : (
         <>

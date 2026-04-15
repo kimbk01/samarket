@@ -13,7 +13,7 @@ export function MiniLocalVideo({
 }) {
   return (
     <div
-      className={`absolute z-[3] overflow-hidden rounded-[22px] border border-white/18 bg-black/50 shadow-[0_20px_48px_rgba(0,0,0,0.34)] ${
+      className={`absolute z-[3] overflow-hidden rounded-[22px] border border-white/18 bg-black/45 shadow-[0_8px_24px_rgba(0,0,0,0.28)] ${
         minimized ? "bottom-[7.4rem] right-4 h-[152px] w-[96px] sm:h-[176px] sm:w-[108px]" : "bottom-[6.5rem] right-4 h-[220px] w-[128px]"
       }`}
     >

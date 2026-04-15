@@ -19,7 +19,7 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
   });
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-between px-6 pb-[max(20px,calc(env(safe-area-inset-bottom)+10px))] pt-6">
+    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-5 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-4">
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center">
           <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse={vm.phase === "ringing"} />
@@ -33,9 +33,13 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         </div>
       </div>
-      <div className="space-y-6">
+      <div className="rounded-t-3xl bg-gradient-to-t from-black/62 via-black/28 to-transparent px-1 pt-12 pb-1">
         <CallActionBar actions={vm.primaryActions} />
-        {vm.secondaryActions?.length ? <CallActionBar actions={vm.secondaryActions} compact /> : null}
+        {vm.secondaryActions?.length ? (
+          <div className="mt-4">
+            <CallActionBar actions={vm.secondaryActions} compact />
+          </div>
+        ) : null}
       </div>
     </div>
   );

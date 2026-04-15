@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 type OutgoingDialParams = {
@@ -82,6 +83,10 @@ export default function CommunityMessengerOutgoingDialPage() {
           setError(result.userMessage);
           return;
         }
+        messengerMonitorCallFlowPhase(result.session.id, "flow_call_outgoing_bootstrap", Math.round(t1 - t0), {
+          media: dial.kind,
+          role: "initiator",
+        });
         logClientPerf("messenger-call.outgoing.navigate", {
           phase: "replace_session",
           sessionId: result.session.id,

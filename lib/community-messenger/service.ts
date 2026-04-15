@@ -6290,7 +6290,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
     const isParty =
       messengerUserIdsEqual(session.initiator_user_id, uid) || (recip.length > 0 && messengerUserIdsEqual(recip, uid));
     if (!isParty) return { ok: false, error: "forbidden" };
-    if (session.status !== "active") return { ok: false, error: "bad_action" };
+    if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
     if (session.call_kind === "voice") {
       return { ok: true, session: await mapCallSession(uid, session) };
     }
@@ -6321,7 +6321,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
   const isParty =
     messengerUserIdsEqual(session.initiatorUserId, uid) || (r.length > 0 && messengerUserIdsEqual(r, uid));
   if (!isParty) return { ok: false, error: "forbidden" };
-  if (session.status !== "active") return { ok: false, error: "bad_action" };
+  if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
   if (session.callKind === "voice") {
     return { ok: true, session: await mapCallSession(uid, session) };
   }
