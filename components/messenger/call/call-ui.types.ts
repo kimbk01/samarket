@@ -69,6 +69,4 @@ export type CallScreenViewModel = {
   showLocalVideo?: boolean;
   participantsSummary?: string | null;
   autoCloseMs?: number | null;
-  /** Incoming ringing: window chrome (min/max/close) + four bottom actions; skips `CallHeader`. */
-  incomingDesktopChrome?: boolean;
 };

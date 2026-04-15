@@ -7,7 +7,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize2, Phone, PhoneOff } from "lucide-react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   playCommunityMessengerCallSignalSound,
@@ -50,11 +49,11 @@ import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
-const QUICK_REPLY_OPTIONS = [
-  "지금 통화가 어려워요. 채팅으로 남겨 주세요.",
-  "잠시 후 다시 연락드릴게요.",
-  "회의 중입니다. 메시지 부탁드려요.",
-] as const;
+
+function isTerminalCallSessionStatusValue(status: unknown): boolean {
+  const s = typeof status === "string" ? status : "";
+  return s === "ended" || s === "cancelled" || s === "rejected" || s === "missed";
+}
 
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
@@ -64,7 +63,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [sessions, setSessions] = useState<CommunityMessengerCallSession[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [minimizedSessionId, setMinimizedSessionId] = useState<string | null>(null);
-  const [replySheetSessionId, setReplySheetSessionId] = useState<string | null>(null);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
@@ -145,6 +143,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       try {
         const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
           cache: "no-store",
+          credentials: "include",
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -248,14 +247,20 @@ export function GlobalCommunityMessengerIncomingCall() {
     const onOnline = () => {
       queueVisibilityRefreshBurstRef.current();
     };
+    /** 배포 Chrome: 다른 탭/창에서 돌아올 때 visibility 가 안 오는 경우 보완 */
+    const onWindowFocus = () => {
+      if (document.visibilityState === "visible") queueVisibilityRefreshBurstRef.current();
+    };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("pageshow", onPageShow);
     window.addEventListener("online", onOnline);
+    window.addEventListener("focus", onWindowFocus);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
+      window.removeEventListener("focus", onWindowFocus);
     };
   }, [userId]);
 
@@ -273,6 +278,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       isCancelled: () => cancelled,
       onStatus: (status) => {
         incomingRealtimeOkRef.current = status === "SUBSCRIBED";
+      },
+      /** 원격망에서 WS 재연결 실패 시에도 HTTP 로 수신 목록·종료 상태를 맞춤 */
+      onAfterSubscribeFailure: () => {
+        void refreshRef.current(true);
       },
       build: (channel) =>
         channel
@@ -297,7 +306,49 @@ export function GlobalCommunityMessengerIncomingCall() {
                   old: p.old ?? null,
                 })
               );
-              scheduleRealtimeIncomingRefresh();
+              const newRow = p.new ?? null;
+              const terminal = isTerminalCallSessionStatusValue(newRow?.status) || p.eventType === "DELETE";
+              if (terminal) {
+                const sid =
+                  typeof newRow?.id === "string"
+                    ? newRow.id
+                    : typeof (p.old as Record<string, unknown> | null)?.id === "string"
+                      ? String((p.old as Record<string, unknown>).id)
+                      : "";
+                if (sid) suppressMissedSoundRef.current.add(sid);
+                stopCommunityMessengerCallFeedback();
+                if (realtimeDebounceTimerRef.current != null) {
+                  window.clearTimeout(realtimeDebounceTimerRef.current);
+                  realtimeDebounceTimerRef.current = null;
+                }
+                void refreshRef.current(true);
+              } else {
+                scheduleRealtimeIncomingRefresh();
+              }
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "community_messenger_call_signals",
+              filter: `to_user_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = payload.new as Record<string, unknown> | undefined;
+              if (!row) return;
+              if (String(row.signal_type ?? "") !== "hangup") return;
+              const sid = row.session_id == null ? "" : String(row.session_id).trim();
+              if (!sid) return;
+              suppressMissedSoundRef.current.add(sid);
+              stopCommunityMessengerCallFeedback();
+              setSessions((prev) => prev.filter((s) => s.id !== sid));
+              if (realtimeDebounceTimerRef.current != null) {
+                window.clearTimeout(realtimeDebounceTimerRef.current);
+                realtimeDebounceTimerRef.current = null;
+              }
+              void refreshRef.current(true);
             }
           )
           .on(
@@ -359,13 +410,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       setMinimizedSessionId(null);
     }
   }, [minimizedSessionId, sessions]);
-
-  useEffect(() => {
-    if (!replySheetSessionId) return;
-    if (!sessions.some((session) => session.id === replySheetSessionId)) {
-      setReplySheetSessionId(null);
-    }
-  }, [replySheetSessionId, sessions]);
 
   /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
   useEffect(() => {
@@ -450,7 +494,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      setReplySheetSessionId((prev) => (prev === sessionId ? null : prev));
       await refresh();
     } finally {
       setBusyId(null);
@@ -492,111 +535,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
     })();
   }, []);
-
-  const blockCaller = useCallback(async (session: CommunityMessengerCallSession) => {
-    suppressMissedSoundRef.current.add(session.id);
-    stopCommunityMessengerCallFeedback();
-    if (!session.peerUserId) return;
-    if (!window.confirm(`${session.peerLabel}님을 차단할까요?`)) {
-      return;
-    }
-    setBusyId(`block:${session.id}`);
-    try {
-      try {
-        await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}/signals`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            toUserId: session.peerUserId,
-            signalType: "hangup",
-            payload: { reason: "reject" },
-          }),
-        });
-      } catch {
-        /* ignore */
-      }
-      const preBlockRejectRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      const preBlockRejectJson = (await preBlockRejectRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!preBlockRejectRes.ok || !preBlockRejectJson.ok) {
-        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
-        return;
-      }
-      const res = await fetch("/api/community/block-relations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: session.peerUserId }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (!res.ok || !json.ok) {
-        showMessengerSnackbar("차단 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.", { variant: "error" });
-        return;
-      }
-      setSessions((prev) => prev.filter((item) => item.id !== session.id));
-      setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
-      setReplySheetSessionId((prev) => (prev === session.id ? null : prev));
-      await refresh(true);
-    } finally {
-      setBusyId(null);
-    }
-  }, [refresh]);
-
-  const sendQuickReplyAndReject = useCallback(async (session: CommunityMessengerCallSession, content: string) => {
-    suppressMissedSoundRef.current.add(session.id);
-    stopCommunityMessengerCallFeedback();
-    const trimmedContent = content.trim();
-    if (!trimmedContent) return;
-    setBusyId(`reply:${session.id}`);
-    try {
-      const messageRes = await fetch(
-        `/api/community-messenger/rooms/${encodeURIComponent(session.roomId)}/messages`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: trimmedContent }),
-        }
-      );
-      const messageJson = (await messageRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!messageRes.ok || !messageJson.ok) {
-        showMessengerSnackbar(messageJson.error ?? "응답 메시지를 전송하지 못했습니다.", { variant: "error" });
-        return;
-      }
-      if (session.peerUserId) {
-        try {
-          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}/signals`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              toUserId: session.peerUserId,
-              signalType: "hangup",
-              payload: { reason: "reject" },
-            }),
-          });
-        } catch {
-          /* ignore */
-        }
-      }
-      const rejectAfterReplyRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      const rejectAfterReplyJson = (await rejectAfterReplyRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!rejectAfterReplyRes.ok || !rejectAfterReplyJson.ok) {
-        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
-        return;
-      }
-      setReplySheetSessionId(null);
-      setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
-      setSessions((prev) => prev.filter((item) => item.id !== session.id));
-      await refresh(true);
-    } finally {
-      setBusyId(null);
-    }
-  }, [refresh]);
 
   if (visibleSession && isMinimized) {
     return (
@@ -647,13 +585,12 @@ export function GlobalCommunityMessengerIncomingCall() {
       mode: visibleSession.callKind === "video" ? "video" : "voice",
       direction: "incoming",
       phase: "ringing",
-      incomingDesktopChrome: true,
       peerLabel: visibleSession.peerLabel,
       peerAvatarUrl: null,
       statusText: callTypeLabel,
       subStatusText: sessionActionError ?? incomingListError ?? null,
-      topLabel: t("nav_incoming_call"),
-      footerNote: "실제 통화 시간은 연결 완료 후부터 시작됩니다.",
+      topLabel: null,
+      footerNote: null,
       mediaState: {
         micEnabled: true,
         speakerEnabled: true,
@@ -667,10 +604,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           label: busyId === `reject:${visibleSession.id}` ? "거절 중" : "거절",
           icon: "decline",
           tone: "danger",
-          disabled:
-            busyId === `reject:${visibleSession.id}` ||
-            busyId === `block:${visibleSession.id}` ||
-            busyId === `accept:${visibleSession.id}`,
+          disabled: busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`,
           onClick: () => void rejectCall(visibleSession.id),
         },
         {
@@ -680,19 +614,6 @@ export function GlobalCommunityMessengerIncomingCall() {
           tone: "accept",
           disabled: busyId === `accept:${visibleSession.id}`,
           onClick: () => void acceptCall(visibleSession),
-        },
-      ],
-      secondaryActions: [
-        {
-          id: "message-reject",
-          label: "메시지",
-          icon: "message",
-          disabled: busyId === `reply:${visibleSession.id}`,
-          onClick: () =>
-            void sendQuickReplyAndReject(
-              visibleSession,
-              QUICK_REPLY_OPTIONS[0]
-            ),
         },
       ],
     };

@@ -37,11 +37,7 @@ export function CallScreen({
         showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
       />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
-        {!(
-          vm.incomingDesktopChrome === true &&
-          vm.direction === "incoming" &&
-          vm.phase === "ringing"
-        ) ? (
+        {!(vm.direction === "incoming" && vm.phase === "ringing") ? (
           <CallHeader
             onBack={vm.onBack}
             topLabel={vm.topLabel}

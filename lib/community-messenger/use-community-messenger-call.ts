@@ -648,6 +648,7 @@ export function useCommunityMessengerCall(args: {
       }
 
       if (signal.signalType === "hangup") {
+        void args.onRefresh();
         const reason = typeof signal.payload.reason === "string" ? signal.payload.reason : "";
         const message =
           reason === "reject"
@@ -944,17 +945,17 @@ export function useCommunityMessengerCall(args: {
   useEffect(() => {
     const active = args.activeCall;
     if (!active) return;
-    if (!currentSessionId || active.id !== currentSessionId) return;
     if (
-      active.status === "ended" ||
-      active.status === "cancelled" ||
-      active.status === "rejected" ||
-      active.status === "missed"
+      active.status !== "ended" &&
+      active.status !== "cancelled" &&
+      active.status !== "rejected" &&
+      active.status !== "missed"
     ) {
-      // 상대/본인 어느 쪽이 종료해도 즉시 통화 UI 닫기(원점 복귀)
-      closeSessionImmediately(active.id);
+      return;
     }
-  }, [args.activeCall?.id, args.activeCall?.status, closeSessionImmediately, currentSessionId]);
+    if (panel?.sessionId && panel.sessionId !== active.id) return;
+    closeSessionImmediately(active.id);
+  }, [args.activeCall?.id, args.activeCall?.status, closeSessionImmediately, panel?.sessionId]);
 
   const startOutgoingCall = useCallback(async (kind: CommunityMessengerCallKind) => {
     if (!args.peerUserId) return;
