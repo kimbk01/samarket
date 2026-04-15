@@ -127,6 +127,8 @@ export function useCommunityMessengerCall(args: {
   const negotiationRef = useRef(createPerfectNegotiationState());
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
+  const onRoomSnapshotRefreshRef = useRef(args.onRefresh);
+  onRoomSnapshotRefreshRef.current = args.onRefresh;
 
   /**
    * 세션 상태(ended/cancelled/rejected/missed) 변화는 signaling(hangup)과 별개로 발생할 수 있다.
@@ -156,7 +158,7 @@ export function useCommunityMessengerCall(args: {
           },
           () => {
             // 홈 snapshot(activeCall) 최신화 + UI 전이
-            void args.onRefresh();
+            void onRoomSnapshotRefreshRef.current();
           }
         ),
     });
@@ -165,7 +167,7 @@ export function useCommunityMessengerCall(args: {
       cancelled = true;
       sub.stop();
     };
-  }, [args, currentSessionId]);
+  }, [currentSessionId]);
 
   const clearPendingSessionCleanup = useCallback(() => {
     if (sessionCleanupTimerRef.current === null) return;

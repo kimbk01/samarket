@@ -51,6 +51,7 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 
 export function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
@@ -84,10 +85,10 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
   }, [onScroll]);
 
   return (
-    <>
+    <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={vm.messagesViewportRef}
-        className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
+        className="relative min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
         onScroll={scheduleScroll}
       >
         <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
@@ -570,6 +571,7 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
           <div ref={vm.messageEndRef} />
         </main>
       </div>
-    </>
+      <MessengerRoomNewMessagesBelowChip roomId={vm.roomId} onJumpToLatest={vm.scrollMessengerToBottom} />
+    </div>
   );
 }

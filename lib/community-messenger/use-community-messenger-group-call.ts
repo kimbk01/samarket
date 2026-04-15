@@ -134,6 +134,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
   );
   const myParticipant = participants.find((item) => item.isMe) ?? null;
   const amJoined = myParticipant?.status === "joined";
+  const onGroupRoomRefreshRef = useRef(args.onRefresh);
+  onGroupRoomRefreshRef.current = args.onRefresh;
 
   /**
    * 그룹 통화도 종료/거절/취소/부재 처리가 signaling(hangup)만으로 끝나지 않을 수 있다.
@@ -161,7 +163,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
             filter: `id=eq.${sessionId}`,
           },
           () => {
-            void args.onRefresh();
+            void onGroupRoomRefreshRef.current();
           }
         ),
     });
@@ -170,7 +172,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       cancelled = true;
       sub.stop();
     };
-  }, [args, args.enabled, args.onRefresh, currentSessionId]);
+  }, [args.enabled, currentSessionId]);
 
   const syncRemotePeerState = useCallback((userId: string, label: string, stream: MediaStream | null) => {
     setRemotePeers((prev) => {

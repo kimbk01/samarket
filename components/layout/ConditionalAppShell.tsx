@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import { messengerRolloutShowsInAppMessageBanner } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { FloatingAddButton } from "./FloatingAddButton";
@@ -36,6 +37,13 @@ const GlobalCommunityMessengerUnreadSound = dynamic(
     ),
   { ssr: false }
 );
+const MessengerInAppMessageBannerHost = dynamic(
+  () =>
+    import("@/components/community-messenger/MessengerInAppMessageBannerHost").then(
+      (mod) => mod.MessengerInAppMessageBannerHost
+    ),
+  { ssr: false }
+);
 const IncomingCallOverlay = dynamic(
   () =>
     import("@/components/community-messenger/IncomingCallOverlay").then((mod) => mod.IncomingCallOverlay),
@@ -64,6 +72,9 @@ export function ConditionalAppShell({
       {f.mountGlobalRealtimeChrome ? <NotificationsBadgeRealtimeBridge /> : null}
       {f.mountGlobalRealtimeChrome ? <GlobalOrderChatUnreadSound /> : null}
       {f.mountGlobalRealtimeChrome ? <GlobalCommunityMessengerUnreadSound /> : null}
+      {f.mountGlobalRealtimeChrome && messengerRolloutShowsInAppMessageBanner() ? (
+        <MessengerInAppMessageBannerHost />
+      ) : null}
       {!f.suppressIncomingCallOverlay ? <IncomingCallOverlay /> : null}
       <WebConnectivityBanner />
       {f.showRegionBar && <RegionBar />}

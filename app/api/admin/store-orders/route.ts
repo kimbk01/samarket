@@ -58,57 +58,54 @@ export async function GET(req: NextRequest) {
   const buyerIds = [...new Set(list.map((r) => r.buyer_user_id as string))];
 
   const storeById: Record<string, { store_name?: string; slug?: string; owner_user_id?: string }> = {};
-  if (storeIds.length) {
-    const { data: stores } = await sb
-      .from("stores")
-      .select("id, store_name, slug, owner_user_id")
-      .in("id", storeIds);
-    for (const s of stores ?? []) {
-      storeById[s.id as string] = {
-        store_name: s.store_name as string | undefined,
-        slug: s.slug as string | undefined,
-        owner_user_id: s.owner_user_id as string | undefined,
-      };
-    }
-  }
-
   const nickByUserId: Record<string, string> = {};
   const mergeNick = (id: string, name: string) => {
     if (!id || !name) return;
     if (!nickByUserId[id]) nickByUserId[id] = name;
   };
 
-  if (buyerIds.length) {
-    const { data: profiles } = await sb.from("profiles").select("id, nickname, username").in("id", buyerIds);
-    for (const p of profiles ?? []) {
-      const id = p.id as string;
-      const n = (p.nickname ?? p.username ?? id.slice(0, 8)) as string;
-      mergeNick(id, n);
-    }
-    const { data: testUsers } = await sb
-      .from("test_users")
-      .select("id, display_name, username")
-      .in("id", buyerIds);
-    for (const t of testUsers ?? []) {
-      const id = t.id as string;
-      const n = (t.display_name ?? t.username ?? id.slice(0, 8)) as string;
-      mergeNick(id, n);
-    }
+  const [storesRes, buyerProfilesRes, buyerTestUsersRes] = await Promise.all([
+    storeIds.length
+      ? sb.from("stores").select("id, store_name, slug, owner_user_id").in("id", storeIds)
+      : Promise.resolve({ data: null as { id: string; store_name?: string; slug?: string; owner_user_id?: string }[] | null }),
+    buyerIds.length
+      ? sb.from("profiles").select("id, nickname, username").in("id", buyerIds)
+      : Promise.resolve({ data: null as { id: string; nickname?: string | null; username?: string | null }[] | null }),
+    buyerIds.length
+      ? sb.from("test_users").select("id, display_name, username").in("id", buyerIds)
+      : Promise.resolve({ data: null as { id: string; display_name?: string | null; username?: string | null }[] | null }),
+  ]);
+
+  for (const s of storesRes.data ?? []) {
+    storeById[s.id as string] = {
+      store_name: s.store_name as string | undefined,
+      slug: s.slug as string | undefined,
+      owner_user_id: s.owner_user_id as string | undefined,
+    };
+  }
+  for (const p of buyerProfilesRes.data ?? []) {
+    const id = p.id as string;
+    const n = (p.nickname ?? p.username ?? id.slice(0, 8)) as string;
+    mergeNick(id, n);
+  }
+  for (const t of buyerTestUsersRes.data ?? []) {
+    const id = t.id as string;
+    const n = (t.display_name ?? t.username ?? id.slice(0, 8)) as string;
+    mergeNick(id, n);
   }
 
   const ownerIds = [...new Set(Object.values(storeById).map((s) => s.owner_user_id).filter(Boolean))] as string[];
   if (ownerIds.length) {
-    const { data: profiles } = await sb.from("profiles").select("id, nickname, username").in("id", ownerIds);
-    for (const p of profiles ?? []) {
+    const [ownerProfilesRes, ownerTestUsersRes] = await Promise.all([
+      sb.from("profiles").select("id, nickname, username").in("id", ownerIds),
+      sb.from("test_users").select("id, display_name, username").in("id", ownerIds),
+    ]);
+    for (const p of ownerProfilesRes.data ?? []) {
       const id = p.id as string;
       const n = (p.nickname ?? p.username ?? id.slice(0, 8)) as string;
       mergeNick(id, n);
     }
-    const { data: testUsers } = await sb
-      .from("test_users")
-      .select("id, display_name, username")
-      .in("id", ownerIds);
-    for (const t of testUsers ?? []) {
+    for (const t of ownerTestUsersRes.data ?? []) {
       const id = t.id as string;
       const n = (t.display_name ?? t.username ?? id.slice(0, 8)) as string;
       mergeNick(id, n);

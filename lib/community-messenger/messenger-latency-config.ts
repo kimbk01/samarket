@@ -108,9 +108,17 @@ export function getIncomingCallPollIntervalMs(
 /** `/calls/:sessionId` 클라: 세션 row `postgres_changes` 묶음 — 연속 이벤트당 GET 1회 */
 export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_DEBOUNCE_MS",
-  280,
-  80,
+  95,
+  40,
   2000
+);
+
+/** 방 번들: `community_messenger_call_sessions` 전용 — 로그·stub 보다 빠르게 activeCall 동기화 */
+export const MESSENGER_ROOM_CALL_SESSION_DEBOUNCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_ROOM_CALL_SESSION_RT_DEBOUNCE_MS",
+  45,
+  0,
+  500
 );
 
 /** silent 세션 GET 최소 간격(폴링 트리거) — rate limit(120/min)·렌더 경합 완화 */

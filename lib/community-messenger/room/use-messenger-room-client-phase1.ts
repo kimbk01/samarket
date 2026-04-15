@@ -66,6 +66,9 @@ import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messen
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
+import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
+import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -212,6 +215,21 @@ export function useMessengerRoomClientPhase1({
   const roomMembersDisplayRef = useRef<CommunityMessengerProfileLite[]>([]);
 
   useNotificationSurfaceCommunityMessengerRoom(roomId);
+
+  useEffect(() => {
+    const id = roomId?.trim();
+    return () => {
+      if (id && messengerRolloutUsesRoomScrollHints()) {
+        useMessengerRoomReaderStateStore.getState().clearRoom(id);
+      }
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    const id = roomId?.trim();
+    if (!id || !messengerRolloutUsesRoomScrollHints()) return;
+    useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
+  }, [roomId]);
 
   useEffect(() => {
     const syncPreferences = () => {
@@ -403,6 +421,17 @@ export function useMessengerRoomClientPhase1({
       pendingRealtimeRef.current.push(...batch);
       return;
     }
+    const rid = roomId?.trim();
+    let insertFromOthers = 0;
+    if (rid && messengerRolloutUsesRoomScrollHints() && !stickToBottomRef.current) {
+      const viewer = snap.viewerUserId;
+      for (const event of batch) {
+        if (event.eventType !== "INSERT") continue;
+        const sid = event.message.senderId;
+        if (!sid || messengerUserIdsEqual(sid, viewer)) continue;
+        insertFromOthers += 1;
+      }
+    }
     setRoomMessages((prev) => {
       let cur = prev;
       for (const event of batch) {
@@ -414,7 +443,10 @@ export function useMessengerRoomClientPhase1({
       }
       return cur;
     });
-  }, []);
+    if (insertFromOthers > 0 && rid) {
+      useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
+    }
+  }, [roomId]);
 
   const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
     realtimeMessageBatchRef.current.push(event);
@@ -576,6 +608,11 @@ export function useMessengerRoomClientPhase1({
   }, [roomId, hasMoreOlderMessages, oldestLoadedMessageId]);
 
   const scrollMessengerToBottom = useCallback(() => {
+    const id = roomId?.trim();
+    if (id && messengerRolloutUsesRoomScrollHints()) {
+      useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
+      useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
+    }
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         const vp = messagesViewportRef.current;
@@ -583,7 +620,7 @@ export function useMessengerRoomClientPhase1({
         messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
       });
     });
-  }, []);
+  }, [roomId]);
 
   const updateStickToBottomFromScroll = useCallback(() => {
     const el = messagesViewportRef.current;
@@ -591,7 +628,18 @@ export function useMessengerRoomClientPhase1({
     const threshold = 100;
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = dist < threshold;
-  }, []);
+    const id = roomId?.trim();
+    if (!id || !messengerRolloutUsesRoomScrollHints()) return;
+    let pos: MessengerChatViewPosition;
+    if (activeSheet === "search") {
+      pos = "jumped-by-search";
+    } else if (stickToBottomRef.current) {
+      pos = "at-bottom";
+    } else {
+      pos = "reading-history";
+    }
+    useMessengerRoomReaderStateStore.getState().setScrollPosition(id, pos);
+  }, [roomId, activeSheet]);
 
   useEffect(() => {
     stickToBottomRef.current = true;

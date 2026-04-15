@@ -49,33 +49,37 @@ export async function GET(req: Request) {
     : [];
   const ids = list.map((s) => s.id);
   const ownerIds = [...new Set(list.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean))];
+
+  const [profsRes, nickRowsRes, permsRes] = await Promise.all([
+    ownerIds.length > 0
+      ? sb.from("profiles").select("id, nickname").in("id", ownerIds)
+      : Promise.resolve({ data: null as { id: string; nickname: string | null }[] | null, error: null }),
+    ids.length > 0
+      ? sb.from("stores").select("id, applicant_nickname").in("id", ids)
+      : Promise.resolve({ data: null as { id?: string; applicant_nickname?: string | null }[] | null, error: null }),
+    ids.length > 0
+      ? sb
+          .from("store_sales_permissions")
+          .select("store_id, allowed_to_sell, sales_status, approved_at, rejection_reason, suspension_reason")
+          .in("store_id", ids)
+      : Promise.resolve({ data: null as Record<string, unknown>[] | null }),
+  ]);
+
   const nickByOwner = new Map<string, string>();
-  if (ownerIds.length > 0) {
-    const { data: profs, error: profErr } = await sb
-      .from("profiles")
-      .select("id, nickname")
-      .in("id", ownerIds);
-    if (!profErr && profs) {
-      for (const p of profs) {
-        const id = typeof p.id === "string" ? p.id : "";
-        const n = typeof p.nickname === "string" ? p.nickname.trim() : "";
-        if (id && n) nickByOwner.set(id, n);
-      }
+  if (!profsRes.error && profsRes.data) {
+    for (const p of profsRes.data) {
+      const id = typeof p.id === "string" ? p.id : "";
+      const n = typeof p.nickname === "string" ? p.nickname.trim() : "";
+      if (id && n) nickByOwner.set(id, n);
     }
   }
 
   const nickFromStoreCol = new Map<string, string>();
-  if (ids.length > 0) {
-    const { data: nickRows, error: nickErr } = await sb
-      .from("stores")
-      .select("id, applicant_nickname")
-      .in("id", ids);
-    if (!nickErr && nickRows) {
-      for (const r of nickRows) {
-        const sid = String((r as { id?: string }).id ?? "");
-        const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
-        if (sid && an) nickFromStoreCol.set(sid, an);
-      }
+  if (!nickRowsRes.error && nickRowsRes.data) {
+    for (const r of nickRowsRes.data) {
+      const sid = String((r as { id?: string }).id ?? "");
+      const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
+      if (sid && an) nickFromStoreCol.set(sid, an);
     }
   }
 
@@ -90,15 +94,9 @@ export async function GET(req: Request) {
   });
 
   const permByStore: Record<string, Record<string, unknown>> = {};
-  if (ids.length > 0) {
-    const { data: perms } = await sb
-      .from("store_sales_permissions")
-      .select("store_id, allowed_to_sell, sales_status, approved_at, rejection_reason, suspension_reason")
-      .in("store_id", ids);
-    for (const p of perms ?? []) {
-      const sid = p.store_id as string;
-      permByStore[sid] = p as Record<string, unknown>;
-    }
+  for (const p of permsRes.data ?? []) {
+    const sid = p.store_id as string;
+    permByStore[sid] = p as Record<string, unknown>;
   }
 
   return NextResponse.json({
