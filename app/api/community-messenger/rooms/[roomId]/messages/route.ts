@@ -13,6 +13,20 @@ import {
   sendCommunityMessengerMessage,
 } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+const SEND_DEDUPE_TTL_MS = 2500;
+const sendDedupe = new Map<string, { at: number; res: { ok: boolean; message?: unknown; error?: string } }>();
+
+function stableHash32(input: string): string {
+  // fast non-crypto hash for dedupe keys
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16);
+}
 
 /** 이전 메시지 페이지 (스크롤 업) — 읽기 폭주 완화 */
 export async function GET(
@@ -116,10 +130,27 @@ export async function POST(
     return jsonError("roomId가 필요합니다.", 400);
   }
   const t0 = performance.now();
-  const result = await sendCommunityMessengerMessage({
-    userId: auth.userId,
-    roomId,
-    content: String(body.content ?? ""),
+  const content = String(body.content ?? "");
+  const key = `community-messenger:send:${auth.userId}:${roomId}:${stableHash32(content)}`;
+  const now = Date.now();
+  const cached = sendDedupe.get(key);
+  if (cached && now - cached.at <= SEND_DEDUPE_TTL_MS) {
+    recordMessengerApiTiming(
+      "POST /api/community-messenger/rooms/[roomId]/messages",
+      Math.round(performance.now() - t0),
+      cached.res.ok ? 200 : 400
+    );
+    return cached.res.ok ? jsonOk(cached.res) : jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
+  }
+  const result = await runSingleFlight(key, async () => {
+    const r = await sendCommunityMessengerMessage({
+      userId: auth.userId,
+      roomId,
+      content,
+    });
+    // store short TTL response to dedupe rapid retries/double-clicks
+    sendDedupe.set(key, { at: Date.now(), res: r as any });
+    return r;
   });
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",

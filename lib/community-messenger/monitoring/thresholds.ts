@@ -59,6 +59,10 @@ export const MESSENGER_PERF_THRESHOLDS = {
   apiMs: Number(process.env.MESSENGER_PERF_API_MS ?? 2000),
   /** DB/서비스 레이어 한 구간 */
   dbMs: Number(process.env.MESSENGER_PERF_DB_MS ?? 800),
+  /** 탭→방 마운트(클라) */
+  roomTapToMountMs: Number(process.env.MESSENGER_PERF_ROOM_TAP_TO_MOUNT_MS ?? 1200),
+  /** 방→리스트 마운트(클라) */
+  roomToListMountMs: Number(process.env.MESSENGER_PERF_ROOM_TO_LIST_MOUNT_MS ?? 900),
   /** 재연결 세션 비율 (0~1) — 알림용 */
   reconnectSessionRateCritical: Number(process.env.MESSENGER_PERF_RECONNECT_SESSION_RATE ?? 0.05),
   subscriptionFailRateCritical: Number(process.env.MESSENGER_PERF_SUBSCRIPTION_FAIL_RATE ?? 0.05),
@@ -98,6 +102,12 @@ export function shouldAlertLatency(
   }
   if (category === "db.community_messenger") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.dbMs ? "dbMs" : null;
+  }
+  if (category === "chat.room_nav" && metric === "tap_to_mount") {
+    return valueMs > MESSENGER_PERF_THRESHOLDS.roomTapToMountMs ? "roomTapToMountMs" : null;
+  }
+  if (category === "chat.room_nav" && metric === "room_to_list_mount") {
+    return valueMs > MESSENGER_PERF_THRESHOLDS.roomToListMountMs ? "roomToListMountMs" : null;
   }
   return null;
 }

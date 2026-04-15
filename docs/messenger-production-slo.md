@@ -15,6 +15,8 @@
 | DB 구간 | `measureMessengerDb` | [표 §1](./messenger-performance-targets.md) | `MESSENGER_PERF_DB_MS` (기본 800ms) | **500** |
 | 통화 첫 연결 | WebRTC 첫 `connected` | [표 §1 행 7·8](./messenger-performance-targets.md) | `MESSENGER_PERF_CALL_CONNECT_MS` (기본 12000ms) | **8000** |
 | 패킷 손실 (추정) | 수신 RTP 기반 | [표 §1](./messenger-performance-targets.md) | `MESSENGER_PERF_PACKET_LOSS_PCT` (기본 8%) | **5** |
+| 탭→방 마운트 | 목록 탭~방 UI 마운트(클라) | [표 §1 행 2](./messenger-performance-targets.md) | `MESSENGER_PERF_ROOM_TAP_TO_MOUNT_MS` (기본 1200ms) | **800** |
+| 방→리스트 마운트 | 방에서 뒤로가기~목록 마운트(클라) | [표 §1 행 1](./messenger-performance-targets.md) | `MESSENGER_PERF_ROOM_TO_LIST_MOUNT_MS` (기본 900ms) | **600** |
 
 **p95 측정:** 프로세스 인메모리 스토어는 평균·최근값만 제공합니다. p95는 **외부 APM**(OpenTelemetry, Datadog 등) 또는 **로그 싱크 후 집계**로 보완합니다.
 
@@ -39,6 +41,8 @@
 - `MESSENGER_PERF_PACKET_LOSS_PCT`
 - `MESSENGER_PERF_API_MS`
 - `MESSENGER_PERF_DB_MS`
+- `MESSENGER_PERF_ROOM_TAP_TO_MOUNT_MS`
+- `MESSENGER_PERF_ROOM_TO_LIST_MOUNT_MS`
 
 ## 4. 실패율 · 재연결율 (향후)
 

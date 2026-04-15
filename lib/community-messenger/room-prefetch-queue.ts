@@ -1,5 +1,6 @@
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { isMessengerDegradeMode } from "@/lib/community-messenger/degrade-mode";
 
 const MAX_QUEUE = 120;
 const MAX_CONCURRENCY = 2;
@@ -38,6 +39,7 @@ function scheduleDrain() {
  */
 export function enqueueRoomPrefetch(roomId: string): void {
   if (typeof window === "undefined") return;
+  if (isMessengerDegradeMode()) return;
   if (isConstrainedNetwork()) return;
   const id = String(roomId ?? "").trim();
   if (!id) return;
