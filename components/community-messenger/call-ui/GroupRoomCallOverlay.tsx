@@ -53,7 +53,7 @@ export function GroupRoomCallOverlay({
         endedPanel.reason === "declined"
           ? "거절됨"
           : endedPanel.reason === "missed"
-            ? "응답 없음"
+            ? "부재중 알림"
             : endedPanel.reason === "failed"
               ? "연결 실패"
               : "통화 종료",

@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import type { CallMode, CallPhase } from "./call-ui.types";
 
-/** 음성 통화 — 중립 다크(카카오톡형 톤에 가깝게, 과한 브랜드 그라데이션 제거). */
+/** 음성/대기 공통 — Viber 계열의 딥 퍼플 톤. */
 const VOICE_BG =
-  "bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(255,255,255,0.07),transparent_50%),linear-gradient(180deg,#3a3a3c_0%,#2c2c2e_42%,#1a1a1c_100%)]";
+  "bg-[radial-gradient(ellipse_110%_75%_at_50%_-10%,rgba(255,255,255,0.14),transparent_46%),linear-gradient(180deg,#6b3df1_0%,#5630cb_28%,#34166a_72%,#1a1033_100%)]";
 
 export function CallBackground({
   mode,

@@ -95,7 +95,14 @@ export function useSupabaseNotificationsRealtime(
               const nid = row?.id != null && String(row.id).trim() ? String(row.id).trim() : "";
               const domain = row?.domain;
               if (typeof domain === "string" && isNotificationDomain(domain)) {
-                void playDomainNotificationSound(domain as NotificationDomain);
+                const metaAny = row?.meta as { kind?: string } | undefined;
+                const routedDomain =
+                  domain === "community_chat"
+                    ? metaAny?.kind === "group_chat"
+                      ? "community_group_chat"
+                      : "community_direct_chat"
+                    : (domain as NotificationDomain);
+                void playDomainNotificationSound(routedDomain);
               } else {
                 /** domain 컬럼 없이 저장된 레거시 행 — meta.kind 로 관리자 알림음 도메인 연동 */
                 const meta = row?.meta as { kind?: string } | undefined;
@@ -103,7 +110,9 @@ export function useSupabaseNotificationsRealtime(
                 if (row?.notification_type === "chat" && chatKind === "trade_chat") {
                   void playDomainNotificationSound("trade_chat");
                 } else if (row?.notification_type === "chat" && chatKind === "community_chat") {
-                  void playDomainNotificationSound("community_chat");
+                  void playDomainNotificationSound("community_direct_chat");
+                } else if (row?.notification_type === "chat" && chatKind === "group_chat") {
+                  void playDomainNotificationSound("community_group_chat");
                 } else {
                   const isChat = row?.notification_type === "chat";
                   if (isChat && nid) {

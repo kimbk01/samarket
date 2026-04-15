@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest) {
     if (!row?.type || !NOTIFICATION_DOMAINS.includes(row.type)) {
       return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
     }
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const patch: Record<string, unknown> = { type: row.type, updated_at: new Date().toISOString() };
     if ("sound_url" in row) patch.sound_url = row.sound_url;
     if (typeof row.volume === "number") patch.volume = Math.max(0, Math.min(1, row.volume));
     if (typeof row.repeat_count === "number")
@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest) {
       patch.cooldown_seconds = Math.max(0, Math.min(600, Math.round(row.cooldown_seconds)));
     if (typeof row.enabled === "boolean") patch.enabled = row.enabled;
 
-    const { error } = await sb.from("admin_notification_settings").update(patch).eq("type", row.type);
+    const { error } = await sb.from("admin_notification_settings").upsert(patch, { onConflict: "type" });
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }

@@ -146,10 +146,14 @@ export async function POST(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const { error: dbErr } = await sb
-    .from("admin_notification_settings")
-    .update({ sound_url: publicUrl, updated_at: now })
-    .eq("type", type);
+  const { error: dbErr } = await sb.from("admin_notification_settings").upsert(
+    {
+      type,
+      sound_url: publicUrl,
+      updated_at: now,
+    },
+    { onConflict: "type" }
+  );
 
   if (dbErr) {
     if (dbErr.message?.includes("does not exist")) {

@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
-import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
 import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
 import { AdminMessengerCallSoundsSection } from "@/components/admin/settings/AdminMessengerCallSoundsSection";
+import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
+import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
 
 type Row = {
   type: NotificationDomain;
@@ -20,10 +22,20 @@ type Row = {
 
 const LABELS: Record<NotificationDomain, string> = {
   trade_chat: "거래 채팅",
-  community_chat: "커뮤니티·모임 채팅",
-  order: "주문·배달",
-  store: "매장·상점",
+  community_direct_chat: "1:1 채팅",
+  community_group_chat: "그룹채팅",
+  community_chat: "커뮤니티 채팅(레거시)",
+  order: "주문 알림",
+  store: "매장 알림",
 };
+
+const VISIBLE_NOTIFICATION_DOMAINS: NotificationDomain[] = [
+  "community_direct_chat",
+  "community_group_chat",
+  "trade_chat",
+  "order",
+  "store",
+];
 
 export function AdminNotificationDomainsSettings() {
   const [rows, setRows] = useState<Row[]>([]);
@@ -44,8 +56,11 @@ export function AdminNotificationDomainsSettings() {
         return;
       }
       const byType = new Map((j.items ?? []).map((r) => [r.type, r]));
-      const merged = NOTIFICATION_DOMAINS.map((type) => {
-        const r = byType.get(type);
+      const legacyCommunity = byType.get("community_chat");
+      const merged = VISIBLE_NOTIFICATION_DOMAINS.map((type) => {
+        const r =
+          byType.get(type) ??
+          ((type === "community_direct_chat" || type === "community_group_chat") ? legacyCommunity : undefined);
         return {
           type,
           sound_url: r?.sound_url ?? null,
@@ -163,8 +178,8 @@ export function AdminNotificationDomainsSettings() {
     <div className="space-y-4">
       <AdminPageHeader title="알림·알림음 (도메인)" />
       <p className="text-[14px] text-ui-muted">
-        거래/커뮤니티/주문/매장 알림을 분리해 설정합니다. 알림음은 PC에서 MP3·WAV 등 파일을 선택해
-        업로드합니다. 쿨다운은 동일 채팅방(ref) 기준 서버에서 인앱 알림 빈도를 제한합니다.
+        1:1 채팅, 그룹채팅, 거래채팅, 주문, 매장 알림음을 각각 분리해 설정합니다. 통화 수발신/연결음과
+        매장·배달 전용 알림음도 이 화면에서 함께 관리할 수 있습니다.
       </p>
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
@@ -172,7 +187,8 @@ export function AdminNotificationDomainsSettings() {
         </div>
       ) : null}
 
-      {rows.map((r) => (
+      <div className="grid gap-4 lg:grid-cols-2">
+        {rows.map((r) => (
         <AdminCard key={r.type} title={LABELS[r.type]}>
           <div className="space-y-3 px-1 py-2">
             <label className="flex items-center justify-between gap-3 text-[14px]">
@@ -261,7 +277,25 @@ export function AdminNotificationDomainsSettings() {
             </label>
           </div>
         </AdminCard>
-      ))}
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <AdminGlobalAlertSoundSection
+          title="매장·배달 알림음"
+          description="배달 신규 주문, 매장 측 즉시 확인용 기본 알림음입니다. 기본음으로 두거나 업로드 파일로 교체할 수 있습니다."
+          codeKey="admin_settings.store_delivery_alert_sound"
+          apiPath="/api/admin/store-delivery-alert-sound"
+          onAfterMutation={invalidateStoreDeliveryAlertSoundCache}
+        />
+        <AdminGlobalAlertSoundSection
+          title="매장·배달 채팅 연결음"
+          description="주문 확인, 배달채팅 일치 확인 등 매장·배달 대화 흐름에서 쓰는 전용 연결음입니다."
+          codeKey="admin_settings.order_match_chat_alert_sound"
+          apiPath="/api/admin/order-match-chat-alert-sound"
+          onAfterMutation={bustOrderMatchAlertSoundCache}
+        />
+      </div>
 
       <button
         type="button"

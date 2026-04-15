@@ -64,7 +64,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     direction: "incoming",
     phase: "ringing",
     peerLabel: session.peerLabel,
-    peerAvatarUrl: null,
+    peerAvatarUrl: session.peerAvatarUrl ?? null,
     statusText: callTypeLabel,
     subStatusText,
     topLabel: null,

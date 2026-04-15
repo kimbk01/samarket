@@ -1,5 +1,7 @@
 export const NOTIFICATION_DOMAINS = [
   "trade_chat",
+  "community_direct_chat",
+  "community_group_chat",
   "community_chat",
   "order",
   "store",

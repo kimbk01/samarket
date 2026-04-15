@@ -274,16 +274,16 @@ export function AdminMessengerCallSoundsSection() {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-[16px] font-semibold text-ui-fg">Messenger Call Sounds</h2>
+      <h2 className="text-[16px] font-semibold text-ui-fg">통화 알림음 설정</h2>
       <p className="text-[13px] text-ui-muted">
-        음성/영상 수신 벨·발신 링백과 부재·종료 사운드입니다. URL 직접 입력, 파일 업로드(store-order-sounds 버킷), 또는 경로를 비워 두면 클라이언트
-        기본 톤으로 폴백합니다.
+        음성·영상 통화의 수신 벨, 발신 연결음(링백), 부재중 알림, 통화 종료음을 분리해 설정합니다. 비워 두면 기본 알림음으로 폴백되고, 나중에 파일 업로드로
+        바로 교체할 수 있습니다.
       </p>
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">{err}</div>
       ) : null}
 
-      <AdminCard title="Voice Call Sounds">
+      <AdminCard title="음성 통화">
         <SoundFieldRow
           label="수신 벨"
           enabledKey="voice_incoming_enabled"
@@ -304,7 +304,7 @@ export function AdminMessengerCallSoundsSection() {
         />
       </AdminCard>
 
-      <AdminCard title="Video Call Sounds">
+      <AdminCard title="영상 통화">
         <SoundFieldRow
           label="수신 벨"
           enabledKey="video_incoming_enabled"
@@ -325,7 +325,7 @@ export function AdminMessengerCallSoundsSection() {
         />
       </AdminCard>
 
-      <AdminCard title="Common Call Sounds">
+      <AdminCard title="공통 통화 알림음">
         <SoundFieldRow
           label="부재 알림"
           enabledKey="missed_notification_enabled"

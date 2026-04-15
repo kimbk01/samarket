@@ -268,6 +268,7 @@ export type CommunityMessengerCallSession = {
   recipientUserId: string | null;
   peerUserId: string | null;
   peerLabel: string;
+  peerAvatarUrl?: string | null;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;

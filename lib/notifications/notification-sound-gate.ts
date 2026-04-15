@@ -23,6 +23,10 @@ export type NotificationSoundGateSnapshot = {
 
 let gateSnapshot: NotificationSoundGateSnapshot | null = null;
 
+function isCommunityChatSoundDomain(domain: NotificationDomain): boolean {
+  return domain === "community_chat" || domain === "community_direct_chat" || domain === "community_group_chat";
+}
+
 export function syncNotificationSoundGateSnapshot(next: NotificationSoundGateSnapshot | null): void {
   gateSnapshot = next;
 }
@@ -36,7 +40,7 @@ export function shouldPlayInAppSoundFromGate(
   if (domain === "trade_chat" && snap.userNotificationSettings.trade_chat_enabled === false) {
     return false;
   }
-  if (domain === "community_chat" && snap.userNotificationSettings.community_chat_enabled === false) {
+  if (isCommunityChatSoundDomain(domain) && snap.userNotificationSettings.community_chat_enabled === false) {
     return false;
   }
   if (domain === "order" && snap.userNotificationSettings.order_enabled === false) return false;
@@ -46,7 +50,7 @@ export function shouldPlayInAppSoundFromGate(
   if (domain === "trade_chat" && ref && snap.activeTradeChatRoomId === ref) {
     return false;
   }
-  if (domain === "community_chat" && ref && snap.activeCommunityChatRoomId === ref) {
+  if (isCommunityChatSoundDomain(domain) && ref && snap.activeCommunityChatRoomId === ref) {
     return false;
   }
   if (!snap.isWindowFocused) {
@@ -82,13 +86,15 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
       if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
         return false;
       }
-      void playDomainNotificationSound(domainRaw);
+      void playDomainNotificationSound("community_group_chat");
       return true;
     }
-    if (!shouldPlayInAppSoundFromGate(surface, domainRaw, refId)) {
+    const routedDomain =
+      domainRaw === "community_chat" ? "community_direct_chat" : (domainRaw as NotificationDomain);
+    if (!shouldPlayInAppSoundFromGate(surface, routedDomain, refId)) {
       return false;
     }
-    void playDomainNotificationSound(domainRaw);
+    void playDomainNotificationSound(routedDomain);
     return true;
   }
   const meta = row.meta as { kind?: string; room_id?: string } | undefined;
@@ -100,10 +106,10 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
     return true;
   }
   if (row.notification_type === "chat" && meta?.kind === "community_chat" && meta?.room_id) {
-    if (!shouldPlayInAppSoundFromGate(surface, "community_chat", String(meta.room_id))) {
+    if (!shouldPlayInAppSoundFromGate(surface, "community_direct_chat", String(meta.room_id))) {
       return false;
     }
-    void playDomainNotificationSound("community_chat");
+    void playDomainNotificationSound("community_direct_chat");
     return true;
   }
   if (row.notification_type === "commerce" && row.meta && typeof row.meta === "object") {

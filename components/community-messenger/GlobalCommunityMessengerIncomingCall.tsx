@@ -435,6 +435,11 @@ export function GlobalCommunityMessengerIncomingCall() {
                 })
               );
               const newRow = p.new ?? null;
+              const nextStatus = typeof newRow?.status === "string" ? String(newRow.status).trim() : "";
+              if (p.eventType === "UPDATE" && nextStatus.length > 0 && nextStatus !== "ringing") {
+                const sid = typeof newRow?.id === "string" ? newRow.id.trim() : "";
+                if (sid) suppressMissedSoundRef.current.add(sid);
+              }
               const terminal = isTerminalCallSessionStatusValue(newRow?.status) || p.eventType === "DELETE";
               if (terminal) {
                 const sid =
@@ -593,7 +598,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (!userId) return;
-    const current = new Set(sessions.map((s) => s.id));
+    const current = new Set(sessions.filter((s) => s.status === "ringing").map((s) => s.id));
     const prev = prevIncomingRingingIdsRef.current;
     for (const id of prev) {
       if (!current.has(id)) {

@@ -15,9 +15,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     endedDurationSeconds: vm.endedDurationSeconds,
   });
 
+  const pip = vm.videoPipLayout;
+  const pipPixel = pip?.pipPixelPosition;
+  const pipStyle =
+    pipPixel != null
+      ? ({ position: "absolute", left: pipPixel.left, top: pipPixel.top } as const)
+      : undefined;
+
   return (
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
-      <div className="relative min-h-0 flex-1">
+      <div ref={pip?.stageRef} className="relative min-h-0 flex-1">
         {vm.showRemoteVideo ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
@@ -52,7 +59,21 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
         {vm.mainVideoSlot}
-        {vm.showLocalVideo ? (
+        {vm.showLocalVideo && pip ? (
+          <MiniLocalVideo
+            ref={pip.pipRef}
+            label={pip.pipLabel}
+            minimized
+            style={pipStyle}
+            useFreePosition={pipPixel != null}
+            onPointerDown={pip.onPipPointerDown}
+            onPointerMove={pip.onPipPointerMove}
+            onPointerUp={pip.onPipPointerUp}
+            onPointerCancel={pip.onPipPointerCancel}
+          >
+            {vm.miniVideoSlot}
+          </MiniLocalVideo>
+        ) : vm.showLocalVideo ? (
           <MiniLocalVideo label="나" minimized={vm.mediaState.localVideoMinimized}>
             {vm.miniVideoSlot}
           </MiniLocalVideo>
@@ -64,7 +85,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
       </div>
 
-      <div className="relative z-[5] bg-gradient-to-t from-black/75 via-black/38 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
+      <div className="relative z-[5] bg-gradient-to-t from-[#120a28]/82 via-[#241348]/42 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
         <CallActionBar actions={vm.primaryActions} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">

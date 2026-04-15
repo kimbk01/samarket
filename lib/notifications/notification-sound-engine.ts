@@ -77,6 +77,18 @@ function fallbackBeep(): void {
   playOneShot(NOTIFICATION_SOUND_ASSET_PATH, 0.55);
 }
 
+function resolveConfigRow(items: AdminSoundConfigRow[], domain: NotificationDomain): AdminSoundConfigRow | undefined {
+  const exact = items.find((x) => x.type === domain);
+  if (exact) return exact;
+  if (domain === "community_direct_chat" || domain === "community_group_chat") {
+    return items.find((x) => x.type === "community_chat");
+  }
+  if (domain === "community_chat") {
+    return items.find((x) => x.type === "community_direct_chat");
+  }
+  return undefined;
+}
+
 /**
  * 도메인별 알림음. 반복·최대 재생 시간 후 자동 stop.
  */
@@ -92,7 +104,7 @@ export async function playDomainNotificationSound(domain: NotificationDomain): P
   stopNotificationPlayback();
 
   const items = await loadConfig();
-  const row = items.find((x) => x.type === domain);
+  const row = resolveConfigRow(items, domain);
   const enabled = row?.enabled !== false;
   if (!enabled) {
     fallbackBeep();

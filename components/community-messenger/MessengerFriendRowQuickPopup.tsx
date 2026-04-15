@@ -330,7 +330,7 @@ export function MessengerFriendRowQuickPopup({
                 <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
                   <SheetRow
                     label={bVoice ? "음성 통화 연결 중…" : "음성 통화"}
-                    sub="보이스톡"
+                    sub="음성"
                     icon={<IconPhoneOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);
@@ -341,7 +341,7 @@ export function MessengerFriendRowQuickPopup({
                   />
                   <SheetRow
                     label={bVideo ? "영상 통화 연결 중…" : "영상 통화"}
-                    sub="페이스톡"
+                    sub="영상"
                     icon={<IconVideoOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);

@@ -28,6 +28,9 @@ export async function GET(
   if (session.sessionMode !== "direct") {
     return NextResponse.json({ ok: false, error: "group_call_not_supported_yet" }, { status: 400 });
   }
+  if (session.status !== "ringing" && session.status !== "active") {
+    return NextResponse.json({ ok: false, error: "session_not_joinable" }, { status: 409 });
+  }
   const connection = buildCommunityMessengerManagedCallToken(session, auth.userId);
   if (!connection) {
     return NextResponse.json({ ok: false, error: "call_provider_not_configured" }, { status: 503 });

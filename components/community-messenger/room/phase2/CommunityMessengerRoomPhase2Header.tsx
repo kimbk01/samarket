@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import {
   BackIcon,
@@ -7,11 +8,14 @@ import {
   VideoCallIcon,
   VoiceCallIcon,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 
 export function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2View();
+  const [confirmKind, setConfirmKind] = useState<null | "voice" | "video">(null);
+  const peerLabel = vm.snapshot.room.title?.trim() || "상대";
   return (
     <>
       <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
@@ -52,7 +56,7 @@ export function CommunityMessengerRoomPhase2Header() {
               <>
                 <button
                   type="button"
-                  onClick={() => void vm.startManagedDirectCall("voice")}
+                  onClick={() => setConfirmKind("voice")}
                   disabled={vm.roomUnavailable || vm.outgoingDialLocked}
                   className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={vm.t("nav_voice_call_label")}
@@ -61,7 +65,7 @@ export function CommunityMessengerRoomPhase2Header() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void vm.startManagedDirectCall("video")}
+                  onClick={() => setConfirmKind("video")}
                   disabled={vm.roomUnavailable || vm.outgoingDialLocked}
                   className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                   aria-label={vm.t("nav_video_call_label")}
@@ -81,6 +85,20 @@ export function CommunityMessengerRoomPhase2Header() {
           </div>
         </div>
       </header>
+      {confirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={peerLabel}
+          kind={confirmKind}
+          busy={vm.outgoingDialLocked}
+          onCancel={() => setConfirmKind(null)}
+          onConfirm={() => {
+            const kind = confirmKind;
+            setConfirmKind(null);
+            void vm.startManagedDirectCall(kind);
+          }}
+        />
+      ) : null}
     </>
   );
 }

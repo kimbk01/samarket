@@ -1,4 +1,18 @@
-import type { ReactNode } from "react";
+import type { PointerEventHandler, ReactNode, RefObject } from "react";
+
+/** 카카오톡식 영상통화: PiP 드래그·탭 스왑용(1:1 Agora `CommunityMessengerCallClient`에서 주입) */
+export type VideoCallPipLayoutBindings = {
+  stageRef: RefObject<HTMLDivElement | null>;
+  pipRef: RefObject<HTMLDivElement | null>;
+  /** null 이면 CSS 기본(우하단 고정), 값이 있으면 스테이지 기준 픽셀 배치 */
+  pipPixelPosition: { left: number; top: number } | null;
+  onPipPointerDown: PointerEventHandler<HTMLDivElement>;
+  onPipPointerMove: PointerEventHandler<HTMLDivElement>;
+  onPipPointerUp: PointerEventHandler<HTMLDivElement>;
+  onPipPointerCancel: PointerEventHandler<HTMLDivElement>;
+  /** PiP 안에 표시되는 사람(작은 쪽이 나/상대) */
+  pipLabel: string;
+};
 
 export type CallMode = "voice" | "video";
 export type CallDirection = "outgoing" | "incoming";
@@ -66,7 +80,10 @@ export type CallScreenViewModel = {
   mainVideoSlot?: ReactNode;
   miniVideoSlot?: ReactNode;
   showRemoteVideo?: boolean;
+  /** PiP(작은 타일) 표시 — 양쪽 영상이 모두 있을 때 */
   showLocalVideo?: boolean;
+  /** PiP 위치·드래그·탭 교체 */
+  videoPipLayout?: VideoCallPipLayoutBindings | null;
   participantsSummary?: string | null;
   autoCloseMs?: number | null;
 };

@@ -73,7 +73,7 @@ export function GlobalOrderChatUnreadSound({ enabled = true }: { enabled?: boole
         if (snap.chatUnread > prev.chatUnread) {
           void playDomainNotificationSound("trade_chat");
         } else if (snap.philifeChatUnread > prev.philifeChatUnread) {
-          void playDomainNotificationSound("community_chat");
+          void playDomainNotificationSound("community_direct_chat");
         } else if (snap.storeOrderChatUnread > prev.storeOrderChatUnread) {
           void playDomainNotificationSound("store");
         }

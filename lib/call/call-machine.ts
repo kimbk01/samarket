@@ -192,7 +192,7 @@ export function callMachineStateLabel(state: CallMachineState, ctx: CallMachineC
     case "canceled":
       return "취소됨";
     case "missed":
-      return "응답 없음";
+      return "부재중 알림";
     case "ended":
       return "통화 종료";
     case "failed":

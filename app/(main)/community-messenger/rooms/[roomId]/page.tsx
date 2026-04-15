@@ -3,6 +3,7 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
+import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 
 const CommunityMessengerRoomClient = dynamic(
   () =>
@@ -30,7 +31,12 @@ export default async function CommunityMessengerRoomPage({
     ? await loadCommunityMessengerRoomBootstrap(
         createSupabaseCommunityMessengerReadPort(),
         viewerUserId,
-        String(roomId ?? "").trim()
+        String(roomId ?? "").trim(),
+        {
+          /** 클라이언트 `?mode=lite&memberHydration=minimal` 과 동일 — RSC 첫 스냅샷 무게 절감 */
+          initialMessageLimit: Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT),
+          hydrateFullMemberList: false,
+        }
       )
     : null;
   return (

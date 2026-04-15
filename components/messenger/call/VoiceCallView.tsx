@@ -33,7 +33,7 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         </div>
       </div>
-      <div className="rounded-t-3xl bg-gradient-to-t from-black/62 via-black/28 to-transparent px-1 pt-12 pb-1">
+      <div className="rounded-t-3xl bg-gradient-to-t from-[#170d32]/82 via-[#2b1858]/38 to-transparent px-1 pt-12 pb-1">
         <CallActionBar actions={vm.primaryActions} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">

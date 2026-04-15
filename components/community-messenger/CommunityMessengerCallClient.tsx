@@ -111,11 +111,71 @@ function sessionsMeaningfullyEqual(
     a.callKind === b.callKind &&
     a.roomId === b.roomId &&
     a.peerLabel === b.peerLabel &&
+    a.peerAvatarUrl === b.peerAvatarUrl &&
     a.isMineInitiator === b.isMineInitiator &&
     a.sessionMode === b.sessionMode &&
     a.initiatorUserId === b.initiatorUserId &&
     a.recipientUserId === b.recipientUserId
   );
+}
+
+function readRealtimeSessionStatus(
+  value: unknown
+): CommunityMessengerCallSession["status"] | null {
+  return value === "ringing" ||
+    value === "active" ||
+    value === "ended" ||
+    value === "rejected" ||
+    value === "missed" ||
+    value === "cancelled"
+    ? value
+    : null;
+}
+
+/**
+ * 세션 row Realtime payload 는 snake_case 원시행이다.
+ * 라벨·참가자 등은 기존 스냅샷을 유지하고, 종료/수락/전환에 필요한 핵심 필드만 즉시 반영한다.
+ */
+function mergeRealtimeSessionRowIntoSnapshot(
+  prev: CommunityMessengerCallSession | null,
+  row: Record<string, unknown> | null,
+  targetSessionId: string
+): CommunityMessengerCallSession | null {
+  if (!prev || !row) return prev;
+  const rowId = typeof row.id === "string" ? row.id.trim() : "";
+  if (!rowId || rowId !== targetSessionId || prev.id !== targetSessionId) return prev;
+  const nextStatus = readRealtimeSessionStatus(row.status);
+  const nextCallKind = row.call_kind === "video" || row.call_kind === "voice" ? row.call_kind : prev.callKind;
+  const answeredAt =
+    typeof row.answered_at === "string"
+      ? row.answered_at
+      : row.answered_at == null
+        ? null
+        : prev.answeredAt;
+  const endedAt =
+    typeof row.ended_at === "string"
+      ? row.ended_at
+      : row.ended_at == null
+        ? null
+        : prev.endedAt;
+  const merged: CommunityMessengerCallSession = {
+    ...prev,
+    callKind: nextCallKind,
+    status: nextStatus ?? prev.status,
+    answeredAt,
+    endedAt,
+  };
+  return sessionsMeaningfullyEqual(prev, merged) ? prev : merged;
+}
+
+function mapHangupReasonToTerminalStatus(
+  reason: unknown
+): CommunityMessengerCallSession["status"] | null {
+  if (reason === "reject") return "rejected";
+  if (reason === "missed") return "missed";
+  if (reason === "cancel") return "cancelled";
+  if (reason === "end" || reason === "hangup" || reason === "leave") return "ended";
+  return null;
 }
 
 export function CommunityMessengerCallClient({
@@ -180,6 +240,8 @@ export function CommunityMessengerCallClient({
     startLeft: number;
     startTop: number;
   } | null>(null);
+  /** 상대 영상 최초 수신 시에만 기본 레이아웃(상대 풀·나 PiP) 적용 — 사용자 스왑 유지 */
+  const hadRemoteVideoForLayoutRef = useRef(false);
   const layoutSwappedRef = useRef(false);
   const useRearFacingRef = useRef(false);
   layoutSwappedRef.current = layoutSwapped;
@@ -245,6 +307,7 @@ export function CommunityMessengerCallClient({
     callFlowLocalPublishAtRef.current = null;
     callFlowPrevRemoteJoinedRef.current = false;
     callTerminalLocalPinRef.current = null;
+    hadRemoteVideoForLayoutRef.current = false;
   }, [sessionId]);
 
   useEffect(() => {
@@ -306,6 +369,7 @@ export function CommunityMessengerCallClient({
     if (!isTerminalCallSessionStatus(st)) return;
     if (st === "missed") {
       void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
+      showMessengerSnackbar("부재중 알림", { variant: "error" });
     } else if (st === "ended") {
       void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
     }
@@ -491,6 +555,9 @@ export function CommunityMessengerCallClient({
       const error = json.error ?? "call_provider_not_configured";
       if (error === "call_provider_not_configured") {
         throw new Error("통화 설정이 아직 연결되지 않았습니다.");
+      }
+      if (error === "session_not_joinable") {
+        throw new Error("이미 종료되었거나 더 이상 연결할 수 없는 통화입니다.");
       }
       throw new Error("통화 연결 정보를 불러오지 못했습니다.");
     }
@@ -704,10 +771,6 @@ export function CommunityMessengerCallClient({
     setPipPixelPosition(null);
   }, [sessionId]);
 
-  useEffect(() => {
-    setPipPixelPosition(null);
-  }, [layoutSwapped]);
-
   const clampPipToStage = useCallback(() => {
     const stage = videoStageRef.current;
     const pip = pipWrapRef.current;
@@ -792,12 +855,59 @@ export function CommunityMessengerCallClient({
   const onPipPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const d = pipDragRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
+    const moved = Math.hypot(e.clientX - d.startClientX, e.clientY - d.startClientY);
     pipDragRef.current = null;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* noop */
     }
+    const TAP_PX = 14;
+    if (moved < TAP_PX) {
+      setLayoutSwapped((prev) => !prev);
+      return;
+    }
+    const stage = videoStageRef.current;
+    const pip = pipWrapRef.current;
+    if (!stage || !pip) return;
+    const sr = stage.getBoundingClientRect();
+    const pr = pip.getBoundingClientRect();
+    const pad = 12;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const pw = pip.offsetWidth;
+    const ph = pip.offsetHeight;
+    if (pw <= 0 || ph <= 0) return;
+    let left = pr.left - sr.left;
+    let top = pr.top - sr.top;
+    const maxL = Math.max(pad, sw - pw - pad);
+    const maxT = Math.max(pad, sh - ph - pad);
+    left = Math.min(maxL, Math.max(pad, left));
+    top = Math.min(maxT, Math.max(pad, top));
+    const cx = left + pw / 2;
+    const cy = top + ph / 2;
+    const corners: { left: number; top: number }[] = [
+      { left: pad, top: pad },
+      { left: maxL, top: pad },
+      { left: pad, top: maxT },
+      { left: maxL, top: maxT },
+    ];
+    let best = corners[0]!;
+    let bestD = Infinity;
+    for (const c of corners) {
+      const dc = Math.hypot(cx - (c.left + pw / 2), cy - (c.top + ph / 2));
+      if (dc < bestD) {
+        bestD = dc;
+        best = c;
+      }
+    }
+    setPipPixelPosition({ left: best.left, top: best.top });
+  }, []);
+
+  const onPipPointerCancel = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = pipDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    pipDragRef.current = null;
   }, []);
 
   const joinCall = useCallback(
@@ -1075,16 +1185,14 @@ export function CommunityMessengerCallClient({
       setJoined(false);
       joinedRef.current = false;
       setRemoteJoined(false);
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(fallbackRoomId)}`);
     },
-    [router]
+    []
   );
 
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
     stopCommunityMessengerCallFeedback();
     setBusy("reject");
-    const roomId = session.roomId;
     const sid = session.id;
     const peer = session.peerUserId?.trim();
     try {
@@ -1129,11 +1237,10 @@ export function CommunityMessengerCallClient({
       joinedRef.current = false;
       setRemoteJoined(false);
       void disposeCallMedia().catch(() => {});
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
     } finally {
       setBusy(null);
     }
-  }, [disposeCallMedia, refreshSession, router, session]);
+  }, [disposeCallMedia, refreshSession, session]);
 
   const endCall = useCallback(async () => {
     if (!session) return;
@@ -1472,7 +1579,25 @@ export function CommunityMessengerCallClient({
             table: "community_messenger_call_sessions",
             filter: `id=eq.${sessionId}`,
           },
-          () => scheduleRefresh()
+          (payload) => {
+            const row =
+              (payload.new as Record<string, unknown> | null | undefined) ??
+              (payload.old as Record<string, unknown> | null | undefined) ??
+              null;
+            if (row) {
+              setSession((prev) => mergeRealtimeSessionRowIntoSnapshot(prev, row, sessionId));
+            }
+            const status = readRealtimeSessionStatus(row?.status);
+            if (status && isTerminalCallSessionStatus(status)) {
+              if (sessionRealtimeDebounceRef.current) {
+                clearTimeout(sessionRealtimeDebounceRef.current);
+                sessionRealtimeDebounceRef.current = null;
+              }
+              void refreshSession(true);
+              return;
+            }
+            scheduleRefresh();
+          }
         ),
     });
 
@@ -1485,7 +1610,67 @@ export function CommunityMessengerCallClient({
       }
       sub.stop();
     };
-  }, [scheduleSilentRefresh, sessionId]);
+  }, [refreshSession, scheduleSilentRefresh, sessionId]);
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb || !sessionId) return;
+    let cancelled = false;
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-call-signal-hangup:${sessionId}`,
+      scope: "community-messenger-call-client:hangup-signal",
+      isCancelled: () => cancelled,
+      build: (ch) =>
+        ch.on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "community_messenger_call_signals",
+            filter: `session_id=eq.${sessionId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown> | undefined;
+            if (!row) return;
+            if (String(row.signal_type ?? "") !== "hangup") return;
+            const active = sessionRef.current;
+            if (!active || active.id !== sessionId || isTerminalCallSessionStatus(active.status)) return;
+            const fromUserId = typeof row.from_user_id === "string" ? row.from_user_id.trim() : "";
+            const peerUserId = active.peerUserId?.trim() ?? "";
+            if (peerUserId && fromUserId && fromUserId !== peerUserId) return;
+            const payloadObj =
+              row.payload && typeof row.payload === "object"
+                ? (row.payload as Record<string, unknown>)
+                : null;
+            const nextStatus = mapHangupReasonToTerminalStatus(payloadObj?.reason);
+            if (!nextStatus) return;
+            const endedAtIso = new Date().toISOString();
+            const snapshot: CommunityMessengerCallSession = {
+              ...active,
+              status: nextStatus,
+              endedAt: endedAtIso,
+            };
+            callTerminalLocalPinRef.current = {
+              sessionId,
+              until: Date.now() + 15_000,
+              snapshot,
+            };
+            setSession(snapshot);
+            joiningRef.current = false;
+            setJoined(false);
+            joinedRef.current = false;
+            setRemoteJoined(false);
+            void disposeCallMedia().catch(() => {});
+            void refreshSession(true);
+          }
+        ),
+    });
+    return () => {
+      cancelled = true;
+      sub.stop();
+    };
+  }, [disposeCallMedia, refreshSession, sessionId]);
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;
@@ -1530,19 +1715,14 @@ export function CommunityMessengerCallClient({
         connectedAtTs != null ? Math.max(0, Math.floor((endedAtMs - connectedAtTs) / 1000)) : null
       );
       void disposeCallMedia();
-    }
-    const room = session.roomId;
-    const timer = window.setTimeout(() => {
       try {
         sessionStorage.removeItem("cm_minimized_call_session");
         sessionStorage.removeItem("cm_minimized_call_room");
       } catch {
         /* ignore */
       }
-      router.replace(`/community-messenger/rooms/${encodeURIComponent(room)}`);
-    }, 2400);
-    return () => window.clearTimeout(timer);
-  }, [connectedAtTs, disposeCallMedia, router, session, terminalClosedAt]);
+    }
+  }, [connectedAtTs, disposeCallMedia, session, terminalClosedAt]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -1639,10 +1819,17 @@ export function CommunityMessengerCallClient({
     if (session?.callKind !== "video") return;
     if (!joined || !remoteJoined) {
       setLayoutSwapped(true);
+      hadRemoteVideoForLayoutRef.current = false;
       return;
     }
-    setLayoutSwapped(false);
-  }, [joined, remoteJoined, session?.callKind]);
+    if (!remoteVideoReady) {
+      return;
+    }
+    if (!hadRemoteVideoForLayoutRef.current) {
+      hadRemoteVideoForLayoutRef.current = true;
+      setLayoutSwapped(false);
+    }
+  }, [joined, remoteJoined, remoteVideoReady, session?.callKind]);
 
   useEffect(() => {
     if (!joined || !session || session.callKind !== "video") {
@@ -1707,10 +1894,6 @@ export function CommunityMessengerCallClient({
     });
   };
 
-  const goToRoom = () => {
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
-  };
-
   const startOutgoingAgain = (kind: "voice" | "video") => {
     void (async () => {
       try {
@@ -1727,27 +1910,30 @@ export function CommunityMessengerCallClient({
     })();
   };
 
+  const closeTerminalView = useCallback(() => {
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+  }, [router, session.roomId]);
+
   const primaryActions: CallActionItem[] = [];
   const secondaryActions: CallActionItem[] = [];
 
   if (directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed") {
-    // 종료 화면은 "통화 실패/취소" 플로우로 통일: 다시 시도 + 거부(채팅으로)
-    primaryActions.push(
-      {
-        id: "retry-call",
-        label: "다시 시도",
-        icon: "retry",
-        onClick: () => startOutgoingAgain("voice"),
-        disabled: !session.peerUserId,
-      },
-      {
-        id: "reject-after-end",
-        label: "거부",
-        icon: "decline",
-        tone: "danger",
-        onClick: goToRoom,
-      }
-    );
+    primaryActions.push({
+      id: "retry-call",
+      label: "다시 시도",
+      icon: "retry",
+      onClick: () => startOutgoingAgain("voice"),
+      disabled: !session.peerUserId,
+    });
+  } else if (session.isMineInitiator && directPhase === "ringing" && !showCallerMediaGate) {
+    primaryActions.push({
+      id: "end",
+      label: busy === "end" ? "취소 중" : "취소",
+      icon: "end",
+      tone: "danger",
+      disabled: busy === "end",
+      onClick: () => void endCall(),
+    });
   } else if (!session.isMineInitiator && directPhase === "ringing") {
     primaryActions.push(
       {
@@ -1881,6 +2067,15 @@ export function CommunityMessengerCallClient({
     });
   }
 
+  if (directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed") {
+    secondaryActions.push({
+      id: "close-terminal",
+      label: "닫기",
+      icon: "close",
+      onClick: closeTerminalView,
+    });
+  }
+
   const statusText =
     showCallerMediaGate && directPhase === "ringing"
       ? videoCall
@@ -1901,9 +2096,11 @@ export function CommunityMessengerCallClient({
             : directPhase === "declined"
               ? "거절됨"
               : directPhase === "missed"
-                ? "응답 없음"
+              ? "부재중 알림"
                 : directPhase === "failed"
                   ? "연결 실패"
+                  : session.status === "cancelled"
+                    ? "통화 취소"
                   : "통화 종료";
 
   const subStatusText =
@@ -1925,7 +2122,7 @@ export function CommunityMessengerCallClient({
     direction: session.isMineInitiator ? "outgoing" : "incoming",
     phase: directPhase,
     peerLabel: session.peerLabel,
-    peerAvatarUrl: null,
+    peerAvatarUrl: session.peerAvatarUrl ?? null,
     statusText,
     subStatusText,
     topLabel: null,
@@ -1946,7 +2143,7 @@ export function CommunityMessengerCallClient({
       micEnabled: !micMuted,
       speakerEnabled,
       cameraEnabled: !camOff,
-      localVideoMinimized: !layoutSwapped,
+      localVideoMinimized: true,
     },
     onBack: null,
     primaryActions,
@@ -1961,10 +2158,37 @@ export function CommunityMessengerCallClient({
         <div ref={smallVideoRef} className="h-full w-full" />
       </div>
     ) : undefined,
-    showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady && !layoutSwapped : false,
-    showLocalVideo: videoCall ? joined && localVideoReady && !camOff && !layoutSwapped : false,
+    showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
+    showLocalVideo:
+      videoCall &&
+      joined &&
+      remoteJoined &&
+      remoteVideoReady &&
+      localVideoReady &&
+      !camOff,
+    videoPipLayout:
+      videoCall &&
+      joined &&
+      remoteJoined &&
+      remoteVideoReady &&
+      localVideoReady &&
+      !camOff
+        ? {
+            stageRef: videoStageRef,
+            pipRef: pipWrapRef,
+            pipPixelPosition,
+            onPipPointerDown,
+            onPipPointerMove,
+            onPipPointerUp,
+            onPipPointerCancel,
+            pipLabel: layoutSwapped ? session.peerLabel : "나",
+          }
+        : null,
     participantsSummary: null,
-    autoCloseMs: directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed" ? 2400 : null,
+    autoCloseMs:
+      directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed"
+        ? 2200
+        : null,
   };
 
   return <CallScreen vm={callVm} variant="page" />;
@@ -2178,7 +2402,7 @@ function resolveDirectCallPhase(
 ): CallPhase {
   if (status === "rejected") return "declined";
   if (status === "missed") return "missed";
-  if (status === "cancelled") return "failed";
+  if (status === "cancelled") return "ended";
   if (status === "ended") return "ended";
   if (status === "ringing") return "ringing";
   return joined && remoteJoined ? "connected" : "connecting";

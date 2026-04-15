@@ -1880,6 +1880,15 @@ async function mapCallSession(
           ? participants.find((p) => p.userId === peerUserId)?.label
           : undefined) ??
         profileLabel(null, peerUserId ?? initiatorUserId);
+  let peerAvatarUrl: string | null = null;
+  if (sessionMode === "direct" && peerUserId) {
+    const peerHydrated =
+      profileById?.get(peerUserId) != null
+        ? null
+        : await hydrateProfilesLabelsOnly(userId, [peerUserId], { includeSelf: true });
+    const peerProfile = profileById?.get(peerUserId) ?? peerHydrated?.[0] ?? null;
+    peerAvatarUrl = peerProfile?.avatarUrl ?? null;
+  }
 
   return {
     id: session.id,
@@ -1889,6 +1898,7 @@ async function mapCallSession(
     recipientUserId,
     peerUserId,
     peerLabel,
+    peerAvatarUrl,
     callKind: (isDbSession ? session.call_kind : session.callKind) as CommunityMessengerCallKind,
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
@@ -1907,7 +1917,7 @@ async function mapIncomingCallSessionsBatch(
   if (!sessionRows.length) return [];
   const sb = getSupabaseOrNull();
   if (!sb) {
-    return Promise.all(sessionRows.map((row) => mapCallSession(userId, row)));
+    return Promise.all(sessionRows.map((row) => mapCallSession(userId, row, undefined, undefined, undefined, "labels_only")));
   }
   const sessionIds = dedupeIds(sessionRows.map((r) => r.id));
   const { data: participantRows } = await (sb as any)
@@ -1931,11 +1941,11 @@ async function mapIncomingCallSessionsBatch(
     .filter((v): v is string => typeof v === "string" && v.length > 0);
   const allUserIds = dedupeIds([...fromSessions, ...fromParticipants]);
   const profileById = new Map(
-    (await hydrateProfiles(userId, allUserIds, { includeSelf: true })).map((p) => [p.id, p])
+    (await hydrateProfilesLabelsOnly(userId, allUserIds, { includeSelf: true })).map((p) => [p.id, p])
   );
   return Promise.all(
     sessionRows.map((row) =>
-      mapCallSession(userId, row, bySession.get(row.id) ?? [], profileById, true)
+      mapCallSession(userId, row, bySession.get(row.id) ?? [], profileById, true, "labels_only")
     )
   );
 }
@@ -6150,6 +6160,12 @@ export async function startCommunityMessengerCallSession(input: {
   const sb = getSupabaseOrNull();
   const startedAt = nowIso();
   if (sb) {
+    if (!isGroupRoom && peerUserId) {
+      const peerBusy = await userHasActiveDirectCallSession(sb, peerUserId);
+      if (peerBusy) {
+        return { ok: false, error: "peer_busy" };
+      }
+    }
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .insert({
