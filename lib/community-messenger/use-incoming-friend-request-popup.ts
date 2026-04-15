@@ -13,6 +13,7 @@ export function useIncomingFriendRequestPopup(
   onIncoming: (request: CommunityMessengerFriendRequest) => void
 ) {
   const onIncomingRef = useRef(onIncoming);
+  const seenRequestIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     onIncomingRef.current = onIncoming;
@@ -30,24 +31,33 @@ export function useIncomingFriendRequestPopup(
         {
           event: "INSERT",
           schema: "public",
-          table: "community_friend_requests",
-          filter: `addressee_id=eq.${userId}`,
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
         },
-        async (payload) => {
-          const row = payload.new as { status?: string; id?: string };
-          if (row.status !== "pending" || !row.id) return;
-          try {
-            const res = await fetch("/api/community-messenger/friend-requests", { cache: "no-store" });
-            const json = (await res.json().catch(() => ({}))) as {
-              ok?: boolean;
-              requests?: CommunityMessengerFriendRequest[];
-            };
-            if (!json.ok || !Array.isArray(json.requests)) return;
-            const req = json.requests.find((r) => r.id === row.id && r.direction === "incoming");
-            if (req) onIncomingRef.current(req);
-          } catch {
-            // ignore
-          }
+        (payload) => {
+          const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+          const meta = (row.meta ?? null) as Record<string, unknown> | null;
+          if (!meta || meta.kind !== "friend_request") return;
+          const requestId = typeof meta.request_id === "string" ? meta.request_id.trim() : "";
+          if (!requestId) return;
+          if (seenRequestIdsRef.current.has(requestId)) return;
+          seenRequestIdsRef.current.add(requestId);
+
+          const requesterId = typeof meta.requester_user_id === "string" ? meta.requester_user_id.trim() : "";
+          const requesterLabel = typeof meta.requester_label === "string" ? meta.requester_label.trim() : "";
+          const createdAt = typeof row.created_at === "string" ? row.created_at : new Date().toISOString();
+
+          // 알림 payload만으로 즉시 팝업(네트워크 재조회 없이).
+          onIncomingRef.current({
+            id: requestId,
+            requesterId,
+            requesterLabel: requesterLabel || "상대",
+            addresseeId: userId,
+            addresseeLabel: "",
+            status: "pending",
+            direction: "incoming",
+            createdAt,
+          });
         }
       )
       .subscribe();

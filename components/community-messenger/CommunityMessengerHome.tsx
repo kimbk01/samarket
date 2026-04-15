@@ -136,6 +136,10 @@ import {
 } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopup } from "@/lib/community-messenger/use-incoming-friend-request-popup";
 import {
+  useFriendRequestNotificationRealtime,
+  type FriendRequestNotificationEvent,
+} from "@/lib/community-messenger/use-friend-request-notification-realtime";
+import {
   type UnifiedRoomListItem,
   useCommunityMessengerHomeState,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
@@ -756,9 +760,64 @@ export function CommunityMessengerHome({
   const requestFriend = useCallback(
     async (targetUserId: string) => {
       setBusyId(messengerFriendRequestBusyId(targetUserId));
+      const nowIso = new Date().toISOString();
+      const vid = data?.me?.id ?? "";
+      const viewerLabel = data?.me?.label ?? "";
+      const targetLabel = searchResults.find((u) => u.id === targetUserId)?.label ?? "";
+      const optimisticId = `local:friend_request:${vid}:${targetUserId}`;
+      // optimistic: 즉시 버튼 상태(요청중) + 목록 반영
+      setData((prev) => {
+        if (!prev?.me?.id) return prev;
+        const alreadyPending = (prev.requests ?? []).some(
+          (r) =>
+            r.status === "pending" &&
+            r.requesterId === prev.me?.id &&
+            r.addresseeId === targetUserId
+        );
+        if (alreadyPending) return prev;
+        return {
+          ...prev,
+          requests: [
+            {
+              id: optimisticId,
+              requesterId: prev.me.id,
+              requesterLabel: viewerLabel,
+              addresseeId: targetUserId,
+              addresseeLabel: targetLabel,
+              status: "pending",
+              direction: "outgoing",
+              createdAt: nowIso,
+            },
+            ...(prev.requests ?? []),
+          ],
+        };
+      });
       try {
         const result = await postCommunityMessengerFriendRequestApi(targetUserId);
         if (result.ok) {
+          // server id로 optimistic row 교체
+          const serverReq = result.request;
+          if (serverReq) {
+            setData((prev) => {
+              if (!prev?.me?.id) return prev;
+              const nextRequests = (prev.requests ?? [])
+                .filter(
+                  (r) =>
+                    !(
+                      r.id === optimisticId ||
+                      (r.status === "pending" &&
+                        r.requesterId === prev.me?.id &&
+                        r.addresseeId === targetUserId)
+                    )
+                )
+                .concat([serverReq]);
+              return { ...prev, requests: nextRequests };
+            });
+          } else {
+            // 응답이 request를 포함하지 않는 경우도 즉시 상태는 유지
+            setData((prev) => prev);
+          }
+          // 목록 전체 refresh는 백그라운드에서만(즉시성 우선)
           void refresh(true);
           void searchUsers();
           /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
@@ -769,16 +828,74 @@ export function CommunityMessengerHome({
         }
         const msg = communityMessengerFriendRequestFailureMessage(result);
         if (msg) showMessengerSnackbar(msg, { variant: "error" });
+        // rollback optimistic
+        setData((prev) => {
+          if (!prev) return prev;
+          return { ...prev, requests: (prev.requests ?? []).filter((r) => r.id !== optimisticId) };
+        });
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, router, searchUsers]
+    [data?.me?.id, data?.me?.label, refresh, router, searchResults, searchUsers, setData]
   );
 
   const respondRequest = useCallback(
     async (requestId: string, action: "accept" | "reject" | "cancel") => {
       setBusyId(`request:${requestId}:${action}`);
+      const nowIso = new Date().toISOString();
+      // optimistic: 요청 목록에서 즉시 제거 + (수락 시) 친구 즉시 추가
+      const optimisticPeer = (() => {
+        const req = (data?.requests ?? []).find((r) => r.id === requestId) ?? null;
+        if (!req || !data?.me?.id) return null;
+        if (action === "cancel") {
+          return req.direction === "outgoing" ? req.addresseeId : null;
+        }
+        // accept/reject는 incoming만 허용되지만 방어적으로 처리
+        return req.direction === "incoming" ? req.requesterId : null;
+      })();
+      const optimisticPeerLabel = (() => {
+        const req = (data?.requests ?? []).find((r) => r.id === requestId) ?? null;
+        if (!req) return "";
+        if (action === "cancel") return req.addresseeLabel ?? "";
+        return req.requesterLabel ?? "";
+      })();
+      setIncomingFriendRequestPopup((prev) => (prev?.id === requestId ? null : prev));
+      setData((prev) => {
+        if (!prev) return prev;
+        const nextRequests = (prev.requests ?? []).filter((r) => r.id !== requestId);
+        let next = { ...prev, requests: nextRequests };
+        if (action === "accept" && optimisticPeer) {
+          const exists = (prev.friends ?? []).some((f) => f.id === optimisticPeer);
+          if (!exists) {
+            const nextFriend: CommunityMessengerProfileLite = {
+              id: optimisticPeer,
+              label: optimisticPeerLabel || "친구",
+              subtitle: "",
+              bio: null,
+              avatarUrl: null,
+              following: false,
+              blocked: false,
+              isFriend: true,
+              isFavoriteFriend: false,
+              isHiddenFriend: false,
+              friendshipAcceptedAt: nowIso,
+            };
+            const nextFriends = [...(prev.friends ?? []), nextFriend];
+            next = {
+              ...next,
+              friends: nextFriends,
+              tabs: { ...prev.tabs, friends: nextFriends.length },
+            };
+          }
+        }
+        return next;
+      });
+      // 검색 결과/프로필 시트도 즉시 반영(버튼 상태)
+      if (action === "accept" && optimisticPeer) {
+        setSearchResults((prev) => prev.map((p) => (p.id === optimisticPeer ? { ...p, isFriend: true } : p)));
+        setFriendSheet((prev) => (prev?.profile.id === optimisticPeer ? { ...prev, profile: { ...prev.profile, isFriend: true } } : prev));
+      }
       try {
         const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
           method: "PATCH",
@@ -790,22 +907,116 @@ export function CommunityMessengerHome({
           directRoomId?: string;
         };
         if (res.ok && json.ok) {
-          setIncomingFriendRequestPopup((prev) => (prev?.id === requestId ? null : prev));
           void refresh(true);
           if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
             router.push(`/community-messenger/rooms/${encodeURIComponent(json.directRoomId.trim())}`);
           }
+        } else {
+          // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
+          void refresh(true);
         }
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, router]
+    [data?.me?.id, data?.requests, refresh, router, setData]
   );
 
   useIncomingFriendRequestPopup(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), (req) => {
     setIncomingFriendRequestPopup(req);
   });
+
+  const onFriendRequestNotif = useCallback(
+    (ev: FriendRequestNotificationEvent) => {
+      if (!data?.me?.id) return;
+      if (ev.kind === "friend_request") {
+        // 즉시 팝업 + 목록에 반영(중복 방지). 세부 프로필은 홈 refresh에서 보강.
+        setData((prev) => {
+          if (!prev) return prev;
+          const already = (prev.requests ?? []).some((r) => r.id === ev.requestId);
+          if (already) return prev;
+          return {
+            ...prev,
+            requests: [
+              {
+                id: ev.requestId,
+                requesterId: ev.requesterUserId,
+                requesterLabel: ev.requesterLabel || "상대",
+                addresseeId: prev.me?.id ?? "",
+                addresseeLabel: "",
+                status: "pending",
+                direction: "incoming",
+                createdAt: ev.createdAt,
+              },
+              ...(prev.requests ?? []),
+            ],
+          };
+        });
+        // 팝업은 별도 hook이 이미 처리하지만, 알림 기반 이벤트도 들어오는 경우를 위해 보강.
+        setIncomingFriendRequestPopup((prev) => {
+          if (prev?.id === ev.requestId) return prev;
+          return {
+            id: ev.requestId,
+            requesterId: ev.requesterUserId,
+            requesterLabel: ev.requesterLabel || "상대",
+            addresseeId: data.me?.id ?? "",
+            addresseeLabel: "",
+            status: "pending",
+            direction: "incoming",
+            createdAt: ev.createdAt,
+          };
+        });
+        return;
+      }
+      if (ev.kind === "friend_accepted" || ev.kind === "friend_rejected") {
+        // 발신자 쪽: 보낸 요청 상태 즉시 반영 + (수락 시) 친구 즉시 추가
+        const peerId = ev.addresseeUserId?.trim?.() ? ev.addresseeUserId.trim() : "";
+        setData((prev) => {
+          if (!prev) return prev;
+          const nextRequests = (prev.requests ?? []).filter((r) => r.id !== ev.requestId);
+          let next: typeof prev = { ...prev, requests: nextRequests };
+          if (ev.kind === "friend_accepted" && peerId) {
+            const exists = (prev.friends ?? []).some((f) => f.id === peerId);
+            if (!exists) {
+              const nowIso = new Date().toISOString();
+              const nextFriend: CommunityMessengerProfileLite = {
+                id: peerId,
+                label: ev.addresseeLabel || "친구",
+                subtitle: "",
+                bio: null,
+                avatarUrl: null,
+                following: false,
+                blocked: false,
+                isFriend: true,
+                isFavoriteFriend: false,
+                isHiddenFriend: false,
+                friendshipAcceptedAt: nowIso,
+              };
+              const nextFriends = [...(prev.friends ?? []), nextFriend];
+              next = { ...next, friends: nextFriends, tabs: { ...prev.tabs, friends: nextFriends.length } };
+            }
+          }
+          return next;
+        });
+        if (peerId) {
+          setSearchResults((prev) => prev.map((p) => (p.id === peerId ? { ...p, isFriend: ev.kind === "friend_accepted" } : p)));
+          setFriendSheet((prev) =>
+            prev?.profile.id === peerId ? { ...prev, profile: { ...prev.profile, isFriend: ev.kind === "friend_accepted" } } : prev
+          );
+        }
+        // 사용자 피드백용 스낵바(새로고침 없이 즉시 느낌).
+        showMessengerSnackbar(
+          ev.kind === "friend_accepted"
+            ? `${ev.addresseeLabel || "상대"}님이 친구 요청을 수락했습니다.`
+            : `${ev.addresseeLabel || "상대"}님이 친구 요청을 거절했습니다.`,
+          { variant: ev.kind === "friend_accepted" ? "success" : "error" }
+        );
+      }
+    },
+    [data?.me?.id, setData]
+  );
+
+  useFriendRequestNotificationRealtime(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), onFriendRequestNotif);
 
   useEffect(() => {
     if (!incomingFriendRequestPopup) return;

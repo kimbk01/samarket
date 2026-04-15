@@ -25,6 +25,7 @@ import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/commu
 import {
   notifyCommunityMessengerFriendRequestAccepted,
   notifyCommunityMessengerFriendRequestReceived,
+  notifyCommunityMessengerFriendRequestRejected,
 } from "@/lib/notifications/community-messenger-friend-inapp-notify";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
@@ -2458,6 +2459,7 @@ export async function sendCommunityMessengerFriendRequest(
         void notifyCommunityMessengerFriendRequestReceived(sb as any, {
           addresseeUserId: row.addressee_id,
           requestId: row.id,
+          requesterUserId: row.requester_id,
           requesterLabel: profileLabel(profileMap.get(row.requester_id), row.requester_id),
         });
         return {
@@ -2574,6 +2576,19 @@ export async function respondCommunityMessengerFriendRequest(
             void notifyCommunityMessengerFriendRequestAccepted(sb as any, {
               requesterUserId: requesterId,
               requestId: id,
+              addresseeUserId: addresseeId,
+              addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
+            });
+          }
+        } else if (action === "reject") {
+          const requesterId = trimText(request.requester_id);
+          const addresseeId = trimText(request.addressee_id);
+          if (requesterId && addresseeId) {
+            const profileMap = await fetchProfilesByIds([requesterId, addresseeId]);
+            void notifyCommunityMessengerFriendRequestRejected(sb as any, {
+              requesterUserId: requesterId,
+              requestId: id,
+              addresseeUserId: addresseeId,
               addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
             });
           }
