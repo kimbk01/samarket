@@ -67,6 +67,7 @@ import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
   getCallSessionClientPollIntervalMs,
@@ -191,6 +192,15 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  /**
+   * PATCH 직후 GET/Realtime 이 아직 ringing/active 를 돌려줄 때 로컬 종료 상태가 덮이는 레이스 방지
+   * (발신 취소·수신 종료 후 화면이 다시 연결 중으로 남던 현상)
+   */
+  const callTerminalLocalPinRef = useRef<{
+    sessionId: string;
+    until: number;
+    snapshot: CommunityMessengerCallSession;
+  } | null>(null);
   /** effect 가 백업 폴링 간격을 Realtime 구독 상태에 맞출 수 있게 state 로도 반영 */
   const [sessionRealtimeSubscribed, setSessionRealtimeSubscribed] = useState(false);
   /** Realtime + polling + user-action refresh가 동시에 붙을 때 GET 폭주 방지 */
@@ -231,6 +241,7 @@ export function CommunityMessengerCallClient({
     callFlowAcceptStartRef.current = null;
     callFlowLocalPublishAtRef.current = null;
     callFlowPrevRemoteJoinedRef.current = false;
+    callTerminalLocalPinRef.current = null;
   }, [sessionId]);
 
   useEffect(() => {
@@ -339,7 +350,27 @@ export function CommunityMessengerCallClient({
             return sessionRef.current;
           }
           const json = (await res.json().catch(() => ({}))) as SessionResponse;
-          const nextSession = res.ok && json.ok && json.session ? json.session : null;
+          let nextSession = res.ok && json.ok && json.session ? json.session : null;
+          const pin = callTerminalLocalPinRef.current;
+          if (
+            pin &&
+            pin.sessionId === sessionId &&
+            Date.now() < pin.until &&
+            nextSession &&
+            nextSession.id === pin.sessionId &&
+            isTerminalCallSessionStatus(pin.snapshot.status) &&
+            !isTerminalCallSessionStatus(nextSession.status)
+          ) {
+            nextSession = pin.snapshot;
+          }
+          if (
+            nextSession &&
+            pin &&
+            nextSession.id === pin.sessionId &&
+            isTerminalCallSessionStatus(nextSession.status)
+          ) {
+            callTerminalLocalPinRef.current = null;
+          }
           setSession((prev) => (sessionsMeaningfullyEqual(prev, nextSession) ? prev : nextSession));
           if (!nextSession && !silent) {
             setErrorMessage("통화 연결이 끊어졌습니다.");
@@ -1020,14 +1051,22 @@ export function CommunityMessengerCallClient({
       fallbackId: string,
       optimisticTerminal: CommunityMessengerCallSession["status"]
     ) => {
-      if (json.session && isTerminalCallSessionStatus(json.session.status)) {
-        setSession(json.session);
-      } else if (isTerminalCallSessionStatus(optimisticTerminal)) {
-        const endedAt = new Date().toISOString();
-        setSession((prev) => {
-          if (!prev || prev.id !== fallbackId) return prev;
-          return { ...prev, status: optimisticTerminal, endedAt };
-        });
+      const endedAtIso = new Date().toISOString();
+      let snapshot: CommunityMessengerCallSession | null =
+        json.session && isTerminalCallSessionStatus(json.session.status) ? json.session : null;
+      if (!snapshot && isTerminalCallSessionStatus(optimisticTerminal)) {
+        const prev = sessionRef.current;
+        if (prev?.id === fallbackId) {
+          snapshot = { ...prev, status: optimisticTerminal, endedAt: endedAtIso };
+        }
+      }
+      if (snapshot) {
+        callTerminalLocalPinRef.current = {
+          sessionId: fallbackId,
+          until: Date.now() + 15_000,
+          snapshot,
+        };
+        setSession(snapshot);
       }
       joiningRef.current = false;
       setJoined(false);
@@ -1061,12 +1100,19 @@ export function CommunityMessengerCallClient({
         void refreshSession(true);
         return;
       }
-      if (json.session && isTerminalCallSessionStatus(json.session.status)) {
-        setSession(json.session);
-      } else {
-        setSession((prev) =>
-          prev && prev.id === sid ? { ...prev, status: "rejected", endedAt: new Date().toISOString() } : prev
-        );
+      let snap: CommunityMessengerCallSession | null =
+        json.session && isTerminalCallSessionStatus(json.session.status) ? json.session : null;
+      if (!snap) {
+        const prev = sessionRef.current;
+        if (prev?.id === sid) {
+          snap = { ...prev, status: "rejected", endedAt: new Date().toISOString() };
+        }
+      }
+      if (snap) {
+        const peer = session.peerUserId?.trim();
+        if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
+        callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + 15_000, snapshot: snap };
+        setSession(snap);
       }
       joiningRef.current = false;
       setJoined(false);
@@ -1105,6 +1151,8 @@ export function CommunityMessengerCallClient({
       /* 서버 응답을 즉시 반영하고, Agora leave 등은 기다리지 않는다 — 수신 종료 시 UI가 active 에 고정되던 문제 */
       const optimisticEnd =
         session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
+      const peer = session.peerUserId?.trim();
+      if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
       applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
       void disposeCallMedia().catch(() => {});
     } finally {
@@ -1624,6 +1672,7 @@ export function CommunityMessengerCallClient({
 
   const videoCall = session.callKind === "video";
   const directPhase = resolveDirectCallPhase(session.status, joined, remoteJoined);
+  /** 발신자만: 브라우저 GUM 제스처 전 — 벨/연결 UI와 「허용」 CTA 를 한 흐름으로 묶음 */
   const showCallerMediaGate =
     session.isMineInitiator &&
     !callerMediaConsentDone &&
@@ -1697,6 +1746,26 @@ export function CommunityMessengerCallClient({
         tone: "accept",
         disabled: busy === "accept" || busy === "join",
         onClick: acceptFromScreen,
+      }
+    );
+  } else if (showCallerMediaGate) {
+    const grantLabel = videoCall ? "마이크·카메라 허용 후 연결" : "마이크 허용 후 연결";
+    primaryActions.push(
+      {
+        id: "grant-media",
+        label: grantLabel,
+        icon: "accept",
+        tone: "accept",
+        disabled: busy === "join" || busy === "accept",
+        onClick: confirmCallerMediaAndConnect,
+      },
+      {
+        id: "end",
+        label: busy === "end" ? "종료 중" : "종료",
+        icon: "end",
+        tone: "danger",
+        disabled: busy === "end",
+        onClick: () => void endCall(),
       }
     );
   } else if (videoCall) {
@@ -1776,16 +1845,7 @@ export function CommunityMessengerCallClient({
     );
   }
 
-  if (showCallerMediaGate) {
-    secondaryActions.push({
-      id: "grant-media",
-      label: "허용 후 연결",
-      icon: "accept",
-      tone: "accept",
-      disabled: busy === "join" || busy === "accept",
-      onClick: confirmCallerMediaAndConnect,
-    });
-  } else if (
+  if (
     errorMessage &&
     !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage) &&
     directPhase !== "ended" &&
@@ -1803,33 +1863,39 @@ export function CommunityMessengerCallClient({
   }
 
   const statusText =
-    directPhase === "ringing"
-      ? session.isMineInitiator
-        ? "연결 요청 중…"
-        : videoCall
-          ? "영상 통화"
-          : "음성 통화"
-      : directPhase === "connecting"
-        ? "연결중..."
-        : directPhase === "connected"
-          ? videoCall
-            ? "영상 통화 중"
-            : "통화 중"
-          : directPhase === "declined"
-            ? "거절됨"
-            : directPhase === "missed"
-              ? "응답 없음"
-              : directPhase === "failed"
-                ? "연결 실패"
-                : "통화 종료";
+    showCallerMediaGate && directPhase === "ringing"
+      ? videoCall
+        ? "카메라·마이크 권한 필요"
+        : "마이크 권한 필요"
+      : directPhase === "ringing"
+        ? session.isMineInitiator
+          ? "연결 요청 중…"
+          : videoCall
+            ? "영상 통화"
+            : "음성 통화"
+        : directPhase === "connecting"
+          ? "연결중..."
+          : directPhase === "connected"
+            ? videoCall
+              ? "영상 통화 중"
+              : "통화 중"
+            : directPhase === "declined"
+              ? "거절됨"
+              : directPhase === "missed"
+                ? "응답 없음"
+                : directPhase === "failed"
+                  ? "연결 실패"
+                  : "통화 종료";
 
   const subStatusText =
     errorMessage ??
-    (directPhase === "ringing"
-      ? session.isMineInitiator
-        ? "상대가 받을 때까지 기다리는 중입니다."
-        : "수락 또는 거절을 선택해 주세요."
-      : directPhase === "connecting"
+    (showCallerMediaGate && directPhase === "ringing"
+      ? "아래 버튼에서 마이크·카메라 권한을 허용해야 실제 통화 연결이 진행됩니다."
+      : directPhase === "ringing"
+        ? session.isMineInitiator
+          ? "상대가 받을 때까지 기다리는 중입니다."
+          : "수락 또는 거절을 선택해 주세요."
+        : directPhase === "connecting"
         ? "실제 미디어 연결을 붙이는 중입니다."
         : directPhase === "connected"
           ? lastMileLine
@@ -1845,11 +1911,14 @@ export function CommunityMessengerCallClient({
     subStatusText,
     topLabel: null,
     onTopLabelClick: null,
-    footerNote: showCallerMediaGate
-      ? "브라우저 권한을 허용해야 실제 연결이 시작됩니다."
-      : directPhase === "ringing" && ringStartAt
-        ? "통화 시간은 실제 연결 완료 후부터 시작됩니다."
-        : null,
+    footerNote:
+      showCallerMediaGate && directPhase === "ringing"
+        ? null
+        : showCallerMediaGate
+          ? "브라우저 권한을 허용해야 실제 연결이 시작됩니다."
+          : directPhase === "ringing" && ringStartAt
+            ? "통화 시간은 실제 연결 완료 후부터 시작됩니다."
+            : null,
     connectionLabel: directPhase === "connected" ? lastMileLine : null,
     connectedAt: connectedAtTs,
     endedAt: terminalClosedAt,
