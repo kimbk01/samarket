@@ -58,6 +58,7 @@ export function resolveConditionalAppShellFlags(
   regionBarInLayout: boolean
 ): ConditionalAppShellResolvedFlags {
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
+  const isHome = pathname === "/" || pathname === "/home";
   const isSettings = pathname?.startsWith("/my/settings") ?? false;
   const isLogout = pathname === "/my/logout";
   const isMyEdit = isProfileEditPath(pathname);
@@ -148,8 +149,8 @@ export function resolveConditionalAppShellFlags(
   const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
     isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =
-    (showBottomNav ||
-      isMyTab ||
+    !isHome &&
+    (isMyTab ||
       isStoreSection ||
       isOrdersHub ||
       isCommunityMessengerSurface ||
@@ -172,6 +173,7 @@ export function resolveConditionalAppShellFlags(
       : "pb-4";
 
   return {
+    // home(첫 진입)에서는 글로벌 realtime chrome을 기본으로 끈다(배지/사운드는 허브에서만).
     isSettings,
     isLogout,
     isMyEdit,

@@ -66,10 +66,29 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const ids = new Set(((rows ?? []) as ProfileRow[]).map((row) => row.id));
-  const { data: testRows } = await (supabase as any)
+  const profileIds = ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter(Boolean);
+  const ids = new Set(profileIds);
+
+  /**
+   * `test_users` 전체 스캔/전송 방지:
+   * - profiles에 매칭되는 row만 우선 조회
+   * - legacy(프로필 없는 테스트 유저)는 "최근 N개"만 보조로 붙인다(관리자 화면 목록에 충분).
+   */
+  const { data: matchedTestRows } =
+    profileIds.length > 0
+      ? await (supabase as any)
+          .from("test_users")
+          .select("id, username, display_name, role, contact_address, created_at")
+          .in("id", profileIds)
+      : { data: [] as TestUserRow[] };
+
+  const { data: recentTestRows } = await (supabase as any)
     .from("test_users")
-    .select("id, username, display_name, role, contact_address, created_at");
+    .select("id, username, display_name, role, contact_address, created_at")
+    .order("created_at", { ascending: false })
+    .limit(250);
+
+  const testRows = [...((matchedTestRows ?? []) as TestUserRow[]), ...((recentTestRows ?? []) as TestUserRow[])];
   const testMap = new Map<string, TestUserRow>(
     ((testRows ?? []) as TestUserRow[]).map((row) => [row.id, row])
   );
