@@ -42,6 +42,14 @@ type GroupCallPanelState = {
   peerLabel: string;
 };
 
+type GroupCallEndedState = {
+  kind: CommunityMessengerCallKind;
+  peerLabel: string;
+  reason: "ended" | "declined" | "missed" | "failed";
+  endedAt: number;
+  endedDurationSeconds: number | null;
+};
+
 type RemotePeer = {
   userId: string;
   label: string;
@@ -89,9 +97,11 @@ function shouldCreateOffer(selfUserId: string, peerUserId: string): boolean {
 
 export function useCommunityMessengerGroupCall(args: Props) {
   const [panel, setPanel] = useState<GroupCallPanelState | null>(null);
+  const [endedPanel, setEndedPanel] = useState<GroupCallEndedState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [connectedAt, setConnectedAt] = useState<number | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [peerStates, setPeerStates] = useState<Record<string, PeerTransportState>>({});
@@ -206,6 +216,24 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setPeerStates({});
   }, [cleanupPeer, localStream]);
 
+  const showEndedPanel = useCallback(
+    (
+      kind: CommunityMessengerCallKind,
+      peerLabel: string,
+      reason: GroupCallEndedState["reason"],
+      endedAtMs: number
+    ) => {
+      setEndedPanel({
+        kind,
+        peerLabel,
+        reason,
+        endedAt: endedAtMs,
+        endedDurationSeconds: connectedAt != null ? Math.max(0, Math.floor((endedAtMs - connectedAt) / 1000)) : null,
+      });
+    },
+    [connectedAt]
+  );
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -213,6 +241,19 @@ export function useCommunityMessengerGroupCall(args: Props) {
       cleanupMedia();
     };
   }, [cleanupMedia]);
+
+  useEffect(() => {
+    setConnectedAt(null);
+    setEndedPanel(null);
+  }, [currentSessionId]);
+
+  useEffect(() => {
+    if (!endedPanel) return;
+    const timer = window.setTimeout(() => {
+      setEndedPanel(null);
+    }, 2400);
+    return () => window.clearTimeout(timer);
+  }, [endedPanel]);
 
   useEffect(() => {
     const node = localVideoRef.current;
@@ -245,6 +286,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!panel || panel.mode === "incoming") return;
     const states = Object.values(peerStates);
     if (states.some((state) => state === "connected")) {
+      setConnectedAt((prev) => prev ?? Date.now());
       setPanel((prev) => (prev ? { ...prev, mode: "active" } : prev));
       return;
     }
@@ -542,10 +584,22 @@ export function useCommunityMessengerGroupCall(args: Props) {
     }
 
     if (activeCall.status === "ended" || activeCall.status === "cancelled" || activeCall.status === "missed" || activeCall.status === "rejected") {
+      showEndedPanel(
+        activeCall.callKind,
+        activeCall.peerLabel,
+        activeCall.status === "rejected"
+          ? "declined"
+          : activeCall.status === "missed"
+            ? "missed"
+            : activeCall.status === "cancelled"
+              ? "failed"
+              : "ended",
+        activeCall.endedAt ? new Date(activeCall.endedAt).getTime() : Date.now()
+      );
       cleanupMedia();
       setPanel(null);
     }
-  }, [args.activeCall, args.enabled, cleanupMedia, myParticipant?.status, panel?.sessionId, peerStates]);
+  }, [args.activeCall, args.enabled, cleanupMedia, myParticipant?.status, panel?.mode, panel?.sessionId, peerStates, showEndedPanel]);
 
   useEffect(() => {
     if (!args.enabled || !args.activeCall || args.activeCall.sessionMode !== "group") return;
@@ -564,6 +618,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
             return;
           }
           cleanupMedia();
+          showEndedPanel(args.activeCall!.callKind, args.activeCall!.peerLabel, "missed", Date.now());
           setPanel(null);
           setErrorMessage("참여자가 없어 그룹 통화 호출을 종료했습니다.");
           await args.onRefresh();
@@ -573,7 +628,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       })();
     }, CALL_RING_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [args, cleanupMedia]);
+  }, [args, cleanupMedia, showEndedPanel]);
 
   useEffect(() => {
     if (!args.enabled || !currentSessionId || !panel) return;
@@ -776,6 +831,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const dismissPanel = useCallback(() => {
     cleanupMedia();
     setPanel(null);
+    setEndedPanel(null);
     setErrorMessage(null);
   }, [cleanupMedia]);
 
@@ -783,6 +839,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled) return;
     setBusy("call-start");
     setErrorMessage(null);
+    setEndedPanel(null);
     setPanel({
       kind,
       mode: "dialing",
@@ -877,12 +934,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
         return;
       }
       cleanupMedia();
+      showEndedPanel(activeCall.callKind, activeCall.peerLabel, "declined", Date.now());
       setPanel(null);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args, cleanupMedia]);
+  }, [args, cleanupMedia, showEndedPanel]);
 
   const cancelOutgoingCall = useCallback(async () => {
     const sessionId = currentSessionId;
@@ -900,12 +958,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
         return;
       }
       cleanupMedia();
+      showEndedPanel(panel?.kind ?? args.activeCall?.callKind ?? "voice", panel?.peerLabel ?? args.roomLabel, "ended", Date.now());
       setPanel(null);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args, cleanupMedia, currentSessionId]);
+  }, [args, cleanupMedia, currentSessionId, panel, showEndedPanel]);
 
   const endActiveCall = useCallback(async () => {
     const sessionId = currentSessionId;
@@ -933,12 +992,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
         return;
       }
       cleanupMedia();
+      showEndedPanel(panel?.kind ?? args.activeCall?.callKind ?? "voice", panel?.peerLabel ?? args.roomLabel, "ended", Date.now());
       setPanel(null);
       await args.onRefresh();
     } finally {
       setBusy(null);
     }
-  }, [args, cleanupMedia, currentSessionId, elapsedSeconds, joinedParticipants, sendSignal]);
+  }, [args, cleanupMedia, currentSessionId, elapsedSeconds, joinedParticipants, panel, sendSignal, showEndedPanel]);
 
   const retryConnection = useCallback(async () => {
     if (!args.enabled || !currentSessionId || !panel) return;
@@ -1081,9 +1141,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   return {
     panel,
+    endedPanel,
     busy,
     errorMessage,
     elapsedSeconds,
+    connectedAt,
     localStream,
     localVideoRef,
     remotePeers,

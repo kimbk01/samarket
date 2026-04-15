@@ -7,6 +7,10 @@
  * 정책 표: `docs/messenger-realtime-policy.md` (코드와 동기화)
  */
 import type { AppDeployTier } from "@/lib/config/deploy-surface";
+import type {
+  CommunityMessengerCallSessionMode,
+  CommunityMessengerCallSessionStatus,
+} from "@/lib/community-messenger/types";
 
 function readPublicEnvMs(key: string, fallback: number, min: number, max: number): number {
   if (typeof process === "undefined" || !process.env) return fallback;
@@ -99,4 +103,73 @@ export function getIncomingCallPollIntervalMs(
     return hasActiveIncomingSessions ? 2_500 : 3_500;
   }
   return hasActiveIncomingSessions ? 2_000 : 3_000;
+}
+
+/** `/calls/:sessionId` 클라: 세션 row `postgres_changes` 묶음 — 연속 이벤트당 GET 1회 */
+export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_DEBOUNCE_MS",
+  280,
+  80,
+  2000
+);
+
+/** silent 세션 GET 최소 간격(폴링 트리거) — rate limit(120/min)·렌더 경합 완화 */
+export const MESSENGER_CALL_SESSION_SILENT_GAP_POLL_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_CALL_SESSION_POLL_GAP_MS",
+  1400,
+  400,
+  15_000
+);
+
+export const MESSENGER_CALL_SESSION_SILENT_GAP_REALTIME_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_GAP_MS",
+  350,
+  100,
+  5000
+);
+
+export const MESSENGER_CALL_SESSION_SILENT_GAP_UI_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_CALL_SESSION_UI_GAP_MS",
+  220,
+  50,
+  3000
+);
+
+/**
+ * 통화 화면 백업 폴링 주기.
+ * - Realtime `SUBSCRIBED` 이면 postgres_changes 가 1차; HTTP 는 끊김·유실 대비만.
+ * - `null` 이면 타이머 없음(양측 연결·Realtime 정상 구간).
+ */
+export function getCallSessionClientPollIntervalMs(
+  tier: AppDeployTier,
+  args: {
+    sessionMode: CommunityMessengerCallSessionMode | null | undefined;
+    status: CommunityMessengerCallSessionStatus | null | undefined;
+    joined: boolean;
+    remoteJoined: boolean;
+    realtimeSubscribed: boolean;
+  }
+): number | null {
+  const mode = args.sessionMode;
+  const status = args.status;
+  if (!status) return tier === "production" ? 2200 : 2000;
+
+  if (!mode || mode !== "direct") {
+    return tier === "production" ? 2500 : 2200;
+  }
+
+  const { joined, remoteJoined, realtimeSubscribed } = args;
+
+  if (realtimeSubscribed) {
+    if (status === "active" && joined && remoteJoined) return null;
+    if (status === "ringing") return tier === "production" ? 14_000 : 12_000;
+    if (status === "active") return tier === "production" ? 10_000 : 8500;
+    return tier === "production" ? 12_000 : 10_000;
+  }
+
+  if (status === "ringing") return tier === "production" ? 1600 : 1400;
+  if (status === "active" && joined && remoteJoined) return tier === "production" ? 5000 : 4000;
+  if (status === "active" && joined) return tier === "production" ? 1400 : 1200;
+  if (status === "active") return tier === "production" ? 1500 : 1300;
+  return tier === "production" ? 2200 : 2000;
 }

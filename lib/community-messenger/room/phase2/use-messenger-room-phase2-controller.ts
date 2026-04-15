@@ -35,7 +35,7 @@ import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
-import { buildCommunityMessengerOutgoingDialHref } from "@/lib/community-messenger/call-session-navigation-seed";
+import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { getLatestCallStubForSession, mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
@@ -492,40 +492,41 @@ export function useMessengerRoomPhase2Controller() {
       if (outgoingDialSyncGuardRef.current) return;
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 900);
 
       setManagedDirectCallError(null);
       const existingSession = snapshot?.activeCall;
       if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
         openDirectCallPage(existingSession.id);
         return;
       }
-      const peerLabel =
-        snapshot?.room.roomType === "direct"
-          ? snapshot.members.find((m) => m.id === snapshot.room.peerUserId)?.label?.trim() ?? snapshot.room.title
-          : "";
-      const dialHref = buildCommunityMessengerOutgoingDialHref({
-        kind,
-        roomId,
-        peerLabel: peerLabel || undefined,
-      });
-      logClientPerf("messenger-call.dial.push", { phase: "room_managed", roomId, kind });
-      void router.prefetch(dialHref);
-      router.push(dialHref);
+
+      void (async () => {
+        try {
+          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+            { roomId, peerUserId: null, kind },
+            (href) => {
+              logClientPerf("messenger-call.dial.push", { phase: "room_managed", roomId, kind });
+              void router.prefetch(href);
+              router.push(href);
+            }
+          );
+          if (!result.ok) {
+            setManagedDirectCallError(result.userMessage);
+          }
+        } catch (e) {
+          const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
+          setManagedDirectCallError(
+            name === "AbortError" ? "통화 준비가 중단되었습니다." : "네트워크 오류로 통화를 시작하지 못했습니다."
+          );
+        } finally {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }
+      })();
     },
-    [
-      isGroupRoom,
-      openDirectCallPage,
-      roomId,
-      roomUnavailable,
-      router,
-      snapshot?.activeCall,
-      snapshot?.members,
-      snapshot?.room,
-    ]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall]
   );
 
   useEffect(() => {
@@ -1115,27 +1116,35 @@ export function useMessengerRoomPhase2Controller() {
       if (outgoingDialSyncGuardRef.current) return;
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 900);
-
-      const peerLabel =
-        memberActionTarget?.id === peerUserId ? memberActionTarget.label?.trim() || "" : "";
-      const fromMembers = snapshot?.members?.find((m) => m.id === peerUserId)?.label?.trim() ?? "";
-      const label = peerLabel || fromMembers;
 
       setMemberActionTarget(null);
-      const dialHref = buildCommunityMessengerOutgoingDialHref({
-        kind,
-        peerUserId,
-        peerLabel: label || undefined,
-      });
-      logClientPerf("messenger-call.dial.push", { phase: "member_sheet", peerUserId, kind });
-      void router.prefetch(dialHref);
-      router.push(dialHref);
+
+      void (async () => {
+        try {
+          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+            { roomId: null, peerUserId, kind },
+            (href) => {
+              logClientPerf("messenger-call.dial.push", { phase: "member_sheet", peerUserId, kind });
+              void router.prefetch(href);
+              router.push(href);
+            }
+          );
+          if (!result.ok) {
+            showMessengerSnackbar(result.userMessage, { variant: "error" });
+          }
+        } catch (e) {
+          const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
+          showMessengerSnackbar(
+            name === "AbortError" ? "통화 준비가 중단되었습니다." : "네트워크 오류로 통화를 시작하지 못했습니다.",
+            { variant: "error" }
+          );
+        } finally {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }
+      })();
     },
-    [memberActionTarget, router, snapshot?.members]
+    [router]
   );
 
   const removeGroupMember = useCallback(

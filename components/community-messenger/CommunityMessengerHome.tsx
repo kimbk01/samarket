@@ -82,7 +82,7 @@ import {
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
-import { buildCommunityMessengerOutgoingDialHref } from "@/lib/community-messenger/call-session-navigation-seed";
+import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   communityMessengerFriendRequestFailureMessage,
   messengerFriendRequestBusyId,
@@ -710,31 +710,38 @@ export function CommunityMessengerHome({
     (peerUserId: string, kind: "voice" | "video") => {
       if (outgoingDialSyncGuardRef.current) return;
       outgoingDialSyncGuardRef.current = true;
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-      }, 900);
-
       setActionError(null);
       const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
       if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
         void reviveDirectRoomForEntry(existingRoom);
       }
 
-      const peerLabel =
-        existingRoom?.title?.trim() ||
-        [...(data?.friends ?? []), ...(data?.hidden ?? [])].find((f) => f.id === peerUserId)?.label?.trim() ||
-        "";
-
-      const dialHref = buildCommunityMessengerOutgoingDialHref({
-        kind,
-        roomId: existingRoom?.id,
-        peerUserId: existingRoom?.id ? undefined : peerUserId,
-        peerLabel: peerLabel || undefined,
-      });
-      void router.prefetch(dialHref);
-      router.push(dialHref);
+      void (async () => {
+        setBusyId("messenger-outgoing-call");
+        try {
+          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+            {
+              roomId: existingRoom?.id ?? null,
+              peerUserId: existingRoom?.id ? null : peerUserId,
+              kind,
+            },
+            (href) => {
+              void router.prefetch(href);
+              router.push(href);
+            }
+          );
+          if (!result.ok) {
+            setActionError(result.userMessage);
+          }
+        } catch {
+          setActionError("네트워크 오류로 통화를 시작하지 못했습니다.");
+        } finally {
+          setBusyId(null);
+          outgoingDialSyncGuardRef.current = false;
+        }
+      })();
     },
-    [data?.chats, data?.friends, data?.hidden, reviveDirectRoomForEntry, router]
+    [data?.chats, reviveDirectRoomForEntry, router]
   );
 
   const searchUsers = useCallback(async () => {

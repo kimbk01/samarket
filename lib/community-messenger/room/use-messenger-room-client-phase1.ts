@@ -56,10 +56,6 @@ import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/u
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
-import {
-  buildCommunityMessengerOutgoingDialHref,
-  primeCommunityMessengerCallNavigationSeed,
-} from "@/lib/community-messenger/call-session-navigation-seed";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,

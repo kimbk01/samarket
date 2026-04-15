@@ -4,6 +4,7 @@ import {
   requireAuthenticatedUserIdStrict,
 } from "@/lib/auth/api-session";
 import {
+  downgradeCommunityMessengerCallSessionToVoice,
   getCommunityMessengerCallSessionById,
   updateCommunityMessengerCallSession,
   upgradeCommunityMessengerCallSessionToVideo,
@@ -51,7 +52,7 @@ export async function PATCH(
   if (!rateLimit.ok) return rateLimit.response;
 
   let body: {
-    action?: "accept" | "reject" | "cancel" | "end" | "missed" | "upgrade_to_video";
+    action?: "accept" | "reject" | "cancel" | "end" | "missed" | "upgrade_to_video" | "downgrade_to_voice";
     durationSeconds?: number;
   };
   try {
@@ -64,6 +65,14 @@ export async function PATCH(
 
   if (body.action === "upgrade_to_video") {
     const result = await upgradeCommunityMessengerCallSessionToVideo({
+      userId: auth.userId,
+      sessionId,
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+
+  if (body.action === "downgrade_to_voice") {
+    const result = await downgradeCommunityMessengerCallSessionToVoice({
       userId: auth.userId,
       sessionId,
     });

@@ -43,6 +43,15 @@ export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT =
 
 const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE = COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC;
 
+/** 환경·설정 문제로 「다시 시도」가 의미 없는 통화 오류 문구 */
+export function isCommunityMessengerNonRetryableCallErrorMessage(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return (
+    message === COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC ||
+    message === COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE
+  );
+}
+
 /** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */
 export function isAgoraJoinRetryableError(error: unknown): boolean {
   if (isCommunityMessengerCallProviderNotConfiguredError(error)) return false;

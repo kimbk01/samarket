@@ -418,4 +418,28 @@
   .sam-divider {
     @apply h-px w-full bg-sam-border-soft;
   }
+
+  /* -------------------------------------------------------------------------- */
+  /* 통화 UI — lucide 단일 아이콘 세트 */
+  /* -------------------------------------------------------------------------- */
+
+  .call-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    color: white;
+    font-size: 12px;
+    line-height: 1.1;
+  }
+
+  .call-btn__disk {
+    width: 56px;
+    height: 56px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }

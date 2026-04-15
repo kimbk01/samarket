@@ -9,9 +9,11 @@ const remoteVideoNoop: CommunityMessengerGroupCallHandle["bindRemoteVideo"] = ()
 /** 1:1 대화방 — 그룹 통화 훅을 마운트하지 않을 때 컨텍스트 기본값 (카카오톡식: 그룹 기능 그래프 미로드) */
 export const DIRECT_ROOM_GROUP_CALL_STUB: CommunityMessengerGroupCallHandle = {
   panel: null,
+  endedPanel: null,
   busy: null,
   errorMessage: null,
   elapsedSeconds: 0,
+  connectedAt: null,
   localStream: null,
   localVideoRef: { current: null },
   remotePeers: [],

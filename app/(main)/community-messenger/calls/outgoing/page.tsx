@@ -2,13 +2,9 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
-import { MessengerCallDialingLayout } from "@/components/community-messenger/call-ui/MessengerCallDialingLayout";
-import {
-  bootstrapCommunityMessengerOutgoingCallSession,
-  primeCommunityMessengerCallNavigationSeed,
-} from "@/lib/community-messenger/call-session-navigation-seed";
-import { MESSENGER_CALL_GRADIENT_SURFACE } from "@/lib/community-messenger/messenger-call-gradient";
+import { CallScreen } from "@/components/messenger/call/CallScreen";
+import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
+import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 type OutgoingDialParams = {
@@ -67,12 +63,15 @@ export default function CommunityMessengerOutgoingDialPage() {
     const ac = new AbortController();
     void (async () => {
       try {
-        const result = await bootstrapCommunityMessengerOutgoingCallSession({
-          signal: ac.signal,
-          roomId: dial.roomId || null,
-          peerUserId: dial.peerUserId || null,
-          kind: dial.kind,
-        });
+        const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+          {
+            signal: ac.signal,
+            roomId: dial.roomId || null,
+            peerUserId: dial.peerUserId || null,
+            kind: dial.kind,
+          },
+          (href) => router.replace(href)
+        );
         if (ac.signal.aborted) return;
         const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
         logClientPerf("messenger-call.outgoing.bootstrap", {
@@ -83,12 +82,10 @@ export default function CommunityMessengerOutgoingDialPage() {
           setError(result.userMessage);
           return;
         }
-        primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
         logClientPerf("messenger-call.outgoing.navigate", {
           phase: "replace_session",
           sessionId: result.session.id,
         });
-        router.replace(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
       } catch (e) {
         if (ac.signal.aborted) return;
         const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
@@ -109,31 +106,73 @@ export default function CommunityMessengerOutgoingDialPage() {
   const displayName = dial?.peerLabelRaw || "\uC0C1\uB300\uBC29";
   const kindLabel = dial?.kind === "video" ? "\uC601\uC0C1 \uD1B5\uD654" : "\uC74C\uC131 \uD1B5\uD654";
 
+  const outgoingVm: CallScreenViewModel = {
+    mode: dial?.kind === "video" ? "video" : "voice",
+    direction: "outgoing",
+    phase: "ringing",
+    peerLabel: dial ? displayName : "…",
+    peerAvatarUrl: null,
+    statusText: "Ringing...",
+    subStatusText: "세션을 준비하는 동안 전체 화면 통화 UI로 전환 중입니다.",
+    topLabel: dial?.kind === "video" ? kindLabel : null,
+    onTopLabelClick: null,
+    footerNote: "실제 통화 시간은 상대가 받고 연결된 뒤부터 시작됩니다.",
+    mediaState: {
+      micEnabled: true,
+      speakerEnabled: dial?.kind === "video",
+      cameraEnabled: dial?.kind === "video",
+      localVideoMinimized: true,
+    },
+    onBack: null,
+    primaryActions: [
+      {
+        id: "speaker",
+        label: "스피커",
+        icon: "speaker",
+        active: dial?.kind === "video",
+        disabled: true,
+        onClick: () => {},
+      },
+      {
+        id: "video",
+        label: dial?.kind === "video" ? "카메라" : "영상 전환",
+        icon: dial?.kind === "video" ? "camera" : "video",
+        active: dial?.kind === "video",
+        disabled: true,
+        onClick: () => {},
+      },
+      {
+        id: "mute",
+        label: "음소거",
+        icon: "mic",
+        active: false,
+        disabled: true,
+        onClick: () => {},
+      },
+      {
+        id: "end",
+        label: "종료",
+        icon: "end",
+        tone: "danger",
+        onClick: () => router.back(),
+      },
+    ],
+  };
+
   if (error) {
     return (
-      <CallScreenShell variant="page" className={`${MESSENGER_CALL_GRADIENT_SURFACE} bg-sam-app`}>
-        <div className="flex min-h-[100dvh] flex-col items-center justify-center px-6 text-center">
-          <p className="text-[15px] text-white/95">{error}</p>
-          <button
-            type="button"
-            className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 text-[14px] font-medium text-white"
-            onClick={() => router.back()}
-          >
-            {"\uB3CC\uC544\uAC00\uAE30"}
-          </button>
-        </div>
-      </CallScreenShell>
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[linear-gradient(180deg,#7b63ef_0%,#4a56d4_58%,#3a72d4_100%)] px-6 text-center">
+        <p className="text-[15px] text-white/95">{error}</p>
+        <button
+          type="button"
+          className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 text-[14px] font-medium text-white"
+          onClick={() => router.back()}
+        >
+          {"\uB3CC\uC544\uAC00\uAE30"}
+        </button>
+      </div>
     );
   }
 
-  return (
-    <CallScreenShell variant="page" className={`${MESSENGER_CALL_GRADIENT_SURFACE} bg-sam-app`}>
-      <MessengerCallDialingLayout
-        peerLabel={dial ? displayName : "\u2026"}
-        kindLabel={dial ? kindLabel : "\uD1B5\uD654"}
-        onCancel={() => router.back()}
-        onEndCall={() => router.back()}
-      />
-    </CallScreenShell>
-  );
+  return <CallScreen vm={outgoingVm} variant="page" />;
 }

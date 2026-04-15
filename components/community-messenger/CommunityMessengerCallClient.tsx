@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type {
   ICameraVideoTrack,
@@ -40,8 +40,10 @@ import {
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
   isCommunityMessengerMediaBlockedByInsecureOrigin,
+  isCommunityMessengerNonRetryableCallErrorMessage,
 } from "@/lib/community-messenger/media-errors";
 import type {
+  CommunityMessengerCallKind,
   CommunityMessengerCallSession,
   CommunityMessengerManagedCallConnection,
 } from "@/lib/community-messenger/types";
@@ -52,17 +54,27 @@ import {
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallFeedback,
 } from "@/lib/community-messenger/call-feedback-sound";
-import {
-  attachDetachedCommunityCall,
-  takeDetachedCommunityCallCleanup,
-} from "@/lib/community-messenger/direct-call-minimize";
+import { takeDetachedCommunityCallCleanup } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { formatMessengerAgoraLastMileLine } from "@/lib/community-messenger/call-provider/agora-network-quality";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
-import { CallScreenShell, MESSENGER_CALL_GRADIENT_SURFACE } from "@/components/community-messenger/call-ui/CallScreenShell";
-import { MessengerCallDialingLayout } from "@/components/community-messenger/call-ui/MessengerCallDialingLayout";
+import { CallScreen } from "@/components/messenger/call/CallScreen";
+import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { consumeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  bootstrapCommunityMessengerOutgoingCallAndNavigate,
+  consumeCommunityMessengerCallNavigationSeed,
+} from "@/lib/community-messenger/call-session-navigation-seed";
+import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import {
+  getCallSessionClientPollIntervalMs,
+  MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS,
+  MESSENGER_CALL_SESSION_SILENT_GAP_POLL_MS,
+  MESSENGER_CALL_SESSION_SILENT_GAP_REALTIME_MS,
+  MESSENGER_CALL_SESSION_SILENT_GAP_UI_MS,
+} from "@/lib/community-messenger/messenger-latency-config";
+
+const CALL_CLIENT_TIER = getPublicDeployTier();
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -116,14 +128,23 @@ export function CommunityMessengerCallClient({
   const [joined, setJoined] = useState(false);
   const [remoteJoined, setRemoteJoined] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [ringStartAt, setRingStartAt] = useState<number | null>(null);
+  const [connectedAtTs, setConnectedAtTs] = useState<number | null>(null);
+  const [terminalClosedAt, setTerminalClosedAt] = useState<number | null>(null);
+  const [endedDurationSeconds, setEndedDurationSeconds] = useState<number | null>(null);
   const [localVideoReady, setLocalVideoReady] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
-  const [speakerEnabled, setSpeakerEnabled] = useState(true);
-  const speakerEnabledRef = useRef(true);
+  /** 음성: 기본 이어폰(off). 영상: 기본 스피커폰(on). */
+  const [speakerEnabled, setSpeakerEnabled] = useState(false);
+  const speakerEnabledRef = useRef(false);
   speakerEnabledRef.current = speakerEnabled;
+  const callKindBootRef = useRef<{ sid: string | null; kind: CommunityMessengerCallKind | null }>({
+    sid: null,
+    kind: null,
+  });
   const [bluetoothPreferred, setBluetoothPreferred] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   /** Agora last-mile `network-quality` 기반(고정 문구 대신 실측) */
@@ -135,8 +156,6 @@ export function CommunityMessengerCallClient({
   }, [lastMileLine]);
   /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
   const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
-  /** Viber 스타일 자판(로컬 DTMF 톤) */
-  const [callKeypadOpen, setCallKeypadOpen] = useState(false);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
@@ -163,10 +182,12 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
-  const sessionRealtimeOkRef = useRef(false);
+  /** effect 가 백업 폴링 간격을 Realtime 구독 상태에 맞출 수 있게 state 로도 반영 */
+  const [sessionRealtimeSubscribed, setSessionRealtimeSubscribed] = useState(false);
   /** Realtime + polling + user-action refresh가 동시에 붙을 때 GET 폭주 방지 */
   const refreshScheduleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSilentRefreshAtRef = useRef<number>(0);
+  const sessionSilentRefreshBackoffUntilRef = useRef<number>(0);
   const autoJoinBlockedRef = useRef(false);
   /**
    * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
@@ -175,8 +196,6 @@ export function CommunityMessengerCallClient({
   const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(
     () => !(initialSession?.isMineInitiator ?? false)
   );
-  /** true면 채팅으로 돌아가기(미니화) 중이라 언마운트 시 Agora 정리를 하지 않는다 */
-  const callMinimizeNavRef = useRef(false);
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
   /** postgres_changes 연속 이벤트로 GET 이 폭주하지 않게 묶는다 */
@@ -191,7 +210,38 @@ export function CommunityMessengerCallClient({
   }, [sessionId]);
 
   useEffect(() => {
+    setSessionRealtimeSubscribed(false);
+    sessionSilentRefreshBackoffUntilRef.current = 0;
+  }, [sessionId]);
+
+  useEffect(() => {
+    callKindBootRef.current = { sid: null, kind: null };
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!session?.id) return;
+    const b = callKindBootRef.current;
+    if (b.sid !== session.id) {
+      callKindBootRef.current = { sid: session.id, kind: session.callKind };
+      setSpeakerEnabled(session.callKind === "video");
+      return;
+    }
+    if (b.kind !== session.callKind) {
+      callKindBootRef.current = { sid: session.id, kind: session.callKind };
+      if (session.callKind === "video") setSpeakerEnabled(true);
+      else setSpeakerEnabled(false);
+    }
+  }, [session?.id, session?.callKind]);
+
+  useEffect(() => {
     autoVideoPublishAttemptedRef.current = null;
+  }, [sessionId]);
+
+  useEffect(() => {
+    setRingStartAt(null);
+    setConnectedAtTs(null);
+    setTerminalClosedAt(null);
+    setEndedDurationSeconds(null);
   }, [sessionId]);
 
   /** 발신 직후 네비게이션 시드 — RSC/GET 전에 세션을 채워 로딩 스피너 단축 */
@@ -255,11 +305,20 @@ export function CommunityMessengerCallClient({
         return refreshSilentInFlightRef.current;
       }
       const run = async (): Promise<CommunityMessengerCallSession | null> => {
+        if (silent && Date.now() < sessionSilentRefreshBackoffUntilRef.current) {
+          return sessionRef.current;
+        }
         if (!silent) setLoading(true);
         try {
           const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
             cache: "no-store",
           });
+          if (res.status === 429) {
+            const ra = res.headers.get("Retry-After");
+            const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
+            sessionSilentRefreshBackoffUntilRef.current = Date.now() + sec * 1000;
+            return sessionRef.current;
+          }
           const json = (await res.json().catch(() => ({}))) as SessionResponse;
           const nextSession = res.ok && json.ok && json.session ? json.session : null;
           setSession((prev) => (sessionsMeaningfullyEqual(prev, nextSession) ? prev : nextSession));
@@ -287,16 +346,20 @@ export function CommunityMessengerCallClient({
   const scheduleSilentRefresh = useCallback(
     (reason: "realtime" | "poll" | "ui") => {
       const now = Date.now();
-      // 너무 촘촘한 갱신은 세션 GET rate limit(120/min)과 렌더 경합을 유발한다.
-      // realtime 이벤트는 burst로 올 수 있어, 짧게 묶고 최소 간격을 둔다.
-      const minGapMs = reason === "poll" ? 450 : 250;
+      if (now < sessionSilentRefreshBackoffUntilRef.current) return;
+      const minGapMs =
+        reason === "poll"
+          ? MESSENGER_CALL_SESSION_SILENT_GAP_POLL_MS
+          : reason === "ui"
+            ? MESSENGER_CALL_SESSION_SILENT_GAP_UI_MS
+            : MESSENGER_CALL_SESSION_SILENT_GAP_REALTIME_MS;
       if (now - lastSilentRefreshAtRef.current < minGapMs) return;
       if (refreshScheduleTimerRef.current) return;
       refreshScheduleTimerRef.current = setTimeout(() => {
         refreshScheduleTimerRef.current = null;
         lastSilentRefreshAtRef.current = Date.now();
         void refreshSession(true);
-      }, reason === "poll" ? 80 : 40);
+      }, reason === "poll" ? 120 : 60);
     },
     [refreshSession]
   );
@@ -1021,22 +1084,73 @@ export function CommunityMessengerCallClient({
     }
   }, [bindLocalVideoTrack]);
 
-  const navigateToChatDuringCall = useCallback(() => {
-    if (!session) return;
-    const keepMediaConnected = joined || session.status === "active";
-    if (keepMediaConnected) {
-      attachDetachedCommunityCall(session.id, cleanupClient);
-      callMinimizeNavRef.current = true;
-      try {
-        sessionStorage.setItem("cm_minimized_call_session", session.id);
-        sessionStorage.setItem("cm_minimized_call_room", session.roomId);
-      } catch {
-        /* ignore */
-      }
+  const requestDowngradeToVoice = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s || s.sessionMode !== "direct") {
+      showMessengerSnackbar("이 통화에서는 음성으로 전환할 수 없습니다.");
+      return;
     }
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
-  }, [cleanupClient, joined, router, session]);
-
+    if (!joinedRef.current || s.status !== "active") {
+      showMessengerSnackbar("통화가 연결된 후에 전환할 수 있어요.");
+      return;
+    }
+    if (s.callKind !== "video") return;
+    setBusy("join");
+    setErrorMessage(null);
+    try {
+      const client = clientRef.current;
+      const vt = localTracksRef.current?.videoTrack;
+      if (client && vt) {
+        try {
+          await client.unpublish([vt]);
+        } catch {
+          /* ignore */
+        }
+        try {
+          vt.stop();
+        } catch {
+          /* ignore */
+        }
+        try {
+          vt.close();
+        } catch {
+          /* ignore */
+        }
+        const tracks = localTracksRef.current;
+        if (tracks) {
+          localTracksRef.current = { ...tracks, videoTrack: null };
+        }
+      }
+      setLocalVideoReady(false);
+      setCameraSwitchSupported(false);
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "downgrade_to_voice" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      if (!res.ok || !json.ok || !json.session) {
+        const code = json.error;
+        setErrorMessage(
+          code === "bad_action"
+            ? "지금은 음성으로 전환할 수 없습니다."
+            : code === "forbidden"
+              ? "권한이 없습니다."
+              : "음성 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        );
+        return;
+      }
+      setSession(json.session);
+      setCamOff(false);
+      setLayoutSwapped(false);
+      autoVideoPublishAttemptedRef.current = null;
+      bindLocalVideoTrack();
+    } catch (e) {
+      setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
+    } finally {
+      setBusy(null);
+    }
+  }, [bindLocalVideoTrack]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1080,10 +1194,6 @@ export function CommunityMessengerCallClient({
     void bootstrap();
     return () => {
       cancelled = true;
-      if (callMinimizeNavRef.current) {
-        callMinimizeNavRef.current = false;
-        return;
-      }
       void disposeCallMedia();
     };
   }, [disposeCallMedia, refreshSession, sessionId]);
@@ -1096,7 +1206,7 @@ export function CommunityMessengerCallClient({
       sessionRealtimeDebounceRef.current = setTimeout(() => {
         sessionRealtimeDebounceRef.current = null;
         scheduleSilentRefresh("realtime");
-      }, 320);
+      }, MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS);
     };
     let cancelled = false;
     const sub = subscribeWithRetry({
@@ -1105,7 +1215,7 @@ export function CommunityMessengerCallClient({
       scope: "community-messenger-call-client:session",
       isCancelled: () => cancelled,
       onStatus: (status) => {
-        sessionRealtimeOkRef.current = status === "SUBSCRIBED";
+        setSessionRealtimeSubscribed(status === "SUBSCRIBED");
       },
       build: (ch) =>
         ch.on(
@@ -1122,14 +1232,14 @@ export function CommunityMessengerCallClient({
 
     return () => {
       cancelled = true;
-      sessionRealtimeOkRef.current = false;
+      setSessionRealtimeSubscribed(false);
       if (sessionRealtimeDebounceRef.current) {
         clearTimeout(sessionRealtimeDebounceRef.current);
         sessionRealtimeDebounceRef.current = null;
       }
       sub.stop();
     };
-  }, [refreshSession, sessionId]);
+  }, [scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;
@@ -1167,8 +1277,16 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session) return;
     if (!isTerminalCallSessionStatus(session.status)) return;
+    const endedAtMs = session.endedAt ? new Date(session.endedAt).getTime() : Date.now();
+    if (!terminalClosedAt) {
+      setTerminalClosedAt(endedAtMs);
+      setEndedDurationSeconds(
+        connectedAtTs != null ? Math.max(0, Math.floor((endedAtMs - connectedAtTs) / 1000)) : null
+      );
+      void disposeCallMedia();
+    }
     const room = session.roomId;
-    void disposeCallMedia().then(() => {
+    const timer = window.setTimeout(() => {
       try {
         sessionStorage.removeItem("cm_minimized_call_session");
         sessionStorage.removeItem("cm_minimized_call_room");
@@ -1176,8 +1294,9 @@ export function CommunityMessengerCallClient({
         /* ignore */
       }
       router.replace(`/community-messenger/rooms/${encodeURIComponent(room)}`);
-    });
-  }, [disposeCallMedia, router, session?.id, session?.roomId, session?.status]);
+    }, 2400);
+    return () => window.clearTimeout(timer);
+  }, [connectedAtTs, disposeCallMedia, router, session, terminalClosedAt]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -1227,6 +1346,28 @@ export function CommunityMessengerCallClient({
   }, [joined, session?.answeredAt]);
 
   useEffect(() => {
+    if (!session?.startedAt) return;
+    const startedAtMs = new Date(session.startedAt).getTime();
+    if (!Number.isFinite(startedAtMs)) return;
+    setRingStartAt((prev) => prev ?? startedAtMs);
+  }, [session?.id, session?.startedAt]);
+
+  useEffect(() => {
+    if (!session || session.status !== "active") return;
+    if (!joined || !remoteJoined) return;
+    setConnectedAtTs((prev) => prev ?? Date.now());
+  }, [joined, remoteJoined, session?.id, session?.status]);
+
+  useEffect(() => {
+    if (session?.callKind !== "video") return;
+    if (!joined || !remoteJoined) {
+      setLayoutSwapped(true);
+      return;
+    }
+    setLayoutSwapped(false);
+  }, [joined, remoteJoined, session?.callKind]);
+
+  useEffect(() => {
     if (!joined || !session || session.callKind !== "video") {
       setCameraSwitchSupported(false);
       return;
@@ -1236,49 +1377,26 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (!session) return;
-    let ms = 2000;
-    if (session.sessionMode === "direct") {
-      /* 벨·협상 구간만 촘촘히 — 수 초마다 전체 세션 GET 은 비용 큼. 백그라운드 탭은 아래에서 스킵 */
-      if (session.status === "ringing") ms = 1_400;
-      else if (session.status === "active" && joined && remoteJoined) ms = 4_000;
-      else if (session.status === "active" && joined) ms = 1_200;
-      else if (session.status === "active") ms = 1_300;
-    }
+    const pollMs = getCallSessionClientPollIntervalMs(CALL_CLIENT_TIER, {
+      sessionMode: session.sessionMode,
+      status: session.status,
+      joined,
+      remoteJoined,
+      realtimeSubscribed: sessionRealtimeSubscribed,
+    });
+    if (pollMs == null) return;
     const tick = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      // Realtime 이 살아 있고(구독 성공), 이미 통화가 안정(connected) 상태면 polling 빈도를 크게 낮춘다.
-      if (sessionRealtimeOkRef.current && session.status === "active" && joined && remoteJoined) return;
       scheduleSilentRefresh("poll");
     };
-    const timer = window.setInterval(tick, ms);
+    const timer = window.setInterval(tick, pollMs);
     return () => window.clearInterval(timer);
-  }, [joined, remoteJoined, scheduleSilentRefresh, session?.id, session?.sessionMode, session?.status]);
-
-  const statusLabel = useMemo(() => {
-    if (!session) return "통화 준비 중";
-    if (session.status === "ringing") {
-      return session.isMineInitiator ? "상대방 연결 대기 중" : "수신 전화";
-    }
-    if (joined && remoteJoined) return "통화 중";
-    if (joined) return "연결 중";
-    return "통화 준비 중";
-  }, [joined, remoteJoined, session]);
-
-  const largeShowsRemote = !layoutSwapped;
-  const showLargeVideoOverlay =
-    session?.callKind === "video" &&
-    (largeShowsRemote ? !remoteVideoReady : !localVideoReady || camOff);
-  const showSmallVideoOverlay =
-    session?.callKind === "video" &&
-    (largeShowsRemote ? !localVideoReady || camOff : !remoteVideoReady);
+  }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
   if (loading && !session) {
     return (
       <div className="flex min-h-full min-h-0 flex-1 flex-col items-center justify-center gap-5 bg-[#0e0e12] px-6 text-center">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-sam-surface/15 border-t-[#665CAC]"
-          aria-hidden
-        />
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-sam-surface/15 border-t-[#665CAC]" aria-hidden />
         <div>
           <p className="text-[16px] font-semibold text-white/95">통화 준비 중</p>
           <p className="mt-1.5 text-[13px] text-white/45">세션을 불러오는 중입니다</p>
@@ -1303,487 +1421,256 @@ export function CommunityMessengerCallClient({
   }
 
   const videoCall = session.callKind === "video";
-  const pipLabelSmall = largeShowsRemote ? "나" : session.peerLabel;
-
-  /** 발신 후 링(상대 연결 대기)에도 패드 표시 — 수신 측 「벨 + 수락/거절」일 때만 숨김 */
-  const showVoiceViberControlPad = !videoCall && !(session.status === "ringing" && !joined);
-
+  const directPhase = resolveDirectCallPhase(session.status, joined, remoteJoined);
   const showCallerMediaGate =
     session.isMineInitiator &&
     !callerMediaConsentDone &&
     !joined &&
     (session.status === "ringing" || session.status === "active");
 
-  /** Avatar dialing shell is voice-only; video ringing uses header + video stage + gate (below). */
-  const isOutboundVoiceDialingShell =
-    !videoCall && session.isMineInitiator && session.status === "ringing" && !joined;
+  const acceptFromScreen = () => {
+    autoJoinBlockedRef.current = false;
+    void acceptIncoming().then((nextSession) => {
+      if (nextSession) {
+        void joinCall(nextSession);
+      }
+    });
+  };
 
-  return (
-    <CallScreenShell
-      variant="page"
-      surfaceClassName={`min-h-full min-h-[100dvh] text-white ${MESSENGER_CALL_GRADIENT_SURFACE}`}
-      className="flex min-h-0 flex-1 flex-col"
-    >
-      <div className="relative mx-auto flex min-h-0 w-full max-w-[520px] flex-1 flex-col px-4 pt-[calc(env(safe-area-inset-top)+12px)]">
-        {isOutboundVoiceDialingShell ? (
-          <>
-            {!isCommunityMessengerAgoraAppConfigured() ? (
-              <div
-                className="mb-3 shrink-0 rounded-ui-rect border border-amber-400/35 bg-amber-950/50 px-3 py-2.5 text-left text-[12px] leading-snug text-amber-50"
-                role="status"
-              >
-                {COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE}
-              </div>
-            ) : null}
-            {isCommunityMessengerMediaBlockedByInsecureOrigin() ? (
-              <div
-                className="mb-3 shrink-0 rounded-ui-rect border border-rose-400/30 bg-rose-950/40 px-3 py-2.5 text-left text-[12px] leading-snug text-rose-50"
-                role="status"
-              >
-                {typeof window !== "undefined" && window.location.protocol === "http:"
-                  ? `${window.location.host} — ${COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT}`
-                  : "이 출처에서는 미디어 장치를 사용할 수 없습니다."}
-              </div>
-            ) : null}
-            {errorMessage ? (
-              <div className="mb-2 flex flex-col gap-2 rounded-2xl border border-sam-surface/10 bg-black/30 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
-                <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-rose-100">{errorMessage}</p>
-                <button
-                  type="button"
-                  onClick={() => handleRetryMediaAndJoin()}
-                  disabled={busy === "accept" || busy === "join"}
-                  className="shrink-0 rounded-full bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg disabled:opacity-40"
-                >
-                  {busy === "join" || busy === "accept" ? "연결 중…" : "다시 시도"}
-                </button>
-              </div>
-            ) : null}
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              <MessengerCallDialingLayout
-                embedded
-                peerLabel={session.peerLabel}
-                kindLabel={videoCall ? "영상 통화" : "음성 통화"}
-                onCancel={() => void endCall()}
-                onEndCall={() => void endCall()}
-                endCallBusy={busy === "end"}
-              />
-              {showCallerMediaGate ? (
-                <CallerMediaGateOverlay
-                  callKind={videoCall ? "video" : "voice"}
-                  onConfirm={confirmCallerMediaAndConnect}
-                  busy={busy === "join" || busy === "accept"}
-                />
-              ) : null}
-            </div>
-            {callKeypadOpen && !videoCall ? (
-              <CallKeypadOverlay onClose={() => setCallKeypadOpen(false)} />
-            ) : null}
-          </>
-        ) : (
-          <>
-        <header className="flex shrink-0 items-center justify-between border-b border-white/[0.08] py-3">
-          <button
-            type="button"
-            onClick={() => navigateToChatDuringCall()}
-            className="rounded-full border border-white/18 bg-white/[0.08] px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
-          >
-            채팅으로 돌아가기
-          </button>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wide text-white/90">
-            {videoCall ? "영상 통화" : "음성 통화"}
-          </span>
-        </header>
+  const goToRoom = () => {
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
+  };
 
-        {videoCall ? (
-          <div className="shrink-0 py-2 text-center">
-            <p className="text-[17px] font-semibold text-white drop-shadow-sm">{session.peerLabel}</p>
-            <p className="mt-0.5 text-[13px] tabular-nums text-white/80">
-              {joined && session.status === "active" ? formatDuration(elapsedSeconds) : statusLabel}
-            </p>
-            {joined && session.status === "active" ? (
-              <p className={`mt-0.5 text-[12px] font-medium ${lastMileToneClass}`}>{lastMileLine}</p>
-            ) : null}
-            <p className="mt-0.5 text-[11px] text-white/55">1:1 · 참여 2</p>
-          </div>
-        ) : null}
-
-        <main
-          className={`relative flex min-h-0 min-w-0 flex-1 flex-col ${videoCall ? "overflow-hidden" : "overflow-y-auto"}`}
-        >
-          {!isCommunityMessengerAgoraAppConfigured() ? (
-            <div
-              className="mb-3 shrink-0 rounded-ui-rect border border-amber-400/35 bg-amber-950/50 px-3 py-2.5 text-left text-[12px] leading-snug text-amber-50"
-              role="status"
-            >
-              {COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE}
-            </div>
-          ) : null}
-          {isCommunityMessengerMediaBlockedByInsecureOrigin() ? (
-            <div
-              className="mb-3 shrink-0 rounded-ui-rect border border-rose-400/30 bg-rose-950/40 px-3 py-2.5 text-left text-[12px] leading-snug text-rose-50"
-              role="status"
-            >
-              {typeof window !== "undefined" && window.location.protocol === "http:"
-                ? `${window.location.host} — ${COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT}`
-                : "이 출처에서는 미디어 장치를 사용할 수 없습니다."}
-            </div>
-          ) : null}
-          {!videoCall && showCallerMediaGate ? (
-            <CallerMediaGateOverlay
-              callKind="voice"
-              onConfirm={confirmCallerMediaAndConnect}
-              busy={busy === "join" || busy === "accept"}
-            />
-          ) : null}
-          {!videoCall ? (
-            <div className="relative z-0 shrink-0 pt-2 text-center">
-              <p className="text-[28px] font-semibold tracking-tight text-white drop-shadow-sm sm:text-[32px]">
-                {session.peerLabel}
-              </p>
-              <p className="mt-2 text-[15px] text-white/65">{statusLabel}</p>
-              <p className="mt-2 text-[11px] text-white/45">대화로 돌아가도 통화는 유지되며 언제든 다시 복귀할 수 있습니다.</p>
-              {joined && session.status === "active" ? (
-                <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/90">
-                  {formatDuration(elapsedSeconds)}
-                </p>
-              ) : session.status === "ringing" && session.isMineInitiator ? (
-                <p className="mt-3 font-mono text-[17px] font-semibold tabular-nums text-white/35">00:00</p>
-              ) : null}
-              {showVoiceViberControlPad && (session.status === "ringing" || (joined && session.status === "active")) ? (
-                <p className={`mt-2 text-[13px] font-medium ${joined && session.status === "active" ? lastMileToneClass : "text-white/45"}`}>
-                  {joined && session.status === "active" ? lastMileLine : "네트워크 품질 · 확인 중"}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div
-            className={
-              videoCall
-                ? "flex min-h-0 w-full flex-1 flex-col"
-                : "mx-auto flex w-full max-w-[420px] flex-1 flex-col py-4 sm:py-6"
-            }
-          >
-          {session.callKind === "video" ? (
-            <div
-              ref={videoStageRef}
-              className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-ui-rect bg-black/35 shadow-lg ring-1 ring-white/15 sm:min-h-[min(58dvh,560px)]"
-            >
-              {showCallerMediaGate ? (
-                <CallerMediaGateOverlay
-                  callKind="video"
-                  onConfirm={confirmCallerMediaAndConnect}
-                  busy={busy === "join" || busy === "accept"}
-                />
-              ) : null}
-              {joined ? (
-                <button
-                  type="button"
-                  onClick={() => setLayoutSwapped((v) => !v)}
-                  className="pointer-events-auto absolute right-2 top-2 z-[28] flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white/95 shadow-md backdrop-blur-md ring-1 ring-white/15 transition active:scale-95"
-                  aria-label="큰 화면과 작은 화면 바꾸기"
-                  title="화면 전환"
-                >
-                  <ExpandSwapCornerIcon className="h-[17px] w-[17px]" />
-                </button>
-              ) : null}
-
-              <div className="absolute inset-0 bg-black/85">
-                <div
-                  ref={largeVideoRef}
-                  className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:min-w-0 [&_video]:!object-cover"
-                />
-                {showLargeVideoOverlay ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-sam-ink px-4 text-center text-[13px] text-white/75">
-                    {largeShowsRemote ? (
-                      <>
-                        <p>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기 중"}</p>
-                        <p className="text-[11px] text-white/45">큰 화면 · 상대</p>
-                      </>
-                    ) : camOff ? (
-                      <>
-                        <p>카메라가 꺼져 있습니다</p>
-                        <p className="text-[11px] text-white/45">큰 화면 · 나</p>
-                      </>
-                    ) : (
-                      <>
-                        <p>내 영상 준비 중</p>
-                        <p className="text-[11px] text-white/45">큰 화면 · 나</p>
-                      </>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-
-              {joined && largeShowsRemote && remoteVideoReady && !showLargeVideoOverlay ? (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pb-3 pt-14 text-center sm:pb-4">
-                  <p className="truncate text-[13px] font-medium text-white drop-shadow-sm">{session.peerLabel}</p>
-                </div>
-              ) : null}
-
-              <div
-                ref={pipWrapRef}
-                className={`absolute z-20 w-[20%] min-w-[76px] max-w-[124px] overflow-hidden rounded-ui-rect border border-sam-surface/20 bg-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] sm:w-[21%] sm:min-w-[84px] sm:max-w-[136px] sm:rounded-ui-rect ${
-                  pipPixelPosition
-                    ? "right-auto bottom-auto"
-                    : joined
-                      ? "bottom-[6.5rem] left-3 sm:bottom-[7rem] sm:left-4"
-                      : "bottom-[4.25rem] left-3 sm:bottom-[4.5rem] sm:left-4"
-                }`}
-                style={{
-                  aspectRatio: "9 / 16",
-                  ...(pipPixelPosition
-                    ? { left: pipPixelPosition.left, top: pipPixelPosition.top }
-                    : undefined),
-                }}
-                aria-label="작은 화면 — 드래그하여 위치 이동"
-                role="group"
-              >
-                <div
-                  ref={smallVideoRef}
-                  className="pointer-events-none h-full w-full bg-black [&_video]:pointer-events-none [&_video]:object-cover"
-                />
-                {showSmallVideoOverlay ? (
-                  <div className="pointer-events-none absolute inset-0 z-[1] flex flex-col items-center justify-center gap-0.5 bg-sam-ink px-2 pb-6 text-center text-[11px] leading-snug text-white/72">
-                    {largeShowsRemote ? (
-                      camOff ? (
-                        <>
-                          <CamOffSmallIcon className="mx-auto h-6 w-6 text-white/50" />
-                          <span>카메라 꺼짐</span>
-                        </>
-                      ) : (
-                        <span>내 영상 준비 중</span>
-                      )
-                    ) : (
-                      <span>{remoteJoined ? "상대 영상 연결 중…" : "상대 대기"}</span>
-                    )}
-                  </div>
-                ) : null}
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-[1] bg-black/60 py-1 text-center text-[10px] font-medium text-white/95 backdrop-blur-[2px]">
-                  <span className="block truncate px-1">{pipLabelSmall}</span>
-                </div>
-                <div
-                  className="absolute inset-0 z-[2] cursor-grab touch-none select-none active:cursor-grabbing"
-                  onPointerDown={onPipPointerDown}
-                  onPointerMove={onPipPointerMove}
-                  onPointerUp={onPipPointerUp}
-                  onPointerCancel={onPipPointerUp}
-                  onLostPointerCapture={() => {
-                    pipDragRef.current = null;
-                  }}
-                  aria-hidden
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="relative z-0 flex flex-1 flex-col items-center justify-center py-4">
-              <div
-                className={`relative flex aspect-square w-[min(68vw,264px)] max-w-[280px] shrink-0 items-center justify-center rounded-full bg-sam-surface-dark text-[clamp(48px,18vw,92px)] font-light text-white/95 ring-1 ring-sam-surface/10 ${
-                  session.status === "ringing" && session.isMineInitiator ? "animate-pulse" : ""
-                }`}
-                aria-hidden
-              >
-                <span className="select-none">{peerDisplayInitial(session.peerLabel)}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      <div
-        className={
-          videoCall
-            ? "w-full shrink-0 px-3 pb-[max(0.5rem,calc(env(safe-area-inset-bottom,0px)+0.35rem))] pt-2"
-            : "mx-auto w-full max-w-[420px] shrink-0 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))] pt-3"
+  const startOutgoingAgain = (kind: "voice" | "video") => {
+    void (async () => {
+      try {
+        const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+          { roomId: session.roomId, peerUserId: session.peerUserId ?? null, kind },
+          (href) => router.replace(href)
+        );
+        if (!result.ok) {
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
-      >
-        {errorMessage ? (
-          <div className="mb-2 flex flex-col gap-2 rounded-2xl border border-sam-surface/10 bg-black/30 px-3 py-2.5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
-            <p className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-rose-100">{errorMessage}</p>
-            <button
-              type="button"
-              onClick={() => handleRetryMediaAndJoin()}
-              disabled={busy === "accept" || busy === "join"}
-              className="shrink-0 rounded-full bg-sam-surface px-4 py-2 text-[13px] font-semibold text-sam-fg disabled:opacity-40"
-            >
-              {busy === "join" || busy === "accept" ? "연결 중…" : "다시 시도"}
-            </button>
-          </div>
-        ) : null}
+      } catch {
+        showMessengerSnackbar("네트워크 오류로 통화를 시작하지 못했습니다.", { variant: "error" });
+      }
+    })();
+  };
 
-        {session.callKind === "video" && joined ? (
-          <div className="mb-2 flex flex-col gap-5">
-            <div className="flex items-end justify-center gap-10 px-4 sm:gap-14">
-              <button
-                type="button"
-                onClick={() => void toggleMicEnabled()}
-                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-sam-surface/35 bg-sam-surface/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
-                  micMuted ? "border-amber-300/50 bg-amber-500/15" : ""
-                }`}
-                aria-label={micMuted ? "음소거 해제" : "음소거"}
-              >
-                {micMuted ? <MicOffToolbarIcon className="h-7 w-7" /> : <MicOnToolbarIcon className="h-7 w-7" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => void endCall()}
-                disabled={busy === "end"}
-                className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition active:scale-95 disabled:opacity-45 sm:h-[4.5rem] sm:w-[4.5rem]"
-                aria-label="통화 종료"
-              >
-                <EndCallStandardIcon className="h-9 w-9" />
-              </button>
-              <button
-                type="button"
-                onClick={() => void toggleCamEnabled()}
-                className={`flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full border-2 border-sam-surface/35 bg-sam-surface/[0.08] text-white shadow-[0_8px_28px_rgba(0,0,0,0.35)] transition active:scale-95 ${
-                  camOff ? "border-amber-300/50 bg-amber-500/15" : ""
-                }`}
-                aria-label={camOff ? "카메라 켜기" : "카메라 끄기"}
-              >
-                {camOff ? <CamOffToolbarIcon className="h-7 w-7" /> : <CamOnToolbarIcon className="h-7 w-7" />}
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              <CallControlButton
-                label={speakerEnabled ? "스피커" : "이어폰"}
-                active={speakerEnabled}
-                onClick={toggleSpeakerEnabled}
-                icon={<SpeakerIcon className="h-5 w-5" />}
-              />
-              <CallControlButton
-                label={bluetoothPreferred ? "블루투스 우선" : "블루투스"}
-                active={bluetoothPreferred}
-                onClick={toggleBluetoothPreferred}
-                icon={<BluetoothIcon className="h-5 w-5" />}
-              />
-              <CallControlButton
-                label="카메라 전환"
-                onClick={() => void switchCameraFacing()}
-                disabled={!cameraSwitchSupported || busy === "camera"}
-                icon={<SwitchCameraIcon className="h-5 w-5" />}
-              />
-              <CallControlButton
-                label="화면 맞바꿈"
-                onClick={() => setLayoutSwapped((v) => !v)}
-                icon={<SwapVideoLayoutIcon className="h-5 w-5" />}
-              />
-              <CallControlButton
-                label="채팅"
-                onClick={() => navigateToChatDuringCall()}
-                icon={<ChatBubbleIcon className="h-5 w-5" />}
-              />
-              <CallControlButton
-                label="권한"
-                onClick={() => {
-                  if (!openCommunityMessengerPermissionSettings()) {
-                    showMessengerSnackbar("브라우저 설정에서 이 사이트의 마이크·카메라 권한을 허용해 주세요.", {
-                      variant: "error",
-                    });
-                  }
-                }}
-                icon={<SettingsGearIcon className="h-5 w-5" />}
-              />
-            </div>
-          </div>
-        ) : null}
+  const primaryActions: CallActionItem[] = [];
+  const secondaryActions: CallActionItem[] = [];
 
-        {!(session.callKind === "video" && joined) ? (
-          <div className="space-y-3">
-            {!session.isMineInitiator && session.status === "ringing" && !joined ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void rejectIncoming()}
-                    disabled={busy === "reject"}
-                    className="rounded-ui-rect border border-sam-surface/15 px-4 py-3 text-[14px] font-medium text-white/80 disabled:opacity-40"
-                  >
-                    거절
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      autoJoinBlockedRef.current = false;
-                      void acceptIncoming().then((nextSession) => {
-                        if (nextSession) {
-                          void joinCall(nextSession);
-                        }
-                      });
-                    }}
-                    disabled={busy === "accept" || busy === "join"}
-                    className="rounded-ui-rect bg-sam-ink px-4 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-                  >
-                    {busy === "accept" || busy === "join" ? "연결 중..." : "수락"}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {showVoiceViberControlPad ? (
-                  <div className="mx-auto grid w-full max-w-[340px] grid-cols-3 gap-x-3 gap-y-5 px-1">
-                    <ViberOutlineCallButton
-                      label={micMuted ? "음소거 해제" : "음소거"}
-                      active={micMuted}
-                      onClick={() => void toggleMicEnabled()}
-                      icon={micMuted ? <MicOffToolbarIcon className="h-6 w-6" /> : <MicOnToolbarIcon className="h-6 w-6" />}
-                    />
-                    <ViberOutlineCallButton
-                      label="자판"
-                      onClick={() => setCallKeypadOpen(true)}
-                      icon={<KeypadIcon className="h-6 w-6" />}
-                    />
-                    <ViberOutlineCallButton
-                      label={speakerEnabled ? "스피커" : "이어폰"}
-                      active={speakerEnabled}
-                      onClick={toggleSpeakerEnabled}
-                      icon={<SpeakerIcon className="h-6 w-6" />}
-                    />
-                    <ViberOutlineCallButton
-                      label="영상 통화"
-                      onClick={() => void requestUpgradeToVideo()}
-                      icon={<CamOnToolbarIcon className="h-6 w-6" />}
-                    />
-                    <ViberOutlineCallButton
-                      label="전환"
-                      onClick={() =>
-                        showMessengerSnackbar("통화 전환(다른 번호로 돌리기)는 추후 지원 예정입니다.")
-                      }
-                      icon={<PhoneTransferIcon className="h-6 w-6" />}
-                    />
-                    <ViberOutlineCallButton
-                      label="연락처"
-                      onClick={() => router.push("/community-messenger?section=friends")}
-                      icon={<ContactsOutlineIcon className="h-6 w-6" />}
-                    />
-                  </div>
-                ) : null}
-                <div
-                  className={`flex justify-center ${showVoiceViberControlPad ? "mt-5" : "mt-2"}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => void endCall()}
-                    disabled={busy === "end"}
-                    className="flex h-[4.25rem] w-[4.25rem] shrink-0 items-center justify-center rounded-full bg-[#e5394a] text-white shadow-[0_12px_40px_rgba(229,57,74,0.45)] transition active:scale-95 disabled:opacity-40"
-                    aria-label="통화 종료"
-                  >
-                    <EndCallStandardIcon className="h-8 w-8" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        ) : null}
-        {callKeypadOpen && !videoCall ? (
-          <CallKeypadOverlay onClose={() => setCallKeypadOpen(false)} />
-        ) : null}
+  if (directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed") {
+    // 종료 화면은 "통화 실패/취소" 플로우로 통일: 다시 시도 + 거부(채팅으로)
+    primaryActions.push(
+      {
+        id: "retry-call",
+        label: "다시 시도",
+        icon: "retry",
+        onClick: () => startOutgoingAgain("voice"),
+        disabled: !session.peerUserId,
+      },
+      {
+        id: "reject-after-end",
+        label: "거부",
+        icon: "decline",
+        tone: "danger",
+        onClick: goToRoom,
+      }
+    );
+  } else if (!session.isMineInitiator && directPhase === "ringing") {
+    primaryActions.push(
+      {
+        id: "reject",
+        label: busy === "reject" ? "거절 중" : "거절",
+        icon: "decline",
+        tone: "danger",
+        disabled: busy === "reject" || busy === "accept" || busy === "join",
+        onClick: () => void rejectIncoming(),
+      },
+      {
+        id: "accept",
+        label: busy === "accept" || busy === "join" ? "연결 중" : "수락",
+        icon: "accept",
+        tone: "accept",
+        disabled: busy === "accept" || busy === "join",
+        onClick: acceptFromScreen,
+      }
+    );
+  } else if (videoCall) {
+    primaryActions.push(
+      {
+        id: "switch-camera",
+        label: "전환",
+        icon: "camera-switch",
+        disabled: !cameraSwitchSupported || busy === "camera" || !joined,
+        onClick: () => void switchCameraFacing(),
+      },
+      {
+        id: "camera",
+        label: camOff ? "카메라 꺼짐" : "카메라",
+        icon: "camera",
+        active: !camOff,
+        disabled: busy === "join",
+        onClick: () => void toggleCamEnabled(),
+      },
+      {
+        id: "mute",
+        label: micMuted ? "음소거 해제" : "음소거",
+        icon: "mic",
+        active: !micMuted,
+        disabled: busy === "join",
+        onClick: () => void toggleMicEnabled(),
+      },
+      {
+        id: "end",
+        label: busy === "end" ? "종료 중" : "종료",
+        icon: "end",
+        tone: "danger",
+        disabled: busy === "end",
+        onClick: () => void endCall(),
+      }
+    );
+  } else {
+    primaryActions.push(
+      {
+        id: "speaker",
+        label: "스피커",
+        icon: "speaker",
+        active: speakerEnabled,
+        onClick: toggleSpeakerEnabled,
+      },
+      {
+        id: "upgrade-video",
+        label: "영상 전환",
+        icon: "video",
+        active: joined && session.status === "active",
+        disabled: !joined || session.status !== "active",
+        onClick: () => void requestUpgradeToVideo(),
+      },
+      {
+        id: "mute",
+        label: micMuted ? "음소거 해제" : "음소거",
+        icon: "mic",
+        active: !micMuted,
+        disabled: busy === "join",
+        onClick: () => void toggleMicEnabled(),
+      },
+      {
+        id: "end",
+        label: busy === "end" ? "종료 중" : "종료",
+        icon: "end",
+        tone: "danger",
+        disabled: busy === "end",
+        onClick: () => void endCall(),
+      }
+    );
+  }
+
+  if (showCallerMediaGate) {
+    secondaryActions.push({
+      id: "grant-media",
+      label: "허용 후 연결",
+      icon: "accept",
+      tone: "accept",
+      disabled: busy === "join" || busy === "accept",
+      onClick: confirmCallerMediaAndConnect,
+    });
+  } else if (
+    errorMessage &&
+    !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage) &&
+    directPhase !== "ended" &&
+    directPhase !== "declined" &&
+    directPhase !== "missed" &&
+    directPhase !== "failed"
+  ) {
+    secondaryActions.push({
+      id: "retry-media",
+      label: busy === "join" || busy === "accept" ? "재시도 중" : "다시 시도",
+      icon: "retry",
+      disabled: busy === "join" || busy === "accept",
+      onClick: handleRetryMediaAndJoin,
+    });
+  }
+
+  const statusText =
+    directPhase === "ringing"
+      ? session.isMineInitiator
+        ? "Ringing..."
+        : videoCall
+          ? "영상 통화"
+          : "음성 통화"
+      : directPhase === "connecting"
+        ? "연결중..."
+        : directPhase === "connected"
+          ? videoCall
+            ? "영상 통화 중"
+            : "통화 중"
+          : directPhase === "declined"
+            ? "거절됨"
+            : directPhase === "missed"
+              ? "응답 없음"
+              : directPhase === "failed"
+                ? "연결 실패"
+                : "통화 종료";
+
+  const subStatusText =
+    errorMessage ??
+    (directPhase === "ringing"
+      ? session.isMineInitiator
+        ? "상대가 받을 때까지 기다리는 중입니다."
+        : "수락 또는 거절을 선택해 주세요."
+      : directPhase === "connecting"
+        ? "실제 미디어 연결을 붙이는 중입니다."
+        : directPhase === "connected"
+          ? lastMileLine
+          : null);
+
+  const callVm: CallScreenViewModel = {
+    mode: videoCall ? "video" : "voice",
+    direction: session.isMineInitiator ? "outgoing" : "incoming",
+    phase: directPhase,
+    peerLabel: session.peerLabel,
+    peerAvatarUrl: null,
+    statusText,
+    subStatusText,
+    topLabel: videoCall && directPhase === "connected" ? "음성 통화" : null,
+    onTopLabelClick: videoCall && directPhase === "connected" ? () => void requestDowngradeToVoice() : null,
+    footerNote: showCallerMediaGate
+      ? "브라우저 권한을 허용해야 실제 연결이 시작됩니다."
+      : directPhase === "ringing" && ringStartAt
+        ? "통화 시간은 실제 연결 완료 후부터 시작됩니다."
+        : null,
+    connectionLabel: directPhase === "connected" ? lastMileLine : null,
+    connectedAt: connectedAtTs,
+    endedAt: terminalClosedAt,
+    endedDurationSeconds,
+    mediaState: {
+      micEnabled: !micMuted,
+      speakerEnabled,
+      cameraEnabled: !camOff,
+      localVideoMinimized: !layoutSwapped,
+    },
+    onBack: null,
+    primaryActions,
+    secondaryActions,
+    mainVideoSlot: videoCall ? (
+      <div className="absolute inset-0 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+        <div ref={largeVideoRef} className="h-full w-full" />
       </div>
-          </>
-        )}
+    ) : undefined,
+    miniVideoSlot: videoCall ? (
+      <div className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+        <div ref={smallVideoRef} className="h-full w-full" />
       </div>
-    </CallScreenShell>
-  );
+    ) : undefined,
+    showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady && !layoutSwapped : false,
+    showLocalVideo: videoCall ? joined && localVideoReady && !camOff && !layoutSwapped : false,
+    participantsSummary: "1:1 통화",
+    autoCloseMs: directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed" ? 2400 : null,
+  };
+
+  return <CallScreen vm={callVm} variant="page" />;
 }
 
 function PhoneTransferIcon({ className }: { className?: string }) {
@@ -1985,6 +1872,19 @@ function CallControlButton({
       <span className="leading-tight">{label}</span>
     </button>
   );
+}
+
+function resolveDirectCallPhase(
+  status: CommunityMessengerCallSession["status"],
+  joined: boolean,
+  remoteJoined: boolean
+): CallPhase {
+  if (status === "rejected") return "declined";
+  if (status === "missed") return "missed";
+  if (status === "cancelled") return "failed";
+  if (status === "ended") return "ended";
+  if (status === "ringing") return "ringing";
+  return joined && remoteJoined ? "connected" : "connecting";
 }
 
 function peerDisplayInitial(label: string): string {

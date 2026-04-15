@@ -13,7 +13,8 @@ export type BuildCommunityMessengerOutgoingDialHrefArgs = {
 };
 
 /**
- * 발신 다이얼 URL — **클릭 직후** `router.push` 해서 `/calls/outgoing` calling UI 를 먼저 띄운다.
+ * 발신 다이얼 URL — 레거시·딥링크용. 앱 내 발신은 `bootstrapCommunityMessengerOutgoingCallAndNavigate` 로
+ * 세션 생성 후 곧바로 `/calls/:sessionId` 로 이동해 화면 전환이 한 번만 일어나게 한다.
  * `roomId` 또는 `peerUserId` 중 하나는 있어야 한다.
  */
 export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMessengerOutgoingDialHrefArgs): string {
@@ -85,6 +86,26 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
     return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
   }
   return { ok: true, session: json.session, roomId };
+}
+
+/**
+ * 세션 POST → seed → `/community-messenger/calls/:id` 로 이동까지 한 번에 처리한다.
+ * (중간 `/calls/outgoing` 전체 화면을 거치지 않는다.)
+ */
+export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
+  input: {
+    signal?: AbortSignal;
+    roomId: string | null;
+    peerUserId: string | null;
+    kind: CommunityMessengerCallKind;
+  },
+  navigate: (href: string) => void
+): Promise<OutgoingCallSessionBootstrapResult> {
+  const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
+  if (!result.ok) return result;
+  primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
+  navigate(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
+  return result;
 }
 
 /**

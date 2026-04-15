@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * 수신 통화 전용 — 발신 진입점은 `lib/community-messenger/outgoing-call-surfaces.ts` 참고.
@@ -25,8 +25,8 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { CallPrimaryButton } from "@/components/community-messenger/call-ui/CallButtons";
-import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { CallScreen } from "@/components/messenger/call/CallScreen";
+import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -266,7 +266,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   old: p.old ?? null,
                 })
               );
-              void refreshRef.current(true);
+              scheduleRealtimeIncomingRefresh();
             }
           )
           .on(
@@ -567,6 +567,64 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [refresh]);
 
+  if (visibleSession) {
+    const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
+    const incomingVm: CallScreenViewModel = {
+      mode: visibleSession.callKind === "video" ? "video" : "voice",
+      direction: "incoming",
+      phase: "ringing",
+      peerLabel: visibleSession.peerLabel,
+      peerAvatarUrl: null,
+      statusText: callTypeLabel,
+      subStatusText: sessionActionError ?? incomingListError ?? "수락 또는 거절을 선택해 주세요.",
+      topLabel: t("nav_incoming_call"),
+      footerNote: "실제 통화 시간은 연결 완료 후부터 시작됩니다.",
+      mediaState: {
+        micEnabled: true,
+        speakerEnabled: true,
+        cameraEnabled: visibleSession.callKind === "video",
+        localVideoMinimized: true,
+      },
+      onBack: () => setMinimizedSessionId(visibleSession.id),
+      primaryActions: [
+        {
+          id: "reject",
+          label: busyId === `reject:${visibleSession.id}` ? "거절 중" : "거절",
+          icon: "decline",
+          tone: "danger",
+          disabled:
+            busyId === `reject:${visibleSession.id}` ||
+            busyId === `block:${visibleSession.id}` ||
+            busyId === `accept:${visibleSession.id}`,
+          onClick: () => void rejectCall(visibleSession.id),
+        },
+        {
+          id: "accept",
+          label: busyId === `accept:${visibleSession.id}` ? "연결 중" : "수락",
+          icon: "accept",
+          tone: "accept",
+          disabled: busyId === `accept:${visibleSession.id}`,
+          onClick: () => void acceptCall(visibleSession),
+        },
+      ],
+      secondaryActions: [
+        {
+          id: "message-reject",
+          label: "메시지",
+          icon: "message",
+          disabled: busyId === `reply:${visibleSession.id}`,
+          onClick: () =>
+            void sendQuickReplyAndReject(
+              visibleSession,
+              QUICK_REPLY_OPTIONS[0]
+            ),
+        },
+      ],
+    };
+
+    return <CallScreen vm={incomingVm} variant="overlay" />;
+  }
+
   if (!visibleSession) {
     if (incomingListError) {
       return (
@@ -601,186 +659,6 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     return null;
   }
-
-  const callTypeLabel = visibleSession.callKind === "video" ? "영상 통화" : "음성 통화";
-
-  return (
-    <CallScreenShell className="min-h-[100dvh]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(10,8,24,0.35)_0%,transparent_55%)]" aria-hidden />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        {(sessionActionError || incomingListError) ? (
-          <div className="pointer-events-auto space-y-2 px-3 pt-[max(8px,env(safe-area-inset-top))]">
-            {sessionActionError ? (
-              <div
-                className="rounded-ui-rect border border-amber-500/40 bg-amber-950/80 px-3 py-2 text-[12px] text-amber-50"
-                role="alert"
-              >
-                <span>{sessionActionError}</span>
-                <button
-                  type="button"
-                  className="ml-2 font-semibold underline underline-offset-2"
-                  onClick={() => setSessionActionError(null)}
-                >
-                  닫기
-                </button>
-              </div>
-            ) : null}
-            {incomingListError ? (
-              <div
-                className="rounded-ui-rect border border-white/15 bg-black/35 px-3 py-2 text-[11px] text-white/85 backdrop-blur-sm"
-                role="status"
-              >
-                {incomingListError}
-                <button
-                  type="button"
-                  className="ml-2 font-semibold text-white underline underline-offset-2"
-                  onClick={() => void refresh(true)}
-                >
-                  {MESSENGER_CALL_USER_MSG.incomingListRetry}
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {isMinimized ? (
-          <div className="mx-3 mt-[max(12px,env(safe-area-inset-top))] flex items-center gap-3 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]/95 px-3 py-2 shadow-[var(--messenger-shadow-soft)] backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={() => setMinimizedSessionId(null)}
-              className="min-w-0 flex-1 touch-manipulation text-left"
-            >
-              <p className="truncate text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
-                {visibleSession.peerLabel}
-              </p>
-              <p className="truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-                {callTypeLabel} 수신
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => void rejectCall(visibleSession.id)}
-              disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
-              className="touch-manipulation rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2 text-[12px] font-medium disabled:opacity-40"
-              style={{ color: "var(--messenger-text)" }}
-            >
-              거절
-            </button>
-            <button
-              type="button"
-              onClick={() => void acceptCall(visibleSession)}
-              disabled={busyId === `accept:${visibleSession.id}`}
-              className="touch-manipulation rounded-[var(--messenger-radius-sm)] border border-transparent bg-[color:var(--messenger-primary)] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-40"
-            >
-              수락
-            </button>
-          </div>
-        ) : (
-          <div className="flex min-h-0 flex-1 flex-col justify-between bg-[linear-gradient(180deg,#5f4ad4_0%,#352a80_46%,#17142d_100%)] px-5 pb-[max(20px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(16px,calc(env(safe-area-inset-top)+8px))] text-white shadow-[0_-8px_32px_rgba(17,24,39,0.08)]">
-            <div>
-              <div className="flex items-center justify-between">
-                <span
-                  className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.18)",
-                    color: "white",
-                  }}
-                >
-                  {t("nav_incoming_call")}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMinimizedSessionId(visibleSession.id)}
-                  className="rounded-[var(--messenger-radius-sm)] px-3 py-2 text-[12px] font-medium text-white/85 active:bg-white/10"
-                >
-                  최소화
-                </button>
-              </div>
-              <div className="mt-4 rounded-[18px] border border-white/10 bg-white/8 px-3 py-2.5 backdrop-blur-sm">
-                <p className="text-[11px] font-semibold text-white/85">{bridgeStatus.label}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-white/65">
-                  {bridgeStatus.supportsBackgroundParity
-                    ? "앱 래퍼가 연결되면 잠금화면/백그라운드 수신까지 확장할 수 있습니다."
-                    : "브라우저에서는 앱이 열린 상태의 수신 경험을 우선 제공합니다."}
-                </p>
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-10 text-center">
-                <IncomingAvatar label={visibleSession.peerLabel} />
-                <h2 className="mt-5 text-[24px] font-semibold tracking-tight text-white">
-                  {visibleSession.peerLabel}
-                </h2>
-                <p className="mt-2 text-[13px] text-white/70">
-                  수신 통화
-                </p>
-                <p className="mt-1 text-[15px] font-medium text-white">
-                  {callTypeLabel}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setReplySheetSessionId((prev) => (prev === visibleSession.id ? null : visibleSession.id))
-                  }
-                  disabled={busyId === `reply:${visibleSession.id}`}
-                  className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 px-4 py-3 text-[13px] font-medium text-white disabled:opacity-40 active:bg-white/15"
-                >
-                  메시지 응답
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void blockCaller(visibleSession)}
-                  disabled={busyId === `block:${visibleSession.id}`}
-                  className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 px-4 py-3 text-[13px] font-medium text-white disabled:opacity-40 active:bg-white/15"
-                >
-                  {busyId === `block:${visibleSession.id}` ? "차단 중..." : "차단"}
-                </button>
-              </div>
-              {replySheetSessionId === visibleSession.id ? (
-                <div className="rounded-[var(--messenger-radius-md)] border border-white/12 bg-white/10 p-2">
-                  <p className="px-1 pb-2 text-[11px] font-medium text-white/70">
-                    메시지 후 거절
-                  </p>
-                  <div className="grid gap-2">
-                    {QUICK_REPLY_OPTIONS.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => void sendQuickReplyAndReject(visibleSession, option)}
-                        disabled={busyId === `reply:${visibleSession.id}`}
-                        className="rounded-[var(--messenger-radius-sm)] border border-white/12 bg-black/10 px-3 py-2 text-left text-[12px] text-white disabled:opacity-40 active:bg-white/15"
-                      >
-                        {busyId === `reply:${visibleSession.id}` ? "전송 중..." : option}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              <div className="grid grid-cols-2 gap-3">
-                <CallPrimaryButton
-                  variant="outline"
-                  onClick={() => void rejectCall(visibleSession.id)}
-                  disabled={busyId === `reject:${visibleSession.id}` || busyId === `block:${visibleSession.id}`}
-                  className="!border-white/12 !bg-white/10 !font-medium !text-white"
-                >
-                  {t("common_reject")}
-                </CallPrimaryButton>
-                <CallPrimaryButton
-                  variant="solid"
-                  onClick={() => void acceptCall(visibleSession)}
-                  disabled={busyId === `accept:${visibleSession.id}`}
-                >
-                  {busyId === `accept:${visibleSession.id}` ? `${t("common_loading")}` : t("common_accept")}
-                </CallPrimaryButton>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </CallScreenShell>
-  );
 }
 
 /** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
@@ -808,20 +686,5 @@ function mergeIncomingCallSessionsAfterFetch(
 
   return [...serverList, ...optimisticExtras].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-  );
-}
-
-function IncomingAvatar({ label }: { label: string }) {
-  const initial = label.trim().slice(0, 1) || "?";
-  return (
-    <div
-      className="flex h-24 w-24 items-center justify-center rounded-full text-[32px] font-semibold ring-4 ring-[color:var(--messenger-primary-soft-2)]"
-      style={{
-        backgroundColor: "var(--messenger-primary-soft)",
-        color: "var(--messenger-primary)",
-      }}
-    >
-      {initial}
-    </div>
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable react-hooks/refs -- `CommunityMessengerGroupCallHandle`는 훅 반환 객체이며 ref가 아님; `.call*`·`panel` 등 접근이 오탐으로 걸립니다. */
 
@@ -7,7 +7,8 @@ import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenge
 import type { MessageKey } from "@/lib/i18n/messages";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
-import { CallPrimaryButton } from "./CallButtons";
+import { CallScreen } from "@/components/messenger/call/CallScreen";
+import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 
 type PermissionGuide = ReturnType<typeof getCommunityMessengerPermissionGuide>;
 
@@ -39,234 +40,251 @@ export function GroupRoomCallOverlay({
   onAcceptIncomingCall,
 }: GroupRoomCallOverlayProps) {
   const sessionPanel = groupCall.panel;
+  const endedPanel = groupCall.endedPanel;
+
+  if (endedPanel) {
+    const endedVm: CallScreenViewModel = {
+      mode: endedPanel.kind === "video" ? "video" : "voice",
+      direction: "outgoing",
+      phase: endedPanel.reason === "declined" ? "declined" : endedPanel.reason === "missed" ? "missed" : endedPanel.reason === "failed" ? "failed" : "ended",
+      peerLabel: endedPanel.peerLabel,
+      peerAvatarUrl: null,
+      statusText:
+        endedPanel.reason === "declined"
+          ? "거절됨"
+          : endedPanel.reason === "missed"
+            ? "응답 없음"
+            : endedPanel.reason === "failed"
+              ? "연결 실패"
+              : "통화 종료",
+      subStatusText: groupCall.errorMessage,
+      topLabel: isGroupRoom ? `${groupPrefix}${endedPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}` : null,
+      connectedAt: groupCall.connectedAt,
+      endedAt: endedPanel.endedAt,
+      endedDurationSeconds: endedPanel.endedDurationSeconds,
+      mediaState: {
+        micEnabled: true,
+        speakerEnabled: true,
+        cameraEnabled: endedPanel.kind === "video",
+        localVideoMinimized: true,
+      },
+      onBack: groupCall.dismissPanel,
+      primaryActions: [
+        {
+          id: "retry-call",
+          label: "다시 시도",
+          icon: "retry",
+          onClick: () => void groupCall.startOutgoingCall(endedPanel.kind === "video" ? "video" : "voice"),
+        },
+        {
+          id: "reject-after-end",
+          label: "거부",
+          icon: "decline",
+          tone: "danger",
+          onClick: groupCall.dismissPanel,
+        },
+      ],
+      autoCloseMs: 2400,
+    };
+
+    return <CallScreen vm={endedVm} variant="overlay" />;
+  }
+
   if (!sessionPanel) return null;
 
+  const remoteLead = groupCall.remotePeers[0] ?? null;
+  const panelPhase: CallPhase =
+    sessionPanel.mode === "incoming"
+      ? "ringing"
+      : sessionPanel.mode === "dialing"
+        ? "ringing"
+        : sessionPanel.mode === "connecting"
+          ? "connecting"
+          : "connected";
+
+  const primaryActions: CallActionItem[] =
+    sessionPanel.mode === "incoming"
+      ? [
+          {
+            id: "reject",
+            label: groupCall.busy === "call-reject" ? "거절 중" : "거절",
+            icon: "decline",
+            tone: "danger",
+            disabled: groupCall.busy === "call-reject" || groupCall.busy === "call-accept",
+            onClick: () => void groupCall.rejectIncomingCall(),
+          },
+          {
+            id: "accept",
+            label: groupCall.busy === "call-accept" ? "연결 중" : "수락",
+            icon: "accept",
+            tone: "accept",
+            disabled: groupCall.busy === "call-accept",
+            onClick: () => void onAcceptIncomingCall(),
+          },
+        ]
+      : sessionPanel.kind === "video"
+        ? [
+            {
+              id: "switch-camera",
+              label: "전환",
+              icon: "camera-switch",
+              disabled: !groupCall.localStream,
+              onClick: () => void onRetryCallDevicePermission(),
+            },
+            {
+              id: "camera",
+              label: "카메라",
+              icon: "camera",
+              active: Boolean(groupCall.localStream),
+              onClick: () => void onRetryCallDevicePermission(),
+            },
+            {
+              id: "mute",
+              label: "음소거",
+              icon: "mic",
+              active: true,
+              onClick: () => void onRetryCallDevicePermission(),
+            },
+            {
+              id: "end",
+              label: sessionPanel.mode === "active" ? "종료" : "취소",
+              icon: "end",
+              tone: "danger",
+              disabled: groupCall.busy === "call-end" || groupCall.busy === "call-cancel",
+              onClick: () =>
+                void (sessionPanel.mode === "active" ? groupCall.endActiveCall() : groupCall.cancelOutgoingCall()),
+            },
+          ]
+        : [
+            {
+              id: "speaker",
+              label: "스피커",
+              icon: "speaker",
+              active: true,
+              onClick: () => void onRetryCallDevicePermission(),
+            },
+            {
+              id: "video",
+              label: "영상 전환",
+              icon: "video",
+              onClick: () => void groupCall.startOutgoingCall("video"),
+            },
+            {
+              id: "mute",
+              label: "음소거",
+              icon: "mic",
+              active: true,
+              onClick: () => void onRetryCallDevicePermission(),
+            },
+            {
+              id: "end",
+              label: sessionPanel.mode === "active" ? "종료" : "취소",
+              icon: "end",
+              tone: "danger",
+              disabled: groupCall.busy === "call-end" || groupCall.busy === "call-cancel",
+              onClick: () =>
+                void (sessionPanel.mode === "active" ? groupCall.endActiveCall() : groupCall.cancelOutgoingCall()),
+            },
+          ];
+
+  const secondaryActions: CallActionItem[] = [];
+  if (groupCall.connectionBadge?.tone === "poor") {
+    secondaryActions.push({
+      id: "retry",
+      label: "다시 연결",
+      icon: "retry",
+      disabled: groupCall.busy === "call-retry",
+      onClick: () => void groupCall.retryConnection(),
+    });
+  }
+  if (permissionGuide && !groupCall.localStream && sessionPanel.mode !== "incoming") {
+    secondaryActions.push({
+      id: "permission",
+      label: permissionGuide.retryLabel ?? "권한 확인",
+      icon: "accept",
+      onClick: () => void onRetryCallDevicePermission(),
+    });
+  }
+
+  const vm: CallScreenViewModel = {
+    mode: sessionPanel.kind === "video" ? "video" : "voice",
+    direction: sessionPanel.mode === "incoming" ? "incoming" : "outgoing",
+    phase: panelPhase,
+    peerLabel: sessionPanel.peerLabel,
+    peerAvatarUrl: null,
+    statusText:
+      sessionPanel.mode === "incoming"
+        ? sessionPanel.kind === "video"
+          ? "영상 통화"
+          : "음성 통화"
+        : sessionPanel.mode === "dialing"
+          ? "Ringing..."
+          : sessionPanel.mode === "connecting"
+            ? "연결중..."
+            : "그룹 통화 중",
+    subStatusText: groupCall.errorMessage ?? groupCall.callStatusLabel,
+    topLabel: isGroupRoom ? `${groupPrefix}${sessionPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}` : null,
+    footerNote: groupCall.connectionBadge?.label ?? null,
+    connectionLabel: sessionPanel.mode === "active" ? groupCall.connectionBadge?.label ?? null : null,
+    connectedAt: groupCall.connectedAt,
+    endedAt: null,
+    endedDurationSeconds: null,
+    mediaState: {
+      micEnabled: true,
+      speakerEnabled: true,
+      cameraEnabled: sessionPanel.kind === "video",
+      localVideoMinimized: true,
+    },
+    onBack: groupCall.dismissPanel,
+    primaryActions,
+    secondaryActions,
+    mainVideoSlot:
+      sessionPanel.kind === "video" ? (
+        remoteLead ? (
+          <div className="absolute inset-0 bg-black">
+            <video
+              ref={(node) => {
+                groupCall.bindRemoteVideo(remoteLead.userId, node);
+              }}
+              autoPlay
+              playsInline
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-black">
+            <video ref={groupCall.localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+          </div>
+        )
+      ) : undefined,
+    miniVideoSlot:
+      sessionPanel.kind === "video" && groupCall.localStream ? (
+        <video ref={groupCall.localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+      ) : undefined,
+    showRemoteVideo: Boolean(remoteLead),
+    showLocalVideo: Boolean(groupCall.localStream && remoteLead),
+    participantsSummary:
+      isGroupRoom && groupCall.participants.length
+        ? `${groupCall.participants.length}명 참여`
+        : null,
+  };
+
   return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-[rgba(17,16,35,0.45)] px-4 pb-4 backdrop-blur-[2px] sm:items-center sm:pb-0">
-      <div
-        data-messenger-shell
-        className="w-full max-w-[420px] rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-5 pb-5 pt-6 shadow-[var(--messenger-shadow-soft)]"
-        style={{ color: "var(--messenger-text)" }}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <span
-            className="rounded-full px-3 py-1 text-[12px] font-semibold"
-            style={{
-              backgroundColor: "var(--messenger-primary-soft)",
-              color: "var(--messenger-primary)",
-            }}
-          >
-            {isGroupRoom ? groupPrefix : ""}
-            {sessionPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}
-          </span>
-          {sessionPanel.mode === "active" ? (
-            <span className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-1 text-[12px] font-semibold text-[color:var(--messenger-text)]">
-              {formatDuration(groupCall.elapsedSeconds)}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="mt-5 overflow-hidden rounded-ui-rect bg-black">
-          {sessionPanel.kind === "video" ? (
-            <div className="relative min-h-[250px] bg-black">
-              {groupCall.localStream ? (
-                <video ref={groupCall.localVideoRef} autoPlay muted playsInline className="h-[250px] w-full bg-black object-cover" />
-              ) : (
-                <div className="flex h-[250px] flex-col items-center justify-center gap-3 bg-sam-ink px-6 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-ui-rect border border-sam-surface/12 bg-sam-surface/5 text-[12px] font-semibold text-white">
-                    VIDEO
-                  </div>
-                  <p className="text-[13px] text-white/75">{sessionPanel.mode === "incoming" ? "참여 준비" : "영상 준비"}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex h-[250px] flex-col items-center justify-center gap-4 bg-sam-ink">
-              <div className="flex h-24 w-24 items-center justify-center rounded-ui-rect border border-sam-surface/12 bg-sam-surface/5 text-[26px] font-semibold text-white">
-                MIC
-              </div>
-              <p className="text-[13px] text-white/70">{sessionPanel.mode === "incoming" ? "참여 준비" : "음성 준비"}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-5 text-center">
-          <h2 className="text-[22px] font-semibold sm:text-[24px]" style={{ color: "var(--messenger-text)" }}>
-            {sessionPanel.peerLabel}
-          </h2>
-          <p className="mt-1 text-[14px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {groupCall.callStatusLabel}
-          </p>
-          {groupCall.connectionBadge ? (
-            <p className="mt-3 inline-flex rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-1 text-[12px] font-semibold text-[color:var(--messenger-text)]">
-              {groupCall.connectionBadge.label}
-            </p>
-          ) : null}
-          {isGroupRoom && groupCall.participants.length ? (
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              {groupCall.participants.map((participant) => (
-                <span
-                  key={participant.userId}
-                  className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-1 text-[11px] font-semibold text-[color:var(--messenger-text)]"
-                >
-                  {participant.label} · {tt(formatParticipantStatus(participant.status))}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {isGroupRoom && groupCall.remotePeers.length ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {groupCall.remotePeers.map((peer) => (
-                <div key={peer.userId} className="overflow-hidden rounded-ui-rect bg-black">
-                  <video
-                    ref={(node) => {
-                      groupCall.bindRemoteVideo(peer.userId, node);
-                    }}
-                    autoPlay
-                    playsInline
-                    className="h-24 w-full bg-black object-cover"
-                  />
-                  <p className="px-2 py-2 text-[11px] text-white/75">{peer.label}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        {groupCall.errorMessage ? (
-          <div className="mt-4 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] p-4 text-left">
-            <p className="text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
-              {groupCall.errorMessage}
-            </p>
-            {permissionGuide?.description ? (
-              <p className="mt-2 text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
-                {permissionGuide.description}
-              </p>
-            ) : null}
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => void onRetryCallDevicePermission()}
-                disabled={groupCall.busy === "call-start" || groupCall.busy === "call-accept" || groupCall.busy === "device-prepare"}
-                className="flex-1 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-semibold disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-                style={{ color: "var(--messenger-text)" }}
-              >
-                {groupCall.busy === "call-start" || groupCall.busy === "call-accept" || groupCall.busy === "device-prepare"
-                  ? t("nav_messenger_checking")
-                  : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
-              </button>
-              <button
-                type="button"
-                onClick={onOpenCallPermissionHelp}
-                className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-medium active:bg-[color:var(--messenger-primary-soft)]"
-                style={{ color: "var(--messenger-text-secondary)" }}
-              >
-                {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
-              </button>
-            </div>
-          </div>
-        ) : (sessionPanel.mode === "dialing" || sessionPanel.mode === "connecting") && !groupCall.localStream ? (
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => void onRetryCallDevicePermission()}
-              disabled={groupCall.busy === "call-start" || groupCall.busy === "call-accept" || groupCall.busy === "device-prepare"}
-              className="flex-1 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-semibold disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
-              style={{ color: "var(--messenger-text)" }}
-            >
-              {groupCall.busy === "call-start" || groupCall.busy === "call-accept" || groupCall.busy === "device-prepare"
-                ? t("nav_messenger_checking")
-                : permissionGuide?.retryLabel ?? t("nav_messenger_permission_check")}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenCallPermissionHelp}
-              className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] font-medium active:bg-[color:var(--messenger-primary-soft)]"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {permissionGuide?.settingsLabel ?? t("nav_messenger_permission_guide")}
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mt-5">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold tracking-[0.02em]" style={{ color: "var(--messenger-text-secondary)" }}>
-              통화 제어
-            </p>
-            <p className="text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-              {sessionPanel.mode === "incoming"
-                ? "응답 대기"
-                : sessionPanel.mode === "dialing" || sessionPanel.mode === "connecting"
-                  ? "연결 준비 중"
-                  : "통화 진행 중"}
-            </p>
-          </div>
-          <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] p-3">
-            {sessionPanel.mode === "incoming" ? (
-              <div className="grid grid-cols-2 gap-2">
-                <CallPrimaryButton
-                  variant="outline"
-                  onClick={() => void groupCall.rejectIncomingCall()}
-                  disabled={groupCall.busy === "call-reject"}
-                  className="!font-medium"
-                >
-                  거절
-                </CallPrimaryButton>
-                <CallPrimaryButton
-                  variant="solid"
-                  onClick={() => void onAcceptIncomingCall()}
-                  disabled={groupCall.busy === "call-accept"}
-                >
-                  받기
-                </CallPrimaryButton>
-              </div>
-            ) : sessionPanel.mode === "dialing" || sessionPanel.mode === "connecting" ? (
-              <div className="grid gap-2">
-                <CallPrimaryButton
-                  variant="outline"
-                  onClick={() => {
-                    if (sessionPanel.sessionId) {
-                      void groupCall.cancelOutgoingCall();
-                      return;
-                    }
-                    groupCall.dismissPanel();
-                  }}
-                  disabled={sessionPanel.sessionId ? groupCall.busy === "call-cancel" : false}
-                >
-                  통화 취소
-                </CallPrimaryButton>
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                <div className={`grid gap-2 ${groupCall.connectionBadge?.tone === "poor" ? "grid-cols-2" : "grid-cols-1"}`}>
-                  <CallPrimaryButton variant="outline" onClick={() => void groupCall.endActiveCall()} disabled={groupCall.busy === "call-end"}>
-                    통화 종료
-                  </CallPrimaryButton>
-                  {groupCall.connectionBadge?.tone === "poor" ? (
-                    <CallPrimaryButton variant="outline" onClick={() => void groupCall.retryConnection()} disabled={groupCall.busy === "call-retry"} className="!font-medium">
-                      다시 연결
-                    </CallPrimaryButton>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        {sessionPanel.kind !== "video"
-          ? groupCall.remotePeers.map((peer) => (
-              <audio
-                key={`audio:${peer.userId}`}
-                ref={(node) => {
-                  bindMediaStreamToElement(node, peer.stream);
-                }}
-                autoPlay
-                playsInline
-                className="hidden"
-              />
-            ))
-          : null}
-      </div>
-    </div>
+    <>
+      <CallScreen vm={vm} variant="overlay" />
+      {sessionPanel.kind !== "video"
+        ? groupCall.remotePeers.map((peer) => (
+            <audio
+              key={`audio:${peer.userId}`}
+              ref={(node) => {
+                bindMediaStreamToElement(node, peer.stream);
+              }}
+              autoPlay
+              playsInline
+              className="hidden"
+            />
+          ))
+        : null}
+    </>
   );
 }

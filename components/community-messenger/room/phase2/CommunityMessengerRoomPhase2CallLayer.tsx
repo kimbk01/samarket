@@ -54,7 +54,7 @@ export function CommunityMessengerRoomPhase2CallLayer() {
   const returnToCallSessionId = vm.returnToCallSessionId;
   return (
     <>
-      {vm.isGroupRoom && vm.call.panel ? (
+      {vm.isGroupRoom && (vm.call.panel || vm.call.endedPanel) ? (
         <GroupRoomCallOverlay
           t={vm.t}
           tt={vm.tt}
