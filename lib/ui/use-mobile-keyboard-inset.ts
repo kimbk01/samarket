@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 
 type UseMobileKeyboardInsetOptions = {
   /**
+   * 상위가 `visualViewport.height` 로 채팅 셸 높이를 이미 맞춤 — 겹침(px) 추정을 끄고 0만 반환.
+   * (푸터 `paddingBottom` 이중으로 입력창이 과하게 올라가는 것 방지)
+   */
+  disableOverlapEstimate?: boolean;
+  /**
    * 레이아웃 높이가 이미 시각 viewport 하단에 맞춰졌는지(예: iOS + `100dvh` 축소)로 보일 때
    * 추가 패딩을 주지 않기 위한 여유(px). 이보다 작으면 inset 0.
    */
@@ -22,6 +27,7 @@ type UseMobileKeyboardInsetOptions = {
  * - 레이아웃 높이는 그대로인 경우에만 `innerHeight - (vv.height + vv.offsetTop)` 만큼 반환한다.
  */
 export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions): number {
+  const disableOverlapEstimate = Boolean(options?.disableOverlapEstimate);
   const layoutAlignedSlackPx = Math.max(0, options?.layoutAlignedSlackPx ?? 28);
   const minObscuredPx = Math.max(
     0,
@@ -31,6 +37,10 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (disableOverlapEstimate) {
+      setInset(0);
+      return;
+    }
     const vv = window.visualViewport;
     if (!vv) return;
 
@@ -57,7 +67,7 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
     };
-  }, [layoutAlignedSlackPx, minObscuredPx]);
+  }, [disableOverlapEstimate, layoutAlignedSlackPx, minObscuredPx]);
 
   return inset;
 }

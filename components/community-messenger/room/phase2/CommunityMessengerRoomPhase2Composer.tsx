@@ -48,13 +48,18 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
-  const keyboardInsetPx = useMobileKeyboardInset();
-  /** 키보드 없을 때만 여백; 키보드 시에는 inset만 (이중 여백으로 키보드 위 빈틈 방지) */
+  const { keyboardOverlapSuppressed } = useMessengerRoomMobileViewport();
+  const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
+  /**
+   * - visualViewport 셸을 쓰면 겹침 추정을 끄고 safe-area + 기본 여백만.
+   * - 그 외: 키보드 가림이 있으면 inset, 없으면 홈 인디케이터용 10px.
+   */
   const footerExtraBottomPx = keyboardInsetPx > 0 ? keyboardInsetPx : 10;
   return (
     <>
@@ -68,7 +73,11 @@ export function CommunityMessengerRoomPhase2Composer() {
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
         }}
       >
-        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
+        {/**
+         * 열 너비 고정: 5열을 항상 `2.75rem`으로 두어 전송·녹음·잠금 녹음 전환 시에도
+         * 마이크(4열)의 화면상 위치가 동일하게 유지된다. (`auto`+다른 min-w는 마이크가 좌우로 밀림)
+         */}
+        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_2.75rem_minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2">
           {!vm.voiceRecording ? (
             <button
               type="button"
@@ -127,8 +136,16 @@ export function CommunityMessengerRoomPhase2Composer() {
                   e.preventDefault();
                   void vm.sendMessage();
                 }}
-                onFocus={() => {
+                onFocus={(e) => {
                   useMessengerRoomUiStore.getState().setComposerFocused(true);
+                  const ta = e.currentTarget;
+                  requestAnimationFrame(() => {
+                    try {
+                      ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+                    } catch {
+                      ta.scrollIntoView({ block: "nearest" });
+                    }
+                  });
                 }}
                 onBlur={() => {
                   useMessengerRoomUiStore.getState().setComposerFocused(false);
@@ -272,15 +289,13 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-sticker" ||
                 vm.busy === "delete-message"
               }
-              className="flex h-10 min-w-[40px] shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] px-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
               aria-label="전송"
             >
               <SendPlaneIcon className="h-5 w-5 text-white" />
             </button>
-          ) : vm.voiceRecording && !vm.voiceHandsFree ? (
-            <div className="h-10 min-w-[4.75rem] shrink-0 justify-self-center self-center" aria-hidden />
           ) : (
-            <div className="h-10 w-0 min-w-0 max-w-0 shrink-0 justify-self-center self-center overflow-hidden p-0" aria-hidden />
+            <div className="pointer-events-none h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
           )}
         </div>
       </footer>

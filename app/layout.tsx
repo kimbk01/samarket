@@ -34,6 +34,8 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  /** Android Chrome 등: 가상 키보드 시 레이아웃 뷰포트가 줄어들어 채팅 입력·flex 높이와 맞기 쉬움 */
+  interactiveWidget: "resizes-content",
   viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#7360f2" },

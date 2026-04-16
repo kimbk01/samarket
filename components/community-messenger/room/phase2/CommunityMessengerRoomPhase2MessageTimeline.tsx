@@ -88,7 +88,7 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={vm.messagesViewportRef}
-        className="relative min-h-0 flex-1 overflow-y-auto bg-[color:var(--cm-room-chat-bg)]"
+        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
         onScroll={scheduleScroll}
       >
         <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
