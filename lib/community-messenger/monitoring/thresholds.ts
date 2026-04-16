@@ -37,8 +37,10 @@ export const MESSENGER_PERF_REFERENCE_RATIOS = {
 
 /** 기본 임계값 — 필요 시 env 로 덮어쓸 수 있게 설계 (알림 = 치명 구간에 가깝게 동작) */
 export const MESSENGER_PERF_THRESHOLDS = {
-  /** 방 부트스트랩(HTTP) 완료까지 */
-  roomLoadMs: Number(process.env.MESSENGER_PERF_ROOM_LOAD_MS ?? 4000),
+  /** 방 부트스트랩(HTTP) 완료까지 — 클라 번들은 `NEXT_PUBLIC_` 우선 */
+  roomLoadMs: Number(
+    process.env.NEXT_PUBLIC_MESSENGER_PERF_ROOM_LOAD_MS ?? process.env.MESSENGER_PERF_ROOM_LOAD_MS ?? 4000
+  ),
   /** 메시지 전송 요청 RTT */
   messageLatencyMs: Number(process.env.MESSENGER_PERF_MESSAGE_MS ?? 2500),
   /** 통화 미디어 연결(첫 connected)까지 — 레거시 단일 키(음성·영상 분리 시 voice/video 우선) */

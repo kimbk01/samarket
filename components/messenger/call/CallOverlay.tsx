@@ -36,7 +36,9 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
   const [remainSec, setRemainSec] = useState<number | null>(null);
   useEffect(() => {
     const sec = ringTimeoutSeconds;
-    if (sec == null || sec <= 0 || !session.startedAt) {
+    const dismissing =
+      busyId === `reject:${session.id}` || busyId === `accept:${session.id}`;
+    if (dismissing || sec == null || sec <= 0 || !session.startedAt) {
       setRemainSec(null);
       return;
     }
@@ -52,7 +54,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [ringTimeoutSeconds, session.startedAt, session.id]);
+  }, [busyId, ringTimeoutSeconds, session.id, session.startedAt]);
 
   const callTypeLabel = session.callKind === "video" ? "영상 통화" : "음성 통화";
   const baseSub = sessionActionError ?? incomingListError ?? "";

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
 import { MemberChatInput } from "@/components/order-chat/MemberChatInput";
@@ -113,6 +114,57 @@ export function OrderChatRoomClient({
       setState({ kind: "error", message: "network_error" });
     }
   }, [orderId]);
+
+  /** Realtime·타 탭 반영용 — 로딩 스피너 없이 스냅샷만 갱신 */
+  const silentReload = useCallback(async () => {
+    try {
+      const { status, json } = await fetchOrderChatGetDeduped(orderId);
+      const payload = json as
+        | ({ ok?: false; error?: string })
+        | ({ ok?: true } & Snapshot);
+      if (status < 200 || status >= 300 || payload.ok !== true) return;
+      setState((prev) => {
+        if (prev.kind !== "ready") return prev;
+        return { kind: "ready", ...payload };
+      });
+      window.dispatchEvent(new Event(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+    } catch {
+      /* ignore */
+    }
+  }, [orderId]);
+
+  const onRealtimeMessageUpsert = useCallback((msg: OrderChatMessagePublic) => {
+    setState((prev) => {
+      if (prev.kind !== "ready") return prev;
+      const exists = prev.messages.some((m) => m.id === msg.id);
+      const nextMessages = exists ? prev.messages.map((m) => (m.id === msg.id ? msg : m)) : [...prev.messages, msg];
+      const tail = nextMessages[nextMessages.length - 1];
+      return {
+        ...prev,
+        messages: nextMessages,
+        room: {
+          ...prev.room,
+          last_message: tail.content.slice(0, 200),
+          last_message_at: tail.created_at,
+        },
+      };
+    });
+    window.dispatchEvent(new Event(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+  }, []);
+
+  const onRealtimeMessageRemoved = useCallback((id: string) => {
+    setState((prev) =>
+      prev.kind !== "ready" ? prev : { ...prev, messages: prev.messages.filter((m) => m.id !== id) }
+    );
+  }, []);
+
+  useOrderChatRoomRealtime({
+    roomId: state.kind === "ready" ? state.room.id : null,
+    enabled: state.kind === "ready",
+    onMessageUpsert: onRealtimeMessageUpsert,
+    onMessageRemoved: onRealtimeMessageRemoved,
+    onRoomStale: silentReload,
+  });
 
   useEffect(() => {
     if (initialSnapshot) return;

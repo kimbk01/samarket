@@ -133,6 +133,7 @@ export function useMessengerRoomClientPhase1({
   const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
+  const silentBootstrapThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 발신 다이얼 `router.push` 연타 방지 — ref 는 동기 연타, state 는 버튼 비활성 표시 */
   const outgoingDialSyncGuardRef = useRef(false);
   const [outgoingDialLocked, setOutgoingDialLocked] = useState(false);
@@ -217,6 +218,16 @@ export function useMessengerRoomClientPhase1({
   useNotificationSurfaceCommunityMessengerRoom(roomId);
 
   useEffect(() => {
+    return () => {
+      const t = silentBootstrapThrottleCoalesceTimerRef.current;
+      if (t != null) {
+        clearTimeout(t);
+        silentBootstrapThrottleCoalesceTimerRef.current = null;
+      }
+    };
+  }, [roomId]);
+
+  useEffect(() => {
     const id = roomId?.trim();
     return () => {
       if (id && messengerRolloutUsesRoomScrollHints()) {
@@ -254,6 +265,7 @@ export function useMessengerRoomClientPhase1({
         deferredMemberBootstrapRef,
         silentRoomRefreshBusyRef,
         silentRoomRefreshAgainRef,
+        silentBootstrapThrottleCoalesceTimerRef,
       }),
     [
       roomId,
@@ -264,6 +276,7 @@ export function useMessengerRoomClientPhase1({
       deferredMemberBootstrapRef,
       silentRoomRefreshBusyRef,
       silentRoomRefreshAgainRef,
+      silentBootstrapThrottleCoalesceTimerRef,
     ]
   );
 

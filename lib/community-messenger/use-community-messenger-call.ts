@@ -1106,6 +1106,7 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-reject");
     try {
       if (peerId) {
+        void notifyCommunityMessengerCallInviteHangupBestEffort(peerId, sessionId, { roomId: args.roomId });
         try {
           await sendSignal(sessionId, peerId, "hangup", { reason: "reject" });
         } catch {
@@ -1235,7 +1236,7 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-cancel");
     closeSessionImmediately(sessionId);
     try {
-      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId);
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, { roomId: args.roomId });
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
@@ -1347,7 +1348,7 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-end");
     closeSessionImmediately(sessionId);
     try {
-      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId);
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, { roomId: args.roomId });
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {

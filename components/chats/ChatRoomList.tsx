@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom } from "@/lib/types/chat";
@@ -17,6 +17,7 @@ import {
   fetchChatRoomsBySegment,
   type ChatRoomsListSegment,
 } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import { useIntegratedChatRoomListRealtime } from "@/lib/chats/use-integrated-chat-room-list-realtime";
 
 /** 목록은 Realtime 미구독 구간만 갱신 — Supabase 쿼리·API 한도 완화를 위해 길게 */
 const POLL_MS = 90_000;
@@ -119,7 +120,19 @@ export function ChatRoomList({
     void load();
   });
 
-  const userId = getCurrentUser()?.id ?? "";
+  const viewerId = getCurrentUser()?.id?.trim() ?? null;
+  const integratedRoomIds = useMemo(
+    () => (rooms ?? []).filter((r) => r.source === "chat_room").map((r) => r.id.trim()).filter(Boolean),
+    [rooms]
+  );
+  useIntegratedChatRoomListRealtime({
+    userId: viewerId,
+    integratedRoomIds,
+    enabled: !sessionDenied && rooms !== null && Boolean(viewerId),
+    onListStale: load,
+  });
+
+  const userId = viewerId ?? "";
 
   const useVirt = Boolean(rooms && rooms.length >= CHAT_ROOM_LIST_VIRTUAL_THRESHOLD);
   const rowVirtualizer = useVirtualizer({

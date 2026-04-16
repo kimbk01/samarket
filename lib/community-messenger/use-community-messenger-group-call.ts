@@ -130,6 +130,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const firstConnectionRecordedRef = useRef(false);
   const peerStatePrevRef = useRef<Record<string, PeerTransportState>>({});
   const reconnectAccumulatorRef = useRef(0);
+  /** 수신 거절 직후 PATCH·onRefresh 전까지 activeCall 이 ringing 이면 수신 패널이 즉시 재오픈되는 것을 막음 */
+  const suppressIncomingPanelForSessionIdRef = useRef<string | null>(null);
 
   const currentSessionId = panel?.sessionId ?? args.activeCall?.id ?? null;
   const participants = args.activeCall?.participants ?? [];
@@ -559,6 +561,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         return;
       }
       if (myParticipant?.status === "invited") {
+        if (suppressIncomingPanelForSessionIdRef.current === activeCall.id) return;
         setPanel({
           kind: activeCall.callKind,
           mode: "incoming",
@@ -584,6 +587,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         return;
       }
       if (myParticipant?.status === "invited") {
+        if (suppressIncomingPanelForSessionIdRef.current === activeCall.id) return;
         setPanel({
           kind: activeCall.callKind,
           mode: "incoming",
@@ -934,6 +938,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     const activeCall = args.activeCall;
     if (!args.enabled || !activeCall) return;
     setBusy("call-reject");
+    suppressIncomingPanelForSessionIdRef.current = activeCall.id;
+    setEndedPanel(null);
+    cleanupMedia();
+    setPanel(null);
     try {
       const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
         method: "PATCH",
@@ -943,16 +951,15 @@ export function useCommunityMessengerGroupCall(args: Props) {
       const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
       if (!patchRes.ok || !patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        await args.onRefresh();
         return;
       }
-      cleanupMedia();
-      showEndedPanel(activeCall.callKind, activeCall.peerLabel, "declined", Date.now());
-      setPanel(null);
       await args.onRefresh();
     } finally {
+      suppressIncomingPanelForSessionIdRef.current = null;
       setBusy(null);
     }
-  }, [args, cleanupMedia, showEndedPanel]);
+  }, [args, cleanupMedia]);
 
   const cancelOutgoingCall = useCallback(async () => {
     const sessionId = currentSessionId;

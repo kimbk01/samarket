@@ -4,10 +4,11 @@
  * Realtime 정책 (커뮤니티 메신저)
  *
  * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`HOME_ROOMS_IN_FILTER_MAX`).
+ * - **홈 청크 채널**: 각 청크에 `community_messenger_rooms` + `community_messenger_messages` 를 같이 둔다(방 메타만 늦게 오는 경우에도 대화 목록 동기화).
  * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
  * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 디바운스로 `onRefresh` 호출을 합침 — 수치는 `messenger-latency-config.ts` (home-sync 단일 비행으로 폭주 완화).
  * - **통화(방 번들)**: 세션·참가자·로그·call_stub 는 단일 `roomCallBundleRefreshScheduler` 로 합류 (버스트당 GET 1회).
- * - **메시지**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
+ * - **방 메시지(대화 화면)**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
  * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
  *
  * 상세: `docs/messenger-realtime-policy.md`
@@ -215,25 +216,39 @@ export function useCommunityMessengerHomeRealtime(args: {
     /** 방당 1채널 대신 `id=in.(…)` 청크로 묶어 구독 수·재연결 비용을 줄임 (문서: in 최대 100값) */
     for (let offset = 0; offset < roomIds.length; offset += HOME_ROOMS_IN_FILTER_MAX) {
       const chunk = roomIds.slice(offset, offset + HOME_ROOMS_IN_FILTER_MAX);
-      const filter = `id=in.(${chunk.join(",")})`;
+      const roomsFilter = `id=in.(${chunk.join(",")})`;
+      const messagesFilter = `room_id=in.(${chunk.join(",")})`;
       const roomBundle = subscribeWithRetry({
         sb,
         name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
         scope: `community-messenger-home:rooms-in`,
         isCancelled: () => cancelled,
         build: (channel) =>
-          channel.on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "community_messenger_rooms",
-              filter,
-            },
-            () => {
-              if (!cancelled) refreshScheduler.schedule();
-            }
-          ),
+          channel
+            .on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "community_messenger_rooms",
+                filter: roomsFilter,
+              },
+              () => {
+                if (!cancelled) refreshScheduler.schedule();
+              }
+            )
+            .on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "community_messenger_messages",
+                filter: messagesFilter,
+              },
+              () => {
+                if (!cancelled) refreshScheduler.schedule();
+              }
+            ),
       });
       channels.push(roomBundle);
     }
@@ -378,8 +393,31 @@ export function useCommunityMessengerRoomRealtime(args: {
               table: "community_messenger_call_sessions",
               filter: `room_id=eq.${args.roomId}`,
             },
-            () => {
-              if (!cancelled) roomCallBundleRefreshScheduler.schedule();
+            (payload) => {
+              if (cancelled) return;
+              const p = payload as {
+                eventType?: string;
+                new?: Record<string, unknown> | null;
+                old?: Record<string, unknown> | null;
+              };
+              if (p.eventType === "DELETE") {
+                roomCallBundleRefreshScheduler.cancel();
+                callbackRef.current();
+                return;
+              }
+              const row = p.new ?? null;
+              const status = typeof row?.status === "string" ? row.status.trim() : "";
+              if (
+                status === "ended" ||
+                status === "cancelled" ||
+                status === "rejected" ||
+                status === "missed"
+              ) {
+                roomCallBundleRefreshScheduler.cancel();
+                callbackRef.current();
+                return;
+              }
+              roomCallBundleRefreshScheduler.schedule();
             }
           )
           .on(

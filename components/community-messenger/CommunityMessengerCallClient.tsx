@@ -8,7 +8,6 @@ import type {
   IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -67,9 +66,7 @@ import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import {
-  notifyCommunityMessengerCallInviteHangupBestEffort,
-} from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
@@ -1197,6 +1194,7 @@ export function CommunityMessengerCallClient({
     const peer = session.peerUserId?.trim();
     try {
       if (peer) {
+        void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, { roomId: session.roomId });
         try {
           await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" });
         } catch {
@@ -1228,7 +1226,6 @@ export function CommunityMessengerCallClient({
         }
       }
       if (snap) {
-        if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + 15_000, snapshot: snap };
         setSession(snap);
       }
@@ -1253,6 +1250,7 @@ export function CommunityMessengerCallClient({
       session.status === "ringing" && session.isMineInitiator ? "cancel" : "end";
     try {
       if (peer) {
+        void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, { roomId: session.roomId });
         try {
           await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason });
         } catch {
@@ -1278,7 +1276,6 @@ export function CommunityMessengerCallClient({
       /* 서버 응답을 즉시 반영하고, Agora leave 등은 기다리지 않는다 — 수신 종료 시 UI가 active 에 고정되던 문제 */
       const optimisticEnd =
         session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
-      if (peer) void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid);
       applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
       void disposeCallMedia().catch(() => {});
     } finally {

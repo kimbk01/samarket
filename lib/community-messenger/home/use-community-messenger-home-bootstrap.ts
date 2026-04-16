@@ -57,6 +57,8 @@ export function useCommunityMessengerHomeBootstrap({
   const lastSilentRefreshAtRef = useRef(0);
   /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
   const silentBackoffUntilRef = useRef(0);
+  /** `lastSilentRefreshAtRef` 380ms 창 안 요청은 버리지 않고 한 번만 지연 실행(방 부트스트랩과 동일 계약) */
+  const silentThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
@@ -78,11 +80,31 @@ export function useCommunityMessengerHomeBootstrap({
     setHomeRealtimeGateOpen(false);
   }, [initialServerBootstrap]);
 
+  useEffect(() => {
+    return () => {
+      if (silentThrottleCoalesceTimerRef.current != null) {
+        clearTimeout(silentThrottleCoalesceTimerRef.current);
+        silentThrottleCoalesceTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const refresh = useCallback(async (silent = false) => {
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntilRef.current) return;
-      if (now - lastSilentRefreshAtRef.current < 380) return;
+      if (now - lastSilentRefreshAtRef.current < 380) {
+        if (silentThrottleCoalesceTimerRef.current != null) clearTimeout(silentThrottleCoalesceTimerRef.current);
+        silentThrottleCoalesceTimerRef.current = setTimeout(() => {
+          silentThrottleCoalesceTimerRef.current = null;
+          void refresh(true);
+        }, Math.max(1, 380 - (Date.now() - lastSilentRefreshAtRef.current)));
+        return;
+      }
+      if (silentThrottleCoalesceTimerRef.current != null) {
+        clearTimeout(silentThrottleCoalesceTimerRef.current);
+        silentThrottleCoalesceTimerRef.current = null;
+      }
       lastSilentRefreshAtRef.current = now;
     }
     if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {

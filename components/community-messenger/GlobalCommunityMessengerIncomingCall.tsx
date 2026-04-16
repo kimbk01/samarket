@@ -54,6 +54,7 @@ import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
@@ -63,6 +64,32 @@ import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
+
+/** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
+const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
+/** 사용자가 거절한 세션을 merge·Realtime 이 다시 살리지 못하게 함 */
+const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
+
+function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
+  const now = Date.now();
+  for (const [id, at] of [...dismissedAtBySessionId.entries()]) {
+    if (now - at > INCOMING_USER_DISMISSED_KEEP_MS) dismissedAtBySessionId.delete(id);
+  }
+}
+
+function isUserDismissedIncomingSession(id: string, dismissedAtBySessionId: Map<string, number>, now: number): boolean {
+  const at = dismissedAtBySessionId.get(id);
+  return at != null && now - at <= INCOMING_USER_DISMISSED_KEEP_MS;
+}
+
+function filterIncomingSessionsRespectingDismissed(
+  list: CommunityMessengerCallSession[],
+  dismissedAtBySessionId: Map<string, number>
+): CommunityMessengerCallSession[] {
+  const now = Date.now();
+  pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
+  return list.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
+}
 
 function isTerminalCallSessionStatusValue(status: unknown): boolean {
   const s = typeof status === "string" ? status : "";
@@ -349,6 +376,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       onHangup: (payload) => {
         if (cancelled) return;
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
+        const roomId = typeof payload.roomId === "string" ? payload.roomId.trim() : "";
+        if (roomId) postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId, at: Date.now() });
         if (sid) {
           suppressMissedSoundRef.current.add(sid);
           stopCommunityMessengerCallFeedback();
@@ -427,13 +456,15 @@ export function GlobalCommunityMessengerIncomingCall() {
                 new?: Record<string, unknown> | null;
                 old?: Record<string, unknown> | null;
               };
-              setSessions((prev) =>
-                applyIncomingCallSessionsRealtimeEvent(prev, userId, {
+              setSessions((prev) => {
+                const merged = applyIncomingCallSessionsRealtimeEvent(prev, userId, {
                   eventType: p.eventType,
                   new: p.new ?? null,
                   old: p.old ?? null,
-                })
-              );
+                });
+                /* 거절 직후 stale UPDATE(ring) 이 오면 오버레이가 부활·카운트다운이 이어지는 것을 막음 */
+                return filterIncomingSessionsRespectingDismissed(merged, dismissedIncomingSessionsAtRef.current);
+              });
               const newRow = p.new ?? null;
               const nextStatus = typeof newRow?.status === "string" ? String(newRow.status).trim() : "";
               if (p.eventType === "UPDATE" && nextStatus.length > 0 && nextStatus !== "ringing") {
@@ -653,6 +684,12 @@ export function GlobalCommunityMessengerIncomingCall() {
     setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
     try {
+      if (session?.peerUserId?.trim()) {
+        /** PATCH·DB 반영보다 먼저 — 발신 탭이 `cm_invite_hangup` 으로 즉시 새로고침 */
+        void notifyCommunityMessengerCallInviteHangupBestEffort(session.peerUserId.trim(), sessionId, {
+          roomId: session.roomId,
+        });
+      }
       if (session?.peerUserId) {
         try {
           await postCommunityMessengerCallHangupSignal({
@@ -673,10 +710,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      /** 발신자(cm-call-invite 채널) — 세션 Realtime 은 recipient 필터라 발신 탭이 즉시 못 받는 경우 보완 */
-      if (session?.peerUserId?.trim()) {
-        void notifyCommunityMessengerCallInviteHangupBestEffort(session.peerUserId.trim(), sessionId);
-      }
       await refresh(true);
     } finally {
       setBusyId(null);
@@ -790,11 +823,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   }
 }
 
-/** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
-const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
-/** 사용자가 거절한 세션을 merge 가 다시 살리지 않도록 유지하는 시간 */
-const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
-
 function mergeIncomingCallSessionsAfterFetch(
   viewerUserId: string | null,
   serverList: CommunityMessengerCallSession[],
@@ -802,21 +830,15 @@ function mergeIncomingCallSessionsAfterFetch(
   dismissedAtBySessionId: Map<string, number>
 ): CommunityMessengerCallSession[] {
   const now = Date.now();
-  for (const [id, at] of [...dismissedAtBySessionId.entries()]) {
-    if (now - at > INCOMING_USER_DISMISSED_KEEP_MS) dismissedAtBySessionId.delete(id);
-  }
-  const isUserDismissed = (id: string) => {
-    const at = dismissedAtBySessionId.get(id);
-    return at != null && now - at <= INCOMING_USER_DISMISSED_KEEP_MS;
-  };
+  pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
 
   if (!viewerUserId) {
-    return serverList.filter((s) => !isUserDismissed(s.id));
+    return serverList.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
   }
 
-  const serverFiltered = serverList.filter((s) => !isUserDismissed(s.id));
+  const serverFiltered = serverList.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
   const serverIds = new Set(serverFiltered.map((s) => s.id));
-  const previousFiltered = previous.filter((s) => !isUserDismissed(s.id));
+  const previousFiltered = previous.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
   const optimisticExtras = previousFiltered.filter((s) => {
     if (serverIds.has(s.id)) return false;
     if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;

@@ -73,16 +73,20 @@ export async function publishCommunityMessengerCallInviteRing(
 
 export async function publishCommunityMessengerCallInviteHangup(
   sb: SupabaseClient,
-  args: { recipientUserId: string; sessionId: string }
+  args: { recipientUserId: string; sessionId: string; roomId?: string | null }
 ): Promise<void> {
   const name = communityMessengerCallInviteChannelName(args.recipientUserId);
   const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
   try {
     await waitForChannelSubscribed(ch, 3500);
+    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
     await ch.send({
       type: "broadcast",
       event: CM_CALL_INVITE_BROADCAST_HANGUP,
-      payload: { sessionId: args.sessionId },
+      payload: {
+        sessionId: args.sessionId,
+        ...(roomId ? { roomId } : {}),
+      },
     });
   } finally {
     try {
@@ -117,7 +121,8 @@ export async function notifyCommunityMessengerCallInviteRingBestEffort(
 
 export async function notifyCommunityMessengerCallInviteHangupBestEffort(
   recipientUserId: string,
-  sessionId: string
+  sessionId: string,
+  options?: { roomId?: string | null }
 ): Promise<void> {
   const to = recipientUserId?.trim();
   const sid = sessionId?.trim();
@@ -125,7 +130,11 @@ export async function notifyCommunityMessengerCallInviteHangupBestEffort(
   const sb = getSupabaseClient();
   if (!sb) return;
   try {
-    await publishCommunityMessengerCallInviteHangup(sb, { recipientUserId: to, sessionId: sid });
+    await publishCommunityMessengerCallInviteHangup(sb, {
+      recipientUserId: to,
+      sessionId: sid,
+      roomId: options?.roomId,
+    });
   } catch {
     /* best-effort */
   }

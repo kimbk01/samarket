@@ -19,6 +19,8 @@ export type MessengerRoomBootstrapRefreshDeps = {
   deferredMemberBootstrapRef: MutableRefObject<boolean>;
   silentRoomRefreshBusyRef: MutableRefObject<boolean>;
   silentRoomRefreshAgainRef: MutableRefObject<boolean>;
+  /** `roomId` 전환 시 이전 클로저의 coalesce 타이머가 잘못된 방을 fetch 하지 않도록 훅에서 안정적으로 넘긴다. */
+  silentBootstrapThrottleCoalesceTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
 };
 
 /**
@@ -37,18 +39,35 @@ export function createMessengerRoomBootstrapRefresh(
     deferredMemberBootstrapRef,
     silentRoomRefreshBusyRef,
     silentRoomRefreshAgainRef,
+    silentBootstrapThrottleCoalesceTimerRef,
   } = deps;
 
   /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
   let lastSilentRefreshAt = 0;
   /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
   let silentBackoffUntil = 0;
+  /**
+   * `lastSilentRefreshAt` 420ms 창 안에 들어온 사일런트 요청은 **버리지 않고** 한 번만 뒤로 미룬다.
+   * (통화 종료·call_stub·cm.room.bump 가 같은 틱에 겹치면 이전 구현은 후속 refresh 가 영구 유실될 수 있음)
+   */
+  const coalesceTimerRef = silentBootstrapThrottleCoalesceTimerRef;
 
   async function refresh(silent = false): Promise<void> {
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntil) return;
-      if (now - lastSilentRefreshAt < 420) return;
+      if (now - lastSilentRefreshAt < 420) {
+        if (coalesceTimerRef.current != null) clearTimeout(coalesceTimerRef.current);
+        coalesceTimerRef.current = setTimeout(() => {
+          coalesceTimerRef.current = null;
+          void refresh(true);
+        }, Math.max(1, 420 - (Date.now() - lastSilentRefreshAt)));
+        return;
+      }
+      if (coalesceTimerRef.current != null) {
+        clearTimeout(coalesceTimerRef.current);
+        coalesceTimerRef.current = null;
+      }
       lastSilentRefreshAt = now;
     }
     if (!tryEnterSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef)) {
