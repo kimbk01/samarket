@@ -16,9 +16,9 @@ function isFailureStatus(status: string): status is Exclude<SubscribeStatus, "SU
 }
 
 function nextBackoffMs(attempt: number): number {
-  // 0.8s, 1.6s, 3.2s ... max 20s (+jitter)
-  const base = Math.min(20_000, 800 * Math.pow(2, Math.max(0, attempt)));
-  const jitter = Math.floor(Math.random() * 300);
+  // 첫 재시도를 ~0.35s대로 두어 WS 핸드셰이크 일시 실패 시 체감 지연을 줄인다(이후는 2배).
+  const base = Math.min(20_000, 350 * Math.pow(2, Math.max(0, attempt)));
+  const jitter = Math.floor(Math.random() * 220);
   return base + jitter;
 }
 

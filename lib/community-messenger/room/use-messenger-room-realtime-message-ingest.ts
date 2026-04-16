@@ -40,6 +40,8 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
   /** `community_messenger_messages.room_id` 및 Realtime 필터에 쓰는 원장 방 id — 반드시 `snapshot.room.id` 우선 */
   streamRoomId: string;
   snapshot: CommunityMessengerRoomSnapshot | null;
+  /** RSC 시드 — `snapshot` state 가 아직 비어 있어도 동일 값이면 Realtime 을 바로 연다 */
+  initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
   roomReadyForRealtime: boolean;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
@@ -53,6 +55,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     routeRoomId,
     streamRoomId,
     snapshot,
+    initialServerSnapshot = null,
     roomReadyForRealtime,
     snapshotRef,
     roomMembersDisplayRef,
@@ -161,10 +164,14 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     });
   }, [routeRoomId, snapshot, streamRoomId]);
 
+  const seedSnapshot = snapshot ?? initialServerSnapshot;
+  const realtimeEnabled =
+    Boolean(streamRoomId.trim()) && roomReadyForRealtime && seedSnapshot !== null;
+
   useCommunityMessengerRoomRealtime({
     roomId: streamRoomId.trim(),
-    viewerUserId: snapshot?.viewerUserId ?? null,
-    enabled: Boolean(streamRoomId.trim()) && roomReadyForRealtime && snapshot !== null,
+    viewerUserId: seedSnapshot?.viewerUserId ?? null,
+    enabled: realtimeEnabled,
     onRefresh,
     onMessageEvent: handleRealtimeMessageEvent,
   });

@@ -12,7 +12,7 @@
 ## 사마켓이 “구조적으로” 맞추는 방향
 
 1. **계약**: [messenger-bootstrap-contract.md](./messenger-bootstrap-contract.md) — RSC/클라 부트스트랩 필드·`lite` 경계 고정.
-2. **Realtime 정책**: [messenger-realtime-policy.md](./messenger-realtime-policy.md) — 방당 채널 번들, 이벤트→전체 GET 남발 금지.
+2. **Realtime 정책**: [messenger-realtime-policy.md](./messenger-realtime-policy.md) — 방당 채널 번들, 이벤트→전체 GET 남발 금지. Community 방 메시지 저지연은 동 문서 **「Community 메신저 방 메시지」**절: **서버 전용 bump**(v2, 선택 `message` 스냅샷) + 수신 검증·병합 + HTTP 정합.
 3. **1:1 메시지 수신 파이프 분리**: [`useMessengerRoomRealtimeMessageIngest`](../lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts) — WebSocket 이벤트 → rAF 배치 → `mergeRoomMessages` 만 담당(Phase1 비대화 완화의 첫 단계). 실제 호출은 [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts)에서 한다.
 4. **인프라 한계와 분리 시점**: [messenger-supabase-split-evaluation.md](./messenger-supabase-split-evaluation.md) — 트래픽 신호 전까지 Postgres+Realtime 유지.
 

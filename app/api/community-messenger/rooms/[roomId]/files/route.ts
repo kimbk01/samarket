@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerFileMessage } from "@/lib/community-messenger/service";
-import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
-import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -22,10 +22,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await params;
-  if (!roomId) {
-    return NextResponse.json({ ok: false, error: "room_not_found" }, { status: 400 });
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
   }
+  const canonicalRoomId = canon.canonicalRoomId;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   const safeName = (file.name || "file").replace(/[^\w.\-() ]+/g, "_").trim() || "file";
   const ext = safeName.includes(".") ? safeName.split(".").pop()!.toLowerCase() : "bin";
   const mimeType = (file.type || "application/octet-stream").toLowerCase().trim();
-  const path = `${auth.userId}/community/messenger-file/${roomId}/${randomUUID()}.${ext}`;
+  const path = `${auth.userId}/community/messenger-file/${canonicalRoomId}/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
 
   const { error: upErr } = await sb.storage.from("post-images").upload(path, buf, {
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   const result = await sendCommunityMessengerFileMessage({
     userId: auth.userId,
-    roomId,
+    roomId: canonicalRoomId,
     filePublicUrl: publicUrl,
     storagePath: path,
     fileName: safeName,
@@ -78,8 +80,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   });
 
   if (result.ok) {
-    invalidateRoomBootstrapRouteCacheForRoom(roomId);
-    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: canon.rawRouteRoomId,
+      canonicalRoomId,
+      fromUserId: auth.userId,
+      messageId: result.message?.id,
+      messageCreatedAt: result.message?.createdAt,
+      messageForBump: result.message ?? null,
+    });
   }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

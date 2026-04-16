@@ -10,16 +10,17 @@ const TYPING_TTL_MS = 3200;
 export function useCommunityMessengerRoomTypingRuntime(args: {
   roomId: string | null | undefined;
   viewerUserId: string | null | undefined;
+  /** 1:1 일 때만 상대 id. 그룹·오픈은 빈 값 — 다른 참가자 전원의 타이핑을 받는다. */
   peerUserId: string | null | undefined;
 }): void {
   const stopTimerRef = useRef<number | null>(null);
   const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]> | null>(null);
 
   useEffect(() => {
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
+    const roomId = typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "";
     const viewerUserId = typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "";
     const peerUserId = typeof args.peerUserId === "string" ? args.peerUserId.trim() : "";
-    if (!roomId || !viewerUserId || !peerUserId) return;
+    if (!roomId || !viewerUserId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
     const typingStore = useMessengerTypingStore;
@@ -28,13 +29,15 @@ export function useCommunityMessengerRoomTypingRuntime(args: {
       .on("broadcast", { event: "typing:start" }, (msg) => {
         const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
         const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-        if (fromUserId !== peerUserId) return;
+        if (!fromUserId || fromUserId === viewerUserId) return;
+        if (peerUserId && fromUserId !== peerUserId) return;
         typingStore.getState().setTyping(roomId, fromUserId, TYPING_TTL_MS);
       })
       .on("broadcast", { event: "typing:stop" }, (msg) => {
         const payload = (msg as { payload?: Record<string, unknown> }).payload ?? {};
         const fromUserId = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-        if (fromUserId !== peerUserId) return;
+        if (!fromUserId || fromUserId === viewerUserId) return;
+        if (peerUserId && fromUserId !== peerUserId) return;
         typingStore.getState().clearTyping(roomId, fromUserId);
       })
       .subscribe();
@@ -50,7 +53,12 @@ export function useCommunityMessengerRoomTypingRuntime(args: {
       window.clearInterval(pruneTimer);
       channelRef.current = null;
       void sb.removeChannel(channel);
-      typingStore.getState().clearTyping(roomId, peerUserId);
+      const bucket = typingStore.getState().byRoomId[roomId];
+      if (bucket) {
+        for (const uid of Object.keys(bucket)) {
+          typingStore.getState().clearTyping(roomId, uid);
+        }
+      }
     };
   }, [args.peerUserId, args.roomId, args.viewerUserId]);
 }
@@ -65,7 +73,7 @@ export function useCommunityMessengerRoomTypingPublisher(args: {
   const channelRef = useRef<ReturnType<NonNullable<ReturnType<typeof getSupabaseClient>>["channel"]> | null>(null);
 
   useEffect(() => {
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
+    const roomId = typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "";
     const viewerUserId = typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "";
     if (!roomId || !viewerUserId) return;
     const sb = getSupabaseClient();
@@ -79,7 +87,7 @@ export function useCommunityMessengerRoomTypingPublisher(args: {
   }, [args.roomId, args.viewerUserId]);
 
   useEffect(() => {
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
+    const roomId = typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "";
     const viewerUserId = typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "";
     const channel = channelRef.current;
     if (!roomId || !viewerUserId || !channel) return;
@@ -129,7 +137,7 @@ export function useCommunityMessengerRoomTypingPublisher(args: {
           type: "broadcast",
           event: "typing:stop",
           payload: {
-            roomId: typeof args.roomId === "string" ? args.roomId.trim() : "",
+            roomId: typeof args.roomId === "string" ? args.roomId.trim().toLowerCase() : "",
             fromUserId: typeof args.viewerUserId === "string" ? args.viewerUserId.trim() : "",
             at: new Date().toISOString(),
           },

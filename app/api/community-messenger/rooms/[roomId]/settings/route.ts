@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { updateOpenGroupRoomSettings } from "@/lib/community-messenger/service";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export async function PATCH(
@@ -19,7 +20,11 @@ export async function PATCH(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await context.params;
+  const { roomId: rawRoomId } = await context.params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
 
   let body: {
     title?: string;
@@ -38,7 +43,7 @@ export async function PATCH(
 
   const result = await updateOpenGroupRoomSettings({
     userId: auth.userId,
-    roomId,
+    roomId: canon.canonicalRoomId,
     title: typeof body.title === "string" ? body.title : undefined,
     summary: typeof body.summary === "string" ? body.summary : undefined,
     password: typeof body.password === "string" ? body.password : undefined,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { getCommunityMessengerSingleRoomSummaryForViewer } from "@/lib/community-messenger/service";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
 export async function GET(
   _req: NextRequest,
@@ -19,8 +20,12 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await params;
-  const summary = await getCommunityMessengerSingleRoomSummaryForViewer(auth.userId, roomId);
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
+  const summary = await getCommunityMessengerSingleRoomSummaryForViewer(auth.userId, canon.canonicalRoomId);
   if (!summary) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }

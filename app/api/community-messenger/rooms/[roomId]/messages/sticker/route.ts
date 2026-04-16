@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { sendCommunityMessengerStickerMessage } from "@/lib/community-messenger/service";
-import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
-import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
@@ -25,10 +25,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
 
-  const { roomId } = await params;
-  if (!roomId?.trim()) {
-    return jsonError("roomId가 필요합니다.", 400);
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
   }
+  const canonicalRoomId = canon.canonicalRoomId;
 
   const content = String(parsed.value.content ?? "");
   const clientMessageId = String(parsed.value.clientMessageId ?? "").trim();
@@ -36,15 +38,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
 
   const result = await sendCommunityMessengerStickerMessage({
     userId: auth.userId,
-    roomId,
+    roomId: canonicalRoomId,
     content,
     clientMessageId: clientMessageId || undefined,
     stickerItemId: stickerItemId || undefined,
   });
 
   if (result.ok) {
-    invalidateRoomBootstrapRouteCacheForRoom(roomId);
-    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: canon.rawRouteRoomId,
+      canonicalRoomId,
+      fromUserId: auth.userId,
+      messageId: result.message?.id,
+      messageCreatedAt: result.message?.createdAt,
+      messageForBump: result.message ?? null,
+    });
   }
   return result.ok ? jsonOk(result) : jsonError(result.error ?? "스티커를 보내지 못했습니다.", 400, result);
 }

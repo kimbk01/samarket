@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk } from "@/lib/http/api-route";
 import { listCommunityMessengerRoomMembersPage } from "@/lib/community-messenger/service";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
 /** 참가자 목록 페이지 — 부트스트랩과 동일 정렬 기준으로 offset 슬라이스 */
 export async function GET(
@@ -20,10 +21,12 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await params;
-  if (!roomId?.trim()) {
-    return jsonError("roomId가 필요합니다.", 400);
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
   }
+  const roomId = canon.canonicalRoomId;
   const rawOffset = req.nextUrl.searchParams.get("offset");
   const rawLimit = req.nextUrl.searchParams.get("limit");
   const offset = rawOffset != null && rawOffset !== "" ? Math.floor(Number(rawOffset)) : 0;

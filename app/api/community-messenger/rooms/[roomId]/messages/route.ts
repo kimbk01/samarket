@@ -13,8 +13,8 @@ import {
   sendCommunityMessengerMessage,
 } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
-import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
-import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const SEND_DEDUPE_TTL_MS = 2500;
@@ -37,10 +37,12 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await params;
-  if (!roomId?.trim()) {
-    return jsonError("roomId가 필요합니다.", 400);
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
   }
+  const canonicalRoomId = canon.canonicalRoomId;
   const t0 = performance.now();
   const before = req.nextUrl.searchParams.get("before")?.trim() ?? "";
   const after = req.nextUrl.searchParams.get("after")?.trim() ?? "";
@@ -53,7 +55,7 @@ export async function GET(
   if (after) {
     const result = await listCommunityMessengerRoomMessagesAfter({
       userId: auth.userId,
-      roomId,
+      roomId: canonicalRoomId,
       afterMessageId: after,
       limit: Number.isFinite(limit) ? limit : undefined,
     });
@@ -79,7 +81,7 @@ export async function GET(
   }
   const result = await listCommunityMessengerRoomMessagesBefore({
     userId: auth.userId,
-    roomId,
+    roomId: canonicalRoomId,
     beforeMessageId: before,
     limit: Number.isFinite(limit) ? limit : undefined,
   });
@@ -117,16 +119,18 @@ export async function POST(
   if (!parsed.ok) return parsed.response;
   const body = parsed.value;
 
-  const { roomId } = await params;
-  if (!roomId?.trim()) {
-    return jsonError("roomId가 필요합니다.", 400);
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
   }
+  const canonicalRoomId = canon.canonicalRoomId;
   const t0 = performance.now();
   const content = String(body.content ?? "");
   const clientMessageId = String(body.clientMessageId ?? "").trim();
   const key = clientMessageId
-    ? `community-messenger:send:${auth.userId}:${roomId}:${clientMessageId}`
-    : `community-messenger:send:${auth.userId}:${roomId}:${content.slice(0, 24)}`;
+    ? `community-messenger:send:${auth.userId}:${canonicalRoomId}:${clientMessageId}`
+    : `community-messenger:send:${auth.userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
   const now = Date.now();
   const cached = sendDedupe.get(key);
   if (cached && now - cached.at <= SEND_DEDUPE_TTL_MS) {
@@ -140,7 +144,7 @@ export async function POST(
   const result = await runSingleFlight(key, async () => {
     const r = await sendCommunityMessengerMessage({
       userId: auth.userId,
-      roomId,
+      roomId: canonicalRoomId,
       content,
       clientMessageId: clientMessageId || undefined,
     });
@@ -149,8 +153,15 @@ export async function POST(
     return r;
   });
   if (result.ok) {
-    invalidateRoomBootstrapRouteCacheForRoom(roomId);
-    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+    const msg = result.message as { id?: string; createdAt?: string } | undefined;
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: canon.rawRouteRoomId,
+      canonicalRoomId,
+      fromUserId: auth.userId,
+      messageId: typeof msg?.id === "string" ? msg.id : undefined,
+      messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
+      messageForBump: result.message ?? null,
+    });
   }
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",

@@ -19,7 +19,7 @@ export const useMessengerTypingStore = create<TypingState>((set) => ({
   byRoomId: {},
   setTyping: (roomId, userId, ttlMs) =>
     set((state) => {
-      const rid = String(roomId ?? "").trim();
+      const rid = String(roomId ?? "").trim().toLowerCase();
       const uid = String(userId ?? "").trim();
       if (!rid || !uid) return state;
       const room = state.byRoomId[rid] ?? {};
@@ -39,7 +39,7 @@ export const useMessengerTypingStore = create<TypingState>((set) => ({
     }),
   clearTyping: (roomId, userId) =>
     set((state) => {
-      const rid = String(roomId ?? "").trim();
+      const rid = String(roomId ?? "").trim().toLowerCase();
       const uid = String(userId ?? "").trim();
       if (!rid || !uid) return state;
       const room = { ...(state.byRoomId[rid] ?? {}) };

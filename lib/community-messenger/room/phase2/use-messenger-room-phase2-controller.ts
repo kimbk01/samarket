@@ -38,7 +38,6 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { publishCommunityMessengerRoomBumpBestEffort } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 
@@ -404,11 +403,11 @@ export function useMessengerRoomPhase2Controller() {
     [router]
   );
 
-  /** 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` 의 roomManaged (채팅방 헤더·컨트롤) */
+  /** 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` 의 roomManaged (채팅방 헤더·컨트롤). 성공 시 true */
   const startManagedDirectCall = useCallback(
-    (kind: "voice" | "video") => {
-      if (roomUnavailable || isGroupRoom) return;
-      if (outgoingDialSyncGuardRef.current) return;
+    (kind: "voice" | "video"): Promise<boolean> => {
+      if (roomUnavailable || isGroupRoom) return Promise.resolve(false);
+      if (outgoingDialSyncGuardRef.current) return Promise.resolve(false);
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 
@@ -418,10 +417,10 @@ export function useMessengerRoomPhase2Controller() {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         openDirectCallPage(existingSession.id);
-        return;
+        return Promise.resolve(true);
       }
 
-      void (async () => {
+      return (async () => {
         try {
           const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
             { roomId, peerUserId: null, kind },
@@ -433,12 +432,15 @@ export function useMessengerRoomPhase2Controller() {
           );
           if (!result.ok) {
             setManagedDirectCallError(result.userMessage);
+            return false;
           }
+          return true;
         } catch (e) {
           const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
           setManagedDirectCallError(
             name === "AbortError" ? "통화 준비가 중단되었습니다." : "네트워크 오류로 통화를 시작하지 못했습니다."
           );
+          return false;
         } finally {
           outgoingDialSyncGuardRef.current = false;
           setOutgoingDialLocked(false);
@@ -623,7 +625,6 @@ export function useMessengerRoomPhase2Controller() {
             clientMessageId,
             at: Date.now(),
           });
-          void publishCommunityMessengerRoomBumpBestEffort({ roomId: streamRoomId, fromUserId: snapshot.viewerUserId });
           forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
@@ -728,7 +729,6 @@ export function useMessengerRoomPhase2Controller() {
             clientMessageId,
             at: Date.now(),
           });
-          void publishCommunityMessengerRoomBumpBestEffort({ roomId: streamRoomId, fromUserId: snapshot.viewerUserId });
           forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
@@ -1166,16 +1166,14 @@ export function useMessengerRoomPhase2Controller() {
     [getRoomActionErrorMessage, router]
   );
 
-  /** 발신 — roomManaged (멤버 시트 등 방 안에서만) */
+  /** 발신 — roomManaged (멤버 시트 등 방 안에서만). 성공 시 true */
   const startDirectCallWithMember = useCallback(
-    (peerUserId: string, kind: "voice" | "video") => {
-      if (outgoingDialSyncGuardRef.current) return;
+    (peerUserId: string, kind: "voice" | "video"): Promise<boolean> => {
+      if (outgoingDialSyncGuardRef.current) return Promise.resolve(false);
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 
-      setMemberActionTarget(null);
-
-      void (async () => {
+      return (async () => {
         try {
           const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
             { roomId: null, peerUserId, kind },
@@ -1187,13 +1185,16 @@ export function useMessengerRoomPhase2Controller() {
           );
           if (!result.ok) {
             showMessengerSnackbar(result.userMessage, { variant: "error" });
+            return false;
           }
+          return true;
         } catch (e) {
           const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
           showMessengerSnackbar(
             name === "AbortError" ? "통화 준비가 중단되었습니다." : "네트워크 오류로 통화를 시작하지 못했습니다.",
             { variant: "error" }
           );
+          return false;
         } finally {
           outgoingDialSyncGuardRef.current = false;
           setOutgoingDialLocked(false);

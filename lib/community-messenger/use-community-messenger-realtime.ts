@@ -8,7 +8,7 @@
  * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
  * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 디바운스로 `onRefresh` 호출을 합침 — 수치는 `messenger-latency-config.ts` (home-sync 단일 비행으로 폭주 완화).
  * - **통화(방 번들)**: 세션·참가자·로그·call_stub 는 단일 `roomCallBundleRefreshScheduler` 로 합류 (버스트당 GET 1회).
- * - **방 메시지(대화 화면)**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
+ * - **방 메시지(대화 화면)**: `postgres_changes` INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh. 저지연 bump·`message` 스냅샷은 **서버 발행 전용** — `docs/messenger-realtime-policy.md`「Community 메신저 방 메시지」절.
  * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
  *
  * 채널 빌더: `lib/community-messenger/realtime/community-messenger-*-realtime-channel(s).ts`

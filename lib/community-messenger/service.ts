@@ -4595,6 +4595,60 @@ function collectMinimalSnapshotUserIdsForRoomSnapshot(
   return [...ids];
 }
 
+/**
+ * API·Realtime bump 가 항상 `community_messenger_rooms.id`(원장 UUID)를 쓰도록 URL `roomId` 를 단일화한다.
+ * 거래·레거시 키(`product_chats` / `chat_rooms` id 등)는 `resolveProductChat`·`ensureCommunityMessengerDirectRoomFromProductChat` 과 동일 규칙으로 CM 방으로 접는다.
+ */
+export async function resolveCommunityMessengerCanonicalRoomIdForUser(
+  userId: string,
+  roomId: string
+): Promise<{ ok: true; canonicalRoomId: string } | { ok: false; error: "bad_request" | "room_not_found" }> {
+  const id = trimText(roomId);
+  if (!id) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const dev = getDevState();
+    const ok = dev.participants.some((p) => p.roomId === id && p.userId === userId);
+    return ok ? { ok: true, canonicalRoomId: id } : { ok: false, error: "room_not_found" };
+  }
+  const { data: participantAt } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("room_id")
+    .eq("room_id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const atRoom = trimText((participantAt as { room_id?: unknown } | null)?.room_id as string);
+  if (atRoom) {
+    return { ok: true, canonicalRoomId: atRoom };
+  }
+  const { data: roomAtId } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (roomAtId?.id) {
+    return { ok: false, error: "room_not_found" };
+  }
+  const tradeResolved = await resolveProductChat(sb as never, id);
+  const bridgedMessengerId = tradeResolved?.messengerRoomId ? trimText(tradeResolved.messengerRoomId) : "";
+  if (bridgedMessengerId) {
+    const { data: p2 } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("room_id")
+      .eq("room_id", bridgedMessengerId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (p2?.room_id) {
+      return { ok: true, canonicalRoomId: bridgedMessengerId };
+    }
+  }
+  const bridged = await ensureCommunityMessengerDirectRoomFromProductChat(userId, id);
+  if (bridged.ok && bridged.roomId) {
+    return { ok: true, canonicalRoomId: bridged.roomId };
+  }
+  return { ok: false, error: "room_not_found" };
+}
+
 /** 스냅샷에 담는 최근 메시지 개수 — `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
 export async function getCommunityMessengerRoomSnapshot(
   userId: string,
@@ -5212,6 +5266,142 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
   const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
   return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
+}
+
+/** Broadcast bump 의 `messageId` 힌트로 1건 증분 로드 — 전체 `after` 페이지보다 가볍다. */
+export async function getCommunityMessengerRoomMessageById(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string }> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  if (!roomId || !messageId) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    const dev = getDevState();
+    const mine = dev.participants.some((p) => p.roomId === roomId && p.userId === input.userId);
+    if (!mine) return { ok: false, error: "room_not_found" };
+    const row = dev.messages.find((m) => m.id === messageId && m.roomId === roomId);
+    if (!row) return { ok: false, error: "not_found" };
+    const senderIds = dedupeIds([row.senderId].filter((id): id is string => Boolean(id && String(id).trim())));
+    const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+    const profileById = new Map(profiles.map((p) => [p.id, p]));
+    const senderId = trimText(row.senderId) || null;
+    const metadata = row.metadata ?? {};
+    const isMine = senderId === input.userId;
+    const mt = trimText(row.messageType) as CommunityMessengerMessage["messageType"];
+    const safeMt: CommunityMessengerMessage["messageType"] =
+      mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker"
+        ? mt
+        : "text";
+    const clientRaw = metadata.client_message_id;
+    const clientMessageId =
+      typeof clientRaw === "string" && clientRaw.trim()
+        ? clientRaw.trim()
+        : typeof metadata.clientMessageId === "string" && metadata.clientMessageId.trim()
+          ? metadata.clientMessageId.trim()
+          : null;
+    const message: CommunityMessengerMessage = {
+      id: row.id,
+      roomId: row.roomId,
+      senderId,
+      senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+      messageType: safeMt,
+      content: trimText(row.content),
+      createdAt: row.createdAt,
+      clientMessageId,
+      isMine,
+      callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+      callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+      callSessionId: trimText(metadata.sessionId as string) || null,
+      ...(safeMt === "voice"
+        ? {
+            voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+            voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+            voiceMimeType: trimText(metadata.mimeType as string) || null,
+          }
+        : {}),
+      ...(safeMt === "file"
+        ? {
+            fileName: trimText(metadata.fileName as string) || null,
+            fileMimeType: trimText(metadata.mimeType as string) || null,
+            fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
+          }
+        : {}),
+    };
+    return { ok: true, message };
+  }
+
+  const { data: myParticipant } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (!myParticipant) return { ok: false, error: "room_not_found" };
+
+  const { data: row, error } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) {
+    return { ok: false, error: "load_failed" };
+  }
+  if (!row) return { ok: false, error: "not_found" };
+
+  const r = row as MessageRow;
+  const senderIds = dedupeIds([trimText(r.sender_id)].filter(Boolean));
+  const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
+  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const senderId = trimText(r.sender_id) || null;
+  const metadata = (r.metadata ?? {}) as Record<string, unknown>;
+  const isMine = senderId === input.userId;
+  const mt = trimText(r.message_type) as CommunityMessengerMessage["messageType"];
+  const safeMt: CommunityMessengerMessage["messageType"] =
+    mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker"
+      ? mt
+      : "text";
+  const clientRaw = metadata.client_message_id;
+  const clientMessageId =
+    typeof clientRaw === "string" && clientRaw.trim()
+      ? clientRaw.trim()
+      : typeof metadata.clientMessageId === "string" && metadata.clientMessageId.trim()
+        ? String(metadata.clientMessageId).trim()
+        : null;
+  const message: CommunityMessengerMessage = {
+    id: String(r.id ?? ""),
+    roomId: String(r.room_id ?? roomId),
+    senderId,
+    senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+    messageType: safeMt,
+    content: trimText(r.content),
+    createdAt: trimText(r.created_at) || nowIso(),
+    clientMessageId,
+    isMine,
+    callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+    callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+    callSessionId: trimText(metadata.sessionId as string) || null,
+    ...(safeMt === "voice"
+      ? {
+          voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+          voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+          voiceMimeType: trimText(metadata.mimeType as string) || null,
+        }
+      : {}),
+    ...(safeMt === "file"
+      ? {
+          fileName: trimText(metadata.fileName as string) || null,
+          fileMimeType: trimText(metadata.mimeType as string) || null,
+          fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
+        }
+      : {}),
+  };
+  return { ok: true, message };
 }
 
 export async function sendCommunityMessengerMessage(input: {

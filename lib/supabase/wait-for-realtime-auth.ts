@@ -7,7 +7,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const DEFAULT_MAX_WAIT_MS = 8_000;
 /** `onAuthStateChange` 전에 쿠키에서 세션이 올라오는 경우가 많아 짧은 간격으로만 폴링 */
 const SESSION_POLL_INTERVAL_MS = 120;
-const SESSION_POLL_WINDOW_MS = 3_200;
+/**
+ * 세션 폴링 상한 — `maxWaitMs`(기본 8s)보다 짧게 끊으면 3~5초대에 토큰이 붙는 탭에서
+ * 폴링만 멈추고 `onAuthStateChange` 도 안 오면 Realtime 구독이 한동안 열리지 않는 구간이 생길 수 있다.
+ */
+const SESSION_POLL_WINDOW_MS = DEFAULT_MAX_WAIT_MS;
 
 async function applyRealtimeAuthToken(sb: SupabaseClient, accessToken: string | null | undefined): Promise<boolean> {
   const token = typeof accessToken === "string" ? accessToken.trim() : "";

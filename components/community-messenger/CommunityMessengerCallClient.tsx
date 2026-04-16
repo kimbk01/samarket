@@ -1247,10 +1247,13 @@ export function CommunityMessengerCallClient({
       joinedRef.current = false;
       setRemoteJoined(false);
       void disposeCallMedia().catch(() => {});
+      if (snap?.roomId?.trim()) {
+        router.replace(`/community-messenger/rooms/${encodeURIComponent(snap.roomId.trim())}`);
+      }
     } finally {
       setBusy(null);
     }
-  }, [disposeCallMedia, refreshSession, session]);
+  }, [disposeCallMedia, refreshSession, router, session]);
 
   const endCall = useCallback(async () => {
     if (!session) return;
@@ -1291,6 +1294,9 @@ export function CommunityMessengerCallClient({
         session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
       applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
       void disposeCallMedia().catch(() => {});
+      if (roomId.trim()) {
+        router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`);
+      }
     } finally {
       setBusy(null);
     }
@@ -1722,13 +1728,16 @@ export function CommunityMessengerCallClient({
         setRemoteJoined(false);
         void disposeCallMedia().catch(() => {});
         void refreshSession(true);
+        if (snapshot.roomId.trim()) {
+          router.replace(`/community-messenger/rooms/${encodeURIComponent(snapshot.roomId.trim())}`);
+        }
       },
     });
     return () => {
       cancelled = true;
       void sb.removeChannel(ch);
     };
-  }, [disposeCallMedia, refreshSession, scheduleSilentRefresh, session?.id, session?.participants, sessionId]);
+  }, [disposeCallMedia, refreshSession, router, scheduleSilentRefresh, session?.id, session?.participants, sessionId]);
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;
@@ -2243,9 +2252,10 @@ export function CommunityMessengerCallClient({
           }
         : null,
     participantsSummary: null,
+    /** 종료·거절 직후 `router.replace` 가 기본 — 세션 없음 등 예외에서만 짧은 자동 닫기 백업 */
     autoCloseMs:
       directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed"
-        ? 2200
+        ? 900
         : null,
   };
 

@@ -32,21 +32,38 @@ export function CommunityMessengerRoomPhase2Header() {
   const [confirmKind, setConfirmKind] = useState<null | "voice" | "video">(null);
   const peerLabel = vm.snapshot.room.title?.trim() || "상대";
   const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
-  const peerTyping = useMessengerTypingStore((state) => {
-    const roomId = vm.snapshot.room.id;
-    const peerUserId = vm.snapshot.room.peerUserId ?? "";
-    if (!roomId || !peerUserId) return false;
-    const entry = state.byRoomId[roomId]?.[peerUserId];
-    return Boolean(entry && entry.expiresAt > Date.now());
+  /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
+  const typingPeerCount = useMessengerTypingStore((state) => {
+    const roomId = vm.snapshot.room.id.trim().toLowerCase();
+    const viewerId = vm.snapshot.viewerUserId ?? "";
+    const now = Date.now();
+    if (!roomId) return 0;
+    if (vm.snapshot.room.roomType === "direct") {
+      const peerUserId = vm.snapshot.room.peerUserId ?? "";
+      if (!peerUserId) return 0;
+      const entry = state.byRoomId[roomId]?.[peerUserId];
+      return entry && entry.expiresAt > now ? 1 : 0;
+    }
+    const bucket = state.byRoomId[roomId] ?? {};
+    let n = 0;
+    for (const [uid, entry] of Object.entries(bucket)) {
+      if (uid === viewerId) continue;
+      if (entry.expiresAt > now) n += 1;
+    }
+    return n;
   });
   const statusLine = useMemo(() => {
-    if (vm.snapshot.room.roomType !== "direct") return vm.roomHeaderStatus;
-    if (peerTyping) return "입력 중...";
+    if (vm.snapshot.room.roomType !== "direct") {
+      if (typingPeerCount >= 2) return `${typingPeerCount}명이 입력 중...`;
+      if (typingPeerCount === 1) return "입력 중...";
+      return vm.roomHeaderStatus;
+    }
+    if (typingPeerCount > 0) return "입력 중...";
     if (peerPresence) {
       return formatPresenceLine(peerPresence.state, peerPresence.lastSeenAt);
     }
     return vm.roomHeaderStatus;
-  }, [peerPresence, peerTyping, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
+  }, [peerPresence, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
   return (
     <>
       <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
@@ -125,8 +142,11 @@ export function CommunityMessengerRoomPhase2Header() {
           onCancel={() => setConfirmKind(null)}
           onConfirm={() => {
             const kind = confirmKind;
-            setConfirmKind(null);
-            void vm.startManagedDirectCall(kind);
+            if (!kind) return;
+            void (async () => {
+              const ok = await vm.startManagedDirectCall(kind);
+              if (ok) setConfirmKind(null);
+            })();
           }}
         />
       ) : null}

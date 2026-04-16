@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { fetchCommunityMessengerVoicePlaybackBytes } from "@/lib/community-messenger/service";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   resolveVoicePlaybackContentType,
@@ -24,10 +25,14 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId, messageId } = await params;
+  const { roomId: rawRoomId, messageId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
   const result = await fetchCommunityMessengerVoicePlaybackBytes({
     userId: auth.userId,
-    roomId,
+    roomId: canon.canonicalRoomId,
     messageId,
   });
 

@@ -321,12 +321,12 @@ export function useCommunityMessengerCall(args: {
           return;
         }
         clearPendingSessionCleanup();
-        const dismissMs = panel.mode === "dialing" || panel.mode === "incoming" ? 0 : 350;
+        /** 종료·거절·취소 직후 방 UI 가 바로 원상 복구되도록 지연 없음(과거 350ms 는 체감 정체) */
         sessionCleanupTimerRef.current = window.setTimeout(() => {
           cleanupMedia();
           setPanel(null);
           sessionCleanupTimerRef.current = null;
-        }, dismissMs);
+        }, 0);
       }
       return;
     }

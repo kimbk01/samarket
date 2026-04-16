@@ -26,6 +26,19 @@ function buildPayload(out: NotificationSideEffectPayloadOut): string {
     tag,
     notification_type: out.notification_type,
   };
+  const metaObj = out.meta && typeof out.meta === "object" ? (out.meta as Record<string, unknown>) : null;
+  if (
+    out.notification_type === "chat" &&
+    metaObj &&
+    metaObj.kind === "community_chat" &&
+    typeof metaObj.room_id === "string" &&
+    metaObj.room_id.trim()
+  ) {
+    const rid = metaObj.room_id.trim();
+    body.notification_type = "community_messenger_message";
+    body.roomId = rid;
+    body.tag = `samarket-message-room-${rid}`;
+  }
   if (out.meta && typeof out.meta === "object") {
     const sid = (out.meta as Record<string, unknown>).session_id ?? (out.meta as Record<string, unknown>).sessionId;
     if (typeof sid === "string" && sid.trim()) body.sessionId = sid.trim();

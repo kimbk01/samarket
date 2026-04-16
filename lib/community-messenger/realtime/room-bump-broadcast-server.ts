@@ -135,40 +135,70 @@ async function acquireRoomBumpChannel(roomId: string): Promise<RealtimeChannel |
 /**
  * 메시지가 서버에서 확정된 직후 — 서비스 롤 Realtime 로 상대 클라이언트에 bump 전달.
  * (postgres_changes publication 이 없거나 느릴 때도 UI 가 따라잡게 하는 **영속 보강 경로**)
+ *
+ * `messageId`·`messageCreatedAt`·선택 `message` 는 **저지연 힌트(v2)** — 수신 측은 `message` 를
+ * `fromUserId`·canonical 방 id 와 교차 검증한 뒤 즉시 병합할 수 있고, 이후 HTTP 로 정합을 맞출 수 있다.
  */
 export async function publishCommunityMessengerRoomBumpFromServer(args: {
-  roomId: string;
+  /** Realtime 채널 접미사(구독 키). canonical 과 거래·레거시 URL id 가 다르면 둘 다 쓸 수 있다. */
+  channelRoomId: string;
+  canonicalRoomId: string;
   fromUserId: string;
+  messageId?: string;
+  messageCreatedAt?: string;
+  /** canonical 과 다른 라우트 id — 수신 측 매칭·거래 URL 구독용 */
+  rawRouteRoomId?: string | null;
+  /** 서비스 롤 전용 — 클라 broadcast 와 혼동되므로 수신 측에서 반드시 검증 */
+  messageSnapshot?: Record<string, unknown> | null;
 }): Promise<void> {
-  const roomId = args.roomId.trim();
+  const channelKey = args.channelRoomId.trim();
+  const canonicalRoomId = args.canonicalRoomId.trim();
   const fromUserId = args.fromUserId.trim();
-  if (!roomId || !fromUserId) return;
+  if (!channelKey || !canonicalRoomId || !fromUserId) return;
 
-  const ch = await acquireRoomBumpChannel(roomId);
+  const ch = await acquireRoomBumpChannel(channelKey);
   if (!ch) return;
+
+  const messageId = typeof args.messageId === "string" ? args.messageId.trim() : "";
+  const messageCreatedAt = typeof args.messageCreatedAt === "string" ? args.messageCreatedAt.trim() : "";
+  const rawTagged = typeof args.rawRouteRoomId === "string" ? args.rawRouteRoomId.trim() : "";
+  const payload: Record<string, unknown> = {
+    v: 2,
+    roomId: canonicalRoomId,
+    canonicalRoomId,
+    fromUserId,
+    at: new Date().toISOString(),
+  };
+  if (rawTagged && rawTagged.toLowerCase() !== canonicalRoomId.toLowerCase()) {
+    payload.rawRouteRoomId = rawTagged;
+  }
+  if (messageId) {
+    payload.messageId = messageId;
+    if (messageCreatedAt) payload.messageCreatedAt = messageCreatedAt;
+  }
+  const snap = args.messageSnapshot;
+  if (snap && typeof snap === "object" && snap !== null && Object.keys(snap).length > 0) {
+    payload.message = snap;
+  }
 
   try {
     await ch.send({
       type: "broadcast",
       event: CM_ROOM_BUMP_BROADCAST_EVENT,
-      payload: {
-        roomId,
-        fromUserId,
-        at: new Date().toISOString(),
-      },
+      payload,
     });
-    const hit = roomChannels.get(roomId);
+    const hit = roomChannels.get(channelKey);
     if (hit) hit.lastUsed = Date.now();
   } catch {
     const sb = publisherSb;
-    const hit = roomChannels.get(roomId);
+    const hit = roomChannels.get(channelKey);
     if (hit && sb) {
       try {
         void sb.removeChannel(hit.ch);
       } catch {
         /* ignore */
       }
-      roomChannels.delete(roomId);
+      roomChannels.delete(channelKey);
     }
   }
 }

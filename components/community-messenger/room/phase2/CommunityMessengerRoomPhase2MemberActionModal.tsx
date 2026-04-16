@@ -71,9 +71,12 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
           onConfirm={() => {
             const id = memberActionTarget.id;
             const kind = outCallKind;
-            setOutCallKind(null);
-            vm.setMemberActionTarget(null);
-            void vm.startDirectCallWithMember(id, kind);
+            void (async () => {
+              const ok = await vm.startDirectCallWithMember(id, kind);
+              if (!ok) return;
+              setOutCallKind(null);
+              vm.setMemberActionTarget(null);
+            })();
           }}
         />
       ) : null}

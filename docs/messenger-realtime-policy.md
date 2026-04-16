@@ -20,6 +20,18 @@
 | 오너 허브 배지 서버 TTL | **28s** | [`lib/chats/owner-hub-badge-cache.ts`](../lib/chats/owner-hub-badge-cache.ts) — `HUB_BADGE_TTL_MS` |
 | GET `/api/auth/session` 합류 | `client:GET:/api/auth/session` | [`lib/auth/fetch-auth-session-client.ts`](../lib/auth/fetch-auth-session-client.ts) — 로그인 직후 동기화 포함 [`app/login/page.tsx`](../app/login/page.tsx) |
 
+## Community 메신저 방 메시지 — 기본 계약 (저지연)
+
+**단일 수신 경로를 이 계약으로 둔다.** (임시 폴링만 늘리는 방식으로 대체하지 않음 — `.cursor/rules/fundamental-fixes-only.mdc` 와 정합.)
+
+| 단계 | 역할 | 코드 |
+|------|------|------|
+| 발행 | 메시지·미디어 mutation 직후 **서비스 롤**이 Realtime Broadcast 로 bump 전송. 응답 본문 전에 `await` 로 전송 완료를 보장. | [`publish-messenger-room-bump.ts`](../lib/community-messenger/server/publish-messenger-room-bump.ts) → [`room-bump-broadcast-server.ts`](../lib/community-messenger/realtime/room-bump-broadcast-server.ts) |
+| 페이로드 | v2: `canonicalRoomId`, `fromUserId`, `messageId`, 선택 **`message`**(직렬화된 확정 행). 거래·레거시 URL id 와 canonical 이 다르면 **두 채널** 모두 발행 + `rawRouteRoomId` 로 매칭. | [`community-messenger-room-bump-channel.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-channel.ts) (`communityMessengerBumpPayloadMatchesKnownRooms` 등) |
+| 직렬화·검증 | 서버→와이어용 `serialize…`, 수신 측 `parse…` — `fromUserId`·방 id·`messageId` 힌트와 교차 검증 후에만 UI 병합. | [`community-messenger-room-bump-message-snapshot.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot.ts) |
+| 수신 UI | `subscribeCommunityMessengerRoomBumpBroadcast` + 즉시 `mergeRoomMessages`; 이어서 HTTP 증분(`catchUpAfterRemoteBump`)으로 정합. `postgres_changes` 는 병행. | [`room-bump-broadcast.ts`](../lib/community-messenger/realtime/room-bump-broadcast.ts) (구독만), [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts) |
+| 금지 | **클라이언트**가 동일 bump 채널로 메시지 알림을 발행하는 것 — 서버 bump 와 중복·지연·보안 모델이 어긋난다. | (구 `publishCommunityMessengerRoomBump*` 클라 발행 제거됨) |
+
 ## 원칙
 
 1. **가벼운 이벤트만** — INSERT 한 건·메타 변경 한 건 단위로 클라이언트에서 머지; **전체 메시지 목록 재요청**은 디바운스된 `refresh` 로만.

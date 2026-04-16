@@ -26,6 +26,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **거래 채팅 구매자·판매자 프로세스(상세 CTA·예약·후기)**: `docs/trade-chat-buyer-seller-process.md`.
 - **Trade / Philife / Store 스트림(통합 목록) 구현 공유**: `lib/chats`, `load-chat-room-bootstrap`, `chat-room-load-contract` — 위 3종·비3종 경계는 `samarket-three-chat-pillars` 우선.
 - **Community 메신저 UI**: `lib/community-messenger`, `lib/chat-domain/use-cases/community-messenger-bootstrap`, Realtime·unread는 커뮤니티 전용 정책.
+- **Community 메신저 방 메시지 기본 계약(저지연)**: mutation 직후 **서버만** Realtime bump 발행(`publish-messenger-room-bump` → `room-bump-broadcast-server`); 페이로드 v2 + 선택 `message` 스냅샷; 수신은 `room-bump-broadcast`(구독)·`community-messenger-room-bump-message-snapshot`·`use-messenger-room-client-phase1`에서 검증·병합 후 HTTP로 정합. **클라이언트 bump 발행 금지.** 상세 표: `docs/messenger-realtime-policy.md` 의「Community 메신저 방 메시지」절.
 - **Store 주문 채팅**: `lib/order-chat`, `lib/shared-order-chat` — 주문 상태 필드와 unread 역할 분리 유지.
 - 도메인 식별·소유 경로: `lib/chat-domain/messenger-domains.ts`, 포트: `lib/chat-domain/ports/*`.
 - 성능 목표·알림 env: `docs/messenger-performance-targets.md`, `docs/messenger-production-slo.md`; 참조 상수 `MESSENGER_PERF_REFERENCE_P95_MS` (`lib/community-messenger/monitoring/thresholds.ts`).

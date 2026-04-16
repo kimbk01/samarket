@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export async function POST(
@@ -30,10 +31,14 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "bad_call_kind" }, { status: 400 });
   }
 
-  const { roomId } = await params;
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
   const result = await startCommunityMessengerCallSession({
     userId: auth.userId,
-    roomId,
+    roomId: canon.canonicalRoomId,
     callKind: body.callKind,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });

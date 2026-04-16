@@ -10,6 +10,7 @@ import {
   getCachedRoomBootstrap,
   setCachedRoomBootstrap,
 } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 /**
@@ -32,7 +33,12 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { roomId } = await params;
+  const { roomId: rawRoomId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
+  const roomKey = canon.canonicalRoomId;
   const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
@@ -50,7 +56,6 @@ export async function GET(
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();
-  const roomKey = String(roomId ?? "").trim();
   const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${mode || "default"}:${hydrateFullMemberList ? "full" : "minimal"}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
   const cached = getCachedRoomBootstrap(cacheKey);
   const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
