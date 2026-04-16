@@ -41,6 +41,7 @@ import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { getLatestCallStubForSession, mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -726,6 +727,85 @@ export function useMessengerRoomPhase2Controller() {
     await sendRawText(content);
   }, [message, replyToMessage, sendRawText, snapshot]);
 
+  const sendSticker = useCallback(
+    async (fileUrl: string, stickerItemId?: string) => {
+      const url = fileUrl.trim();
+      if (!snapshot || roomUnavailable || !url.startsWith("/stickers/")) return;
+      const clientMessageId = createCommunityMessengerClientMessageId();
+      const tempId = `pending:sticker:${roomId}:${pendingMessageIdRef.current++}`;
+      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+        id: tempId,
+        roomId,
+        senderId: snapshot.viewerUserId,
+        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        messageType: "sticker",
+        content: url,
+        createdAt: new Date().toISOString(),
+        clientMessageId,
+        isMine: true,
+        pending: true,
+        callKind: null,
+        callStatus: null,
+      };
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      scrollMessengerToBottom();
+      setBusy("send-sticker");
+      dismissRoomSheet();
+      try {
+        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/messages/sticker`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: url,
+            clientMessageId,
+            stickerItemId: stickerItemId ?? "",
+          }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: CommunityMessengerMessage;
+        };
+        if (res.ok && json.ok) {
+          const elapsed =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+          messengerMonitorMessageRtt(roomId, elapsed, "sticker");
+        }
+        if (!res.ok || !json.ok) {
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          return;
+        }
+        touchRecentStickerUrl(url);
+        const confirmedSticker = json.message;
+        if (confirmedSticker) {
+          setRoomMessages((prev) =>
+            mergeRoomMessages(
+              prev.filter((item) => item.id !== tempId),
+              [confirmedSticker]
+            )
+          );
+          scrollMessengerToBottom();
+          postCommunityMessengerBusEvent({ type: "cm.room.message_sent", roomId, clientMessageId, at: Date.now() });
+          return;
+        }
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      dismissRoomSheet,
+      getRoomActionErrorMessage,
+      roomId,
+      roomMembersDisplay,
+      roomUnavailable,
+      scrollMessengerToBottom,
+      snapshot,
+    ]
+  );
+
   const sendLocationMessage = useCallback(() => {
     if (!snapshot || roomUnavailable) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -1239,7 +1319,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const getMessageCopyText = useCallback((item: CommunityMessengerMessage & { pending?: boolean }) => {
     if (item.messageType === "text" || item.messageType === "call_stub") return item.content.trim();
-    if (item.messageType === "image" || item.messageType === "file" || item.messageType === "voice") {
+    if (item.messageType === "image" || item.messageType === "file" || item.messageType === "voice" || item.messageType === "sticker") {
       return item.content.trim();
     }
     return "";
@@ -1484,6 +1564,7 @@ export function useMessengerRoomPhase2Controller() {
     openInfoSheet,
     sendRawText,
     sendMessage,
+    sendSticker,
     sendLocationMessage,
     sendImageFile,
     openImagePicker,

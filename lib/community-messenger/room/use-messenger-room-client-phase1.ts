@@ -202,7 +202,9 @@ export function useMessengerRoomClientPhase1({
   const [openGroupDiscoverable, setOpenGroupDiscoverable] = useState(true);
   const [openGroupJoinPolicy, setOpenGroupJoinPolicy] = useState<"password" | "free">("password");
   const [openGroupIdentityPolicy, setOpenGroupIdentityPolicy] = useState<"real_name" | "alias_allowed">("alias_allowed");
-  const [activeSheet, setActiveSheet] = useState<null | "attach" | "menu" | "members" | "info" | "search" | "media" | "files" | "links">(null);
+  const [activeSheet, setActiveSheet] = useState<
+    null | "attach" | "menu" | "members" | "info" | "search" | "media" | "files" | "links" | "stickers"
+  >(null);
   const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);
   /** 그룹 URL 자동 수락 effect 예외 시(훅이 잡지 못한 throw) 안내 */

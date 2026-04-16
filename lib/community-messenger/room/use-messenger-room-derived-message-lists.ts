@@ -29,7 +29,7 @@ export function useMessengerRoomDerivedMessageLists(
 
   const mediaGalleryMessages = useMemo(() => {
     return roomMessages.filter((m) => {
-      if (m.messageType === "voice" || m.messageType === "image") return true;
+      if (m.messageType === "voice" || m.messageType === "image" || m.messageType === "sticker") return true;
       if (m.messageType === "text") {
         return looksLikeDirectImageUrl(m.content);
       }

@@ -56,6 +56,7 @@ export function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number
 export function communityMessengerMessageSearchText(m: CommunityMessengerMessage & { pending?: boolean }): string {
   if (m.messageType === "call_stub") return m.callKind === "video" ? "영상 통화" : "음성 통화";
   if (m.messageType === "voice") return "음성 메시지";
+  if (m.messageType === "sticker") return "스티커";
   if (m.messageType === "file") return m.fileName?.trim() || "파일";
   if (m.messageType === "image") return m.content.trim() || "사진";
   return m.content;
@@ -112,6 +113,13 @@ export function mergeRoomMessages(
       const dt = Math.abs(new Date(confirmedItem.createdAt).getTime() - new Date(item.createdAt).getTime());
       if (item.messageType === "voice" && item.pending) {
         return dt < 15_000;
+      }
+      if (item.messageType === "sticker" && item.pending) {
+        return (
+          confirmedItem.messageType === "sticker" &&
+          confirmedItem.content === item.content &&
+          dt < 15_000
+        );
       }
       if (item.messageType === "file" && item.pending) {
         return confirmedItem.fileName === item.fileName && dt < 15_000;
@@ -210,7 +218,7 @@ export function mapRealtimeRoomMessage(
     id: string;
     roomId: string;
     senderId: string | null;
-    messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
+    messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
     content: string;
     metadata: Record<string, unknown>;
     createdAt: string;

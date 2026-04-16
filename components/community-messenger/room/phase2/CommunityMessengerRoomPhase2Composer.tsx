@@ -49,6 +49,7 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
@@ -67,7 +68,7 @@ export function CommunityMessengerRoomPhase2Composer() {
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
         }}
       >
-        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
+        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
           {!vm.voiceRecording ? (
             <button
               type="button"
@@ -80,7 +81,28 @@ export function CommunityMessengerRoomPhase2Composer() {
           ) : (
             <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
           )}
-          <div className="col-start-2 flex min-h-0 min-w-0 items-center">
+          {!vm.voiceRecording ? (
+            <button
+              type="button"
+              onClick={() => vm.setActiveSheet("stickers")}
+              disabled={
+                vm.roomUnavailable ||
+                vm.busy === "send-sticker" ||
+                vm.busy === "send" ||
+                vm.busy === "send-image" ||
+                vm.busy === "send-file" ||
+                vm.busy === "send-voice" ||
+                vm.busy === "delete-message"
+              }
+              className="flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90 disabled:opacity-35"
+              aria-label="스티커"
+            >
+              <Sticker className="h-5 w-5" strokeWidth={2} />
+            </button>
+          ) : (
+            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
+          )}
+          <div className="flex min-h-0 min-w-0 items-center">
             {!vm.voiceRecording ? (
               <textarea
                 ref={vm.composerTextareaRef}
@@ -97,6 +119,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                     vm.busy === "send-image" ||
                     vm.busy === "send-file" ||
                     vm.busy === "send-voice" ||
+                    vm.busy === "send-sticker" ||
                     vm.busy === "delete-message"
                   ) {
                     return;
@@ -111,7 +134,13 @@ export function CommunityMessengerRoomPhase2Composer() {
                   useMessengerRoomUiStore.getState().setComposerFocused(false);
                 }}
                 rows={1}
-                disabled={vm.roomUnavailable || vm.busy === "delete-message" || vm.busy === "send-image" || vm.busy === "send-file"}
+                disabled={
+                  vm.roomUnavailable ||
+                  vm.busy === "delete-message" ||
+                  vm.busy === "send-image" ||
+                  vm.busy === "send-file" ||
+                  vm.busy === "send-sticker"
+                }
                 placeholder={
                   vm.roomUnavailable
                     ? vm.snapshot.room.isReadonly
@@ -198,6 +227,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                   vm.busy === "send-image" ||
                   vm.busy === "send-file" ||
                   vm.busy === "send-voice" ||
+                  vm.busy === "send-sticker" ||
                   vm.busy === "delete-message" ||
                   Boolean(vm.message.trim()) ||
                   (vm.voiceRecording && vm.voiceHandsFree)
@@ -234,6 +264,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-image" ||
                 vm.busy === "send-file" ||
                 vm.busy === "send-voice" ||
+                vm.busy === "send-sticker" ||
                 vm.busy === "delete-message"
               }
               className="flex h-10 min-w-[40px] shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary)] px-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"

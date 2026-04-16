@@ -48,6 +48,7 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -57,7 +58,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
         <div className="fixed inset-0 z-20 flex flex-col justify-end bg-black/30" onClick={vm.dismissRoomSheet}>
           <div
             className={`max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
-              vm.activeSheet === "attach"
+              vm.activeSheet === "attach" || vm.activeSheet === "stickers"
                 ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 : "mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-5"
             }`}
@@ -124,6 +125,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   취소
                 </button>
               </>
+            ) : null}
+
+            {vm.activeSheet === "stickers" ? (
+              <MessengerStickerSheet
+                open
+                onClose={vm.dismissRoomSheet}
+                onPick={(url, sid) => void vm.sendSticker(url, sid)}
+              />
             ) : null}
 
             {vm.activeSheet === "menu" ? (

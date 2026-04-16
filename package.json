@@ -35,6 +35,7 @@
     "sql:copy:dangnae": "node scripts/copy-sql-clipboard.mjs supabase/scripts/paste-dangnae-community-sample.sql",
     "sql:copy:meetings": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260326120000_neighborhood_community.sql",
     "sql:copy:v2": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260327100000_community_engine_v2.sql",
+    "stickers:build": "node scripts/build-samarket-stickers.mjs",
     "sql:copy:flags": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260328100000_dangnae_community_sample_flags.sql",
     "sql:copy:meeting-chat-rooms": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331150000_meeting_chat_rooms.sql",
     "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql"
@@ -69,6 +70,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
+    "sharp": "^0.33.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"

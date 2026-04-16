@@ -8,7 +8,7 @@ export type CommunityMessengerRoomVisibility = "private" | "public";
 export type CommunityMessengerRoomJoinPolicy = "invite_only" | "password" | "free";
 export type CommunityMessengerIdentityMode = "real_name" | "alias";
 export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
-export type CommunityMessengerMessageType = "text" | "image" | "file" | "system" | "call_stub" | "voice";
+export type CommunityMessengerMessageType = "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
 export type CommunityMessengerCallKind = "voice" | "video";
 export type CommunityMessengerCallStatus =
   | "dialing"

@@ -12,6 +12,7 @@ import {
   downsampleVoiceWaveformPeaks,
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
+import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
@@ -157,7 +158,7 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice";
+  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -246,7 +247,7 @@ type DevRoom = {
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
-  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
+  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
 };
 
 type DevParticipant = {
@@ -275,7 +276,7 @@ type DevMessage = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice";
+  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -1035,7 +1036,8 @@ function buildRoomSummaryFromHydratedMembers(
     roomLastMessageTypeRaw === "file" ||
     roomLastMessageTypeRaw === "system" ||
     roomLastMessageTypeRaw === "call_stub" ||
-    roomLastMessageTypeRaw === "voice"
+    roomLastMessageTypeRaw === "voice" ||
+    roomLastMessageTypeRaw === "sticker"
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
@@ -4784,7 +4786,14 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
       const isMine = senderId === input.userId;
       const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
       const safeMt: CommunityMessengerMessage["messageType"] =
-        mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
+        mt === "image" ||
+        mt === "file" ||
+        mt === "system" ||
+        mt === "call_stub" ||
+        mt === "voice" ||
+        mt === "sticker"
+          ? mt
+          : "text";
       return {
         id: message.id,
         roomId: message.room_id,
@@ -4941,7 +4950,14 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
       const isMine = senderId === input.userId;
       const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
       const safeMt: CommunityMessengerMessage["messageType"] =
-        mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" ? mt : "text";
+        mt === "image" ||
+        mt === "file" ||
+        mt === "system" ||
+        mt === "call_stub" ||
+        mt === "voice" ||
+        mt === "sticker"
+          ? mt
+          : "text";
       return {
         id: message.id,
         roomId: message.room_id,
@@ -5301,6 +5317,7 @@ async function appendCommunityMessengerSystemMessage(input: {
 const VOICE_LAST_PREVIEW = "음성 메시지";
 const IMAGE_LAST_PREVIEW = "사진";
 const FILE_LAST_PREVIEW = "파일";
+const STICKER_LAST_PREVIEW = "스티커";
 
 export async function sendCommunityMessengerImageMessage(input: {
   userId: string;
@@ -5441,6 +5458,188 @@ export async function sendCommunityMessengerImageMessage(input: {
       messageType: "image",
       content: imagePublicUrl,
       createdAt,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+    },
+  };
+}
+
+export async function sendCommunityMessengerStickerMessage(input: {
+  userId: string;
+  roomId: string;
+  content: string;
+  clientMessageId?: string;
+  stickerItemId?: string;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const path = normalizeCommunityMessengerStickerContent(input.content);
+  if (!roomId || !path) return { ok: false, error: "content_required" };
+  const clientMessageId = trimText(input.clientMessageId ?? "");
+  const stickerItemId = trimText(input.stickerItemId ?? "");
+  const metadata: Record<string, unknown> = {};
+  if (clientMessageId) metadata.client_message_id = clientMessageId;
+  if (stickerItemId) metadata.sticker_item_id = stickerItemId;
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+
+    if (clientMessageId) {
+      const { data: existingRow, error: existingError } = await (sb as any)
+        .from("community_messenger_messages")
+        .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+        .eq("room_id", roomId)
+        .eq("sender_id", input.userId)
+        .filter("metadata->>client_message_id", "eq", clientMessageId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!existingError && existingRow) {
+        return {
+          ok: true,
+          message: {
+            id: String((existingRow as { id?: unknown }).id ?? ""),
+            roomId,
+            senderId: input.userId,
+            senderLabel: "나",
+            messageType: "sticker",
+            content: String((existingRow as { content?: unknown }).content ?? path),
+            createdAt: String((existingRow as { created_at?: unknown }).created_at ?? nowIso()),
+            clientMessageId,
+            isMine: true,
+            callKind: null,
+            callStatus: null,
+          },
+        };
+      }
+    }
+
+    const createdAt = nowIso();
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "sticker",
+        content: path,
+        metadata,
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: STICKER_LAST_PREVIEW,
+          last_message_at: createdAt,
+          last_message_type: "sticker",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
+      const { data: recipientRows } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => Boolean(uid?.trim()));
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview: STICKER_LAST_PREVIEW,
+        recipientUserIds,
+      }).catch(() => {});
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: "나",
+          messageType: "sticker",
+          content: path,
+          createdAt,
+          clientMessageId: clientMessageId || null,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+        },
+      };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
+  const createdAt = nowIso();
+  const messageId = randomUUID();
+  dev.messages.push({
+    id: messageId,
+    roomId,
+    senderId: input.userId,
+    messageType: "sticker",
+    content: path,
+    metadata,
+    createdAt,
+  });
+  room.lastMessage = STICKER_LAST_PREVIEW;
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "sticker";
+  for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
+    p.unreadCount = p.userId === input.userId ? 0 : p.unreadCount + 1;
+  }
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: "나",
+      messageType: "sticker",
+      content: path,
+      createdAt,
+      clientMessageId: clientMessageId || null,
       isMine: true,
       callKind: null,
       callStatus: null,
@@ -5613,6 +5812,7 @@ function messengerLastPreviewFromRow(row: {
   if (mt === "voice") return { preview: VOICE_LAST_PREVIEW, messageType: "voice" };
   if (mt === "call_stub") return { preview: trimText(row.content) || "통화", messageType: "call_stub" };
   if (mt === "image") return { preview: trimText(row.content) || "사진", messageType: "image" };
+  if (mt === "sticker") return { preview: STICKER_LAST_PREVIEW, messageType: "sticker" };
   if (mt === "file") return { preview: trimText((row.metadata as { fileName?: string } | undefined)?.fileName) || FILE_LAST_PREVIEW, messageType: "file" };
   if (mt === "system") return { preview: trimText(row.content) || "알림", messageType: "system" };
   const c = trimText(row.content);
