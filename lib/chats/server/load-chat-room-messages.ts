@@ -283,11 +283,17 @@ export async function loadIntegratedChatRoomMessageRowsForUser(input: {
 export async function loadChatMessagesForRoom(input: {
   room: ChatRoom;
   userId: string;
+  /** 부트스트랩 등 — 지정 시 통합·레거시·주문 연동 메시지 창을 이 개수로 제한 */
+  messageLimit?: number;
 }): Promise<ChatMessage[]> {
-  const { room, userId } = input;
+  const { room, userId, messageLimit } = input;
 
   if (room.source === "product_chat") {
-    const result = await loadLegacyProductChatMessagesForUser(room.id, userId);
+    const result = await loadLegacyProductChatMessagesForUser(
+      room.id,
+      userId,
+      typeof messageLimit === "number" ? { limit: messageLimit } : undefined
+    );
     return result.ok ? result.value : [];
   }
 
@@ -296,7 +302,9 @@ export async function loadChatMessagesForRoom(input: {
     if (!orderId) return [];
     const sb = tryGetSupabaseForStores();
     if (!sb) return [];
-    const snapshot = await getOrderChatSnapshotForUser(sb as any, orderId, userId);
+    const snapshot = await getOrderChatSnapshotForUser(sb as any, orderId, userId, {
+      ...(typeof messageLimit === "number" ? { messageLimit } : {}),
+    });
     if (!snapshot.ok) return [];
     return snapshot.snapshot.messages.map((row: OrderChatMessagePublic) =>
       mapOrderChatMessageToChatMessage(row, room.id, room.buyerId, userId)
@@ -306,6 +314,7 @@ export async function loadChatMessagesForRoom(input: {
   const result = await loadIntegratedChatRoomMessageRowsForUser({
     roomId: room.id,
     userId,
+    ...(typeof messageLimit === "number" ? { limit: messageLimit } : {}),
   });
   if (!result.ok) return [];
   return result.value

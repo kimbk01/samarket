@@ -10,6 +10,7 @@ export function createTradeChatReadAdapter(): TradeChatReadPort {
         userId,
         sourceHint: options?.sourceHint,
         detailScope: options?.detailScope,
+        bootstrapPhase: options?.bootstrapPhase,
       });
     },
   };

@@ -34,6 +34,7 @@ import {
 import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { getChatServiceRoleSupabase } from "./service-role-supabase";
 import { parseRoomId } from "@/lib/validate-params";
+import { computeItemTradeUnreadCount } from "@/lib/chats/server/compute-item-trade-unread";
 
 type RoomDetailCacheEntry = { at: number; payload: ChatRoom };
 const ROOM_DETAIL_CACHE_TTL_MS = 2500;
@@ -216,7 +217,7 @@ export async function loadChatRoomDetailForUser(input: {
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
       .select(
-        "id, item_id, related_post_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id"
+        "id, item_id, related_post_id, seller_id, buyer_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id"
       )
       .eq("room_type", "item_trade")
       .eq("item_id", r.post_id)
@@ -240,7 +241,7 @@ export async function loadChatRoomDetailForUser(input: {
         const [{ data: partRow }, post2] = await Promise.all([
           sbAny
             .from("chat_room_participants")
-            .select("unread_count")
+            .select("unread_count, last_read_message_id")
             .eq("room_id", roomIdCr)
             .eq("user_id", input.userId)
             .maybeSingle(),
@@ -259,7 +260,12 @@ export async function loadChatRoomDetailForUser(input: {
             [itemIdRaw, relatedSame, String(r.post_id ?? "").trim()]
           );
         }
-        const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
+        const unreadCount = await computeItemTradeUnreadCount(sbAny, {
+          roomId: roomIdCr,
+          viewerUserId: input.userId,
+          lastMessageId: (crSame as { last_message_id?: string | null }).last_message_id,
+          lastReadMessageId: (partRow as { last_read_message_id?: string | null } | null)?.last_read_message_id ?? null,
+        });
         const batchIdsCr = [
           ...new Set([partnerId2, postAuthorUserId(post2Resolved ?? undefined) ?? ""].filter(Boolean)),
         ] as string[];
@@ -445,7 +451,7 @@ export async function loadChatRoomDetailForUser(input: {
   const { data: cr, error: crErr } = await sbAny
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked"
+      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -473,6 +479,7 @@ export async function loadChatRoomDetailForUser(input: {
     peer_id: string | null;
     last_message_preview: string | null;
     last_message_at: string | null;
+    last_message_id?: string | null;
     created_at: string;
     related_post_id?: string | null;
     related_comment_id?: string | null;
@@ -688,7 +695,7 @@ export async function loadChatRoomDetailForUser(input: {
   const [{ data: partRow }, post2First] = await Promise.all([
     sbAny
       .from("chat_room_participants")
-      .select("unread_count")
+      .select("unread_count, last_read_message_id")
       .eq("room_id", roomId)
       .eq("user_id", input.userId)
       .maybeSingle(),
@@ -701,7 +708,12 @@ export async function loadChatRoomDetailForUser(input: {
       relatedPostId,
     ]);
   }
-  const unreadCount = (partRow as { unread_count?: number } | null)?.unread_count ?? 0;
+  const unreadCount = await computeItemTradeUnreadCount(sbAny, {
+    roomId,
+    viewerUserId: input.userId,
+    lastMessageId: (cr as { last_message_id?: string | null }).last_message_id,
+    lastReadMessageId: (partRow as { last_read_message_id?: string | null } | null)?.last_read_message_id ?? null,
+  });
   const amISeller2 = crRow.seller_id === input.userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
   const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard).trim();

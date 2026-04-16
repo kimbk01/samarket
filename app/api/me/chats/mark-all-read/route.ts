@@ -76,6 +76,38 @@ export async function POST() {
     );
   }
 
+  /** item_trade: 미읽음은 `last_read_message_id` 기준 — 방 마지막 메시지까지 읽음 커서를 맞춘다 */
+  if (roomIds.length > 0) {
+    for (const ids of chunkIds(roomIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {
+      const { data: tradeRooms, error: trErr } = await sbAny
+        .from("chat_rooms")
+        .select("id, last_message_id")
+        .eq("room_type", "item_trade")
+        .in("id", ids);
+      if (trErr) {
+        return NextResponse.json(
+          { ok: false, error: clientSafeInternalErrorMessage(trErr.message) },
+          { status: 500 }
+        );
+      }
+      const rows = (tradeRooms ?? []) as { id: string; last_message_id?: string | null }[];
+      await Promise.all(
+        rows.map((row) =>
+          sbAny
+            .from("chat_room_participants")
+            .update({
+              last_read_message_id: row.last_message_id ?? null,
+              unread_count: 0,
+              last_read_at: now,
+              updated_at: now,
+            })
+            .eq("room_id", row.id)
+            .eq("user_id", userId)
+        )
+      );
+    }
+  }
+
   const [{ error: pcSellErr }, { error: pcBuyErr }] = await Promise.all([
     sbAny.from("product_chats").update({ unread_count_seller: 0, updated_at: now }).eq("seller_id", userId),
     sbAny.from("product_chats").update({ unread_count_buyer: 0, updated_at: now }).eq("buyer_id", userId),

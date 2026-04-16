@@ -12,6 +12,11 @@ export async function bumpUnreadForChatRoomRecipients(
   nowIso: string,
   preview: string
 ): Promise<{ recipientUserIds: string[] }> {
+  const { data: roomMeta } = await sb.from("chat_rooms").select("room_type").eq("id", roomId).maybeSingle();
+  const roomType = (roomMeta as { room_type?: string | null } | null)?.room_type ?? "";
+  /** item_trade 는 `last_read_message_id` 기반 계산으로 통일 — unread_count 증가 생략 */
+  const skipUnreadCounter = roomType === "item_trade";
+
   const { data: participants } = await sb
     .from("chat_room_participants")
     .select("user_id, unread_count")
@@ -26,15 +31,22 @@ export async function bumpUnreadForChatRoomRecipients(
   const recipientUserIds = recipients.map((r) => r.user_id).filter(Boolean) as string[];
   await Promise.all(
     recipients.map(async (row) => {
-      const current = Number(row.unread_count ?? 0);
       await sb
         .from("chat_room_participants")
-        .update({
-          unread_count: current + 1,
-          hidden: false,
-          left_at: null,
-          updated_at: nowIso,
-        })
+        .update(
+          skipUnreadCounter
+            ? {
+                hidden: false,
+                left_at: null,
+                updated_at: nowIso,
+              }
+            : {
+                unread_count: Number(row.unread_count ?? 0) + 1,
+                hidden: false,
+                left_at: null,
+                updated_at: nowIso,
+              }
+        )
         .eq("room_id", roomId)
         .eq("user_id", row.user_id);
       try {

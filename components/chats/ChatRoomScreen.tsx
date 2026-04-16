@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
@@ -99,10 +100,21 @@ export function ChatRoomScreen({
   });
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
+  /** `lite` 부트스트랩 후 `full` 보강 예약 취소용 */
+  const bootstrapFullIdleIdRef = useRef<number | null>(null);
 
   useNotificationSurfaceTradeChatRoom(roomId);
 
   useTradeChatResolvedViewer(initialViewerUserId, setResolvedUserId);
+
+  useEffect(() => {
+    return () => {
+      if (bootstrapFullIdleIdRef.current != null) {
+        cancelScheduledWhenBrowserIdle(bootstrapFullIdleIdRef.current);
+        bootstrapFullIdleIdRef.current = null;
+      }
+    };
+  }, [roomId]);
 
   const reload = useCallback(async (options?: { bypassPeek?: boolean }) => {
     const startedAt = perfNow();
@@ -133,58 +145,71 @@ export function ChatRoomScreen({
     if (!hadPeek && !options?.bypassPeek) setLoading(true);
     if (!hadPeek && !options?.bypassPeek) setTradeChatBootstrapReady(false);
     setErr(null);
-    try {
-      const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
-        bypassPeek: options?.bypassPeek === true,
-      });
-      if (!result.ok) {
-        setBootstrapMessages(null);
-        setTradeChatBootstrapReady(false);
-        if (result.code === "not_found") {
-          setErr("not_found");
-          setRoom(null);
-          setLoading(false);
-          logClientPerf("chat-room-screen.reload", {
-            roomId,
-            result: "not_found",
-            elapsedMs: Math.round(perfNow() - startedAt),
-          });
-          return;
-        }
-        if (result.code === "auth") {
-          setErr("auth");
-          setRoom(null);
-          setLoading(false);
-          logClientPerf("chat-room-screen.reload", {
-            roomId,
-            result: "auth",
-            elapsedMs: Math.round(perfNow() - startedAt),
-          });
-          return;
-        }
-        if (result.code === "load_failed") {
-          setErr("load_failed");
-          setRoom(null);
-          setLoading(false);
-          logClientPerf("chat-room-screen.reload", {
-            roomId,
-            result: "load_failed",
-            elapsedMs: Math.round(perfNow() - startedAt),
-          });
-          return;
-        }
-        setErr("network");
+    if (bootstrapFullIdleIdRef.current != null) {
+      cancelScheduledWhenBrowserIdle(bootstrapFullIdleIdRef.current);
+      bootstrapFullIdleIdRef.current = null;
+    }
+
+    const failBootstrap = (
+      result: Extract<Awaited<ReturnType<typeof fetchChatRoomBootstrapApi>>, { ok: false }>
+    ) => {
+      setBootstrapMessages(null);
+      setTradeChatBootstrapReady(false);
+      if (result.code === "not_found") {
+        setErr("not_found");
         setRoom(null);
         setLoading(false);
         logClientPerf("chat-room-screen.reload", {
           roomId,
-          result: "network",
+          result: "not_found",
           elapsedMs: Math.round(perfNow() - startedAt),
         });
         return;
       }
+      if (result.code === "auth") {
+        setErr("auth");
+        setRoom(null);
+        setLoading(false);
+        logClientPerf("chat-room-screen.reload", {
+          roomId,
+          result: "auth",
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
+        return;
+      }
+      if (result.code === "load_failed") {
+        setErr("load_failed");
+        setRoom(null);
+        setLoading(false);
+        logClientPerf("chat-room-screen.reload", {
+          roomId,
+          result: "load_failed",
+          elapsedMs: Math.round(perfNow() - startedAt),
+        });
+        return;
+      }
+      setErr("network");
+      setRoom(null);
+      setLoading(false);
+      logClientPerf("chat-room-screen.reload", {
+        roomId,
+        result: "network",
+        elapsedMs: Math.round(perfNow() - startedAt),
+      });
+    };
+
+    const applyBootstrapOk = (
+      result: Extract<Awaited<ReturnType<typeof fetchChatRoomBootstrapApi>>, { ok: true }>,
+      bootstrapPhase: "lite" | "full" | "full_rescue"
+    ) => {
       setRoom(result.room);
       setBootstrapMessages(result.messages);
+      updateChatRoomDetailMemory(roomId, result.room);
+      if (result.room.source === "chat_room") {
+        updateIntegratedChatRoomMessagesCache(result.room.id, result.messages);
+      } else {
+        updateLegacyChatRoomMessagesCache(result.room.id, result.messages);
+      }
       setTradeChatBootstrapReady(true);
       setLoading(false);
       logClientPerf("chat-room-screen.reload", {
@@ -192,7 +217,67 @@ export function ChatRoomScreen({
         result: "ok",
         detailCache: result.cache,
         elapsedMs: Math.round(perfNow() - startedAt),
+        bootstrapPhase,
       });
+    };
+
+    try {
+      const hard = options?.bypassPeek === true;
+      if (hard) {
+        const result = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
+          bypassPeek: true,
+          phase: "full",
+        });
+        if (!result.ok) {
+          failBootstrap(result);
+          return;
+        }
+        applyBootstrapOk(result, "full");
+        return;
+      }
+
+      const lite = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
+        bypassPeek: false,
+        phase: "lite",
+      });
+      if (!lite.ok) {
+        const rescue = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
+          bypassPeek: false,
+          phase: "full",
+        });
+        if (!rescue.ok) {
+          failBootstrap(rescue);
+          return;
+        }
+        applyBootstrapOk(rescue, "full_rescue");
+        return;
+      }
+
+      applyBootstrapOk(lite, "lite");
+
+      const idleId = scheduleWhenBrowserIdle(() => {
+        bootstrapFullIdleIdRef.current = null;
+        void (async () => {
+          const full = await fetchChatRoomBootstrapApi(roomId, chatRoomSourceHint, {
+            bypassPeek: true,
+            phase: "full",
+          });
+          if (!full.ok) return;
+          setRoom(full.room);
+          setBootstrapMessages(full.messages);
+          updateChatRoomDetailMemory(roomId, full.room);
+          if (full.room.source === "chat_room") {
+            updateIntegratedChatRoomMessagesCache(full.room.id, full.messages);
+          } else {
+            updateLegacyChatRoomMessagesCache(full.room.id, full.messages);
+          }
+          logClientPerf("chat-room-screen.bootstrap-full-merge", {
+            roomId,
+            elapsedMs: Math.round(perfNow() - startedAt),
+          });
+        })();
+      }, 1800);
+      bootstrapFullIdleIdRef.current = idleId;
       return;
     } catch {
       setBootstrapMessages(null);

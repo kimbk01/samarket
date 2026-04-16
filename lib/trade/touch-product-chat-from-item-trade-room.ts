@@ -62,12 +62,14 @@ export async function touchProductChatPreviewFromItemTradeRoom(
 }
 
 /**
- * 거래 채팅 메시지 1건 전송 후: 미리보기 + 상대방 product_chats 미읽음 (레거시 카운트와 목록 API 정합)
+ * 거래 채팅 메시지 1건 전송 후: 레거시 `product_chats` 행의 미리보기·정렬만 맞춤.
+ * item_trade 미읽음은 `chat_rooms`/`last_read_message_id` 경로 — 여기서 unread_count_* 를 올리면
+ * 목록 병합 시 레거시 숫자가 다시 섞일 수 있어 생략한다.
  */
 export async function touchProductChatAfterItemTradeMessage(
   sb: SupabaseClient<any>,
   cr: ItemTradeRoomRowForSync,
-  messageSenderId: string
+  _messageSenderId: string
 ): Promise<void> {
   const itemId = cr.item_id != null ? String(cr.item_id).trim() : "";
   const sellerId = cr.seller_id != null ? String(cr.seller_id).trim() : "";
@@ -81,10 +83,6 @@ export async function touchProductChatAfterItemTradeMessage(
   if (!at) return;
 
   const preview = (cr.last_message_preview != null ? String(cr.last_message_preview) : "").slice(0, 200);
-  const row = pc as Record<string, unknown>;
-  const us = Number(row.unread_count_seller) || 0;
-  const ub = Number(row.unread_count_buyer) || 0;
-  const isSeller = messageSenderId === sellerId;
 
   await sb
     .from("product_chats")
@@ -92,8 +90,6 @@ export async function touchProductChatAfterItemTradeMessage(
       last_message_at: at,
       last_message_preview: preview,
       updated_at: at,
-      unread_count_seller: isSeller ? us : us + 1,
-      unread_count_buyer: isSeller ? ub + 1 : ub,
     })
     .eq("id", pc.id as string);
 }

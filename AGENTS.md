@@ -29,5 +29,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Store 주문 채팅**: `lib/order-chat`, `lib/shared-order-chat` — 주문 상태 필드와 unread 역할 분리 유지.
 - 도메인 식별·소유 경로: `lib/chat-domain/messenger-domains.ts`, 포트: `lib/chat-domain/ports/*`.
 - 성능 목표·알림 env: `docs/messenger-performance-targets.md`, `docs/messenger-production-slo.md`; 참조 상수 `MESSENGER_PERF_REFERENCE_P95_MS` (`lib/community-messenger/monitoring/thresholds.ts`).
+- **채팅·Realtime·성능**: 임시 조치(폴링만 증가·임계값만 완화·클라만 우회 등)로 이슈를 끝내지 않는다. **근본**은 API·DB·구독·부트스트랩 계약을 바꾼다. 상시 규칙: `.cursor/rules/fundamental-fixes-only.mdc`.
 - Supabase 유지 vs 최적화 vs 분리: `docs/messenger-supabase-split-evaluation.md` (트래픽 단계별는 `messenger-service-split-criteria.md` 와 연동).
 <!-- END:nextjs-agent-rules -->

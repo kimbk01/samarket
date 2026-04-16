@@ -33,10 +33,12 @@ function normalizeBootstrapMessages(_room: ChatRoom, raw: unknown): ChatMessage[
   return raw as ChatMessage[];
 }
 
+export type ChatRoomBootstrapFetchPhase = "lite" | "full";
+
 export async function fetchChatRoomBootstrapApi(
   roomId: string,
   sourceHint?: ChatRoomSource | null,
-  opts?: { bypassPeek?: boolean }
+  opts?: { bypassPeek?: boolean; phase?: ChatRoomBootstrapFetchPhase }
 ): Promise<FetchBootstrapResult> {
   const key = roomId.trim();
   if (!key) return { ok: false, status: 400, code: "load_failed" };
@@ -54,14 +56,17 @@ export async function fetchChatRoomBootstrapApi(
     }
   }
 
-  const flightKey = opts?.bypassPeek ? `chat:room-bootstrap:${key}:network` : `chat:room-bootstrap:${key}`;
+  const phase = opts?.phase ?? "full";
+  const flightKey = `chat:room-bootstrap:${key}:${phase}:${opts?.bypassPeek ? "network" : "peek"}`;
 
   return runSingleFlight(flightKey, async () => {
     try {
-      const qs =
-        sourceHint === "chat_room" || sourceHint === "product_chat"
-          ? `?source=${encodeURIComponent(sourceHint)}`
-          : "";
+      const sp = new URLSearchParams();
+      if (sourceHint === "chat_room" || sourceHint === "product_chat") {
+        sp.set("source", sourceHint);
+      }
+      sp.set("phase", phase);
+      const qs = sp.toString() ? `?${sp.toString()}` : "";
       const res = await fetch(`/api/chat/room/${encodeURIComponent(key)}/bootstrap${qs}`, {
         credentials: "include",
         cache: "no-store",

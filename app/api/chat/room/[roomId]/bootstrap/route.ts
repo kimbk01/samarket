@@ -7,6 +7,7 @@ import {
 import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
 import { buildTradeChatBootstrapParticipants } from "@/lib/chats/trade-chat-bootstrap-extras";
 import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
+import type { TradeChatBootstrapPhase } from "@/lib/chat-domain/ports/trade-chat-read";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
@@ -28,11 +29,14 @@ export async function GET(
   const sourceHint: ChatRoomSource | null =
     sourceHintRaw === "chat_room" || sourceHintRaw === "product_chat" ? sourceHintRaw : null;
 
+  const phaseRaw = req.nextUrl.searchParams.get("phase")?.trim().toLowerCase();
+  const bootstrapPhase: TradeChatBootstrapPhase = phaseRaw === "lite" ? "lite" : "full";
+
   const startedAt = Date.now();
   const port = createTradeChatReadAdapter();
   const result = await loadTradeChatRoomBootstrap(port, auth.userId, roomId, {
     sourceHint,
-    detailScope: "full",
+    bootstrapPhase,
   });
 
   if (process.env.CHAT_PERF_LOG === "1") {
@@ -55,6 +59,7 @@ export async function GET(
   const domain = inferMessengerDomainFromChatRoom(room);
   return NextResponse.json({
     v: 1,
+    phase: bootstrapPhase,
     domain,
     room,
     messages: result.messages,

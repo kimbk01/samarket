@@ -1,15 +1,17 @@
 /**
  * 사용자 기준 채팅 미읽음 — product_chats 와 chat_rooms(item_trade) 동시 존재 시 이중 집계 방지.
- * - 참가자 unread: 매장 주문(store_order) / 거래(item_trade) / 커뮤니티·일반(general_chat, community, group, business 등) 분리
- * - product_chats: 동일 거래에 item_trade 통합방이 있으면 스킵 (참가자 수치만 사용)
+ * - store_order / 기타 chat_rooms: 참가자 `unread_count` 합산
+ * - item_trade: `last_message_id`·`last_read_message_id` 기준 `tradeListUnreadHintFromCursor`(0/1) 합산 — `unread_count` 미사용
+ * - product_chats: 동일 거래에 item_trade 통합방이 있으면 스킵(통합방 힌트만 반영)
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
+import { tradeListUnreadHintFromCursor } from "@/lib/chats/server/trade-list-unread-hint";
 
 export type UserChatUnreadParts = {
   /** store_order 방 참가자 unread 합 (매장·주문 채팅) */
   storeOrderParticipantUnread: number;
-  /** item_trade 방 참가자 unread 합 (거래 통합방) */
+  /** item_trade 방 미읽음 힌트 합(0/1·방당) — 목록 API와 동일 규칙 */
   itemTradeParticipantUnread: number;
   /**
    * 거래·매장이 아닌 chat_rooms 참가자 unread 합
@@ -67,12 +69,21 @@ export async function computeUserChatUnreadParts(
 ): Promise<UserChatUnreadParts> {
   const { data: partRows, error: partErr } = await sbAny
     .from("chat_room_participants")
-    .select("room_id, unread_count, hidden, left_at, is_active")
+    .select("room_id, unread_count, last_read_message_id, hidden, left_at, is_active")
     .eq("user_id", userId)
     .eq("hidden", false);
 
   const partsRaw = partErr ? [] : (partRows ?? []);
-  const parts = (partsRaw as { room_id: string; unread_count?: number; hidden?: boolean; left_at?: string | null; is_active?: boolean | null }[]).filter(
+  const parts = (
+    partsRaw as {
+      room_id: string;
+      unread_count?: number;
+      last_read_message_id?: string | null;
+      hidden?: boolean;
+      left_at?: string | null;
+      is_active?: boolean | null;
+    }[]
+  ).filter(
     (p) => participantRowActive(p)
   );
   const roomIds = [...new Set((parts as { room_id: string }[]).map((p) => p.room_id).filter(Boolean))];
@@ -89,6 +100,7 @@ export async function computeUserChatUnreadParts(
     seller_id?: string;
     buyer_id?: string;
     is_locked?: boolean | null;
+    last_message_id?: string | null;
   };
 
   const [crRowsFlat, pcRes] = await Promise.all([
@@ -98,7 +110,7 @@ export async function computeUserChatUnreadParts(
         chunkIds(roomIds, CHAT_ROOM_ID_IN_CHUNK_SIZE).map(async (ids) => {
           const { data, error } = await sbAny
             .from("chat_rooms")
-            .select("id, room_type, item_id, seller_id, buyer_id, is_locked")
+            .select("id, room_type, item_id, seller_id, buyer_id, is_locked, last_message_id")
             .in("id", ids);
           if (error) return [];
           return (data ?? []) as CrMeta[];
@@ -115,8 +127,30 @@ export async function computeUserChatUnreadParts(
   const crRows: CrMeta[] = crRowsFlat;
   const metaByRoom = new Map(crRows.map((r) => [r.id, r]));
 
+  const itemTradeLastMsgIds = [
+    ...new Set(
+      crRows
+        .filter((r) => r.room_type === "item_trade" && r.last_message_id)
+        .map((r) => String(r.last_message_id))
+        .filter(Boolean)
+    ),
+  ];
+  let senderByLastMessageId = new Map<string, string>();
+  if (itemTradeLastMsgIds.length > 0) {
+    const { data: lastRows } = await sbAny.from("chat_messages").select("id, sender_id").in("id", itemTradeLastMsgIds);
+    for (const row of lastRows ?? []) {
+      const id = (row as { id?: string }).id;
+      const sid = (row as { sender_id?: string }).sender_id;
+      if (typeof id === "string" && typeof sid === "string") senderByLastMessageId.set(id, sid);
+    }
+  }
+
   if (roomIds.length > 0) {
-    for (const p of parts as { room_id: string; unread_count?: number }[]) {
+    for (const p of parts as {
+      room_id: string;
+      unread_count?: number;
+      last_read_message_id?: string | null;
+    }[]) {
       const c = p.unread_count ?? 0;
       const meta = metaByRoom.get(p.room_id) as CrMeta | undefined;
       if (!roomEligibleForUnread(meta)) continue;
@@ -124,7 +158,14 @@ export async function computeUserChatUnreadParts(
       if (rt === "store_order") {
         storeOrderParticipantUnread += c;
       } else if (rt === "item_trade") {
-        itemTradeParticipantUnread += c;
+        const lastMid = meta?.last_message_id ?? null;
+        const lastSender = lastMid ? senderByLastMessageId.get(lastMid) ?? null : null;
+        itemTradeParticipantUnread += tradeListUnreadHintFromCursor({
+          viewerUserId: userId,
+          lastMessageId: lastMid,
+          lastMessageSenderId: lastSender,
+          lastReadMessageId: p.last_read_message_id ?? null,
+        });
       } else if (rt) {
         communityParticipantUnread += c;
       }

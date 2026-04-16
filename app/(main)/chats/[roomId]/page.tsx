@@ -54,7 +54,7 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
     const port = createTradeChatReadAdapter();
     const boot = await loadTradeChatRoomBootstrap(port, initialViewerUserId, roomId, {
       sourceHint: chatRoomSourceHint,
-      detailScope: "entry",
+      bootstrapPhase: "lite",
     });
     if (boot.ok) {
       serverBootstrap = { room: boot.room, messages: boot.messages };

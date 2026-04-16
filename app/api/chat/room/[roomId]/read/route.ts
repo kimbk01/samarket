@@ -57,7 +57,7 @@ export async function POST(
     if (postId && room.seller_id && room.buyer_id) {
       const { data: cr } = await sbAny
         .from("chat_rooms")
-        .select("id")
+        .select("id, last_message_id")
         .eq("room_type", "item_trade")
         .eq("item_id", postId)
         .eq("seller_id", room.seller_id)
@@ -65,12 +65,15 @@ export async function POST(
         .maybeSingle();
       const crId = (cr as { id?: string } | null)?.id;
       if (crId) {
+        const nowIso = new Date().toISOString();
+        const lastMid = (cr as { last_message_id?: string | null } | null)?.last_message_id ?? null;
         await sbAny
           .from("chat_room_participants")
           .update({
             unread_count: 0,
-            last_read_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            last_read_message_id: lastMid,
+            last_read_at: nowIso,
+            updated_at: nowIso,
           })
           .eq("room_id", crId)
           .eq("user_id", userId);

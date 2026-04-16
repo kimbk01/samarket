@@ -1,12 +1,16 @@
+import type { TradeChatBootstrapPhase } from "@/lib/chat-domain/ports/trade-chat-read";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
+import {
+  TRADE_CHAT_BOOTSTRAP_FULL_MESSAGE_LIMIT,
+  TRADE_CHAT_BOOTSTRAP_LITE_MESSAGE_LIMIT,
+} from "@/lib/chats/trade-chat-bootstrap-limits";
 import {
   loadChatRoomDetailForUser,
   type ChatRoomDetailScope,
 } from "@/lib/chats/server/load-chat-room-detail";
 import { parseRoomId } from "@/lib/validate-params";
 import {
-  LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
   loadChatMessagesForRoom,
   loadIntegratedChatRoomMessageRowsForUser,
   loadLegacyProductChatMessagesForUser,
@@ -15,15 +19,16 @@ import {
 async function fetchHintedMessages(
   userId: string,
   roomId: string,
-  sourceHint: ChatRoomSource
+  sourceHint: ChatRoomSource,
+  messageLimit: number
 ): Promise<ChatMessage[]> {
   if (sourceHint === "product_chat") {
     const result = await loadLegacyProductChatMessagesForUser(roomId, userId, {
-      limit: LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
+      limit: messageLimit,
     });
     return result.ok ? result.value : [];
   }
-  const result = await loadIntegratedChatRoomMessageRowsForUser({ roomId, userId });
+  const result = await loadIntegratedChatRoomMessageRowsForUser({ roomId, userId, limit: messageLimit });
   if (!result.ok) return [];
   return result.value
     .map((row) => integratedChatRowToMessage(row))
@@ -37,6 +42,8 @@ export type ChatRoomBootstrapPayload =
 /**
  * 채팅방 상세 + 초기 메시지 — API 부트스트랩·RSC 초기 페인트 공용.
  * `source` 힌트가 없을 때는 상세로 `room.source` 를 확정한 뒤 메시지 한 갈래만 조회합니다(이중 조회 제거).
+ *
+ * `bootstrapPhase`: `lite` 는 상세 `entry` + 짧은 메시지 창, `full` 은 기본 상세·메시지 창(하위 호환 기본값).
  */
 export async function loadChatRoomBootstrapForUser(input: {
   roomId: string;
@@ -47,6 +54,7 @@ export async function loadChatRoomBootstrapForUser(input: {
    * `full`: 기본 — API·idle 재검증용 완전 메타.
    */
   detailScope?: ChatRoomDetailScope;
+  bootstrapPhase?: TradeChatBootstrapPhase;
 }): Promise<ChatRoomBootstrapPayload> {
   const roomId = parseRoomId(input.roomId);
   if (!roomId) {
@@ -54,13 +62,17 @@ export async function loadChatRoomBootstrapForUser(input: {
   }
   const userId = input.userId;
   const sourceHint = input.sourceHint ?? null;
-  const detailScope: ChatRoomDetailScope = input.detailScope ?? "full";
+  const bootstrapPhase: TradeChatBootstrapPhase = input.bootstrapPhase ?? "full";
+  const detailScope: ChatRoomDetailScope =
+    bootstrapPhase === "lite" ? "entry" : (input.detailScope ?? "full");
+  const messageBootstrapLimit =
+    bootstrapPhase === "lite" ? TRADE_CHAT_BOOTSTRAP_LITE_MESSAGE_LIMIT : TRADE_CHAT_BOOTSTRAP_FULL_MESSAGE_LIMIT;
 
   const detailPromise = loadChatRoomDetailForUser({ roomId, userId, detailScope });
   /** URL `?source=` 가 있으면 상세·메시지 병렬 — 힌트가 없으면 상세 확정 후 한 갈래만 조회(레거시+통합 동시 호출은 항상 하나가 버려져 DB 경합만 유발). */
   const hintedMessagesPromise =
     sourceHint === "chat_room" || sourceHint === "product_chat"
-      ? fetchHintedMessages(userId, roomId, sourceHint).catch(() => [] as ChatMessage[])
+      ? fetchHintedMessages(userId, roomId, sourceHint, messageBootstrapLimit).catch(() => [] as ChatMessage[])
       : null;
 
   const detailResult = await detailPromise;
@@ -76,22 +88,26 @@ export async function loadChatRoomBootstrapForUser(input: {
     messages = await hintedMessagesPromise;
   } else if (room.source === "product_chat") {
     const r = await loadLegacyProductChatMessagesForUser(roomId, userId, {
-      limit: LEGACY_PRODUCT_CHAT_BOOTSTRAP_MESSAGE_LIMIT,
+      limit: messageBootstrapLimit,
     });
-    messages = r.ok ? r.value : await loadChatMessagesForRoom({ room, userId });
+    messages = r.ok ? r.value : await loadChatMessagesForRoom({ room, userId, messageLimit: messageBootstrapLimit });
   } else if (room.source === "chat_room") {
     if (room.generalChat?.kind === "store_order") {
-      messages = await loadChatMessagesForRoom({ room, userId });
+      messages = await loadChatMessagesForRoom({ room, userId, messageLimit: messageBootstrapLimit });
     } else {
-      const r = await loadIntegratedChatRoomMessageRowsForUser({ roomId, userId });
+      const r = await loadIntegratedChatRoomMessageRowsForUser({
+        roomId,
+        userId,
+        limit: messageBootstrapLimit,
+      });
       messages = r.ok
         ? r.value
             .map((row) => integratedChatRowToMessage(row))
             .filter((message): message is ChatMessage => message != null)
-        : await loadChatMessagesForRoom({ room, userId });
+        : await loadChatMessagesForRoom({ room, userId, messageLimit: messageBootstrapLimit });
     }
   } else {
-    messages = await loadChatMessagesForRoom({ room, userId });
+    messages = await loadChatMessagesForRoom({ room, userId, messageLimit: messageBootstrapLimit });
   }
 
   return { ok: true, room, messages };

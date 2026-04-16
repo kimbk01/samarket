@@ -24,6 +24,7 @@ import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT, chunkIds } from "@/lib/chats/chat-list-limits";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
+import { tradeListUnreadHintFromCursor } from "@/lib/chats/server/trade-list-unread-hint";
 
 type ChatRoomsListCacheEntry = { at: number; payload: unknown };
 /** 짧은 TTL — 미읽음 배지와 균형. 너무 짧으면 탭 전환·시트 재오픈 시 동일 요청이 반복되어 체감 지연 */
@@ -83,11 +84,16 @@ function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
     const tCanon = new Date(canonical.lastMessageAt).getTime();
     const tOther = new Date(other.lastMessageAt).getTime();
     const newer = tOther > tCanon ? other : canonical;
+    /** 통합 `chat_room` 행이 있으면 미읽음은 커서 힌트(0/1)만 쓴다 — 레거시 `product_chats` 카운터와 max 하면 배지가 부풀어 오름 */
+    const mergedUnread =
+      canonical.source === "chat_room"
+        ? (canonical.unreadCount ?? 0)
+        : Math.max(canonical.unreadCount ?? 0, other.unreadCount ?? 0);
     byKey.set(key, {
       ...canonical,
       lastMessageAt: newer.lastMessageAt,
       lastMessage: newer.lastMessage,
-      unreadCount: Math.max(canonical.unreadCount ?? 0, other.unreadCount ?? 0),
+      unreadCount: mergedUnread,
       tradeStatus: newer.tradeStatus ?? canonical.tradeStatus ?? other.tradeStatus,
     });
   }
@@ -96,7 +102,7 @@ function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
 }
 
 const CHAT_ROOMS_LIST_SELECT =
-  "id, room_type, item_id, seller_id, buyer_id, meeting_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id";
+  "id, room_type, item_id, seller_id, buyer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id";
 
 async function fetchParticipantChatRoomsChunked(
   sbAny: import("@supabase/supabase-js").SupabaseClient<any>,
@@ -170,7 +176,7 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null }),
     sbAny
       .from("chat_room_participants")
-      .select("room_id, unread_count, left_at, is_active")
+      .select("room_id, unread_count, last_read_message_id, left_at, is_active")
       .eq("user_id", userId)
       .eq("hidden", false),
   ]);
@@ -185,7 +191,13 @@ export async function GET(req: NextRequest) {
 
   const partRowsEarlyRaw = partRes.data ?? [];
   const partRowsEarly = (
-    partRowsEarlyRaw as { room_id: string; unread_count?: number; left_at?: string | null; is_active?: boolean | null }[]
+    partRowsEarlyRaw as {
+      room_id: string;
+      unread_count?: number;
+      last_read_message_id?: string | null;
+      left_at?: string | null;
+      is_active?: boolean | null;
+    }[]
   ).filter((p) => participantRowActive(p));
   const roomIdsEarly = partRowsEarly.map((p) => p.room_id);
   const partByRoomEarly = new Map(partRowsEarly.map((p) => [p.room_id, p]));
@@ -214,6 +226,7 @@ export async function GET(req: NextRequest) {
     item_id: string | null;
     seller_id: string;
     buyer_id: string;
+    last_message_id?: string | null;
     last_message_at: string | null;
     last_message_preview: string | null;
     created_at: string;
@@ -233,6 +246,23 @@ export async function GET(req: NextRequest) {
   const postIdsFromPc = [...new Set(pcRows.map((r) => r.post_id))];
   const itemIds = [...new Set(crTradeRows.map((r) => r.item_id).filter(Boolean))] as string[];
   const allPostIds = [...new Set([...postIdsFromPc, ...itemIds])];
+
+  const tradeLastMsgIds = [
+    ...new Set(
+      crTradeRows
+        .map((r) => r.last_message_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0)
+    ),
+  ];
+  const tradeLastSenderByMsgId = new Map<string, string>();
+  if (tradeLastMsgIds.length > 0) {
+    const { data: lastMsgRows } = await sbAny.from("chat_messages").select("id, sender_id").in("id", tradeLastMsgIds);
+    for (const row of lastMsgRows ?? []) {
+      const id = (row as { id?: string }).id;
+      const sid = (row as { sender_id?: string }).sender_id;
+      if (typeof id === "string" && typeof sid === "string") tradeLastSenderByMsgId.set(id, sid);
+    }
+  }
 
   const partnerIdsFromPc = [...new Set(pcRows.map((r) => (r.seller_id === userId ? r.buyer_id : r.seller_id)))];
   const crPartnerIds = [
@@ -299,8 +329,17 @@ export async function GET(req: NextRequest) {
     const post = r.item_id ? (postMap.get(r.item_id) as Record<string, unknown> | undefined) : undefined;
     const amISeller = r.seller_id === userId;
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
-    const part = partByRoomEarly.get(r.id) as { unread_count?: number } | undefined;
-    const unreadCount = part?.unread_count ?? 0;
+    const part = partByRoomEarly.get(r.id) as
+      | { unread_count?: number; last_read_message_id?: string | null }
+      | undefined;
+    const lastMid = r.last_message_id ?? null;
+    const lastSender = lastMid ? tradeLastSenderByMsgId.get(lastMid) ?? null : null;
+    const unreadCount = tradeListUnreadHintFromCursor({
+      viewerUserId: userId,
+      lastMessageId: lastMid,
+      lastMessageSenderId: lastSender,
+      lastReadMessageId: part?.last_read_message_id ?? null,
+    });
     return {
       id: r.id,
       productId: r.item_id ?? "",
