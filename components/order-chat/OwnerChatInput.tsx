@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 const QUICK = ["조리 시작했습니다", "10분 정도 지연됩니다", "픽업 가능합니다", "네 가능합니다"];
 
@@ -12,8 +13,13 @@ export function OwnerChatInput({
   disabled?: boolean;
 }) {
   const [text, setText] = useState("");
+  const keyboardInsetPx = useMobileKeyboardInset();
+  const bottomPadPx = Math.max(8, keyboardInsetPx);
   return (
-    <div className="border-t border-sam-border bg-sam-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+    <div
+      className="border-t border-sam-border bg-sam-surface p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+      style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${bottomPadPx}px)` }}
+    >
       <div className="mb-2 flex flex-wrap gap-1">
         {QUICK.map((q) => (
           <button

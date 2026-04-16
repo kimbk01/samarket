@@ -9,7 +9,7 @@ import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { VIEWPORT_HEIGHT_FULL_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   fetchChatRoomDetailApi,
   peekChatRoomDetailMemory,
@@ -456,7 +456,7 @@ export function ChatRoomScreen({
   }, [room, resolvedUserId]);
 
   const viewportClass =
-    embedded && embeddedFill ? "" : embedded ? "" : VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS;
+    embedded && embeddedFill ? "" : embedded ? "" : VIEWPORT_HEIGHT_FULL_CLASS;
 
   const embeddedEmptyClass =
     embedded && embeddedFill

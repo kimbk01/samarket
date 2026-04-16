@@ -128,6 +128,12 @@ export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
   "h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))]";
 
 /**
+ * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
+ * `VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS` 와 혼용하면 이중 차감이 생길 수 있다.
+ */
+export const VIEWPORT_HEIGHT_FULL_CLASS = "h-[100dvh] max-h-[100dvh]";
+
+/**
  * 배달(스토어) 상세: 장바구니 띠 + 하단 탭 위까지 스크롤 여유
  * (4rem 탭 + safe-area + ~4.5rem 띠 — 기존 pb-[72px]에 탭 높이 반영)
  */

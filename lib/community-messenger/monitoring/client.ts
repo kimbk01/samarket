@@ -224,7 +224,12 @@ export function messengerMonitorHomeBootstrapUnreadSync(latencyMs: number): void
 }
 
 /** Supabase 채널 `subscribe` 결과 — 홈/방 번들 등 scope 로 구분 */
-export function messengerMonitorRealtimeSubscriptionOutcome(scope: string, ok: boolean, channelStatus?: string): void {
+export function messengerMonitorRealtimeSubscriptionOutcome(
+  scope: string,
+  ok: boolean,
+  channelStatus?: string,
+  extraLabels?: Record<string, string>
+): void {
   messengerMonitorRecord({
     category: "realtime.subscription",
     metric: "channel_subscribe",
@@ -234,6 +239,7 @@ export function messengerMonitorRealtimeSubscriptionOutcome(scope: string, ok: b
       scope,
       outcome: ok ? "ok" : "error",
       ...(channelStatus ? { status: channelStatus } : {}),
+      ...(extraLabels ?? {}),
     },
   });
 }

@@ -34,6 +34,7 @@ export function subscribeWithRetry(args: {
   let attempt = 0;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let expectedInternalClosed = 0;
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
 
   const clearTimer = () => {
@@ -42,9 +43,23 @@ export function subscribeWithRetry(args: {
     timer = null;
   };
 
+  const markInternalChannelRecycle = () => {
+    expectedInternalClosed += 1;
+    setTimeout(() => {
+      if (expectedInternalClosed > 0) expectedInternalClosed -= 1;
+    }, 1600);
+  };
+
+  const consumeInternalClosed = (): boolean => {
+    if (expectedInternalClosed <= 0) return false;
+    expectedInternalClosed -= 1;
+    return true;
+  };
+
   const stop = () => {
     stopped = true;
     clearTimer();
+    markInternalChannelRecycle();
     try {
       void args.sb.removeChannel(channel);
     } catch {
@@ -55,6 +70,7 @@ export function subscribeWithRetry(args: {
   const resubscribe = () => {
     if (stopped || args.isCancelled()) return;
     clearTimer();
+    markInternalChannelRecycle();
     try {
       void args.sb.removeChannel(channel);
     } catch {
@@ -76,12 +92,17 @@ export function subscribeWithRetry(args: {
     channel = channel.subscribe((status) => {
       args.onStatus?.(status);
       if (status === "SUBSCRIBED") {
+        const phase = attempt > 0 ? "retry" : "initial";
         attempt = 0;
-        messengerMonitorRealtimeSubscriptionOutcome(args.scope, true, status);
+        messengerMonitorRealtimeSubscriptionOutcome(args.scope, true, status, { attemptPhase: phase });
         return;
       }
       if (isFailureStatus(status)) {
-        messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status);
+        const intentionalTeardown = stopped || args.isCancelled();
+        if (status === "CLOSED" && (intentionalTeardown || consumeInternalClosed())) return;
+        const phase = attempt > 0 ? "retry" : "initial";
+        messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status, { attemptPhase: phase });
+        if (intentionalTeardown) return;
         scheduleRetry(status);
       }
     });

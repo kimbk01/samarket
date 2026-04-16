@@ -49,15 +49,18 @@ export function useOrderChatRoomRealtime(args: {
   onMessageUpsert: (message: OrderChatMessagePublic) => void;
   onMessageRemoved?: (id: string) => void;
   onRoomStale?: () => void;
+  onSubscriptionHealth?: (subscribed: boolean) => void;
 }): void {
   const upsertRef = useRef(args.onMessageUpsert);
   const removedRef = useRef(args.onMessageRemoved);
   const staleRef = useRef(args.onRoomStale);
+  const healthRef = useRef(args.onSubscriptionHealth);
   useEffect(() => {
     upsertRef.current = args.onMessageUpsert;
     removedRef.current = args.onMessageRemoved;
     staleRef.current = args.onRoomStale;
-  }, [args.onMessageUpsert, args.onMessageRemoved, args.onRoomStale]);
+    healthRef.current = args.onSubscriptionHealth;
+  }, [args.onMessageUpsert, args.onMessageRemoved, args.onRoomStale, args.onSubscriptionHealth]);
 
   useEffect(() => {
     if (!args.enabled || !args.roomId?.trim()) return;
@@ -78,6 +81,7 @@ export function useOrderChatRoomRealtime(args: {
       }, ROOM_STALE_DEBOUNCE_MS);
     };
 
+    healthRef.current?.(false);
     ch = sb
       .channel(`order-chat-room:${rid}`)
       .on(
@@ -101,10 +105,20 @@ export function useOrderChatRoomRealtime(args: {
           if (!cancelled) scheduleRoomStale();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (cancelled) return;
+        if (status === "SUBSCRIBED") {
+          healthRef.current?.(true);
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          healthRef.current?.(false);
+        }
+      });
 
     return () => {
       cancelled = true;
+      healthRef.current?.(false);
       if (metaTimer != null) {
         clearTimeout(metaTimer);
         metaTimer = null;

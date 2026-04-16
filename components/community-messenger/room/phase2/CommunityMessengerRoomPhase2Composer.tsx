@@ -48,9 +48,12 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
+  const keyboardInsetPx = useMobileKeyboardInset();
+  const footerBottomPadPx = Math.max(10, keyboardInsetPx + 10);
   return (
     <>
       <footer
@@ -59,6 +62,7 @@ export function CommunityMessengerRoomPhase2Composer() {
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-6px_18px_rgba(42,171,238,0.08)]"
             : "bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_28px_rgba(17,24,39,0.07)]"
         }`}
+        style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerBottomPadPx}px)` }}
       >
         <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
           {!vm.voiceRecording ? (

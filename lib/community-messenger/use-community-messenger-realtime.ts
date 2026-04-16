@@ -19,7 +19,6 @@ import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
   messengerMonitorRealtimeMessageInsertDelay,
-  messengerMonitorRealtimeSubscriptionOutcome,
 } from "@/lib/community-messenger/monitoring/client";
 import {
   MESSENGER_HOME_META_DEBOUNCE_MS,
@@ -303,11 +302,8 @@ export function useCommunityMessengerRoomRealtime(args: {
       scope: `community-messenger-room:bundle`,
       isCancelled: () => cancelled,
       onStatus: (status) => {
-        const scope = `community-messenger-room:bundle`;
         if (status === "SUBSCRIBED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, true, status);
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          messengerMonitorRealtimeSubscriptionOutcome(scope, false, status);
+          if (!cancelled) callbackRef.current();
         }
       },
       build: (channel) =>

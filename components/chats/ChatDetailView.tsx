@@ -82,6 +82,7 @@ import {
   useChatRoomRealtime,
   type ChatRoomRealtimeConnectionState,
 } from "@/lib/chats/use-chat-room-realtime";
+import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
 import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
@@ -440,6 +441,19 @@ export function ChatDetailView({
     setChatRealtimeLive(s === "live");
   }, []);
 
+  const onLegacyRealtimeMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => mergeChatMessagesById(reconcileOptimisticMessages(prev, [msg]), [msg]));
+  }, []);
+
+  const onLegacyRealtimeRemoved = useCallback((id: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const onLegacyRealtimeConnectionState = useCallback((s: ChatRoomRealtimeConnectionState) => {
+    setChatRealtimeConnState(s);
+    setChatRealtimeLive(s === "live");
+  }, []);
+
   useChatRoomRealtime({
     roomId: isChatRoom && !isStoreOrderChat ? room.id : null,
     mode: "integrated",
@@ -451,12 +465,44 @@ export function ChatDetailView({
     onConnectionState: onIntegratedRealtimeConnectionState,
   });
 
+  useChatRoomRealtime({
+    roomId: !isChatRoom ? room.id : null,
+    mode: "legacy",
+    enabled: !isChatRoom && !!currentUserId?.trim(),
+    onMessage: onLegacyRealtimeMessage,
+    onMessageRemoved: onLegacyRealtimeRemoved,
+    onConnectionState: onLegacyRealtimeConnectionState,
+  });
+
+  const onOrderRealtimeMessage = useCallback(
+    (msg: OrderChatMessagePublic) => {
+      const mapped = mapOrderChatMessageToChatMessage(msg, room.id, room.buyerId, currentUserId);
+      setMessages((prev) => mergeChatMessagesById(reconcileOptimisticMessages(prev, [mapped]), [mapped]));
+    },
+    [currentUserId, room.buyerId, room.id]
+  );
+
+  const onOrderRealtimeRemoved = useCallback((id: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }, []);
+
+  const onOrderRealtimeHealth = useCallback((subscribed: boolean) => {
+    setChatRealtimeLive(subscribed);
+    setChatRealtimeConnState(subscribed ? "live" : "fallback");
+  }, []);
+
+  useOrderChatRoomRealtime({
+    roomId: isStoreOrderChat && isChatRoom ? room.id : null,
+    enabled: isStoreOrderChat && isChatRoom && !!currentUserId?.trim(),
+    onMessageUpsert: onOrderRealtimeMessage,
+    onMessageRemoved: onOrderRealtimeRemoved,
+    onSubscriptionHealth: onOrderRealtimeHealth,
+  });
+
   useEffect(() => {
     setChatRealtimeLive(false);
-    setChatRealtimeConnState(
-      isChatRoom && !isStoreOrderChat ? "connecting" : "disabled"
-    );
-  }, [room.id, isChatRoom, isStoreOrderChat]);
+    setChatRealtimeConnState(currentUserId?.trim() ? "connecting" : "disabled");
+  }, [room.id, currentUserId]);
 
   useEffect(() => {
     setPinnedListing(null);

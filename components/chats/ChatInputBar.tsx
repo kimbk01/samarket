@@ -8,6 +8,7 @@ import { usePreferMobileChatImagePicker } from "@/lib/ui/use-prefer-mobile-chat-
 import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePickerSheet";
 import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 interface ChatInputBarProps {
   onSend: (message: string) => void;
@@ -76,6 +77,8 @@ export function ChatInputBar({
     () => Math.max(1, getAppSettings().maxMessageLength ?? DEFAULT_MAX_MESSAGE_LENGTH),
     []
   );
+  const keyboardInsetPx = useMobileKeyboardInset();
+  const composerBottomPadPx = Math.max(8, keyboardInsetPx);
   const hasText = !!text.trim();
   const inputLocked = !!disabled || imageSending;
 
@@ -179,7 +182,7 @@ export function ChatInputBar({
     <>
     <div
       className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
-      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+      style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${composerBottomPadPx}px)` }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
       {showEmojiButton && emojiOpen && (

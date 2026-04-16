@@ -6551,6 +6551,36 @@ export async function updateCommunityMessengerCallSession(input: {
     if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
     return { nextStatus: "ended", endedAt: nowIso() };
   };
+  const resolveHangupReason = (
+    action: "accept" | "reject" | "cancel" | "end" | "missed",
+    nextStatus: CommunityMessengerCallSessionStatus
+  ): "reject" | "cancel" | "missed" | "end" | null => {
+    if (!isTerminalCallSessionStatus(nextStatus)) return null;
+    if (nextStatus === "rejected" || action === "reject") return "reject";
+    if (nextStatus === "cancelled" || action === "cancel") return "cancel";
+    if (nextStatus === "missed" || action === "missed") return "missed";
+    return "end";
+  };
+  const publishDirectTerminalHangupSignalBestEffort = async (
+    toUserId: string | null | undefined,
+    nextStatus: CommunityMessengerCallSessionStatus
+  ) => {
+    const to = trimText(toUserId ?? "");
+    if (!to || !isTerminalCallSessionStatus(nextStatus)) return;
+    const reason = resolveHangupReason(input.action, nextStatus);
+    if (!reason) return;
+    try {
+      await createCommunityMessengerCallSignal({
+        userId: input.userId,
+        sessionId,
+        toUserId: to,
+        signalType: "hangup",
+        payload: { reason, source: "session_patch" },
+      });
+    } catch {
+      /* best-effort: 세션 상태가 authoritative */
+    }
+  };
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -6771,6 +6801,12 @@ export async function updateCommunityMessengerCallSession(input: {
           eventType: auditEventTypeForAction(input.action, next.nextStatus),
           payload: { next_status: next.nextStatus, scope: "direct" },
         });
+        if (isTerminalCallSessionStatus(next.nextStatus)) {
+          const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
+            ? updated.recipient_user_id
+            : updated.initiator_user_id;
+          await publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
+        }
         return { ok: true, session: mapped };
       }
       if (!isMissingTableError(error)) {
@@ -6859,6 +6895,12 @@ export async function updateCommunityMessengerCallSession(input: {
   const mapped = await mapCallSession(input.userId, session);
   if (isTerminalCallSessionStatus(mapped.status) && !dev.calls.some((item) => item.sessionId === sessionId)) {
     await finalizeLog(session, mapped);
+  }
+  if (isTerminalCallSessionStatus(next.nextStatus)) {
+    const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)
+      ? session.recipientUserId
+      : session.initiatorUserId;
+    await publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
   }
   return { ok: true, session: mapped };
 }

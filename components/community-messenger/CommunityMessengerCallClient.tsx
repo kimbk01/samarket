@@ -66,7 +66,10 @@ import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import {
+  notifyCommunityMessengerCallInviteHangupBestEffort,
+  subscribeCommunityMessengerCallInviteBroadcast,
+} from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
@@ -142,6 +145,13 @@ function mergeRealtimeSessionRowIntoSnapshot(
   const rowId = typeof row.id === "string" ? row.id.trim() : "";
   if (!rowId || rowId !== targetSessionId || prev.id !== targetSessionId) return prev;
   const nextStatus = readRealtimeSessionStatus(row.status);
+  /**
+   * 취소/종료 후 지연된 non-terminal payload가 도착해 "연결중"으로 되돌아가는 레이스 차단.
+   * terminal -> non-terminal 역전은 무시하고 GET authoritative 갱신만 기다린다.
+   */
+  if (isTerminalCallSessionStatus(prev.status) && nextStatus && !isTerminalCallSessionStatus(nextStatus)) {
+    return prev;
+  }
   const nextCallKind = row.call_kind === "video" || row.call_kind === "voice" ? row.call_kind : prev.callKind;
   const answeredAt =
     typeof row.answered_at === "string"
@@ -1668,6 +1678,54 @@ export function CommunityMessengerCallClient({
       sub.stop();
     };
   }, [disposeCallMedia, refreshSession, sessionId]);
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    const current = sessionRef.current;
+    const myUserId =
+      current?.participants.find((p) => p.isMe)?.userId?.trim() ??
+      (current?.isMineInitiator
+        ? current.initiatorUserId.trim()
+        : (current?.recipientUserId?.trim() ?? ""));
+    if (!sb || !sessionId || !myUserId) return;
+    let cancelled = false;
+    const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, myUserId, {
+      onRing: () => {
+        if (!cancelled) scheduleSilentRefresh("realtime");
+      },
+      onHangup: (payload) => {
+        if (cancelled) return;
+        const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
+        if (!sid || sid !== sessionId) return;
+        const active = sessionRef.current;
+        if (!active || active.id !== sessionId || isTerminalCallSessionStatus(active.status)) return;
+        const optimisticStatus: CommunityMessengerCallSession["status"] =
+          active.status === "ringing" && active.isMineInitiator ? "cancelled" : "ended";
+        const nowIso = new Date().toISOString();
+        const snapshot: CommunityMessengerCallSession = {
+          ...active,
+          status: optimisticStatus,
+          endedAt: nowIso,
+        };
+        callTerminalLocalPinRef.current = {
+          sessionId,
+          until: Date.now() + 15_000,
+          snapshot,
+        };
+        setSession(snapshot);
+        joiningRef.current = false;
+        setJoined(false);
+        joinedRef.current = false;
+        setRemoteJoined(false);
+        void disposeCallMedia().catch(() => {});
+        void refreshSession(true);
+      },
+    });
+    return () => {
+      cancelled = true;
+      void sb.removeChannel(ch);
+    };
+  }, [disposeCallMedia, refreshSession, scheduleSilentRefresh, session?.id, session?.participants, sessionId]);
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;

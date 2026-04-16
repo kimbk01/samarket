@@ -214,9 +214,13 @@ export function getCallSessionClientPollIntervalMs(
 
   if (realtimeSubscribed) {
     if (status === "active" && joined && remoteJoined) return null;
-    if (status === "ringing") return tier === "production" ? 14_000 : 12_000;
-    if (status === "active") return tier === "production" ? 10_000 : 8500;
-    return tier === "production" ? 12_000 : 10_000;
+    /**
+     * Realtime SUBSCRIBED 상태에서도 연결중 구간은 유실·지연 대비가 필요하다.
+     * (caller가 reject/end를 늦게 받는 문제 방지)
+     */
+    if (status === "ringing") return tier === "production" ? 1800 : 1500;
+    if (status === "active") return tier === "production" ? 2200 : 1800;
+    return tier === "production" ? 2600 : 2200;
   }
 
   if (status === "ringing") return tier === "production" ? 1600 : 1400;

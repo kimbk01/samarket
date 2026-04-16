@@ -93,6 +93,42 @@ function bumpOutcome(store: Store, key: string, ok: boolean) {
   store.outcomes.set(key, cur);
 }
 
+function recomputeOutcomesFromEventWindow(store: Store) {
+  store.outcomes.clear();
+  for (const event of store.events) {
+    if (
+      event.unit === "count" &&
+      event.category === "realtime.subscription" &&
+      event.metric === "channel_subscribe" &&
+      event.labels?.outcome
+    ) {
+      const ok = event.labels.outcome === "ok";
+      bumpOutcome(store, "realtime.subscription", ok);
+      const scope = typeof event.labels.scope === "string" ? event.labels.scope.trim() : "";
+      if (scope) {
+        bumpOutcome(store, `realtime.subscription:${scope}`, ok);
+      }
+      const attemptPhase =
+        typeof event.labels.attemptPhase === "string" ? event.labels.attemptPhase.trim() : "";
+      if (attemptPhase) {
+        bumpOutcome(store, `realtime.subscription:phase:${attemptPhase}`, ok);
+        if (scope) {
+          bumpOutcome(store, `realtime.subscription:${scope}:phase:${attemptPhase}`, ok);
+        }
+      }
+      continue;
+    }
+    if (
+      event.unit === "count" &&
+      event.category === "call.signaling" &&
+      event.metric === "signal_post" &&
+      event.labels?.outcome
+    ) {
+      bumpOutcome(store, "call.signaling", event.labels.outcome === "ok");
+    }
+  }
+}
+
 function maybeFailureRatioAlert(
   store: Store,
   kind: "subscriptionFailureRate" | "signalingFailureRate",
@@ -145,6 +181,7 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
   if (store.events.length > MAX_EVENTS) {
     store.events.splice(0, store.events.length - MAX_EVENTS);
   }
+  recomputeOutcomesFromEventWindow(store);
 
   const key = AGG_KEY(event);
   if (typeof event.value === "number" && (event.unit === "ms" || event.unit === undefined)) {
@@ -177,16 +214,14 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
     event.metric === "channel_subscribe" &&
     event.labels?.outcome
   ) {
-    bumpOutcome(store, "realtime.subscription", event.labels.outcome === "ok");
-    // scope 별로도 누적해 어떤 구독이 흔들리는지 분리 관측한다.
-    const scope = typeof event.labels.scope === "string" ? event.labels.scope.trim() : "";
-    if (scope) {
-      bumpOutcome(store, `realtime.subscription:${scope}`, event.labels.outcome === "ok");
+    const phase =
+      typeof event.labels.attemptPhase === "string" ? event.labels.attemptPhase.trim() : "";
+    if (phase !== "retry") {
+      const key = phase ? `realtime.subscription:phase:${phase}` : "realtime.subscription";
+      maybeFailureRatioAlert(store, "subscriptionFailureRate", key, "realtime.subscription", "channel_subscribe");
     }
-    maybeFailureRatioAlert(store, "subscriptionFailureRate", "realtime.subscription", "realtime.subscription", "channel_subscribe");
   }
   if (event.unit === "count" && event.category === "call.signaling" && event.metric === "signal_post" && event.labels?.outcome) {
-    bumpOutcome(store, "call.signaling", event.labels.outcome === "ok");
     maybeFailureRatioAlert(store, "signalingFailureRate", "call.signaling", "call.signaling", "signal_post");
   }
 
@@ -439,12 +474,12 @@ function buildSloDigest(
     });
   }
 
-  const sub = store.outcomes.get("realtime.subscription");
+  const sub = store.outcomes.get("realtime.subscription:phase:initial") ?? store.outcomes.get("realtime.subscription");
   if (sub && sub.ok + sub.fail > 0) {
     const rate = sub.fail / (sub.ok + sub.fail);
     rows.push({
       id: "subscription_fail_rate",
-      label: "Realtime 채널 구독 실패율",
+      label: "Realtime 채널 구독 실패율(초기 시도 기준)",
       unit: "ratio",
       target: ratioRef.subscriptionFailureRate.target,
       warning: ratioRef.subscriptionFailureRate.warning,
@@ -452,7 +487,7 @@ function buildSloDigest(
       observedAvg: rate,
       observedLast: rate,
       sampleCount: sub.ok + sub.fail,
-      sourceHint: "realtime.subscription",
+      sourceHint: "realtime.subscription:phase:initial",
     });
   }
 
