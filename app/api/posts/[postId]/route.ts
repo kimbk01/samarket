@@ -28,6 +28,8 @@ export async function GET(
   }
 
   const sbAny = sb;
+  /** 세션 확정과 첫 DB 왕복을 겹쳐 상세·백그라운드 보정 요청의 TTFB를 줄임 */
+  const viewerPromise = getOptionalAuthenticatedUserId();
   let { data, error } = await sbAny
     .from(POSTS_TABLE_READ)
     .select("id, status, user_id, title, seller_listing_state, reserved_buyer_id, updated_at")
@@ -63,13 +65,15 @@ export async function GET(
   }
 
   if (error) {
+    void viewerPromise.catch(() => {});
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
+    void viewerPromise.catch(() => {});
     return NextResponse.json({ error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
 
-  const viewerId = await getOptionalAuthenticatedUserId();
+  const viewerId = await viewerPromise;
   const row = data as {
     user_id?: string | null;
     reserved_buyer_id?: string | null;

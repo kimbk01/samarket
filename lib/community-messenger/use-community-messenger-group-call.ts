@@ -16,6 +16,7 @@ import { bindMediaStreamToElement } from "@/lib/community-messenger/media-elemen
 import { fetchMessengerIceServers } from "@/lib/call/ice-servers";
 import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
@@ -768,41 +769,63 @@ export function useCommunityMessengerGroupCall(args: Props) {
     document.addEventListener("visibilitychange", onVis);
 
     groupCallSignalsRealtimeSubscribedRef.current = false;
-    let sub: { stop: () => void } | null = null;
+    const subRef: { current: { stop: () => void } | null } = { current: null };
+    const viewerId = String(args.viewerUserId ?? "").trim();
+    const mapRowToSignal = (row: Record<string, unknown>): CommunityMessengerCallSignal => ({
+      id: String(row.id ?? ""),
+      sessionId: String(row.session_id ?? ""),
+      roomId: String(row.room_id ?? ""),
+      fromUserId: String(row.from_user_id ?? ""),
+      toUserId: String(row.to_user_id ?? ""),
+      signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+      payload: isRecord(row.payload) ? row.payload : {},
+      createdAt: String(row.created_at ?? new Date().toISOString()),
+    });
+    const onSignalRow = (row: Record<string, unknown> | undefined) => {
+      if (!row) return;
+      if (String(row.session_id ?? "").trim() !== sessionId) return;
+      void applySignal(mapRowToSignal(row));
+    };
+
     if (sb) {
-      sub = subscribeWithRetry({
-        sb,
-        name: `community-messenger-group-call-signals:${sessionId}:${args.viewerUserId}`,
-        scope: "community-messenger-group-call:signals",
-        isCancelled: () => cancelled,
-        onStatus: (status) => {
-          groupCallSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
-        },
-        build: (ch) =>
-          ch.on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "community_messenger_call_signals",
-              filter: `session_id=eq.${sessionId}`,
-            },
-            (payload) => {
-              const row = payload.new as Record<string, unknown> | undefined;
-              if (!row) return;
-              void applySignal({
-                id: String(row.id ?? ""),
-                sessionId: String(row.session_id ?? ""),
-                roomId: String(row.room_id ?? ""),
-                fromUserId: String(row.from_user_id ?? ""),
-                toUserId: String(row.to_user_id ?? ""),
-                signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
-                payload: isRecord(row.payload) ? row.payload : {},
-                createdAt: String(row.created_at ?? new Date().toISOString()),
-              });
+      void (async () => {
+        await waitForSupabaseRealtimeAuth(sb);
+        if (cancelled) return;
+        subRef.current = subscribeWithRetry({
+          sb,
+          name: `community-messenger-group-call-signals:${sessionId}:${viewerId}`,
+          scope: "community-messenger-group-call:signals",
+          isCancelled: () => cancelled,
+          onStatus: (status) => {
+            groupCallSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
+          },
+          build: (ch) => {
+            let next = ch.on(
+              "postgres_changes",
+              {
+                event: "INSERT",
+                schema: "public",
+                table: "community_messenger_call_signals",
+                filter: `session_id=eq.${sessionId}`,
+              },
+              (payload) => onSignalRow(payload.new as Record<string, unknown> | undefined)
+            );
+            if (viewerId) {
+              next = next.on(
+                "postgres_changes",
+                {
+                  event: "INSERT",
+                  schema: "public",
+                  table: "community_messenger_call_signals",
+                  filter: `to_user_id=eq.${viewerId}`,
+                },
+                (payload) => onSignalRow(payload.new as Record<string, unknown> | undefined)
+              );
             }
-          ),
-      });
+            return next;
+          },
+        });
+      })();
     }
 
     void (async () => {
@@ -815,7 +838,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       groupCallSignalsRealtimeSubscribedRef.current = false;
       if (timerId != null) window.clearTimeout(timerId);
       document.removeEventListener("visibilitychange", onVis);
-      sub?.stop();
+      subRef.current?.stop();
     };
   }, [applySignal, args.activeCall?.status, args.enabled, args.viewerUserId, currentSessionId, joinedParticipants.length, panel, peerStates]);
 

@@ -87,7 +87,7 @@ export function PostDetailPageClient({ initialBundle }: Props) {
       document.removeEventListener("visibilitychange", onVis);
       window.removeEventListener("focus", onFocus);
     };
-  }, [id, post.id, refreshListingFields]);
+  }, [id, refreshListingFields]);
 
   useRefetchOnPageShowRestore(() => void refreshListingFields(), { enableVisibilityRefetch: false });
 

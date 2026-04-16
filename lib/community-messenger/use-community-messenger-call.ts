@@ -15,6 +15,7 @@ import {
 } from "@/lib/call/permission-manager";
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
@@ -909,41 +910,63 @@ export function useCommunityMessengerCall(args: {
     document.addEventListener("visibilitychange", onVis);
 
     callSignalsRealtimeSubscribedRef.current = false;
-    let sub: { stop: () => void } | null = null;
+    const subRef: { current: { stop: () => void } | null } = { current: null };
+    const viewerId = String(args.viewerUserId ?? "").trim();
+    const mapRowToSignal = (row: Record<string, unknown>): CommunityMessengerCallSignal => ({
+      id: String(row.id ?? ""),
+      sessionId: String(row.session_id ?? ""),
+      roomId: String(row.room_id ?? ""),
+      fromUserId: String(row.from_user_id ?? ""),
+      toUserId: String(row.to_user_id ?? ""),
+      signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
+      payload: isRecord(row.payload) ? row.payload : {},
+      createdAt: String(row.created_at ?? new Date().toISOString()),
+    });
+    const onSignalRow = (row: Record<string, unknown> | undefined) => {
+      if (!row) return;
+      if (String(row.session_id ?? "").trim() !== pollSessionId) return;
+      void applySignal(mapRowToSignal(row));
+    };
+
     if (sb) {
-      sub = subscribeWithRetry({
-        sb,
-        name: `community-messenger-call-signals:${sessionId}:${args.viewerUserId}`,
-        scope: "community-messenger-call:signals",
-        isCancelled: () => cancelled,
-        onStatus: (status) => {
-          callSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
-        },
-        build: (ch) =>
-          ch.on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "community_messenger_call_signals",
-              filter: `session_id=eq.${sessionId}`,
-            },
-            (payload) => {
-              const row = payload.new as Record<string, unknown> | undefined;
-              if (!row) return;
-              void applySignal({
-                id: String(row.id ?? ""),
-                sessionId: String(row.session_id ?? ""),
-                roomId: String(row.room_id ?? ""),
-                fromUserId: String(row.from_user_id ?? ""),
-                toUserId: String(row.to_user_id ?? ""),
-                signalType: String(row.signal_type ?? "") as CommunityMessengerCallSignal["signalType"],
-                payload: isRecord(row.payload) ? row.payload : {},
-                createdAt: String(row.created_at ?? new Date().toISOString()),
-              });
+      void (async () => {
+        await waitForSupabaseRealtimeAuth(sb);
+        if (cancelled) return;
+        subRef.current = subscribeWithRetry({
+          sb,
+          name: `community-messenger-call-signals:${sessionId}:${viewerId}`,
+          scope: "community-messenger-call:signals",
+          isCancelled: () => cancelled,
+          onStatus: (status) => {
+            callSignalsRealtimeSubscribedRef.current = status === "SUBSCRIBED";
+          },
+          build: (ch) => {
+            let next = ch.on(
+              "postgres_changes",
+              {
+                event: "INSERT",
+                schema: "public",
+                table: "community_messenger_call_signals",
+                filter: `session_id=eq.${pollSessionId}`,
+              },
+              (payload) => onSignalRow(payload.new as Record<string, unknown> | undefined)
+            );
+            if (viewerId) {
+              next = next.on(
+                "postgres_changes",
+                {
+                  event: "INSERT",
+                  schema: "public",
+                  table: "community_messenger_call_signals",
+                  filter: `to_user_id=eq.${viewerId}`,
+                },
+                (payload) => onSignalRow(payload.new as Record<string, unknown> | undefined)
+              );
             }
-          ),
-      });
+            return next;
+          },
+        });
+      })();
     }
 
     void (async () => {
@@ -956,7 +979,7 @@ export function useCommunityMessengerCall(args: {
       callSignalsRealtimeSubscribedRef.current = false;
       if (timerId != null) window.clearTimeout(timerId);
       document.removeEventListener("visibilitychange", onVis);
-      sub?.stop();
+      subRef.current?.stop();
     };
   }, [applySignal, args.activeCall?.status, args.viewerUserId, currentSessionId, panel?.mode, panel?.sessionId]);
 
