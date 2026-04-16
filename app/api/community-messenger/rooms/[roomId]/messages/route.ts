@@ -13,6 +13,8 @@ import {
   sendCommunityMessengerMessage,
 } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const SEND_DEDUPE_TTL_MS = 2500;
@@ -146,6 +148,10 @@ export async function POST(
     sendDedupe.set(key, { at: Date.now(), res: r as any });
     return r;
   });
+  if (result.ok) {
+    invalidateRoomBootstrapRouteCacheForRoom(roomId);
+    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+  }
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     Math.round(performance.now() - t0),

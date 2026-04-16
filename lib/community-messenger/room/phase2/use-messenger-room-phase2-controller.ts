@@ -25,15 +25,20 @@ import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-cal
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  mergeRoomMessages,
+  nextOptimisticCommunityMessengerCreatedAtIso,
+} from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { publishCommunityMessengerRoomBumpBestEffort } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 
@@ -128,6 +133,7 @@ export function useMessengerRoomPhase2Controller() {
     refresh,
     replyToMessage,
     roomId,
+    streamRoomId,
     roomMembersDisplay,
     roomMembersDisplayRef,
     roomMessages,
@@ -260,6 +266,17 @@ export function useMessengerRoomPhase2Controller() {
     [t]
   );
 
+  const forgetRoomBootstrapClientFlightsAfterMutation = useCallback(() => {
+    const uid = snapshot?.viewerUserId?.trim();
+    const route = roomId?.trim();
+    const stream = streamRoomId?.trim();
+    if (!uid || !stream) return;
+    forgetMessengerRoomClientBootstrapFlights({ roomId: stream, viewerUserId: uid });
+    if (route && route !== stream) {
+      forgetMessengerRoomClientBootstrapFlights({ roomId: route, viewerUserId: uid });
+    }
+  }, [roomId, streamRoomId, snapshot?.viewerUserId]);
+
   const {
     voiceMicArming,
     voiceRecording,
@@ -275,6 +292,7 @@ export function useMessengerRoomPhase2Controller() {
     onVoiceMicPointerCancel,
   } = useMessengerRoomVoiceRecording({
     roomId,
+    apiRoomId: streamRoomId,
     snapshot,
     roomMembersDisplay,
     roomUnavailable,
@@ -292,7 +310,7 @@ export function useMessengerRoomPhase2Controller() {
     const nextMuted = !snapshot.room.isMuted;
     setBusy("room-mute");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "participant_settings", isMuted: nextMuted }),
@@ -306,14 +324,14 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, roomId, snapshot]);
+  }, [getRoomActionErrorMessage, streamRoomId, snapshot]);
 
   const toggleRoomArchive = useCallback(async () => {
     if (!snapshot) return;
     const nextArchived = !snapshot.room.isArchivedByViewer;
     setBusy("room-archive");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "archive", archived: nextArchived }),
@@ -337,7 +355,7 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, roomId, snapshot]);
+  }, [getRoomActionErrorMessage, streamRoomId, snapshot]);
 
   const openCallPermissionHelp = useCallback(() => {
     if (openCommunityMessengerPermissionSettings()) return;
@@ -461,7 +479,7 @@ export function useMessengerRoomPhase2Controller() {
     if (!isOpenGroupRoom || !snapshot) return;
     setBusy("open-group-settings");
     try {
-      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/settings`, {
+      const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -495,7 +513,7 @@ export function useMessengerRoomPhase2Controller() {
     openGroupSummary,
     openGroupTitle,
     refresh,
-    roomId,
+    streamRoomId,
     snapshot,
   ]);
 
@@ -503,7 +521,7 @@ export function useMessengerRoomPhase2Controller() {
     if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
     setBusy("leave-room");
     try {
-      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
+      const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/leave`, {
         method: "POST",
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -515,7 +533,7 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, roomId, router, t]);
+  }, [getRoomActionErrorMessage, streamRoomId, router, t]);
   const openMembersForOwnerTransfer = useCallback(() => {
     if (activeSheet) {
       setActiveSheet("members");
@@ -547,16 +565,16 @@ export function useMessengerRoomPhase2Controller() {
       const trimmed = content.trim();
       if (!trimmed || !snapshot) return;
       const clientMessageId = createCommunityMessengerClientMessageId();
-      const tempId = `pending:${roomId}:${pendingMessageIdRef.current++}`;
+      const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
-        roomId,
+        roomId: streamRoomId,
         senderId: snapshot.viewerUserId,
         senderLabel:
           roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "text",
         content: trimmed,
-        createdAt: new Date().toISOString(),
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         clientMessageId,
         isMine: true,
         pending: true,
@@ -569,7 +587,7 @@ export function useMessengerRoomPhase2Controller() {
       setBusy("send");
       try {
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/messages`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: trimmed, clientMessageId }),
@@ -582,7 +600,7 @@ export function useMessengerRoomPhase2Controller() {
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(roomId, elapsed, "text");
+          messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -599,15 +617,33 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          postCommunityMessengerBusEvent({ type: "cm.room.message_sent", roomId, clientMessageId, at: Date.now() });
+          postCommunityMessengerBusEvent({
+            type: "cm.room.message_sent",
+            roomId: streamRoomId,
+            clientMessageId,
+            at: Date.now(),
+          });
+          void publishCommunityMessengerRoomBumpBestEffort({ roomId: streamRoomId, fromUserId: snapshot.viewerUserId });
+          forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        void refresh(true);
+        forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
+    [
+      forgetRoomBootstrapClientFlightsAfterMutation,
+      getRoomActionErrorMessage,
+      refresh,
+      roomMessagesRef,
+      streamRoomId,
+      roomMembersDisplay,
+      scrollMessengerToBottom,
+      snapshot,
+    ]
   );
 
   const sendMessage = useCallback(async (textOverride?: string) => {
@@ -631,15 +667,15 @@ export function useMessengerRoomPhase2Controller() {
       const url = fileUrl.trim();
       if (!snapshot || roomUnavailable || !url.startsWith("/stickers/")) return;
       const clientMessageId = createCommunityMessengerClientMessageId();
-      const tempId = `pending:sticker:${roomId}:${pendingMessageIdRef.current++}`;
+      const tempId = `pending:sticker:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
-        roomId,
+        roomId: streamRoomId,
         senderId: snapshot.viewerUserId,
         senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "sticker",
         content: url,
-        createdAt: new Date().toISOString(),
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         clientMessageId,
         isMine: true,
         pending: true,
@@ -652,7 +688,7 @@ export function useMessengerRoomPhase2Controller() {
       dismissRoomSheet();
       try {
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/messages/sticker`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages/sticker`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -669,7 +705,7 @@ export function useMessengerRoomPhase2Controller() {
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(roomId, elapsed, "sticker");
+          messengerMonitorMessageRtt(streamRoomId, elapsed, "sticker");
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -686,18 +722,30 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          postCommunityMessengerBusEvent({ type: "cm.room.message_sent", roomId, clientMessageId, at: Date.now() });
+          postCommunityMessengerBusEvent({
+            type: "cm.room.message_sent",
+            roomId: streamRoomId,
+            clientMessageId,
+            at: Date.now(),
+          });
+          void publishCommunityMessengerRoomBumpBestEffort({ roomId: streamRoomId, fromUserId: snapshot.viewerUserId });
+          forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        void refresh(true);
+        forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         setBusy(null);
       }
     },
     [
       dismissRoomSheet,
+      forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
-      roomId,
+      refresh,
+      roomMessagesRef,
+      streamRoomId,
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
@@ -730,15 +778,15 @@ export function useMessengerRoomPhase2Controller() {
     async (file: File) => {
       if (!snapshot || roomUnavailable) return;
       const previewUrl = URL.createObjectURL(file);
-      const tempId = `pending:image:${roomId}:${pendingMessageIdRef.current++}`;
+      const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
-        roomId,
+        roomId: streamRoomId,
         senderId: snapshot.viewerUserId,
         senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "image",
         content: previewUrl,
-        createdAt: new Date().toISOString(),
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         isMine: true,
         pending: true,
         callKind: null,
@@ -752,7 +800,7 @@ export function useMessengerRoomPhase2Controller() {
         const form = new FormData();
         form.append("file", file);
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/images`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/images`, {
           method: "POST",
           body: form,
         });
@@ -764,7 +812,7 @@ export function useMessengerRoomPhase2Controller() {
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(roomId, elapsed, "image");
+          messengerMonitorMessageRtt(streamRoomId, elapsed, "image");
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -780,15 +828,29 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
+          forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        void refresh(true);
+        forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         URL.revokeObjectURL(previewUrl);
         setBusy(null);
       }
     },
-    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomMembersDisplay, roomUnavailable, scrollMessengerToBottom, snapshot]
+    [
+      dismissRoomSheet,
+      forgetRoomBootstrapClientFlightsAfterMutation,
+      getRoomActionErrorMessage,
+      refresh,
+      roomMessagesRef,
+      streamRoomId,
+      roomMembersDisplay,
+      roomUnavailable,
+      scrollMessengerToBottom,
+      snapshot,
+    ]
   );
 
   const openImagePicker = useCallback(() => {
@@ -814,15 +876,15 @@ export function useMessengerRoomPhase2Controller() {
   const sendFile = useCallback(
     async (file: File) => {
       if (!snapshot || roomUnavailable) return;
-      const tempId = `pending:file:${roomId}:${pendingMessageIdRef.current++}`;
+      const tempId = `pending:file:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
-        roomId,
+        roomId: streamRoomId,
         senderId: snapshot.viewerUserId,
         senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "file",
         content: "",
-        createdAt: new Date().toISOString(),
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         isMine: true,
         pending: true,
         callKind: null,
@@ -839,7 +901,7 @@ export function useMessengerRoomPhase2Controller() {
         const form = new FormData();
         form.append("file", file);
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/files`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/files`, {
           method: "POST",
           body: form,
         });
@@ -851,7 +913,7 @@ export function useMessengerRoomPhase2Controller() {
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(roomId, elapsed, "file");
+          messengerMonitorMessageRtt(streamRoomId, elapsed, "file");
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -867,14 +929,28 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
+          forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        void refresh(true);
+        forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         setBusy(null);
       }
     },
-    [dismissRoomSheet, getRoomActionErrorMessage, roomId, roomMembersDisplay, roomUnavailable, scrollMessengerToBottom, snapshot]
+    [
+      dismissRoomSheet,
+      forgetRoomBootstrapClientFlightsAfterMutation,
+      getRoomActionErrorMessage,
+      refresh,
+      roomMessagesRef,
+      streamRoomId,
+      roomMembersDisplay,
+      roomUnavailable,
+      scrollMessengerToBottom,
+      snapshot,
+    ]
   );
 
   const openFilePicker = useCallback(() => {
@@ -898,7 +974,7 @@ export function useMessengerRoomPhase2Controller() {
       setBusy("delete-message");
       try {
         const res = await fetch(
-          `${communityMessengerRoomResourcePath(roomId)}/messages/${encodeURIComponent(messageId)}`,
+          `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(messageId)}`,
           { method: "DELETE" }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -912,7 +988,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, roomId]
+    [getRoomActionErrorMessage, refresh, streamRoomId]
   );
 
   const blockPeerFromMessage = useCallback(
@@ -943,7 +1019,7 @@ export function useMessengerRoomPhase2Controller() {
     if (inviteIds.length === 0) return;
     setBusy("invite");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "invite", memberIds: inviteIds }),
@@ -959,13 +1035,13 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, inviteIds, refresh, roomId]);
+  }, [getRoomActionErrorMessage, inviteIds, refresh, streamRoomId]);
 
   const savePrivateGroupNotice = useCallback(async () => {
     if (!isPrivateGroupRoom) return;
     setBusy("group-notice");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "group_notice", noticeText: privateGroupNoticeDraft }),
@@ -979,13 +1055,13 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, isPrivateGroupRoom, privateGroupNoticeDraft, refresh, roomId]);
+  }, [getRoomActionErrorMessage, isPrivateGroupRoom, privateGroupNoticeDraft, refresh, streamRoomId]);
 
   const savePrivateGroupPermissions = useCallback(async () => {
     if (!isPrivateGroupRoom) return;
     setBusy("group-permissions");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1017,14 +1093,14 @@ export function useMessengerRoomPhase2Controller() {
     groupAllowMemberUpload,
     isPrivateGroupRoom,
     refresh,
-    roomId,
+    streamRoomId,
   ]);
 
   const updateGroupMemberRole = useCallback(
     async (targetUserId: string, nextRole: "admin" | "member") => {
       setBusy(`group-role:${targetUserId}`);
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+        const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_member_role", targetUserId, nextRole }),
@@ -1040,7 +1116,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, roomId]
+    [getRoomActionErrorMessage, refresh, streamRoomId]
   );
 
   const transferGroupOwner = useCallback(
@@ -1048,7 +1124,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!window.confirm(`${label}님에게 방장을 위임할까요? 위임 후에는 내가 관리자 권한으로 내려갑니다.`)) return;
       setBusy(`group-owner:${targetUserId}`);
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+        const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_owner_transfer", targetUserId }),
@@ -1064,7 +1140,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, roomId]
+    [getRoomActionErrorMessage, refresh, streamRoomId]
   );
 
   const startDirectChatWithMember = useCallback(
@@ -1132,7 +1208,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!window.confirm(`${label}님을 이 그룹에서 내보낼까요?`)) return;
       setBusy(`group-remove:${targetUserId}`);
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+        const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "group_member_remove", targetUserId }),
@@ -1148,7 +1224,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, roomId]
+    [getRoomActionErrorMessage, refresh, streamRoomId]
   );
 
   const startGroupCall = useCallback(
@@ -1271,7 +1347,7 @@ export function useMessengerRoomPhase2Controller() {
         const next = new Set(prev);
         next.add(messageId);
         try {
-          const key = `cm_hidden_call_stubs:${roomId.trim()}`;
+          const key = `cm_hidden_call_stubs:${streamRoomId.trim()}`;
           localStorage.setItem(key, JSON.stringify([...next]));
         } catch {
           /* ignore */
@@ -1280,7 +1356,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       setCallStubSheet(null);
     },
-    [roomId]
+    [streamRoomId]
   );
 
   useEffect(() => {
@@ -1360,13 +1436,13 @@ export function useMessengerRoomPhase2Controller() {
       messengerUserIdsEqual(snapshot.activeCall.id, sessionIdFromUrl) &&
       snapshot.activeCall.status === "active";
     if (!samePanelSession && !sameActiveSession) return;
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(streamRoomId)}`);
   }, [
     call.panel?.mode,
     call.panel?.sessionId,
     callActionFromUrl,
     sessionIdFromUrl,
-    roomId,
+    streamRoomId,
     router,
     snapshot?.activeCall?.id,
     snapshot?.activeCall?.status,

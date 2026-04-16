@@ -1,5 +1,10 @@
 import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import {
+  cmRtLogMapRowSkipped,
+  cmRtLogPostgresPayload,
+  isCommunityMessengerRealtimeDebugEnabled,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import { messengerMonitorRealtimeMessageInsertDelay } from "@/lib/community-messenger/monitoring/client";
 import type {
   CommunityMessengerRoomRealtimeMessageEvent,
@@ -54,10 +59,31 @@ export function attachCommunityMessengerRoomMessagePostgresHandlers(
     },
     (payload) => {
       const eventType = payload.eventType;
+      const rawNew = payload.new as Record<string, unknown> | undefined;
+      const rawOld = payload.old as Record<string, unknown> | undefined;
+      const rowForId = eventType === "DELETE" ? rawOld : rawNew;
+      const payloadRoomId = typeof rowForId?.room_id === "string" ? rowForId.room_id : null;
+      const mappedId = rowForId && typeof rowForId.id === "string" ? rowForId.id : null;
+      if (isCommunityMessengerRealtimeDebugEnabled()) {
+        cmRtLogPostgresPayload({
+          filterRoomId: rid,
+          eventType,
+          table: "community_messenger_messages",
+          messageId: mappedId,
+          payloadRoomId,
+          filterMatchesPayloadRoom: Boolean(payloadRoomId && payloadRoomId === rid),
+        });
+      }
       const nextMessage =
         eventType === "DELETE"
           ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
           : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
+      if (!nextMessage && isCommunityMessengerRealtimeDebugEnabled()) {
+        cmRtLogMapRowSkipped({
+          reason: "mapRealtimeMessageRow_null",
+          rawKeys: rowForId && typeof rowForId === "object" ? Object.keys(rowForId) : [],
+        });
+      }
       if (nextMessage && args.messageCallbackRef.current) {
         args.messageCallbackRef.current({
           eventType,

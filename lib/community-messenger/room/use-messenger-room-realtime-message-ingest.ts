@@ -26,11 +26,19 @@ import type {
 } from "@/lib/community-messenger/types";
 import { mapRealtimeRoomMessage, mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import {
+  cmRtLogIngestBatch,
+  cmRtLogRoomIdentity,
+  isCommunityMessengerRealtimeDebugEnabled,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
-  roomId: string;
+  /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
+  routeRoomId: string;
+  /** `community_messenger_messages.room_id` 및 Realtime 필터에 쓰는 원장 방 id — 반드시 `snapshot.room.id` 우선 */
+  streamRoomId: string;
   snapshot: CommunityMessengerRoomSnapshot | null;
   roomReadyForRealtime: boolean;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
@@ -42,7 +50,8 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
 
 export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtimeMessageIngestArgs): void {
   const {
-    roomId,
+    routeRoomId,
+    streamRoomId,
     snapshot,
     roomReadyForRealtime,
     snapshotRef,
@@ -74,7 +83,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       pendingRealtimeRef.current.push(...batch);
       return;
     }
-    const rid = roomId?.trim();
+    const rid = streamRoomId?.trim();
     let insertFromOthers = 0;
     if (rid && messengerRolloutUsesRoomScrollHints() && !stickToBottomRef.current) {
       const viewer = snap.viewerUserId;
@@ -99,7 +108,16 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     if (insertFromOthers > 0 && rid) {
       useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
     }
-  }, [roomId, roomMembersDisplayRef, setRoomMessages, snapshotRef, stickToBottomRef]);
+    if (isCommunityMessengerRealtimeDebugEnabled() && batch.length > 0) {
+      cmRtLogIngestBatch({
+        streamRoomId: streamRoomId.trim(),
+        routeRoomId: routeRoomId.trim(),
+        batchLen: batch.length,
+        eventTypes: batch.map((e) => e.eventType),
+        messageIds: batch.map((e) => e.message.id),
+      });
+    }
+  }, [routeRoomId, roomMembersDisplayRef, setRoomMessages, snapshotRef, stickToBottomRef, streamRoomId]);
 
   const handleRealtimeMessageEvent = useCallback(
     (event: CommunityMessengerRoomRealtimeMessageEvent) => {
@@ -130,9 +148,23 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     });
   }, [snapshot, roomMembersDisplayRef, setRoomMessages]);
 
+  useEffect(() => {
+    if (!snapshot || !isCommunityMessengerRealtimeDebugEnabled()) return;
+    const peer = snapshot.room.peerUserId ?? null;
+    const vf = (snapshot.viewerUserId ?? "").trim() || "anon";
+    cmRtLogRoomIdentity({
+      routeRoomId: routeRoomId.trim(),
+      streamRoomId: streamRoomId.trim(),
+      viewerUserId: snapshot.viewerUserId,
+      peerUserId: peer,
+      channelName: `community-messenger-room:bundle:${vf}:${streamRoomId.trim()}`,
+    });
+  }, [routeRoomId, snapshot, streamRoomId]);
+
   useCommunityMessengerRoomRealtime({
-    roomId,
-    enabled: Boolean(roomId) && roomReadyForRealtime && snapshot !== null,
+    roomId: streamRoomId.trim(),
+    viewerUserId: snapshot?.viewerUserId ?? null,
+    enabled: Boolean(streamRoomId.trim()) && roomReadyForRealtime && snapshot !== null,
     onRefresh,
     onMessageEvent: handleRealtimeMessageEvent,
   });

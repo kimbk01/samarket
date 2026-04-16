@@ -89,8 +89,10 @@ import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/ho
 import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import {
   type CommunityMessengerHomeRealtimeMessageInsertHint,
+  type CommunityMessengerHomeRealtimeParticipantUnreadHint,
   useCommunityMessengerHomeRealtime,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
+import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
@@ -234,6 +236,7 @@ export function CommunityMessengerHome({
     refresh,
     homeRealtimeGateOpen,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
+  useCommunityMessengerPresenceRuntime(data?.me?.id ?? null);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   /** Realtime 메시지는 왔으나 `homeRoomIds` 청크에 없던 방 — 단건 home-summary 병합 디바운스 */
@@ -700,12 +703,45 @@ export function CommunityMessengerHome({
     [setData, scheduleHomeMissingRoomSummaryMerge]
   );
 
+  const applyParticipantUnreadDelta = useCallback(
+    (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => {
+      let missedList = false;
+      setData((prev) => {
+        if (!prev) return prev;
+        let hit = false;
+        const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
+          rooms.map((room) => {
+            if (room.id !== hint.roomId) return room;
+            hit = true;
+            return {
+              ...room,
+              unreadCount: hint.unreadCount,
+            };
+          });
+        const next = {
+          ...prev,
+          chats: patchRooms(prev.chats),
+          groups: patchRooms(prev.groups),
+        };
+        if (!hit) {
+          missedList = true;
+          return prev;
+        }
+        primeBootstrapCache(next);
+        return next;
+      });
+      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+    },
+    [setData, scheduleHomeMissingRoomSummaryMerge]
+  );
+
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
     roomIds: homeRoomIds,
     enabled: Boolean(data?.me?.id) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
     onRealtimeMessageInsert: applyRealtimeMessageListPatch,
+    onParticipantUnreadDelta: applyParticipantUnreadDelta,
   });
 
   const reviveDirectRoomForEntry = useCallback(
@@ -751,7 +787,7 @@ export function CommunityMessengerHome({
       if (existingRoom) {
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
-        if (!peekRoomSnapshot(existingRoom.id)) {
+        if (!peekRoomSnapshot(existingRoom.id, data?.me?.id ?? undefined)) {
           await prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
         navigateToCommunityRoom(existingRoom.id);
@@ -787,7 +823,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.chats, getMessengerActionErrorMessage, navigateToCommunityRoom, reviveDirectRoomForEntry, t]
+    [data?.chats, data?.me?.id, getMessengerActionErrorMessage, navigateToCommunityRoom, reviveDirectRoomForEntry, t]
   );
 
   /** 1:1 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` (friendsFavoriteQuickActions, friendProfileSheet) 에만 연결 */

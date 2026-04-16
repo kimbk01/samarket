@@ -1,7 +1,13 @@
 "use client";
 
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import {
+  cmRtLogSubscribe,
+  cmRtLogTeardown,
+  isCommunityMessengerRealtimeDebugEnabled,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import { messengerMonitorRealtimeSubscriptionOutcome } from "@/lib/community-messenger/monitoring/client";
+import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
 
@@ -60,6 +66,9 @@ export function subscribeWithRetry(args: {
     stopped = true;
     clearTimer();
     markInternalChannelRecycle();
+    if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
+      cmRtLogTeardown({ reason: "stop", channelName: args.name });
+    }
     try {
       void args.sb.removeChannel(channel);
     } catch {
@@ -89,23 +98,45 @@ export function subscribeWithRetry(args: {
   };
 
   const attachSubscribe = () => {
-    channel = channel.subscribe((status) => {
-      args.onStatus?.(status);
-      if (status === "SUBSCRIBED") {
-        const phase = attempt > 0 ? "retry" : "initial";
-        attempt = 0;
-        messengerMonitorRealtimeSubscriptionOutcome(args.scope, true, status, { attemptPhase: phase });
-        return;
-      }
-      if (isFailureStatus(status)) {
-        const intentionalTeardown = stopped || args.isCancelled();
-        if (status === "CLOSED" && (intentionalTeardown || consumeInternalClosed())) return;
-        const phase = attempt > 0 ? "retry" : "initial";
-        messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status, { attemptPhase: phase });
-        if (intentionalTeardown) return;
-        scheduleRetry(status);
-      }
-    });
+    /**
+     * `channel.subscribe()` 직전에 세션 JWT 를 Realtime 소켓에 반드시 맞춘다.
+     * 그렇지 않으면 SUBSCRIBED 인데 `auth.uid()` 가 비어 RLS 로 postgres_changes 가
+     * 영구히 오지 않는 레이스가 난다(@supabase/ssr 쿠키 복원 타이밍).
+     */
+    void (async () => {
+      if (stopped || args.isCancelled()) return;
+      await syncSupabaseRealtimeAuthFromSession(args.sb);
+      if (stopped || args.isCancelled()) return;
+      channel = channel.subscribe((status) => {
+        args.onStatus?.(status);
+        if (status === "SUBSCRIBED") {
+          void syncSupabaseRealtimeAuthFromSession(args.sb);
+          const phase = attempt > 0 ? "retry" : "initial";
+          attempt = 0;
+          messengerMonitorRealtimeSubscriptionOutcome(args.scope, true, status, { attemptPhase: phase });
+          if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
+            cmRtLogSubscribe({
+              scope: args.scope,
+              channelName: args.name,
+              status,
+              attemptPhase: phase,
+            });
+          }
+          return;
+        }
+        if (isFailureStatus(status)) {
+          const intentionalTeardown = stopped || args.isCancelled();
+          if (status === "CLOSED" && (intentionalTeardown || consumeInternalClosed())) return;
+          const phase = attempt > 0 ? "retry" : "initial";
+          messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status, { attemptPhase: phase });
+          if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
+            cmRtLogSubscribe({ scope: args.scope, channelName: args.name, status, attemptPhase: phase });
+          }
+          if (intentionalTeardown) return;
+          scheduleRetry(status);
+        }
+      });
+    })();
   };
 
   attachSubscribe();

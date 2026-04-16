@@ -3,7 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { MESSENGER_HOME_META_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
-import type { CommunityMessengerHomeRealtimeMessageInsertHint } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
+import type {
+  CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerHomeRealtimeParticipantUnreadHint,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
@@ -14,6 +17,9 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   isCancelled: () => boolean;
   roomIdsFingerprint: string;
   messageInsertHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void) | undefined>;
+  participantUnreadDeltaRef: MutableRefObject<
+    ((hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void) | undefined
+  >;
   onRefreshRef: MutableRefObject<() => void>;
 }): { channels: Array<{ stop: () => void }>; cancelSchedulers: () => void } {
   const channels: Array<{ stop: () => void }> = [];
@@ -39,7 +45,23 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
             table: "community_messenger_participants",
             filter: `user_id=eq.${args.userId}`,
           },
-          () => {
+          (payload) => {
+            if (!cancelled() && payload.new) {
+              const row = payload.new as Record<string, unknown>;
+              const roomId = typeof row.room_id === "string" ? row.room_id.trim() : "";
+              if (roomId) {
+                const unreadCount = Math.max(0, Number(row.unread_count ?? 0) || 0);
+                const lastReadAt = typeof row.last_read_at === "string" ? row.last_read_at : null;
+                const lastReadMessageId = typeof row.last_read_message_id === "string" ? row.last_read_message_id : null;
+                args.participantUnreadDeltaRef.current?.({
+                  roomId,
+                  unreadCount,
+                  lastReadAt,
+                  lastReadMessageId,
+                });
+                return;
+              }
+            }
             if (!cancelled()) refreshScheduler.schedule();
           }
         )
@@ -162,6 +184,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                 const row = payload.new as Record<string, unknown>;
                 const rid = typeof row.room_id === "string" ? row.room_id.trim() : "";
                 if (rid) args.messageInsertHintRef.current?.({ roomId: rid, newRecord: row });
+                return;
               }
               if (!cancelled()) refreshScheduler.schedule();
             }

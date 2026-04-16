@@ -3,6 +3,13 @@ export type CommunityMessengerHomeRealtimeMessageInsertHint = {
   newRecord: Record<string, unknown>;
 };
 
+export type CommunityMessengerHomeRealtimeParticipantUnreadHint = {
+  roomId: string;
+  unreadCount: number;
+  lastReadAt: string | null;
+  lastReadMessageId: string | null;
+};
+
 export type CommunityMessengerRoomRealtimeMessageRow = {
   id: string;
   roomId: string;

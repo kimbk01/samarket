@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { sendCommunityMessengerFileMessage } from "@/lib/community-messenger/service";
+import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -75,5 +77,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     fileSizeBytes: file.size,
   });
 
+  if (result.ok) {
+    invalidateRoomBootstrapRouteCacheForRoom(roomId);
+    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+  }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

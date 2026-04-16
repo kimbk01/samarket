@@ -10,6 +10,7 @@ export type CommunityMessengerIdentityMode = "real_name" | "alias";
 export type CommunityMessengerRoomIdentityPolicy = "real_name" | "alias_allowed";
 export type CommunityMessengerMessageType = "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
 export type CommunityMessengerCallKind = "voice" | "video";
+export type CommunityMessengerPresenceState = "online" | "away" | "offline";
 export type CommunityMessengerCallStatus =
   | "dialing"
   | "incoming"
@@ -216,6 +217,19 @@ export type CommunityMessengerMessage = {
   fileSizeBytes?: number | null;
 };
 
+export type CommunityMessengerReadReceipt = {
+  roomId: string;
+  readerUserId: string;
+  lastReadAt: string | null;
+  lastReadMessageId: string | null;
+};
+
+export type CommunityMessengerPeerPresenceSnapshot = {
+  userId: string;
+  state: CommunityMessengerPresenceState;
+  lastSeenAt: string | null;
+};
+
 export type CommunityMessengerRoomSnapshot = {
   viewerUserId: string;
   room: CommunityMessengerRoomSummary & {
@@ -231,6 +245,8 @@ export type CommunityMessengerRoomSnapshot = {
   membersTruncated?: boolean;
   messages: CommunityMessengerMessage[];
   myRole: "owner" | "admin" | "member";
+  readReceipt?: CommunityMessengerReadReceipt | null;
+  peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
   activeCall: CommunityMessengerCallSession | null;
   /**
    * `contextMeta.kind === "trade"` + `productChatId` 일 때 — `loadChatRoomDetailForUser`(entry) 로 조립.

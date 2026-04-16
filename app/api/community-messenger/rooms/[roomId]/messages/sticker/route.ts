@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { sendCommunityMessengerStickerMessage } from "@/lib/community-messenger/service";
+import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
@@ -40,5 +42,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     stickerItemId: stickerItemId || undefined,
   });
 
+  if (result.ok) {
+    invalidateRoomBootstrapRouteCacheForRoom(roomId);
+    void publishCommunityMessengerRoomBumpFromServer({ roomId, fromUserId: auth.userId });
+  }
   return result.ok ? jsonOk(result) : jsonError(result.error ?? "스티커를 보내지 못했습니다.", 400, result);
 }

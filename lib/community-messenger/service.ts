@@ -60,7 +60,10 @@ import {
   CommunityMessengerFriendRequest,
   CommunityMessengerFriendRequestStatus,
   CommunityMessengerMessage,
+  type CommunityMessengerPeerPresenceSnapshot,
+  type CommunityMessengerReadReceipt,
   CommunityMessengerProfileLite,
+  type CommunityMessengerPresenceState,
   CommunityMessengerRoomSnapshot,
   CommunityMessengerRoomStatus,
   CommunityMessengerRoomSummary,
@@ -145,6 +148,8 @@ type ParticipantRow = {
   is_pinned: boolean | null;
   is_archived?: boolean | null;
   joined_at: string | null;
+  last_read_at?: string | null;
+  last_read_message_id?: string | null;
 };
 
 type RoomProfileRow = {
@@ -263,6 +268,8 @@ type DevParticipant = {
   isPinned: boolean;
   isArchived: boolean;
   joinedAt: string;
+  lastReadAt?: string | null;
+  lastReadMessageId?: string | null;
 };
 
 type DevRoomProfile = {
@@ -347,12 +354,32 @@ type DevState = {
   callSignals: DevCallSignal[];
 };
 
+type PresenceSnapshotRow = {
+  user_id: string;
+  last_seen_at: string | null;
+  updated_at: string | null;
+};
+
 function nowIso() {
   return new Date().toISOString();
 }
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function participantLastReadAt(value: ParticipantRow | DevParticipant | undefined): string | null {
+  if (!value) return null;
+  return trimText("last_read_at" in value ? (value as ParticipantRow).last_read_at : (value as DevParticipant).lastReadAt) || null;
+}
+
+function participantLastReadMessageId(value: ParticipantRow | DevParticipant | undefined): string | null {
+  if (!value) return null;
+  return trimText(
+    "last_read_message_id" in value
+      ? (value as ParticipantRow).last_read_message_id
+      : (value as DevParticipant).lastReadMessageId
+  ) || null;
 }
 
 function isMissingTableError(error: unknown): boolean {
@@ -577,6 +604,33 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
 
 function roomProfileKey(roomId: string, userId: string) {
   return `${roomId}:${userId}`;
+}
+
+async function fetchPresenceSnapshotsByUserIds(
+  ids: string[]
+): Promise<Map<string, CommunityMessengerPeerPresenceSnapshot>> {
+  const unique = dedupeIds(ids);
+  const result = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
+  if (!unique.length) return result;
+  const sb = getSupabaseOrNull();
+  if (!sb) return result;
+  const { data, error } = await (sb as any)
+    .from("community_messenger_presence_snapshots")
+    .select("user_id, last_seen_at, updated_at")
+    .in("user_id", unique);
+  if (error && !isMissingTableError(error)) {
+    return result;
+  }
+  for (const row of (data ?? []) as PresenceSnapshotRow[]) {
+    const userId = trimText(row.user_id);
+    if (!userId) continue;
+    result.set(userId, {
+      userId,
+      state: "offline" satisfies CommunityMessengerPresenceState,
+      lastSeenAt: trimText(row.last_seen_at) || trimText(row.updated_at) || null,
+    });
+  }
+  return result;
 }
 
 async function fetchRoomProfilesByRoomIds(roomIds: string[]): Promise<Map<string, RoomProfileRow | DevRoomProfile>> {
@@ -4279,29 +4333,50 @@ export async function updateCommunityMessengerRoomContextMeta(input: {
 export async function markCommunityMessengerRoomAsRead(input: {
   userId: string;
   roomId: string;
-}): Promise<{ ok: boolean; error?: string }> {
+  lastReadMessageId?: string;
+}): Promise<{ ok: boolean; error?: string; lastReadAt?: string | null; lastReadMessageId?: string | null }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_not_found" };
+  const requestedLastReadMessageId = trimText(input.lastReadMessageId);
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: participant, error: participantError } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("id")
-      .eq("room_id", roomId)
-      .eq("user_id", input.userId)
-      .maybeSingle();
+    const [{ data: participant, error: participantError }, latestMessageResult] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      requestedLastReadMessageId
+        ? (sb as any)
+            .from("community_messenger_messages")
+            .select("id")
+            .eq("room_id", roomId)
+            .eq("id", requestedLastReadMessageId)
+            .maybeSingle()
+        : (sb as any)
+            .from("community_messenger_messages")
+            .select("id")
+            .eq("room_id", roomId)
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+    ]);
     if (participantError && !isMissingTableError(participantError)) {
       return { ok: false, error: String(participantError.message ?? "participant_lookup_failed") };
     }
     if (participant) {
+      const cursorId = trimText((latestMessageResult?.data as { id?: unknown } | null)?.id ?? "") || null;
+      const readAt = nowIso();
       const { error } = await (sb as any)
         .from("community_messenger_participants")
-        .update({ unread_count: 0, last_read_at: nowIso() })
+        .update({ unread_count: 0, last_read_at: readAt, ...(cursorId ? { last_read_message_id: cursorId } : {}) })
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
       if (!error) {
         invalidateOwnerHubBadgeCache(input.userId);
-        return { ok: true };
+        return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
       }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_read_failed") };
     }
@@ -4314,8 +4389,15 @@ export async function markCommunityMessengerRoomAsRead(input: {
   const participant = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
   if (!participant || "user_id" in participant) return { ok: false, error: "room_not_found" };
   participant.unreadCount = 0;
+  participant.lastReadAt = nowIso();
+  const latest = requestedLastReadMessageId
+    ? dev.messages.find((item) => item.roomId === roomId && item.id === requestedLastReadMessageId)
+    : [...dev.messages]
+        .filter((item) => item.roomId === roomId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
+  participant.lastReadMessageId = latest?.id ?? null;
   invalidateOwnerHubBadgeCache(input.userId);
-  return { ok: true };
+  return { ok: true, lastReadAt: participant.lastReadAt, lastReadMessageId: participant.lastReadMessageId ?? null };
 }
 
 export async function updateCommunityMessengerRoomArchiveState(input: {
@@ -4357,6 +4439,33 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
   if ("room_type" in room) return { ok: false, error: "room_not_found" };
   participant.isArchived = input.archived;
   return { ok: true };
+}
+
+export async function upsertCommunityMessengerPresenceSnapshot(input: {
+  userId: string;
+  lastSeenAt?: string | null;
+}): Promise<{ ok: boolean; error?: string; lastSeenAt?: string | null }> {
+  const userId = trimText(input.userId);
+  if (!userId) return { ok: false, error: "user_required" };
+  const lastSeenAt = trimText(input.lastSeenAt) || nowIso();
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { error } = await (sb as any).from("community_messenger_presence_snapshots").upsert(
+      {
+        user_id: userId,
+        last_seen_at: lastSeenAt,
+        updated_at: nowIso(),
+      },
+      { onConflict: "user_id" }
+    );
+    if (!error) return { ok: true, lastSeenAt };
+    if (!isMissingTableError(error)) {
+      return { ok: false, error: String(error.message ?? "presence_upsert_failed") };
+    }
+  }
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+  return { ok: true, lastSeenAt };
 }
 
 const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX = 100;
@@ -4506,11 +4615,11 @@ export async function getCommunityMessengerRoomSnapshot(
     const participantsQuery = hydrateFullMemberList
       ? (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id")
           .eq("room_id", id)
       : (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
+          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id")
           .eq("room_id", id)
           .limit(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP + 1);
 
@@ -4639,6 +4748,22 @@ export async function getCommunityMessengerRoomSnapshot(
     (item) => ("user_id" in item ? item.user_id : item.userId) === userId
   ) as ParticipantRow | DevParticipant | undefined;
   const meRole = meParticipant?.role ?? "member";
+  const peerParticipant =
+    summary.roomType === "direct"
+      ? participants.find((item) => ("user_id" in item ? item.user_id : item.userId) !== userId)
+      : undefined;
+  const peerUserId = trimText(summary.peerUserId ?? "");
+  const presenceMap = peerUserId ? await fetchPresenceSnapshotsByUserIds([peerUserId]) : new Map();
+  const readReceipt: CommunityMessengerReadReceipt | null =
+    summary.roomType === "direct" && peerParticipant
+      ? {
+          roomId: id,
+          readerUserId: peerUserId || ("user_id" in peerParticipant ? peerParticipant.user_id : peerParticipant.userId),
+          lastReadAt: participantLastReadAt(peerParticipant),
+          lastReadMessageId: participantLastReadMessageId(peerParticipant),
+        }
+      : null;
+  const peerPresence = peerUserId ? (presenceMap.get(peerUserId) ?? null) : null;
 
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message) => {
     const isDbMessage = "sender_id" in message;
@@ -4693,6 +4818,8 @@ export async function getCommunityMessengerRoomSnapshot(
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
     messages: mappedMessages,
     myRole: meRole,
+    ...(readReceipt ? { readReceipt } : {}),
+    ...(peerPresence ? { peerPresence } : {}),
     activeCall,
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
   };
@@ -5178,6 +5305,17 @@ export async function sendCommunityMessengerMessage(input: {
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
+      const insertedMessageId = String((insertedMessage as { id?: unknown }).id ?? "");
+      if (insertedMessageId) {
+        await (sb as any)
+          .from("community_messenger_participants")
+          .update({
+            last_read_at: createdAt,
+            last_read_message_id: insertedMessageId,
+          })
+          .eq("room_id", roomId)
+          .eq("user_id", input.userId);
+      }
       const { data: recipientRows } = await (sb as any)
         .from("community_messenger_participants")
         .select("user_id")
@@ -5247,7 +5385,13 @@ export async function sendCommunityMessengerMessage(input: {
     room.lastMessageType = "text";
   }
   for (const participant of dev.participants.filter((row) => row.roomId === roomId)) {
-    participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
+    if (participant.userId === input.userId) {
+      participant.unreadCount = 0;
+      participant.lastReadAt = createdAt;
+      participant.lastReadMessageId = messageId;
+    } else {
+      participant.unreadCount += 1;
+    }
   }
   return {
     ok: true,

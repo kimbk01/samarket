@@ -6,17 +6,20 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 60_000;
-// 프리패치 캐시가 누적되며 메모리를 잠식하지 않도록 상한을 둔다.
 const MAX_ENTRIES = 120;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
 
+function cacheKey(roomId: string, viewerUserId: string | null | undefined): string {
+  const r = roomId.trim();
+  const v = (viewerUserId ?? "").trim() || "_";
+  return `${v}:${r}`;
+}
+
 function pruneIfNeeded(now = Date.now()): void {
-  // TTL 초과 먼저 정리
   for (const [k, v] of entries) {
     if (now - v.at > TTL_MS) entries.delete(k);
   }
   if (entries.size <= MAX_ENTRIES) return;
-  // 오래된 순으로 제거(Map iteration order는 insertion order)
   const overflow = entries.size - MAX_ENTRIES;
   let i = 0;
   for (const k of entries.keys()) {
@@ -27,41 +30,78 @@ function pruneIfNeeded(now = Date.now()): void {
 }
 
 export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot) {
-  entries.set(roomId, { snapshot, at: Date.now() });
+  const k = cacheKey(roomId, snapshot.viewerUserId);
+  entries.set(k, { snapshot, at: Date.now() });
   pruneIfNeeded();
 }
 
-export function peekRoomSnapshot(roomId: string): CommunityMessengerRoomSnapshot | null {
+/**
+ * @param viewerUserId 현재 로그인 사용자 id. 생략·빈 문자열이면 동일 `roomId` 로 끝나는 캐시 중 **가장 최근** 항목을 반환(프리패치 히트용).
+ */
+export function peekRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
   pruneIfNeeded();
-  const row = entries.get(roomId);
-  if (!row) return null;
-  if (Date.now() - row.at > TTL_MS) {
-    entries.delete(roomId);
-    return null;
+  const r = roomId.trim();
+  if (!r) return null;
+  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
+    const k = cacheKey(r, viewerUserId.trim());
+    const row = entries.get(k);
+    if (!row) return null;
+    if (Date.now() - row.at > TTL_MS) {
+      entries.delete(k);
+      return null;
+    }
+    return row.snapshot;
   }
-  return row.snapshot;
+  const suffix = `:${r}`;
+  let best: { snapshot: CommunityMessengerRoomSnapshot; at: number } | null = null;
+  for (const [k, row] of entries) {
+    if (!k.endsWith(suffix)) continue;
+    if (Date.now() - row.at > TTL_MS) {
+      entries.delete(k);
+      continue;
+    }
+    if (!best || row.at > best.at) best = row;
+  }
+  return best?.snapshot ?? null;
 }
 
-/** 방 입장 전 프리패치 캐시 무효화(목록에서 로컬 미리보기 정리 등). */
+/** 방 id 에 해당하는 모든 뷰어 버킷 캐시 제거 */
 export function invalidateRoomSnapshot(roomId: string): void {
-  entries.delete(roomId);
+  const suffix = `:${roomId.trim()}`;
+  if (suffix.length <= 1) return;
+  for (const k of Array.from(entries.keys())) {
+    if (k.endsWith(suffix)) entries.delete(k);
+  }
 }
 
-/** 한 번만 꺼내 쓰고 제거(중복 GET 없이 첫 페인트용). */
-export function consumeRoomSnapshot(roomId: string): CommunityMessengerRoomSnapshot | null {
+export function consumeRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
   pruneIfNeeded();
-  const row = entries.get(roomId);
-  if (!row) return null;
-  entries.delete(roomId);
-  if (Date.now() - row.at > TTL_MS) return null;
-  return row.snapshot;
+  const r = roomId.trim();
+  if (!r) return null;
+  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
+    const k = cacheKey(r, viewerUserId.trim());
+    const row = entries.get(k);
+    if (!row) return null;
+    entries.delete(k);
+    if (Date.now() - row.at > TTL_MS) return null;
+    return row.snapshot;
+  }
+  const suffix = `:${r}`;
+  for (const k of Array.from(entries.keys())) {
+    if (!k.endsWith(suffix)) continue;
+    const row = entries.get(k);
+    if (!row) continue;
+    entries.delete(k);
+    if (Date.now() - row.at > TTL_MS) return null;
+    return row.snapshot;
+  }
+  return null;
 }
 
 /** 호버 등으로 미리 채워 두면 방 진입 시 로딩이 거의 없어짐. */
 export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Promise<boolean> {
   const key = roomId.trim();
   if (!key) return false;
-  if (peekRoomSnapshot(key)) return true;
   return runSingleFlight(`cm:prefetch-room-snapshot:${key}`, async () => {
     if (peekRoomSnapshot(key)) return true;
     try {

@@ -85,7 +85,29 @@ export function communityMessengerVoiceAudioSrc(
   if (!id || id.startsWith("pending:")) {
     return "";
   }
-  return `${communityMessengerRoomResourcePath(roomId)}/messages/${encodeURIComponent(id)}/audio`;
+  /** API·DB `community_messenger_messages.room_id` — 라우트 id(거래·레거시)와 다를 수 있음 */
+  const apiRoomId = (typeof item.roomId === "string" && item.roomId.trim() ? item.roomId.trim() : roomId.trim()).trim();
+  if (!apiRoomId) return "";
+  return `${communityMessengerRoomResourcePath(apiRoomId)}/messages/${encodeURIComponent(id)}/audio`;
+}
+
+/**
+ * 발신 낙관적 말풍선이 타임라인에서 **직전 확정 메시지 뒤**에 오도록 한다.
+ * 로컬 시계가 서버·상대보다 느릴 때 `new Date()` 만 쓰면 수신분보다 앞서 정렬되어 두 클라이언트 순서가 갈린다.
+ */
+export function nextOptimisticCommunityMessengerCreatedAtIso(
+  prev: Array<CommunityMessengerMessage & { pending?: boolean }>
+): string {
+  const now = Date.now();
+  let maxTs = 0;
+  for (const m of prev) {
+    if (m.pending) continue;
+    const id = String(m.id ?? "").trim();
+    if (!id || id.startsWith("pending:")) continue;
+    const t = new Date(m.createdAt).getTime();
+    if (Number.isFinite(t)) maxTs = Math.max(maxTs, t);
+  }
+  return new Date(Math.max(now, maxTs + 1)).toISOString();
 }
 
 export function mergeRoomMessages(

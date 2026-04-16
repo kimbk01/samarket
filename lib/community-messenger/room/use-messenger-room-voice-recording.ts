@@ -2,7 +2,10 @@
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  mergeRoomMessages,
+  nextOptimisticCommunityMessengerCreatedAtIso,
+} from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -21,6 +24,8 @@ import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messeng
 
 export type UseMessengerRoomVoiceRecordingParams = {
   roomId: string;
+  /** POST `/voice` 등 API 경로 — 생략 시 `roomId` (원장 `snapshot.room.id` 와 라우트 id 가 다를 때) */
+  apiRoomId?: string;
   snapshot: CommunityMessengerRoomSnapshot | null;
   roomMembersDisplay: CommunityMessengerProfileLite[];
   roomUnavailable: boolean;
@@ -38,6 +43,7 @@ export type UseMessengerRoomVoiceRecordingParams = {
  */
 export function useMessengerRoomVoiceRecording({
   roomId,
+  apiRoomId,
   snapshot,
   roomMembersDisplay,
   roomUnavailable,
@@ -49,6 +55,7 @@ export function useMessengerRoomVoiceRecording({
   setRoomMessages,
   scrollMessengerToBottom,
 }: UseMessengerRoomVoiceRecordingParams) {
+  const apiRoom = (apiRoomId?.trim() || roomId.trim()).trim();
   const voiceFinalizingRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -181,24 +188,26 @@ export function useMessengerRoomVoiceRecording({
 
       const roundedDur = Math.max(1, Math.min(600, Math.round(durationSeconds)));
       const blobUrl = URL.createObjectURL(blob);
-      const tempId = `pending:${roomId}:voice:${pendingMessageIdRef.current++}`;
-      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
-        id: tempId,
-        roomId,
-        senderId: snapshot.viewerUserId,
-        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
-        messageType: "voice",
-        content: blobUrl,
-        createdAt: new Date().toISOString(),
-        isMine: true,
-        pending: true,
-        callKind: null,
-        callStatus: null,
-        voiceDurationSeconds: roundedDur,
-        voiceMimeType: blobMime,
-        ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
-      };
-      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      const tempId = `pending:${apiRoom}:voice:${pendingMessageIdRef.current++}`;
+      setRoomMessages((prev) => {
+        const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+          id: tempId,
+          roomId: apiRoom,
+          senderId: snapshot.viewerUserId,
+          senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+          messageType: "voice",
+          content: blobUrl,
+          createdAt: nextOptimisticCommunityMessengerCreatedAtIso(prev),
+          isMine: true,
+          pending: true,
+          callKind: null,
+          callStatus: null,
+          voiceDurationSeconds: roundedDur,
+          voiceMimeType: blobMime,
+          ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
+        };
+        return mergeRoomMessages(prev, [optimisticMessage]);
+      });
       scrollMessengerToBottom();
       setBusy("send-voice");
       try {
@@ -210,7 +219,7 @@ export function useMessengerRoomVoiceRecording({
           form.append("waveformPeaks", JSON.stringify(waveformPeaks));
         }
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/voice`, {
+        const res = await fetch(`${communityMessengerRoomResourcePath(apiRoom)}/voice`, {
           method: "POST",
           body: form,
         });
@@ -222,7 +231,7 @@ export function useMessengerRoomVoiceRecording({
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(roomId, elapsed, "voice");
+          messengerMonitorMessageRtt(apiRoom, elapsed, "voice");
         }
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
@@ -249,7 +258,7 @@ export function useMessengerRoomVoiceRecording({
         voiceFinalizingRef.current = false;
       }
     },
-    [getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
+    [apiRoomId, getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
   );
 
   const abortVoiceArmOnly = useCallback(() => {

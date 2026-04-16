@@ -29,8 +29,13 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     }
     if (!snapshot) return;
     if (String(snapshot.room.id) !== String(id)) return;
+    /** 첫 `mark_read` 후 `done` 이면 이후 미읽음이 와도 영구 차단되던 문제 — 다시 idle */
+    if (snapshot.room.unreadCount >= 1 && roomOpenMarkReadRef.current.phase === "done") {
+      roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
+    }
     if (roomOpenMarkReadRef.current.phase !== "idle") return;
     if (snapshot.room.unreadCount < 1) return;
+    const lastVisibleMessageId = snapshot.messages[snapshot.messages.length - 1]?.id ?? null;
     roomOpenMarkReadRef.current.phase = "in_flight";
     const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     void (async () => {
@@ -39,7 +44,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ action: "mark_read" }),
+          body: JSON.stringify({ action: "mark_read", lastReadMessageId: lastVisibleMessageId }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (res.ok && json.ok && typeof performance !== "undefined") {

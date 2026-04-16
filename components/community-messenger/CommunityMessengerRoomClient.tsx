@@ -6,6 +6,7 @@ import {
   MessengerRoomClientPhase1Context,
 } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
+import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
@@ -18,6 +19,7 @@ export function CommunityMessengerRoomClient(props: {
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
 }) {
   const phase1 = useMessengerRoomClientPhase1(props);
+  useCommunityMessengerPresenceRuntime(phase1.snapshot?.viewerUserId ?? props.initialServerSnapshot?.viewerUserId ?? null);
   useEffect(() => {
     if (!shouldRunMessengerListRoutePrefetch()) return;
     // 복귀 시 홈(리스트) 청크 로드 대기 최소화 — `next dev` 에서는 컴파일 큐만 키우므로 생략

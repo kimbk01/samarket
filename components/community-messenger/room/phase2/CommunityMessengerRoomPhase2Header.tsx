@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import {
   BackIcon,
@@ -9,13 +9,44 @@ import {
   VoiceCallIcon,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
-import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
+import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
+import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+
+function formatPresenceLine(
+  state: "online" | "away" | "offline",
+  lastSeenAt: string | null | undefined
+): string {
+  if (state === "online") return "온라인";
+  if (state === "away") return "자리 비움";
+  if (!lastSeenAt) return "오프라인";
+  const time = new Date(lastSeenAt).getTime();
+  if (!Number.isFinite(time)) return "오프라인";
+  const date = new Date(time);
+  return `마지막 접속 ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
 
 export function CommunityMessengerRoomPhase2Header() {
-  const vm = useMessengerRoomPhase2View();
+  const vm = useMessengerRoomPhase2HeaderView();
   const [confirmKind, setConfirmKind] = useState<null | "voice" | "video">(null);
   const peerLabel = vm.snapshot.room.title?.trim() || "상대";
+  const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
+  const peerTyping = useMessengerTypingStore((state) => {
+    const roomId = vm.snapshot.room.id;
+    const peerUserId = vm.snapshot.room.peerUserId ?? "";
+    if (!roomId || !peerUserId) return false;
+    const entry = state.byRoomId[roomId]?.[peerUserId];
+    return Boolean(entry && entry.expiresAt > Date.now());
+  });
+  const statusLine = useMemo(() => {
+    if (vm.snapshot.room.roomType !== "direct") return vm.roomHeaderStatus;
+    if (peerTyping) return "입력 중...";
+    if (peerPresence) {
+      return formatPresenceLine(peerPresence.state, peerPresence.lastSeenAt);
+    }
+    return vm.roomHeaderStatus;
+  }, [peerPresence, peerTyping, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
   return (
     <>
       <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
@@ -49,7 +80,7 @@ export function CommunityMessengerRoomPhase2Header() {
             <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.title}
             </p>
-            <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{vm.roomHeaderStatus}</p>
+            <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
             {!vm.isGroupRoom && communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (

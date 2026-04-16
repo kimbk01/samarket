@@ -47,10 +47,10 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
-import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomPhase2CallView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
 
 export function CommunityMessengerRoomPhase2CallLayer() {
-  const vm = useMessengerRoomPhase2View();
+  const vm = useMessengerRoomPhase2CallView();
   const returnToCallSessionId = vm.returnToCallSessionId;
   return (
     <>

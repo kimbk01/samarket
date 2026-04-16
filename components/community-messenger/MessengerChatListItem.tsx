@@ -17,6 +17,7 @@ import {
   getRoomTypeBadgeLabel,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 
 const ACTION_W = 78;
 const ACTION_TOTAL = ACTION_W * 3;
@@ -96,6 +97,7 @@ export function MessengerChatListItem({
   const roomTypeLabel = getRoomTypeBadgeLabel(room);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
+  const peerPresence = useCommunityMessengerPeerPresence(room.peerUserId ?? null);
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
   const commerceSubline =
     commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
@@ -370,9 +372,35 @@ export function MessengerChatListItem({
       }}
     >
       {commerceMeta?.thumbnailUrl ? (
-        <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
+        <div className="relative">
+          <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
+          {room.roomType === "direct" && peerPresence ? (
+            <span
+              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-white ${
+                peerPresence.state === "online"
+                  ? "bg-emerald-500"
+                  : peerPresence.state === "away"
+                    ? "bg-amber-400"
+                    : "bg-slate-300"
+              }`}
+            />
+          ) : null}
+        </div>
       ) : (
-        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-9 w-9" textClassName="text-[12px]" />
+        <div className="relative">
+          <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-9 w-9" textClassName="text-[12px]" />
+          {room.roomType === "direct" && peerPresence ? (
+            <span
+              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-white ${
+                peerPresence.state === "online"
+                  ? "bg-emerald-500"
+                  : peerPresence.state === "away"
+                    ? "bg-amber-400"
+                    : "bg-slate-300"
+              }`}
+            />
+          ) : null}
+        </div>
       )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">

@@ -10,6 +10,8 @@ type RouterReplace = (href: string, options?: { scroll?: boolean }) => void;
 
 type Args = {
   roomId: string;
+  /** PATCH 등 API 경로 — `snapshot.room.id` 우선(거래·레거시 URL id 와 다를 때) */
+  resourceRoomId: string;
   pathname: string;
   routerReplace: RouterReplace;
   searchParams: ReadonlyURLSearchParams;
@@ -27,6 +29,7 @@ type Args = {
  */
 export function useMessengerRoomUrlSyncEffects({
   roomId,
+  resourceRoomId,
   pathname,
   routerReplace,
   searchParams,
@@ -70,7 +73,7 @@ export function useMessengerRoomUrlSyncEffects({
     }
     void (async () => {
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(roomId), {
+        const res = await fetch(communityMessengerRoomResourcePath(resourceRoomId), {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -82,7 +85,7 @@ export function useMessengerRoomUrlSyncEffects({
         stripCmCtxFromUrl();
       }
     })();
-  }, [pathname, refresh, roomId, routerReplace, searchParams, contextMetaFromUrlHandledRef]);
+  }, [pathname, refresh, resourceRoomId, roomId, routerReplace, searchParams, contextMetaFromUrlHandledRef]);
 
   useEffect(() => {
     sheetInfoFromUrlHandledRef.current = false;

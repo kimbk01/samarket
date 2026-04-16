@@ -68,6 +68,12 @@ self.addEventListener("push", function (event) {
   ) {
     tag = "samarket-incoming-call-" + sessionId;
   }
+  if (payload.notification_type === "community_messenger_message") {
+    const roomId = typeof payload.roomId === "string" && payload.roomId ? payload.roomId : null;
+    if (roomId && (!tag || tag === "kasama-push")) {
+      tag = "samarket-message-room-" + roomId;
+    }
+  }
 
   const show = self.registration.showNotification(title, {
     body,
@@ -89,6 +95,17 @@ self.addEventListener("push", function (event) {
             }
           }
         })
+      : payload.notification_type === "community_messenger_message"
+        ? clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
+            const roomId = typeof payload.roomId === "string" && payload.roomId ? payload.roomId : null;
+            for (let i = 0; i < clientList.length; i++) {
+              try {
+                clientList[i].postMessage({ type: "samarket_messenger_message_wake", roomId: roomId });
+              } catch {
+                /* ignore */
+              }
+            }
+          })
       : Promise.resolve();
 
   event.waitUntil(Promise.all([show, wakeOpenTabs]));

@@ -41,7 +41,9 @@ import {
   flushMessengerMonitorQueue,
   messengerMonitorMessageRtt,
 } from "@/lib/community-messenger/monitoring/client";
+import { cmRtLogCanonicalRedirect } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
 import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
@@ -49,7 +51,6 @@ import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/ro
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { useMessengerRoomChatVirtualizer } from "@/lib/community-messenger/room/use-messenger-room-chat-virtualizer";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
-import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
@@ -62,6 +63,8 @@ import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenge
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
@@ -106,6 +109,7 @@ export function useMessengerRoomClientPhase1({
   initialCallSessionId,
   initialServerSnapshot = null,
 }: MessengerRoomClientPhase1Props) {
+  const initialViewerId = initialServerSnapshot?.viewerUserId?.trim() ?? "";
   const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -123,12 +127,13 @@ export function useMessengerRoomClientPhase1({
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
-  const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
+  const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot));
   /** RSC가 `membersDeferred` 부트스트랩을 내렸으면 사일런트 갱신 시 전원 멤버 프로필을 다시 끌어오지 않음 */
   const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
   const silentBootstrapThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewerBootstrapDedupRef = useRef(initialViewerId);
   /** 발신 다이얼 `router.push` 연타 방지 — ref 는 동기 연타, state 는 버튼 비활성 표시 */
   const outgoingDialSyncGuardRef = useRef(false);
   const [outgoingDialLocked, setOutgoingDialLocked] = useState(false);
@@ -148,12 +153,20 @@ export function useMessengerRoomClientPhase1({
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const stickToBottomRef = useRef(true);
+  /** 서버+클라 이중 bump 가 같은 틱에 오면 catch-up 을 한 번만 돌린다 */
+  const remoteBumpCatchUpRafRef = useRef<number | null>(null);
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
-    const listPrimed = peekRoomSnapshot(roomId);
+    const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
     return listPrimed ?? initialServerSnapshot ?? null;
   });
+  /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
+  const streamRoomId = useMemo(() => {
+    const c = snapshot?.room?.id?.trim();
+    const r = String(roomId ?? "").trim();
+    return (c || r).trim();
+  }, [snapshot?.room?.id, roomId]);
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
@@ -161,7 +174,9 @@ export function useMessengerRoomClientPhase1({
   roomMessagesRef.current = roomMessages;
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
-  const [loading, setLoading] = useState(() => !Boolean(peekRoomSnapshot(roomId) ?? initialServerSnapshot));
+  const [loading, setLoading] = useState(
+    () => !Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
+  );
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -221,6 +236,11 @@ export function useMessengerRoomClientPhase1({
   }, [roomId]);
 
   useEffect(() => {
+    const v = snapshot?.viewerUserId?.trim() ?? "";
+    if (v) viewerBootstrapDedupRef.current = v;
+  }, [snapshot?.viewerUserId]);
+
+  useEffect(() => {
     const id = roomId?.trim();
     return () => {
       if (id && messengerRolloutUsesRoomScrollHints()) {
@@ -251,6 +271,7 @@ export function useMessengerRoomClientPhase1({
     () =>
       createMessengerRoomBootstrapRefresh({
         roomId,
+        viewerBootstrapDedupRef,
         setSnapshot,
         setLoading,
         setRoomReadyForRealtime,
@@ -262,6 +283,7 @@ export function useMessengerRoomClientPhase1({
       }),
     [
       roomId,
+      viewerBootstrapDedupRef,
       setSnapshot,
       setLoading,
       setRoomReadyForRealtime,
@@ -340,6 +362,7 @@ export function useMessengerRoomClientPhase1({
 
   useMessengerRoomUrlSyncEffects({
     roomId,
+    resourceRoomId: streamRoomId,
     pathname,
     routerReplace: router.replace,
     searchParams,
@@ -352,28 +375,63 @@ export function useMessengerRoomClientPhase1({
   });
 
   /** 탭 복귀: 최신 id 이후 메시지만 증분 로드(diff) 후 메타용 사일런트 스냅샷 */
-  const catchUpNewerMessages = useCallback(async () => {
-    const id = roomId?.trim();
-    if (!id) return;
+  const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
+    const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
+    if (!id) return false;
     const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
-    if (confirmed.length === 0) return;
-    const latest = confirmed[confirmed.length - 1];
-    if (!latest?.id) return;
+    if (confirmed.length === 0) {
+      // 첫 진입/희귀 레이스: 아직 confirmed가 없으면 부트스트랩 refresh로 최신 윈도를 먼저 확보.
+      void refresh(true);
+      return false;
+    }
+    /** 앵커는 배열 끝이 아니라 **시간상 최신 확정 메시지** — 정렬/가상화와 무관하게 `after=` 일관 */
+    let anchorId: string | null = null;
+    let bestTime = -Infinity;
+    let bestIdForTie = "";
+    for (const m of confirmed) {
+      const mid = String(m?.id ?? "").trim();
+      if (!mid || mid.startsWith("pending:") || !isUuidLikeString(mid)) continue;
+      const t = new Date(m.createdAt).getTime();
+      if (!Number.isFinite(t)) continue;
+      if (t > bestTime || (t === bestTime && mid > bestIdForTie)) {
+        bestTime = t;
+        anchorId = mid;
+        bestIdForTie = mid;
+      }
+    }
+    if (!anchorId) {
+      void refresh(true);
+      return false;
+    }
     try {
       const res = await fetch(
-        `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(latest.id)}&limit=80`,
-        { cache: "no-store" }
+        `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(anchorId)}&limit=80`,
+        { cache: "no-store", credentials: "include" }
       );
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         messages?: CommunityMessengerMessage[];
       };
-      if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return;
+      if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
       setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+      return true;
     } catch {
       /* ignore */
     }
-  }, [roomId]);
+    return false;
+  }, [roomId, streamRoomId, refresh]);
+
+  /** 원격 bump 직후: INSERT 가 읽기 경로에 아직 안 보이는 짧은 레이스에 대비해 소량 재시도 */
+  const catchUpAfterRemoteBump = useCallback(async () => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await new Promise<void>((r) => setTimeout(r, attempt === 1 ? 45 : 90));
+      }
+      const ok = await catchUpNewerMessages();
+      if (ok) return;
+    }
+    void refresh(true);
+  }, [catchUpNewerMessages, refresh]);
 
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
@@ -396,21 +454,24 @@ export function useMessengerRoomClientPhase1({
 
   // Multi-tab: another tab sent a message in this room -> catch up quickly without full reload storms.
   useEffect(() => {
-    const id = roomId?.trim();
-    if (!id) return;
+    const route = roomId?.trim();
+    const stream = streamRoomId?.trim();
+    if (!route && !stream) return;
     let lastAt = 0;
     return onCommunityMessengerBusEvent((ev) => {
-      if (ev.roomId !== id) return;
+      const evr = ev.roomId.trim();
+      if (evr !== route && evr !== stream) return;
       const now = Date.now();
       if (now - lastAt < 1500) return;
       lastAt = now;
       void catchUpNewerMessages();
       void refresh(true);
     });
-  }, [catchUpNewerMessages, refresh, roomId]);
+  }, [catchUpNewerMessages, refresh, roomId, streamRoomId]);
 
   useMessengerRoomRealtimeMessageIngest({
-    roomId,
+    routeRoomId: String(roomId ?? "").trim(),
+    streamRoomId,
     snapshot,
     roomReadyForRealtime,
     snapshotRef,
@@ -418,9 +479,68 @@ export function useMessengerRoomClientPhase1({
     stickToBottomRef,
     setRoomMessages,
     onRefresh: () => {
+      // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
+      // 방 화면은 unread/participants 변화(onRefresh)만으로 즉시 증분 동기화해 따라잡는다.
+      void catchUpNewerMessages();
       void refresh(true);
     },
   });
+
+  /**
+   * `postgres_changes` 가 publication/RLS/세션 타이밍 문제로 누락돼도,
+   * 방 단위 Broadcast bump 신호로 즉시 증분 동기화한다.
+   */
+  useEffect(() => {
+    const rid = streamRoomId?.trim();
+    const viewer = snapshot?.viewerUserId?.trim() ?? "";
+    if (!rid || !viewer || !roomReadyForRealtime || !snapshot) return;
+    const sb = getSupabaseClient();
+    if (!sb) return;
+    const ch = subscribeCommunityMessengerRoomBumpBroadcast({
+      sb,
+      roomId: rid,
+      onBump: (payload) => {
+        const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
+        // 내 bump는 이미 optimistic/confirm 처리되므로 스킵.
+        if (from && from === viewer) return;
+        if (remoteBumpCatchUpRafRef.current != null) {
+          cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
+        }
+        remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
+          remoteBumpCatchUpRafRef.current = null;
+          void catchUpAfterRemoteBump();
+        });
+      },
+    });
+    return () => {
+      if (remoteBumpCatchUpRafRef.current != null) {
+        cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
+        remoteBumpCatchUpRafRef.current = null;
+      }
+      try {
+        void sb.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [catchUpAfterRemoteBump, refresh, roomReadyForRealtime, snapshot, streamRoomId]);
+
+  /** URL 이 원장 방 id 와 다르면(거래 채팅 id 등) Realtime·히스토리 일관을 위해 정규 UUID 로 교체 */
+  useEffect(() => {
+    if (!snapshot?.room?.id) return;
+    const canon = String(snapshot.room.id).trim();
+    const route = String(roomId ?? "").trim();
+    if (!canon || !route || canon === route) return;
+    cmRtLogCanonicalRedirect({
+      fromRouteRoomId: route,
+      toCanonicalRoomId: canon,
+      viewerUserId: snapshot.viewerUserId,
+    });
+    const qs = searchParams?.toString();
+    void router.replace(
+      `/community-messenger/rooms/${encodeURIComponent(canon)}${qs && qs.length > 0 ? `?${qs}` : ""}`
+    );
+  }, [roomId, router, searchParams, snapshot]);
 
   useMessengerRoomOpenMarkReadEffect({ roomId, snapshot, roomOpenMarkReadRef });
 
@@ -446,22 +566,29 @@ export function useMessengerRoomClientPhase1({
     }
   }, [roomId, snapshot]);
 
-  const oldestLoadedMessageId = useMemo(
-    () => roomMessages.find((m) => !m.pending)?.id ?? null,
-    [roomMessages]
-  );
+  const oldestLoadedMessageId = useMemo(() => {
+    for (const m of roomMessages) {
+      if (m.pending) continue;
+      const rid = String(m.id ?? "").trim();
+      if (!rid || rid.startsWith("pending:") || !isUuidLikeString(rid)) continue;
+      return rid;
+    }
+    return null;
+  }, [roomMessages]);
 
   const loadOlderMessages = useCallback(async () => {
     if (loadingOlderMessages || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
     const beforeId = oldestLoadedMessageId;
     if (!beforeId) return;
+    const apiRoomId = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
+    if (!apiRoomId) return;
     const vp = messagesViewportRef.current;
     const prevScrollHeight = vp?.scrollHeight ?? 0;
     setLoadingOlderMessages(true);
     try {
       const res = await fetch(
-        `${communityMessengerRoomResourcePath(roomId)}/messages?before=${encodeURIComponent(beforeId)}`,
-        { cache: "no-store" }
+        `${communityMessengerRoomResourcePath(apiRoomId)}/messages?before=${encodeURIComponent(beforeId)}`,
+        { cache: "no-store", credentials: "include" }
       );
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -721,6 +848,7 @@ export function useMessengerRoomClientPhase1({
   }, [friendsLoaded]);
   return {
   roomId,
+  streamRoomId,
   initialCallAction,
   initialCallSessionId,
   initialServerSnapshot,

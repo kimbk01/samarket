@@ -7,11 +7,13 @@ import { messengerMonitorRoomLoad } from "@/lib/community-messenger/monitoring/c
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 
 export type MessengerRoomBootstrapRefreshDeps = {
   roomId: string;
+  /** `snapshot.viewerUserId` — 클라 `runSingleFlight` 키에 포함해 계정·탭 간 부트스트랩 응답이 섞이지 않게 한다. */
+  viewerBootstrapDedupRef: MutableRefObject<string>;
   setSnapshot: Dispatch<SetStateAction<CommunityMessengerRoomSnapshot | null>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setRoomReadyForRealtime: Dispatch<SetStateAction<boolean>>;
@@ -23,6 +25,15 @@ export type MessengerRoomBootstrapRefreshDeps = {
   silentBootstrapThrottleCoalesceTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
 };
 
+/** 메시지 전송 직후 in-flight 부트스트랩 Promise 가 옛 결과를 재사용하지 않도록 비운다. */
+export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string; viewerUserId: string }): void {
+  const rid = opts.roomId.trim();
+  const uid = opts.viewerUserId.trim();
+  if (!rid || !uid) return;
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:default`);
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=lite&memberHydration=minimal`);
+}
+
 /**
  * 메신저 방 HTTP 부트스트랩 갱신 — `CommunityMessengerRoomClient` 와 동일 동작(프라임·rAF·single-flight).
  * 컴포넌트 밖 두어 리렌더마다 콜백 본문 재생성 범위를 줄인다.
@@ -32,6 +43,7 @@ export function createMessengerRoomBootstrapRefresh(
 ): (silent?: boolean) => Promise<void> {
   const {
     roomId,
+    viewerBootstrapDedupRef,
     setSnapshot,
     setLoading,
     setRoomReadyForRealtime,
@@ -73,7 +85,12 @@ export function createMessengerRoomBootstrapRefresh(
     if (!tryEnterSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef)) {
       return;
     }
-    const primed = !silent && consumeRoomSnapshot(roomId);
+    const primed =
+      !silent &&
+      consumeRoomSnapshot(
+        roomId,
+        viewerBootstrapDedupRef.current.trim() ? viewerBootstrapDedupRef.current.trim() : null
+      );
     const shouldBlock = !silent && !loadedRef.current && !primed;
     if (shouldBlock) setLoading(true);
     try {
@@ -97,7 +114,8 @@ export function createMessengerRoomBootstrapRefresh(
        */
       const wantMinimal = (!silent && !loadedRef.current && !primed) || (silent && deferredMemberBootstrapRef.current);
       const bootstrapQuery = wantMinimal ? "?mode=lite&memberHydration=minimal" : "";
-      const flightKey = `cm-room-bootstrap:${roomId}:${bootstrapQuery || "default"}`;
+      const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
+      const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
           cache: "no-store",
@@ -130,7 +148,8 @@ export function createMessengerRoomBootstrapRefresh(
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
           });
         }
-      } else if (!primed) {
+      } else if (!primed && !silent) {
+        // 사일런트 갱신 실패 시 스냅샷을 비우면 Realtime·목록이 끊긴다(`primed` 는 silent 에서 항상 false).
         setSnapshot(null);
       }
     } finally {

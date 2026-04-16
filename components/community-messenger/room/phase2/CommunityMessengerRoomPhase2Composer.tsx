@@ -50,13 +50,14 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
-import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2Composer() {
-  const vm = useMessengerRoomPhase2View();
+  const vm = useMessengerRoomPhase2ComposerView();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
 
@@ -64,6 +65,11 @@ export function CommunityMessengerRoomPhase2Composer() {
   useLayoutEffect(() => {
     setDraft(vm.message);
   }, [roomKey, vm.message]);
+  useCommunityMessengerRoomTypingPublisher({
+    roomId: vm.snapshot.room.id,
+    viewerUserId: vm.snapshot.viewerUserId,
+    draft,
+  });
 
   const commitTextSend = useCallback(() => {
     if (

@@ -7,6 +7,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -56,6 +57,49 @@ import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messen
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const latestReadableMineMessageId = useMemo(() => {
+    for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
+      const item = vm.displayRoomMessages[i];
+      if (item.pending) continue;
+      if (!item.isMine) continue;
+      if (item.messageType === "system") continue;
+      return item.id;
+    }
+    return null;
+  }, [vm.displayRoomMessages]);
+  /**
+   * 상대 `last_read_message_id` 는 「마지막으로 본 메시지」이므로, 내 최신 발화 id 와 **일치할 때만** 읽음이면
+   * 상대가 그 이후(예: 본인 답장)까지 읽어도 항상 「안읽음」으로 남는다. 타임라인 순서로 cursor 가 내 최신 이후면 읽음.
+   */
+  const peerHasReadMyLatestMessage = useMemo(() => {
+    const readCursor = vm.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
+    if (!readCursor) return false;
+    const mineLatestId = (() => {
+      for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
+        const item = vm.displayRoomMessages[i];
+        if (item.pending) continue;
+        if (!item.isMine) continue;
+        if (item.messageType === "system") continue;
+        return item.id;
+      }
+      return null;
+    })();
+    if (!mineLatestId) return false;
+    if (readCursor === mineLatestId) return true;
+
+    const confirmed = vm.displayRoomMessages.filter((m) => !m.pending);
+    const fromList = (id: string) => confirmed.find((m) => m.id === id);
+    const fromSnap = (id: string) => vm.snapshot.messages.find((m) => m.id === id);
+    const cursorMsg = fromList(readCursor) ?? fromSnap(readCursor);
+    const mineLatestMsg = fromList(mineLatestId) ?? fromSnap(mineLatestId);
+    if (!cursorMsg || !mineLatestMsg) return false;
+
+    const ta = new Date(cursorMsg.createdAt).getTime();
+    const tb = new Date(mineLatestMsg.createdAt).getTime();
+    if (ta > tb) return true;
+    if (ta < tb) return false;
+    return readCursor.localeCompare(mineLatestId) >= 0;
+  }, [vm.displayRoomMessages, vm.snapshot.messages, vm.snapshot.readReceipt?.lastReadMessageId]);
 
   /**
    * 스크롤은 초당 수십~수백 번 이벤트가 발생할 수 있어, state set 을 그대로 두면
@@ -303,7 +347,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 if (item.messageType === "voice") {
                   return (
                     <VoiceMessageBubble
-                      src={communityMessengerVoiceAudioSrc(vm.roomId, item)}
+                      src={communityMessengerVoiceAudioSrc(vm.streamRoomId, item)}
                       durationSeconds={item.voiceDurationSeconds ?? 0}
                       isMine={item.isMine}
                       pending={item.pending}
@@ -527,6 +571,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                               <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
+                              {latestReadableMineMessageId === item.id ? (
+                                <span className="shrink-0 self-end pb-1 text-[10px] leading-none text-[color:var(--cm-room-text-muted)]">
+                                  {peerHasReadMyLatestMessage ? "읽음" : "안읽음"}
+                                </span>
+                              ) : null}
                               <div
                                 className="inline-block w-max max-w-full shrink-0 align-bottom"
                                 {...bindMessageInteraction}
@@ -598,7 +647,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           <div ref={vm.messageEndRef} />
         </main>
       </div>
-      <MessengerRoomNewMessagesBelowChip roomId={vm.roomId} onJumpToLatest={vm.scrollMessengerToBottom} />
+      <MessengerRoomNewMessagesBelowChip roomId={vm.streamRoomId} onJumpToLatest={vm.scrollMessengerToBottom} />
     </div>
   );
 });

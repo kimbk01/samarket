@@ -9,6 +9,35 @@ const DEFAULT_MAX_WAIT_MS = 8_000;
 const SESSION_POLL_INTERVAL_MS = 120;
 const SESSION_POLL_WINDOW_MS = 3_200;
 
+async function applyRealtimeAuthToken(sb: SupabaseClient, accessToken: string | null | undefined): Promise<boolean> {
+  const token = typeof accessToken === "string" ? accessToken.trim() : "";
+  if (!token) return false;
+  try {
+    await sb.realtime.setAuth(token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 현재 브라우저 세션의 access_token 으로 Realtime JWT 를 다시 맞춘다.
+ * - `channel.subscribe()` 직전에 한 번 맞춰도, WS 핸드셰이크 타이밍에 소켓이 예전(anon) 클레임을
+ *   쓰는 레이스가 있어 **SUBSCRIBED 직후**에 한 번 더 호출하는 용도.
+ * - `waitForSupabaseRealtimeAuth` 가 false 로 끝난 뒤 `onAuthStateChange` 만 기다리면,
+ *   이미 세션이 있는 탭에서 이벤트가 재생되지 않아 **구독이 영구 지연**될 수 있어 즉시 `getSession` 경로와 병행한다.
+ */
+export async function syncSupabaseRealtimeAuthFromSession(sb: SupabaseClient): Promise<boolean> {
+  try {
+    const {
+      data: { session },
+    } = await sb.auth.getSession();
+    return await applyRealtimeAuthToken(sb, session?.access_token);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Realtime `postgres_changes` 는 연결에 붙은 JWT 로 RLS 를 평가한다.
  * `@supabase/ssr` 브라우저 클라이언트는 쿠키에서 세션을 비동기로 채우므로,
@@ -29,7 +58,9 @@ export async function waitForSupabaseRealtimeAuth(
     const {
       data: { session },
     } = await sb.auth.getSession();
-    if (session?.access_token) return true;
+    if (session?.access_token) {
+      return await applyRealtimeAuthToken(sb, session.access_token);
+    }
   } catch {
     /* ignore */
   }
@@ -75,8 +106,8 @@ export async function waitForSupabaseRealtimeAuth(
     const timer = setTimeout(() => {
       void sb.auth
         .getSession()
-        .then(({ data: { session } }) => {
-          finish(Boolean(session?.access_token));
+        .then(async ({ data: { session } }) => {
+          finish(await applyRealtimeAuthToken(sb, session?.access_token));
         })
         .catch(() => finish(false));
     }, Math.max(200, maxWaitMs));
@@ -84,8 +115,8 @@ export async function waitForSupabaseRealtimeAuth(
     pollTimer = setInterval(() => {
       void sb.auth
         .getSession()
-        .then(({ data: { session } }) => {
-          if (session?.access_token) finish(true);
+        .then(async ({ data: { session } }) => {
+          if (session?.access_token && (await applyRealtimeAuthToken(sb, session.access_token))) finish(true);
         })
         .catch(() => {
           /* ignore */
@@ -100,7 +131,11 @@ export async function waitForSupabaseRealtimeAuth(
     }, SESSION_POLL_WINDOW_MS);
 
     const { data } = sb.auth.onAuthStateChange((_event, session) => {
-      if (session?.access_token) finish(true);
+      if (session?.access_token) {
+        void applyRealtimeAuthToken(sb, session.access_token).then((ok) => {
+          if (ok) finish(true);
+        });
+      }
     });
     subscription = data.subscription;
   });
