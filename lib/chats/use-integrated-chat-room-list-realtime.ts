@@ -33,7 +33,8 @@ export function useIntegratedChatRoomListRealtime(args: {
   const fp = [...new Set(args.integratedRoomIds.map((x) => String(x).trim()).filter(Boolean))].sort().join("\0");
 
   useEffect(() => {
-    if (!args.enabled || !args.userId?.trim() || !fp) return;
+    const userId = args.userId?.trim();
+    if (!args.enabled || !userId || !fp) return;
     const sb = getSupabaseClient();
     if (!sb) return;
 
@@ -59,7 +60,7 @@ export function useIntegratedChatRoomListRealtime(args: {
         const chunk = roomIds.slice(offset, offset + INTEGRATED_CHAT_LIST_IN_FILTER_MAX);
         const filter = `room_id=in.(${chunk.join(",")})`;
         const ch = sb
-          .channel(`integrated-chat-list:msgs:${args.userId.trim()}:${offset}`)
+          .channel(`integrated-chat-list:msgs:${userId}:${offset}`)
           .on(
             "postgres_changes",
             { event: "*", schema: "public", table: "chat_messages", filter },

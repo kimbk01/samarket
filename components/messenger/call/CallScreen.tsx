@@ -48,13 +48,16 @@ export function CallScreen({
             trailing={null}
           />
         ) : null}
-        {renderCallView(vm)}
+        {renderCallView(vm, variant)}
       </div>
     </CallScreenShell>
   );
 }
 
-function renderCallView(vm: CallScreenViewModel) {
+function renderCallView(
+  vm: CallScreenViewModel,
+  variant: "overlay" | "page" | "dock-top",
+) {
   if (vm.phase === "ended" || vm.phase === "declined" || vm.phase === "missed" || vm.phase === "failed") {
     return <EndedCallView vm={vm} />;
   }
