@@ -398,50 +398,50 @@
     color: var(--sam-text-primary);
   }
 
-  /* 음성 녹음 마이크 — 원형 리플(텔레그램류 피드백) */
+  /* 음성 녹음 마이크 — 버튼(h-10 w-10)과 동일 중심·지름에서 퍼지는 동심 원 (실제 노드로 겹침) */
   @keyframes sam-cm-voice-mic-ripple {
     0% {
       transform: scale(1);
-      opacity: 0.72;
+      opacity: 0.6;
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--cm-room-primary) 40%, transparent),
+        0 0 12px 2px color-mix(in srgb, var(--cm-room-primary) 22%, transparent);
+    }
+    45% {
+      opacity: 0.28;
     }
     100% {
-      transform: scale(2.55);
+      transform: scale(2.95);
       opacity: 0;
+      box-shadow:
+        0 0 0 1px transparent,
+        0 0 0 0 transparent;
     }
   }
 
-  .sam-cm-voice-mic-ripple-host {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-  }
-
-  .sam-cm-voice-mic-ripple-host::before,
-  .sam-cm-voice-mic-ripple-host::after {
-    content: "";
+  .sam-cm-voice-mic-ripple-wave {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 40px;
-    height: 40px;
-    margin-left: -20px;
-    margin-top: -20px;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-left: -1.25rem;
+    margin-top: -1.25rem;
     border-radius: 9999px;
-    border: 2.5px solid color-mix(in srgb, var(--cm-room-primary) 58%, transparent);
     pointer-events: none;
-    z-index: 0;
-    animation: sam-cm-voice-mic-ripple 1.32s ease-out infinite;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--cm-room-primary) 46%, transparent) 0%,
+      color-mix(in srgb, var(--cm-room-primary) 22%, transparent) 42%,
+      color-mix(in srgb, var(--cm-room-primary) 7%, transparent) 64%,
+      transparent 78%
+    );
+    animation: sam-cm-voice-mic-ripple 1.52s cubic-bezier(0.2, 0.72, 0.32, 1) infinite;
+    will-change: transform, opacity;
   }
 
-  .sam-cm-voice-mic-ripple-host::after {
-    animation-delay: 0.66s;
-  }
-
-  .sam-cm-voice-mic-ripple-host > .sam-cm-voice-mic-ripple-btn {
-    position: relative;
-    z-index: 1;
+  .sam-cm-voice-mic-ripple-wave--delay {
+    animation-delay: 0.76s;
   }
 
   .sam-bubble--system {

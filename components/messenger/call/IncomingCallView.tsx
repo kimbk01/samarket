@@ -4,7 +4,14 @@ import { BellOff, Check, ChevronDown, MessageCircle, Phone, PhoneOff, Video } fr
 import type { CallScreenViewModel } from "./call-ui.types";
 
 /** 수신 벨 화면 — Viber 톤: 딥 퍼플 배경, 하단 거절/응답. */
-export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
+export function IncomingCallView({
+  vm,
+  dockTop = false,
+}: {
+  vm: CallScreenViewModel;
+  /** 채팅방 상단 도킹 시 높이가 작아 음수 마진으로 이름이 잘리지 않게 함 */
+  dockTop?: boolean;
+}) {
   const accept = vm.primaryActions.find((a) => a.icon === "accept" || a.tone === "accept") ?? null;
   const decline = vm.primaryActions.find((a) => a.icon === "decline" || a.tone === "danger") ?? null;
 
@@ -12,7 +19,9 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const callKindLine = vm.mode === "video" ? "영상 통화" : "음성 통화";
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#4d2cb1_34%,#251447_100%)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-[max(8px,env(safe-area-inset-top))]">
+    <div
+      className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#4d2cb1_34%,#251447_100%)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] ${dockTop ? "pt-2" : "pt-[max(8px,env(safe-area-inset-top))]"}`}
+    >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.14),transparent_38%),radial-gradient(circle_at_50%_90%,rgba(255,255,255,0.06),transparent_34%)]" />
       <div className="flex shrink-0 justify-center pt-1">
         <button
@@ -27,7 +36,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
-        <div className="-mt-[10vh] flex flex-col items-center">
+        <div className={`flex flex-col items-center ${dockTop ? "mt-0" : "-mt-[10vh]"}`}>
           <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/72">
             {vm.mode === "video" ? (
               <Video size={16} className="opacity-80" />

@@ -59,7 +59,7 @@ function renderCallView(vm: CallScreenViewModel) {
     return <EndedCallView vm={vm} />;
   }
   if (vm.direction === "incoming" && vm.phase === "ringing") {
-    return <IncomingCallView vm={vm} />;
+    return <IncomingCallView vm={vm} dockTop={variant === "dock-top"} />;
   }
   if (vm.direction === "outgoing" && vm.phase === "ringing") {
     return <OutgoingCallPanel vm={vm} />;

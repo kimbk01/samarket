@@ -73,13 +73,13 @@ export function CommunityMessengerRoomPhase2Composer() {
             <button
               type="button"
               onClick={() => vm.setActiveSheet("attach")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
+              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
               aria-label="첨부 메뉴"
             >
               <PlusIcon className="h-5 w-5" />
             </button>
           ) : (
-            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
+            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
           )}
           {!vm.voiceRecording ? (
             <button
@@ -94,13 +94,13 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-voice" ||
                 vm.busy === "delete-message"
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90 disabled:opacity-35"
+              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90 disabled:opacity-35"
               aria-label="스티커"
             >
               <Sticker className="h-5 w-5" strokeWidth={2} />
             </button>
           ) : (
-            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
+            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
           )}
           <div className="flex min-h-0 min-w-0 items-center">
             {!vm.voiceRecording ? (
@@ -198,15 +198,11 @@ export function CommunityMessengerRoomPhase2Composer() {
           </div>
 
           {!vm.voiceHandsFree ? (
-            <div
-              className={`relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center self-center overflow-visible ${
-                (vm.voiceRecording && !vm.voiceHandsFree) || vm.voiceMicArming ? "sam-cm-voice-mic-ripple-host" : ""
-              }`}
-            >
+            <div className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center overflow-visible">
               {vm.voiceRecording && !vm.voiceHandsFree ? (
                 <div
-                  className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
-                    vm.voiceLockHint ? "bg-sam-ink text-white" : "bg-sam-fg/10/88 text-white/75"
+                  className={`absolute bottom-full left-1/2 z-20 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
+                    vm.voiceLockHint ? "bg-sam-ink text-white" : "bg-sam-ink/88 text-white/90 backdrop-blur-sm"
                   }`}
                 >
                   <span className="text-base leading-none">⌃</span>
@@ -214,6 +210,15 @@ export function CommunityMessengerRoomPhase2Composer() {
                     <path d="M12 1a5 5 0 0 1 5 5v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1V6a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v3h6V6a3 3 0 0 0-3-3z" />
                   </svg>
                 </div>
+              ) : null}
+              {(vm.voiceRecording && !vm.voiceHandsFree) || vm.voiceMicArming ? (
+                <span
+                  className="pointer-events-none absolute inset-0 z-[1] overflow-visible"
+                  aria-hidden
+                >
+                  <span className="sam-cm-voice-mic-ripple-wave" />
+                  <span className="sam-cm-voice-mic-ripple-wave sam-cm-voice-mic-ripple-wave--delay" />
+                </span>
               ) : null}
               <button
                 type="button"
@@ -232,11 +237,11 @@ export function CommunityMessengerRoomPhase2Composer() {
                   Boolean(vm.message.trim()) ||
                   (vm.voiceRecording && vm.voiceHandsFree)
                 }
-                className={`sam-cm-voice-mic-ripple-btn touch-none flex h-10 w-10 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color] duration-200 active:scale-95 disabled:opacity-35 ${
+                className={`sam-cm-voice-mic-ripple-btn relative z-[5] touch-none flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color,ring-color] duration-200 active:scale-[0.96] disabled:opacity-35 ${
                   vm.voiceMicArming && !vm.voiceRecording
-                    ? "scale-[1.06] bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-[3px] ring-[color:var(--cm-room-primary)]"
+                    ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-[3px] ring-[color:var(--cm-room-primary)]"
                     : vm.voiceRecording && !vm.voiceHandsFree
-                      ? "scale-[1.14] bg-[color:var(--cm-room-primary)] text-white shadow-lg ring-[3px] ring-white/55"
+                      ? "bg-[color:var(--cm-room-primary)] text-white shadow-[0_10px_28px_rgba(107,61,241,0.38)] ring-[3px] ring-white/60"
                       : "bg-sam-border-soft text-sam-fg ring-2 ring-sam-border"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
@@ -250,7 +255,7 @@ export function CommunityMessengerRoomPhase2Composer() {
               </button>
             </div>
           ) : (
-            <div className="h-10 w-10 shrink-0 self-center" aria-hidden />
+            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
           )}
 
           {!vm.voiceRecording ? (
@@ -267,15 +272,15 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-sticker" ||
                 vm.busy === "delete-message"
               }
-              className="flex h-10 min-w-[40px] shrink-0 items-center justify-center self-center rounded-full bg-[color:var(--cm-room-primary)] px-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
+              className="flex h-10 min-w-[40px] shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] px-2.5 text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
               aria-label="전송"
             >
               <SendPlaneIcon className="h-5 w-5 text-white" />
             </button>
           ) : vm.voiceRecording && !vm.voiceHandsFree ? (
-            <div className="h-10 min-w-[4.75rem] shrink-0 self-center" aria-hidden />
+            <div className="h-10 min-w-[4.75rem] shrink-0 justify-self-center self-center" aria-hidden />
           ) : (
-            <div className="h-10 w-0 min-w-0 max-w-0 shrink-0 self-center overflow-hidden p-0" aria-hidden />
+            <div className="h-10 w-0 min-w-0 max-w-0 shrink-0 justify-self-center self-center overflow-hidden p-0" aria-hidden />
           )}
         </div>
       </footer>
