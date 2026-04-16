@@ -117,8 +117,13 @@ export function useChatRoomRealtime(args: {
       await removeChannel();
       if (cancelled || myGen !== connectGen) return;
 
-      await waitForSupabaseRealtimeAuth(sb);
+      const authOk = await waitForSupabaseRealtimeAuth(sb);
       if (cancelled || myGen !== connectGen) return;
+      if (!authOk) {
+        emitConn("fallback");
+        scheduleReconnect();
+        return;
+      }
 
       emitConn(attempt > 0 ? "reconnecting" : "connecting");
 

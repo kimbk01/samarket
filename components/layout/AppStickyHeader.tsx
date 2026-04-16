@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { CategoryListSubheader } from "@/components/category/CategoryListSubheader";
 import {
@@ -20,14 +21,17 @@ export function AppStickyHeader() {
   const pathname = usePathname();
   const categorySticky = useCategoryListStickyConfig();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
-  const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
+  const topTier1RuleSet = useMemo(() => getMobileTopTier1RuleSet(pathname), [pathname]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
   /** 거래 1·2단 탭(필요 시 2단만) — `/mypage/trade` 는 허브 자체 내비가 있어 TRADE 탭 스택 숨김 */
-  const isTradeMenuSurface =
-    pathname === "/home" ||
-    pathname === "/market" ||
-    (pathname?.startsWith("/market/") ?? false);
+  const isTradeMenuSurface = useMemo(
+    () =>
+      pathname === "/home" ||
+      pathname === "/market" ||
+      (pathname?.startsWith("/market/") ?? false),
+    [pathname]
+  );
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
 
   /** 빈 `sticky z-20` 래퍼는 아래 본문 스티키(채팅 허브 등)와 쌓임이 꼬여 가릴 수 있음 */

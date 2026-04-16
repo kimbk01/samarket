@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -63,7 +64,10 @@ export function ConditionalAppShell({
   regionBarInLayout?: boolean;
 }) {
   const pathname = usePathname();
-  const f = resolveConditionalAppShellFlags(pathname, regionBarInLayout);
+  const f = useMemo(
+    () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
+    [pathname, regionBarInLayout]
+  );
 
   return (
     <div className={f.appShellRootClass}>

@@ -14,12 +14,14 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
-  const clients = await resolvePostsReadClientsForServerComponent();
+  const [clients, viewerId] = await Promise.all([
+    resolvePostsReadClientsForServerComponent(),
+    getOptionalAuthenticatedUserId(),
+  ]);
   if (!clients) {
     return <PostDetailConfigError />;
   }
 
-  const viewerId = await getOptionalAuthenticatedUserId();
   const bundle = await getItemDetailPageData(clients, { itemId: trimmed, viewerUserId: viewerId });
   if (!bundle) {
     notFound();

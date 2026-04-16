@@ -5,9 +5,11 @@ import { HomeContent } from "./HomeContent";
 
 /** 거래 홈: 첫 피드는 서버에서 `GET /api/home/posts` 와 동일 로직으로 한 번만 조회 */
 export default async function HomePage() {
-  const req = await buildHomeTradeSeedRequest();
-  /** API 라우트와 동일하게 세션을 한 번만 확정 — favorites·내부 분기에서 `getOptionalAuthenticatedUserId` 재호출 방지 */
-  const viewerUserId = await getOptionalAuthenticatedUserId();
+  /** `headers()` 기반 시드 요청과 세션 확정은 서로 독립 — 순차 대기 시 TTFB 만 늘어남 */
+  const [req, viewerUserId] = await Promise.all([
+    buildHomeTradeSeedRequest(),
+    getOptionalAuthenticatedUserId(),
+  ]);
   const initialHomeTradeFeed = await resolveHomePostsGetData(req, { precomputedViewerUserId: viewerUserId });
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -32,6 +32,11 @@ import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-en
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import {
+  BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS,
+  BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS,
+  BOTTOM_NAV_PREFETCH_SPREAD_MS,
+} from "@/lib/performance/chrome-navigation-policy";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -48,13 +53,11 @@ function BottomNavTabStandard({
   pathname,
   tt,
   t,
-  router,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   tt: BottomNavI18n["tt"];
   t: BottomNavI18n["t"];
-  router: BottomNavRouter;
 }) {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
@@ -252,7 +255,9 @@ export function BottomNav() {
     useStoreBusinessHubEntryModal(t("common_confirm"), { eager: false });
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
   const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
+  useEffect(() => {
+    tabsRef.current = tabs;
+  }, [tabs]);
   const prevPathnameForNavRef = useRef<string | null>(null);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
@@ -310,11 +315,12 @@ export function BottomNav() {
   }, [pathname]);
 
   /**
-   * 주요 탭·거래채팅 허브 RSC 선로딩 — 예전에는 idle+950ms·3개만 프리페치해 탭 전환이 느렸음.
-   * 다음 프레임에 전부 프리페치(저전력망은 생략).
-   * `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
+   * 주요 탭·거래채팅 허브 RSC 선로딩.
+   * - 경로 변경마다 즉시 전부 `prefetch` 하면 이동 직후 RSC·메인 스레드와 경쟁해 크롬에서 체감이 나빠짐.
+   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산(개발·운영 동일 기준).
+   * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
    */
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const tradeHub = TRADE_CHAT_SURFACE.messengerListHref;
@@ -325,20 +331,35 @@ export function BottomNav() {
       if (h && !hrefs.includes(h) && h !== pathname) hrefs.push(h);
     }
     let cancelled = false;
-    const idleId = scheduleWhenBrowserIdle(() => {
+    let idleId = -1;
+    const spreadTimeouts: number[] = [];
+
+    const debounceId = window.setTimeout(() => {
       if (cancelled) return;
-      for (const href of hrefs) {
+      idleId = scheduleWhenBrowserIdle(() => {
         if (cancelled) return;
-        try {
-          router.prefetch(href);
-        } catch {
-          /* no-op */
-        }
-      }
-    }, 900);
+        hrefs.forEach((href, idx) => {
+          const tid = window.setTimeout(() => {
+            if (cancelled) return;
+            try {
+              router.prefetch(href);
+            } catch {
+              /* no-op */
+            }
+          }, idx * BOTTOM_NAV_PREFETCH_SPREAD_MS);
+          spreadTimeouts.push(tid);
+        });
+      }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
+    }, BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS);
+
     return () => {
       cancelled = true;
+      window.clearTimeout(debounceId);
       cancelScheduledWhenBrowserIdle(idleId);
+      for (const tid of spreadTimeouts) {
+        window.clearTimeout(tid);
+      }
+      spreadTimeouts.length = 0;
     };
   }, [pathname, router]);
 
@@ -370,7 +391,6 @@ export function BottomNav() {
               pathname={pathname}
               tt={tt}
               t={t}
-              router={router}
             />
           )
         )}
