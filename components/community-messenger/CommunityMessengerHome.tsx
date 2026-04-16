@@ -80,7 +80,17 @@ import {
   writeCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
-import { useCommunityMessengerHomeRealtime } from "@/lib/community-messenger/use-community-messenger-realtime";
+import {
+  fetchMeNotificationSettingsGet,
+  invalidateMeNotificationSettingsGetFlight,
+} from "@/lib/me/fetch-me-notification-settings-client";
+import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
+import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import {
+  type CommunityMessengerHomeRealtimeMessageInsertHint,
+  useCommunityMessengerHomeRealtime,
+} from "@/lib/community-messenger/use-community-messenger-realtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
@@ -159,6 +169,7 @@ type MessengerNotificationSettings = {
 };
 
 const RECENT_SEARCHES_STORAGE_KEY = "samarket:communityMessenger:recentSearches";
+const HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS = 400;
 
 type CommunityMessengerSettingsBackup = {
   version: 1;
@@ -225,6 +236,8 @@ export function CommunityMessengerHome({
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
+  /** Realtime 메시지는 왔으나 `homeRoomIds` 청크에 없던 방 — 단건 home-summary 병합 디바운스 */
+  const homeMissingRoomSummaryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [composerOpen, setComposerOpen] = useState(false);
   const [requestSheetOpen, setRequestSheetOpen] = useState(false);
@@ -301,6 +314,15 @@ export function CommunityMessengerHome({
         cancelAnimationFrame(listScrollDismissRafRef.current);
         listScrollDismissRafRef.current = null;
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const t of homeMissingRoomSummaryTimersRef.current.values()) {
+        clearTimeout(t);
+      }
+      homeMissingRoomSummaryTimersRef.current.clear();
     };
   }, []);
 
@@ -596,7 +618,7 @@ export function CommunityMessengerHome({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+        const res = await fetchMeNotificationSettingsGet();
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           settings?: Partial<MessengerNotificationSettings>;
@@ -625,11 +647,65 @@ export function CommunityMessengerHome({
     void refresh(true);
   }, [refresh]);
 
+  const scheduleHomeMissingRoomSummaryMerge = useCallback(
+    (roomId: string) => {
+      const id = String(roomId ?? "").trim();
+      if (!id) return;
+      const timers = homeMissingRoomSummaryTimersRef.current;
+      const existing = timers.get(id);
+      if (existing) clearTimeout(existing);
+      const t = setTimeout(() => {
+        timers.delete(id);
+        void (async () => {
+          try {
+            const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(id)}/home-summary`, {
+              credentials: "include",
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+              ok?: boolean;
+              room?: CommunityMessengerRoomSummary;
+            };
+            if (!res.ok || !json.ok || !json.room) return;
+            setData((prev) => {
+              if (!prev) return prev;
+              const merged = mergeBootstrapRoomSummaryIntoLists(prev, json.room!);
+              primeBootstrapCache(merged);
+              return merged;
+            });
+          } catch {
+            /* ignore */
+          }
+        })();
+      }, HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS);
+      timers.set(id, t);
+    },
+    [setData]
+  );
+
+  const applyRealtimeMessageListPatch = useCallback(
+    (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => {
+      let missedList = false;
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = patchBootstrapRoomListForRealtimeMessageInsert(prev, hint.roomId, hint.newRecord);
+        if (next === prev) {
+          missedList = true;
+          return prev;
+        }
+        primeBootstrapCache(next);
+        return next;
+      });
+      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+    },
+    [setData, scheduleHomeMissingRoomSummaryMerge]
+  );
+
   useCommunityMessengerHomeRealtime({
     userId: data?.me?.id ?? null,
     roomIds: homeRoomIds,
     enabled: Boolean(data?.me?.id) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
+    onRealtimeMessageInsert: applyRealtimeMessageListPatch,
   });
 
   const reviveDirectRoomForEntry = useCallback(
@@ -1664,6 +1740,7 @@ export function CommunityMessengerHome({
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!res.ok || !json.ok) return;
+        invalidateMeNotificationSettingsGetFlight();
         setNotificationSettings((prev) => ({ ...prev, [key]: value }));
       } finally {
         setBusyId(null);

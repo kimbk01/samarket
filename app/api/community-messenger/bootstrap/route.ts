@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { getCommunityMessengerBootstrap } from "@/lib/community-messenger/service";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
 const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
 
@@ -13,6 +14,7 @@ type CommunityMessengerBootstrapCacheEntry = {
 const communityMessengerBootstrapCache = new Map<string, CommunityMessengerBootstrapCacheEntry>();
 
 export async function GET(request: NextRequest) {
+  const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -42,5 +44,6 @@ export async function GET(request: NextRequest) {
       expiresAt: Date.now() + COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS,
     });
   }
+  recordMessengerApiTiming("GET /api/community-messenger/bootstrap", Math.round(performance.now() - t0), 200);
   return NextResponse.json({ ok: true, ...data });
 }

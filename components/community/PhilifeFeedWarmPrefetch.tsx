@@ -6,6 +6,7 @@ import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhoo
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
+import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
 
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
 const warmedFeedAtByKey = new Map<string, number>();
@@ -19,6 +20,7 @@ export function PhilifeFeedWarmPrefetch() {
   const tickRef = useRef(0);
 
   useEffect(() => {
+    if (!shouldRunPhilifeBackgroundFeedWarm()) return;
     if (!pathname) return;
     if (pathname === "/philife" || pathname.startsWith("/philife/")) return;
     if (document.visibilityState !== "visible") return;

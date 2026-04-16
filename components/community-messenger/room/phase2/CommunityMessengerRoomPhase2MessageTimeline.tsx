@@ -4,6 +4,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -53,7 +54,7 @@ import {
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 
-export function CommunityMessengerRoomPhase2MessageTimeline() {
+export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
 
   /**
@@ -65,7 +66,13 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
     vm.updateStickToBottomFromScroll();
     if (vm.messageActionItem) vm.setMessageActionItem(null);
     if (vm.callStubSheet) vm.setCallStubSheet(null);
-  }, [vm]);
+  }, [
+    vm.updateStickToBottomFromScroll,
+    vm.messageActionItem,
+    vm.setMessageActionItem,
+    vm.callStubSheet,
+    vm.setCallStubSheet,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -594,4 +601,4 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
       <MessengerRoomNewMessagesBelowChip roomId={vm.roomId} onJumpToLatest={vm.scrollMessengerToBottom} />
     </div>
   );
-}
+});

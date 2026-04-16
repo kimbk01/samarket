@@ -1420,6 +1420,30 @@ async function loadRoomSummaryMap(
   return result;
 }
 
+/** 홈 `homeRoomIds` 청크 밖 방 — 단일 `CommunityMessengerRoomSummary` (목록 끼워넣기·실시간 보강용). */
+export async function getCommunityMessengerSingleRoomSummaryForViewer(
+  viewerUserId: string,
+  roomId: string
+): Promise<CommunityMessengerRoomSummary | null> {
+  const rid = trimText(roomId);
+  if (!rid) return null;
+  const payload = await fetchRoomsPayloadByRoomIds([rid]);
+  if (!payload.roomRows.length) return null;
+  const roomParticipants = payload.byRoomId.get(rid) ?? [];
+  if (!roomParticipants.some((p) => participantRowUserId(p) === viewerUserId)) return null;
+  const summaries = await summarizeRoomsBatch(
+    viewerUserId,
+    payload.roomRows,
+    payload.participantRows,
+    payload.roomProfileMap,
+    payload.byRoomId
+  );
+  const summary = summaries[0];
+  if (!summary) return null;
+  await enrichTradeRoomContextMetaForBootstrap(viewerUserId, [summary]);
+  return summary;
+}
+
 type DiscoverableOpenGroupsRawState = MessengerRoomsPayload & { joinedRoomIds: Set<string> };
 
 async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<DiscoverableOpenGroupsRawState> {
@@ -2480,26 +2504,6 @@ export async function listCommunityMessengerFriends(userId: string): Promise<Com
     ...profile,
     friendshipAcceptedAt: friendshipAcceptedAtByPeer.get(profile.id) ?? null,
   }));
-}
-
-/** 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 에서 한 번에 정합 */
-export async function getCommunityMessengerHomeSyncBundle(userId: string): Promise<{
-  chats: CommunityMessengerRoomSummary[];
-  groups: CommunityMessengerRoomSummary[];
-  requests: CommunityMessengerFriendRequest[];
-  friends: CommunityMessengerProfileLite[];
-}> {
-  const [roomsBlock, requests, friends] = await Promise.all([
-    listCommunityMessengerMyChatsAndGroups(userId),
-    listCommunityMessengerFriendRequests(userId),
-    listCommunityMessengerFriends(userId),
-  ]);
-  return {
-    chats: roomsBlock.chats,
-    groups: roomsBlock.groups,
-    requests,
-    friends,
-  };
 }
 
 export async function searchCommunityMessengerUsers(

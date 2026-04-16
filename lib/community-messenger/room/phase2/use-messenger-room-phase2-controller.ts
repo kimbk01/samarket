@@ -13,7 +13,6 @@ import {
   useMemo,
 } from "react";
 import {
-  getCommunityMessengerPermissionGuide,
   hasUsablePrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
@@ -24,24 +23,19 @@ import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/r
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import {
-  communityMessengerCallSessionIsActiveConnected,
-  communityMessengerCallStubStatusIsTerminal,
-  communityMessengerRoomIsGloballyUsable,
-  type CommunityMessengerMessage,
-} from "@/lib/community-messenger/types";
+import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
-import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
-import { getLatestCallStubForSession, mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
+import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -68,7 +62,6 @@ export function useMessengerRoomPhase2Controller() {
     fileMessageCount,
     fileMessages,
     filteredInviteCandidates,
-    flushRealtimeMessageBatch,
     friends,
     friendsLoaded,
     groupAdminCount,
@@ -82,7 +75,6 @@ export function useMessengerRoomPhase2Controller() {
     groupHistorySectionRef,
     groupNoticeSectionRef,
     groupPermissionsSectionRef,
-    handleRealtimeMessageEvent,
     hasMoreOlderMessages,
     hiddenCallStubIds,
     imageInputRef,
@@ -130,12 +122,9 @@ export function useMessengerRoomPhase2Controller() {
     pagedRoomMembers,
     pathname,
     pendingMessageIdRef,
-    pendingRealtimeRef,
     photoMessageCount,
     prevActiveSheetRef,
     privateGroupNoticeDraft,
-    realtimeBatchFlushRafRef,
-    realtimeMessageBatchRef,
     refresh,
     replyToMessage,
     roomId,
@@ -210,115 +199,44 @@ export function useMessengerRoomPhase2Controller() {
 
   const call = useCommunityMessengerRoomGroupCall();
   const callPanel = call.panel;
-  const roomUnavailable = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
-  const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
-  /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
-  const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {
-    const raw = snapshot?.room.summary?.trim();
-    if (!raw) return false;
-    const k = snapshot?.room.contextMeta?.kind;
-    if (k === "trade" || k === "delivery") return true;
-    return parseCommunityMessengerRoomContextMeta(raw) != null;
-  }, [snapshot?.room.summary, snapshot?.room.contextMeta]);
-  const tradeProductChatIdForDock = useMemo(() => {
-    const m = snapshot?.room.contextMeta;
-    if (!m || m.kind !== "trade") return "";
-    return typeof m.productChatId === "string" ? m.productChatId.trim() : "";
-  }, [snapshot?.room.contextMeta]);
-  const showMessengerTradeProcessDock = !isGroupRoom && tradeProductChatIdForDock.length > 0;
-  const permissionGuide = call.panel ? getCommunityMessengerPermissionGuide(call.panel.kind) : null;
-  const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
-  const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
-  const isOwner = snapshot?.myRole === "owner";
-  const roomTypeLabel = isOpenGroupRoom
-    ? t("nav_messenger_open_group")
-    : isPrivateGroupRoom
-      ? t("nav_messenger_private_group")
-      : t("nav_messenger_direct_room");
-  const roomSubtitle =
-    snapshot?.room.description ||
-    (isGroupRoom
-      ? t("nav_messenger_group_room_subtitle", { count: snapshot?.room.memberCount ?? 0 })
-      : t("nav_messenger_friend_room_subtitle"));
-  const roomJoinLabel = isOpenGroupRoom
-    ? snapshot?.room.joinPolicy === "password"
-      ? t("nav_messenger_join_password")
-      : t("nav_messenger_join_free")
-    : null;
-  const roomIdentityLabel = isOpenGroupRoom
-    ? snapshot?.room.identityPolicy === "alias_allowed"
-      ? t("nav_messenger_identity_alias")
-      : t("nav_messenger_identity_real")
-    : null;
-  const roomNotice =
-    snapshot?.room.roomType === "private_group"
-      ? snapshot?.room.noticeText?.trim() ?? ""
-      : roomSummaryHoldsOnlyTradeOrDeliveryMeta
-        ? ""
-        : snapshot?.room.summary?.trim() ?? "";
-  const canInviteMembers = Boolean(isPrivateGroupRoom && snapshot?.room.allowMemberInvite);
-  const myRoleLabel = snapshot
-    ? isOwner
-      ? t("nav_messenger_owner_label")
-      : t("nav_messenger_my_role_label", { role: snapshot.myRole })
-    : "";
-  const privateGroupNotice = snapshot?.room.noticeText?.trim() ?? "";
-  const canEditGroupNotice = Boolean(
-    isPrivateGroupRoom &&
-      snapshot &&
-      (snapshot.myRole === "owner" || (snapshot.myRole === "admin" && snapshot.room.allowAdminEditNotice))
-  );
-  const canManageGroupPermissions = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
-  const canManageMemberRoles = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
-  const canKickGroupMembers = Boolean(
-    isPrivateGroupRoom &&
-      snapshot &&
-      (snapshot.myRole === "owner" || (snapshot.myRole === "admin" && snapshot.room.allowAdminKick))
-  );
-  const canStartGroupCall = Boolean(
-    isGroupRoom &&
-      snapshot &&
-      communityMessengerRoomIsGloballyUsable(snapshot.room) &&
-      (snapshot.myRole === "owner" || snapshot.myRole === "admin" || snapshot.room.allowMemberCall)
-  );
-  const canUploadAttachments = Boolean(
-    !isPrivateGroupRoom ||
-      !snapshot ||
-      snapshot.myRole === "owner" ||
-      snapshot.myRole === "admin" ||
-      snapshot.room.allowMemberUpload
-  );
-  const activeGroupCall = isGroupRoom && snapshot?.activeCall?.sessionMode === "group" ? snapshot.activeCall : null;
-  const groupCallStatusLabel = activeGroupCall
-    ? activeGroupCall.status === "active"
-      ? "그룹 통화 진행 중"
-      : activeGroupCall.status === "ringing"
-        ? "그룹 통화 연결 중"
-        : "그룹 통화 대기"
-    : canStartGroupCall
-      ? "그룹 통화 시작 가능"
-      : isGroupRoom
-        ? "그룹 통화 시작 권한 없음"
-        : "";
-  const privateGroupPermissionRows = useMemo(
-    () =>
-      snapshot
-        ? [
-            { label: "일반 멤버 초대", value: snapshot.room.allowMemberInvite ? "허용" : "제한" },
-            { label: "관리자 초대", value: snapshot.room.allowAdminInvite ? "허용" : "제한" },
-            { label: "관리자 내보내기", value: snapshot.room.allowAdminKick ? "허용" : "제한" },
-            { label: "관리자 공지 수정", value: snapshot.room.allowAdminEditNotice ? "허용" : "제한" },
-            { label: "일반 멤버 업로드", value: snapshot.room.allowMemberUpload ? "허용" : "제한" },
-            { label: "일반 멤버 통화 시작", value: snapshot.room.allowMemberCall ? "허용" : "제한" },
-          ]
-        : [],
-    [snapshot]
-  );
-  const allowedPrivateGroupPermissionCount = useMemo(
-    () => privateGroupPermissionRows.filter((row) => row.value === "허용").length,
-    [privateGroupPermissionRows]
-  );
-  const privateGroupNoticeStatusLabel = privateGroupNotice ? "등록됨" : "없음";
+  const {
+    roomUnavailable,
+    isGroupRoom,
+    roomSummaryHoldsOnlyTradeOrDeliveryMeta,
+    tradeProductChatIdForDock,
+    showMessengerTradeProcessDock,
+    permissionGuide,
+    isPrivateGroupRoom,
+    isOpenGroupRoom,
+    isOwner,
+    roomTypeLabel,
+    roomSubtitle,
+    roomJoinLabel,
+    roomIdentityLabel,
+    roomNotice,
+    canInviteMembers,
+    myRoleLabel,
+    privateGroupNotice,
+    canEditGroupNotice,
+    canManageGroupPermissions,
+    canManageMemberRoles,
+    canKickGroupMembers,
+    canStartGroupCall,
+    canUploadAttachments,
+    activeGroupCall,
+    groupCallStatusLabel,
+    privateGroupPermissionRows,
+    allowedPrivateGroupPermissionCount,
+    privateGroupNoticeStatusLabel,
+    returnToCallSessionId,
+    roomHeaderStatus,
+  } = useMessengerRoomPhase2RoomPresentation({
+    snapshot,
+    roomId,
+    roomMessages,
+    t,
+    callPanel,
+  });
 
   useEffect(() => {
     /* 스냅샷 로딩 전에는 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
@@ -336,25 +254,6 @@ export function useMessengerRoomPhase2Controller() {
       /* ignore */
     }
   }, [snapshot]);
-
-  /** 미니화 힌트(sessionStorage)에 의존하지 않음 — `active`(연결됨)일 때만 배너(벨 울리는 ringing 제외).
-   *  채팅 call_stub 이 이미 종료로 갱신됐는데 세션 행이 잠깐 active 로 남는 경우 배너를 숨긴다. */
-  const returnToCallSessionId = useMemo(() => {
-    const ac = snapshot?.activeCall;
-    if (
-      ac &&
-      ac.sessionMode === "direct" &&
-      ac.roomId === roomId &&
-      communityMessengerCallSessionIsActiveConnected(ac.status)
-    ) {
-      const latestStub = getLatestCallStubForSession(roomMessages, ac.id);
-      if (latestStub && communityMessengerCallStubStatusIsTerminal(latestStub.callStatus)) {
-        return null;
-      }
-      return ac.id;
-    }
-    return null;
-  }, [roomId, snapshot?.activeCall, roomMessages]);
 
   const getRoomActionErrorMessage = useCallback(
     (error?: string) => getMessengerRoomActionErrorMessage(error, t),
@@ -711,8 +610,8 @@ export function useMessengerRoomPhase2Controller() {
     [getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
   );
 
-  const sendMessage = useCallback(async () => {
-    const raw = message.trim();
+  const sendMessage = useCallback(async (textOverride?: string) => {
+    const raw = (textOverride ?? message).trim();
     if (!raw || !snapshot) return;
     const replyPrefix = replyToMessage
       ? `[답장: ${replyToMessage.senderLabel}] ${
@@ -1494,16 +1393,6 @@ export function useMessengerRoomPhase2Controller() {
       tone?.stop();
     };
   }, [isGroupRoom, callPanel?.sessionId, callPanel?.mode, callPanel?.kind]);
-
-  const roomHeaderStatus = useMemo(() => {
-    if (!snapshot) return "";
-    return [
-      roomTypeLabel,
-      roomSubtitle || (isGroupRoom ? `${snapshot.room.memberCount}명` : "마지막 활동 없음"),
-    ]
-      .filter(Boolean)
-      .join(" · ") || "";
-  }, [snapshot, roomTypeLabel, roomSubtitle, isGroupRoom]);
 
   return {
     ...phase1,

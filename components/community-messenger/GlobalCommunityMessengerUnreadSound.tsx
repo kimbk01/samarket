@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -11,6 +11,8 @@ import { documentVisibilityToAppVisibility } from "@/lib/community-messenger/not
 import {
   resolveParticipantUnreadDeltaInAppEffects,
 } from "@/lib/community-messenger/notifications/messenger-message-notification-policy";
+import { tryShowMessengerWebDesktopNotification } from "@/lib/community-messenger/notifications/messenger-web-desktop-notification";
+import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
 import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
 import {
   messengerRolloutShowsInAppMessageBanner,
@@ -35,7 +37,14 @@ function getUnreadCount(row: ParticipantRealtimeRow | null): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+function activeCommunityRoomIdFromPathname(pathname: string | null): string | null {
+  if (!pathname) return null;
+  const m = pathname.match(/^\/community-messenger\/rooms\/([^/]+)\/?$/);
+  return m?.[1] ? decodeURIComponent(m[1]) : null;
+}
+
 export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enabled?: boolean }) {
+  const router = useRouter();
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
   const surface = useNotificationSurface();
@@ -45,6 +54,15 @@ export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enable
     typeof document !== "undefined" ? document.visibilityState : "visible"
   );
   const [userId, setUserId] = useState<string | null>(null);
+
+  const navigateToCommunityRoom = useCallback(
+    (roomId: string) => {
+      const id = String(roomId ?? "").trim();
+      if (!id) return;
+      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+    },
+    [router]
+  );
 
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
@@ -109,8 +127,27 @@ export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enable
 
           /** 0단계: URL 경로만 — 임베드 시트 방 ID 미반영 */
           if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
-            if (pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`) return;
+            if (pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`) {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
+              }
+              return;
+            }
             playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
+            tryShowMessengerWebDesktopNotification({
+              roomId: nextRoomId,
+              title: "메신저",
+              body: "새 메시지가 도착했습니다",
+              nextUnread,
+              prevUnread,
+              activeCommunityRoomId: activeCommunityRoomIdFromPathname(pathnameRef.current),
+              appVisibility: documentVisibilityToAppVisibility(visibilityRef.current),
+              windowFocused:
+                typeof document !== "undefined" ? document.visibilityState === "visible" : true,
+              communityChatEnabled: surfaceRef.current?.userNotificationSettings?.community_chat_enabled !== false,
+              callStatus: useCallStore.getState().callStatus,
+              onNavigateToRoom: navigateToCommunityRoom,
+            });
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
             }
@@ -153,6 +190,19 @@ export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enable
               dedupeKey,
             });
           }
+          tryShowMessengerWebDesktopNotification({
+            roomId: nextRoomId,
+            title: "메신저",
+            body: "새 메시지가 도착했습니다",
+            nextUnread,
+            prevUnread,
+            activeCommunityRoomId: activeRoom,
+            appVisibility: appVisibility,
+            windowFocused: sfc?.isWindowFocused ?? true,
+            communityChatEnabled: settings?.community_chat_enabled !== false,
+            callStatus: useCallStore.getState().callStatus,
+            onNavigateToRoom: navigateToCommunityRoom,
+          });
           if (typeof window !== "undefined") {
             window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
           }
@@ -163,7 +213,7 @@ export function GlobalCommunityMessengerUnreadSound({ enabled = true }: { enable
     return () => {
       if (channel) void sb.removeChannel(channel);
     };
-  }, [enabled, userId]);
+  }, [enabled, userId, navigateToCommunityRoom]);
 
   return null;
 }

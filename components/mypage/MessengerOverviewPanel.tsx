@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 
 type MessengerRoomSummary = {
   id: string;
@@ -42,10 +43,7 @@ export function MessengerOverviewPanel({ mode }: { mode: "dm" | "groups" }) {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/community-messenger/bootstrap", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await fetchCommunityMessengerBootstrapClient("full");
         const json = (await res.json().catch(() => ({}))) as MessengerBootstrapPayload;
         if (cancelled) return;
         if (!res.ok || !json.ok) {

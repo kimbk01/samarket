@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
-import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/service";
+import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
 /**

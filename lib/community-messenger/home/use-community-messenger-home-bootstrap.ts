@@ -1,5 +1,7 @@
 "use client";
 
+/** 메신저 홈 데이터 경로: lite→open-groups 보강·silent `home-sync`·부트스트랩 GET 단일 비행 — `docs/trade-lightweight-design.md` / `SAMARKET_LIGHTWEIGHT_GOALS`. */
+
 import {
   useCallback,
   useEffect,
@@ -23,6 +25,8 @@ import type {
 } from "@/lib/community-messenger/types";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
+import { fetchCommunityMessengerOpenGroupsClient } from "@/lib/community-messenger/cm-open-groups-client-fetch";
 
 export type UseCommunityMessengerHomeBootstrapArgs = {
   initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
@@ -163,7 +167,7 @@ export function useCommunityMessengerHomeBootstrap({
             setPageError(tRef.current("nav_messenger_login_required"));
             setData(null);
           } else {
-            const resFull = await fetch("/api/community-messenger/bootstrap?fresh=1", { cache: "no-store" });
+            const resFull = await fetchCommunityMessengerBootstrapClient("fresh");
             const jsonFull = (await resFull.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
               ok?: boolean;
               error?: string;
@@ -198,10 +202,7 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       } else {
-        const url = useLiteBootstrap
-          ? "/api/community-messenger/bootstrap?lite=1"
-          : "/api/community-messenger/bootstrap";
-        const res = await fetch(url, { cache: "no-store" });
+        const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full");
         const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
           ok?: boolean;
           error?: string;
@@ -233,7 +234,7 @@ export function useCommunityMessengerHomeBootstrap({
             scheduleWhenBrowserIdle(() => {
               void (async () => {
                 try {
-                  const res2 = await fetch("/api/community-messenger/open-groups", { cache: "no-store" });
+                  const res2 = await fetchCommunityMessengerOpenGroupsClient();
                   const j2 = (await res2.json().catch(() => ({}))) as {
                     ok?: boolean;
                     groups?: CommunityMessengerDiscoverableGroupSummary[];

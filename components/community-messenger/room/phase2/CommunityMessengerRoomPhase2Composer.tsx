@@ -4,6 +4,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useLayoutEffect,
+  useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
@@ -54,6 +56,11 @@ import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
+  const roomKey = vm.snapshot.room.id;
+  const [draft, setDraft] = useState("");
+  useLayoutEffect(() => {
+    setDraft(vm.message);
+  }, [roomKey, vm.message]);
   const { keyboardOverlapSuppressed } = useMessengerRoomMobileViewport();
   const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
   /**
@@ -115,15 +122,15 @@ export function CommunityMessengerRoomPhase2Composer() {
             {!vm.voiceRecording ? (
               <textarea
                 ref={vm.composerTextareaRef}
-                value={vm.message}
-                onChange={(e) => vm.setMessage(e.target.value)}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
                   if (e.shiftKey) return;
                   if (e.nativeEvent.isComposing) return;
                   if (
                     vm.roomUnavailable ||
-                    !vm.message.trim() ||
+                    !draft.trim() ||
                     vm.busy === "send" ||
                     vm.busy === "send-image" ||
                     vm.busy === "send-file" ||
@@ -134,7 +141,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                     return;
                   }
                   e.preventDefault();
-                  void vm.sendMessage();
+                  void vm.sendMessage(draft);
                 }}
                 onFocus={(e) => {
                   useMessengerRoomUiStore.getState().setComposerFocused(true);
@@ -251,7 +258,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                   vm.busy === "send-voice" ||
                   vm.busy === "send-sticker" ||
                   vm.busy === "delete-message" ||
-                  Boolean(vm.message.trim()) ||
+                  Boolean(draft.trim()) ||
                   (vm.voiceRecording && vm.voiceHandsFree)
                 }
                 className={`sam-cm-voice-mic-ripple-btn relative z-[5] touch-none flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color,ring-color] duration-200 active:scale-[0.96] disabled:opacity-35 ${
@@ -263,7 +270,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                 title={
-                  vm.message.trim()
+                  draft.trim()
                     ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
                     : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
                 }
@@ -278,10 +285,10 @@ export function CommunityMessengerRoomPhase2Composer() {
           {!vm.voiceRecording ? (
             <button
               type="button"
-              onClick={() => void vm.sendMessage()}
+              onClick={() => void vm.sendMessage(draft)}
               disabled={
                 vm.roomUnavailable ||
-                !vm.message.trim() ||
+                !draft.trim() ||
                 vm.busy === "send" ||
                 vm.busy === "send-image" ||
                 vm.busy === "send-file" ||

@@ -25,6 +25,8 @@
 | 소스 | 이벤트/라우트 | 코드 위치 |
 |------|----------------|-----------|
 | 서버 | `GET .../rooms/[roomId]/bootstrap` | [`app/api/community-messenger/rooms/[roomId]/bootstrap/route.ts`](../app/api/community-messenger/rooms/[roomId]/bootstrap/route.ts) |
+| 서버 | `GET /api/community-messenger/bootstrap` (타이밍 기록) | [`app/api/community-messenger/bootstrap/route.ts`](../app/api/community-messenger/bootstrap/route.ts) → `recordMessengerApiTiming` |
+| 서버 | `GET /api/community-messenger/home-sync` (묶음) | [`getCommunityMessengerHomeSyncBundle`](../lib/community-messenger/get-community-messenger-home-sync-bundle.ts) · [`app/api/community-messenger/home-sync/route.ts`](../app/api/community-messenger/home-sync/route.ts) |
 | 서버 | `GET/POST .../messages` | [`app/api/community-messenger/rooms/[roomId]/messages/route.ts`](../app/api/community-messenger/rooms/[roomId]/messages/route.ts) |
 | 클라이언트 | 방 로드 `bootstrap_fetch` | [`lib/community-messenger/monitoring/client.ts`](../lib/community-messenger/monitoring/client.ts) → `CommunityMessengerRoomClient` |
 | 클라이언트 | 메시지 RTT `send_roundtrip` | 동일 (텍스트·이미지·파일·음성) |

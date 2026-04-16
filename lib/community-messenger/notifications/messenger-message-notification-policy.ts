@@ -3,6 +3,7 @@
  * 푸시·OS 배지는 서버/ SW 경로에서 동일 스냅샷 타입을 쓰도록 확장한다.
  */
 
+import type { MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
 import type {
   MessengerAppVisibility,
   MessengerChatViewPosition,
@@ -241,5 +242,52 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
     playInAppMessageSound: !soundOff,
     showAppLevelBanner: true,
     dedupeKey: dedupe,
+  };
+}
+
+function messengerCallStatusBlocksCommunityMessageDesktopNotify(status: MessengerCallStatus): boolean {
+  return (
+    status === "incoming" ||
+    status === "outgoing" ||
+    status === "connecting" ||
+    status === "ringing" ||
+    status === "active" ||
+    status === "minimized"
+  );
+}
+
+/**
+ * `Notification` API (데스크톱 브라우저) — 탭 숨김·다른 방·다른 화면에서만 제안.
+ * 권한·API 가용은 호출부(`tryShowMessengerWebDesktopNotification`)에서 처리.
+ */
+export function resolveMessengerWebDesktopNotificationIntent(input: {
+  targetRoomId: string;
+  nextUnread: number;
+  prevUnread: number;
+  activeCommunityRoomId: string | null;
+  appVisibility: MessengerAppVisibility;
+  windowFocused: boolean;
+  communityChatEnabled: boolean;
+  callStatus: MessengerCallStatus;
+}): { allow: boolean; dedupeKey: string } {
+  if (!String(input.targetRoomId ?? "").trim() || input.nextUnread <= input.prevUnread) {
+    return { allow: false, dedupeKey: "" };
+  }
+  if (input.communityChatEnabled === false) {
+    return { allow: false, dedupeKey: "" };
+  }
+  if (messengerCallStatusBlocksCommunityMessageDesktopNotify(input.callStatus)) {
+    return { allow: false, dedupeKey: "" };
+  }
+  const inSameRoomForegroundFocused =
+    sameRoom(input.activeCommunityRoomId, input.targetRoomId) &&
+    input.appVisibility === "foreground" &&
+    input.windowFocused;
+  if (inSameRoomForegroundFocused) {
+    return { allow: false, dedupeKey: "" };
+  }
+  return {
+    allow: true,
+    dedupeKey: buildMessengerMessageDedupeKey(input.targetRoomId, input.nextUnread),
   };
 }

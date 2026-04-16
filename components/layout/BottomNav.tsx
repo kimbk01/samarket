@@ -37,6 +37,10 @@ import {
   BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS,
   BOTTOM_NAV_PREFETCH_SPREAD_MS,
 } from "@/lib/performance/chrome-navigation-policy";
+import {
+  shouldEnableNextLinkPrefetchOnMainNav,
+  shouldRunBottomNavProgrammaticPrefetch,
+} from "@/lib/runtime/next-js-dev-client";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -108,7 +112,7 @@ function BottomNavTabStandard({
   return (
     <Link
       href={tab.href}
-      prefetch
+      prefetch={shouldEnableNextLinkPrefetchOnMainNav()}
       replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
@@ -226,7 +230,7 @@ function BottomNavTabStores({
   return (
     <Link
       href={tab.href}
-      prefetch
+      prefetch={shouldEnableNextLinkPrefetchOnMainNav()}
       replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
@@ -317,10 +321,12 @@ export function BottomNav() {
   /**
    * 주요 탭·거래채팅 허브 RSC 선로딩.
    * - 경로 변경마다 즉시 전부 `prefetch` 하면 이동 직후 RSC·메인 스레드와 경쟁해 크롬에서 체감이 나빠짐.
-   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산(개발·운영 동일 기준).
+   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산(운영 기준).
+   * - `next-js-dev-client`: `next dev` 에서는 프로그램 `prefetch` 자체를 생략(온디맨드 컴파일 큐 완화).
    * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
    */
   useEffect(() => {
+    if (!shouldRunBottomNavProgrammaticPrefetch()) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const tradeHub = TRADE_CHAT_SURFACE.messengerListHref;

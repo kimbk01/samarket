@@ -3,7 +3,7 @@
 /**
  * Realtime 정책 (커뮤니티 메신저)
  *
- * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`HOME_ROOMS_IN_FILTER_MAX`).
+ * - **구독 수**: 홈은 방 id 를 `in.(…)` 청크로 묶어 WS 채널 수를 줄임 (`COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX`).
  * - **홈 청크 채널**: 각 청크에 `community_messenger_rooms` + `community_messenger_messages` 를 같이 둔다(방 메타만 늦게 오는 경우에도 대화 목록 동기화).
  * - **방 번들**: 방당 단일 채널에 messages / participants / rooms / call_* postgres_changes 를 묶음.
  * - **메타 refresh**: 멤버·방 설정 변경은 연속 이벤트가 많아 디바운스로 `onRefresh` 호출을 합침 — 수치는 `messenger-latency-config.ts` (home-sync 단일 비행으로 폭주 완화).
@@ -11,27 +11,37 @@
  * - **방 메시지(대화 화면)**: INSERT/UPDATE/DELETE 는 콜백으로만 처리; 파싱 실패 시에만 짧은 지연 refresh.
  * - **typing / presence**: 현재 스키마 훅에 없음 — 추가 시 **별 토픽·초경량 페이로드**만 (전체 방 refresh 금지).
  *
+ * 채널 빌더: `lib/community-messenger/realtime/community-messenger-*-realtime-channel(s).ts`
+ *
  * 상세: `docs/messenger-realtime-policy.md`
  */
 
 import { useEffect, useRef } from "react";
-import type { MutableRefObject } from "react";
 import {
-  messengerMonitorRealtimeMessageInsertDelay,
-} from "@/lib/community-messenger/monitoring/client";
-import {
-  MESSENGER_HOME_META_DEBOUNCE_MS,
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
   MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
   MESSENGER_ROOM_META_DEBOUNCE_MS,
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
+import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
+import { attachCommunityMessengerRoomCallPostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-call-realtime-channel";
+import { attachCommunityMessengerRoomMetaPostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-meta-realtime-channel";
+import { attachCommunityMessengerRoomMessagePostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-message-realtime-channel";
+import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
+import type {
+  CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerRoomRealtimeMessageEvent,
+  CommunityMessengerRoomRealtimeMessageRow,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 
-/** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
-const HOME_ROOMS_IN_FILTER_MAX = 90;
+export type {
+  CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerRoomRealtimeMessageEvent,
+  CommunityMessengerRoomRealtimeMessageRow,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 
 function useStableCallback(callback: () => void) {
   const ref = useRef(callback);
@@ -41,74 +51,25 @@ function useStableCallback(callback: () => void) {
   return ref;
 }
 
-function createRefreshScheduler(callbackRef: MutableRefObject<() => void>, delayMs: number) {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const schedule = () => {
-    if (timer) return;
-    timer = setTimeout(() => {
-      timer = null;
-      callbackRef.current();
-    }, delayMs);
-  };
-  const cancel = () => {
-    if (!timer) return;
-    clearTimeout(timer);
-    timer = null;
-  };
-  return { schedule, cancel };
-}
-
-export type CommunityMessengerRoomRealtimeMessageRow = {
-  id: string;
-  roomId: string;
-  senderId: string | null;
-  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
-  content: string;
-  metadata: Record<string, unknown>;
-  createdAt: string;
-};
-
-export type CommunityMessengerRoomRealtimeMessageEvent = {
-  eventType: "INSERT" | "UPDATE" | "DELETE";
-  message: CommunityMessengerRoomRealtimeMessageRow;
-};
-
-function mapRealtimeMessageRow(row: Record<string, unknown> | undefined): CommunityMessengerRoomRealtimeMessageRow | null {
-  if (!row) return null;
-  const id = typeof row.id === "string" ? row.id : "";
-  const roomId = typeof row.room_id === "string" ? row.room_id : "";
-  if (!id || !roomId) return null;
-  return {
-    id,
-    roomId,
-    senderId: typeof row.sender_id === "string" ? row.sender_id : null,
-    messageType:
-      row.message_type === "image" ||
-      row.message_type === "file" ||
-      row.message_type === "system" ||
-      row.message_type === "call_stub" ||
-      row.message_type === "voice" ||
-      row.message_type === "sticker"
-        ? row.message_type
-        : "text",
-    content: typeof row.content === "string" ? row.content : "",
-    metadata: typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : {},
-    createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
-  };
-}
-
 export function useCommunityMessengerHomeRealtime(args: {
   userId: string | null;
   roomIds?: string[];
   enabled: boolean;
   onRefresh: () => void;
+  /** 메시지 INSERT 시 목록 카드만 즉시 갱신( debounced home-sync 와 병행 ) */
+  onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
 }) {
   const callbackRef = useStableCallback(args.onRefresh);
+  const messageInsertHintRef = useRef(args.onRealtimeMessageInsert);
+  useEffect(() => {
+    messageInsertHintRef.current = args.onRealtimeMessageInsert;
+  }, [args.onRealtimeMessageInsert]);
   /** 배열 참조와 무관하게 id 집합이 같으면 Realtime 재구독하지 않음 */
   const roomIdsFingerprint = [...new Set((args.roomIds ?? []).filter(Boolean))].sort().join("\0");
 
   useEffect(() => {
     if (!args.enabled || !args.userId) return;
+    const userId = args.userId;
     const sb = getSupabaseClient();
     if (!sb) return;
 
@@ -123,155 +84,16 @@ export function useCommunityMessengerHomeRealtime(args: {
 
       const bindHomeChannels = () => {
         if (cancelled) return;
-
-        /** 목록·친구·요청 등 메타 변경은 묶어서 전체 리프레시 (과도한 GET 완화) */
-        const refreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_HOME_META_DEBOUNCE_MS);
-      cancelSchedulers = () => refreshScheduler.cancel();
-      const roomIds = roomIdsFingerprint.length ? roomIdsFingerprint.split("\0").filter(Boolean) : [];
-
-      // 채널 수를 줄이기 위해 "메타"는 단일 채널로 합친다.
-      const meta = subscribeWithRetry({
-        sb,
-        name: `community-messenger-home:meta:${args.userId}`,
-        scope: `community-messenger-home:meta`,
-        isCancelled: () => cancelled,
-        build: (channel) =>
-          channel
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_messenger_participants",
-                filter: `user_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_friend_requests",
-                filter: `addressee_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_friend_requests",
-                filter: `requester_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_friend_favorites",
-                filter: `user_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "user_relationships",
-                filter: `user_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_messenger_call_logs",
-                filter: `caller_user_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            )
-            .on(
-              "postgres_changes",
-              {
-                event: "*",
-                schema: "public",
-                table: "community_messenger_call_logs",
-                filter: `peer_user_id=eq.${args.userId}`,
-              },
-              () => {
-                if (!cancelled) refreshScheduler.schedule();
-              }
-            ),
-      });
-      if (cancelled) {
-        meta.stop();
-        return;
-      }
-      channels.push(meta);
-
-      /** 방당 1채널 대신 `id=in.(…)` 청크로 묶어 구독 수·재연결 비용을 줄임 (문서: in 최대 100값) */
-      for (let offset = 0; offset < roomIds.length; offset += HOME_ROOMS_IN_FILTER_MAX) {
-        if (cancelled) break;
-        const chunk = roomIds.slice(offset, offset + HOME_ROOMS_IN_FILTER_MAX);
-        const roomsFilter = `id=in.(${chunk.join(",")})`;
-        const messagesFilter = `room_id=in.(${chunk.join(",")})`;
-        const roomBundle = subscribeWithRetry({
+        const { channels: next, cancelSchedulers: cancel } = bindCommunityMessengerHomeRealtimeChannels({
           sb,
-          name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
-          scope: `community-messenger-home:rooms-in`,
+          userId,
           isCancelled: () => cancelled,
-          build: (channel) =>
-            channel
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_rooms",
-                  filter: roomsFilter,
-                },
-                () => {
-                  if (!cancelled) refreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_messages",
-                  filter: messagesFilter,
-                },
-                () => {
-                  if (!cancelled) refreshScheduler.schedule();
-                }
-              ),
+          roomIdsFingerprint,
+          messageInsertHintRef,
+          onRefreshRef: callbackRef,
         });
-        if (cancelled) {
-          roomBundle.stop();
-          break;
-        }
-        channels.push(roomBundle);
-      }
+        cancelSchedulers = cancel;
+        for (const item of next) channels.push(item);
       };
 
       if (authOk) {
@@ -339,19 +161,15 @@ export function useCommunityMessengerRoomRealtime(args: {
       const bindRoomChannels = () => {
         if (cancelled) return;
 
-        /** 메시지 파싱 실패 등 예외 시에만 짧은 지연으로 스냅샷 재동기화 */
         const messageFallbackRefreshScheduler = createRefreshScheduler(
           callbackRef,
           MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS
         );
-        /** 멤버·방 설정 변경은 연속 이벤트가 많아 묶음 → 단일 GET 부담 감소 */
         const metaRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_ROOM_META_DEBOUNCE_MS);
-        /** 통화 관련 테이블·call_stub — 한 버스트당 타이머 1개·`onRefresh` 1회 */
         const roomCallBundleRefreshScheduler = createRefreshScheduler(
           callbackRef,
           MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS
         );
-        /** 음성 INSERT 직후 GET 이 비는 경우 대비 — 지연 refresh 로 채팅 목록·스냅샷을 한 번 더 맞춤 */
         const voiceRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_VOICE_AUX_DEBOUNCE_MS);
         cancelSchedulers = () => {
           messageFallbackRefreshScheduler.cancel();
@@ -360,139 +178,44 @@ export function useCommunityMessengerRoomRealtime(args: {
           voiceRefreshScheduler.cancel();
         };
 
-        /** 한 Realtime 채널에 postgres_changes 만 묶어 WS 구독 수를 줄임 */
+        const isCancelled = () => cancelled;
+
         const roomBundle = subscribeWithRetry({
           sb,
           name: `community-messenger-room:bundle:${rid}`,
           scope: `community-messenger-room:bundle`,
-          isCancelled: () => cancelled,
+          isCancelled,
           onStatus: (status) => {
             if (status === "SUBSCRIBED") {
               if (!cancelled) callbackRef.current();
             }
           },
-          build: (channel) =>
-            channel
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_messages",
-                  filter: `room_id=eq.${rid}`,
-                },
-                (payload) => {
-                  const eventType = payload.eventType;
-                  const nextMessage =
-                    eventType === "DELETE"
-                      ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
-                      : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
-                  if (nextMessage && messageCallbackRef.current) {
-                    messageCallbackRef.current({
-                      eventType,
-                      message: nextMessage,
-                    });
-                    if (eventType === "INSERT" && rid) {
-                      const created = new Date(nextMessage.createdAt).getTime();
-                      const delay = Date.now() - created;
-                      if (delay >= 0 && delay < 180_000) {
-                        messengerMonitorRealtimeMessageInsertDelay(rid, delay);
-                      }
-                    }
-                    if (nextMessage.messageType === "call_stub" && !cancelled) {
-                      roomCallBundleRefreshScheduler.schedule();
-                    }
-                    if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
-                      voiceRefreshScheduler.schedule();
-                    }
-                    return;
-                  }
-                  if (!cancelled) messageFallbackRefreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_participants",
-                  filter: `room_id=eq.${rid}`,
-                },
-                () => {
-                  if (!cancelled) metaRefreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_rooms",
-                  filter: `id=eq.${rid}`,
-                },
-                () => {
-                  if (!cancelled) metaRefreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_call_logs",
-                  filter: `room_id=eq.${rid}`,
-                },
-                () => {
-                  if (!cancelled) roomCallBundleRefreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_call_sessions",
-                  filter: `room_id=eq.${rid}`,
-                },
-                (payload) => {
-                  if (cancelled) return;
-                  const p = payload as {
-                    eventType?: string;
-                    new?: Record<string, unknown> | null;
-                    old?: Record<string, unknown> | null;
-                  };
-                  if (p.eventType === "DELETE") {
-                    roomCallBundleRefreshScheduler.cancel();
-                    callbackRef.current();
-                    return;
-                  }
-                  const row = p.new ?? null;
-                  const status = typeof row?.status === "string" ? row.status.trim() : "";
-                  if (
-                    status === "ended" ||
-                    status === "cancelled" ||
-                    status === "rejected" ||
-                    status === "missed"
-                  ) {
-                    roomCallBundleRefreshScheduler.cancel();
-                    callbackRef.current();
-                    return;
-                  }
-                  roomCallBundleRefreshScheduler.schedule();
-                }
-              )
-              .on(
-                "postgres_changes",
-                {
-                  event: "*",
-                  schema: "public",
-                  table: "community_messenger_call_session_participants",
-                  filter: `room_id=eq.${rid}`,
-                },
-                () => {
-                  if (!cancelled) roomCallBundleRefreshScheduler.schedule();
-                }
-              ),
+          onAfterSubscribeFailure: (_status, attempt) => {
+            if (cancelled) return;
+            if (attempt >= 2) messageFallbackRefreshScheduler.schedule();
+          },
+          build: (channel) => {
+            let c = attachCommunityMessengerRoomMessagePostgresHandlers(channel, {
+              roomId: rid,
+              isCancelled,
+              messageCallbackRef,
+              messageFallbackRefreshScheduler,
+              roomCallBundleRefreshScheduler,
+              voiceRefreshScheduler,
+            });
+            c = attachCommunityMessengerRoomMetaPostgresHandlers(c, {
+              roomId: rid,
+              isCancelled,
+              metaRefreshScheduler,
+            });
+            c = attachCommunityMessengerRoomCallPostgresHandlers(c, {
+              roomId: rid,
+              isCancelled,
+              roomCallBundleRefreshScheduler,
+              onRefreshRef: callbackRef,
+            });
+            return c;
+          },
         });
         if (cancelled) {
           roomBundle.stop();

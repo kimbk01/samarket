@@ -23,10 +23,8 @@ import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import {
-  useCommunityMessengerRoomRealtime,
-  type CommunityMessengerRoomRealtimeMessageEvent,
-} from "@/lib/community-messenger/use-community-messenger-realtime";
+import { useMessengerRoomRealtimeMessageIngest } from "@/lib/community-messenger/room/use-messenger-room-realtime-message-ingest";
+import { useMessengerRoomOpenMarkReadEffect } from "@/lib/community-messenger/room/use-messenger-room-open-mark-read-effect";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -42,7 +40,6 @@ import {
 import {
   flushMessengerMonitorQueue,
   messengerMonitorMessageRtt,
-  messengerMonitorUnreadListSync,
 } from "@/lib/community-messenger/monitoring/client";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
@@ -65,7 +62,6 @@ import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenge
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
@@ -84,7 +80,6 @@ import {
   formatVoiceRecordTenThousandths,
   getLatestCallStubForSession,
   looksLikeDirectImageUrl,
-  mapRealtimeRoomMessage,
   mergeRoomMessages,
   MicHoldIcon,
   MoreIcon,
@@ -161,10 +156,6 @@ export function useMessengerRoomClientPhase1({
   });
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
-  const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
-  /** 100+ 그룹: Realtime INSERT 폭주 시 rAF 로 한 프레임에 합쳐 렌더·diff 비용 절감 */
-  const realtimeMessageBatchRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
-  const realtimeBatchFlushRafRef = useRef<number | null>(null);
   const roomMessagesRef = useRef(roomMessages);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
@@ -418,120 +409,20 @@ export function useMessengerRoomClientPhase1({
     });
   }, [catchUpNewerMessages, refresh, roomId]);
 
-  useEffect(() => {
-    return () => {
-      if (realtimeBatchFlushRafRef.current !== null) {
-        cancelAnimationFrame(realtimeBatchFlushRafRef.current);
-        realtimeBatchFlushRafRef.current = null;
-      }
-    };
-  }, []);
-
-  const flushRealtimeMessageBatch = useCallback(() => {
-    realtimeBatchFlushRafRef.current = null;
-    const batch = realtimeMessageBatchRef.current.splice(0);
-    if (batch.length === 0) return;
-    const snap = snapshotRef.current;
-    if (!snap) {
-      pendingRealtimeRef.current.push(...batch);
-      return;
-    }
-    const rid = roomId?.trim();
-    let insertFromOthers = 0;
-    if (rid && messengerRolloutUsesRoomScrollHints() && !stickToBottomRef.current) {
-      const viewer = snap.viewerUserId;
-      for (const event of batch) {
-        if (event.eventType !== "INSERT") continue;
-        const sid = event.message.senderId;
-        if (!sid || messengerUserIdsEqual(sid, viewer)) continue;
-        insertFromOthers += 1;
-      }
-    }
-    setRoomMessages((prev) => {
-      let cur = prev;
-      for (const event of batch) {
-        if (event.eventType === "DELETE") {
-          cur = cur.filter((item) => item.id !== event.message.id);
-        } else {
-          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snap, roomMembersDisplayRef.current, event.message)]);
-        }
-      }
-      return cur;
-    });
-    if (insertFromOthers > 0 && rid) {
-      useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
-    }
-  }, [roomId]);
-
-  const handleRealtimeMessageEvent = useCallback((event: CommunityMessengerRoomRealtimeMessageEvent) => {
-    realtimeMessageBatchRef.current.push(event);
-    if (realtimeBatchFlushRafRef.current !== null) return;
-    realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
-      flushRealtimeMessageBatch();
-    });
-  }, [flushRealtimeMessageBatch]);
-
-  useEffect(() => {
-    if (!snapshot) return;
-    const queued = pendingRealtimeRef.current;
-    if (queued.length === 0) return;
-    pendingRealtimeRef.current = [];
-    setRoomMessages((prev) => {
-      let cur = prev;
-      for (const event of queued) {
-        if (event.eventType === "DELETE") {
-          cur = cur.filter((item) => item.id !== event.message.id);
-        } else {
-          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snapshot, roomMembersDisplayRef.current, event.message)]);
-        }
-      }
-      return cur;
-    });
-  }, [snapshot]);
-
-  useCommunityMessengerRoomRealtime({
+  useMessengerRoomRealtimeMessageIngest({
     roomId,
-    enabled: Boolean(roomId) && roomReadyForRealtime && snapshot !== null,
+    snapshot,
+    roomReadyForRealtime,
+    snapshotRef,
+    roomMembersDisplayRef,
+    stickToBottomRef,
+    setRoomMessages,
     onRefresh: () => {
       void refresh(true);
     },
-    onMessageEvent: handleRealtimeMessageEvent,
   });
 
-  /** 스냅샷에 미읽음이 있으면 방 열람으로 읽음 처리 — 목록·배지와 서버 정합(모니터링 `room_open`) */
-  useEffect(() => {
-    const id = roomId?.trim();
-    if (!id) return;
-    if (roomOpenMarkReadRef.current.roomId !== id) {
-      roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
-    }
-    if (!snapshot) return;
-    if (String(snapshot.room.id) !== String(id)) return;
-    if (roomOpenMarkReadRef.current.phase !== "idle") return;
-    if (snapshot.room.unreadCount < 1) return;
-    roomOpenMarkReadRef.current.phase = "in_flight";
-    const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-    void (async () => {
-      try {
-        const res = await fetch(communityMessengerRoomResourcePath(id), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ action: "mark_read" }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && json.ok && typeof performance !== "undefined") {
-          messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
-          roomOpenMarkReadRef.current.phase = "done";
-          postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
-        } else {
-          roomOpenMarkReadRef.current.phase = "idle";
-        }
-      } catch {
-        roomOpenMarkReadRef.current.phase = "idle";
-      }
-    })();
-  }, [roomId, snapshot]);
+  useMessengerRoomOpenMarkReadEffect({ roomId, snapshot, roomOpenMarkReadRef });
 
   useEffect(() => {
     if (!snapshot) {
@@ -853,7 +744,6 @@ export function useMessengerRoomClientPhase1({
   fileMessageCount,
   fileMessages,
   filteredInviteCandidates,
-  flushRealtimeMessageBatch,
   friends,
   friendsLoaded,
   groupAdminCount,
@@ -867,7 +757,6 @@ export function useMessengerRoomClientPhase1({
   groupHistorySectionRef,
   groupNoticeSectionRef,
   groupPermissionsSectionRef,
-  handleRealtimeMessageEvent,
   hasMoreOlderMessages,
   hiddenCallStubIds,
   imageInputRef,
@@ -912,12 +801,9 @@ export function useMessengerRoomClientPhase1({
   pagedRoomMembers,
   pathname,
   pendingMessageIdRef,
-  pendingRealtimeRef,
   photoMessageCount,
   prevActiveSheetRef,
   privateGroupNoticeDraft,
-  realtimeBatchFlushRafRef,
-  realtimeMessageBatchRef,
   refresh,
   replyToMessage,
   roomMembersDisplay,

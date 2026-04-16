@@ -1,0 +1,84 @@
+import type { MutableRefObject } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { messengerMonitorRealtimeMessageInsertDelay } from "@/lib/community-messenger/monitoring/client";
+import type {
+  CommunityMessengerRoomRealtimeMessageEvent,
+  CommunityMessengerRoomRealtimeMessageRow,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
+
+export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined): CommunityMessengerRoomRealtimeMessageRow | null {
+  if (!row) return null;
+  const id = typeof row.id === "string" ? row.id : "";
+  const roomId = typeof row.room_id === "string" ? row.room_id : "";
+  if (!id || !roomId) return null;
+  return {
+    id,
+    roomId,
+    senderId: typeof row.sender_id === "string" ? row.sender_id : null,
+    messageType:
+      row.message_type === "image" ||
+      row.message_type === "file" ||
+      row.message_type === "system" ||
+      row.message_type === "call_stub" ||
+      row.message_type === "voice" ||
+      row.message_type === "sticker"
+        ? row.message_type
+        : "text",
+    content: typeof row.content === "string" ? row.content : "",
+    metadata: typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : {},
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+  };
+}
+
+type Sched = { schedule: () => void; cancel: () => void };
+
+export function attachCommunityMessengerRoomMessagePostgresHandlers(
+  channel: RealtimeChannel,
+  args: {
+    roomId: string;
+    isCancelled: () => boolean;
+    messageCallbackRef: MutableRefObject<((event: CommunityMessengerRoomRealtimeMessageEvent) => void) | undefined>;
+    messageFallbackRefreshScheduler: Sched;
+    roomCallBundleRefreshScheduler: Sched;
+    voiceRefreshScheduler: Sched;
+  }
+): RealtimeChannel {
+  const rid = args.roomId;
+  return channel.on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "community_messenger_messages",
+      filter: `room_id=eq.${rid}`,
+    },
+    (payload) => {
+      const eventType = payload.eventType;
+      const nextMessage =
+        eventType === "DELETE"
+          ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
+          : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
+      if (nextMessage && args.messageCallbackRef.current) {
+        args.messageCallbackRef.current({
+          eventType,
+          message: nextMessage,
+        });
+        if (eventType === "INSERT" && rid) {
+          const created = new Date(nextMessage.createdAt).getTime();
+          const delay = Date.now() - created;
+          if (delay >= 0 && delay < 180_000) {
+            messengerMonitorRealtimeMessageInsertDelay(rid, delay);
+          }
+        }
+        if (nextMessage.messageType === "call_stub" && !args.isCancelled()) {
+          args.roomCallBundleRefreshScheduler.schedule();
+        }
+        if (nextMessage.messageType === "voice" && eventType === "INSERT" && !args.isCancelled()) {
+          args.voiceRefreshScheduler.schedule();
+        }
+        return;
+      }
+      if (!args.isCancelled()) args.messageFallbackRefreshScheduler.schedule();
+    }
+  );
+}

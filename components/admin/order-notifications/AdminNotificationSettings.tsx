@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import {
+  fetchMeNotificationSettingsGet,
+  invalidateMeNotificationSettingsGetFlight,
+} from "@/lib/me/fetch-me-notification-settings-client";
 
 type Settings = {
   trade_chat_enabled: boolean;
@@ -59,7 +63,7 @@ export function AdminNotificationSettings() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+      const res = await fetchMeNotificationSettingsGet();
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         table_missing?: boolean;
@@ -107,6 +111,7 @@ export function AdminNotificationSettings() {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && j?.ok && typeof window !== "undefined") {
+        invalidateMeNotificationSettingsGetFlight();
         window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
         setS((prev) => (prev ? { ...prev, ...partial } : prev));
       } else {

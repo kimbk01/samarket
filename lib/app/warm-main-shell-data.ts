@@ -14,9 +14,11 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { shouldRunHomeMainShellWarm } from "@/lib/runtime/next-js-dev-client";
 
 export function warmMainShellData(): void {
   if (typeof window === "undefined") return;
+  if (!shouldRunHomeMainShellWarm()) return;
   if (document.visibilityState !== "visible") return;
   if (isConstrainedNetwork()) return;
 

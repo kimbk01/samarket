@@ -16,9 +16,9 @@ export default async function CommunityMessengerPage({
 }) {
   const { tab, section, filter, kind } = await searchParams;
   /**
-   * RSC에서 `getCommunityMessengerBootstrap` 전체를 await 하면 하단 「메신저」탭 등
-   * 클라이언트 전환마다 동일 무게의 서버 작업이 RSC 페이로드를 막아 체감 지연이 누적된다.
-   * 데이터는 `useCommunityMessengerHomeBootstrap`(캐시·lite→full·home-sync)이 단일 경로로 맞춘다.
+   * RSC에서 무거운 부트스트랩을 await 하면 하단 「메신저」탭 전환마다 서버·페이로드가 쌓인다.
+   * 대신 클라이언트는 `useCommunityMessengerHomeBootstrap` + `cm-bootstrap-client-fetch`(단일 비행)·
+   * `home-sync` 묶음으로 **가볍게** 맞춘다(`docs/trade-lightweight-design.md`).
    */
   return (
     <CommunityMessengerHome

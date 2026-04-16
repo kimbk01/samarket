@@ -8,6 +8,7 @@ import {
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
+import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
 
 export function CommunityMessengerRoomClient(props: {
   roomId: string;
@@ -18,7 +19,8 @@ export function CommunityMessengerRoomClient(props: {
 }) {
   const phase1 = useMessengerRoomClientPhase1(props);
   useEffect(() => {
-    // 복귀 시 홈(리스트) 청크 로드 대기 최소화
+    if (!shouldRunMessengerListRoutePrefetch()) return;
+    // 복귀 시 홈(리스트) 청크 로드 대기 최소화 — `next dev` 에서는 컴파일 큐만 키우므로 생략
     try {
       void phase1.router.prefetch?.("/community-messenger?section=chats");
       void phase1.router.prefetch?.("/community-messenger?section=chats&filter=private_group");
