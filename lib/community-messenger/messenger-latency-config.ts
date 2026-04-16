@@ -53,6 +53,17 @@ export const MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS = readPublicEnvMs(
   2000
 );
 
+/**
+ * 방 번들 Realtime: 첫 `SUBSCRIBED` 직후 전체 스냅샷 리프레시는 RSC·첫 부트스트랩과 겹칠 수 있어
+ * **재연결**(2회째 이후)만 이 디바운스로 합친다.
+ */
+export const MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_ROOM_RESUB_RESYNC_MS",
+  520,
+  200,
+  4000
+);
+
 /** 수신 통화: postgres_changes 연속 시 GET 합류 방지 — 너무 길면 벨 지연 체감 */
 export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_RT_DEBOUNCE_MS",

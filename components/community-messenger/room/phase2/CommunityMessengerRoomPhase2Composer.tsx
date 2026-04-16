@@ -4,6 +4,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useLayoutEffect,
   useState,
 } from "react";
@@ -58,9 +59,30 @@ export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
+
+  /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
   useLayoutEffect(() => {
     setDraft(vm.message);
   }, [roomKey, vm.message]);
+
+  const commitTextSend = useCallback(() => {
+    if (
+      vm.roomUnavailable ||
+      !draft.trim() ||
+      vm.busy === "send" ||
+      vm.busy === "send-image" ||
+      vm.busy === "send-file" ||
+      vm.busy === "send-voice" ||
+      vm.busy === "send-sticker" ||
+      vm.busy === "delete-message"
+    ) {
+      return;
+    }
+    const text = draft.trim();
+    setDraft("");
+    void vm.sendMessage(text);
+  }, [draft, vm]);
+
   const { keyboardOverlapSuppressed } = useMessengerRoomMobileViewport();
   const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
   /**
@@ -128,20 +150,8 @@ export function CommunityMessengerRoomPhase2Composer() {
                   if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
                   if (e.shiftKey) return;
                   if (e.nativeEvent.isComposing) return;
-                  if (
-                    vm.roomUnavailable ||
-                    !draft.trim() ||
-                    vm.busy === "send" ||
-                    vm.busy === "send-image" ||
-                    vm.busy === "send-file" ||
-                    vm.busy === "send-voice" ||
-                    vm.busy === "send-sticker" ||
-                    vm.busy === "delete-message"
-                  ) {
-                    return;
-                  }
                   e.preventDefault();
-                  void vm.sendMessage(draft);
+                  commitTextSend();
                 }}
                 onFocus={(e) => {
                   useMessengerRoomUiStore.getState().setComposerFocused(true);
@@ -285,7 +295,7 @@ export function CommunityMessengerRoomPhase2Composer() {
           {!vm.voiceRecording ? (
             <button
               type="button"
-              onClick={() => void vm.sendMessage(draft)}
+              onClick={() => commitTextSend()}
               disabled={
                 vm.roomUnavailable ||
                 !draft.trim() ||

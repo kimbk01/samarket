@@ -21,6 +21,7 @@ import {
   MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
   MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
   MESSENGER_ROOM_META_DEBOUNCE_MS,
+  MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS,
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
@@ -79,7 +80,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     let deferredAuthCleanup: (() => void) | null = null;
 
     void (async () => {
-      const authOk = await waitForSupabaseRealtimeAuth(sb, 12_000);
+      const authOk = await waitForSupabaseRealtimeAuth(sb);
       if (cancelled) return;
 
       const bindHomeChannels = () => {
@@ -155,7 +156,7 @@ export function useCommunityMessengerRoomRealtime(args: {
     let deferredAuthCleanup: (() => void) | null = null;
 
     void (async () => {
-      const authOk = await waitForSupabaseRealtimeAuth(sb, 12_000);
+      const authOk = await waitForSupabaseRealtimeAuth(sb);
       if (cancelled) return;
 
       const bindRoomChannels = () => {
@@ -171,14 +172,20 @@ export function useCommunityMessengerRoomRealtime(args: {
           MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS
         );
         const voiceRefreshScheduler = createRefreshScheduler(callbackRef, MESSENGER_VOICE_AUX_DEBOUNCE_MS);
+        const subscribedResyncScheduler = createRefreshScheduler(
+          callbackRef,
+          MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS
+        );
         cancelSchedulers = () => {
           messageFallbackRefreshScheduler.cancel();
           metaRefreshScheduler.cancel();
           roomCallBundleRefreshScheduler.cancel();
           voiceRefreshScheduler.cancel();
+          subscribedResyncScheduler.cancel();
         };
 
         const isCancelled = () => cancelled;
+        let roomBundleSubscribedCount = 0;
 
         const roomBundle = subscribeWithRetry({
           sb,
@@ -186,8 +193,12 @@ export function useCommunityMessengerRoomRealtime(args: {
           scope: `community-messenger-room:bundle`,
           isCancelled,
           onStatus: (status) => {
-            if (status === "SUBSCRIBED") {
-              if (!cancelled) callbackRef.current();
+            if (status !== "SUBSCRIBED" || cancelled) return;
+            roomBundleSubscribedCount += 1;
+            if (roomBundleSubscribedCount === 1) {
+              callbackRef.current();
+            } else {
+              subscribedResyncScheduler.schedule();
             }
           },
           onAfterSubscribeFailure: (_status, attempt) => {
