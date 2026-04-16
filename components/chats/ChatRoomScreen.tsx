@@ -83,6 +83,9 @@ export function ChatRoomScreen({
     if (serverBootstrap?.room) return serverBootstrap.room;
     return roomId ? peekChatRoomDetailMemory(roomId) : null;
   });
+  /** `reload` 클로저가 최신 방을 보도록 — 이미 열린 방 재검증 시 Realtime 을 끊지 않는 데 사용 */
+  const roomRef = useRef(room);
+  roomRef.current = room;
   const [loading, setLoading] = useState(() => {
     if (serverBootstrap?.room) return false;
     return Boolean(roomId && !peekChatRoomDetailMemory(roomId));
@@ -142,8 +145,11 @@ export function ChatRoomScreen({
       return;
     }
     const hadPeek = Boolean(peekChatRoomDetailMemory(roomId));
+    const id = roomId.trim();
+    const sameRoomAlreadyShown = Boolean(roomRef.current?.id && roomRef.current.id.trim() === id);
     if (!hadPeek && !options?.bypassPeek) setLoading(true);
-    if (!hadPeek && !options?.bypassPeek) setTradeChatBootstrapReady(false);
+    /** 동일 방 UI가 이미 있으면 구독 게이트를 내리지 않음 — 부트스트랩 재검증 중에도 상대 메시지 수신 유지 */
+    if (!hadPeek && !options?.bypassPeek && !sameRoomAlreadyShown) setTradeChatBootstrapReady(false);
     setErr(null);
     if (bootstrapFullIdleIdRef.current != null) {
       cancelScheduledWhenBrowserIdle(bootstrapFullIdleIdRef.current);
@@ -432,9 +438,13 @@ export function ChatRoomScreen({
     void reload();
   }, [roomId, resolvedUserId, serverBootstrap?.room?.id, reload]);
 
-  useRefetchOnPageShowRestore(() => {
-    void hardRefreshBootstrap();
-  });
+  /** bfcache 복원만 전체 부트스트랩 — 탭/앱 전환마다 `visibility` 때마다 `bypassPeek` GET 이 겹치면 DB·메인 스레드만 쓰고 Realtime 과 경합한다. */
+  useRefetchOnPageShowRestore(
+    () => {
+      void hardRefreshBootstrap();
+    },
+    { enableVisibilityRefetch: false }
+  );
 
   /** 거래 채팅 진입 마커 — early return 앞에 두어 hooks 순서 고정 */
   useEffect(() => {

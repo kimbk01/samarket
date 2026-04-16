@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { ChatMessage } from "@/lib/types/chat";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
 import { groupMessageRowToChatMessage } from "@/lib/group-chat/map-group-message-row";
@@ -114,6 +115,9 @@ export function useChatRoomRealtime(args: {
 
       const myGen = ++connectGen;
       await removeChannel();
+      if (cancelled || myGen !== connectGen) return;
+
+      await waitForSupabaseRealtimeAuth(sb);
       if (cancelled || myGen !== connectGen) return;
 
       emitConn(attempt > 0 ? "reconnecting" : "connecting");

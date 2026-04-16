@@ -361,6 +361,7 @@ export function useMessengerRoomPhase2Controller() {
   );
 
   const {
+    voiceMicArming,
     voiceRecording,
     voiceHandsFree,
     voiceRecordElapsedMs,
@@ -1412,7 +1413,7 @@ export function useMessengerRoomPhase2Controller() {
       cancelled = true;
       tone?.stop();
     };
-  }, [isGroupRoom, callPanel]);
+  }, [isGroupRoom, callPanel?.sessionId, callPanel?.mode, callPanel?.kind]);
 
   const roomHeaderStatus = useMemo(() => {
     if (!snapshot) return "";
@@ -1458,6 +1459,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNoticeStatusLabel,
     returnToCallSessionId,
     getRoomActionErrorMessage,
+    voiceMicArming,
     voiceRecording,
     voiceHandsFree,
     voiceRecordElapsedMs,

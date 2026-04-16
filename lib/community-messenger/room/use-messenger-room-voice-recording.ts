@@ -16,6 +16,7 @@ import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
   downsampleVoiceWaveformPeaks,
 } from "@/lib/community-messenger/voice-waveform";
+import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/lib/community-messenger/measure-voice-blob-duration";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 
 export type UseMessengerRoomVoiceRecordingParams = {
@@ -69,6 +70,8 @@ export function useMessengerRoomVoiceRecording({
   const voicePointerDownRef = useRef(false);
 
   const [voiceRecording, setVoiceRecording] = useState(false);
+  /** 마이크 권한·스트림 준비 중(녹음 시작 전) — UI 리플 표시용 */
+  const [voiceMicArming, setVoiceMicArming] = useState(false);
   const [voiceHandsFree, setVoiceHandsFree] = useState(false);
   const [voiceRecordElapsedMs, setVoiceRecordElapsedMs] = useState(0);
   const [voiceLivePreviewBars, setVoiceLivePreviewBars] = useState<number[]>([]);
@@ -79,6 +82,7 @@ export function useMessengerRoomVoiceRecording({
     async (shouldUpload: boolean) => {
       if (voiceFinalizingRef.current) return;
       voiceFinalizingRef.current = true;
+      setVoiceMicArming(false);
       setVoiceHandsFree(false);
       setVoiceLockHint(false);
       voiceHasLockedGestureRef.current = false;
@@ -124,7 +128,7 @@ export function useMessengerRoomVoiceRecording({
 
       const chunks = [...mediaChunksRef.current];
       mediaChunksRef.current = [];
-      const durationSeconds =
+      const wallDurationSeconds =
         recordStartPerfRef.current > 0 ? (performance.now() - recordStartPerfRef.current) / 1000 : startedAt
           ? (Date.now() - startedAt) / 1000
           : 0;
@@ -157,6 +161,21 @@ export function useMessengerRoomVoiceRecording({
       }
       if (!snapshot) {
         voiceFinalizingRef.current = false;
+        return;
+      }
+
+      const measuredSeconds = await measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout(blob);
+      const durationSeconds =
+        measuredSeconds != null &&
+        Number.isFinite(measuredSeconds) &&
+        measuredSeconds > 0.04 &&
+        Math.abs(measuredSeconds - wallDurationSeconds) < 25
+          ? measuredSeconds
+          : wallDurationSeconds;
+
+      if (durationSeconds < 0.32) {
+        voiceFinalizingRef.current = false;
+        showMessengerSnackbar("녹음이 너무 짧습니다.", { variant: "error" });
         return;
       }
 
@@ -235,6 +254,7 @@ export function useMessengerRoomVoiceRecording({
 
   const abortVoiceArmOnly = useCallback(() => {
     voicePointerDownRef.current = false;
+    setVoiceMicArming(false);
     if (voiceUiRafRef.current != null) {
       cancelAnimationFrame(voiceUiRafRef.current);
       voiceUiRafRef.current = null;
@@ -279,6 +299,7 @@ export function useMessengerRoomVoiceRecording({
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
       const session = ++voiceSessionIdRef.current;
+      setVoiceMicArming(true);
       voicePointerDownRef.current = true;
       voiceCancelledRef.current = false;
       voiceHasLockedGestureRef.current = false;
@@ -295,10 +316,12 @@ export function useMessengerRoomVoiceRecording({
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (session !== voiceSessionIdRef.current) {
           stream.getTracks().forEach((t) => t.stop());
+          setVoiceMicArming(false);
           return;
         }
         if (!voicePointerDownRef.current) {
           stream.getTracks().forEach((t) => t.stop());
+          setVoiceMicArming(false);
           return;
         }
 
@@ -323,6 +346,7 @@ export function useMessengerRoomVoiceRecording({
               variant: "error",
             });
           }
+          setVoiceMicArming(false);
           return;
         }
 
@@ -335,11 +359,13 @@ export function useMessengerRoomVoiceRecording({
           stream.getTracks().forEach((t) => t.stop());
           mediaRecorderRef.current = null;
           recordStreamRef.current = null;
+          setVoiceMicArming(false);
           return;
         }
 
         recordStartMsRef.current = Date.now();
         recordStartPerfRef.current = performance.now();
+        setVoiceMicArming(false);
         setVoiceRecording(true);
         setVoiceRecordElapsedMs(0);
         setVoiceLivePreviewBars([]);
@@ -409,6 +435,7 @@ export function useMessengerRoomVoiceRecording({
           /* ignore */
         }
       } catch {
+        setVoiceMicArming(false);
         if (session === voiceSessionIdRef.current) {
           showMessengerSnackbar(
             getCommunityMessengerPermissionGuide("voice")?.description ??
@@ -511,6 +538,7 @@ export function useMessengerRoomVoiceRecording({
   }, []);
 
   return {
+    voiceMicArming,
     voiceRecording,
     voiceHandsFree,
     voiceRecordElapsedMs,

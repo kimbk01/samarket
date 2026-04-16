@@ -65,6 +65,8 @@ export function getMessengerRoomActionErrorMessage(
       return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
     case "file_too_large":
       return "파일 용량이 너무 큽니다.";
+    case "file_too_small":
+      return "음성 파일이 너무 짧거나 비어 있습니다. 조금 더 길게 녹음해 주세요.";
     case "unsupported_audio":
       return t("nav_messenger_voice_unsupported");
     case "unsupported_image":

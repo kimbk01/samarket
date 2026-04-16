@@ -18,7 +18,10 @@ import { buildMessengerRtcConfiguration } from "@/lib/call/webrtc-configuration"
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { playCommunityMessengerCallSignalSound } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  playCommunityMessengerCallSignalSound,
+  stopCommunityMessengerCallFeedback,
+} from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -532,9 +535,53 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
       if (signal.signalType === "hangup") {
         cleanupPeer(signal.fromUserId);
+        const sid = String(signal.sessionId ?? "").trim();
+        const active = args.activeCall;
+        const activeId = active?.id?.trim() ?? "";
+        if (sid && activeId && messengerUserIdsEqual(sid, activeId)) {
+          const payload =
+            signal.payload && typeof signal.payload === "object"
+              ? (signal.payload as Record<string, unknown>)
+              : null;
+          const reason = typeof payload?.reason === "string" ? payload.reason : "";
+          if (panel?.mode === "incoming") {
+            suppressIncomingPanelForSessionIdRef.current = sid;
+            stopCommunityMessengerCallFeedback();
+            cleanupMedia();
+            setPanel(null);
+            void (async () => {
+              try {
+                await args.onRefresh();
+              } finally {
+                suppressIncomingPanelForSessionIdRef.current = null;
+              }
+            })();
+            return;
+          }
+          if (panel?.mode === "dialing" && active?.isMineInitiator && (reason === "reject" || reason === "cancel")) {
+            stopCommunityMessengerCallFeedback();
+            cleanupMedia();
+            setPanel(null);
+            void args.onRefresh();
+          }
+        }
       }
     },
-    [args.activeCall?.callKind, args.viewerUserId, cleanupPeer, currentSessionId, ensurePeerConnection, flushPendingCandidates, panel?.kind, participants, sendSignal]
+    [
+      args.activeCall,
+      args.onRefresh,
+      args.viewerUserId,
+      cleanupMedia,
+      cleanupPeer,
+      currentSessionId,
+      ensurePeerConnection,
+      flushPendingCandidates,
+      panel?.kind,
+      panel?.mode,
+      panel?.sessionId,
+      participants,
+      sendSignal,
+    ]
   );
 
   useEffect(() => {

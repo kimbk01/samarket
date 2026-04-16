@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 
 /** Supabase `in` 필터 한도에 맞춤 — 커뮤니티 메신저 홈 청크와 동일 여유 */
 const INTEGRATED_CHAT_LIST_IN_FILTER_MAX = 90;
@@ -38,7 +39,8 @@ export function useIntegratedChatRoomListRealtime(args: {
 
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const channels: RealtimeChannel[] = [];
+    /** `waitFor` 이후 비동기로 채워짐 — cleanup 이 빈 배열로 끝나는 레이스 방지 */
+    const mountedChannels: RealtimeChannel[] = [];
 
     const scheduleStale = () => {
       if (debounceTimer != null) return;
@@ -48,22 +50,27 @@ export function useIntegratedChatRoomListRealtime(args: {
       }, LIST_STALE_DEBOUNCE_MS);
     };
 
-    const roomIds = fp.split("\0").filter(Boolean);
-    for (let offset = 0; offset < roomIds.length; offset += INTEGRATED_CHAT_LIST_IN_FILTER_MAX) {
-      const chunk = roomIds.slice(offset, offset + INTEGRATED_CHAT_LIST_IN_FILTER_MAX);
-      const filter = `room_id=in.(${chunk.join(",")})`;
-      const ch = sb
-        .channel(`integrated-chat-list:msgs:${args.userId.trim()}:${offset}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "chat_messages", filter },
-          () => {
-            if (!cancelled) scheduleStale();
-          }
-        )
-        .subscribe();
-      channels.push(ch);
-    }
+    void (async () => {
+      await waitForSupabaseRealtimeAuth(sb);
+      if (cancelled) return;
+      const roomIds = fp.split("\0").filter(Boolean);
+      for (let offset = 0; offset < roomIds.length; offset += INTEGRATED_CHAT_LIST_IN_FILTER_MAX) {
+        if (cancelled) break;
+        const chunk = roomIds.slice(offset, offset + INTEGRATED_CHAT_LIST_IN_FILTER_MAX);
+        const filter = `room_id=in.(${chunk.join(",")})`;
+        const ch = sb
+          .channel(`integrated-chat-list:msgs:${args.userId.trim()}:${offset}`)
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "chat_messages", filter },
+            () => {
+              if (!cancelled) scheduleStale();
+            }
+          )
+          .subscribe();
+        mountedChannels.push(ch);
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -71,9 +78,10 @@ export function useIntegratedChatRoomListRealtime(args: {
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
-      for (const ch of channels) {
+      for (const ch of mountedChannels) {
         void sb.removeChannel(ch);
       }
+      mountedChannels.length = 0;
     };
   }, [args.enabled, args.userId, fp, onStaleRef]);
 }

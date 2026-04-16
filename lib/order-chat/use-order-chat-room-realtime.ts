@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import type { OrderChatMessagePublic } from "@/lib/order-chat/types";
 function mapOrderChatMessageRow(row: Record<string, unknown> | null | undefined): OrderChatMessagePublic | null {
   if (!row) return null;
@@ -70,7 +71,7 @@ export function useOrderChatRoomRealtime(args: {
     const rid = args.roomId.trim();
     let cancelled = false;
     let metaTimer: ReturnType<typeof setTimeout> | null = null;
-    let ch: RealtimeChannel | null = null;
+    const channelHolder: { current: RealtimeChannel | null } = { current: null };
 
     const scheduleRoomStale = () => {
       if (!staleRef.current) return;
@@ -82,39 +83,43 @@ export function useOrderChatRoomRealtime(args: {
     };
 
     healthRef.current?.(false);
-    ch = sb
-      .channel(`order-chat-room:${rid}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_chat_messages", filter: `room_id=eq.${rid}` },
-        (payload) => {
+    void (async () => {
+      await waitForSupabaseRealtimeAuth(sb);
+      if (cancelled) return;
+      channelHolder.current = sb
+        .channel(`order-chat-room:${rid}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "order_chat_messages", filter: `room_id=eq.${rid}` },
+          (payload) => {
+            if (cancelled) return;
+            if (payload.eventType === "DELETE") {
+              const id = (payload.old as Record<string, unknown> | undefined)?.id;
+              if (typeof id === "string") removedRef.current?.(id);
+              return;
+            }
+            const msg = mapOrderChatMessageRow(payload.new as Record<string, unknown> | undefined);
+            if (msg) upsertRef.current(msg);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "order_chat_rooms", filter: `id=eq.${rid}` },
+          () => {
+            if (!cancelled) scheduleRoomStale();
+          }
+        )
+        .subscribe((status) => {
           if (cancelled) return;
-          if (payload.eventType === "DELETE") {
-            const id = (payload.old as Record<string, unknown> | undefined)?.id;
-            if (typeof id === "string") removedRef.current?.(id);
+          if (status === "SUBSCRIBED") {
+            healthRef.current?.(true);
             return;
           }
-          const msg = mapOrderChatMessageRow(payload.new as Record<string, unknown> | undefined);
-          if (msg) upsertRef.current(msg);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "order_chat_rooms", filter: `id=eq.${rid}` },
-        () => {
-          if (!cancelled) scheduleRoomStale();
-        }
-      )
-      .subscribe((status) => {
-        if (cancelled) return;
-        if (status === "SUBSCRIBED") {
-          healthRef.current?.(true);
-          return;
-        }
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          healthRef.current?.(false);
-        }
-      });
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            healthRef.current?.(false);
+          }
+        });
+    })();
 
     return () => {
       cancelled = true;
@@ -123,6 +128,8 @@ export function useOrderChatRoomRealtime(args: {
         clearTimeout(metaTimer);
         metaTimer = null;
       }
+      const ch = channelHolder.current;
+      channelHolder.current = null;
       if (ch) void sb.removeChannel(ch);
     };
   }, [args.enabled, args.roomId]);

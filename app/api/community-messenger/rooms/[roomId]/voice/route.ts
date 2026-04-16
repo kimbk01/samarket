@@ -64,6 +64,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ ok: false, error: "file_too_large" }, { status: 413 });
   }
+  /** 빈·손상 청크 업로드 방지 — 클라이언트도 `blob.size` 로 1차 검사 */
+  if (file.size < 380) {
+    return NextResponse.json({ ok: false, error: "file_too_small" }, { status: 400 });
+  }
 
   const rawMime = (file.type || "audio/webm").toLowerCase();
   const mimeBase = rawMime.split(";")[0]!.trim();

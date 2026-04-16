@@ -322,10 +322,12 @@ export function ChatInputBar({
           }}
           maxLength={maxLength}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
+            if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
+            if (e.shiftKey) return;
+            /** 한글·중국어 IME 조합 확정 Enter 는 전송하지 않음 */
+            if (e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            handleSubmit();
           }}
           placeholder={placeholder}
           rows={1}

@@ -69,6 +69,11 @@ const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:direc
 const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
 /** 사용자가 거절한 세션을 merge·Realtime 이 다시 살리지 못하게 함 */
 const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
+/**
+ * 발신 취소·hangup 직후 GET/폴링이 `ringing` 스냅샷을 한 번 더 주는 레이스에서
+ * 수신 벨이 잠깐 멈췄다가 다시 울리는 현상을 막는다(서버는 이미 종료, 클라만 오래된 행을 본 경우).
+ */
+const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
 
 function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
   const now = Date.now();
@@ -89,6 +94,33 @@ function filterIncomingSessionsRespectingDismissed(
   const now = Date.now();
   pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
   return list.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
+}
+
+function pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId: Map<string, number>) {
+  const now = Date.now();
+  for (const [id, at] of [...hardClearedAtBySessionId.entries()]) {
+    if (now - at > INCOMING_REMOTE_HARD_CLEAR_KEEP_MS) hardClearedAtBySessionId.delete(id);
+  }
+}
+
+function isHardClearedIncomingSession(id: string, hardClearedAtBySessionId: Map<string, number>, now: number): boolean {
+  const at = hardClearedAtBySessionId.get(id);
+  return at != null && now - at <= INCOMING_REMOTE_HARD_CLEAR_KEEP_MS;
+}
+
+function filterIncomingSessionsRespectingHardClear(
+  list: CommunityMessengerCallSession[],
+  hardClearedAtBySessionId: Map<string, number>
+): CommunityMessengerCallSession[] {
+  const now = Date.now();
+  pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId);
+  return list.filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
+}
+
+function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string, number>, sessionId: string) {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  hardClearedAtBySessionId.set(sid, Date.now());
 }
 
 function isTerminalCallSessionStatusValue(status: unknown): boolean {
@@ -125,6 +157,8 @@ export function GlobalCommunityMessengerIncomingCall() {
    * (타임스탬프로 TTL 후 정리)
    */
   const dismissedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
+  /** 원격 취소·종료·hangup 신호를 받은 세션 — stale `ringing` GET/낙관 merge 로 벨이 재시작되지 않게 함 */
+  const hardClearedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
   /** Realtime SUBSCRIBED 여부 — 백업 폴링 간격만 바꿈(폴링 완전 생략은 하지 않음) */
@@ -159,6 +193,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     incomingSurfaceLoggedRef.current.clear();
+    hardClearedIncomingSessionsAtRef.current.clear();
   }, [userId]);
 
   useEffect(() => {
@@ -226,7 +261,8 @@ export function GlobalCommunityMessengerIncomingCall() {
               viewerUserIdRef.current,
               serverList,
               prev,
-              dismissedIncomingSessionsAtRef.current
+              dismissedIncomingSessionsAtRef.current,
+              hardClearedIncomingSessionsAtRef.current
             )
           );
           setIncomingListError(null);
@@ -369,8 +405,12 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!sb) return;
     let cancelled = false;
     const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, userId, {
-      onRing: () => {
+      onRing: (payload) => {
         if (cancelled) return;
+        const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
+        const now = Date.now();
+        pruneHardClearedIncomingSessionIds(hardClearedIncomingSessionsAtRef.current);
+        if (sid && isHardClearedIncomingSession(sid, hardClearedIncomingSessionsAtRef.current, now)) return;
         bumpIncomingListFastSync();
       },
       onHangup: (payload) => {
@@ -379,6 +419,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         const roomId = typeof payload.roomId === "string" ? payload.roomId.trim() : "";
         if (roomId) postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId, at: Date.now() });
         if (sid) {
+          markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
           suppressMissedSoundRef.current.add(sid);
           stopCommunityMessengerCallFeedback();
           setSessions((prev) => prev.filter((s) => s.id !== sid));
@@ -410,6 +451,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (d.type === "samarket_messenger_call_canceled_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         if (sid) {
+          markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
           suppressMissedSoundRef.current.add(sid);
           stopCommunityMessengerCallFeedback();
           setSessions((prev) => prev.filter((s) => s.id !== sid));
@@ -463,13 +505,23 @@ export function GlobalCommunityMessengerIncomingCall() {
                   old: p.old ?? null,
                 });
                 /* 거절 직후 stale UPDATE(ring) 이 오면 오버레이가 부활·카운트다운이 이어지는 것을 막음 */
-                return filterIncomingSessionsRespectingDismissed(merged, dismissedIncomingSessionsAtRef.current);
+                const afterDismissed = filterIncomingSessionsRespectingDismissed(
+                  merged,
+                  dismissedIncomingSessionsAtRef.current
+                );
+                return filterIncomingSessionsRespectingHardClear(
+                  afterDismissed,
+                  hardClearedIncomingSessionsAtRef.current
+                );
               });
               const newRow = p.new ?? null;
               const nextStatus = typeof newRow?.status === "string" ? String(newRow.status).trim() : "";
               if (p.eventType === "UPDATE" && nextStatus.length > 0 && nextStatus !== "ringing") {
                 const sid = typeof newRow?.id === "string" ? newRow.id.trim() : "";
-                if (sid) suppressMissedSoundRef.current.add(sid);
+                if (sid) {
+                  suppressMissedSoundRef.current.add(sid);
+                  markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+                }
               }
               const terminal = isTerminalCallSessionStatusValue(newRow?.status) || p.eventType === "DELETE";
               if (terminal) {
@@ -479,7 +531,10 @@ export function GlobalCommunityMessengerIncomingCall() {
                     : typeof (p.old as Record<string, unknown> | null)?.id === "string"
                       ? String((p.old as Record<string, unknown>).id)
                       : "";
-                if (sid) suppressMissedSoundRef.current.add(sid);
+                if (sid) {
+                  markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+                  suppressMissedSoundRef.current.add(sid);
+                }
                 stopCommunityMessengerCallFeedback();
                 if (realtimeDebounceTimerRef.current != null) {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
@@ -511,6 +566,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               if (String(row.signal_type ?? "") !== "hangup") return;
               const sid = row.session_id == null ? "" : String(row.session_id).trim();
               if (!sid) return;
+              markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
               suppressMissedSoundRef.current.add(sid);
               stopCommunityMessengerCallFeedback();
               setSessions((prev) => prev.filter((s) => s.id !== sid));
@@ -648,7 +704,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const visibleSessionStatus = visibleSession?.status ?? null;
   const visibleSessionCallKind = visibleSession?.callKind ?? null;
   const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
-  const bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
+  const _bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
 
   useEffect(() => {
     if (visibleSessionStatus !== "ringing") return;
@@ -827,18 +883,26 @@ function mergeIncomingCallSessionsAfterFetch(
   viewerUserId: string | null,
   serverList: CommunityMessengerCallSession[],
   previous: CommunityMessengerCallSession[],
-  dismissedAtBySessionId: Map<string, number>
+  dismissedAtBySessionId: Map<string, number>,
+  hardClearedAtBySessionId: Map<string, number>
 ): CommunityMessengerCallSession[] {
   const now = Date.now();
   pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
+  pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId);
 
   if (!viewerUserId) {
-    return serverList.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
+    return serverList
+      .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
+      .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
   }
 
-  const serverFiltered = serverList.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
+  const serverFiltered = serverList
+    .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
+    .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
   const serverIds = new Set(serverFiltered.map((s) => s.id));
-  const previousFiltered = previous.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
+  const previousFiltered = previous
+    .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
+    .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
   const optimisticExtras = previousFiltered.filter((s) => {
     if (serverIds.has(s.id)) return false;
     if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;

@@ -53,16 +53,19 @@ import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2View();
   const keyboardInsetPx = useMobileKeyboardInset();
-  const footerBottomPadPx = Math.max(10, keyboardInsetPx + 10);
+  /** 키보드 없을 때만 여백; 키보드 시에는 inset만 (이중 여백으로 키보드 위 빈틈 방지) */
+  const footerExtraBottomPx = keyboardInsetPx > 0 ? keyboardInsetPx : 10;
   return (
     <>
       <footer
-        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2.5 transition-[background-color,box-shadow] duration-300 ${
+        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pt-2.5 transition-[background-color,box-shadow] duration-300 ${
           vm.voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-6px_18px_rgba(42,171,238,0.08)]"
             : "bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_28px_rgba(17,24,39,0.07)]"
         }`}
-        style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerBottomPadPx}px)` }}
+        style={{
+          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
+        }}
       >
         <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_auto] items-center gap-2">
           {!vm.voiceRecording ? (
@@ -83,6 +86,24 @@ export function CommunityMessengerRoomPhase2Composer() {
                 ref={vm.composerTextareaRef}
                 value={vm.message}
                 onChange={(e) => vm.setMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
+                  if (e.shiftKey) return;
+                  if (e.nativeEvent.isComposing) return;
+                  if (
+                    vm.roomUnavailable ||
+                    !vm.message.trim() ||
+                    vm.busy === "send" ||
+                    vm.busy === "send-image" ||
+                    vm.busy === "send-file" ||
+                    vm.busy === "send-voice" ||
+                    vm.busy === "delete-message"
+                  ) {
+                    return;
+                  }
+                  e.preventDefault();
+                  void vm.sendMessage();
+                }}
                 onFocus={() => {
                   useMessengerRoomUiStore.getState().setComposerFocused(true);
                 }}
@@ -148,7 +169,11 @@ export function CommunityMessengerRoomPhase2Composer() {
           </div>
 
           {!vm.voiceHandsFree ? (
-            <div className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center self-center overflow-visible">
+            <div
+              className={`relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center self-center overflow-visible ${
+                (vm.voiceRecording && !vm.voiceHandsFree) || vm.voiceMicArming ? "sam-cm-voice-mic-ripple-host" : ""
+              }`}
+            >
               {vm.voiceRecording && !vm.voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-10 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
@@ -177,10 +202,12 @@ export function CommunityMessengerRoomPhase2Composer() {
                   Boolean(vm.message.trim()) ||
                   (vm.voiceRecording && vm.voiceHandsFree)
                 }
-                className={`touch-none flex h-10 w-10 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-transform duration-200 active:scale-95 disabled:opacity-35 ${
-                  vm.voiceRecording && !vm.voiceHandsFree
-                    ? "scale-110 bg-sam-ink text-white ring-4 ring-sam-border shadow-lg"
-                    : "bg-sam-border-soft text-sam-fg ring-2 ring-sam-border"
+                className={`sam-cm-voice-mic-ripple-btn touch-none flex h-10 w-10 shrink-0 origin-center select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color] duration-200 active:scale-95 disabled:opacity-35 ${
+                  vm.voiceMicArming && !vm.voiceRecording
+                    ? "scale-[1.06] bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-[3px] ring-[color:var(--cm-room-primary)]"
+                    : vm.voiceRecording && !vm.voiceHandsFree
+                      ? "scale-[1.14] bg-[color:var(--cm-room-primary)] text-white shadow-lg ring-[3px] ring-white/55"
+                      : "bg-sam-border-soft text-sam-fg ring-2 ring-sam-border"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                 title={

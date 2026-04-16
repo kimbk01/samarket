@@ -1,14 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  COMMUNITY_MESSENGER_VOICE_PLAY_EVENT,
+  dispatchCommunityMessengerVoicePlay,
+} from "@/lib/community-messenger/voice-playback-bus";
 
 function formatVoiceDuration(totalSec: number): string {
-  const s = Math.max(0, Math.floor(totalSec));
+  const s = Math.max(0, Math.ceil(totalSec));
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, "0")}`;
 }
+
+const PLAYBACK_RATES = [1, 1.5, 2] as const;
 
 const PLACEHOLDER_BARS = 40;
 
@@ -41,13 +56,18 @@ export function VoiceMessageBubble({
   mineBubbleStyle?: "signature" | "viberLight";
 }) {
   const { t } = useI18n();
+  const instanceId = useId();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const waveformRef = useRef<HTMLDivElement | null>(null);
   const playIntentRef = useRef(false);
   const [activeSrc, setActiveSrc] = useState(src);
   const [usedFallback, setUsedFallback] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [loadError, setLoadError] = useState(false);
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
+  const [rateIdx, setRateIdx] = useState(0);
+  const playbackRate = PLAYBACK_RATES[rateIdx] ?? 1;
 
   useEffect(() => {
     setActiveSrc(src);
@@ -55,8 +75,33 @@ export function VoiceMessageBubble({
     setLoadError(false);
     setPlaying(false);
     setProgress(0);
+    setRemainingSec(null);
     playIntentRef.current = false;
+    setRateIdx(0);
   }, [src]);
+
+  const pauseSelf = useCallback(() => {
+    const el = audioRef.current;
+    if (el) {
+      try {
+        el.pause();
+      } catch {
+        /* ignore */
+      }
+    }
+    playIntentRef.current = false;
+    setPlaying(false);
+    setRemainingSec(null);
+  }, []);
+
+  useEffect(() => {
+    const onOtherPlay = (ev: Event) => {
+      const id = (ev as CustomEvent<{ id?: string }>).detail?.id;
+      if (id && id !== instanceId) pauseSelf();
+    };
+    window.addEventListener(COMMUNITY_MESSENGER_VOICE_PLAY_EVENT, onOtherPlay);
+    return () => window.removeEventListener(COMMUNITY_MESSENGER_VOICE_PLAY_EVENT, onOtherPlay);
+  }, [instanceId, pauseSelf]);
 
   const bars = useMemo(() => {
     if (waveformPeaks && waveformPeaks.length > 0) return waveformPeaks;
@@ -82,15 +127,22 @@ export function VoiceMessageBubble({
 
   const playbackBlocked = !pending && !safePlaybackSrc;
 
+  useEffect(() => {
+    const el = audioRef.current;
+    if (el) el.playbackRate = playbackRate;
+  }, [playbackRate, safePlaybackSrc]);
+
   const onTimeUpdate = useCallback(() => {
     const el = audioRef.current;
     if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
     setProgress((el.currentTime / el.duration) * 100);
+    setRemainingSec(Math.max(0, el.duration - el.currentTime));
   }, []);
 
   const onEnded = useCallback(() => {
     setPlaying(false);
     setProgress(0);
+    setRemainingSec(null);
     const el = audioRef.current;
     if (el) el.currentTime = 0;
   }, []);
@@ -106,6 +158,33 @@ export function VoiceMessageBubble({
     setPlaying(false);
   }, [activeSrc, fallbackSrc, usedFallback]);
 
+  const seekFromClientX = useCallback((clientX: number) => {
+    const el = audioRef.current;
+    const wrap = waveformRef.current;
+    if (!el || !wrap || loadError || playbackBlocked) return;
+    if (!Number.isFinite(el.duration) || el.duration <= 0) return;
+    const rect = wrap.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    el.currentTime = ratio * el.duration;
+    setProgress(ratio * 100);
+    setRemainingSec(Math.max(0, el.duration - el.currentTime));
+  }, [loadError, playbackBlocked]);
+
+  const onWaveformPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      seekFromClientX(e.clientX);
+    },
+    [seekFromClientX]
+  );
+
+  const cyclePlaybackRate = useCallback((e: ReactMouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setRateIdx((i) => (i + 1) % PLAYBACK_RATES.length);
+  }, []);
+
   const toggle = useCallback(() => {
     const el = audioRef.current;
     if (!el || loadError || playbackBlocked) return;
@@ -113,36 +192,54 @@ export function VoiceMessageBubble({
       playIntentRef.current = false;
       el.pause();
       setPlaying(false);
+      setRemainingSec(null);
       return;
     }
     playIntentRef.current = true;
+    dispatchCommunityMessengerVoicePlay(instanceId);
+    el.playbackRate = playbackRate;
     void el
       .play()
       .then(() => {
         playIntentRef.current = false;
         setPlaying(true);
+        if (Number.isFinite(el.duration) && el.duration > 0) {
+          setRemainingSec(Math.max(0, el.duration - el.currentTime));
+        }
       })
       .catch(() => {
         playIntentRef.current = false;
         setPlaying(false);
+        setRemainingSec(null);
       });
-  }, [loadError, playbackBlocked, playing]);
+  }, [instanceId, loadError, playbackBlocked, playbackRate, playing]);
 
   const onCanPlay = useCallback(() => {
     const el = audioRef.current;
-    if (!el || pending || loadError || !playIntentRef.current) return;
-    void el.play().then(() => {
-      playIntentRef.current = false;
-      setPlaying(true);
-    }).catch(() => {
-      playIntentRef.current = false;
-      setPlaying(false);
-    });
-  }, [loadError, pending]);
+    if (!el || loadError || !playIntentRef.current) return;
+    el.playbackRate = playbackRate;
+    void el
+      .play()
+      .then(() => {
+        playIntentRef.current = false;
+        setPlaying(true);
+        if (Number.isFinite(el.duration) && el.duration > 0) {
+          setRemainingSec(Math.max(0, el.duration - el.currentTime));
+        }
+      })
+      .catch(() => {
+        playIntentRef.current = false;
+        setPlaying(false);
+        setRemainingSec(null);
+      });
+  }, [loadError, playbackRate]);
 
   const mineLight = isMine && mineBubbleStyle === "viberLight";
   const inactiveBar = isMine ? (mineLight ? "bg-sam-surface/35" : "bg-sam-surface/30") : "bg-sam-border-soft";
   const activeBar = isMine ? (mineLight ? "bg-[color:var(--cm-room-primary)]" : "bg-sam-surface") : "bg-sam-ink";
+
+  const durationLabelSec =
+    playing && remainingSec != null && Number.isFinite(remainingSec) ? remainingSec : Math.max(0, durationSeconds);
 
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
@@ -150,7 +247,7 @@ export function VoiceMessageBubble({
         <button
           type="button"
           onClick={toggle}
-          disabled={pending || loadError || playbackBlocked}
+          disabled={loadError || playbackBlocked}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine
               ? mineLight
@@ -172,7 +269,28 @@ export function VoiceMessageBubble({
           )}
         </button>
         <div className="flex min-h-[36px] min-w-0 flex-1 flex-col justify-center gap-1">
-          <div className="flex h-8 w-full items-end justify-between gap-[1.5px]">
+          <div
+            ref={waveformRef}
+            className="flex h-8 w-full cursor-pointer touch-none select-none items-end justify-between gap-[1.5px]"
+            onPointerDown={onWaveformPointerDown}
+            role="slider"
+            tabIndex={0}
+            aria-label={t("nav_messenger_voice_waveform_seek")}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            onKeyDown={(e) => {
+              const el = audioRef.current;
+              if (!el || !Number.isFinite(el.duration) || el.duration <= 0) return;
+              if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                el.currentTime = Math.max(0, el.currentTime - Math.min(3, el.duration * 0.05));
+              } else if (e.key === "ArrowRight") {
+                e.preventDefault();
+                el.currentTime = Math.min(el.duration, el.currentTime + Math.min(3, el.duration * 0.05));
+              }
+            }}
+          >
             {bars.map((peak, i) => {
               const t = bars.length > 1 ? i / (bars.length - 1) : 0;
               const played = progress / 100;
@@ -192,7 +310,25 @@ export function VoiceMessageBubble({
               isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-sam-muted"
             }`}
           >
-            <span className="shrink-0 tabular-nums font-medium">{formatVoiceDuration(durationSeconds)}</span>
+            <span className="flex min-w-0 items-baseline gap-1.5 tabular-nums">
+              <span className="shrink-0 font-medium">{formatVoiceDuration(durationLabelSec)}</span>
+              {safePlaybackSrc && !loadError ? (
+                <button
+                  type="button"
+                  onClick={cyclePlaybackRate}
+                  className={`shrink-0 rounded px-1 py-0 text-[10px] font-semibold uppercase tracking-wide ${
+                    isMine
+                      ? mineLight
+                        ? "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
+                        : "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
+                      : "bg-sam-border-soft text-sam-fg hover:bg-sam-border"
+                  }`}
+                  aria-label={t("nav_messenger_voice_playback_rate")}
+                >
+                  {playbackRate === 1 ? "1×" : playbackRate === 1.5 ? "1.5×" : "2×"}
+                </button>
+              ) : null}
+            </span>
             {sentTimeLabel ? (
               <span className="min-w-0 truncate tabular-nums opacity-80">{sentTimeLabel}</span>
             ) : null}

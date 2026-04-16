@@ -91,6 +91,9 @@ function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["stat
   return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
 }
 
+/** 종료 PATCH/Realtime 후 stale 세션 GET 이 `ringing` 으로 되돌아와 링백이 다시 도는 윈도 — 수신 전역 tombstone(120s)과 동급 */
+const CALL_SESSION_TERMINAL_PIN_MS = 120_000;
+
 function isCameraVideoTrackWithDevice(track: ILocalVideoTrack | null): track is ICameraVideoTrack {
   return !!track && typeof (track as ICameraVideoTrack).setDevice === "function";
 }
@@ -266,7 +269,7 @@ export function CommunityMessengerCallClient({
   sessionRef.current = session;
   /**
    * PATCH 직후 GET/Realtime 이 아직 ringing/active 를 돌려줄 때 로컬 종료 상태가 덮이는 레이스 방지
-   * (발신 취소·수신 종료 후 화면이 다시 연결 중으로 남던 현상)
+   * (발신 취소·수신 종료 후 화면·링백이 다시 살아나던 현상). TTL 은 수신 전역 hard-clear 와 동일하게 길게 둔다.
    */
   const callTerminalLocalPinRef = useRef<{
     sessionId: string;
@@ -1183,7 +1186,7 @@ export function CommunityMessengerCallClient({
       if (snapshot) {
         callTerminalLocalPinRef.current = {
           sessionId: fallbackId,
-          until: Date.now() + 15_000,
+          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot,
         };
         setSession(snapshot);
@@ -1236,7 +1239,7 @@ export function CommunityMessengerCallClient({
         }
       }
       if (snap) {
-        callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + 15_000, snapshot: snap };
+        callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
         setSession(snap);
       }
       joiningRef.current = false;
@@ -1660,7 +1663,7 @@ export function CommunityMessengerCallClient({
             };
             callTerminalLocalPinRef.current = {
               sessionId,
-              until: Date.now() + 15_000,
+              until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
               snapshot,
             };
             setSession(snapshot);
@@ -1709,7 +1712,7 @@ export function CommunityMessengerCallClient({
         };
         callTerminalLocalPinRef.current = {
           sessionId,
-          until: Date.now() + 15_000,
+          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot,
         };
         setSession(snapshot);
