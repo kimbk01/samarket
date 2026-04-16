@@ -9,3 +9,9 @@ export function normalizeCommunityMessengerStickerContent(raw: string): string |
   if (!/\.(webp|png)$/i.test(t)) return null;
   return t;
 }
+
+/** 프로필·별칭 아바타 등에 스티커 정적 경로가 들어가면 타임라인에서 말풍선 옆 썸네일로 잘려 보인다 — 아바타 후보에서 제외한다. */
+export function isCommunityMessengerStickerPublicPath(raw: string | null | undefined): boolean {
+  const t = (raw ?? "").trim();
+  return t.startsWith("/stickers/");
+}

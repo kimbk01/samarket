@@ -759,8 +759,15 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       const patchJson = await patchCommunityMessengerCallSession(sessionId, "reject");
       if (!patchJson.ok) {
-        dismissedIncomingSessionsAtRef.current.delete(sessionId);
-        setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        const err = typeof patchJson.error === "string" ? patchJson.error : "";
+        if (err === "bad_action") {
+          markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
+          suppressMissedSoundRef.current.add(sessionId);
+          setSessionActionError(null);
+        } else {
+          dismissedIncomingSessionsAtRef.current.delete(sessionId);
+          setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+        }
         await refresh(true);
         return;
       }

@@ -13,6 +13,7 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
 
 /** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
 export function formatVoiceRecordTenThousandths(ms: number): string {
@@ -198,10 +199,14 @@ export function communityMessengerMemberAvatar(
   if (!senderId) return null;
   const member = members.find((m) => m.id === senderId);
   if (!member) return { avatarUrl: null, initials: "?" };
+  const pickAvatar = (raw: string | null | undefined): string | null => {
+    const u = raw?.trim() || null;
+    if (!u || isCommunityMessengerStickerPublicPath(u)) return null;
+    return u;
+  };
   const avatarUrl =
-    member.identityMode === "alias" && member.aliasProfile?.avatarUrl
-      ? member.aliasProfile.avatarUrl
-      : member.avatarUrl;
+    pickAvatar(member.identityMode === "alias" ? member.aliasProfile?.avatarUrl : null) ??
+    pickAvatar(member.avatarUrl);
   const rawLabel =
     member.identityMode === "alias" && member.aliasProfile?.displayName?.trim()
       ? member.aliasProfile.displayName.trim()

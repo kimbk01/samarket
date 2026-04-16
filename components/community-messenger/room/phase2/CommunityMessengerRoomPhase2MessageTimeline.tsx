@@ -276,16 +276,16 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
                 if (item.messageType === "sticker") {
                   const stickerSrc = item.content.trim();
                   return (
-                    <div className="flex flex-col items-stretch">
+                    <div className="flex flex-col items-stretch p-1">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={stickerSrc}
                         alt=""
-                        width={128}
-                        height={128}
+                        width={160}
+                        height={160}
                         loading="lazy"
                         decoding="async"
-                        className="h-28 w-28 max-h-[7.5rem] max-w-[7.5rem] object-contain"
+                        className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
                       />
                       {item.pending ? (
                         <span className={`mt-1 text-[11px] ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
@@ -525,7 +525,7 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
                                 {...bindMessageInteraction}
                               >
                                 <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
-                                  {item.messageType === "image" ? (
+                                  {item.messageType === "image" || item.messageType === "sticker" ? (
                                     viberInnerBody
                                   ) : (
                                     <div className="px-3 py-2.5">{viberInnerBody}</div>
@@ -540,7 +540,7 @@ export function CommunityMessengerRoomPhase2MessageTimeline() {
                                 {...bindMessageInteraction}
                               >
                                 <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
-                                  {item.messageType === "image" ? (
+                                  {item.messageType === "image" || item.messageType === "sticker" ? (
                                     viberInnerBody
                                   ) : (
                                     <div className="px-3 py-2.5">{viberInnerBody}</div>

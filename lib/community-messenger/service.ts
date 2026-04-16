@@ -12,7 +12,10 @@ import {
   downsampleVoiceWaveformPeaks,
   parseVoiceWaveformPeaksFromMetadata,
 } from "@/lib/community-messenger/voice-waveform";
-import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
+import {
+  isCommunityMessengerStickerPublicPath,
+  normalizeCommunityMessengerStickerContent,
+} from "@/lib/stickers/sticker-content";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
@@ -609,15 +612,25 @@ function resolveRoomProfileLite(
   const isDbProfile = "room_id" in roomProfile;
   const identityMode = (isDbProfile ? roomProfile.identity_mode : roomProfile.identityMode) as CommunityMessengerIdentityMode;
   if (identityMode !== "alias") {
+    const raw = trimText(baseProfile.avatarUrl);
+    const safeAvatar =
+      raw && !isCommunityMessengerStickerPublicPath(raw) ? raw : null;
     return {
       ...baseProfile,
       identityMode: "real_name",
       aliasProfile: null,
+      avatarUrl: safeAvatar,
     };
   }
   const displayName = trimText(isDbProfile ? roomProfile.display_name : roomProfile.displayName);
   const bio = trimText(isDbProfile ? roomProfile.bio : roomProfile.bio);
-  const avatarUrl = trimText(isDbProfile ? roomProfile.avatar_url : roomProfile.avatarUrl) || baseProfile.avatarUrl;
+  const rawRoomAvatar = trimText(isDbProfile ? roomProfile.avatar_url : roomProfile.avatarUrl);
+  const fromRoom =
+    rawRoomAvatar && !isCommunityMessengerStickerPublicPath(rawRoomAvatar) ? rawRoomAvatar : null;
+  const rawBaseAvatar = trimText(baseProfile.avatarUrl);
+  const fromBase =
+    rawBaseAvatar && !isCommunityMessengerStickerPublicPath(rawBaseAvatar) ? rawBaseAvatar : null;
+  const avatarUrl = fromRoom ?? fromBase;
   return {
     ...baseProfile,
     label: displayName || baseProfile.label,
@@ -642,7 +655,10 @@ async function upsertRoomIdentityProfile(input: {
   if (!roomId) return { ok: false, error: "room_not_found" };
   const aliasDisplayName = trimText(input.aliasProfile?.displayName);
   const aliasBio = trimText(input.aliasProfile?.bio);
-  const aliasAvatarUrl = trimText(input.aliasProfile?.avatarUrl) || null;
+  let aliasAvatarUrl = trimText(input.aliasProfile?.avatarUrl) || null;
+  if (aliasAvatarUrl && isCommunityMessengerStickerPublicPath(aliasAvatarUrl)) {
+    aliasAvatarUrl = null;
+  }
   if (input.identityMode === "alias" && !aliasDisplayName) {
     return { ok: false, error: "alias_name_required" };
   }
@@ -6841,6 +6857,11 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("session_id", sessionId)
             .eq("user_id", input.userId);
         } else if (input.action === "reject") {
+          /** 발신 취소 등으로 이미 종료된 뒤 수신 측 거절이 늦게 오는 경우 — bad_action 반복 방지 */
+          if (isTerminalCallSessionStatus(session.status)) {
+            const mapped = await mapCallSession(input.userId, session);
+            return { ok: true, session: mapped };
+          }
           if (session.status !== "ringing" && session.status !== "active") return { ok: false, error: "bad_action" };
           await (sb as any)
             .from("community_messenger_call_session_participants")
@@ -6938,7 +6959,17 @@ export async function updateCommunityMessengerCallSession(input: {
       }
 
       const next = resolveDirectNextStatus(session);
-      if (!next) return { ok: false, error: "bad_action" };
+      if (!next) {
+        if (
+          input.action === "reject" &&
+          messengerUserIdsEqual(session.recipient_user_id, input.userId) &&
+          isTerminalCallSessionStatus(session.status)
+        ) {
+          const mapped = await mapCallSession(input.userId, session);
+          return { ok: true, session: mapped };
+        }
+        return { ok: false, error: "bad_action" };
+      }
       const alreadyActiveRecipient =
         input.action === "accept" &&
         session.status === "active" &&
@@ -7075,7 +7106,18 @@ export async function updateCommunityMessengerCallSession(input: {
   }
 
   const next = resolveDirectNextStatus(session);
-  if (!next) return { ok: false, error: "bad_action" };
+  if (!next) {
+    if (
+      input.action === "reject" &&
+      session.sessionMode === "direct" &&
+      messengerUserIdsEqual(session.recipientUserId, input.userId) &&
+      isTerminalCallSessionStatus(session.status)
+    ) {
+      const mapped = await mapCallSession(input.userId, session);
+      return { ok: true, session: mapped };
+    }
+    return { ok: false, error: "bad_action" };
+  }
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;

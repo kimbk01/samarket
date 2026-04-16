@@ -1143,6 +1143,7 @@ export function useCommunityMessengerCall(args: {
       });
       const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
       if (!patchRes.ok || !patchJson.ok) {
+        await args.onRefresh();
         setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         return;
       }
