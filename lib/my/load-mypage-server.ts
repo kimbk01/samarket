@@ -18,31 +18,25 @@ function isAdminEmailForServer(email: string | null | undefined): boolean {
   return getAllowedAdminEmails().includes(e);
 }
 
-/**
- * `/mypage` RSC 선로딩 — 클라 `getMyPageData` 와 동일 정보(배너 숨김은 로컬 설정이라 서버에선 false 로 두고 클라에서 보정).
- */
-export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
+/** 프로필·CMS·매장 보유 + `loadMypageHubExtrasServer` 용 라우트 user id */
+type MypageCoreInternal = Omit<MyPageData, "hubServerExtras" | "homeDashboardCounts"> & { viewerIdForHub: string };
+
+const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> => {
   const userId = await getRouteUserId();
   if (!userId) return null;
 
   const userSb = await createSupabaseRouteHandlerClient();
-  const profile = userSb ? await fetchProfileRowSafe(userSb, userId) : null;
-
-  let hasOwnerStore = false;
   const sbStores = tryGetSupabaseForStores();
-  if (sbStores) {
-    const { data: oneStore } = await sbStores.from("stores").select("id").eq("owner_user_id", userId).limit(1);
-    hasOwnerStore = Array.isArray(oneStore) && oneStore.length > 0;
-  }
 
-  const hubExtrasPromise = loadMypageHubExtrasServer(userId, hasOwnerStore);
-  const homeDashboardCountsPromise = loadMypageHomeDashboardCountsServer(userId);
+  const profilePromise = userSb ? fetchProfileRowSafe(userSb, userId) : Promise.resolve(null);
 
-  let banner: MyPageBannerRow | null = null;
-  let services: MyServiceRow[] = DEFAULT_MY_SERVICES;
-  let sections: MyPageSectionRow[] = DEFAULT_MY_SECTIONS;
+  const storesHeadPromise =
+    sbStores != null
+      ? sbStores.from("stores").select("id").eq("owner_user_id", userId).limit(1)
+      : Promise.resolve({ data: null as unknown });
 
-  if (userSb) {
+  const loadCmsPack = async (): Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]> => {
+    if (!userSb) return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
     try {
       const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
         userSb
@@ -63,13 +57,26 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
           .eq("is_active", true)
           .order("sort_order", { ascending: true }),
       ]);
+      let banner: MyPageBannerRow | null = null;
+      let services: MyServiceRow[] = DEFAULT_MY_SERVICES;
+      let sections: MyPageSectionRow[] = DEFAULT_MY_SECTIONS;
       if (bannerRes.data) banner = bannerRes.data as MyPageBannerRow;
       if (servicesRes.data?.length) services = servicesRes.data as MyServiceRow[];
       if (sectionsRes.data?.length) sections = sectionsRes.data as MyPageSectionRow[];
+      return [banner, services, sections];
     } catch {
-      /* defaults */
+      return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
     }
-  }
+  };
+
+  const cmsPackPromise = loadCmsPack();
+
+  const [profile, storesHead, cmsPack] = await Promise.all([profilePromise, storesHeadPromise, cmsPackPromise]);
+
+  const [banner, services, sections] = cmsPack;
+
+  const storeRows = storesHead.data as unknown;
+  const hasOwnerStore = Array.isArray(storeRows) && storeRows.length > 0;
 
   const uid = profile?.id ?? userId;
   const trustSummary = uid ? getTrustSummary(uid) : null;
@@ -78,11 +85,6 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
     : (trustSummary?.mannerScore ?? 50);
   const isBusinessMember = hasOwnerStore;
   const isAdmin = isAdminEmailForServer(profile?.email ?? null);
-
-  const [hubServerExtras, homeDashboardCounts] = await Promise.all([
-    hubExtrasPromise,
-    homeDashboardCountsPromise,
-  ]);
 
   return {
     profile,
@@ -94,6 +96,42 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
     isBusinessMember,
     isAdmin,
     hasOwnerStore,
+    viewerIdForHub: userId,
+  };
+});
+
+/**
+ * `/mypage` **탭·모바일 섹션 진입**용 — 허브·홈 대시보드 숫자는 RSC에서 생략.
+ * `useMypageHubModel` 이 주소·거래·매장 요약을 클라에서 채운다.
+ */
+export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> => {
+  const row = await loadMypageCoreCached();
+  if (!row) return null;
+  const { viewerIdForHub: _v, ...core } = row;
+  void _v;
+  return {
+    ...core,
+    hubServerExtras: null,
+    homeDashboardCounts: null,
+  };
+});
+
+/**
+ * 허브·대시보드까지 포함한 전체 — 동일 요청 내 `loadMypageCoreCached` 는 한 번만 실행된다.
+ * (현재 `(main)/mypage` 라우트는 `loadMypageServerShell` 만 사용; 전체가 필요한 서버 경로용으로 유지)
+ */
+export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
+  const row = await loadMypageCoreCached();
+  if (!row) return null;
+  const { viewerIdForHub, ...core } = row;
+
+  const [hubServerExtras, homeDashboardCounts] = await Promise.all([
+    loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
+    loadMypageHomeDashboardCountsServer(viewerIdForHub),
+  ]);
+
+  return {
+    ...core,
     hubServerExtras,
     homeDashboardCounts,
   };

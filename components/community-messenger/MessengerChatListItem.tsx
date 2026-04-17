@@ -651,7 +651,16 @@ function CommerceThumb({
   return (
     <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-ui-border bg-ui-page">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />
+      <img
+        src={src}
+        alt=""
+        width={36}
+        height={36}
+        className="h-full w-full object-cover"
+        decoding="async"
+        fetchPriority="low"
+        onError={() => setFailed(true)}
+      />
     </div>
   );
 }
@@ -679,7 +688,16 @@ function AvatarCircle({
     <div className={`shrink-0 overflow-hidden rounded-full bg-ui-hover ${sizeClassName}`}>
       {safeSrc && !imageFailed ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={safeSrc} alt="" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+        <img
+          src={safeSrc}
+          alt=""
+          width={36}
+          height={36}
+          className="h-full w-full object-cover"
+          decoding="async"
+          fetchPriority="low"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <div className={`flex h-full w-full items-center justify-center font-semibold text-ui-muted ${textClassName}`}>{initial}</div>
       )}

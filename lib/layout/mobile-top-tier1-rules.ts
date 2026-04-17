@@ -40,13 +40,10 @@ export type MobileTopTier1RuleSet = {
   showStoreCart: boolean;
 };
 
-/**
- * 메인 1단(`RegionBar`/`AppStickyHeader`) 노출·변형 규칙.
- * 대부분의 (main) 경로에서 1단을 켜고, 채팅방 상세처럼 내부 전용 헤더만 쓰는 화면만 끈다.
- */
-export function getMobileTopTier1RuleSet(pathname: string | null | undefined): MobileTopTier1RuleSet {
-  const pathNoQuery = normalizeAppPathnameForTier1(pathname);
+let tier1RuleCacheKey = "";
+let tier1RuleCache: MobileTopTier1RuleSet | null = null;
 
+function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSet {
   const isTradeExploration = isTradeFloatingMenuSurface(pathNoQuery);
   const isPhilifeExploration = pathNoQuery === "/philife" || pathNoQuery === "/community";
 
@@ -118,4 +115,18 @@ export function getMobileTopTier1RuleSet(pathname: string | null | undefined): M
     showServicesMenu: showSearchNotificationsMenu,
     showStoreCart: false,
   };
+}
+
+/**
+ * 메인 1단(`RegionBar`/`AppStickyHeader`/`resolveConditionalAppShellFlags`) 노출·변형 규칙.
+ * 동일 `pathname` 정규화 키에 대해 **객체 참조를 재사용**해 한 틱·한 경로에서 중복 계산을 줄인다.
+ */
+export function getMobileTopTier1RuleSet(pathname: string | null | undefined): MobileTopTier1RuleSet {
+  const pathNoQuery = normalizeAppPathnameForTier1(pathname);
+  if (pathNoQuery === tier1RuleCacheKey && tier1RuleCache) {
+    return tier1RuleCache;
+  }
+  tier1RuleCacheKey = pathNoQuery;
+  tier1RuleCache = computeMobileTopTier1RuleSet(pathNoQuery);
+  return tier1RuleCache;
 }

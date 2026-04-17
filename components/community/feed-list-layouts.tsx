@@ -60,8 +60,12 @@ function Thumbnail92({ url }: { url: string }) {
     <img
       src={url}
       alt=""
+      width={92}
+      height={92}
       className="h-[92px] w-[92px] shrink-0 rounded-ui-rect object-cover"
       loading="lazy"
+      decoding="async"
+      fetchPriority="low"
     />
   );
 }

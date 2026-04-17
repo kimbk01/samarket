@@ -22,7 +22,16 @@ export function PromoListSkin({
             >
               <div className="w-24 h-24 shrink-0 rounded-ui-rect overflow-hidden bg-sam-surface">
                 {thumb ? (
-                  <img src={thumb} alt="" className="w-full h-full object-cover" />
+                  <img
+                    src={thumb}
+                    alt=""
+                    width={96}
+                    height={96}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-amber-300 text-xs">
                     PROMO

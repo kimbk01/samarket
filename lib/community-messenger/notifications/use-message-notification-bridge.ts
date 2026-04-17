@@ -73,6 +73,7 @@ export function useMessageNotificationBridge(
   routerRef.current = router;
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
+  pathnameRef.current = pathname;
   const playbackRef = useRef<MessageNotificationBridgePlayback>(playback);
   playbackRef.current = playback;
   const surface = useNotificationSurface();
@@ -88,10 +89,6 @@ export function useMessageNotificationBridge(
     if (!id) return;
     routerRef.current.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
   }, []);
-
-  useLayoutEffect(() => {
-    pathnameRef.current = pathname;
-  }, [pathname]);
 
   useLayoutEffect(() => {
     if (!enabled) return;

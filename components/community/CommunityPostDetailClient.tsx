@@ -165,7 +165,14 @@ export function CommunityPostDetailClient({
               {post.images.map((im) =>
                 im.url ? (
                   <a key={im.id} href={im.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                    <img src={im.url} alt="" className="h-40 w-full object-cover" />
+                    <img
+                      src={im.url}
+                      alt=""
+                      className="h-40 w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                    />
                   </a>
                 ) : null
               )}

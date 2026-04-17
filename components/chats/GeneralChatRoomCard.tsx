@@ -81,7 +81,16 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
         <div className="flex gap-3 border-t border-sam-border-soft pt-2">
           <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
             {product?.thumbnail ? (
-              <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
+              <img
+                src={product.thumbnail}
+                alt=""
+                width={100}
+                height={100}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
                 {t("common_image")}

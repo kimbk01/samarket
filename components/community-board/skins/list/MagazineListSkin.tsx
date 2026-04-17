@@ -24,7 +24,16 @@ export function MagazineListSkin({
         >
           <div className="aspect-[16/9] bg-sam-surface-muted relative">
             {thumb ? (
-              <img src={thumb} alt="" className="w-full h-full object-cover" />
+              <img
+                src={thumb}
+                alt=""
+                width={960}
+                height={540}
+                className="h-full w-full object-cover"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sam-meta">
                 No image
@@ -52,7 +61,12 @@ export function MagazineListSkin({
                 <img
                   src={post.images[0].url}
                   alt=""
-                  className="w-full h-full object-cover"
+                  width={80}
+                  height={80}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-sam-meta text-xs">

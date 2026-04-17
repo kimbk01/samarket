@@ -138,6 +138,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
   pathnameRef.current = pathname ?? null;
+  /** `pathname` 전용 burst 보강 — 최초(userId 확정 직후)는 폴링 effect 가 burst 담당 */
+  const incomingCallPathBurstPrevRef = useRef<string | null>(null);
   const { messengerRoomIdFromPath } = useCommunityCallSurface();
   const [userId, setUserId] = useState<string | null>(() =>
     typeof window !== "undefined" ? getCurrentUser()?.id?.trim() || null : null
@@ -202,6 +204,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     incomingSurfaceLoggedRef.current.clear();
     hardClearedIncomingSessionsAtRef.current.clear();
+    incomingCallPathBurstPrevRef.current = null;
   }, [userId]);
 
   useEffect(() => {
@@ -336,6 +339,30 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, queueVisibilityRefreshBurst]);
 
   /**
+   * 경로가 바뀔 때마다 폴링 effect 전체를 갈아엎지 않고, 가시성 burst 꼬리만 정리 후 필요 시 1회 burst.
+   * (`schedulePoll` 은 매 틱 `pathnameRef` 를 읽어 백업 GET 게이트를 맞춘다.)
+   */
+  useEffect(() => {
+    if (!userId) return;
+    const cur = pathname ?? null;
+    const prev = incomingCallPathBurstPrevRef.current;
+    incomingCallPathBurstPrevRef.current = cur;
+    if (prev === null) return;
+    if (prev === cur) return;
+    for (const timerId of refreshTimerIdsRef.current) {
+      window.clearTimeout(timerId);
+    }
+    refreshTimerIdsRef.current = [];
+    if (pendingBurstTimerRef.current != null) {
+      window.clearTimeout(pendingBurstTimerRef.current);
+      pendingBurstTimerRef.current = null;
+    }
+    if (shouldRunIncomingCallBackupHttpPoll(cur, ringingDirectCalleeRef.current)) {
+      queueVisibilityRefreshBurstRef.current();
+    }
+  }, [pathname, userId]);
+
+  /**
    * 타 메신저의 “힌트 → 스냅샷 1회” 패턴: 즉시 `force` 1회 + 짧은 구간 내 추가 힌트는 꼬리 1회로만 합침.
    * (기존 다중 setTimeout 은 postgres INSERT·Broadcast·폴링과 겹쳐 동일 세션에 대한 GET 폭주·429 유발)
    */
@@ -433,7 +460,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         pendingBurstTimerRef.current = null;
       }
     };
-  }, [userId, pathname]);
+  }, [userId]);
 
   /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
   useEffect(() => {

@@ -40,7 +40,7 @@ export function ConditionalAppShell({
     <div className={f.appShellRootClass}>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
-      <CallIncomingChrome regionBarInLayout={regionBarInLayout} />
+      <CallIncomingChrome />
       <WebConnectivityBanner />
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}

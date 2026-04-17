@@ -31,7 +31,6 @@ import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events"
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import {
   BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS,
   BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS,
@@ -42,9 +41,13 @@ import {
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
 import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 
-/** 프로그램적 prefetch 상한 — 메뉴 전환 직후 메인 스레드·RSC 경쟁 완화 */
-const MAIN_BOTTOM_NAV_PREFETCH_MAX = 2;
+/**
+ * 프로그램적 `router.prefetch` 상한 — 리스트·피드가 커져도 **탭 전환 경로가 무거워지지 않게** 짧게 유지.
+ * (각 탭 `Link prefetch` 는 그대로; 여기는 idle 보조만)
+ */
+const MAIN_BOTTOM_NAV_PREFETCH_MAX = 3;
 
 function findLongestMatchingBottomNavTabIndex(
   pathname: string | null,
@@ -72,17 +75,23 @@ function findLongestMatchingBottomNavTabIndex(
 }
 
 /**
- * 현재 경로 기준 **탭바에서 바로 옆 탭 1개**를 우선하고, 여유가 있으면 **거래채팅 메신저 허브**를 둘째로 둔다.
- * (기존: 모든 탭 + trade 허브를 spread 로 연쇀 prefetch → 동시에 여러 RSC prefetch 가 겹칠 수 있음)
+ * 메신저 목록 → 거래(`/home`) → 내정보(`/mypage`) → 이웃 탭 순으로 후보를 쌓고 **상한만** 자른다.
+ * 거래 채팅 허브 URL은 `Link prefetch` 에 맡기고, idle 보조는 메인 3종만(장시간 누적 부하 방지).
  */
 function pickMainBottomNavPrefetchHrefs(
   pathname: string | null,
   tabs: readonly BottomNavItemConfig[]
 ): string[] {
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
-  const tradeHub = TRADE_CHAT_SURFACE.messengerListHref.trim();
-  const messengerPathPrefix = "/community-messenger";
-  const p = pathname?.trim() ?? "";
+  const messengerListHref = "/community-messenger";
+  const homeHref = "/home";
+  const mypageHref = "/mypage";
+  const raw = pathname?.trim() ?? "";
+  const p = raw.split("?")[0] ?? "";
+  const pathNorm = (p.replace(/\/+$/, "") || "/") as string;
+  const onMessengerListOnly = pathNorm === messengerListHref;
+  const onTradeFeedSurface = pathNorm === homeHref || pathNorm.startsWith("/market");
+  const onMypageSurface = pathNorm === mypageHref || pathNorm.startsWith(`${mypageHref}/`);
 
   const activeIdx = findLongestMatchingBottomNavTabIndex(pathname, list);
   const n = list.length;
@@ -97,15 +106,18 @@ function pickMainBottomNavPrefetchHrefs(
     out.push(h);
   };
 
+  if (!onMessengerListOnly) {
+    push(messengerListHref);
+  }
+  if (!onTradeFeedSurface) {
+    push(homeHref);
+  }
+  if (!onMypageSurface) {
+    push(mypageHref);
+  }
+
   const neighborHref = list[(activeIdx + 1) % n]?.href?.trim() ?? "";
   push(neighborHref);
-
-  if (out.length < MAIN_BOTTOM_NAV_PREFETCH_MAX && tradeHub && !p.startsWith(messengerPathPrefix)) {
-    const tradePathOnly = tradeHub.split("?")[0] ?? "";
-    if (tradePathOnly && !p.startsWith(`${tradePathOnly}/`) && p !== tradePathOnly) {
-      push(tradeHub);
-    }
-  }
 
   return out.slice(0, MAIN_BOTTOM_NAV_PREFETCH_MAX);
 }
@@ -449,12 +461,9 @@ export function BottomNav() {
   }, [pathname]);
 
   /**
-   * 주요 탭 RSC 선로딩 — **최대 2개 href**, idle 이후 **순차** prefetch (동시 다발 제거).
-   * - 1순위: 탭바에서 현재 탭의 **다음 이웃** (사용자가 한 칸 옆으로 이동할 확률이 가장 높음)
-   * - 2순위(옵션): 메신저 트리 밖에 있을 때만 **거래채팅 메신저 허브** (`TRADE_CHAT_SURFACE.messengerListHref`)
-   * - `chrome-navigation-policy`: 디바운스 → idle 유지, 두 번째는 `SPREAD_MS` 만큼 뒤에 1회만 스케줄
-   * - `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 전체 끔
-   * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리
+   * 주요 탭 RSC idle 선로딩 — **상한 `MAIN_BOTTOM_NAV_PREFETCH_MAX`**, 순차 `router.prefetch`.
+   * 경로가 바뀌면 **연쇄 setTimeout 전부 취소**해 장시간 사용 시 작업이 쌓이지 않게 한다.
+   * `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끔.
    */
   useEffect(() => {
     if (!shouldRunBottomNavProgrammaticPrefetch()) return;
@@ -462,7 +471,7 @@ export function BottomNav() {
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     let cancelled = false;
     let idleId = -1;
-    let chainTimer: number | null = null;
+    const chainTimers: number[] = [];
 
     const debounceId = window.setTimeout(() => {
       if (cancelled) return;
@@ -482,11 +491,17 @@ export function BottomNav() {
               total: hrefs.length,
             });
             router.prefetch(href);
+            const pathOnly = (href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
+            if (pathOnly === "/community-messenger") {
+              warmMessengerListBootstrapClient();
+            }
           } catch {
             /* no-op */
           }
           if (idx + 1 < hrefs.length) {
-            chainTimer = window.setTimeout(() => runPrefetchAt(idx + 1), BOTTOM_NAV_PREFETCH_SPREAD_MS);
+            chainTimers.push(
+              window.setTimeout(() => runPrefetchAt(idx + 1), BOTTOM_NAV_PREFETCH_SPREAD_MS)
+            );
           }
         };
         runPrefetchAt(0);
@@ -497,10 +512,10 @@ export function BottomNav() {
       cancelled = true;
       window.clearTimeout(debounceId);
       cancelScheduledWhenBrowserIdle(idleId);
-      if (chainTimer != null) {
-        window.clearTimeout(chainTimer);
-        chainTimer = null;
+      for (const tid of chainTimers) {
+        window.clearTimeout(tid);
       }
+      chainTimers.length = 0;
     };
   }, [pathname, router]);
 

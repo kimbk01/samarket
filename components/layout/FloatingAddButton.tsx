@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
@@ -28,7 +28,7 @@ export function FloatingAddButton() {
   const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
-  const pathSlug = getCategorySlugFromPath(pathname ?? "");
+  const pathSlug = useMemo(() => getCategorySlugFromPath(pathname ?? ""), [pathname]);
   const categorySlug = writeCategorySlug ?? pathSlug;
 
   /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김(현재 화면 주제로 바로 쓰기 가능할 때만 유지) */

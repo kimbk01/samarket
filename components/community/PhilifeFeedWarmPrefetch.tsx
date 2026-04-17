@@ -16,13 +16,21 @@ const warmedFeedAtByKey = new Map<string, number>();
  */
 export function PhilifeFeedWarmPrefetch() {
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const viewerSig = usePhilifeFeedViewerSig();
   const tickRef = useRef(0);
 
+  /**
+   * `pathname` 은 deps 에 넣지 않는다. 셸이 `mountPhilifeWarmPrefetch` 로 마운트하는 동안은
+   * 피드/매장 등 **같은 워밍 구역** 내 이동이 잦아도 타이머·idle 작업이 매번 리셋되지 않게 한다.
+   * 실행 시점에는 `pathnameRef` 로 최신 경로만 검사한다.
+   */
   useEffect(() => {
     if (!shouldRunPhilifeBackgroundFeedWarm()) return;
-    if (!pathname) return;
-    if (pathname === "/philife" || pathname.startsWith("/philife/")) return;
+    const path = pathnameRef.current;
+    if (!path) return;
+    if (path === "/philife" || path.startsWith("/philife/")) return;
     if (document.visibilityState !== "visible") return;
     if (isConstrainedNetwork()) return;
 
@@ -32,25 +40,28 @@ export function PhilifeFeedWarmPrefetch() {
     if (Date.now() - lastWarmedAt < PHILIFE_WARM_PREFETCH_TTL_MS) return;
 
     const my = ++tickRef.current;
+    let refreshIdleId = -1;
     const t = window.setTimeout(() => {
       if (tickRef.current !== my) return;
-      const idleId = scheduleWhenBrowserIdle(() => {
+      const p = pathnameRef.current;
+      if (!p || p === "/philife" || p.startsWith("/philife/")) return;
+      refreshIdleId = scheduleWhenBrowserIdle(() => {
         if (document.visibilityState !== "visible") return;
+        const p2 = pathnameRef.current;
+        if (!p2 || p2 === "/philife" || p2.startsWith("/philife/")) return;
         warmedFeedAtByKey.set(cacheKey, Date.now());
         warmPhilifeNeighborhoodFeedByUrl(url, {
           noStore: viewerSig !== "_anon",
         });
       }, 1800);
-      refreshIdleId = idleId;
     }, 1800);
-    let refreshIdleId = -1;
 
     return () => {
       tickRef.current += 1;
       window.clearTimeout(t);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
-  }, [pathname, viewerSig]);
+  }, [viewerSig]);
 
   return null;
 }

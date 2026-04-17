@@ -8,6 +8,7 @@ import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getMobileTopTier1RuleSet,
   isTradeFloatingMenuSurface,
+  type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
@@ -86,11 +87,22 @@ function UnifiedTier1Shell({
 }
 
 /** 메인 1단 UI — 단일 구현체. `Tier1ExplorationTitleRow`·서브페이지·매장 루트를 한 스타일(h-12)로 맞춘다. */
-export function RegionBar({ embedded }: { embedded?: boolean }) {
+export function RegionBar({
+  embedded,
+  /** `AppStickyHeader` 등 상위에서 이미 `getMobileTopTier1RuleSet` 을 계산한 경우 전달 — 중복 호출 방지 */
+  tier1RuleSet: tier1RuleSetProp,
+}: {
+  embedded?: boolean;
+  tier1RuleSet?: MobileTopTier1RuleSet;
+}) {
   const { tt, t } = useI18n();
   const pathname = usePathname();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
-  const ruleSet = getMobileTopTier1RuleSet(pathname);
+  const ruleSet = useMemo(
+    () => tier1RuleSetProp ?? getMobileTopTier1RuleSet(pathname),
+    [tier1RuleSetProp, pathname]
+  );
+  const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
 
@@ -143,7 +155,7 @@ export function RegionBar({ embedded }: { embedded?: boolean }) {
     );
   }
 
-  const base = resolveMainTier1Subpage(pathNoQuery);
+  const base = tier1Subpage;
   if (base == null) {
     return null;
   }

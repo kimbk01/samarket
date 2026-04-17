@@ -105,7 +105,16 @@ export const PostCard = memo(function PostCard({
         <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
           <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {thumbnailUrl ? (
-              <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+              <img
+                src={thumbnailUrl}
+                alt=""
+                width={100}
+                height={100}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
             ) : isExchangeThumb ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
             ) : (

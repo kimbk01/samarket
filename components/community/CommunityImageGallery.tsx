@@ -19,6 +19,8 @@ export function CommunityImageGallery({
           alt={`${altBase}-${i}`}
           className="h-28 w-full rounded-ui-rect object-cover"
           loading="lazy"
+          decoding="async"
+          fetchPriority="low"
         />
       ))}
     </div>

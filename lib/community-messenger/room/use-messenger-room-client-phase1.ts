@@ -665,7 +665,13 @@ export function useMessengerRoomClientPhase1({
     );
   }, [roomId, router, searchParams, snapshot]);
 
-  useMessengerRoomOpenMarkReadEffect({ roomId, snapshot, roomOpenMarkReadRef });
+  useMessengerRoomOpenMarkReadEffect({
+    roomId,
+    snapshotRef,
+    roomOpenMarkReadRef,
+    stickToBottomRef,
+    roomMessagesRef,
+  });
 
   useEffect(() => {
     if (!snapshot) {

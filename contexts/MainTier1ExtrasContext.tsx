@@ -33,6 +33,32 @@ export type MainTier1ExtrasState = {
   stickyBelow?: ReactNode;
 };
 
+function sameMainTier1Partial(a: MainTier1Partial | undefined, b: MainTier1Partial | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.title === b.title &&
+    a.titleText === b.titleText &&
+    a.subtitle === b.subtitle &&
+    a.subtitleHref === b.subtitleHref &&
+    a.backHref === b.backHref &&
+    a.preferHistoryBack === b.preferHistoryBack &&
+    a.ariaLabel === b.ariaLabel &&
+    a.showHubQuickActions === b.showHubQuickActions &&
+    a.hideBack === b.hideBack &&
+    a.rightSlot === b.rightSlot &&
+    a.leftSlot === b.leftSlot
+  );
+}
+
+function sameMainTier1ExtrasState(a: MainTier1ExtrasState, b: MainTier1ExtrasState): boolean {
+  return (
+    sameMainTier1Partial(a.tier1, b.tier1) &&
+    a.ctaLinks === b.ctaLinks &&
+    a.stickyBelow === b.stickyBelow
+  );
+}
+
 type MainTier1ExtrasContextValue = {
   extras: MainTier1ExtrasState | null;
   setMainTier1Extras: (next: MainTier1ExtrasState | null) => void;
@@ -43,7 +69,13 @@ const MainTier1ExtrasContext = createContext<MainTier1ExtrasContextValue | null>
 export function MainTier1ExtrasProvider({ children }: { children: ReactNode }) {
   const [extras, setExtras] = useState<MainTier1ExtrasState | null>(null);
   const setMainTier1Extras = useCallback((next: MainTier1ExtrasState | null) => {
-    setExtras(next);
+    setExtras((prev) => {
+      if (prev === next) return prev;
+      if (next == null) return prev == null ? prev : null;
+      if (prev == null) return next;
+      if (sameMainTier1ExtrasState(prev, next)) return prev;
+      return next;
+    });
   }, []);
   const value = useMemo(
     () => ({ extras, setMainTier1Extras }),

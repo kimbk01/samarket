@@ -195,8 +195,8 @@ export function CommunityMessengerHome({
   initialFilter,
   initialKind,
   /**
-   * 서버에서 채울 수 있으나, RSC 전체 부트스트랩은 탭 전환 체감을 망가뜨려 기본은 null.
-   * 클라이언트는 `peekBootstrapCache`·lite/full bootstrap API 로 동기화한다.
+   * `/community-messenger` RSC 는 부트스트랩을 내리지 않는다(null).
+   * 클라이언트는 `peekBootstrapCache`·`GET /api/community-messenger/bootstrap`(lite/full) 단일 경로로 동기화한다.
    */
   initialServerBootstrap = null,
 }: {

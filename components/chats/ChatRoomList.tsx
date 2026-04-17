@@ -23,7 +23,7 @@ import { useIntegratedChatRoomListRealtime } from "@/lib/chats/use-integrated-ch
 const POLL_MS = 90_000;
 
 /** 이 개수 이상이면 문서 스크롤 기준 가상화 — `measureElement`로 실측 보정되므로 추정은 약간 여유 있게 */
-const CHAT_ROOM_LIST_VIRTUAL_THRESHOLD = 20;
+const CHAT_ROOM_LIST_VIRTUAL_THRESHOLD = 14;
 const CHAT_ROOM_LIST_ROW_ESTIMATE_PX = 100;
 
 export function ChatRoomList({

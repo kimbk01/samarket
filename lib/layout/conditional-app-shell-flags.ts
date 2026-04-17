@@ -8,6 +8,14 @@ import {
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 
+/** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
+export function resolveSuppressIncomingCallOverlay(pathname: string | null): boolean {
+  return (
+    Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/)) &&
+    pathname !== "/community-messenger/calls/outgoing"
+  );
+}
+
 export type ConditionalAppShellResolvedFlags = {
   isSettings: boolean;
   isLogout: boolean;
@@ -73,9 +81,7 @@ export function resolveConditionalAppShellFlags(
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = Boolean(pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/));
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
-  const suppressIncomingCallOverlay =
-    Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/)) &&
-    pathname !== "/community-messenger/calls/outgoing";
+  const suppressIncomingCallOverlay = resolveSuppressIncomingCallOverlay(pathname);
   const isAddressMapSelect = pathname === "/address/select";
   const isViewportLockedChatDetail =
     isMypageTradeChatRoom ||

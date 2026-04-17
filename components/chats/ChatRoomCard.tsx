@@ -105,7 +105,16 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
       <div className="relative shrink-0 overflow-visible">
         <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
           {product?.thumbnail ? (
-            <img src={product.thumbnail} alt="" className="h-full w-full object-cover" />
+            <img
+              src={product.thumbnail}
+              alt=""
+              width={100}
+              height={100}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+            />
           ) : isExchangeThumb ? (
             <div
               className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg"

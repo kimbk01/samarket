@@ -1,18 +1,45 @@
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
+import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 
-const CommunityMessengerRoomClient = dynamic(
-  () =>
-    import("@/components/community-messenger/CommunityMessengerRoomClient").then((m) => ({
-      default: m.CommunityMessengerRoomClient,
-    })),
-  { loading: () => <MainFeedRouteLoading rows={6} /> }
-);
+async function CommunityMessengerRoomWithBootstrap({
+  roomId,
+  viewerUserId,
+  callAction,
+  sessionId,
+}: {
+  roomId: string;
+  viewerUserId: string | null;
+  callAction?: string;
+  sessionId?: string;
+}) {
+  const rid = String(roomId ?? "").trim();
+  const initialServerSnapshot =
+    viewerUserId && rid
+      ? await loadCommunityMessengerRoomBootstrap(
+          createSupabaseCommunityMessengerReadPort(),
+          viewerUserId,
+          rid,
+          {
+            initialMessageLimit: Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT),
+            hydrateFullMemberList: false,
+          }
+        )
+      : null;
+  return (
+    <CommunityMessengerRoomClient
+      key={rid}
+      roomId={rid}
+      initialCallAction={callAction}
+      initialCallSessionId={sessionId}
+      initialServerSnapshot={initialServerSnapshot}
+    />
+  );
+}
 
 async function CommunityMessengerRoomPageBody({
   paramsPromise,
@@ -21,28 +48,17 @@ async function CommunityMessengerRoomPageBody({
   paramsPromise: Promise<{ roomId: string }>;
   searchParamsPromise: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
 }) {
-  const { roomId } = await paramsPromise;
-  const { callAction, sessionId } = await searchParamsPromise;
+  const [{ roomId }, { callAction, sessionId }] = await Promise.all([paramsPromise, searchParamsPromise]);
   const viewerUserId = await getOptionalAuthenticatedUserId();
-  const initialServerSnapshot = viewerUserId
-    ? await loadCommunityMessengerRoomBootstrap(
-        createSupabaseCommunityMessengerReadPort(),
-        viewerUserId,
-        String(roomId ?? "").trim(),
-        {
-          initialMessageLimit: Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT),
-          hydrateFullMemberList: false,
-        }
-      )
-    : null;
   return (
-    <CommunityMessengerRoomClient
-      key={roomId}
-      roomId={roomId}
-      initialCallAction={callAction}
-      initialCallSessionId={sessionId}
-      initialServerSnapshot={initialServerSnapshot}
-    />
+    <Suspense fallback={<MainFeedRouteLoading rows={6} />}>
+      <CommunityMessengerRoomWithBootstrap
+        roomId={String(roomId ?? "").trim()}
+        viewerUserId={viewerUserId}
+        callAction={callAction}
+        sessionId={sessionId}
+      />
+    </Suspense>
   );
 }
 

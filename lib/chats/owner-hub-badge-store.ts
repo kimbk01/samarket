@@ -36,6 +36,9 @@ const PATH_FETCH_PREFIXES = [
   "/my/business/store-order-chat",
   "/my/business/inquiries",
 ] as const;
+/** `BottomNav`·`useOwnerHubBadgeBreakdown` 등 여러 곳에서 경로 변경 시 호출해도 한 번으로 합침 */
+const HUB_PATH_REFRESH_DEBOUNCE_MS = 420;
+let hubPathRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 /** 클라 최소 fetch 간격 — 서버 `HUB_BADGE_TTL_MS`(28s, owner-hub-badge-cache)·폴링과 함께 조정 */
 const MIN_FETCH_GAP_MS = 22_000;
 /** force=true 연타 시 inFlight 합류 — 거래 탭 배지·알림 즉시성과의 균형 */
@@ -303,10 +306,27 @@ export function getOwnerHubBadgeServerSnapshot() {
   return OWNER_HUB_BADGE_EMPTY;
 }
 
-/** 채팅·주문·문의 화면 진입 시 한 번 더 갱신 (경로당 inFlight 로 합쳐짐) */
+/** 채팅·주문·문의 화면 진입 시 한 번 더 갱신 — 호출부마다 타이머를 두지 않고 스토어에서만 디바운스 */
 export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
-  if (!pathname) return;
-  if (PATH_FETCH_PREFIXES.some((p) => pathname.startsWith(p))) {
-    void fetchOwnerHubBadgeNow();
+  if (typeof window === "undefined") return;
+
+  const onHub =
+    Boolean(pathname) && PATH_FETCH_PREFIXES.some((p) => (pathname as string).startsWith(p));
+
+  if (!onHub) {
+    if (hubPathRefreshTimer != null) {
+      clearTimeout(hubPathRefreshTimer);
+      hubPathRefreshTimer = null;
+    }
+    return;
   }
+
+  if (hubPathRefreshTimer != null) {
+    clearTimeout(hubPathRefreshTimer);
+    hubPathRefreshTimer = null;
+  }
+  hubPathRefreshTimer = setTimeout(() => {
+    hubPathRefreshTimer = null;
+    void fetchOwnerHubBadgeNow();
+  }, HUB_PATH_REFRESH_DEBOUNCE_MS);
 }

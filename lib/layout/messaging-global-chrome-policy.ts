@@ -2,12 +2,6 @@ import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-sh
 import { messengerRolloutShowsInAppMessageBanner } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import type { MessageNotificationBridgePlayback } from "@/lib/community-messenger/notifications/use-message-notification-bridge";
 
-/**
- * `MessagingGlobalChrome` 전용 — 알림 배지 Realtime·주문 허브 미읽음 사운드·메신저 participants 브리지·
- * 인앱 배너 호스트·사운드 프라임 마운트를 한곳에서 계산한다.
- *
- * `resolveConditionalAppShellFlags` 와 동일 pathname 규칙을 쓰되, 역할별 플래그만 노출한다.
- */
 export type MessagingGlobalChromePolicy = {
   mountNotificationsBadgeRealtimeBridge: boolean;
   mountGlobalOrderChatUnreadSound: boolean;
@@ -17,22 +11,52 @@ export type MessagingGlobalChromePolicy = {
   mountMessengerInAppBannerHost: boolean;
 };
 
-export function resolveMessagingGlobalChromePolicy(
+/**
+ * `resolveConditionalAppShellFlags` 는 **한 번만** 호출해 정책 객체와 안정 키를 같이 만든다.
+ * (`MessagingGlobalChrome` 에서 stableKey 가 같을 때 policy 참조를 유지할 때 사용)
+ */
+export function resolveMessagingGlobalChromeFromPath(
   pathname: string | null,
   regionBarInLayout: boolean
-): MessagingGlobalChromePolicy {
+): { stableKey: string; policy: MessagingGlobalChromePolicy } {
   const f = resolveConditionalAppShellFlags(pathname, regionBarInLayout);
   const messengerSurface = f.isCommunityMessengerSurface && !f.isCommunityMessengerCallPage;
   const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback = messengerSurface
     ? "full"
     : "hub_sync_only";
+  const mountMessengerInAppBannerHost = messengerRolloutShowsInAppMessageBanner() && messengerSurface;
+  const stableKey = [
+    f.mountGlobalRealtimeChrome ? "1" : "0",
+    f.mountNotificationSoundPrime ? "1" : "0",
+    communityMessengerParticipantPlayback,
+    mountMessengerInAppBannerHost ? "1" : "0",
+  ].join("|");
 
-  return {
+  const policy: MessagingGlobalChromePolicy = {
     mountNotificationsBadgeRealtimeBridge: f.mountGlobalRealtimeChrome,
     mountGlobalOrderChatUnreadSound: f.mountGlobalRealtimeChrome,
     mountGlobalCommunityMessengerParticipantBridge: f.mountGlobalRealtimeChrome,
     communityMessengerParticipantPlayback,
     mountNotificationSoundPrime: f.mountNotificationSoundPrime,
-    mountMessengerInAppBannerHost: messengerRolloutShowsInAppMessageBanner() && messengerSurface,
+    mountMessengerInAppBannerHost,
   };
+
+  return { stableKey, policy };
+}
+
+/**
+ * 메신저 방 A↔B 등 정책 결과가 같을 때 키만 비교할 때 사용 (내부적으로 단일 shell resolve).
+ */
+export function messagingGlobalChromePolicyStableKey(
+  pathname: string | null,
+  regionBarInLayout: boolean
+): string {
+  return resolveMessagingGlobalChromeFromPath(pathname, regionBarInLayout).stableKey;
+}
+
+export function resolveMessagingGlobalChromePolicy(
+  pathname: string | null,
+  regionBarInLayout: boolean
+): MessagingGlobalChromePolicy {
+  return resolveMessagingGlobalChromeFromPath(pathname, regionBarInLayout).policy;
 }

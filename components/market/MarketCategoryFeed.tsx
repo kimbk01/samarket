@@ -202,9 +202,19 @@ export function MarketCategoryFeed({
         </div>
       </div>
     );
-  }, [children, marketBase, topicKeyForChips, isJobMarket, category, jobKindTab]);
+  }, [children, marketBase, topicKeyForChips, isJobMarket, category.id, category.type, category.slug, jobKindTab]);
 
-  useRegisterTradeSecondaryTabs(isJobMarket || children.length > 0, secondaryHeaderNode);
+  const tradeSecondaryTabsSyncKey = useMemo(
+    () =>
+      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${jobKindTab}\u0000${children.map((c) => c.id).join(",")}\u0000${isJobMarket ? 1 : 0}`,
+    [category.id, topicKeyForChips, jobKindTab, children, isJobMarket]
+  );
+
+  useRegisterTradeSecondaryTabs(
+    isJobMarket || children.length > 0,
+    secondaryHeaderNode,
+    tradeSecondaryTabsSyncKey
+  );
 
   return (
     <div className="touch-pan-y" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>

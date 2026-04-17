@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useEffect, useState } from "react";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
@@ -13,6 +14,130 @@ import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/mess
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
+
+/** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
+const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
+const MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX = 88;
+
+function useMessengerHomeListDocumentScroll(onScroll: () => void) {
+  useEffect(() => {
+    const root = document.scrollingElement ?? document.documentElement;
+    const handler = () => onScroll();
+    root.addEventListener("scroll", handler, { passive: true });
+    return () => root.removeEventListener("scroll", handler);
+  }, [onScroll]);
+}
+
+type MessengerRoomRowsProps = {
+  useVirtual: boolean;
+  items: UnifiedRoomListItem[];
+  listContext: MessengerChatListContext;
+  favoriteFriendIds: Set<string>;
+  busyId: string | null;
+  onTogglePin: (room: CommunityMessengerRoomSummary) => void;
+  onToggleMute: (room: CommunityMessengerRoomSummary) => void;
+  onMarkRead: (room: CommunityMessengerRoomSummary) => void;
+  onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onOpenRoomActions?: (
+    item: UnifiedRoomListItem,
+    listContext: MessengerChatListContext,
+    anchorRect: MessengerMenuAnchorRect | null
+  ) => void;
+  openedSwipeItemId: string | null;
+  onOpenSwipeItem: (id: string | null) => void;
+  onCloseMenuItem: (id?: string) => void;
+  onResetTransientUi: MessengerResetTransientUiFn;
+};
+
+function MessengerRoomRows({
+  useVirtual,
+  items,
+  listContext,
+  favoriteFriendIds,
+  busyId,
+  onTogglePin,
+  onToggleMute,
+  onMarkRead,
+  onToggleArchive,
+  onOpenRoomActions,
+  openedSwipeItemId,
+  onOpenSwipeItem,
+  onCloseMenuItem,
+  onResetTransientUi,
+}: MessengerRoomRowsProps) {
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtual ? items.length : 0,
+    getScrollElement: () =>
+      typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null,
+    estimateSize: () => MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX,
+    overscan: 6,
+  });
+
+  if (!useVirtual) {
+    return (
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <MessengerChatListItem
+            key={item.room.id}
+            item={item}
+            favoriteFriendIds={favoriteFriendIds}
+            busyId={busyId}
+            onTogglePin={onTogglePin}
+            onToggleMute={onToggleMute}
+            onMarkRead={onMarkRead}
+            onToggleArchive={onToggleArchive}
+            listContext={listContext}
+            onOpenRoomActions={onOpenRoomActions}
+            openedSwipeItemId={openedSwipeItemId}
+            onOpenSwipeItem={onOpenSwipeItem}
+            onCloseMenuItem={onCloseMenuItem}
+            onResetTransientUi={onResetTransientUi}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full" role="list" style={{ height: rowVirtualizer.getTotalSize() }}>
+      {rowVirtualizer.getVirtualItems().map((vi) => {
+        const item = items[vi.index]!;
+        return (
+          <div
+            key={item.room.id}
+            role="listitem"
+            ref={rowVirtualizer.measureElement}
+            data-index={vi.index}
+            className="pb-1.5"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${vi.start}px)`,
+            }}
+          >
+            <MessengerChatListItem
+              item={item}
+              favoriteFriendIds={favoriteFriendIds}
+              busyId={busyId}
+              onTogglePin={onTogglePin}
+              onToggleMute={onToggleMute}
+              onMarkRead={onMarkRead}
+              onToggleArchive={onToggleArchive}
+              listContext={listContext}
+              onOpenRoomActions={onOpenRoomActions}
+              openedSwipeItemId={openedSwipeItemId}
+              onOpenSwipeItem={onOpenSwipeItem}
+              onCloseMenuItem={onCloseMenuItem}
+              onResetTransientUi={onResetTransientUi}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function FilterIcon() {
   return (
@@ -68,6 +193,13 @@ export function MessengerChatsScreen({
   onListScrollStart,
 }: Props) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
+  const onDocumentScroll = useCallback(() => {
+    setFilterSheetOpen(false);
+    onListScrollStart();
+  }, [onListScrollStart]);
+  useMessengerHomeListDocumentScroll(onDocumentScroll);
+
   useEffect(() => {
     // 화면에 보이는 리스트를 기준으로 idle 프리패치(첫 진입 체감 개선).
     // 별도 IntersectionObserver 없이도 상단 N개만으로 효과가 크다.
@@ -139,32 +271,22 @@ export function MessengerChatsScreen({
       />
 
       {items.length ? (
-        <div
-          className="space-y-1.5"
-          onScrollCapture={() => {
-            setFilterSheetOpen(false);
-            onListScrollStart();
-          }}
-        >
-          {items.map((item) => (
-            <MessengerChatListItem
-              key={item.room.id}
-              item={item}
-              favoriteFriendIds={favoriteFriendIds}
-              busyId={busyId}
-              onTogglePin={onTogglePin}
-              onToggleMute={onToggleMute}
-              onMarkRead={onMarkRead}
-              onToggleArchive={onToggleArchive}
-              listContext={listContext}
-              onOpenRoomActions={onOpenRoomActions}
-              openedSwipeItemId={openedSwipeItemId}
-              onOpenSwipeItem={onOpenSwipeItem}
-              onCloseMenuItem={onCloseMenuItem}
-              onResetTransientUi={onResetTransientUi}
-            />
-          ))}
-        </div>
+        <MessengerRoomRows
+          useVirtual={useVirt}
+          items={items}
+          listContext={listContext}
+          favoriteFriendIds={favoriteFriendIds}
+          busyId={busyId}
+          onTogglePin={onTogglePin}
+          onToggleMute={onToggleMute}
+          onMarkRead={onMarkRead}
+          onToggleArchive={onToggleArchive}
+          onOpenRoomActions={onOpenRoomActions}
+          openedSwipeItemId={openedSwipeItemId}
+          onOpenSwipeItem={onOpenSwipeItem}
+          onCloseMenuItem={onCloseMenuItem}
+          onResetTransientUi={onResetTransientUi}
+        />
       ) : (
         <div
           className={`px-3 py-8 text-center text-[13px] leading-snug whitespace-pre-line ${
@@ -224,6 +346,9 @@ export function MessengerOpenChatScreen({
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
 }) {
+  const useVirtJoined = joinedItems.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
+  useMessengerHomeListDocumentScroll(onListScrollStart);
+
   return (
     <section
       className="space-y-3 pt-1.5"
@@ -251,29 +376,22 @@ export function MessengerOpenChatScreen({
           </h2>
         </div>
         {joinedItems.length ? (
-          <div
-            className="space-y-1.5"
-            onScrollCapture={onListScrollStart}
-          >
-            {joinedItems.map((item) => (
-              <MessengerChatListItem
-                key={item.room.id}
-                item={item}
-                favoriteFriendIds={favoriteFriendIds}
-                busyId={busyId}
-                onTogglePin={onTogglePin}
-                onToggleMute={onToggleMute}
-                onMarkRead={onMarkRead}
-                onToggleArchive={onToggleArchive}
-                listContext="default"
-                onOpenRoomActions={onOpenRoomActions}
-              openedSwipeItemId={openedSwipeItemId}
-              onOpenSwipeItem={onOpenSwipeItem}
-              onCloseMenuItem={onCloseMenuItem}
-              onResetTransientUi={onResetTransientUi}
-              />
-            ))}
-          </div>
+          <MessengerRoomRows
+            useVirtual={useVirtJoined}
+            items={joinedItems}
+            listContext="default"
+            favoriteFriendIds={favoriteFriendIds}
+            busyId={busyId}
+            onTogglePin={onTogglePin}
+            onToggleMute={onToggleMute}
+            onMarkRead={onMarkRead}
+            onToggleArchive={onToggleArchive}
+            onOpenRoomActions={onOpenRoomActions}
+            openedSwipeItemId={openedSwipeItemId}
+            onOpenSwipeItem={onOpenSwipeItem}
+            onCloseMenuItem={onCloseMenuItem}
+            onResetTransientUi={onResetTransientUi}
+          />
         ) : (
           <div className="px-1 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
             참여 중인 오픈채팅이 없습니다.

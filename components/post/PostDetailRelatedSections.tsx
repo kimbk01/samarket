@@ -39,7 +39,16 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
     >
       <div className="relative aspect-square bg-sam-app">
         {thumb ? (
-          <img src={thumb} alt="" className="h-full w-full object-cover" />
+          <img
+            src={thumb}
+            alt=""
+            width={320}
+            height={320}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[12px] text-sam-muted">이미지</div>
         )}
@@ -78,7 +87,16 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <div className="aspect-square bg-sam-app">
           {thumb ? (
-            <img src={thumb} alt="" className="h-full w-full object-cover" />
+            <img
+              src={thumb}
+              alt=""
+              width={320}
+              height={320}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-muted">이미지</div>
           )}

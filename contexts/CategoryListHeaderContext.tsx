@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -30,10 +31,10 @@ export function CategoryListHeaderProvider({ children }: { children: ReactNode }
   const [config, setConfigState] = useState<CategoryListStickyConfig | null>(null);
   const [tradeSecondaryTabs, setTradeSecondaryTabsState] = useState<ReactNode | null>(null);
   const setConfig = useCallback((next: CategoryListStickyConfig | null) => {
-    setConfigState(next);
+    setConfigState((prev) => (Object.is(prev, next) ? prev : next));
   }, []);
   const setTradeSecondaryTabs = useCallback((next: ReactNode | null) => {
-    setTradeSecondaryTabsState(next);
+    setTradeSecondaryTabsState((prev) => (Object.is(prev, next) ? prev : next));
   }, []);
 
   const value = useMemo(
@@ -63,6 +64,9 @@ export function useRegisterCategoryListStickyHeader(
 ) {
   const ctx = useContext(CategoryListHeaderContext);
   const setConfig = ctx?.setConfig;
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
+  const categoryIdentity = category?.id ?? "";
 
   useEffect(() => {
     if (!setConfig) return;
@@ -70,24 +74,35 @@ export function useRegisterCategoryListStickyHeader(
       setConfig(null);
       return;
     }
-    setConfig({ backHref, category, showTypeBadge });
+    setConfig({ backHref, category: categoryRef.current, showTypeBadge });
     return () => setConfig(null);
-  }, [setConfig, enabled, backHref, category, showTypeBadge]);
+  }, [setConfig, enabled, backHref, categoryIdentity, showTypeBadge]);
 }
 
-export function useRegisterTradeSecondaryTabs(enabled: boolean, node: ReactNode | null) {
+/**
+ * @param syncKey `node` 레퍼런스만으로는 잡히지 않는 갱신(칩·topic·구인구직 탭 등)을 이 값이 바뀔 때 다시 반영.
+ * 생략 시 기존처럼 `node` 참조 변화에만 이펙트가 반응한다.
+ */
+export function useRegisterTradeSecondaryTabs(
+  enabled: boolean,
+  node: ReactNode | null,
+  syncKey?: string | number
+) {
   const ctx = useContext(CategoryListHeaderContext);
   const setTradeSecondaryTabs = ctx?.setTradeSecondaryTabs;
+  const nodeRef = useRef(node);
+  nodeRef.current = node;
+  const driver = syncKey !== undefined ? syncKey : node;
 
   useEffect(() => {
     if (!setTradeSecondaryTabs) return;
-    if (!enabled || node == null) {
+    if (!enabled || nodeRef.current == null) {
       setTradeSecondaryTabs(null);
       return;
     }
-    setTradeSecondaryTabs(node);
+    setTradeSecondaryTabs(nodeRef.current);
     return () => setTradeSecondaryTabs(null);
-  }, [enabled, node, setTradeSecondaryTabs]);
+  }, [enabled, driver, setTradeSecondaryTabs]);
 }
 
 export const useTradeMenuSecondaryHeader = useTradeSecondaryTabs;
