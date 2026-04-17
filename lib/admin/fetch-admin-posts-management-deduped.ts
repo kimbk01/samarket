@@ -10,7 +10,10 @@ export type AdminPostsManagementFetchResult = {
 
 export function fetchAdminPostsManagementDeduped(): Promise<AdminPostsManagementFetchResult> {
   return runSingleFlight("admin:posts-management:list", async (): Promise<AdminPostsManagementFetchResult> => {
-    const res = await fetch("/api/admin/posts-management", { cache: "no-store" });
+    const res = await fetch("/api/admin/posts-management", {
+      cache: "no-store",
+      credentials: "include",
+    });
     const json: unknown = await res.json().catch(() => ({}));
     return { status: res.status, json };
   });

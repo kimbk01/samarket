@@ -13,6 +13,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { fetchTradeHomeRootCategories } from "@/lib/categories/trade-home-root-query";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { AdminProductTable } from "./AdminProductTable";
+import { fetchAdminPostsManagementDeduped } from "@/lib/admin/fetch-admin-posts-management-deduped";
 
 const DEFAULT_FILTERS: AdminProductFilters = {
   status: "",
@@ -36,17 +37,14 @@ export function AdminProductListPage() {
     setLoading(true);
     setListError(null);
     try {
-      const res = await fetch("/api/admin/posts-management", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        products?: Product[];
-        queryError?: string | null;
-      };
-      if (!res.ok) {
+      const { status, json: raw } = await fetchAdminPostsManagementDeduped();
+      const data =
+        status >= 200 && status < 300 && raw && typeof raw === "object"
+          ? (raw as { products?: Product[]; queryError?: string | null })
+          : {};
+      if (status < 200 || status >= 300) {
         setProducts([]);
-        setListError(data.queryError ?? `목록을 불러오지 못했습니다. (${res.status})`);
+        setListError(data.queryError ?? `목록을 불러오지 못했습니다. (${status})`);
         return;
       }
       setProducts(Array.isArray(data.products) ? data.products : []);
@@ -64,8 +62,8 @@ export function AdminProductListPage() {
   }, [load]);
 
   useEffect(() => {
-    setSupabaseAvailable(getSupabaseClient() !== null);
     const sb = getSupabaseClient();
+    setSupabaseAvailable(sb !== null);
     if (!sb) {
       setTradeMenuRoots([]);
       return;

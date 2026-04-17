@@ -81,15 +81,30 @@
 }
 
 /**
- * 가로 오버플로(100vw·풀블리드 등)로 생기는 페이지 전체 스크롤 방지.
- * 세로 스크롤·position:sticky 는 유지됩니다.
+ * 가로 오버플로·iOS 뷰포트 튐·폼 포커스 확대 방지 — 전 페이지 공통 기준.
+ * (Tailwind preflight 와 겹치는 box-sizing 은 동일 값이라 무방)
  */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
+  width: 100%;
+  max-width: 100%;
   overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--sam-bg-app);
   color: var(--sam-text-primary);
   font-family:
@@ -98,6 +113,19 @@ body {
   font-size: var(--sam-text-body-size);
   font-weight: var(--sam-text-body-weight);
   line-height: var(--sam-font-body-line);
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* 텍스트 입력·플레이스홀더 세로 균형 */
@@ -117,6 +145,27 @@ body {
   textarea
 ) {
   line-height: var(--ui-font-body-line);
+}
+
+/**
+ * 폼·채팅 입력: iOS Safari 포커스 확대 방지(16px+)·부모 폭 초과 방지.
+ * `w-auto`/`max-w-*` 등 Tailwind 유틸은 레이어 우선으로 이 기본을 덮어쓸 수 있음.
+ */
+:is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
+      [type="submit"]
+    ):not([type="reset"]):not([type="image"]):not([type="color"]),
+  textarea,
+  select
+) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 1rem;
+}
+
+button {
+  max-width: 100%;
 }
 
 /**
@@ -184,5 +233,37 @@ body {
     transform: none;
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-primary) 45%, transparent);
     will-change: auto;
+  }
+}
+
+@layer components {
+  .min-w-0-safe {
+    min-width: 0;
+  }
+
+  .text-break {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .top-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .bottom-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
+
+  .screen-safe {
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /** `ChatInputBar`·상품 하단 등에서 사용 — 이전에 정의 누락 시 무효 클래스였음 */
+  .safe-area-pb {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
   }
 }

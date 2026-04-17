@@ -65,6 +65,15 @@
   --sam-section-gap: 16px;
   --sam-item-gap: 8px;
 
+  /**
+   * 반응형 구간 참조 (Tailwind `sm`/`md` 와 병행; raw 미디어쿼리·문서용)
+   * 모바일 세로 ~767 · 소형 태블릿/가로 768~1023 · 넓은 태블릿+ 1024+
+   */
+  --sam-bp-mobile-max: 767px;
+  --sam-bp-sm-tablet-min: 768px;
+  --sam-bp-sm-tablet-max: 1023px;
+  --sam-bp-lg-min: 1024px;
+
   /* ----- Typography scale (참조용; 클래스는 globals) ----- */
   --sam-text-page-title-size: 20px;
   --sam-text-page-title-weight: 700;
