@@ -279,7 +279,7 @@ function BottomNavTabStores({
 }) {
   const ownerStore = useOwnerLitePreferredStoreRow();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
-  useOwnerHubBadgeStoreDeepLink();
+  const storeDeepLink = useOwnerHubBadgeStoreDeepLink();
   const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
@@ -373,7 +373,8 @@ export function BottomNav() {
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
   const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
   const tabsRef = useRef(tabs);
-  const pendingActiveResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
+  const pendingActiveResetTimerRef = useRef<number | null>(null);
   const lastPathnameForPendingRef = useRef<string | null>(pathname ?? null);
   useEffect(() => {
     tabsRef.current = tabs;

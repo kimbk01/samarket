@@ -69,6 +69,7 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
     };
   }, []);
 
+  // deps 에 `pathname` 을 넣지 않음 — `pathnameRef` 로만 읽어 라우트 전환마다 타이머·리스너를 재생성하지 않음
   useEffect(() => {
     if (!enabled) return;
     const postHeartbeat = () => {
@@ -133,7 +134,7 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, [enabled, pathname, isLeaderTab]);
+  }, [enabled, isLeaderTab]);
 
   return (
     <TradePresenceActivityContext.Provider value={enabled ? value : null}>
