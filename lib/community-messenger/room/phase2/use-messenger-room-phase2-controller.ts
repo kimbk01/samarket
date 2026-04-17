@@ -38,7 +38,7 @@ import {
   nextOptimisticCommunityMessengerCreatedAtIso,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
@@ -327,6 +327,27 @@ export function useMessengerRoomPhase2Controller() {
     }
   }, [roomId, streamRoomId, snapshot?.viewerUserId]);
 
+  const onMessengerOutboundConfirmed = useCallback(
+    (msg: CommunityMessengerMessage, clientMessageId?: string) => {
+      const uid = snapshot?.viewerUserId?.trim();
+      if (!uid) return;
+      syncMessengerHomeAfterOutboundSend({
+        roomId: streamRoomId,
+        senderUserId: uid,
+        message: msg,
+        clientMessageId,
+      });
+      forgetRoomBootstrapClientFlightsAfterMutation();
+      dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+    },
+    [
+      forgetRoomBootstrapClientFlightsAfterMutation,
+      showMessengerTradeProcessDock,
+      snapshot?.viewerUserId,
+      streamRoomId,
+    ]
+  );
+
   const {
     voiceMicArming,
     voiceRecording,
@@ -353,6 +374,7 @@ export function useMessengerRoomPhase2Controller() {
     setBusy,
     setRoomMessages,
     scrollMessengerToBottom,
+    onOutboundMessageConfirmed: onMessengerOutboundConfirmed,
   });
 
   const toggleRoomMute = useCallback(async () => {
@@ -671,14 +693,7 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          postCommunityMessengerBusEvent({
-            type: "cm.room.message_sent",
-            roomId: streamRoomId,
-            clientMessageId,
-            at: Date.now(),
-          });
-          forgetRoomBootstrapClientFlightsAfterMutation();
-          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+          onMessengerOutboundConfirmed(confirmedMessage, clientMessageId);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -695,7 +710,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMessagesRef,
       streamRoomId,
       roomMembersDisplay,
-      showMessengerTradeProcessDock,
+      onMessengerOutboundConfirmed,
       scrollMessengerToBottom,
       snapshot,
     ]
@@ -778,14 +793,7 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          postCommunityMessengerBusEvent({
-            type: "cm.room.message_sent",
-            roomId: streamRoomId,
-            clientMessageId,
-            at: Date.now(),
-          });
-          forgetRoomBootstrapClientFlightsAfterMutation();
-          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+          onMessengerOutboundConfirmed(confirmedSticker, clientMessageId);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -805,7 +813,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
-      showMessengerTradeProcessDock,
+      onMessengerOutboundConfirmed,
       snapshot,
     ]
   );
@@ -898,8 +906,7 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          forgetRoomBootstrapClientFlightsAfterMutation();
-          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+          onMessengerOutboundConfirmed(serverImageMsg);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -920,7 +927,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
-      showMessengerTradeProcessDock,
+      onMessengerOutboundConfirmed,
       snapshot,
     ]
   );
@@ -1007,8 +1014,7 @@ export function useMessengerRoomPhase2Controller() {
             )
           );
           scrollMessengerToBottom();
-          forgetRoomBootstrapClientFlightsAfterMutation();
-          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+          onMessengerOutboundConfirmed(serverFileMsg);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -1028,7 +1034,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
-      showMessengerTradeProcessDock,
+      onMessengerOutboundConfirmed,
       snapshot,
     ]
   );

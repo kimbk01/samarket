@@ -26,6 +26,8 @@ export function subscribeWithRetry(args: {
   sb: SupabaseClient;
   /** 채널 이름(고정). 같은 이름으로 재시도 시 remove+recreate */
   name: string;
+  /** `[cm-rt] subscribe` 에만 넣는 원장 room id(옵션) */
+  logStreamRoomId?: string;
   /** 모니터링 스코프(집계 키). */
   scope: string;
   /** on 등록을 포함한 채널 구성 함수 */
@@ -120,6 +122,7 @@ export function subscribeWithRetry(args: {
               channelName: args.name,
               status,
               attemptPhase: phase,
+              streamRoomId: args.logStreamRoomId,
             });
           }
           return;
@@ -130,7 +133,13 @@ export function subscribeWithRetry(args: {
           const phase = attempt > 0 ? "retry" : "initial";
           messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status, { attemptPhase: phase });
           if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
-            cmRtLogSubscribe({ scope: args.scope, channelName: args.name, status, attemptPhase: phase });
+            cmRtLogSubscribe({
+              scope: args.scope,
+              channelName: args.name,
+              status,
+              attemptPhase: phase,
+              streamRoomId: args.logStreamRoomId,
+            });
           }
           if (intentionalTeardown) return;
           scheduleRetry(status);

@@ -3,9 +3,11 @@
  * `chatUnread`(거래)·`philifeChatUnread` 는 읽음 API와 별도 캐시(user-chat-unread-parts) TTL과 어긋날 수 있으므로,
  * 미읽음 관련 변경 시 invalidateOwnerHubBadgeCache 를 함께 호출한다.
  */
+import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 
 /** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
-const HUB_BADGE_TTL_MS = 28_000;
+/** 짧을수록 수신 직후 교차 지연 완화, 길수록 GET 부하 감소 — 무효화 누락 시에도 10s 내 자연 정합 */
+const HUB_BADGE_TTL_MS = 10_000;
 
 export type OwnerHubBadgePayload = {
   ok: true;
@@ -31,6 +33,8 @@ export function invalidateOwnerHubBadgeCache(userId: string): void {
   const k = userId.trim();
   if (!k) return;
   hubBadgeCache.delete(k);
+  /** `getCachedUserChatUnreadParts` 4s TTL 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
+  invalidateUserChatUnreadCache(k);
 }
 
 function pruneExpiredHubBadgeCache(now: number) {

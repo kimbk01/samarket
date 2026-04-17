@@ -155,7 +155,7 @@ export function useMessageNotificationBridge(
               return;
             }
             if (!shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current)) {
-              playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
+              playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`, "community_direct_chat");
             }
             tryShowMessengerWebDesktopNotification({
               roomId: nextRoomId,
@@ -202,7 +202,7 @@ export function useMessageNotificationBridge(
             playInAppMessageSound &&
             !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current);
           if (dedupeKey && allowSound) {
-            playCoalescedChatNotificationSound(dedupeKey);
+            playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
           }
           if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
             useMessengerInAppMessageBannerStore.getState().pushOrMerge({

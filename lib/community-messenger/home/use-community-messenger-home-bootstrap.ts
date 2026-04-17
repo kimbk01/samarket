@@ -72,7 +72,10 @@ export function useCommunityMessengerHomeBootstrap({
    */
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
   const [loading, setLoading] = useState(() => !Boolean(initialServerBootstrap));
-  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(() => !Boolean(initialServerBootstrap));
+  /** RSC+로그인 시에도 바로 열어 `participants` Realtime 이 목록·뱃지와 동시에 움직이게 한다(닫아 두면 520ms+ 밀림). */
+  const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(
+    () => Boolean(initialServerBootstrap?.me?.id) || !Boolean(initialServerBootstrap)
+  );
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -82,7 +85,7 @@ export function useCommunityMessengerHomeBootstrap({
     if (!cached) return;
     setData(cached);
     setLoading(false);
-    setHomeRealtimeGateOpen(false);
+    if (cached.me?.id) setHomeRealtimeGateOpen(true);
   }, [initialServerBootstrap]);
 
   useEffect(() => {
@@ -343,11 +346,12 @@ export function useCommunityMessengerHomeBootstrap({
     void refresh();
   }, [refresh, initialServerBootstrap, mergeDeferredMessengerCallLogs]);
 
+  /** 과거 520ms 지연은 목록·홈 Realtime·알림 브리지와 하단 탭 배지가 서로 어긋나는 체감만 키움 — idle 한 틱으로만 연다. */
   useEffect(() => {
     if (homeRealtimeGateOpen) return;
     const idleId = scheduleWhenBrowserIdle(() => {
       setHomeRealtimeGateOpen(true);
-    }, 520);
+    }, 0);
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [homeRealtimeGateOpen]);
 

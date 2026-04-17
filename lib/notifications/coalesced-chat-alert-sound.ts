@@ -1,4 +1,6 @@
 import { MESSENGER_CHAT_ALERT_MIN_GAP_MS } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { playOrderMatchChatAlert } from "@/lib/notifications/play-order-match-alert";
 
@@ -31,8 +33,16 @@ function tryConsumeChatAlertSlot(dedupeKey: string): boolean {
   return true;
 }
 
-export function playCoalescedChatNotificationSound(dedupeKey: string): void {
+/**
+ * @param domain — `community_*`·`trade_chat` 는 `/api/app/notification-sound-config`(어드민 `admin_notification_settings`) 경로.
+ * 생략 시 기존 `/sounds/notification.wav` 단일 재생(일반 푸시 실시간 등).
+ */
+export function playCoalescedChatNotificationSound(dedupeKey: string, domain?: NotificationDomain): void {
   if (!tryConsumeChatAlertSlot(dedupeKey)) return;
+  if (domain) {
+    void playDomainNotificationSound(domain);
+    return;
+  }
   playNotificationSound();
 }
 

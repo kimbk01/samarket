@@ -1,6 +1,6 @@
 /**
  * 배달 입점(스토어) 오너 허브 배지: 소셜 채팅 미읽음 + 배달 주문(접수·환불) + 미답변 문의 + 배달채팅 미읽음.
- * `chatUnread` = 거래채팅(`/chats`·trade segment) — 행 뱃지 합과 맞춤.
+ * `chatUnread` = 거래채팅(`/chats`·trade segment) — 메신저에 연동된 `item_trade` 방은 제외해 CM unread 와 이중 집계 없음.
  * `communityMessengerUnread` = SAMarket 메신저(`community_messenger_participants`) — 하단 「메신저」탭.
  * `philifeChatUnread` = 커뮤니티·일반 DM 등(커뮤니티 계열 참가자 미읽음) — 「커뮤니티」탭 뱃지.
  * `socialChatUnread` = 거래+필라이프 등(chat_rooms/product_chats) 합. `storesTabAttention`은 「배달」탭.
@@ -18,7 +18,8 @@ import { buildOwnerHubBadgePayloadMerged } from "@/lib/chats/build-owner-hub-bad
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const bypassShortCache = new URL(request.url).searchParams.get("cmFresh") === "1";
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     if (process.env.NODE_ENV === "production") {
@@ -61,9 +62,9 @@ export async function GET() {
 
   const storesSb = tryGetSupabaseForStores();
 
-  const payload = await getCachedOwnerHubBadge(userId, async () =>
-    buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId)
-  );
+  const payload = bypassShortCache
+    ? await buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId)
+    : await getCachedOwnerHubBadge(userId, async () => buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId));
 
   return NextResponse.json(payload);
 }

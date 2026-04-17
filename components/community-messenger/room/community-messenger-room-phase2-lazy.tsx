@@ -35,21 +35,11 @@ export const CommunityMessengerTradeProcessSection = dynamic(
   { ssr: false, loading: () => null }
 );
 
-export const SeedTradeChatDetailMemoryFromSnapshot = dynamic(
-  () =>
-    import("@/components/community-messenger/room/messenger-room-trade-prefetch").then((m) => ({
-      default: m.SeedTradeChatDetailMemoryFromSnapshot,
-    })),
-  { ssr: false, loading: () => null }
-);
-
-export const MessengerTradeChatRoomDetailPrefetch = dynamic(
-  () =>
-    import("@/components/community-messenger/room/messenger-room-trade-prefetch").then((m) => ({
-      default: m.MessengerTradeChatRoomDetailPrefetch,
-    })),
-  { ssr: false, loading: () => null }
-);
+/** 거래 카드·실시간과 경합 줄이기 — 청크 지연만으로 `fetch` 가 늦어지면 안 되므로 동적 import 하지 않음 */
+export {
+  MessengerTradeChatRoomDetailPrefetch,
+  SeedTradeChatDetailMemoryFromSnapshot,
+} from "@/components/community-messenger/room/messenger-room-trade-prefetch";
 
 export const CommunityMessengerMessageActionSheet = dynamic(
   () =>

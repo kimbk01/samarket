@@ -5122,6 +5122,18 @@ export async function getCommunityMessengerRoomSnapshot(
     activeCall = phase2[0] as CommunityMessengerCallSession | null;
     tradeChatRoomDetail = phase2[1] as ChatRoom | null;
     presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
+  } else if (room) {
+    /** seed(lite) 부트스트랩 — 통화·presence 는 생략하되 거래 1:1 상단 카드만 즉시 채워 입장 체감 지연을 줄인다. */
+    const raw =
+      "room_type" in room ? trimText(room.summary ?? "") : trimText((room as DevRoom).summary ?? "");
+    const seedTradeMeta = parseCommunityMessengerRoomContextMeta(raw);
+    if (seedTradeMeta?.kind === "trade" && seedTradeMeta.productChatId?.trim()) {
+      await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
+      if (sb) {
+        await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
+      }
+      tradeChatRoomDetail = await tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
+    }
   }
   const members = hydratedLabels.members.map((profile) =>
     ({

@@ -94,7 +94,7 @@ export const SAMARKET_ROOM_TYPE_TO_NOTIFICATION_DOMAIN: Record<
 
 /**
  * §3 + 레거시 병행: 메신저 탭에 표시할 **전체 채팅 미읽음** (거래 레거시 허브 + 메신저 참가자).
- * DB 통합 후 `communityMessengerUnread` 단일 필드만 쓰도록 이 함수 본문만 축소하면 된다.
+ * `chatUnread` 집계는 `community_messenger_room_id` 가 있는 `item_trade` 방을 제외해 통합 메신저와 이중 합산하지 않는다.
  */
 export function resolveMessengerTabTotalUnreadBadgeCount(bd: OwnerHubBadgeBreakdown): number {
   return (

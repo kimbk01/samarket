@@ -48,7 +48,7 @@ import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   readCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
-import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
@@ -328,6 +328,15 @@ export function useMessengerRoomClientPhase1({
     primeHotRoomSnapshot(id, snap);
   }, [roomId, snapshot]);
 
+  /** 거래 1:1 — Phase2·Trade 카드 청크보다 먼저 상품/거래 상세 GET 을 시작해 "불러오는 중" 체감을 줄인다. */
+  useEffect(() => {
+    const m = snapshot?.room.contextMeta;
+    if (!m || m.kind !== "trade") return;
+    const pcid = typeof m.productChatId === "string" ? m.productChatId.trim() : "";
+    if (!pcid) return;
+    void fetchChatRoomDetailApi(pcid);
+  }, [snapshot?.room.contextMeta]);
+
   useLayoutEffect(() => {
     return () => {
       const snap = snapshotRef.current;
@@ -394,6 +403,7 @@ export function useMessengerRoomClientPhase1({
     streamRoomId,
     snapshot,
     initialServerSnapshot,
+    viewerUserIdHint: initialViewerId || undefined,
     roomReadyForRealtime,
     snapshotRef,
     roomMembersDisplayRef,

@@ -36,6 +36,8 @@ export type UseMessengerRoomVoiceRecordingParams = {
   setBusy: Dispatch<SetStateAction<string | null>>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   scrollMessengerToBottom: () => void;
+  /** 음성 전송 확정 시 텍스트·스티커와 동일하게 홈 목록·허브 뱃지 동기화 */
+  onOutboundMessageConfirmed?: (message: CommunityMessengerMessage) => void;
 };
 
 /**
@@ -54,6 +56,7 @@ export function useMessengerRoomVoiceRecording({
   setBusy,
   setRoomMessages,
   scrollMessengerToBottom,
+  onOutboundMessageConfirmed,
 }: UseMessengerRoomVoiceRecordingParams) {
   const apiRoom = (apiRoomId?.trim() || roomId.trim()).trim();
   const voiceFinalizingRef = useRef(false);
@@ -249,6 +252,7 @@ export function useMessengerRoomVoiceRecording({
             )
           );
           scrollMessengerToBottom();
+          onOutboundMessageConfirmed?.(confirmedVoice);
           return;
         }
         URL.revokeObjectURL(blobUrl);
@@ -258,7 +262,15 @@ export function useMessengerRoomVoiceRecording({
         voiceFinalizingRef.current = false;
       }
     },
-    [apiRoomId, getRoomActionErrorMessage, roomId, roomMembersDisplay, scrollMessengerToBottom, snapshot]
+    [
+      apiRoomId,
+      getRoomActionErrorMessage,
+      onOutboundMessageConfirmed,
+      roomId,
+      roomMembersDisplay,
+      scrollMessengerToBottom,
+      snapshot,
+    ]
   );
 
   const abortVoiceArmOnly = useCallback(() => {

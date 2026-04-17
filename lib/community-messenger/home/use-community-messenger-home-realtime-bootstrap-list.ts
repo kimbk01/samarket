@@ -3,11 +3,16 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
-import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import {
+  patchBootstrapRoomListForRealtimeMessageInsert,
+  patchBootstrapRoomListForSenderLocalEcho,
+} from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   type CommunityMessengerHomeRealtimeMessageInsertHint,
   type CommunityMessengerHomeRealtimeParticipantUnreadHint,
@@ -147,9 +152,61 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         /** Realtime은 CM `unread_count` 만 주므로, 거래 레거시 힌트는 home-summary 재병합으로 맞춘다 */
         scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
       }
+      /** 목록(1)은 즉시 반영되는데 하단 탭은 허브 GET 에만 묶이면 수 초 교차 — Realtime 수신과 동일 틱에서 배지 resync 요청 */
+      queueMicrotask(() => {
+        requestMessengerHubBadgeResync("participant_unread_changed");
+      });
     },
     [setData, scheduleHomeMissingRoomSummaryMerge]
   );
+
+  useEffect(() => {
+    const me = userId?.trim();
+    if (!me || !homeRealtimeGateOpen) return;
+    return onCommunityMessengerBusEvent((ev: MessengerBusEvent) => {
+      if (ev.type === "cm.room.bump") return;
+
+      if (ev.type === "cm.room.local_unread") {
+        if (String(ev.viewerUserId) !== me) return;
+        let tradeRoomForLegacyUnreadResync: string | null = null;
+        let missedList = false;
+        setData((prev) => {
+          if (!prev) return prev;
+          let hit = false;
+          const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
+            rooms.map((room) => {
+              if (room.id !== ev.roomId) return room;
+              hit = true;
+              if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
+              return { ...room, unreadCount: ev.unreadCount };
+            });
+          const next = { ...prev, chats: patchRooms(prev.chats), groups: patchRooms(prev.groups) };
+          if (!hit) {
+            missedList = true;
+            return prev;
+          }
+          primeBootstrapCache(next);
+          return next;
+        });
+        if (missedList) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
+        else if (tradeRoomForLegacyUnreadResync) {
+          scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
+        }
+        return;
+      }
+
+      if (ev.type === "cm.room.message_sent") {
+        if (!ev.senderUserId || String(ev.senderUserId) !== me) return;
+        setData((prev) => {
+          if (!prev) return prev;
+          const next = patchBootstrapRoomListForSenderLocalEcho(prev, ev.roomId, ev.listPreview ?? null);
+          if (next === prev) return prev;
+          primeBootstrapCache(next);
+          return next;
+        });
+      }
+    });
+  }, [homeRealtimeGateOpen, scheduleHomeMissingRoomSummaryMerge, setData, userId]);
 
   useCommunityMessengerHomeRealtime({
     userId: userId ?? null,

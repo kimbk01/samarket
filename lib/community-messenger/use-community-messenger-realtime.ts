@@ -263,6 +263,7 @@ function createRoomRealtimeEntry(args: {
     const roomBundle = subscribeWithRetry({
       sb,
       name: `community-messenger-room:bundle:${args.viewerForChannel}:${args.roomId}`,
+      logStreamRoomId: args.roomId,
       scope: "community-messenger-room:bundle",
       isCancelled: () => cancelled,
       onStatus: (status) => {

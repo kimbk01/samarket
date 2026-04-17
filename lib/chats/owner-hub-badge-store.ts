@@ -61,6 +61,8 @@ let globalEventsAttached = false;
 let lastFetchStartedAt = 0;
 let lastEventRefreshAt = 0;
 let eventForceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+/** 메신저 `community_messenger_participants` unread — 5초 이벤트 갭·일반 허브 스케줄과 분리해 탭 배지 즉시성 */
+let messengerHubBadgeCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function emit() {
   for (const l of listeners) l();
@@ -168,15 +170,15 @@ export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
   if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
     const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
     if (inFlight) return inFlight;
-    return Promise.resolve();
+    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
   }
 
   lastFetchStartedAt = now;
 
   return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async () => {
     try {
-      /** 단일 GET — 서버 `getCachedOwnerHubBadge`(28s TTL) 효과 유지. 리더 탭만 HTTP, 결과는 BC 로 동기화. */
-      const res = await fetch("/api/me/store-owner-hub-badge", {
+      /** `force` 시 `cmFresh=1` 로 서버 10s 짧은 캐시를 건너뛰어 메신저 Realtime·목록과 탭 배지가 엇갈리지 않게 한다. */
+      const res = await fetch(force ? "/api/me/store-owner-hub-badge?cmFresh=1" : "/api/me/store-owner-hub-badge", {
         credentials: "include",
         cache: "no-store",
       });
@@ -196,7 +198,29 @@ function onTradeUnreadUpdated() {
   scheduleEventDrivenOwnerHubRefresh();
 }
 
-function onOwnerHubRefresh() {
+type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; at?: number };
+
+function scheduleMessengerParticipantHubBadgeRefresh() {
+  if (eventForceRefreshTimer != null) {
+    clearTimeout(eventForceRefreshTimer);
+    eventForceRefreshTimer = null;
+  }
+  if (messengerHubBadgeCoalesceTimer != null) {
+    clearTimeout(messengerHubBadgeCoalesceTimer);
+    messengerHubBadgeCoalesceTimer = null;
+  }
+  messengerHubBadgeCoalesceTimer = setTimeout(() => {
+    messengerHubBadgeCoalesceTimer = null;
+    void fetchOwnerHubBadgeNow(true);
+  }, 80);
+}
+
+function onOwnerHubRefresh(ev?: Event) {
+  const detail = (ev as CustomEvent<OwnerHubBadgeRefreshDetail> | undefined)?.detail;
+  if (detail?.source === "community_messenger") {
+    scheduleMessengerParticipantHubBadgeRefresh();
+    return;
+  }
   if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
   scheduleEventDrivenOwnerHubRefresh();
 }
@@ -263,6 +287,10 @@ function stopHub() {
   if (eventForceRefreshTimer != null) {
     clearTimeout(eventForceRefreshTimer);
     eventForceRefreshTimer = null;
+  }
+  if (messengerHubBadgeCoalesceTimer != null) {
+    clearTimeout(messengerHubBadgeCoalesceTimer);
+    messengerHubBadgeCoalesceTimer = null;
   }
   detachGlobalEvents();
   teardownOwnerHubLeaderAndSync();

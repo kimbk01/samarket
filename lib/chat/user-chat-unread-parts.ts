@@ -2,6 +2,7 @@
  * 사용자 기준 채팅 미읽음 — product_chats 와 chat_rooms(item_trade) 동시 존재 시 이중 집계 방지.
  * - store_order / 기타 chat_rooms: 참가자 `unread_count` 합산
  * - item_trade: `last_message_id`·`last_read_message_id` 기준 `tradeListUnreadHintFromCursor`(0/1) 합산 — `unread_count` 미사용
+ * - `item_trade` + `community_messenger_room_id`: 메신저 참가자 unread 가 진실이므로 여기서 힌트 합산 제외(하단 메신저 탭 `+ communityMessengerUnread` 이중 방지)
  * - product_chats: 동일 거래에 item_trade 통합방이 있으면 스킵(통합방 힌트만 반영)
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -101,6 +102,8 @@ export async function computeUserChatUnreadParts(
     buyer_id?: string;
     is_locked?: boolean | null;
     last_message_id?: string | null;
+    /** 메신저 통합방과 연결된 거래 채팅 — CM `participants.unread_count` 가 진실이므로 여기서 힌트를 또 합치면 하단 탭 이중 집계 */
+    community_messenger_room_id?: string | null;
   };
 
   const [crRowsFlat, pcRes] = await Promise.all([
@@ -110,7 +113,7 @@ export async function computeUserChatUnreadParts(
         chunkIds(roomIds, CHAT_ROOM_ID_IN_CHUNK_SIZE).map(async (ids) => {
           const { data, error } = await sbAny
             .from("chat_rooms")
-            .select("id, room_type, item_id, seller_id, buyer_id, is_locked, last_message_id")
+            .select("id, room_type, item_id, seller_id, buyer_id, is_locked, last_message_id, community_messenger_room_id")
             .in("id", ids);
           if (error) return [];
           return (data ?? []) as CrMeta[];
@@ -158,6 +161,14 @@ export async function computeUserChatUnreadParts(
       if (rt === "store_order") {
         storeOrderParticipantUnread += c;
       } else if (rt === "item_trade") {
+        if (meta?.item_id && meta?.seller_id && meta?.buyer_id) {
+          linkedKeys.add(`${meta.item_id}|${meta.seller_id}|${meta.buyer_id}`);
+        }
+        const cmLinked = String(meta?.community_messenger_room_id ?? "").trim();
+        if (cmLinked) {
+          /** 통합 메신저 방 unread 는 `community_messenger_participants` 합에만 포함 — 하단 메신저 탭이 `+ chatUnread` 할 때 이중 집계 방지 */
+          continue;
+        }
         const lastMid = meta?.last_message_id ?? null;
         const lastSender = lastMid ? senderByLastMessageId.get(lastMid) ?? null : null;
         const lastMsgResolvable = !lastMid || senderByLastMessageId.has(lastMid);
@@ -172,9 +183,6 @@ export async function computeUserChatUnreadParts(
         communityParticipantUnread += c;
       }
       /* room 행 없음(삭제됨)·room_type 비어 있음 → 미읽음 무시 — 삭제된 테스트 방 뱃지 유령 방지 */
-      if (rt === "item_trade" && meta?.item_id && meta?.seller_id && meta?.buyer_id) {
-        linkedKeys.add(`${meta.item_id}|${meta.seller_id}|${meta.buyer_id}`);
-      }
     }
   }
 

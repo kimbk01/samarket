@@ -84,5 +84,7 @@ export function requestMessengerHubBadgeResync(reason: MessengerHubBadgeResyncRe
   dispatchOwnerHubBadgeRefresh({
     source: detail.source,
     key: reason,
+    /** 250ms 기본 디듀프는 연속 unread 이벤트를 삼켜 하단 탭 배지가 늦게 맞는 원인 — 메신저는 즉시 전달 */
+    dedupeMs: 0,
   });
 }

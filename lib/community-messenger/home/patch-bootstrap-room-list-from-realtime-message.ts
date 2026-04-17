@@ -1,5 +1,6 @@
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerMessage,
   CommunityMessengerMessageType,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
@@ -20,6 +21,20 @@ function normalizeMessageType(raw: string): CommunityMessengerMessageType {
     return raw;
   }
   return "text";
+}
+
+/** 클라 전송 확정 메시지 → `listPreviewFromMessengerMessageRow` 가 기대하는 postgres_changes 형 */
+export function messengerClientMessageToInsertRow(msg: CommunityMessengerMessage): Record<string, unknown> {
+  const meta = (msg as { metadata?: unknown }).metadata;
+  return {
+    id: msg.id,
+    room_id: msg.roomId,
+    sender_id: msg.senderId ?? null,
+    message_type: msg.messageType,
+    content: msg.content ?? null,
+    metadata: meta && typeof meta === "object" ? meta : null,
+    created_at: msg.createdAt,
+  };
 }
 
 /** Realtime `community_messenger_messages` 행 → 목록 카드 프리뷰(서버 summarize 와 유사한 수준). */
@@ -87,4 +102,45 @@ export function patchBootstrapRoomListForRealtimeMessageInsert(
     chats: nextChats,
     groups: nextGroups,
   };
+}
+
+/**
+ * 발신 직후(다른 탭·홈 목록): 서버 `participants` Realtime 보다 앞서
+ * 해당 행의 `unreadCount` 를 0으로 맞추고, 선택적으로 마지막 메시지 프리뷰를 갱신한다.
+ */
+export function patchBootstrapRoomListForSenderLocalEcho(
+  data: CommunityMessengerBootstrap,
+  roomId: string,
+  preview:
+    | Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
+    | null
+): CommunityMessengerBootstrap {
+  const rid = String(roomId ?? "").trim();
+  if (!rid) return data;
+  const chats0 = data.chats ?? [];
+  const groups0 = data.groups ?? [];
+  let nextChats: CommunityMessengerRoomSummary[];
+  let nextGroups: CommunityMessengerRoomSummary[];
+  if (preview) {
+    const pc = patchRoomInList(chats0, rid, preview);
+    const pg = patchRoomInList(groups0, rid, preview);
+    if (pc === chats0 && pg === groups0) return data;
+    nextChats = pc.map((r) => (String(r.id) === rid ? { ...r, unreadCount: 0 } : r));
+    nextGroups = pg.map((r) => (String(r.id) === rid ? { ...r, unreadCount: 0 } : r));
+  } else {
+    let hit = false;
+    nextChats = chats0.map((r) => {
+      if (String(r.id) !== rid) return r;
+      hit = true;
+      return { ...r, unreadCount: 0 };
+    });
+    nextGroups = groups0.map((r) => {
+      if (String(r.id) !== rid) return r;
+      hit = true;
+      return { ...r, unreadCount: 0 };
+    });
+    if (!hit) return data;
+  }
+  if (nextChats === data.chats && nextGroups === data.groups) return data;
+  return { ...data, chats: nextChats, groups: nextGroups };
 }

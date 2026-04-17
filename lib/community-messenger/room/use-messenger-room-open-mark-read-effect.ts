@@ -176,9 +176,21 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             body: JSON.stringify({ action: "mark_read", lastReadMessageId: lastId }),
           });
           const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-          if (res.ok && json.ok && typeof performance !== "undefined") {
-            messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
+          if (res.ok && json.ok) {
+            if (typeof performance !== "undefined") {
+              messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
+            }
             roomOpenMarkReadRef.current.phase = "done";
+            const snapAfter = snapshotRef.current;
+            if (snapAfter && String(snapAfter.room.id) === String(id)) {
+              postCommunityMessengerBusEvent({
+                type: "cm.room.local_unread",
+                roomId: id,
+                viewerUserId: snapAfter.viewerUserId,
+                unreadCount: 0,
+                at: Date.now(),
+              });
+            }
             postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
             requestMessengerHubBadgeResync("room_open_mark_read");
           } else {
