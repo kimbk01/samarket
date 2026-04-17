@@ -96,6 +96,15 @@ import {
 } from "@/lib/chats/trade-chat-entry-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { createCommunityMessengerDeepLinkFromProductTradeChat } from "@/lib/community-messenger/product-trade-chat-bridge";
+import { useTradePresenceActivityOptional } from "@/components/chats/TradePresenceActivityContext";
+import { useTradeChatRoomPresence } from "@/lib/chats/use-trade-chat-room-presence";
+import {
+  useTradeChatRoomTypingPeer,
+  useTradeChatRoomTypingPublisher,
+} from "@/lib/chats/use-trade-chat-room-typing";
+import { TradeChatPresenceHeaderRow } from "@/components/chats/TradeChatPresenceHeaderRow";
+import { TradeChatCallHeaderButtons } from "@/components/chats/TradeChatCallHeaderButtons";
+import { normalizeTradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -207,6 +216,9 @@ export function ChatDetailView({
     storeOrderId.length > 0;
   const isStoreOrderChat =
     isGeneralPurposeChat && room.generalChat?.kind === "store_order";
+  /** 상품 거래 1:1 (스토어 주문·일반 목적 채팅 제외) — presence·typing */
+  const isTradeProductPresenceRoom =
+    room.chatDomain === "trade" && !isGeneralPurposeChat && !!partnerId?.trim();
   const chatHubListHref = isStoreOrderChat ? "/my/store-orders" : "/chats";
   const effectiveListHref = listHrefProp?.trim() || chatHubListHref;
   const [partnerBlocked, setPartnerBlocked] = useState(false);
@@ -329,6 +341,16 @@ export function ChatDetailView({
   const effectiveProductChatId = (room.productChatRoomId || room.id).trim();
   const showMessengerTradeCta = room.chatDomain === "trade" && !isGeneralPurposeChat && Boolean(effectiveProductChatId);
 
+  const notifyMessengerTradeToast = useCallback((msg: string) => {
+    setMessengerTradeToast(msg);
+    setTimeout(() => setMessengerTradeToast(null), 4200);
+  }, []);
+
+  const tradeChatCallPolicyNormalized = useMemo(
+    () => normalizeTradeChatCallPolicy(room.product?.tradeChatCallPolicy),
+    [room.product?.tradeChatCallPolicy]
+  );
+
   const openProductTradeInMessenger = useCallback(async () => {
     const id = effectiveProductChatId;
     if (!id) return;
@@ -344,13 +366,12 @@ export function ChatDetailView({
             : r.error === "product_chat_not_found"
               ? t("nav_messenger_product_trade_bridge_not_found")
               : t("nav_messenger_product_trade_bridge_failed");
-        setMessengerTradeToast(msg);
-        setTimeout(() => setMessengerTradeToast(null), 4200);
+        notifyMessengerTradeToast(msg);
       }
     } finally {
       setMessengerTradeBusy(false);
     }
-  }, [effectiveProductChatId, router, t]);
+  }, [effectiveProductChatId, notifyMessengerTradeToast, router, t]);
 
   const chatMode = room.chatMode ?? "open";
   const soldToOther =
@@ -402,6 +423,15 @@ export function ChatDetailView({
   }, [openReviewOnMount, canOpenReviewSheet, pathname, router]);
 
   const isChatRoom = room.source === "chat_room";
+
+  /** 거래 1:1 — 구매자만 헤더 통화(판매자 글 설정이 음성 이상일 때만 버튼 표시) */
+  const showTradeChatCallInHeader =
+    isChatRoom &&
+    !isStoreOrderChat &&
+    room.chatDomain === "trade" &&
+    !isGeneralPurposeChat &&
+    !amISeller &&
+    Boolean(effectiveProductChatId);
 
   const [chatRealtimeConnState, setChatRealtimeConnState] =
     useState<ChatRoomRealtimeConnectionState>("disabled");
@@ -498,6 +528,88 @@ export function ChatDetailView({
     onMessageRemoved: onOrderRealtimeRemoved,
     onSubscriptionHealth: onOrderRealtimeHealth,
   });
+
+  const tradePresenceAct = useTradePresenceActivityOptional();
+  const [tradePresenceMeta, setTradePresenceMeta] = useState<{
+    viewerMayPublishLive: boolean;
+    peerSharesLive: boolean;
+    peerLastSeenAt: string | null;
+    peerLastSeenLabel: string;
+  } | null>(null);
+  const [tradeComposerDraft, setTradeComposerDraft] = useState("");
+
+  useEffect(() => {
+    if (!isTradeProductPresenceRoom || !room.id?.trim()) {
+      setTradePresenceMeta(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch(`/api/chat/room/${encodeURIComponent(room.id)}/trade-presence`, {
+          credentials: "include",
+        });
+        const j = (await r.json()) as {
+          ok?: boolean;
+          viewerMayPublishLive?: boolean;
+          peerSharesLive?: boolean;
+          peerLastSeenAt?: string | null;
+          peerLastSeenLabel?: string;
+        };
+        if (cancelled || !j.ok) return;
+        setTradePresenceMeta({
+          viewerMayPublishLive: j.viewerMayPublishLive !== false,
+          peerSharesLive: j.peerSharesLive !== false,
+          peerLastSeenAt: typeof j.peerLastSeenAt === "string" ? j.peerLastSeenAt : null,
+          peerLastSeenLabel: typeof j.peerLastSeenLabel === "string" ? j.peerLastSeenLabel : "",
+        });
+      } catch {
+        if (!cancelled) setTradePresenceMeta(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isTradeProductPresenceRoom, room.id]);
+
+  const publishTradePresenceLive = tradePresenceMeta?.viewerMayPublishLive === true;
+  const peerSharesTradePresenceLive = tradePresenceMeta?.peerSharesLive === true;
+
+  const { peerLiveState: peerTradeLiveState } = useTradeChatRoomPresence({
+    roomId: room.id,
+    viewerUserId: currentUserId,
+    partnerUserId: partnerId,
+    enabled: isTradeProductPresenceRoom && tradePresenceMeta != null,
+    readPeerLive: peerSharesTradePresenceLive,
+    publishLive: publishTradePresenceLive,
+    getLastActivityAtMs: () => tradePresenceAct?.getLastActivityAtMs() ?? Date.now(),
+    aggregatedTabVisible:
+      tradePresenceAct?.aggregatedTabVisible ??
+      (typeof document !== "undefined" ? document.visibilityState === "visible" : true),
+    bootstrapReady: tradeChatBootstrapReady,
+  });
+
+  const peerTradeTyping = useTradeChatRoomTypingPeer({
+    roomId: room.id,
+    viewerUserId: currentUserId,
+    partnerUserId: partnerId,
+    enabled: isTradeProductPresenceRoom && tradePresenceMeta != null,
+    receiveTyping: peerSharesTradePresenceLive,
+    bootstrapReady: tradeChatBootstrapReady,
+  });
+
+  useTradeChatRoomTypingPublisher({
+    roomId: room.id,
+    viewerUserId: currentUserId,
+    draft: tradeComposerDraft,
+    enabled: isTradeProductPresenceRoom && tradePresenceMeta != null,
+    publishTyping: publishTradePresenceLive,
+    bootstrapReady: tradeChatBootstrapReady,
+  });
+
+  useEffect(() => {
+    setTradeComposerDraft("");
+  }, [room.id]);
 
   useEffect(() => {
     setChatRealtimeLive(false);
@@ -1585,6 +1697,15 @@ export function ChatDetailView({
     </div>
   ) : null;
 
+  const headerRoleLine =
+    isStoreOrderChat && !isStoreOrderBuyer
+      ? room.roomSubtitle?.trim() || (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장")
+      : room.product
+        ? amISeller
+          ? "상대방 · 구매자"
+          : "상대방 · 이 글의 판매자"
+        : "채팅";
+
   const sellerComposerQuickBar =
     isStoreOrderSeller ? (
       <div className="flex flex-wrap gap-2 border-b border-ig-border bg-sam-surface px-3 pb-2 pt-1">
@@ -1613,6 +1734,7 @@ export function ChatDetailView({
       )}
       <ChatInputBar
         draftStorageKey={room.id}
+        onComposerTextChange={isTradeProductPresenceRoom ? setTradeComposerDraft : undefined}
         onSend={handleSend}
         onLeave={
           isStoreOrderBuyer
@@ -1702,14 +1824,21 @@ export function ChatDetailView({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold text-sam-fg">{partnerDisplayNickname}</p>
-                    <p className="truncate text-[12px] text-sam-fg">
-                      {isStoreOrderChat && !isStoreOrderBuyer
-                        ? (room.roomSubtitle?.trim() ||
-                            (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장"))
-                        : room.product
-                          ? (amISeller ? "상대방 · 구매자" : "상대방 · 이 글의 판매자")
-                          : "채팅"}
-                    </p>
+                    {isTradeProductPresenceRoom && tradePresenceMeta ? (
+                      <>
+                        <TradeChatPresenceHeaderRow
+                          peerSharesLive={peerSharesTradePresenceLive}
+                          peerLiveState={peerTradeLiveState}
+                          peerTyping={peerTradeTyping}
+                          peerLastSeenLabel={
+                            peerTradeLiveState === "offline" ? tradePresenceMeta.peerLastSeenLabel : ""
+                          }
+                        />
+                        <p className="truncate text-[11px] text-sam-muted">{headerRoleLine}</p>
+                      </>
+                    ) : (
+                      <p className="truncate text-[12px] text-sam-fg">{headerRoleLine}</p>
+                    )}
                   </div>
                   {partnerTrustSummary ? (
                     <div className="shrink-0 pr-0.5" aria-label="상대방 거래 매너">
@@ -1724,6 +1853,13 @@ export function ChatDetailView({
                     messageSoundMuted={chatMessageSoundMuted}
                     onToggleMessageSound={() => setChatMessageSoundMuted((v) => !v)}
                     variant={isStoreOrderChat ? "instagram" : "default"}
+                  />
+                ) : null}
+                {showTradeChatCallInHeader ? (
+                  <TradeChatCallHeaderButtons
+                    policy={tradeChatCallPolicyNormalized}
+                    productChatRoomId={effectiveProductChatId}
+                    onErrorMessage={notifyMessengerTradeToast}
                   />
                 ) : null}
                 {isStoreOrderSeller ? (

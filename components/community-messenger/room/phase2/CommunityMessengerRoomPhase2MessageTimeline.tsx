@@ -9,6 +9,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
@@ -54,9 +55,16 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
+import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
+import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const [imageLightbox, setImageLightbox] = useState<{
+    urls: string[];
+    originals: string[];
+    index: number;
+  } | null>(null);
   const latestReadableMineMessageId = useMemo(() => {
     for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
       const item = vm.displayRoomMessages[i];
@@ -308,20 +316,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const mineLight = item.isMine;
                 if (item.messageType === "image") {
                   return (
-                    <a
-                      href={item.content.trim()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      download={vm.roomPreferences.mediaAutoSaveEnabled ? "community-messenger-image" : undefined}
-                      className="block overflow-hidden rounded-[20px]"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.content.trim()}
-                        alt=""
-                        className="max-h-64 max-w-[min(82vw,400px)] w-auto object-cover"
-                      />
-                    </a>
+                    <MessengerChatImageBubble
+                      item={item}
+                      onOpenLightbox={(urls, originals, index) => setImageLightbox({ urls, originals, index })}
+                    />
                   );
                 }
                 if (item.messageType === "sticker") {
@@ -648,6 +646,20 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         </main>
       </div>
       <MessengerRoomNewMessagesBelowChip roomId={vm.streamRoomId} onJumpToLatest={vm.scrollMessengerToBottom} />
+      <MessengerImageLightbox
+        open={imageLightbox != null}
+        urls={imageLightbox?.urls ?? []}
+        originals={imageLightbox?.originals ?? []}
+        index={imageLightbox?.index ?? 0}
+        onClose={() => setImageLightbox(null)}
+        onChangeIndex={(next) =>
+          setImageLightbox((cur) => {
+            if (!cur) return cur;
+            const clamped = Math.max(0, Math.min(cur.urls.length - 1, next));
+            return { ...cur, index: clamped };
+          })
+        }
+      />
     </div>
   );
 });

@@ -49,16 +49,25 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
+import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
   return (
     <>
       {vm.activeSheet ? (
-        <div className="fixed inset-0 z-20 flex flex-col justify-end bg-black/30" onClick={vm.dismissRoomSheet}>
+        <div
+          className="fixed inset-0 z-20 flex flex-col justify-end bg-black/30"
+          onClick={() => {
+            if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
+            else vm.dismissRoomSheet();
+          }}
+        >
           <div
             className={`max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
-              vm.activeSheet === "attach" || vm.activeSheet === "stickers"
+              vm.activeSheet === "attach" ||
+              vm.activeSheet === "attach-confirm" ||
+              vm.activeSheet === "stickers"
                 ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 : "mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-5"
             }`}
@@ -71,6 +80,26 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <p className="mt-0.5 text-[12px] text-[color:var(--cm-room-text-muted)]">보낼 항목을 선택하세요</p>
                 </div>
                 <nav className="flex flex-col" aria-label="첨부">
+                  <button
+                    type="button"
+                    onClick={() => vm.setActiveSheet("stickers")}
+                    disabled={
+                      vm.roomUnavailable ||
+                      vm.busy === "send-sticker" ||
+                      vm.busy === "send" ||
+                      vm.busy === "send-image" ||
+                      vm.busy === "send-file" ||
+                      vm.busy === "send-voice" ||
+                      vm.busy === "delete-message"
+                    }
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left text-[15px] font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Sticker className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+                      스티커
+                    </span>
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
+                  </button>
                   <button
                     type="button"
                     onClick={vm.openImagePicker}
@@ -124,6 +153,80 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 >
                   취소
                 </button>
+              </>
+            ) : null}
+
+            {vm.activeSheet === "attach-confirm" && vm.attachmentConfirmDraft ? (
+              <>
+                <div className="border-b border-[color:var(--cm-room-divider)] px-4 py-3">
+                  <p className="text-[13px] font-semibold text-[color:var(--cm-room-text)]">보내기 전 확인</p>
+                  <p className="mt-0.5 text-[12px] text-[color:var(--cm-room-text-muted)]">취소하면 전송되지 않습니다</p>
+                </div>
+                <div className="max-h-[50vh] overflow-y-auto px-4 py-3">
+                  {vm.attachmentConfirmDraft.kind === "image" ? (
+                    vm.attachmentConfirmDraft.previewUrls.length > 1 ? (
+                      <div className="mx-auto grid max-h-[40vh] w-full max-w-full grid-cols-2 gap-1 rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] p-1">
+                        {vm.attachmentConfirmDraft.previewUrls.map((src, idx) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={`${src}-${idx}`}
+                            src={src}
+                            alt=""
+                            className="aspect-square w-full rounded-[6px] object-cover"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      // 로컬 blob 미리보기 — next/image 미지원
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={vm.attachmentConfirmDraft.previewUrls[0]}
+                        alt="선택한 이미지 미리보기"
+                        className="mx-auto max-h-[40vh] w-auto max-w-full rounded-ui-rect object-contain"
+                      />
+                    )
+                  ) : null}
+                  {vm.attachmentConfirmDraft.kind === "file" ? (
+                    <div className="rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] px-3 py-3">
+                      <p className="flex items-center gap-2 text-[14px] font-semibold text-[color:var(--cm-room-text)]">
+                        <FileIcon className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" />
+                        <span className="min-w-0 truncate">{vm.attachmentConfirmDraft.file.name}</span>
+                      </p>
+                      <p className="mt-1 text-[12px] text-[color:var(--cm-room-text-muted)]">
+                        {formatFileMeta(vm.attachmentConfirmDraft.file.type || "application/octet-stream", vm.attachmentConfirmDraft.file.size)}
+                      </p>
+                    </div>
+                  ) : null}
+                  {vm.attachmentConfirmDraft.kind === "location" ? (
+                    <pre className="whitespace-pre-wrap break-all rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] p-3 text-[13px] leading-snug text-[color:var(--cm-room-text)]">
+                      {vm.attachmentConfirmDraft.content}
+                    </pre>
+                  ) : null}
+                </div>
+                <div className="flex gap-2 border-t border-[color:var(--cm-room-divider)] px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={vm.cancelAttachmentConfirm}
+                    className="min-h-[48px] flex-1 rounded-[10px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] text-[15px] font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void vm.confirmAttachmentSend()}
+                    disabled={
+                      vm.roomUnavailable ||
+                      vm.busy === "send" ||
+                      vm.busy === "send-image" ||
+                      vm.busy === "send-file" ||
+                      vm.busy === "send-voice" ||
+                      vm.busy === "delete-message"
+                    }
+                    className="min-h-[48px] flex-[1.15] rounded-[10px] bg-[color:var(--cm-room-primary)] text-[15px] font-semibold text-white shadow-sm active:opacity-90 disabled:opacity-40"
+                  >
+                    보내기
+                  </button>
+                </div>
               </>
             ) : null}
 
@@ -1280,7 +1383,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             "음성"
                           ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={m.content.trim()} alt="" className="h-full w-full object-cover" />
+                            <img
+                              src={(m.imageAlbumUrls?.[0] ?? m.content).trim()}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
                           ) : (
                             "미디어"
                           )}
@@ -1290,7 +1397,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           <p className="mt-0.5 truncate text-[14px] text-sam-fg">
                             {m.messageType === "voice"
                               ? `음성${m.voiceDurationSeconds ? ` · ${m.voiceDurationSeconds}초` : ""}`
-                              : "사진"}
+                              : m.imageAlbumUrls && m.imageAlbumUrls.length > 1
+                                ? `사진 ${m.imageAlbumUrls.length}장`
+                                : "사진"}
                           </p>
                         </div>
                       </button>

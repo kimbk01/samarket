@@ -80,6 +80,11 @@ export function shouldAlertLatency(
   labels?: Record<string, string>
 ): keyof typeof MESSENGER_PERF_THRESHOLDS | null {
   if (category === "chat.room_load" && metric === "bootstrap_fetch") {
+    /**
+     * `refreshKind: silent` — visibility·bump 뒤 정합용 HTTP. 첫 페인트 SLO 와 분리해
+     * 콘솔 `[messenger:perf:alert]` 오탐을 줄인다(이벤트 큐·서버 집계는 그대로).
+     */
+    if (labels?.refreshKind === "silent") return null;
     return valueMs > MESSENGER_PERF_THRESHOLDS.roomLoadMs ? "roomLoadMs" : null;
   }
   if (category === "chat.message_latency" && metric === "send_roundtrip") {

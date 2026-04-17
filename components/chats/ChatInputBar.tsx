@@ -26,6 +26,8 @@ interface ChatInputBarProps {
   onImageFilesSelected?: (files: File[]) => void;
   /** 이미지 업로드·전송 중 입력 비활성화 */
   imageSending?: boolean;
+  /** 거래 채팅 타이핑 등 — 입력창 텍스트가 바뀔 때마다 호출 */
+  onComposerTextChange?: (text: string) => void;
 }
 
 const DEFAULT_MAX_MESSAGE_LENGTH = 1000;
@@ -58,6 +60,7 @@ export function ChatInputBar({
   variant = "default",
   onImageFilesSelected,
   imageSending = false,
+  onComposerTextChange,
 }: ChatInputBarProps) {
   const { t } = useI18n();
   const ig = variant === "instagram";
@@ -92,11 +95,16 @@ export function ChatInputBar({
     }
   };
 
+  const notifyComposer = (value: string) => {
+    onComposerTextChange?.(value);
+  };
+
   const handleSubmit = () => {
     const trimmed = text.trim().slice(0, maxLength);
     if (!trimmed || inputLocked) return;
     onSend(trimmed);
     setText("");
+    notifyComposer("");
     setEmojiOpen(false);
     persistDraft("");
   };
@@ -106,6 +114,7 @@ export function ChatInputBar({
     if (!el) {
       const next = (text + emoji).slice(0, maxLength);
       setText(next);
+      notifyComposer(next);
       persistDraft(next);
       return;
     }
@@ -113,6 +122,7 @@ export function ChatInputBar({
     const end = el.selectionEnd ?? text.length;
     const next = (text.slice(0, start) + emoji + text.slice(end)).slice(0, maxLength);
     setText(next);
+    notifyComposer(next);
     persistDraft(next);
     requestAnimationFrame(() => {
       el.focus();
@@ -125,11 +135,15 @@ export function ChatInputBar({
     if (!draftStorageKey || typeof window === "undefined") return;
     try {
       const saved = sessionStorage.getItem(draftKey(draftStorageKey));
-      if (saved) setText(saved.slice(0, maxLength));
+      if (saved) {
+        const v = saved.slice(0, maxLength);
+        setText(v);
+        notifyComposer(v);
+      }
     } catch {
       /* ignore */
     }
-  }, [draftStorageKey, maxLength]);
+  }, [draftStorageKey, maxLength, onComposerTextChange]);
 
   useEffect(() => {
     if (!inputRef.current) return;
@@ -318,6 +332,7 @@ export function ChatInputBar({
           onChange={(e) => {
             const v = e.target.value.slice(0, maxLength);
             setText(v);
+            notifyComposer(v);
             persistDraft(v);
           }}
           maxLength={maxLength}

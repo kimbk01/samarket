@@ -41,6 +41,8 @@ export interface ChatProductSummary {
   listPreview?: PostListPreviewModel | null;
   /** meta.trade_chat_kind === "job" — 채팅방 한정 전화 노출 API 사용 */
   isJobTradeChat?: boolean;
+  /** `posts.meta.trade_chat_call_policy` — 거래 채팅 통화(메신저) 허용 범위 */
+  tradeChatCallPolicy?: "none" | "voice_only" | "voice_and_video";
 }
 
 export type ChatRoomStatus = "active" | "blocked" | "closed" | "report_hold";

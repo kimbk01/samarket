@@ -14,6 +14,7 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
       <input
         ref={vm.imageInputRef}
         type="file"
+        multiple
         accept="image/jpeg,image/png,image/webp,image/gif"
         className="hidden"
         onChange={vm.onPickImageFile}

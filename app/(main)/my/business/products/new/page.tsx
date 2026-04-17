@@ -1,7 +1,21 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
 
-export default async function OwnerNewProductPage({
+export default function OwnerNewProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string; draft?: string; menuSectionId?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <OwnerNewProductPageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function OwnerNewProductPageBody({
   searchParams,
 }: {
   searchParams: Promise<{ storeId?: string; draft?: string; menuSectionId?: string }>;

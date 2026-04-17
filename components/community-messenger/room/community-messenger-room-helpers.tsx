@@ -7,6 +7,7 @@
 import type { ReactNode } from "react";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { messengerImageClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-image-message-map";
 import { parseVoiceWaveformPeaksFromMetadata } from "@/lib/community-messenger/voice-waveform";
 import type {
   CommunityMessengerMessage,
@@ -59,7 +60,11 @@ export function communityMessengerMessageSearchText(m: CommunityMessengerMessage
   if (m.messageType === "voice") return "음성 메시지";
   if (m.messageType === "sticker") return "스티커";
   if (m.messageType === "file") return m.fileName?.trim() || "파일";
-  if (m.messageType === "image") return m.content.trim() || "사진";
+  if (m.messageType === "image") {
+    const n = m.imageAlbumUrls?.length ?? 0;
+    if (n > 1) return `사진 ${n}장`;
+    return m.content.trim() || "사진";
+  }
   return m.content;
 }
 
@@ -286,6 +291,7 @@ export function mapRealtimeRoomMessage(
     typeof message.metadata.client_message_id === "string" && message.metadata.client_message_id.trim()
       ? message.metadata.client_message_id.trim()
       : null;
+  const contentTrim = String(message.content ?? "").trim();
   return {
     id: message.id,
     roomId: message.roomId,
@@ -305,6 +311,7 @@ export function mapRealtimeRoomMessage(
     ...(fileName !== undefined ? { fileName } : {}),
     ...(fileMimeType !== undefined ? { fileMimeType } : {}),
     ...(fileSizeBytes !== undefined ? { fileSizeBytes } : {}),
+    ...messengerImageClientFieldsFromMetadata(message.messageType, message.metadata, contentTrim),
   };
 }
 

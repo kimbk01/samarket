@@ -4,6 +4,7 @@ import { normalizeSellerListingState } from "@/lib/products/seller-listing-state
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import { hasExchangeMeta } from "@/lib/posts/post-variant";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
+import { normalizeTradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { DEFAULT_APP_SETTINGS } from "@/lib/admin-settings/admin-settings-utils";
 import { normalizePostImages } from "@/lib/posts/post-normalize";
 import { resolvePostImagePublicUrl } from "@/lib/posts/resolve-post-image-public-url";
@@ -140,6 +141,7 @@ export function chatProductSummaryFromPostRow(
   const meta = parsePostMetaField(post?.meta);
   const isEx = hasExchangeMeta(meta);
   const isJobTradeChat = str(meta.trade_chat_kind).toLowerCase() === "job";
+  const tradeChatCallPolicy = normalizeTradeChatCallPolicy(meta.trade_chat_call_policy);
   const priceRaw = post?.price as number | string | null | undefined;
   const priceNum =
     priceRaw != null && priceRaw !== ""
@@ -178,5 +180,6 @@ export function chatProductSummaryFromPostRow(
     exchangeRateSubLine: isEx ? rateLine : undefined,
     listPreview,
     isJobTradeChat: !isEx && isJobTradeChat ? true : undefined,
+    tradeChatCallPolicy: !isEx && !isJobTradeChat && tradeChatCallPolicy !== "none" ? tradeChatCallPolicy : undefined,
   };
 }

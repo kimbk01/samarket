@@ -1,7 +1,23 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
 
-export default async function OwnerEditProductPage({
+export default function OwnerEditProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ productId: string }>;
+  searchParams: Promise<{ storeId?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <OwnerEditProductPageBody params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function OwnerEditProductPageBody({
   params,
   searchParams,
 }: {

@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 import {
@@ -14,7 +16,21 @@ function firstQueryString(v: string | string[] | undefined): string | undefined 
 /**
  * 레거시 거래 허브 방 URL — 메신저 방(또는 후기 플로우 시 `/chats`)으로 통일 리다이렉트.
  */
-export default async function TradeHubChatRoomPage({
+export default function TradeHubChatRoomPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ roomId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
+      <TradeHubChatRoomPageBody params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function TradeHubChatRoomPageBody({
   params,
   searchParams,
 }: {
@@ -25,7 +41,7 @@ export default async function TradeHubChatRoomPage({
   const sp = await searchParams;
   const roomId = parseRoomId(raw);
   if (!roomId) {
-    redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
+    return redirect(TRADE_CHAT_MESSENGER_LIST_HREF);
   }
   const openReviewOnMount = firstQueryString(sp.review)?.trim() === "1";
   const sourceRaw = firstQueryString(sp.source)?.trim();
@@ -35,5 +51,5 @@ export default async function TradeHubChatRoomPage({
   const dest = openReviewOnMount
     ? tradeHubChatRoomHref(roomId, chatRoomSourceHint, { review: true })
     : tradeHubChatRoomHref(roomId, chatRoomSourceHint);
-  redirect(dest);
+  return redirect(dest);
 }

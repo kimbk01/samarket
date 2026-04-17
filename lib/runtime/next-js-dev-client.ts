@@ -2,17 +2,18 @@
  * Next.js **개발 서버** 전용 판별 (`npm run dev` 등으로 번들이 `development` 일 때).
  *
  * - `next build` + `next start`(로컬 포함) 는 `production` 번들 → 여기서는 false.
- * - 목적: dev 에서만 `router.prefetch`·백그라운드 피드 워밍 등이 **온디맨드 컴파일·HMR**과
- *   CPU·메인 스레드를 나눠 쓰는 것을 줄인다. 운영 체감과 동일하게 두지 않는다(의도적).
  */
 
 export function isNextJsDevelopmentBundle(): boolean {
   return process.env.NODE_ENV === "development";
 }
 
-/** dev 에서 `router.prefetch` 로 탭 전부를 미리 깔면 컴파일 큐가 쌓임 — 생략 */
+/**
+ * 메인 하단 탭 `router.prefetch` 배치 — 기본 **허용**(탭 이동 콜드 스타트 완화).
+ * 배치만 과하면 `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1`.
+ */
 export function shouldRunBottomNavProgrammaticPrefetch(): boolean {
-  return !isNextJsDevelopmentBundle();
+  return process.env.NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH !== "1";
 }
 
 /** dev 에서 Philife 글로벌 피드 워밍은 네트워크·컴파일만 증가 — 생략 */
@@ -25,12 +26,18 @@ export function shouldRunHomeMainShellWarm(): boolean {
   return !isNextJsDevelopmentBundle();
 }
 
-/** dev 에서 Next `Link` 기본 prefetch 가 뷰포트에서 컴파일을 자주 당김 — 탭 링크만 끔 */
+/**
+ * 메인 탭 `Link prefetch` — 기본 **허용**. 뷰포트 탭만 Next 가 선로딩(운영·개발 동일 체감 목표).
+ * `NEXT_PUBLIC_DISABLE_MAIN_NAV_LINK_PREFETCH=1` 로만 끈다.
+ */
 export function shouldEnableNextLinkPrefetchOnMainNav(): boolean {
-  return !isNextJsDevelopmentBundle();
+  return process.env.NEXT_PUBLIC_DISABLE_MAIN_NAV_LINK_PREFETCH !== "1";
 }
 
-/** 방 화면 마운트 시 목록 URL `router.prefetch` — dev 에서는 생략 */
+/**
+ * 방 화면 마운트 시 목록 URL `router.prefetch` — 기본 허용.
+ * `NEXT_PUBLIC_DISABLE_MESSENGER_LIST_ROUTE_PREFETCH=1` 로 끔.
+ */
 export function shouldRunMessengerListRoutePrefetch(): boolean {
-  return !isNextJsDevelopmentBundle();
+  return process.env.NEXT_PUBLIC_DISABLE_MESSENGER_LIST_ROUTE_PREFETCH !== "1";
 }

@@ -23,6 +23,7 @@ import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-det
 import type { ChatRoom } from "@/lib/types/chat";
 import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
+import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
@@ -37,6 +38,7 @@ import {
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
+import { messengerImageClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-image-message-map";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -60,6 +62,7 @@ import {
   CommunityMessengerFriendRequest,
   CommunityMessengerFriendRequestStatus,
   CommunityMessengerMessage,
+  type CommunityMessengerImageSendItem,
   type CommunityMessengerPeerPresenceSnapshot,
   type CommunityMessengerReadReceipt,
   CommunityMessengerProfileLite,
@@ -2316,9 +2319,10 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 
 export async function getCommunityMessengerBootstrap(
   userId: string,
-  options?: { skipDiscoverable?: boolean }
+  options?: { skipDiscoverable?: boolean; deferCallLog?: boolean }
 ): Promise<CommunityMessengerBootstrap> {
   const skipDiscoverable = options?.skipDiscoverable === true;
+  const deferCallLog = options?.deferCallLog === true;
   const [
     friendIds,
     followingIds,
@@ -2345,7 +2349,7 @@ export async function getCommunityMessengerBootstrap(
           joinedRoomIds: new Set(),
         })
       : fetchDiscoverableOpenGroupsRawState(userId),
-    fetchCallLogRowsOnly(userId),
+    deferCallLog ? Promise.resolve<Array<CallRow | DevCall>>([]) : fetchCallLogRowsOnly(userId),
     fetchFriendshipAcceptedAtByPeerId(userId),
   ]);
 
@@ -2465,7 +2469,7 @@ export async function getCommunityMessengerBootstrap(
     participantsBySession
   );
 
-  return {
+  const base: CommunityMessengerBootstrap = {
     me,
     tabs: {
       friends: friends.filter((profile) => !hiddenIdSet.has(profile.id)).length,
@@ -2483,6 +2487,7 @@ export async function getCommunityMessengerBootstrap(
     discoverableGroups,
     calls,
   };
+  return deferCallLog ? { ...base, deferredCallLog: true as const } : base;
 }
 
 async function enrichTradeRoomContextMetaForBootstrap(
@@ -4780,12 +4785,28 @@ export async function getCommunityMessengerRoomSnapshot(
   const hydrationUserIds = hydrateFullMemberList
     ? allMemberIds
     : collectMinimalSnapshotUserIdsForRoomSnapshot(userId, room, participants, messages);
+  /** 1:1 방 peer presence — summary 이후가 아니라 참가자 행만으로 결정해 `hydrateProfiles` 와 동시에 조회(직렬 대기 제거) */
+  const earlyDirectPeerUserId = (() => {
+    if (!room) return "";
+    const rt = ("room_type" in room ? room.room_type : room.roomType) as string;
+    if (rt !== "direct") return "";
+    for (const p of participants) {
+      const uid = trimText(("user_id" in p ? p.user_id : p.userId) ?? "");
+      if (uid && uid !== userId) return uid;
+    }
+    return "";
+  })();
   const tradeChatRoomDetailPromise = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
-  const [roomProfileMap, activeCall, hydrated, tradeChatRoomDetail] = await Promise.all([
+  const presencePromise =
+    earlyDirectPeerUserId !== ""
+      ? fetchPresenceSnapshotsByUserIds([earlyDirectPeerUserId])
+      : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>());
+  const [roomProfileMap, activeCall, hydrated, tradeChatRoomDetail, presenceMap] = await Promise.all([
     fetchRoomProfilesByRoomIds([id]),
     getActiveCallSessionForRoom(userId, id),
     hydrateProfilesWithProfileMap(userId, hydrationUserIds, { includeSelf: true }),
     tradeChatRoomDetailPromise,
+    presencePromise,
   ]);
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
@@ -4807,7 +4828,10 @@ export async function getCommunityMessengerRoomSnapshot(
       ? participants.find((item) => ("user_id" in item ? item.user_id : item.userId) !== userId)
       : undefined;
   const peerUserId = trimText(summary.peerUserId ?? "");
-  const presenceMap = peerUserId ? await fetchPresenceSnapshotsByUserIds([peerUserId]) : new Map();
+  let resolvedPresenceMap = presenceMap;
+  if (peerUserId && !resolvedPresenceMap.has(peerUserId)) {
+    resolvedPresenceMap = await fetchPresenceSnapshotsByUserIds([peerUserId]);
+  }
   const readReceipt: CommunityMessengerReadReceipt | null =
     summary.roomType === "direct" && peerParticipant
       ? {
@@ -4817,7 +4841,7 @@ export async function getCommunityMessengerRoomSnapshot(
           lastReadMessageId: participantLastReadMessageId(peerParticipant),
         }
       : null;
-  const peerPresence = peerUserId ? (presenceMap.get(peerUserId) ?? null) : null;
+  const peerPresence = peerUserId ? (resolvedPresenceMap.get(peerUserId) ?? null) : null;
 
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message) => {
     const isDbMessage = "sender_id" in message;
@@ -4827,6 +4851,7 @@ export async function getCommunityMessengerRoomSnapshot(
       typeof metadata.client_message_id === "string" && metadata.client_message_id.trim()
         ? metadata.client_message_id.trim()
         : null;
+    const safeMt = (isDbMessage ? message.message_type : message.messageType) as CommunityMessengerMessage["messageType"];
     return {
       id: message.id,
       roomId: isDbMessage ? message.room_id : message.roomId,
@@ -4839,7 +4864,7 @@ export async function getCommunityMessengerRoomSnapshot(
             )?.label ?? profileLabel(profileMap.get(senderId), senderId)
           )
         : "시스템",
-      messageType: (isDbMessage ? message.message_type : message.messageType) as CommunityMessengerMessage["messageType"],
+      messageType: safeMt,
       content: trimText(isDbMessage ? message.content : message.content),
       createdAt: trimText(isDbMessage ? message.created_at : message.createdAt) || nowIso(),
       clientMessageId,
@@ -4847,13 +4872,14 @@ export async function getCommunityMessengerRoomSnapshot(
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
       callSessionId: trimText(metadata.sessionId as string) || null,
-      ...((isDbMessage ? message.message_type : message.messageType) === "voice"
+      ...(safeMt === "voice"
         ? {
             voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
             voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
             voiceMimeType: trimText(metadata.mimeType as string) || null,
           }
         : {}),
+      ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
     };
   });
 
@@ -5025,6 +5051,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
+        ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
       };
     });
   };
@@ -5077,6 +5104,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
+        ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content)),
       };
     });
     return { ok: true, messages, hasMore };
@@ -5185,6 +5213,7 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
+        ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
       };
     });
   };
@@ -5242,6 +5271,7 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
+        ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content)),
       };
     });
     return { ok: true, messages, hasMore };
@@ -5331,6 +5361,7 @@ export async function getCommunityMessengerRoomMessageById(input: {
             fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
           }
         : {}),
+      ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(row.content)),
     };
     return { ok: true, message };
   }
@@ -5400,6 +5431,7 @@ export async function getCommunityMessengerRoomMessageById(input: {
           fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
         }
       : {}),
+    ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(r.content)),
   };
   return { ok: true, message };
 }
@@ -5416,19 +5448,32 @@ export async function sendCommunityMessengerMessage(input: {
   const clientMessageId = trimText(input.clientMessageId ?? "");
   const sb = getSupabaseOrNull();
   if (sb) {
-    const [{ data: participant }, { data: roomData }] = await Promise.all([
-      (sb as any)
-        .from("community_messenger_participants")
-        .select("id")
-        .eq("room_id", roomId)
-        .eq("user_id", input.userId)
-        .maybeSingle(),
-      (sb as any)
-        .from("community_messenger_rooms")
-        .select("id, room_status, is_readonly")
-        .eq("id", roomId)
-        .maybeSingle(),
-    ]);
+    const participantQ = (sb as any)
+      .from("community_messenger_participants")
+      .select("id")
+      .eq("room_id", roomId)
+      .eq("user_id", input.userId)
+      .maybeSingle();
+    const roomQ = (sb as any)
+      .from("community_messenger_rooms")
+      .select("id, room_status, is_readonly")
+      .eq("id", roomId)
+      .maybeSingle();
+    const dedupeQ =
+      clientMessageId !== ""
+        ? (sb as any)
+            .from("community_messenger_messages")
+            .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+            .eq("room_id", roomId)
+            .eq("sender_id", input.userId)
+            .filter("metadata->>client_message_id", "eq", clientMessageId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null });
+    const [participantRes, roomRes, dedupeRes] = await Promise.all([participantQ, roomQ, dedupeQ]);
+    const participant = participantRes.data;
+    const roomData = roomRes.data;
     if (!participant || !roomData) return { ok: false, error: "room_not_found" };
     const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
     const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
@@ -5436,15 +5481,8 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
     if (clientMessageId) {
-      const { data: existingRow, error: existingError } = await (sb as any)
-        .from("community_messenger_messages")
-        .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-        .eq("room_id", roomId)
-        .eq("sender_id", input.userId)
-        .filter("metadata->>client_message_id", "eq", clientMessageId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const existingRow = dedupeRes.data;
+      const existingError = dedupeRes.error;
       if (!existingError && existingRow) {
         return {
           ok: true,
@@ -5478,7 +5516,8 @@ export async function sendCommunityMessengerMessage(input: {
       .select("id, room_id, sender_id, message_type, content, metadata, created_at")
       .single();
     if (!insertError && insertedMessage) {
-      await (sb as any)
+      const insertedMessageId = String((insertedMessage as { id?: unknown }).id ?? "");
+      const roomUpdate = (sb as any)
         .from("community_messenger_rooms")
         .update({
           last_message: content,
@@ -5487,30 +5526,36 @@ export async function sendCommunityMessengerMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+      const unreadRpc = (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
         p_room_id: roomId,
         p_sender_id: input.userId,
         p_read_at: createdAt,
       });
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
-      const insertedMessageId = String((insertedMessage as { id?: unknown }).id ?? "");
-      if (insertedMessageId) {
-        await (sb as any)
-          .from("community_messenger_participants")
-          .update({
-            last_read_at: createdAt,
-            last_read_message_id: insertedMessageId,
-          })
-          .eq("room_id", roomId)
-          .eq("user_id", input.userId);
-      }
-      const { data: recipientRows } = await (sb as any)
+      const senderReadUpdate =
+        insertedMessageId !== ""
+          ? (sb as any)
+              .from("community_messenger_participants")
+              .update({
+                last_read_at: createdAt,
+                last_read_message_id: insertedMessageId,
+              })
+              .eq("room_id", roomId)
+              .eq("user_id", input.userId)
+          : Promise.resolve({ data: null, error: null });
+      const recipientQuery = (sb as any)
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
         .neq("user_id", input.userId);
+      const [, { error: unreadRpcError }, , { data: recipientRows }] = await Promise.all([
+        roomUpdate,
+        unreadRpc,
+        senderReadUpdate,
+        recipientQuery,
+      ]);
+      if (unreadRpcError) {
+        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
+      }
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
@@ -5668,24 +5713,97 @@ async function appendCommunityMessengerSystemMessage(input: {
   return { ok: true };
 }
 
+const COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX = 10;
+
 const VOICE_LAST_PREVIEW = "음성 메시지";
 const IMAGE_LAST_PREVIEW = "사진";
 const FILE_LAST_PREVIEW = "파일";
 const STICKER_LAST_PREVIEW = "스티커";
 
+function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
+  if (items.length === 1) {
+    const f = items[0]!;
+    return {
+      storagePath: f.originalStoragePath,
+      mimeType: f.originalMimeType,
+      image_thumb_url: f.chatPublicUrl,
+      image_preview_url: f.previewPublicUrl,
+      image_original_url: f.originalPublicUrl,
+    };
+  }
+  return {
+    image_thumb_urls: items.map((i) => i.chatPublicUrl),
+    image_preview_urls: items.map((i) => i.previewPublicUrl),
+    image_urls: items.map((i) => i.originalPublicUrl),
+    storage_paths: items.map((i) => i.originalStoragePath),
+    mime_types: items.map((i) => i.originalMimeType),
+    storagePath: items[0]!.originalStoragePath,
+    mimeType: items[0]!.originalMimeType,
+  };
+}
+
+function communityMessengerBuiltImageClientMessage(
+  items: CommunityMessengerImageSendItem[],
+  createdAt: string,
+  id: string,
+  roomId: string,
+  userId: string
+): CommunityMessengerMessage {
+  const first = items[0]!;
+  const base: CommunityMessengerMessage = {
+    id,
+    roomId,
+    senderId: userId,
+    senderLabel: "나",
+    messageType: "image",
+    content: first.chatPublicUrl,
+    createdAt,
+    isMine: true,
+    callKind: null,
+    callStatus: null,
+  };
+  if (items.length > 1) {
+    return {
+      ...base,
+      imageAlbumUrls: items.map((i) => i.chatPublicUrl),
+      imageAlbumPreviewUrls: items.map((i) => i.previewPublicUrl),
+      imageAlbumOriginalUrls: items.map((i) => i.originalPublicUrl),
+    };
+  }
+  return {
+    ...base,
+    imagePreviewUrl: first.previewPublicUrl,
+    imageOriginalUrl: first.originalPublicUrl,
+  };
+}
+
 export async function sendCommunityMessengerImageMessage(input: {
   userId: string;
   roomId: string;
-  imagePublicUrl: string;
-  storagePath: string;
-  mimeType?: string;
+  items: CommunityMessengerImageSendItem[];
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
-  const imagePublicUrl = trimText(input.imagePublicUrl);
-  const storagePath = trimText(input.storagePath);
-  if (!roomId || !imagePublicUrl || !storagePath) return { ok: false, error: "content_required" };
-  const mimeType = trimText(input.mimeType) || "image/jpeg";
-  const metadata: Record<string, unknown> = { storagePath, mimeType };
+  const items = (input.items ?? [])
+    .map((it) => ({
+      chatPublicUrl: trimText(it.chatPublicUrl),
+      previewPublicUrl: trimText(it.previewPublicUrl),
+      originalPublicUrl: trimText(it.originalPublicUrl),
+      originalStoragePath: trimText(it.originalStoragePath),
+      originalMimeType: trimText(it.originalMimeType) || "image/jpeg",
+    }))
+    .filter(
+      (it) =>
+        it.chatPublicUrl &&
+        it.previewPublicUrl &&
+        it.originalPublicUrl &&
+        it.originalStoragePath
+    );
+  if (!roomId || items.length === 0) return { ok: false, error: "content_required" };
+  if (items.length > COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX) return { ok: false, error: "too_many_images" };
+
+  const first = items[0]!;
+  const metadata = communityMessengerImageMessageMetadata(items);
+  const lastPreview = items.length > 1 ? `사진 ${items.length}장` : IMAGE_LAST_PREVIEW;
   const sb = getSupabaseOrNull();
   if (sb) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([
@@ -5714,27 +5832,30 @@ export async function sendCommunityMessengerImageMessage(input: {
         room_id: roomId,
         sender_id: input.userId,
         message_type: "image",
-        content: imagePublicUrl,
+        content: first.chatPublicUrl,
         metadata,
         created_at: createdAt,
       })
       .select("id, room_id, sender_id, message_type, content, metadata, created_at")
       .single();
     if (!insertError && insertedMessage) {
-      await (sb as any)
-        .from("community_messenger_rooms")
-        .update({
-          last_message: IMAGE_LAST_PREVIEW,
-          last_message_at: createdAt,
-          last_message_type: "image",
-          updated_at: createdAt,
-        })
-        .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-        p_room_id: roomId,
-        p_sender_id: input.userId,
-        p_read_at: createdAt,
-      });
+      const [, unreadRpcResult] = await Promise.all([
+        (sb as any)
+          .from("community_messenger_rooms")
+          .update({
+            last_message: lastPreview,
+            last_message_at: createdAt,
+            last_message_type: "image",
+            updated_at: createdAt,
+          })
+          .eq("id", roomId),
+        (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+          p_room_id: roomId,
+          p_sender_id: input.userId,
+          p_read_at: createdAt,
+        }),
+      ]);
+      const unreadRpcError = unreadRpcResult?.error;
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
@@ -5749,24 +5870,14 @@ export async function sendCommunityMessengerImageMessage(input: {
       void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
         roomId,
         senderUserId: input.userId,
-        preview: IMAGE_LAST_PREVIEW,
+        preview: lastPreview,
         recipientUserIds: imageRecipientUserIds,
       }).catch(() => {});
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds);
+      const mid = String((insertedMessage as { id?: unknown }).id ?? "");
       return {
         ok: true,
-        message: {
-          id: String((insertedMessage as { id?: unknown }).id ?? ""),
-          roomId,
-          senderId: input.userId,
-          senderLabel: "나",
-          messageType: "image",
-          content: imagePublicUrl,
-          createdAt,
-          isMine: true,
-          callKind: null,
-          callStatus: null,
-        },
+        message: communityMessengerBuiltImageClientMessage(items, createdAt, mid, roomId, input.userId),
       };
     }
     if (!isMissingTableError(insertError)) {
@@ -5792,11 +5903,11 @@ export async function sendCommunityMessengerImageMessage(input: {
     roomId,
     senderId: input.userId,
     messageType: "image",
-    content: imagePublicUrl,
+    content: first.chatPublicUrl,
     metadata,
     createdAt,
   });
-  room.lastMessage = IMAGE_LAST_PREVIEW;
+  room.lastMessage = lastPreview;
   room.lastMessageAt = createdAt;
   room.lastMessageType = "image";
   for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
@@ -5804,18 +5915,7 @@ export async function sendCommunityMessengerImageMessage(input: {
   }
   return {
     ok: true,
-    message: {
-      id: messageId,
-      roomId,
-      senderId: input.userId,
-      senderLabel: "나",
-      messageType: "image",
-      content: imagePublicUrl,
-      createdAt,
-      isMine: true,
-      callKind: null,
-      callStatus: null,
-    },
+    message: communityMessengerBuiltImageClientMessage(items, createdAt, messageId, roomId, input.userId),
   };
 }
 
@@ -6712,6 +6812,17 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
+  if (!isGroupRoom && sb) {
+    const tradeCallGate = await assertMessengerTradeDirectRoomAllowsCallKind({
+      supabase: sb,
+      roomId,
+      callKind: input.callKind,
+    });
+    if (!tradeCallGate.ok) {
+      return { ok: false, error: tradeCallGate.error };
+    }
+  }
+
   const startedAt = nowIso();
   if (sb) {
     if (!isGroupRoom && peerUserId) {
@@ -6934,6 +7045,15 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
       return { ok: true, session: await mapCallSession(uid, session) };
     }
     if (session.call_kind !== "voice") return { ok: false, error: "bad_action" };
+
+    const tradeVideoGate = await assertMessengerTradeDirectRoomAllowsCallKind({
+      supabase: sb,
+      roomId: trimText(session.room_id ?? ""),
+      callKind: "video",
+    });
+    if (!tradeVideoGate.ok) {
+      return { ok: false, error: tradeVideoGate.error };
+    }
 
     const now = nowIso();
     const { data: updated, error } = await (sb as any)

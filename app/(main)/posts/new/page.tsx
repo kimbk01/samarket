@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
 interface PageProps {
   searchParams: Promise<{ type?: string }>;
@@ -11,12 +13,20 @@ interface PageProps {
  * - community(기본): 필라이프 글쓰기로 통합
  * - service: 거래/서비스 카테고리 쓰기 허브(`/write`)로 안내
  */
-export default async function NewPostPage({ searchParams }: PageProps) {
+export default function NewPostPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <NewPostPageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function NewPostPageBody({ searchParams }: PageProps) {
   const sp = await searchParams;
   const type = (sp.type ?? "community").trim().toLowerCase();
 
   if (type === "community") {
-    redirect("/philife/write");
+    return redirect("/philife/write");
   }
 
   return (

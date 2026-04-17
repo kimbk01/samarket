@@ -1,5 +1,15 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
-export default async function CommunityMyPage() {
-  redirect("/philife/my");
+export default function CommunityMyPage() {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
+      <CommunityMyPageBody />
+    </Suspense>
+  );
+}
+
+async function CommunityMyPageBody() {
+  return redirect("/philife/my");
 }

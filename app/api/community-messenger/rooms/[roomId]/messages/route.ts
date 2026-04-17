@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   enforceRateLimit,
@@ -154,13 +154,21 @@ export async function POST(
   });
   if (result.ok) {
     const msg = result.message as { id?: string; createdAt?: string } | undefined;
-    await publishMessengerRoomBumpAfterMutation({
+    const bumpArgs = {
       rawRouteRoomId: canon.rawRouteRoomId,
       canonicalRoomId,
       fromUserId: auth.userId,
       messageId: typeof msg?.id === "string" ? msg.id : undefined,
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
+    };
+    /** 응답 본문은 DB insert 직후 즉시 반환 — bump·캐시 무효화·브로드캐스트는 `after` 로 분리해 전송 RTT 에서 제외 */
+    after(async () => {
+      try {
+        await publishMessengerRoomBumpAfterMutation(bumpArgs);
+      } catch {
+        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+      }
     });
   }
   recordMessengerApiTiming(

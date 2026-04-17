@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 
@@ -62,7 +64,19 @@ export async function generateMetadata({
   }
 }
 
-export default async function StoreDetailPage({
+export default function StoreDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoreDetailPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreDetailPageBody({
   params,
 }: {
   params: Promise<{ slug: string }>;

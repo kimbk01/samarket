@@ -1058,7 +1058,11 @@ export function useCommunityMessengerCall(args: {
         setErrorMessage(
           json.error === "group_call_not_supported_yet"
             ? "그룹 통화 실연결은 다음 단계에서 지원합니다."
-            : "통화 시작에 실패했습니다."
+            : json.error === "trade_chat_calls_disabled"
+              ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
+              : json.error === "trade_chat_video_not_allowed"
+                ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                : "통화 시작에 실패했습니다."
         );
         setPanel(null);
         return;
@@ -1302,7 +1306,11 @@ export function useCommunityMessengerCall(args: {
         setErrorMessage(
           patchJson.error === "bad_action"
             ? "지금은 영상으로 전환할 수 없습니다."
-            : "영상 전환 요청에 실패했습니다."
+            : patchJson.error === "trade_chat_video_not_allowed"
+              ? "이 글에서는 음성 통화만 허용되어 있습니다."
+              : patchJson.error === "trade_chat_calls_disabled"
+                ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
+                : "영상 전환 요청에 실패했습니다."
         );
         return false;
       }

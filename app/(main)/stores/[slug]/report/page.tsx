@@ -1,6 +1,22 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreReportPageClient } from "@/components/stores/StoreReportPageClient";
 
-export default async function StoreReportPage({
+export default function StoreReportPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ product?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <StoreReportPageBody params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function StoreReportPageBody({
   params,
   searchParams,
 }: {

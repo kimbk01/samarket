@@ -1,10 +1,20 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { CommunityPostCard } from "@/components/community/CommunityPostCard";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { listCommunityPostsForUser } from "@/lib/community-feed/queries";
 
-export default async function MypageCommunityPostsPage() {
+export default function MypageCommunityPostsPage() {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={6} />}>
+      <MypageCommunityPostsPageBody />
+    </Suspense>
+  );
+}
+
+async function MypageCommunityPostsPageBody() {
   const uid = await getOptionalAuthenticatedUserId();
   const posts = uid ? await listCommunityPostsForUser(uid) : [];
 

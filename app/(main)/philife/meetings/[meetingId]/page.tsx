@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MeetingJoinButton } from "@/components/community/MeetingJoinButton";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
@@ -134,7 +136,15 @@ function MeetingInfoCard({
  * - 참여자: 기본 방으로 즉시 보냄
  * - 미참여자: 여기서 참여/입장 CTA를 바로 보여줌
  */
-export default async function PhilifeMeetingPage({ params, searchParams }: Props) {
+export default function PhilifeMeetingPage({ params, searchParams }: Props) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <PhilifeMeetingPageBody params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function PhilifeMeetingPageBody({ params, searchParams }: Props) {
   const { meetingId } = await params;
   await searchParams;
   const id = meetingId?.trim();

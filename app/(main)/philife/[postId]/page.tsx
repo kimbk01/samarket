@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import { Detail } from "@/components/community/Detail";
@@ -17,9 +19,8 @@ interface Props {
   params: Promise<{ postId: string }>;
 }
 
-/** /philife/:postId — 필라이프 글 상세 (UUID만). 게시판 slug 미사용. */
-export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
-  const { postId } = await params;
+async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromise: Props["params"] }) {
+  const { postId } = await paramsPromise;
   const seg = postId?.trim() ?? "";
   if (!seg) redirect("/philife");
 
@@ -64,7 +65,6 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
       joinedFromDb;
   }
 
-  /** 개설자·승인 멤버도 채팅 대신 모임 상세로 이동 */
   if (post.meeting_id && viewerJoinedMeeting) {
     redirect(philifeAppPaths.meeting(post.meeting_id));
   }
@@ -77,5 +77,14 @@ export default async function PhilifeNeighborhoodPostPage({ params }: Props) {
       initialCommentsLoaded
       viewerJoinedMeeting={viewerJoinedMeeting}
     />
+  );
+}
+
+/** /philife/:postId — 필라이프 글 상세 (UUID). 게시판 slug 미사용. */
+export default function PhilifeNeighborhoodPostPage({ params }: Props) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <PhilifeNeighborhoodPostPageBody paramsPromise={params} />
+    </Suspense>
   );
 }

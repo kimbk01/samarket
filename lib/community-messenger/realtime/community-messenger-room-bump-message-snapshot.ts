@@ -52,6 +52,26 @@ export function serializeCommunityMessengerMessageForBump(
   if (typeof msg.fileSizeBytes === "number" && Number.isFinite(msg.fileSizeBytes)) {
     row.fileSizeBytes = Math.max(0, Math.floor(msg.fileSizeBytes));
   }
+  const bumpImageUrls = (urls: string[] | null | undefined) =>
+    (urls ?? [])
+      .map((u) => String(u ?? "").trim())
+      .filter((u) => /^https?:\/\//i.test(u))
+      .slice(0, 10)
+      .map((u) => (u.length > 600 ? `${u.slice(0, 599)}…` : u));
+  if (msg.messageType === "image" && Array.isArray(msg.imageAlbumUrls) && msg.imageAlbumUrls.length > 1) {
+    const urls = bumpImageUrls(msg.imageAlbumUrls);
+    if (urls.length > 1) row.imageAlbumUrls = urls;
+    const prev = bumpImageUrls(msg.imageAlbumPreviewUrls ?? null);
+    if (prev.length > 1) row.imageAlbumPreviewUrls = prev;
+  }
+  if (msg.messageType === "image" && typeof msg.imagePreviewUrl === "string" && msg.imagePreviewUrl.trim()) {
+    const u = msg.imagePreviewUrl.trim();
+    if (/^https?:\/\//i.test(u) && u.length <= 800) row.imagePreviewUrl = u;
+  }
+  if (msg.messageType === "image" && typeof msg.imageOriginalUrl === "string" && msg.imageOriginalUrl.trim()) {
+    const u = msg.imageOriginalUrl.trim();
+    if (/^https?:\/\//i.test(u) && u.length <= 800) row.imageOriginalUrl = u;
+  }
   return row;
 }
 
@@ -122,6 +142,28 @@ export function parseCommunityMessengerBumpMessageSnapshot(
   }
   if (typeof m.fileSizeBytes === "number" && Number.isFinite(m.fileSizeBytes)) {
     out.fileSizeBytes = Math.max(0, Math.floor(m.fileSizeBytes));
+  }
+  if (messageType === "image" && Array.isArray(m.imageAlbumUrls)) {
+    const urls = m.imageAlbumUrls
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter((u) => /^https?:\/\//i.test(u))
+      .slice(0, 10);
+    if (urls.length > 1) out.imageAlbumUrls = urls;
+  }
+  if (messageType === "image" && Array.isArray(m.imageAlbumPreviewUrls)) {
+    const urls = m.imageAlbumPreviewUrls
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter((u) => /^https?:\/\//i.test(u))
+      .slice(0, 10);
+    if (urls.length > 1) out.imageAlbumPreviewUrls = urls;
+  }
+  if (messageType === "image" && typeof m.imagePreviewUrl === "string" && m.imagePreviewUrl.trim()) {
+    const u = m.imagePreviewUrl.trim();
+    if (/^https?:\/\//i.test(u)) out.imagePreviewUrl = u.slice(0, 800);
+  }
+  if (messageType === "image" && typeof m.imageOriginalUrl === "string" && m.imageOriginalUrl.trim()) {
+    const u = m.imageOriginalUrl.trim();
+    if (/^https?:\/\//i.test(u)) out.imageOriginalUrl = u.slice(0, 800);
   }
   return out;
 }

@@ -1,6 +1,20 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { RestaurantOrderDetailClient } from "@/components/stores/delivery/RestaurantOrderDetailClient";
 
-export default async function StoreOrderDetailPage({
+export default function StoreOrderDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string; orderId: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <StoreOrderDetailPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreOrderDetailPageBody({
   params,
 }: {
   params: Promise<{ slug: string; orderId: string }>;

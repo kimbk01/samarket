@@ -71,6 +71,8 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_voice_unsupported");
     case "unsupported_image":
       return "JPG, PNG, WEBP, GIF 이미지만 보낼 수 있습니다.";
+    case "too_many_images":
+      return "한 번에 보낼 수 있는 사진은 최대 10장입니다.";
     case "unsupported_file":
       return "지원하지 않는 파일 형식입니다.";
     case "file_required":

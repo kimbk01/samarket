@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useState,
 } from "react";
 import {
   hasUsablePrimedCommunityMessengerDeviceStream,
@@ -42,6 +43,14 @@ import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
+
+/** 첨부·위치 선택 후 「보내기」 전 확인 시트용 */
+export type MessengerAttachmentConfirmDraft =
+  | { kind: "image"; files: File[]; previewUrls: string[] }
+  | { kind: "file"; file: File }
+  | { kind: "location"; content: string };
+
+const MESSENGER_IMAGE_ALBUM_PICK_MAX = 10;
 
 export function useMessengerRoomPhase2Controller() {
   const phase1 = useMessengerRoomClientPhase1Context();
@@ -201,6 +210,32 @@ export function useMessengerRoomPhase2Controller() {
     updateStickToBottomFromScroll,
     voiceMessageCount,
   } = phase1;
+
+  const [attachmentConfirmDraft, setAttachmentConfirmDraft] = useState<MessengerAttachmentConfirmDraft | null>(null);
+
+  useEffect(() => {
+    const rid = roomId?.trim();
+    return () => {
+      if (!rid) return;
+      setAttachmentConfirmDraft((prev) => {
+        if (prev?.kind === "image") {
+          for (const u of prev.previewUrls) URL.revokeObjectURL(u);
+        }
+        return null;
+      });
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    if (activeSheet != null) return;
+    setAttachmentConfirmDraft((prev) => {
+      if (!prev) return null;
+      if (prev.kind === "image") {
+        for (const u of prev.previewUrls) URL.revokeObjectURL(u);
+      }
+      return null;
+    });
+  }, [activeSheet]);
 
   const call = useCommunityMessengerRoomGroupCall();
   const callPanel = call.panel;
@@ -759,25 +794,27 @@ export function useMessengerRoomPhase2Controller() {
       showMessengerSnackbar("이 기기에서 위치를 사용할 수 없습니다.", { variant: "error" });
       return;
     }
-    dismissRoomSheet();
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
         const content = `📍 위치 공유\n${url}`;
-        void sendRawText(content);
+        setAttachmentConfirmDraft({ kind: "location", content });
+        setActiveSheet("attach-confirm");
       },
       () => {
         showMessengerSnackbar("위치 권한이 필요하거나 가져오지 못했습니다.", { variant: "error" });
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
     );
-  }, [dismissRoomSheet, roomUnavailable, sendRawText, snapshot]);
+  }, [roomUnavailable, setActiveSheet, snapshot]);
 
-  const sendImageFile = useCallback(
-    async (file: File) => {
+  const sendImageFiles = useCallback(
+    async (files: File[], optimisticPreviewUrls: string[]) => {
       if (!snapshot || roomUnavailable) return;
-      const previewUrl = URL.createObjectURL(file);
+      const list = files.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
+      const previews = optimisticPreviewUrls.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
+      if (list.length === 0 || list.length !== previews.length) return;
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
@@ -785,7 +822,17 @@ export function useMessengerRoomPhase2Controller() {
         senderId: snapshot.viewerUserId,
         senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
         messageType: "image",
-        content: previewUrl,
+        content: previews[0]!,
+        ...(previews.length > 1
+          ? {
+              imageAlbumUrls: previews,
+              imageAlbumPreviewUrls: previews,
+              imageAlbumOriginalUrls: previews,
+            }
+          : {
+              imagePreviewUrl: previews[0]!,
+              imageOriginalUrl: previews[0]!,
+            }),
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         isMine: true,
         pending: true,
@@ -798,7 +845,7 @@ export function useMessengerRoomPhase2Controller() {
       dismissRoomSheet();
       try {
         const form = new FormData();
-        form.append("file", file);
+        for (const f of list) form.append("files", f);
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/images`, {
           method: "POST",
@@ -835,7 +882,7 @@ export function useMessengerRoomPhase2Controller() {
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
-        URL.revokeObjectURL(previewUrl);
+        for (const u of previews) URL.revokeObjectURL(u);
         setBusy(null);
       }
     },
@@ -863,15 +910,20 @@ export function useMessengerRoomPhase2Controller() {
     cameraInputRef.current?.click();
   }, [busy, canUploadAttachments, roomUnavailable]);
 
-  const onPickImageFile = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
-      await sendImageFile(file);
-    },
-    [sendImageFile]
-  );
+  const onPickImageFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.target.files ?? []).filter((f) => f.type.startsWith("image/"));
+    event.target.value = "";
+    if (picked.length === 0) return;
+    const files = picked.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
+    if (picked.length > MESSENGER_IMAGE_ALBUM_PICK_MAX) {
+      showMessengerSnackbar(`한 번에 선택할 수 있는 사진은 최대 ${MESSENGER_IMAGE_ALBUM_PICK_MAX}장입니다.`, {
+        variant: "error",
+      });
+    }
+    const previewUrls = files.map((f) => URL.createObjectURL(f));
+    setAttachmentConfirmDraft({ kind: "image", files, previewUrls });
+    setActiveSheet("attach-confirm");
+  }, [setActiveSheet]);
 
   const sendFile = useCallback(
     async (file: File) => {
@@ -958,15 +1010,49 @@ export function useMessengerRoomPhase2Controller() {
     fileInputRef.current?.click();
   }, [busy, canUploadAttachments, roomUnavailable]);
 
-  const onPickFile = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
+  const onPickFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setAttachmentConfirmDraft({ kind: "file", file });
+    setActiveSheet("attach-confirm");
+  }, [setActiveSheet]);
+
+  const cancelAttachmentConfirm = useCallback(() => {
+    setAttachmentConfirmDraft((prev) => {
+      if (prev?.kind === "image") {
+        for (const u of prev.previewUrls) URL.revokeObjectURL(u);
+      }
+      return null;
+    });
+    dismissRoomSheet();
+  }, [dismissRoomSheet]);
+
+  const confirmAttachmentSend = useCallback(async () => {
+    const draft = attachmentConfirmDraft;
+    if (!draft) {
+      dismissRoomSheet();
+      return;
+    }
+    if (draft.kind === "image") {
+      const { files, previewUrls } = draft;
+      setAttachmentConfirmDraft(null);
+      dismissRoomSheet();
+      await sendImageFiles(files, previewUrls);
+      return;
+    }
+    if (draft.kind === "file") {
+      const { file } = draft;
+      setAttachmentConfirmDraft(null);
+      dismissRoomSheet();
       await sendFile(file);
-    },
-    [sendFile]
-  );
+      return;
+    }
+    const { content } = draft;
+    setAttachmentConfirmDraft(null);
+    dismissRoomSheet();
+    await sendRawText(content);
+  }, [attachmentConfirmDraft, dismissRoomSheet, sendFile, sendImageFiles, sendRawText]);
 
   const deleteRoomMessage = useCallback(
     async (messageId: string) => {
@@ -1295,7 +1381,14 @@ export function useMessengerRoomPhase2Controller() {
 
   const getMessageCopyText = useCallback((item: CommunityMessengerMessage & { pending?: boolean }) => {
     if (item.messageType === "text" || item.messageType === "call_stub") return item.content.trim();
-    if (item.messageType === "image" || item.messageType === "file" || item.messageType === "voice" || item.messageType === "sticker") {
+    if (item.messageType === "image") {
+      const originals = item.imageAlbumOriginalUrls?.filter(Boolean) ?? [];
+      if (originals.length > 1) return originals.map((u) => u.trim()).join("\n");
+      const album = item.imageAlbumUrls?.filter(Boolean) ?? [];
+      if (album.length > 1) return album.map((u) => u.trim()).join("\n");
+      return (item.imageOriginalUrl || item.content).trim();
+    }
+    if (item.messageType === "file" || item.messageType === "voice" || item.messageType === "sticker") {
       return item.content.trim();
     }
     return "";
@@ -1532,7 +1625,9 @@ export function useMessengerRoomPhase2Controller() {
     sendMessage,
     sendSticker,
     sendLocationMessage,
-    sendImageFile,
+    attachmentConfirmDraft,
+    cancelAttachmentConfirm,
+    confirmAttachmentSend,
     openImagePicker,
     openCameraPicker,
     onPickImageFile,

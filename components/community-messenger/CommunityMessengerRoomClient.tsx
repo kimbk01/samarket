@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { MessengerRoomGroupCallShell } from "@/lib/community-messenger/room/MessengerRoomGroupCallShell";
 import {
@@ -7,7 +8,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
-import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
 
@@ -19,17 +20,18 @@ export function CommunityMessengerRoomClient(props: {
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
 }) {
   const phase1 = useMessengerRoomClientPhase1(props);
+  const router = useRouter();
   useCommunityMessengerPresenceRuntime(phase1.snapshot?.viewerUserId ?? props.initialServerSnapshot?.viewerUserId ?? null);
   useEffect(() => {
     if (!shouldRunMessengerListRoutePrefetch()) return;
     // 복귀 시 홈(리스트) 청크 로드 대기 최소화 — `next dev` 에서는 컴파일 큐만 키우므로 생략
     try {
-      void phase1.router.prefetch?.("/community-messenger?section=chats");
-      void phase1.router.prefetch?.("/community-messenger?section=chats&filter=private_group");
+      void router.prefetch?.("/community-messenger?section=chats");
+      void router.prefetch?.("/community-messenger?section=chats&filter=private_group");
     } catch {
       /* ignore */
     }
-  }, [phase1.router]);
+  }, [router]);
   const isGroupRoomForShell = Boolean(
     phase1.snapshot?.room.roomType && phase1.snapshot.room.roomType !== "direct"
   );
@@ -45,18 +47,47 @@ export function CommunityMessengerRoomClient(props: {
       "@/lib/community-messenger/room/CommunityMessengerGroupCallProviderBridge"
     );
   }, [initialServerIsGroupRoom]);
+
+  const ac = phase1.snapshot?.activeCall;
+  const groupCallParticipantSig =
+    ac?.participants?.map((p) => `${p.userId}:${p.status}`).join("|") ?? "";
+
+  const activeCallForGroupBridge: CommunityMessengerCallSession | null = useMemo(() => {
+    const cur = phase1.snapshot?.activeCall;
+    if (!cur || cur.sessionMode !== "group") return null;
+    return cur;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 메시지 스냅샷 전체 대신 통화 식별·참가자 시그만으로 참조 안정화
+  }, [
+    ac?.id,
+    ac?.sessionMode,
+    ac?.status,
+    ac?.startedAt,
+    ac?.answeredAt,
+    ac?.endedAt,
+    groupCallParticipantSig,
+  ]);
+
   const groupCallBridgeDeps = useMemo(
     () => ({
       enabled: isGroupRoomForShell,
       roomId: phase1.roomId,
       viewerUserId: phase1.snapshot?.viewerUserId ?? "",
       roomLabel: phase1.snapshot?.room.title ?? phase1.t("nav_messenger_group_call"),
-      activeCall: phase1.snapshot?.activeCall?.sessionMode === "group" ? phase1.snapshot.activeCall : null,
+      activeCall: activeCallForGroupBridge,
       onRefresh: () => {
         void phase1.refresh(true);
       },
     }),
-    [isGroupRoomForShell, phase1.roomId, phase1.snapshot, phase1.refresh, phase1.t]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- phase1 객체 전체가 아닌 그룹통화 브리지에 필요한 필드만
+    [
+      isGroupRoomForShell,
+      phase1.roomId,
+      phase1.snapshot?.viewerUserId,
+      phase1.snapshot?.room.title,
+      activeCallForGroupBridge,
+      phase1.refresh,
+      phase1.t,
+    ]
   );
 
   return (

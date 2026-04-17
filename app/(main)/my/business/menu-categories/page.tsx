@@ -1,7 +1,21 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerMenuCategoriesClient } from "@/components/business/owner/OwnerMenuCategoriesClient";
 
-export default async function MenuCategoriesPage({
+export default function MenuCategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <MenuCategoriesPageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function MenuCategoriesPageBody({
   searchParams,
 }: {
   searchParams: Promise<{ storeId?: string }>;

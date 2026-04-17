@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
@@ -24,9 +25,15 @@ function firstString(v: string | string[] | undefined): string {
   return "";
 }
 
-export default async function MarketCategoryPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
-  const sp = await searchParams;
+async function MarketCategoryPageBody({
+  paramsPromise,
+  searchParamsPromise,
+}: {
+  paramsPromise: PageProps["params"];
+  searchParamsPromise: PageProps["searchParams"];
+}) {
+  const { slug } = await paramsPromise;
+  const sp = await searchParamsPromise;
   const slugOrId = normalizeMarketSlugParam(slug);
   if (!slugOrId.trim()) {
     notFound();
@@ -64,14 +71,14 @@ export default async function MarketCategoryPage({ params, searchParams }: PageP
     tradeServerSeed?.queryKey ?? buildMarketBootstrapQueryKey(slugOrId, topicRaw, jkRaw || null);
 
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-[200px] flex items-center justify-center text-[14px] text-sam-muted">
-          불러오는 중…
-        </div>
-      }
-    >
-      <MarketCategoryPageClient layoutKey={layoutKey} tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />
+    <MarketCategoryPageClient layoutKey={layoutKey} tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />
+  );
+}
+
+export default function MarketCategoryPage({ params, searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <MarketCategoryPageBody paramsPromise={params} searchParamsPromise={searchParams} />
     </Suspense>
   );
 }

@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
 const SECTION_REDIRECTS: Record<string, string> = {
   account: "/mypage?tab=account&section=basic",
@@ -20,11 +22,23 @@ const SECTION_REDIRECTS: Record<string, string> = {
   leave: "/mypage?tab=settings&section=system",
 };
 
-export default async function SettingsSectionPage({
+export default function SettingsSectionPage({
+  params,
+}: {
+  params: Promise<{ section: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
+      <SettingsSectionPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function SettingsSectionPageBody({
   params,
 }: {
   params: Promise<{ section: string }>;
 }) {
   const { section } = await params;
-  redirect(SECTION_REDIRECTS[section] ?? "/mypage?tab=settings&section=service");
+  return redirect(SECTION_REDIRECTS[section] ?? "/mypage?tab=settings&section=service");
 }

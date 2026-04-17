@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
@@ -7,7 +9,19 @@ import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/ty
 export const dynamic = "force-dynamic";
 
 /** 매장 오너 주문 채팅 — 스냅샷만으로 진입(별도 owner 컨텍스트 조회 제거) */
-export default async function OwnerStoreOrderChatPage({
+export default function OwnerStoreOrderChatPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <OwnerStoreOrderChatPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function OwnerStoreOrderChatPageBody({
   params,
 }: {
   params: Promise<{ orderId: string }>;

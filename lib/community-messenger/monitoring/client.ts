@@ -75,14 +75,17 @@ export async function flushMessengerMonitorQueue(): Promise<void> {
   }
 }
 
-/** 방 진입: fetch 부트스트랩 완료까지 */
-export function messengerMonitorRoomLoad(roomId: string, durationMs: number): void {
+/** 방 진입: fetch 부트스트랩 완료까지 (`silent` 는 콘솔 노이즈만 줄이고 전송 큐에는 동일 기록) */
+export function messengerMonitorRoomLoad(roomId: string, durationMs: number, opts?: { silent?: boolean }): void {
   messengerMonitorRecord({
     category: "chat.room_load",
     metric: "bootstrap_fetch",
     value: durationMs,
     unit: "ms",
-    labels: { roomIdSuffix: roomSuffix(roomId) },
+    labels: {
+      roomIdSuffix: roomSuffix(roomId),
+      refreshKind: opts?.silent ? "silent" : "foreground",
+    },
   });
 }
 

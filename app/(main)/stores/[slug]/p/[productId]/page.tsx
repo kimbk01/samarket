@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreProductPublic } from "@/components/stores/StoreProductPublic";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 
@@ -63,7 +65,19 @@ export async function generateMetadata({
   }
 }
 
-export default async function StoreProductPage({
+export default function StoreProductPage({
+  params,
+}: {
+  params: Promise<{ slug: string; productId: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoreProductPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreProductPageBody({
   params,
 }: {
   params: Promise<{ slug: string; productId: string }>;

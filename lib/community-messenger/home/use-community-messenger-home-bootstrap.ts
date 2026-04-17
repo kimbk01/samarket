@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/bootstrap-cache";
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerCallLog,
   CommunityMessengerDiscoverableGroupSummary,
 } from "@/lib/community-messenger/types";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
@@ -91,6 +92,36 @@ export function useCommunityMessengerHomeBootstrap({
         silentThrottleCoalesceTimerRef.current = null;
       }
     };
+  }, []);
+
+  /** 서버 `deferCallLog` 분기 — `listCommunityMessengerCallLogs` 단일 왕복 */
+  const mergeDeferredMessengerCallLogs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/community-messenger/bootstrap?callsLog=1", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        calls?: CommunityMessengerCallLog[];
+        tabs?: { calls?: number };
+      };
+      if (!res.ok || !json.ok) return;
+      setData((prev) => {
+        if (!prev) return prev;
+        const { deferredCallLog: _omit, ...rest } = prev;
+        void _omit;
+        const merged: CommunityMessengerBootstrap = {
+          ...rest,
+          calls: json.calls ?? rest.calls,
+          tabs: { ...rest.tabs, calls: json.tabs?.calls ?? rest.tabs.calls },
+        };
+        primeBootstrapCache(merged);
+        return merged;
+      });
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
@@ -208,6 +239,7 @@ export function useCommunityMessengerHomeBootstrap({
           error?: string;
         };
         if (res.ok && json.ok) {
+          const deferred = Boolean((json as { deferredCallLog?: unknown }).deferredCallLog);
           const next: CommunityMessengerBootstrap = {
             me: json.me ?? null,
             tabs: {
@@ -225,11 +257,17 @@ export function useCommunityMessengerHomeBootstrap({
             groups: json.groups ?? [],
             discoverableGroups: json.discoverableGroups ?? [],
             calls: json.calls ?? [],
+            ...(deferred ? { deferredCallLog: true as const } : {}),
           };
           setAuthRequired(false);
           setPageError(null);
           setData(next);
           primeBootstrapCache(next);
+          if (useLiteBootstrap && deferred) {
+            scheduleWhenBrowserIdle(() => {
+              void mergeDeferredMessengerCallLogs();
+            }, 160);
+          }
           if (useLiteBootstrap) {
             scheduleWhenBrowserIdle(() => {
               void (async () => {
@@ -277,7 +315,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
     // tRef.current 만 읽음 — 언어 전환 시에도 동일 refresh 인스턴스 유지
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
-  }, []);
+  }, [mergeDeferredMessengerCallLogs]);
 
   useEffect(() => {
     if (initialServerBootstrap) {
@@ -285,6 +323,12 @@ export function useCommunityMessengerHomeBootstrap({
       loadedRef.current = true;
       setAuthRequired(false);
       setPageError(null);
+      if (initialServerBootstrap.deferredCallLog) {
+        const idleId = scheduleWhenBrowserIdle(() => {
+          void mergeDeferredMessengerCallLogs();
+        }, 160);
+        return () => cancelScheduledWhenBrowserIdle(idleId);
+      }
       return;
     }
     const stale = peekBootstrapCache();
@@ -297,7 +341,7 @@ export function useCommunityMessengerHomeBootstrap({
       };
     }
     void refresh();
-  }, [refresh, initialServerBootstrap]);
+  }, [refresh, initialServerBootstrap, mergeDeferredMessengerCallLogs]);
 
   useEffect(() => {
     if (homeRealtimeGateOpen) return;

@@ -1,5 +1,9 @@
+import { Suspense, cache } from "react";
 import nextDynamic from "next/dynamic";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getCommunityMessengerBootstrap } from "@/lib/community-messenger/service";
+import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 
 const CommunityMessengerHome = nextDynamic(
   () =>
@@ -9,24 +13,35 @@ const CommunityMessengerHome = nextDynamic(
 
 export const dynamic = "force-dynamic";
 
-export default async function CommunityMessengerPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string; section?: string; filter?: string; kind?: string }>;
-}) {
-  const { tab, section, filter, kind } = await searchParams;
-  /**
-   * RSC에서 무거운 부트스트랩을 await 하면 하단 「메신저」탭 전환마다 서버·페이로드가 쌓인다.
-   * 대신 클라이언트는 `useCommunityMessengerHomeBootstrap` + `cm-bootstrap-client-fetch`(단일 비행)·
-   * `home-sync` 묶음으로 **가볍게** 맞춘다(`docs/trade-lightweight-design.md`).
-   */
+const loadMessengerHomeBootstrapCached = cache(async (userId: string): Promise<CommunityMessengerBootstrap> =>
+  getCommunityMessengerBootstrap(userId, { skipDiscoverable: true, deferCallLog: true })
+);
+
+type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?: string };
+
+async function CommunityMessengerPageBody({ searchParamsPromise }: { searchParamsPromise: Promise<MessengerSearch> }) {
+  const { tab, section, filter, kind } = await searchParamsPromise;
+  const viewerUserId = await getOptionalAuthenticatedUserId();
+  const initialServerBootstrap = viewerUserId ? await loadMessengerHomeBootstrapCached(viewerUserId) : null;
   return (
     <CommunityMessengerHome
       initialTab={tab}
       initialSection={section}
       initialFilter={filter}
       initialKind={kind}
-      initialServerBootstrap={null}
+      initialServerBootstrap={initialServerBootstrap}
     />
+  );
+}
+
+export default function CommunityMessengerPage({
+  searchParams,
+}: {
+  searchParams: Promise<MessengerSearch>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <CommunityMessengerPageBody searchParamsPromise={searchParams} />
+    </Suspense>
   );
 }

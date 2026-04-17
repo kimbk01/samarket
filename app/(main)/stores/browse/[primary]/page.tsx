@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoresBrowsePrimaryView } from "@/components/stores/browse/StoresBrowsePrimaryView";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -64,7 +66,15 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   };
 }
 
-export default async function StoresBrowsePrimaryPage({ params, searchParams }: PageProps) {
+export default function StoresBrowsePrimaryPage({ params, searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoresBrowsePrimaryPageBody params={params} searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function StoresBrowsePrimaryPageBody({ params, searchParams }: PageProps) {
   const { primary } = await params;
   const sp = await searchParams;
   const sub = typeof sp.sub === "string" && sp.sub.trim() ? sp.sub.trim().toLowerCase() : null;

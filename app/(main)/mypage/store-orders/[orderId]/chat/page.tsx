@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
@@ -7,7 +9,19 @@ import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/ty
 export const dynamic = "force-dynamic";
 
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
-export default async function MypageStoreOrderChatPage({
+export default function MypageStoreOrderChatPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <MypageStoreOrderChatPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function MypageStoreOrderChatPageBody({
   params,
 }: {
   params: Promise<{ orderId: string }>;

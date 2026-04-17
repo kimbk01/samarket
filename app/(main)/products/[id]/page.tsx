@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import { getProductFromPostId } from "@/lib/products/getProductFromPostId";
@@ -11,8 +13,8 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function ProductDetailPage({ params }: PageProps) {
-  const resolved = await params;
+async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PageProps["params"] }) {
+  const resolved = await paramsPromise;
   const id = parseId(resolved.id);
   if (!id) notFound();
   const [viewerUserId, product] = await Promise.all([
@@ -35,4 +37,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   return <ProductDetailView product={product} initialViewerTradeRoom={initialViewerTradeRoom} />;
+}
+
+export default function ProductDetailPage({ params }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <ProductDetailPageBody paramsPromise={params} />
+    </Suspense>
+  );
 }

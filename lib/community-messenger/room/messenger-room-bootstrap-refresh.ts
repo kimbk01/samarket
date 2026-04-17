@@ -136,7 +136,7 @@ export function createMessengerRoomBootstrapRefresh(
         }
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
-        messengerMonitorRoomLoad(roomId, elapsed);
+        messengerMonitorRoomLoad(roomId, elapsed, { silent });
         if (shouldBlock) {
           const suf = roomId.trim();
           logClientPerf("messenger-room.enter", {

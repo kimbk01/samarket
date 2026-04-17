@@ -1,10 +1,20 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OwnerNotificationSettings } from "@/components/stores/owner/OwnerNotificationSettings";
 import { resolveStoreIdBySlug } from "@/lib/store-owner/queries";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export default async function StoreOwnerNotificationSettingsPage({ params }: PageProps) {
+export default function StoreOwnerNotificationSettingsPage({ params }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <StoreOwnerNotificationSettingsPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreOwnerNotificationSettingsPageBody({ params }: PageProps) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   const storeId = await resolveStoreIdBySlug(safe);

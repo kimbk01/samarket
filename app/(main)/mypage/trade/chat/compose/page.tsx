@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { TradeChatComposeClient } from "./TradeChatComposeClient";
 import { redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import {
   TRADE_CHAT_SURFACE,
@@ -12,7 +14,19 @@ function firstQueryString(v: string | string[] | undefined): string | undefined 
   return v;
 }
 
-export default async function TradeChatComposePage({
+export default function TradeChatComposePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <TradeChatComposePageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function TradeChatComposePageBody({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -27,10 +41,10 @@ export default async function TradeChatComposePage({
       : null;
 
   if (roomId) {
-    redirect(tradeHubChatRoomHref(roomId, sourceHint));
+    return redirect(tradeHubChatRoomHref(roomId, sourceHint));
   }
   if (!productId) {
-    redirect(TRADE_CHAT_SURFACE.messengerListHref);
+    return redirect(TRADE_CHAT_SURFACE.messengerListHref);
   }
 
   return (

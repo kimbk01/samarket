@@ -1,6 +1,16 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreCartEntrySwitch } from "@/components/stores/StoreCartEntrySwitch";
 
-export default async function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <StoreCartPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreCartPageBody({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   return (

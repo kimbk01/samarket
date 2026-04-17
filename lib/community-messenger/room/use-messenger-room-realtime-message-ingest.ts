@@ -67,6 +67,8 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
   const realtimeMessageBatchRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
   const realtimeBatchFlushRafRef = useRef<number | null>(null);
+  /** `snapshot` 참조만 바뀌는 경우(메시지 병합 등) room_identity 디버그 로그가 연속으로 찍히지 않게 */
+  const lastRoomIdentityDebugSigRef = useRef<string>("");
 
   useEffect(() => {
     return () => {
@@ -151,18 +153,30 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     });
   }, [snapshot, roomMembersDisplayRef, setRoomMessages]);
 
+  const snapshotPresent = snapshot != null;
   useEffect(() => {
-    if (!snapshot || !isCommunityMessengerRealtimeDebugEnabled()) return;
-    const peer = snapshot.room.peerUserId ?? null;
+    if (!snapshot) {
+      lastRoomIdentityDebugSigRef.current = "";
+      return;
+    }
+    if (!isCommunityMessengerRealtimeDebugEnabled()) return;
+    const rid = routeRoomId.trim();
+    const sid = streamRoomId.trim();
     const vf = (snapshot.viewerUserId ?? "").trim() || "anon";
+    const peer = snapshot.room.peerUserId ?? null;
+    const ledgerId = (snapshot.room.id ?? "").trim();
+    const sig = `${rid}|${sid}|${vf}|${peer ?? ""}|${ledgerId}`;
+    if (lastRoomIdentityDebugSigRef.current === sig) return;
+    lastRoomIdentityDebugSigRef.current = sig;
     cmRtLogRoomIdentity({
-      routeRoomId: routeRoomId.trim(),
-      streamRoomId: streamRoomId.trim(),
+      routeRoomId: rid,
+      streamRoomId: sid,
       viewerUserId: snapshot.viewerUserId,
       peerUserId: peer,
-      channelName: `community-messenger-room:bundle:${vf}:${streamRoomId.trim()}`,
+      channelName: `community-messenger-room:bundle:${vf}:${sid}`,
     });
-  }, [routeRoomId, snapshot, streamRoomId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 스냅샷 객체 참조가 아닌 방·유저 식별 필드만 바뀔 때만(메시지 병합마다 effect 방지)
+  }, [routeRoomId, streamRoomId, snapshotPresent, snapshot?.viewerUserId, snapshot?.room?.id, snapshot?.room?.peerUserId]);
 
   const seedSnapshot = snapshot ?? initialServerSnapshot;
   const realtimeEnabled =

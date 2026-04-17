@@ -14,6 +14,7 @@ import { StoreCommerceCartProvider } from "@/contexts/StoreCommerceCartContext";
 import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { CallProvider } from "@/app/_providers/CallProvider";
+import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 
 /**
  * Provider JSX 전용 — `MainAppProviders` 와 분리해 트리·순서를 한 파일에서 보존하고,
@@ -31,9 +32,11 @@ export function MainAppProviderTree({ children }: { children: ReactNode }) {
               <StoreCommerceCartProvider>
                 <MainTier1ChromeProvider>
                   <CallProvider>
-                    <AppTitle />
-                    <AppStickyHeader />
-                    <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
+                    <TradePresenceActivityProvider>
+                      <AppTitle />
+                      <AppStickyHeader />
+                      <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
+                    </TradePresenceActivityProvider>
                   </CallProvider>
                 </MainTier1ChromeProvider>
               </StoreCommerceCartProvider>

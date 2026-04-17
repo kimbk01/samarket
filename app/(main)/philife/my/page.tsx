@@ -1,13 +1,23 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { CommunityMyHubClient } from "@/components/community/CommunityMyHubClient";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
-export default async function PhilifeMyPage() {
+export default function PhilifeMyPage() {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <PhilifeMyPageBody />
+    </Suspense>
+  );
+}
+
+async function PhilifeMyPageBody() {
   const uid = await getOptionalAuthenticatedUserId();
-  if (!uid) redirect("/login");
+  if (!uid) return redirect("/login");
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OwnerNotificationList } from "@/components/stores/owner/OwnerNotificationList";
 import { resolveStoreIdBySlug } from "@/lib/store-owner/queries";
@@ -6,7 +8,15 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export default async function StoreOwnerNotificationsPage({ params }: PageProps) {
+export default function StoreOwnerNotificationsPage({ params }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoreOwnerNotificationsPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   const storeId = await resolveStoreIdBySlug(safe);

@@ -87,6 +87,12 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
     if (json.error === "room_unavailable" || json.error === "room_archived") {
       return { ok: false, userMessage: "이 대화방에서는 지금 통화를 시작할 수 없습니다." };
     }
+    if (json.error === "trade_chat_calls_disabled") {
+      return { ok: false, userMessage: "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다." };
+    }
+    if (json.error === "trade_chat_video_not_allowed") {
+      return { ok: false, userMessage: "이 글에서는 음성 통화만 허용되어 있습니다." };
+    }
     return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
   }
   if (json.session.sessionMode === "direct") {

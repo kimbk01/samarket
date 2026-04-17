@@ -1,19 +1,14 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 
 export const dynamic = "force-dynamic";
 
-/**
- * 그룹 방: RSC에서 부트스트랩 선로딩 — 클라이언트 첫 GET 제거(동일 로더를 API와 공유).
- */
-export default async function GroupChatRoomPage({
-  params,
-}: {
-  params: Promise<{ roomId: string }>;
-}) {
-  const { roomId } = await params;
+async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {
+  const { roomId } = await paramsPromise;
   const id = roomId?.trim() ?? "";
   if (!id) {
     return (
@@ -66,5 +61,13 @@ export default async function GroupChatRoomPage({
     <section className="flex min-h-[70vh] min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <GroupChatRoomClient key={id} roomId={id} listHref="/group-chat" initialBootstrap={boot.body} />
     </section>
+  );
+}
+
+export default function GroupChatRoomPage({ params }: { params: Promise<{ roomId: string }> }) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <GroupChatRoomPageBody paramsPromise={params} />
+    </Suspense>
   );
 }

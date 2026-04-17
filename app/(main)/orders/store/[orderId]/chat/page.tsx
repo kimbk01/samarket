@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OrderChatRoomClient } from "@/components/order-chat/OrderChatRoomClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
@@ -7,7 +9,19 @@ import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/ty
 export const dynamic = "force-dynamic";
 
 /** 주문 허브 매장 주문 채팅 — RSC 선로딩으로 첫 GET 제거 */
-export default async function OrdersStoreOrderChatPage({
+export default function OrdersStoreOrderChatPage({
+  params,
+}: {
+  params: Promise<{ orderId: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <OrdersStoreOrderChatPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function OrdersStoreOrderChatPageBody({
   params,
 }: {
   params: Promise<{ orderId: string }>;

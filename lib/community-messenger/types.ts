@@ -215,6 +215,28 @@ export type CommunityMessengerMessage = {
   fileMimeType?: string | null;
   /** messageType === "file" 일 때 바이트 */
   fileSizeBytes?: number | null;
+  /**
+   * messageType === "image" 이고 한 말풍선에 여러 장(앨범)일 때 — `metadata.image_urls` 와 동일 순서.
+   * 2장 이상일 때만 채움(단일 이미지는 `content` URL 만 사용).
+   */
+  imageAlbumUrls?: string[] | null;
+  /** 앨범: 확대 라이트박스용 URL (`metadata.image_preview_urls`, 없으면 썸네일·원본 순으로 대체). */
+  imageAlbumPreviewUrls?: string[] | null;
+  /** 앨범: 공유·복사용 원본 URL (`metadata.image_urls`). */
+  imageAlbumOriginalUrls?: string[] | null;
+  /** 단일 이미지: 확대용 URL (`metadata.image_preview_url`). */
+  imagePreviewUrl?: string | null;
+  /** 단일 이미지: 원본 URL (`metadata.image_original_url`). */
+  imageOriginalUrl?: string | null;
+};
+
+/** `POST .../images` → `sendCommunityMessengerImageMessage` 전달 형식 */
+export type CommunityMessengerImageSendItem = {
+  chatPublicUrl: string;
+  previewPublicUrl: string;
+  originalPublicUrl: string;
+  originalStoragePath: string;
+  originalMimeType: string;
 };
 
 export type CommunityMessengerReadReceipt = {
@@ -336,6 +358,11 @@ export type CommunityMessengerBootstrap = {
   groups: CommunityMessengerRoomSummary[];
   discoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
   calls: CommunityMessengerCallLog[];
+  /**
+   * true면 통화 기록은 아직 비어 있으며, 클라가 `GET /api/community-messenger/bootstrap?callsLog=1` 로
+   * 백그라운드 병합한다(첫 페인트·TTFB 절감).
+   */
+  deferredCallLog?: boolean;
 };
 
 export type CommunityMessengerRoomAliasProfile = {

@@ -124,6 +124,7 @@ import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-writ
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
+import type { TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -185,6 +186,8 @@ export function TradeWriteForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
+  /** 거래 채팅 통화(메신저) — 판매자만 설정, 구매자에게 음성/영상 버튼 노출 */
+  const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
@@ -220,6 +223,11 @@ export function TradeWriteForm({
   useEffect(() => {
     setTradeTopicChildId("");
   }, [category.id]);
+
+  useEffect(() => {
+    if (editPostId) return;
+    setTradeChatCallPolicy("none");
+  }, [category.id, editPostId]);
 
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
   useEffect(() => {
@@ -284,6 +292,7 @@ export function TradeWriteForm({
     setWorkType(h.workType);
     setCurrency(h.currency);
     setExchangeRate(h.exchangeRate);
+    setTradeChatCallPolicy(h.tradeChatCallPolicy);
   }, [editPostId, ownerEditSnapshot, skinKey]);
 
   const validate = useCallback((): boolean => {
@@ -434,6 +443,7 @@ export function TradeWriteForm({
           exchangeRate,
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
+        meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
         const usedCarPostTitle =
           usedCarTrade === "buy"
             ? `삽니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
@@ -458,7 +468,7 @@ export function TradeWriteForm({
           city: city || undefined,
           barangay: undefined,
           imageUrls: imageUrlsForSave,
-          meta: Object.keys(meta).length > 0 ? meta : undefined,
+          meta,
         };
         if (editPostId) {
           const res = await updateTradePostFromCreatePayload(editPostId, payload, {
@@ -532,6 +542,7 @@ export function TradeWriteForm({
       editPostId,
       showDescriptionAppend,
       descriptionAppend,
+      tradeChatCallPolicy,
     ]
   );
 
@@ -1167,6 +1178,55 @@ export function TradeWriteForm({
             </div>
           </section>
         )}
+        <section
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+        >
+          <h4 className="mb-1 text-[13px] font-medium text-sam-muted">거래 채팅 통화</h4>
+          <p className="mb-3 text-[12px] leading-relaxed text-sam-muted">
+            거래 문의는 채팅이 기본입니다. 아래에서 허용하면 구매자가 이 글의 거래 채팅에서 음성·영상 통화를 시작할 수 있습니다.
+          </p>
+          <div className="space-y-2.5">
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="radio"
+                name="trade_chat_call_policy"
+                className="mt-0.5"
+                checked={tradeChatCallPolicy === "none"}
+                onChange={() => setTradeChatCallPolicy("none")}
+              />
+              <span>
+                <span className="block text-[14px] font-medium text-sam-fg">받지 않음</span>
+                <span className="text-[12px] text-sam-muted">채팅만 가능</span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="radio"
+                name="trade_chat_call_policy"
+                className="mt-0.5"
+                checked={tradeChatCallPolicy === "voice_only"}
+                onChange={() => setTradeChatCallPolicy("voice_only")}
+              />
+              <span>
+                <span className="block text-[14px] font-medium text-sam-fg">음성만</span>
+                <span className="text-[12px] text-sam-muted">구매자에게 음성 통화 버튼만 표시</span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="radio"
+                name="trade_chat_call_policy"
+                className="mt-0.5"
+                checked={tradeChatCallPolicy === "voice_and_video"}
+                onChange={() => setTradeChatCallPolicy("voice_and_video")}
+              />
+              <span>
+                <span className="block text-[14px] font-medium text-sam-fg">음성 + 영상</span>
+                <span className="text-[12px] text-sam-muted">음성·영상 통화 모두 허용</span>
+              </span>
+            </label>
+          </div>
+        </section>
         {hasLocation && skinKey !== "real-estate" && (
           <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
             <TradeDefaultLocationBlock

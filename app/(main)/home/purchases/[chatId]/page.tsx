@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { PurchaseDetailView } from "@/components/mypage/purchases/PurchaseDetailView";
 import { HomePurchaseSalesHubTabs } from "@/components/mypage/HomePurchaseSalesHubTabs";
@@ -7,7 +9,15 @@ interface PageProps {
   params: Promise<{ chatId: string }>;
 }
 
-export default async function HomePurchaseDetailPage({ params }: PageProps) {
+export default function HomePurchaseDetailPage({ params }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <HomePurchaseDetailPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function HomePurchaseDetailPageBody({ params }: PageProps) {
   const { chatId: raw } = await params;
   const chatId = parseRoomId(raw);
   if (!chatId) {

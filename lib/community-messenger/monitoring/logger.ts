@@ -26,14 +26,20 @@ function isMessengerPerfAlertConsoleEnabled(): boolean {
  * 구조화 로그 — 개발(local)에서만 콘솔 출력. 프로덕션은 조용히 무시(서버 store / 원격 전송만).
  */
 export function logMessengerMonitoringDev(event: MessengerMonitoringEvent): void {
+  if (
+    event.category === "chat.room_load" &&
+    event.metric === "bootstrap_fetch" &&
+    event.labels?.refreshKind === "silent"
+  ) {
+    /** 사일런트 부트스트랩은 자주 돌아 콘솔만 생략 — `messengerMonitorRecord` 큐·전송은 그대로 */
+    return;
+  }
   if (typeof window === "undefined") {
     if (!isServerDevConsole()) return;
-    // eslint-disable-next-line no-console -- 의도적 개발용 성능 로그
     console.debug("[messenger:perf]", JSON.stringify(event));
     return;
   }
   if (!isClientDevConsole()) return;
-  // eslint-disable-next-line no-console
   console.debug("[messenger:perf]", JSON.stringify(event));
 }
 
@@ -41,11 +47,9 @@ export function logMessengerAlertDev(alert: MessengerMonitoringAlert): void {
   if (!isMessengerPerfAlertConsoleEnabled()) return;
   if (typeof window === "undefined") {
     if (!isServerDevConsole()) return;
-    // eslint-disable-next-line no-console
     console.warn("[messenger:perf:alert]", alert.message, alert);
     return;
   }
   if (!isClientDevConsole()) return;
-  // eslint-disable-next-line no-console
   console.warn("[messenger:perf:alert]", alert.message, alert);
 }

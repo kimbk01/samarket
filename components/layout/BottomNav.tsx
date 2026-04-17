@@ -321,8 +321,8 @@ export function BottomNav() {
   /**
    * 주요 탭·거래채팅 허브 RSC 선로딩.
    * - 경로 변경마다 즉시 전부 `prefetch` 하면 이동 직후 RSC·메인 스레드와 경쟁해 크롬에서 체감이 나빠짐.
-   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산(운영 기준).
-   * - `next-js-dev-client`: `next dev` 에서는 프로그램 `prefetch` 자체를 생략(온디맨드 컴파일 큐 완화).
+   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산.
+   * - 과도한 배치만 `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끈다.
    * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
    */
   useEffect(() => {

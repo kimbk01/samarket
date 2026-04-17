@@ -1,11 +1,25 @@
+import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { ProfileEditForm } from "@/components/my/edit/ProfileEditForm";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 
-export default async function MypageSectionProfileEditPage({
+export default function MypageSectionProfileEditPage({
+  params,
+}: {
+  params: Promise<{ section: string; item: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+      <MypageSectionProfileEditPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function MypageSectionProfileEditPageBody({
   params,
 }: {
   params: Promise<{ section: string; item: string }>;
@@ -17,7 +31,7 @@ export default async function MypageSectionProfileEditPage({
 
   const userId = await getRouteUserId();
   if (!userId) {
-    redirect("/login");
+    return redirect("/login");
   }
 
   const backHref = buildMypageItemHref("account", "profile");

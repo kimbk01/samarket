@@ -33,7 +33,9 @@ export function PostDetailPageClient({ initialBundle }: Props) {
 
   useEffect(() => {
     setPost(initialBundle.item);
-  }, [initialBundle.item]);
+    // RSC가 매번 새 객체 참조를 넘겨도 본문 동기화는 id·상태 필드가 바뀔 때만
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBundle.item 참조만 바뀌는 경우 setState 생략
+  }, [initialBundle.item.id, initialBundle.item.updated_at, initialBundle.item.status, initialBundle.item.seller_listing_state]);
 
   const refreshListingFields = useCallback(async () => {
     if (!id) return;

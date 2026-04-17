@@ -1,6 +1,8 @@
 import type { ImageUploadItem } from "@/components/write/shared/ImageUploader";
 import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot";
 import { formatPriceInput } from "@/lib/utils/format";
+import type { TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
+import { normalizeTradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 
 export type TradeWriteHydratedFields = {
   title: string;
@@ -35,6 +37,7 @@ export type TradeWriteHydratedFields = {
   workType: string;
   currency: string;
   exchangeRate: string;
+  tradeChatCallPolicy: TradeChatCallPolicy;
 };
 
 function str(v: unknown): string {
@@ -88,6 +91,7 @@ export function hydrateTradeWriteFormFromSnapshot(
     workType: str(m.work_type),
     currency: str(m.currency),
     exchangeRate: str(m.exchange_rate),
+    tradeChatCallPolicy: normalizeTradeChatCallPolicy(m.trade_chat_call_policy),
   };
 
   return base;

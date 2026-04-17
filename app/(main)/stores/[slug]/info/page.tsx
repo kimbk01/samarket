@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreDetailInfoPublic } from "@/components/stores/StoreDetailInfoPublic";
 
 export async function generateMetadata({
@@ -30,7 +32,15 @@ export async function generateMetadata({
   }
 }
 
-export default async function StoreInfoPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function StoreInfoPage({ params }: { params: Promise<{ slug: string }> }) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoreInfoPageBody params={params} />
+    </Suspense>
+  );
+}
+
+async function StoreInfoPageBody({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   return <StoreDetailInfoPublic slug={safe} />;

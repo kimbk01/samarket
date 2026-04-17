@@ -26,7 +26,15 @@ type OrdersSearchParams = {
  * 구매자 배달 주문 채팅 목록은 `/orders?tab=chat` 대신 `/my/store-orders`.
  * `tab=chat&room=` 딥링크만 `/chats/[roomId]` 로 유지.
  */
-export default async function OrdersPage({ searchParams }: { searchParams: Promise<OrdersSearchParams> }) {
+export default function OrdersPage({ searchParams }: { searchParams: Promise<OrdersSearchParams> }) {
+  return (
+    <Suspense fallback={<OrdersHubFallback />}>
+      <OrdersPageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function OrdersPageBody({ searchParams }: { searchParams: Promise<OrdersSearchParams> }) {
   const sp = await searchParams;
   const tab = firstQueryString(sp.tab)?.trim().toLowerCase();
   if (tab === "chat") {
@@ -36,9 +44,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       /** 배달·매장 주문 채팅 = 통합 `chat_rooms` — 부트스트랩 메시지 갈래 힌트 */
       p.set("source", "chat_room");
       if (firstQueryString(sp.review) === "1") p.set("review", "1");
-      redirect(`/chats/${encodeURIComponent(roomId)}?${p.toString()}`);
+      return redirect(`/chats/${encodeURIComponent(roomId)}?${p.toString()}`);
     }
-    redirect("/my/store-orders");
+    return redirect("/my/store-orders");
   }
 
   return (

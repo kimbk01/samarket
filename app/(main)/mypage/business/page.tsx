@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
@@ -14,7 +16,15 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function MypageBusinessRoute({ searchParams }: PageProps) {
+export default function MypageBusinessRoute({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <MypageBusinessRouteBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function MypageBusinessRouteBody({ searchParams }: PageProps) {
   const sp = await searchParams;
   const storeId = firstQueryString(sp.storeId)?.trim() ?? "";
   const initialServerState = await loadMyBusinessServer(storeId);

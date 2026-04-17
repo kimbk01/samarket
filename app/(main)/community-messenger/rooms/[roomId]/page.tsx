@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -13,19 +14,15 @@ const CommunityMessengerRoomClient = dynamic(
   { loading: () => <MainFeedRouteLoading rows={6} /> }
 );
 
-/**
- * 거래 채팅(`/chats/[roomId]`)과 같이 방 부트스트랩을 RSC에서 한 번 내려
- * 클라이언트가 빈 화면·「불러오는 중」을 기다리는 HTTP 왕복을 줄인다.
- */
-export default async function CommunityMessengerRoomPage({
-  params,
-  searchParams,
+async function CommunityMessengerRoomPageBody({
+  paramsPromise,
+  searchParamsPromise,
 }: {
-  params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
+  paramsPromise: Promise<{ roomId: string }>;
+  searchParamsPromise: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
 }) {
-  const { roomId } = await params;
-  const { callAction, sessionId } = await searchParams;
+  const { roomId } = await paramsPromise;
+  const { callAction, sessionId } = await searchParamsPromise;
   const viewerUserId = await getOptionalAuthenticatedUserId();
   const initialServerSnapshot = viewerUserId
     ? await loadCommunityMessengerRoomBootstrap(
@@ -33,7 +30,6 @@ export default async function CommunityMessengerRoomPage({
         viewerUserId,
         String(roomId ?? "").trim(),
         {
-          /** 클라이언트 `?mode=lite&memberHydration=minimal` 과 동일 — RSC 첫 스냅샷 무게 절감 */
           initialMessageLimit: Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT),
           hydrateFullMemberList: false,
         }
@@ -47,5 +43,19 @@ export default async function CommunityMessengerRoomPage({
       initialCallSessionId={sessionId}
       initialServerSnapshot={initialServerSnapshot}
     />
+  );
+}
+
+export default function CommunityMessengerRoomPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ roomId: string }>;
+  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={6} />}>
+      <CommunityMessengerRoomPageBody paramsPromise={params} searchParamsPromise={searchParams} />
+    </Suspense>
   );
 }

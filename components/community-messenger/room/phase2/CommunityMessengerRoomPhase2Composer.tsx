@@ -54,7 +54,6 @@ import { useMessengerRoomPhase2ComposerView } from "@/components/community-messe
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
-import { Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2ComposerView();
@@ -112,7 +111,7 @@ export function CommunityMessengerRoomPhase2Composer() {
          * 열 너비 고정: 5열을 항상 `2.75rem`으로 두어 전송·녹음·잠금 녹음 전환 시에도
          * 마이크(4열)의 화면상 위치가 동일하게 유지된다. (`auto`+다른 min-w는 마이크가 좌우로 밀림)
          */}
-        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_2.75rem_minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2">
+        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2">
           {!vm.voiceRecording ? (
             <button
               type="button"
@@ -121,27 +120,6 @@ export function CommunityMessengerRoomPhase2Composer() {
               aria-label="첨부 메뉴"
             >
               <PlusIcon className="h-5 w-5" />
-            </button>
-          ) : (
-            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
-          )}
-          {!vm.voiceRecording ? (
-            <button
-              type="button"
-              onClick={() => vm.setActiveSheet("stickers")}
-              disabled={
-                vm.roomUnavailable ||
-                vm.busy === "send-sticker" ||
-                vm.busy === "send" ||
-                vm.busy === "send-image" ||
-                vm.busy === "send-file" ||
-                vm.busy === "send-voice" ||
-                vm.busy === "delete-message"
-              }
-              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90 disabled:opacity-35"
-              aria-label="스티커"
-            >
-              <Sticker className="h-5 w-5" strokeWidth={2} />
             </button>
           ) : (
             <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />

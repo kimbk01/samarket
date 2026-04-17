@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -33,12 +34,15 @@ type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-/**
- * `searchParams`·`roomId` 를 서버에서 확정 — 클라 Suspense·「불러오는 중」 한 겹 제거, URL 직접 진입 시 체감 개선.
- */
-export default async function ChatRoomPage({ params, searchParams }: PageProps) {
-  const { roomId: raw } = await params;
-  const sp = await searchParams;
+async function ChatRoomPageBody({
+  paramsPromise,
+  searchParamsPromise,
+}: {
+  paramsPromise: PageProps["params"];
+  searchParamsPromise: PageProps["searchParams"];
+}) {
+  const { roomId: raw } = await paramsPromise;
+  const sp = await searchParamsPromise;
   const initialViewerUserId = await getOptionalAuthenticatedUserId();
   const roomId = parseRoomId(raw);
   const review = firstQueryString(sp.review)?.trim();
@@ -71,5 +75,13 @@ export default async function ChatRoomPage({ params, searchParams }: PageProps) 
       chatRoomSourceHint={chatRoomSourceHint}
       serverBootstrap={serverBootstrap}
     />
+  );
+}
+
+export default function ChatRoomPage({ params, searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <ChatRoomPageBody paramsPromise={params} searchParamsPromise={searchParams} />
+    </Suspense>
   );
 }

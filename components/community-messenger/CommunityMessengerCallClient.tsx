@@ -1340,7 +1340,11 @@ export function CommunityMessengerCallClient({
               ? "지금은 영상으로 전환할 수 없습니다."
               : code === "forbidden"
                 ? "권한이 없습니다."
-                : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                : code === "trade_chat_video_not_allowed"
+                  ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                  : code === "trade_chat_calls_disabled"
+                    ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
+                    : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
           );
           return;
         }
@@ -1380,7 +1384,11 @@ export function CommunityMessengerCallClient({
             ? "지금은 영상으로 전환할 수 없습니다."
             : code === "forbidden"
               ? "권한이 없습니다."
-              : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+              : code === "trade_chat_video_not_allowed"
+                ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                : code === "trade_chat_calls_disabled"
+                  ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
+                  : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
         );
         return;
       }

@@ -1,7 +1,21 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
-export default async function OwnerMenuLegacyRedirectPage({
+export default function OwnerMenuLegacyRedirectPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ storeId?: string }>;
+}) {
+  return (
+    <Suspense fallback={<MainFeedRouteLoading rows={3} />}>
+      <OwnerMenuLegacyRedirectPageBody searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function OwnerMenuLegacyRedirectPageBody({
   searchParams,
 }: {
   searchParams: Promise<{ storeId?: string }>;
@@ -21,5 +35,5 @@ export default async function OwnerMenuLegacyRedirectPage({
       </div>
     );
   }
-  redirect(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
+  return redirect(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
 }
