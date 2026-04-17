@@ -57,7 +57,7 @@ export type MessengerHubBadgeResyncReason =
   | "participant_unread_changed"
   | "notification_click_mark_read"
   | "room_phase2_mark_read"
-  /** `useMessengerRoomOpenMarkReadEffect` — 하단 체류 후 PATCH mark_read 성공 */
+  /** `useMessengerRoomOpenMarkReadEffect` — 뷰포트 가시 + 하단 체류 + 오버레이 없음 후 PATCH mark_read 성공 */
   | "room_open_mark_read"
   | "auth_signed_out";
 

@@ -179,6 +179,9 @@ export function useMessengerRoomClientPhase1({
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
+  /** `mark_read` — 시트·메시지 액션 등 오버레이 시 금지 */
+  const readPhase1OverlayBlockedRef = useRef(false);
+  const roomLoadingRef = useRef(false);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
@@ -665,12 +668,25 @@ export function useMessengerRoomClientPhase1({
     );
   }, [roomId, router, searchParams, snapshot]);
 
+  useLayoutEffect(() => {
+    roomLoadingRef.current = loading;
+    readPhase1OverlayBlockedRef.current =
+      activeSheet != null ||
+      messageActionItem != null ||
+      callStubSheet != null ||
+      infoSheetFocus != null ||
+      memberActionTarget != null;
+  }, [loading, activeSheet, messageActionItem, callStubSheet, infoSheetFocus, memberActionTarget]);
+
   useMessengerRoomOpenMarkReadEffect({
     roomId,
     snapshotRef,
     roomOpenMarkReadRef,
     stickToBottomRef,
     roomMessagesRef,
+    messagesViewportRef,
+    readPhase1OverlayBlockedRef,
+    roomLoadingRef,
   });
 
   useEffect(() => {

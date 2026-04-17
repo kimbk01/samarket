@@ -2,7 +2,11 @@
 
 import { useEffect, type MutableRefObject, type RefObject } from "react";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { CM_ROOM_BOTTOM_READ_DWELL_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import {
+  CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
+  CM_ROOM_BOTTOM_READ_DWELL_MS,
+} from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
@@ -32,9 +36,23 @@ function lastMarkableMessageId(
   return null;
 }
 
+function isLatestMessageVisibleEnoughInViewport(root: HTMLElement | null, messageId: string | null): boolean {
+  if (!root || !messageId) return false;
+  const el = document.getElementById(`cm-room-msg-${messageId}`);
+  if (!el) return false;
+  const rootRect = root.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const h = Math.max(1, elRect.height);
+  const overlap = Math.max(0, Math.min(rootRect.bottom, elRect.bottom) - Math.max(rootRect.top, elRect.top));
+  return overlap / h >= CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO;
+}
+
 /**
- * 미읽음이 있을 때만: **타임라인 하단에 머문 상태**가 `CM_ROOM_BOTTOM_READ_DWELL_MS` 이상 지속되면 `mark_read` 1회.
- * (탭만 열리거나 위 스크롤만 한 경우에는 읽음 처리하지 않음 — 알림·목록 미읽음과 상대 읽음 표시 정합)
+ * 미읽음이 있을 때만: **메시지 리스트가 보이는 상태**에서
+ * - 탭/창 활성 + 하단 고정 + **최신 말풍선이 뷰포트에 실제로 노출**
+ * - 시트·액션·라이트박스·통화 패널 등 **오버레이 없음**
+ * - `CM_ROOM_BOTTOM_READ_DWELL_MS` 이상 유지
+ * 될 때만 `mark_read` 1회 (presence·방 입장만으로는 읽음 처리하지 않음)
  */
 export function useMessengerRoomOpenMarkReadEffect(args: {
   roomId: string;
@@ -42,8 +60,22 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   roomOpenMarkReadRef: MessengerRoomOpenMarkReadPhaseRef;
   stickToBottomRef: MutableRefObject<boolean>;
   roomMessagesRef: MutableRefObject<Array<CommunityMessengerMessage & { pending?: boolean }>>;
+  messagesViewportRef: RefObject<HTMLElement | null>;
+  /** 시트·메시지 액션·통화 스텁 시트 등 Phase1 오버레이 */
+  readPhase1OverlayBlockedRef: MutableRefObject<boolean>;
+  /** 초기 부트스트랩 등으로 타임라인 미준비 시 true */
+  roomLoadingRef: MutableRefObject<boolean>;
 }): void {
-  const { roomId, snapshotRef, roomOpenMarkReadRef, stickToBottomRef, roomMessagesRef } = args;
+  const {
+    roomId,
+    snapshotRef,
+    roomOpenMarkReadRef,
+    stickToBottomRef,
+    roomMessagesRef,
+    messagesViewportRef,
+    readPhase1OverlayBlockedRef,
+    roomLoadingRef,
+  } = args;
 
   useEffect(() => {
     const id = roomId?.trim();
@@ -76,13 +108,21 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         return;
       }
 
+      if (roomLoadingRef.current || readPhase1OverlayBlockedRef.current || isMessengerRoomReadGateExtraBlocked()) {
+        dwellStartAt = null;
+        dwellAnchorMessageId = null;
+        return;
+      }
+
       const visible =
         typeof document === "undefined" ? true : document.visibilityState === "visible";
       const focused = typeof document === "undefined" ? true : document.hasFocus();
       const atBottom = stickToBottomRef.current;
       const lastId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+      const vp = messagesViewportRef.current;
+      const latestVisible = isLatestMessageVisibleEnoughInViewport(vp, lastId);
 
-      if (!visible || !focused || !atBottom || !lastId) {
+      if (!visible || !focused || !atBottom || !lastId || !latestVisible) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
         return;
@@ -129,5 +169,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       cancelled = true;
       window.clearInterval(iv);
     };
-  }, [roomId, snapshotRef, roomOpenMarkReadRef, stickToBottomRef, roomMessagesRef]);
+  }, [
+    roomId,
+    snapshotRef,
+    roomOpenMarkReadRef,
+    stickToBottomRef,
+    roomMessagesRef,
+    messagesViewportRef,
+    readPhase1OverlayBlockedRef,
+    roomLoadingRef,
+  ]);
 }

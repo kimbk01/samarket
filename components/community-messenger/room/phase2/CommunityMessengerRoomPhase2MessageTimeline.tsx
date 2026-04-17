@@ -57,6 +57,10 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
+import {
+  messengerRoomReadBlockKeyImageLightbox,
+  setMessengerRoomReadBlock,
+} from "@/lib/community-messenger/room/messenger-room-read-gate";
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
@@ -134,6 +138,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       }
     };
   }, []);
+
+  useEffect(() => {
+    const key = messengerRoomReadBlockKeyImageLightbox(vm.streamRoomId);
+    if (imageLightbox != null) setMessengerRoomReadBlock(key, true);
+    return () => setMessengerRoomReadBlock(key, false);
+  }, [imageLightbox, vm.streamRoomId]);
 
   const scheduleScroll = useCallback(() => {
     if (scrollRafRef.current != null) return;

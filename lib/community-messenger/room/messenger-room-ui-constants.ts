@@ -3,6 +3,9 @@ export const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
 
 /**
  * 방 하단(최신 말풍선)에 머문 뒤 서버 `mark_read` 를 보내기까지의 최소 체류 시간.
- * 스크롤만 닿았다가 바로 나가면 읽음·상대 읽음 표시가 오르지 않도록 한다.
+ * 권장 300~800ms — viewport 가시 + 기타 조건이 연속 유지된 시간으로 본다.
  */
-export const CM_ROOM_BOTTOM_READ_DWELL_MS = 2000;
+export const CM_ROOM_BOTTOM_READ_DWELL_MS = 550;
+
+/** 최신 말풍선 행이 스크롤 루트 안에서 이만큼 이상(높이 비율) 보일 때만 “읽음 후보” */
+export const CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO = 0.12;

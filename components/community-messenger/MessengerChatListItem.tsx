@@ -18,6 +18,7 @@ import {
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
+import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 
 const ACTION_W = 78;
 const ACTION_TOTAL = ACTION_W * 3;
@@ -375,30 +376,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         <div className="relative">
           <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
           {room.roomType === "direct" && peerPresence ? (
-            <span
-              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-white ${
-                peerPresence.state === "online"
-                  ? "bg-emerald-500"
-                  : peerPresence.state === "away"
-                    ? "bg-amber-400"
-                    : "bg-slate-300"
-              }`}
-            />
+            <CommunityMessengerPresenceDot state={peerPresence.state} />
           ) : null}
         </div>
       ) : (
         <div className="relative">
           <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-9 w-9" textClassName="text-[12px]" />
           {room.roomType === "direct" && peerPresence ? (
-            <span
-              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border border-white ${
-                peerPresence.state === "online"
-                  ? "bg-emerald-500"
-                  : peerPresence.state === "away"
-                    ? "bg-amber-400"
-                    : "bg-slate-300"
-              }`}
-            />
+            <CommunityMessengerPresenceDot state={peerPresence.state} />
           ) : null}
         </div>
       )}

@@ -43,6 +43,11 @@ import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { bumpCommunityMessengerPresenceActivity } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
+import {
+  messengerRoomReadBlockKeyCallPanel,
+  setMessengerRoomReadBlock,
+} from "@/lib/community-messenger/room/messenger-room-read-gate";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -653,6 +658,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
+        bumpCommunityMessengerPresenceActivity("message_sent");
         if (json.message) {
           const confirmedMessage = json.message;
           setRoomMessages((prev) =>
@@ -758,6 +764,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
+        bumpCommunityMessengerPresenceActivity("message_sent");
         touchRecentStickerUrl(url);
         const confirmedSticker = json.message;
         if (confirmedSticker) {
@@ -878,6 +885,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
+        bumpCommunityMessengerPresenceActivity("message_sent");
         const serverImageMsg = json.message;
         if (serverImageMsg) {
           setRoomMessages((prev) =>
@@ -986,6 +994,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
           return;
         }
+        bumpCommunityMessengerPresenceActivity("message_sent");
         const serverFileMsg = json.message;
         if (serverFileMsg) {
           setRoomMessages((prev) =>
@@ -1511,6 +1520,12 @@ export function useMessengerRoomPhase2Controller() {
       setGroupCallAutoAcceptNotice(null);
     }
   }, [call.panel, call.errorMessage]);
+
+  useEffect(() => {
+    const key = messengerRoomReadBlockKeyCallPanel(streamRoomId);
+    if (call.panel) setMessengerRoomReadBlock(key, true);
+    return () => setMessengerRoomReadBlock(key, false);
+  }, [call.panel, streamRoomId]);
 
   useEffect(() => {
     if (!isGroupRoom) return;

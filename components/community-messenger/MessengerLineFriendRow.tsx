@@ -3,6 +3,8 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { messengerFriendSwipeItemId } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
+import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 
 const ACTION_W = 72;
 const LEFT_ACTION_TOTAL = ACTION_W * 2;
@@ -40,6 +42,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   onRemoveFriend,
   onBlockFriend,
 }: Props) {
+  const peerPresence = useCommunityMessengerPeerPresence(friend.id);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({
@@ -290,18 +293,21 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             openQuickMenu();
           }}
         >
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]">
-            {avatarSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div
-                className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
-                style={{ color: "var(--messenger-text-secondary)" }}
-              >
-                {initial}
-              </div>
-            )}
+          <div className="relative h-12 w-12 shrink-0">
+            <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]">
+              {avatarSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div
+                  className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
+                  style={{ color: "var(--messenger-text-secondary)" }}
+                >
+                  {initial}
+                </div>
+              )}
+            </div>
+            <CommunityMessengerPresenceDot state={peerPresence?.state} />
           </div>
           <div className="min-w-0 flex-1 pr-0.5">
             <div className="flex items-center gap-1.5">

@@ -83,6 +83,7 @@ import {
   CommunityMessengerRoomType,
   CommunityMessengerRoomVisibility,
 } from "@/lib/community-messenger/types";
+import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
 
@@ -371,6 +372,10 @@ type PresenceSnapshotRow = {
   user_id: string;
   last_seen_at: string | null;
   updated_at: string | null;
+  last_ping_at?: string | null;
+  last_activity_at?: string | null;
+  app_visibility?: string | null;
+  presence_state_cached?: string | null;
 };
 
 function nowIso() {
@@ -629,18 +634,28 @@ async function fetchPresenceSnapshotsByUserIds(
   if (!sb) return result;
   const { data, error } = await (sb as any)
     .from("community_messenger_presence_snapshots")
-    .select("user_id, last_seen_at, updated_at")
+    .select("user_id, last_seen_at, updated_at, last_ping_at, last_activity_at, app_visibility, presence_state_cached")
     .in("user_id", unique);
   if (error && !isMissingTableError(error)) {
     return result;
   }
+  const nowMs = Date.now();
   for (const row of (data ?? []) as PresenceSnapshotRow[]) {
     const userId = trimText(row.user_id);
     if (!userId) continue;
+    const lastSeenAt = trimText(row.last_seen_at) || trimText(row.updated_at) || null;
+    const state = derivePresenceFromDbRow({
+      nowMs,
+      lastPingAtIso: row.last_ping_at ?? null,
+      lastActivityAtIso: row.last_activity_at ?? null,
+      lastSeenAtIso: row.last_seen_at ?? null,
+      updatedAtIso: row.updated_at ?? null,
+      appVisibility: row.app_visibility ?? "unknown",
+    });
     result.set(userId, {
       userId,
-      state: "offline" satisfies CommunityMessengerPresenceState,
-      lastSeenAt: trimText(row.last_seen_at) || trimText(row.updated_at) || null,
+      state,
+      lastSeenAt,
     });
   }
   return result;
@@ -4594,20 +4609,52 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
 export async function upsertCommunityMessengerPresenceSnapshot(input: {
   userId: string;
   lastSeenAt?: string | null;
+  lastPingAt?: string | null;
+  lastActivityAt?: string | null;
+  appVisibility?: string | null;
+  /** 탭/앱 종료 비콘 — DB에서 즉시 OFFLINE 처리 */
+  sessionEnd?: boolean;
 }): Promise<{ ok: boolean; error?: string; lastSeenAt?: string | null }> {
   const userId = trimText(input.userId);
   if (!userId) return { ok: false, error: "user_required" };
-  const lastSeenAt = trimText(input.lastSeenAt) || nowIso();
+  const now = nowIso();
+  const lastSeenAt = trimText(input.lastSeenAt) || now;
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { error } = await (sb as any).from("community_messenger_presence_snapshots").upsert(
-      {
-        user_id: userId,
-        last_seen_at: lastSeenAt,
-        updated_at: nowIso(),
-      },
-      { onConflict: "user_id" }
-    );
+    const sessionEnd = input.sessionEnd === true;
+    const row = sessionEnd
+      ? {
+          user_id: userId,
+          last_seen_at: lastSeenAt,
+          updated_at: now,
+          last_ping_at: null as string | null,
+          presence_state_cached: "offline" satisfies CommunityMessengerPresenceState,
+          app_visibility: "background",
+        }
+      : (() => {
+          const lastPingAt = trimText(input.lastPingAt) || now;
+          const lastActivityAt = trimText(input.lastActivityAt) || lastPingAt;
+          const v = trimText(input.appVisibility).toLowerCase();
+          const appVisibility =
+            v === "foreground" || v === "background" || v === "unknown" ? v : "unknown";
+          const derived = derivePresenceFromDbRow({
+            nowMs: Date.now(),
+            lastPingAtIso: lastPingAt,
+            lastActivityAtIso: lastActivityAt,
+            lastSeenAtIso: null,
+            updatedAtIso: now,
+            appVisibility,
+          });
+          return {
+            user_id: userId,
+            updated_at: now,
+            last_ping_at: lastPingAt,
+            last_activity_at: lastActivityAt,
+            app_visibility: appVisibility,
+            presence_state_cached: derived,
+          };
+        })();
+    const { error } = await (sb as any).from("community_messenger_presence_snapshots").upsert(row, { onConflict: "user_id" });
     if (!error) return { ok: true, lastSeenAt };
     if (!isMissingTableError(error)) {
       return { ok: false, error: String(error.message ?? "presence_upsert_failed") };

@@ -16,9 +16,21 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { lastSeenAt?: string | null } | null = null;
+  let body: {
+    lastSeenAt?: string | null;
+    lastPingAt?: string | null;
+    lastActivityAt?: string | null;
+    appVisibility?: string | null;
+    sessionEnd?: boolean;
+  } | null = null;
   try {
-    body = (await req.json()) as { lastSeenAt?: string | null };
+    body = (await req.json()) as {
+      lastSeenAt?: string | null;
+      lastPingAt?: string | null;
+      lastActivityAt?: string | null;
+      appVisibility?: string | null;
+      sessionEnd?: boolean;
+    };
   } catch {
     body = null;
   }
@@ -26,6 +38,10 @@ export async function POST(req: NextRequest) {
   const result = await upsertCommunityMessengerPresenceSnapshot({
     userId: auth.userId,
     lastSeenAt: typeof body?.lastSeenAt === "string" ? body.lastSeenAt : null,
+    lastPingAt: typeof body?.lastPingAt === "string" ? body.lastPingAt : null,
+    lastActivityAt: typeof body?.lastActivityAt === "string" ? body.lastActivityAt : null,
+    appVisibility: typeof body?.appVisibility === "string" ? body.appVisibility : null,
+    sessionEnd: body?.sessionEnd === true,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

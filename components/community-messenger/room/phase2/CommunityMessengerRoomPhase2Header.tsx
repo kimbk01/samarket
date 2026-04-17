@@ -12,6 +12,7 @@ import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messe
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
+import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 
 function formatPresenceLine(
@@ -83,15 +84,20 @@ export function CommunityMessengerRoomPhase2Header() {
           >
             <BackIcon className="h-5 w-5" />
           </button>
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-            {vm.snapshot.room.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-[color:var(--cm-room-primary)]">
-                {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
-              </div>
-            )}
+          <div className="relative h-10 w-10 shrink-0">
+            <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+              {vm.snapshot.room.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-[color:var(--cm-room-primary)]">
+                  {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
+                </div>
+              )}
+            </div>
+            {vm.snapshot.room.roomType === "direct" && peerPresence ? (
+              <CommunityMessengerPresenceDot state={peerPresence.state} />
+            ) : null}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">

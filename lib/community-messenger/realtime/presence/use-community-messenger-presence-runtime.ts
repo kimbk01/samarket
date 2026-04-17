@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
+import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
 
 type PresencePayload = {
   userId?: unknown;
@@ -11,28 +12,43 @@ type PresencePayload = {
   updatedAt?: unknown;
 };
 
+const HEARTBEAT_MS = 12_000;
+const ACTIVITY_THROTTLE_MS = 20_000;
+
 let runtimeRefCount = 0;
 let runtimeUserId = "";
 let runtimeSessionId = "";
 let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let presenceCleanup: (() => void) | null = null;
+let lastActivityMs = Date.now();
+let lastActivityThrottleAt = 0;
+let channelSubscribed = false;
 
 function nowIso() {
   return new Date().toISOString();
 }
 
-function currentPresenceState(): CommunityMessengerPresenceState {
-  if (typeof document === "undefined") return "online";
-  return document.visibilityState === "visible" ? "online" : "away";
+export function bumpCommunityMessengerPresenceActivity(_reason?: string): void {
+  const t = Date.now();
+  lastActivityMs = t;
+  lastActivityThrottleAt = t;
 }
 
-function sessionKey(userId: string) {
-  return `${userId}:${runtimeSessionId}`;
+function maybeRecordThrottledActivity() {
+  const t = Date.now();
+  if (t - lastActivityThrottleAt < ACTIVITY_THROTTLE_MS) return;
+  lastActivityThrottleAt = t;
+  lastActivityMs = t;
 }
 
-function persistLastSeenBestEffort(lastSeenAt: string) {
+function currentDocumentVisible(): boolean {
+  if (typeof document === "undefined") return true;
+  return document.visibilityState === "visible";
+}
+
+function persistLastSeenSessionEnd(lastSeenAt: string) {
   if (typeof navigator === "undefined") return;
-  const body = JSON.stringify({ lastSeenAt });
+  const body = JSON.stringify({ lastSeenAt, sessionEnd: true });
   try {
     const blob = new Blob([body], { type: "application/json" });
     navigator.sendBeacon?.("/api/community-messenger/presence", blob);
@@ -45,6 +61,24 @@ function persistLastSeenBestEffort(lastSeenAt: string) {
       credentials: "include",
     }).catch(() => {});
   }
+}
+
+function postPresenceHeartbeatHttp() {
+  void fetch("/api/community-messenger/presence", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      lastPingAt: nowIso(),
+      lastActivityAt: new Date(lastActivityMs).toISOString(),
+      appVisibility: currentDocumentVisible() ? "foreground" : "background",
+    }),
+  }).catch(() => {});
+}
+
+function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {
+  if (raw === "online" || raw === "away" || raw === "offline") return raw;
+  return "offline";
 }
 
 function aggregatePresenceState(raw: Record<string, unknown>) {
@@ -63,10 +97,7 @@ function aggregatePresenceState(raw: Record<string, unknown>) {
       const payload = item as PresencePayload;
       const userId = typeof payload.userId === "string" ? payload.userId.trim() : "";
       if (!userId) continue;
-      const incomingState =
-        payload.state === "online" || payload.state === "away" || payload.state === "offline"
-          ? payload.state
-          : "online";
+      const incomingState = parseIncomingState(payload.state);
       const updatedAt = typeof payload.updatedAt === "string" ? payload.updatedAt : null;
       const prev = next[userId];
       if (!prev) {
@@ -78,12 +109,21 @@ function aggregatePresenceState(raw: Record<string, unknown>) {
         };
         continue;
       }
-      if (prev.state === "online") continue;
-      if (prev.state === "away" && incomingState === "offline") continue;
-      next[userId] = { ...prev, state: incomingState, updatedAt: updatedAt ?? prev.updatedAt };
+      const merged = mergePresenceStates(prev.state, incomingState);
+      let nextUpdated = prev.updatedAt;
+      if (updatedAt && prev.updatedAt) {
+        nextUpdated = new Date(updatedAt) > new Date(prev.updatedAt) ? updatedAt : prev.updatedAt;
+      } else {
+        nextUpdated = updatedAt ?? prev.updatedAt;
+      }
+      next[userId] = { ...prev, state: merged, updatedAt: nextUpdated };
     }
   }
   return next;
+}
+
+function sessionKey(userId: string) {
+  return `${userId}:${runtimeSessionId}`;
 }
 
 function ensurePresenceRuntime(userId: string) {
@@ -92,18 +132,33 @@ function ensurePresenceRuntime(userId: string) {
   const sb = getSupabaseClient();
   if (!sb) return;
   runtimeUserId = userId;
-  runtimeSessionId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}`;
+  runtimeSessionId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}`;
+  lastActivityMs = Date.now();
+  lastActivityThrottleAt = 0;
+  channelSubscribed = false;
   const store = useMessengerPresenceStore;
   const channel = sb.channel("community-messenger:presence", {
     config: { presence: { key: sessionKey(userId) } },
   });
 
   const syncOwnState = async () => {
+    if (!channelSubscribed) return;
+    const state = deriveLivePresenceFromSignals({
+      nowMs: Date.now(),
+      channelSubscribed,
+      documentVisible: currentDocumentVisible(),
+      lastActivityMs,
+    });
     await channel.track({
       userId,
-      state: currentPresenceState(),
+      state,
       updatedAt: nowIso(),
+      lastActivityAt: new Date(lastActivityMs).toISOString(),
     });
+    postPresenceHeartbeatHttp();
   };
 
   const onSync = () => {
@@ -129,30 +184,44 @@ function ensurePresenceRuntime(userId: string) {
     store.getState().replacePresenceMap(next);
   };
 
-  channel.on("presence", { event: "sync" }, onSync).subscribe((status) => {
-    if (status === "SUBSCRIBED") {
-      void syncOwnState();
-    }
-  });
+  channel
+    .on("presence", { event: "sync" }, onSync)
+    .subscribe((status) => {
+      channelSubscribed = status === "SUBSCRIBED";
+      if (status === "SUBSCRIBED") {
+        void syncOwnState();
+      }
+    });
 
   const onVisibility = () => {
+    if (currentDocumentVisible()) {
+      lastActivityMs = Date.now();
+    }
     void syncOwnState();
   };
   const onPageHide = () => {
     const lastSeenAt = nowIso();
     store.getState().upsertPresence(userId, { state: "offline", lastSeenAt, updatedAt: lastSeenAt });
-    persistLastSeenBestEffort(lastSeenAt);
+    persistLastSeenSessionEnd(lastSeenAt);
     void channel.untrack();
   };
+
+  const onActivity = () => maybeRecordThrottledActivity();
+
   document.addEventListener("visibilitychange", onVisibility);
   window.addEventListener("focus", onVisibility);
   window.addEventListener("online", onVisibility);
   window.addEventListener("pagehide", onPageHide);
+  document.addEventListener("pointerdown", onActivity, { capture: true, passive: true });
+  document.addEventListener("keydown", onActivity);
+  window.addEventListener("scroll", onActivity, { passive: true });
+
   presenceHeartbeatTimer = setInterval(() => {
     void syncOwnState();
-  }, 25_000);
+  }, HEARTBEAT_MS);
 
   presenceCleanup = () => {
+    channelSubscribed = false;
     if (presenceHeartbeatTimer != null) {
       clearInterval(presenceHeartbeatTimer);
       presenceHeartbeatTimer = null;
@@ -161,6 +230,9 @@ function ensurePresenceRuntime(userId: string) {
     window.removeEventListener("focus", onVisibility);
     window.removeEventListener("online", onVisibility);
     window.removeEventListener("pagehide", onPageHide);
+    document.removeEventListener("pointerdown", onActivity, true);
+    document.removeEventListener("keydown", onActivity);
+    window.removeEventListener("scroll", onActivity);
     void channel.untrack();
     void sb.removeChannel(channel);
   };
@@ -172,6 +244,7 @@ function releasePresenceRuntime() {
   presenceCleanup = null;
   runtimeUserId = "";
   runtimeSessionId = "";
+  channelSubscribed = false;
 }
 
 export function useCommunityMessengerPresenceRuntime(userId: string | null | undefined): void {
