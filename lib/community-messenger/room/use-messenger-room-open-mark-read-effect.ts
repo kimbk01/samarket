@@ -5,6 +5,7 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import { CM_ROOM_BOTTOM_READ_DWELL_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -77,10 +78,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 
       const visible =
         typeof document === "undefined" ? true : document.visibilityState === "visible";
+      const focused = typeof document === "undefined" ? true : document.hasFocus();
       const atBottom = stickToBottomRef.current;
       const lastId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
 
-      if (!visible || !atBottom || !lastId) {
+      if (!visible || !focused || !atBottom || !lastId) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
         return;
@@ -112,6 +114,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
             roomOpenMarkReadRef.current.phase = "done";
             postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
+            requestMessengerHubBadgeResync("room_open_mark_read");
           } else {
             roomOpenMarkReadRef.current.phase = "idle";
           }

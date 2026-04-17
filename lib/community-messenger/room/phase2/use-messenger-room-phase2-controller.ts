@@ -41,16 +41,14 @@ import { createCommunityMessengerClientMessageId } from "@/lib/community-messeng
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
-import {
-  KASAMA_OWNER_HUB_BADGE_REFRESH,
-  KASAMA_TRADE_CHAT_UNREAD_UPDATED,
-} from "@/lib/chats/chat-channel-events";
+import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
 function dispatchTradeLinkedNavBadgesAfterMessengerMutation(tradeDock: boolean) {
   if (!tradeDock || typeof window === "undefined") return;
-  window.dispatchEvent(new Event(KASAMA_OWNER_HUB_BADGE_REFRESH));
+  requestMessengerHubBadgeResync("room_phase2_mark_read");
   window.dispatchEvent(new Event(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
 }
 

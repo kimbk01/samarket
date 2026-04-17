@@ -1,6 +1,16 @@
 /**
  * message.created / participant.unread 증가 등 — 인앱 사운드·배너·unread 반영 여부 (순수 함수).
+ *
+ * @see lib/notifications/samarket-messenger-notification-regulations.ts
  * 푸시·OS 배지는 서버/ SW 경로에서 동일 스냅샷 타입을 쓰도록 확장한다.
+ *
+ * @see messenger-notification-contract.ts 제품 규칙·탭 뱃지 resync 단일 진입점
+ *
+ * 상태 기준(요약):
+ * - 탭/앱이 백그라운드(`appVisibility !== foreground`) → 톤 허용(뮤트·설정 제외).
+ * - 동일 방 URL + 포그라운드 + 창 포커스 + 하단 스크롤 → 톤·앱배너 없음(DB unread 는 서버가 관리, UI 는 방 클라이언트).
+ * - 동일 방이지만 창 포커스 없음(blur) → 톤 허용(탭은 메신저 방이나 다른 창을 보는 경우).
+ * - 다른 방 / 목록 / 기타 화면 → 톤·배너 허용.
  */
 
 import type { MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
@@ -200,9 +210,11 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
   /** 인앱 메시지 톤만 억제 (배너는 `roomMuted`·정책에 따라 별도) */
   suppressInAppMessageSound?: boolean;
   quietHoursActive?: boolean;
-  /** Rollout 3+: same room but user scrolled up — allow coalesced in-app tone, no banner. */
+  /** 동일 방일 때 스크롤 위치(rollout 시) — 하단이면 완전 무음 */
   sameRoomScrollHint?: MessengerChatViewPosition | null;
   applySameRoomScrollPolicy?: boolean;
+  /** `NotificationSurface` — blur 시 동일 방이라도 톤 허용 */
+  windowFocused?: boolean;
 }): { playInAppMessageSound: boolean; showAppLevelBanner: boolean; dedupeKey: string } {
   if (!input.targetRoomId || input.nextUnread <= input.prevUnread) {
     return { playInAppMessageSound: false, showAppLevelBanner: false, dedupeKey: "" };
@@ -210,33 +222,42 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
 
   const dedupe = buildMessengerMessageDedupeKey(input.targetRoomId, input.nextUnread);
 
+  const soundOff =
+    input.roomMuted === true ||
+    input.suppressInAppMessageSound === true ||
+    input.quietHoursActive === true;
+
+  const windowFocused = input.windowFocused !== false;
+
+  if (input.appVisibility !== "foreground") {
+    return {
+      playInAppMessageSound: !soundOff,
+      showAppLevelBanner: false,
+      dedupeKey: dedupe,
+    };
+  }
+
   if (sameRoom(input.activeCommunityRoomId, input.targetRoomId)) {
-    if (
-      input.applySameRoomScrollPolicy &&
-      input.sameRoomScrollHint != null &&
-      !STICKY_CHAT_VIEW.includes(input.sameRoomScrollHint)
-    ) {
-      const soundOff =
-        input.roomMuted ||
-        input.suppressInAppMessageSound === true ||
-        input.quietHoursActive === true;
+    if (!windowFocused) {
       return {
         playInAppMessageSound: !soundOff,
         showAppLevelBanner: false,
         dedupeKey: dedupe,
       };
     }
+    if (
+      input.applySameRoomScrollPolicy &&
+      input.sameRoomScrollHint != null &&
+      !STICKY_CHAT_VIEW.includes(input.sameRoomScrollHint)
+    ) {
+      return {
+        playInAppMessageSound: false,
+        showAppLevelBanner: false,
+        dedupeKey: dedupe,
+      };
+    }
     return { playInAppMessageSound: false, showAppLevelBanner: false, dedupeKey: dedupe };
   }
-
-  if (input.appVisibility !== "foreground") {
-    return { playInAppMessageSound: false, showAppLevelBanner: false, dedupeKey: dedupe };
-  }
-
-  const soundOff =
-    input.roomMuted ||
-    input.suppressInAppMessageSound === true ||
-    input.quietHoursActive === true;
 
   return {
     playInAppMessageSound: !soundOff,

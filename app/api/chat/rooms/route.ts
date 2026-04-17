@@ -176,8 +176,10 @@ export async function GET(req: NextRequest) {
   }
   const segment: EffectiveListSegment =
     rawSeg === "trade" ? "trade" : rawSeg === "order" ? "order" : "all";
+  /** 허브 배지와 목록 집계 정합 시 캐시를 쓰면 유령 미읽음 판별이 틀어질 수 있음 */
+  const hubReconcile = req.nextUrl.searchParams.get("hubReconcile") === "1";
   const cacheKey = `${userId}:${segment}`;
-  const cached = chatRoomsListCache.get(cacheKey);
+  const cached = !hubReconcile ? chatRoomsListCache.get(cacheKey) : undefined;
   if (cached && Date.now() - cached.at < CHAT_ROOMS_LIST_CACHE_TTL_MS) {
     return NextResponse.json(cached.payload, {
       headers: {
@@ -372,11 +374,13 @@ export async function GET(req: NextRequest) {
       | undefined;
     const lastMid = r.last_message_id ?? null;
     const lastSender = lastMid ? tradeLastSenderByMsgId.get(lastMid) ?? null : null;
+    const lastMsgResolvable = !lastMid || tradeLastSenderByMsgId.has(lastMid);
     const unreadCount = tradeListUnreadHintFromCursor({
       viewerUserId: userId,
       lastMessageId: lastMid,
       lastMessageSenderId: lastSender,
       lastReadMessageId: part?.last_read_message_id ?? null,
+      lastMessageRowResolvable: lastMsgResolvable,
     });
     return {
       id: r.id,
@@ -479,5 +483,10 @@ export async function GET(req: NextRequest) {
       elapsedMs: Date.now() - startedAt,
     });
   }
-  return NextResponse.json(payload);
+  return NextResponse.json(payload, {
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Chat-Rooms-Cache": hubReconcile ? "bypass" : "miss",
+    },
+  });
 }

@@ -4,6 +4,7 @@
  */
 import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
 export type AdminSoundConfigRow = {
   type: string;
@@ -19,7 +20,7 @@ const CACHE_MS = 60_000;
 
 /** Realtime INSERT + 미읽음 배지 폴링이 같은 수신을 거의 동시에 재생할 때 1회로 줄임 */
 const lastDomainPlayAt = new Map<NotificationDomain, number>();
-const DOMAIN_PLAY_DEDUPE_MS = 2200;
+const DOMAIN_PLAY_DEDUPE_MS = UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS;
 
 /** DOM·Node 타이머 타입 차이 흡수 */
 type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>;
@@ -105,10 +106,8 @@ export async function playDomainNotificationSound(domain: NotificationDomain): P
 
   const items = await loadConfig();
   const row = resolveConfigRow(items, domain);
-  const enabled = row?.enabled !== false;
-  if (!enabled) {
-    fallbackBeep();
-    scheduleAutoStop();
+  /** 관리자에서 해당 타입 알림음을 끈 경우 — §5 무음 (비프·대체음 없음) */
+  if (row && row.enabled === false) {
     return;
   }
 

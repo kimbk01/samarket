@@ -27,8 +27,6 @@ import {
   HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS,
   HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
-import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
-import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -74,7 +72,6 @@ export function HomeTradeHubFloatingBar() {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const { chatUnread: tradeChatUnread } = useOwnerHubBadgeBreakdown();
   const writeCtx = useWriteCategory();
   const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
@@ -209,9 +206,6 @@ export function HomeTradeHubFloatingBar() {
 
   const shellZ = launcherOpen ? "z-[33]" : "z-[21]";
 
-  /** 거래 미읽음 — 예전에는 거래채팅 시트를 열 때만 플로팅 배지 숨김; 목록은 메신저로 이동하므로 미읽음이면 표시 */
-  const showFloatingTradeChatBadge = tradeChatUnread > 0;
-
   return (
     <>
       {menuOpen && !launcherOpen ? (
@@ -306,22 +300,10 @@ export function HomeTradeHubFloatingBar() {
                             type="button"
                             onClick={item.onClick}
                             className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
-                            aria-label={
-                              item.key === "trade-chat" && showFloatingTradeChatBadge && menuOpen
-                                ? t("nav_attention_needed", {
-                                    label: item.label,
-                                    count: tradeChatUnread > 99 ? "99+" : tradeChatUnread,
-                                  })
-                                : item.label
-                            }
+                            aria-label={item.label}
                           >
                             <span className="relative inline-flex">
                               <item.Icon className="text-white" />
-                              {item.key === "trade-chat" && showFloatingTradeChatBadge && menuOpen ? (
-                                <span className={OWNER_HUB_BADGE_DOT_CLASS}>
-                                  {tradeChatUnread > 99 ? "99+" : tradeChatUnread}
-                                </span>
-                              ) : null}
                             </span>
                           </button>
                         ) : (
@@ -349,24 +331,10 @@ export function HomeTradeHubFloatingBar() {
                 aria-haspopup="true"
                 aria-controls={menuOpen ? "home-trade-speed-dial" : undefined}
                 className={`${HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS} relative`}
-                aria-label={
-                  !menuOpen && showFloatingTradeChatBadge
-                    ? `${t("nav_menu_open")}, ${t("nav_attention_needed", {
-                        label: t("nav_trade_chat"),
-                        count: tradeChatUnread > 99 ? "99+" : tradeChatUnread,
-                      })}`
-                    : menuOpen
-                      ? t("nav_menu_close")
-                      : t("nav_menu_open")
-                }
+                aria-label={menuOpen ? t("nav_menu_close") : t("nav_menu_open")}
               >
                 <span className="relative inline-flex">
                   {menuOpen ? <CloseIcon /> : <PlusBoldIcon />}
-                  {!menuOpen && showFloatingTradeChatBadge ? (
-                    <span className={OWNER_HUB_BADGE_DOT_CLASS}>
-                      {tradeChatUnread > 99 ? "99+" : tradeChatUnread}
-                    </span>
-                  ) : null}
                 </span>
               </button>
             ) : null}

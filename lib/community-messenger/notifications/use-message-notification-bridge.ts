@@ -5,8 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { documentVisibilityToAppVisibility } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 import { resolveParticipantUnreadDeltaInAppEffects } from "@/lib/community-messenger/notifications/messenger-message-notification-policy";
 import { tryShowMessengerWebDesktopNotification } from "@/lib/community-messenger/notifications/messenger-web-desktop-notification";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
@@ -28,11 +29,6 @@ export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
 type ParticipantRealtimeRow = {
   room_id?: unknown;
   unread_count?: unknown;
-};
-
-type NavigatorWithBadge = Navigator & {
-  setAppBadge?: (contents?: number) => Promise<void>;
-  clearAppBadge?: () => Promise<void>;
 };
 
 function getRoomId(row: ParticipantRealtimeRow | null): string {
@@ -48,20 +44,6 @@ function activeCommunityRoomIdFromPathname(pathname: string | null): string | nu
   if (!pathname) return null;
   const m = pathname.match(/^\/community-messenger\/rooms\/([^/]+)\/?$/);
   return m?.[1] ? decodeURIComponent(m[1]) : null;
-}
-
-function updateBrowserBadge(nextUnread: number) {
-  if (typeof navigator === "undefined") return;
-  const nav = navigator as NavigatorWithBadge;
-  try {
-    if (nextUnread > 0) {
-      void nav.setAppBadge?.(nextUnread);
-    } else {
-      void nav.clearAppBadge?.();
-    }
-  } catch {
-    /* ignore */
-  }
 }
 
 export function useMessageNotificationBridge(
@@ -146,11 +128,8 @@ export function useMessageNotificationBridge(
           const nextUnread = getUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
           const prevUnread = getUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
           if (!nextRoomId) return;
-          updateBrowserBadge(nextUnread);
           if (nextUnread <= prevUnread) {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-            }
+            requestMessengerHubBadgeResync("participant_unread_changed");
             return;
           }
 
@@ -162,20 +141,22 @@ export function useMessageNotificationBridge(
           postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: nextRoomId, at: Date.now() });
 
           if (playbackRef.current === "hub_sync_only") {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-            }
+            requestMessengerHubBadgeResync("participant_unread_changed");
             return;
           }
 
           if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
-            if (pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`) {
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-              }
+            const sameRoomPath = pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`;
+            const visOk =
+              typeof document !== "undefined" && document.visibilityState === "visible";
+            const focusOk = typeof document === "undefined" || document.hasFocus();
+            if (sameRoomPath && visOk && focusOk) {
+              requestMessengerHubBadgeResync("participant_unread_changed");
               return;
             }
-            playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
+            if (!shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current)) {
+              playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`);
+            }
             tryShowMessengerWebDesktopNotification({
               roomId: nextRoomId,
               title: "메신저",
@@ -190,9 +171,7 @@ export function useMessageNotificationBridge(
               callStatus: useCallStore.getState().callStatus,
               onNavigateToRoom: navigateToCommunityRoom,
             });
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-            }
+            requestMessengerHubBadgeResync("participant_unread_changed");
             return;
           }
 
@@ -216,9 +195,13 @@ export function useMessageNotificationBridge(
               suppressInAppMessageSound: suppressSound,
               sameRoomScrollHint: scrollHint,
               applySameRoomScrollPolicy: scrollPolicy,
+              windowFocused: sfc?.isWindowFocused ?? true,
             });
 
-          if (dedupeKey && playInAppMessageSound) {
+          const allowSound =
+            playInAppMessageSound &&
+            !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current);
+          if (dedupeKey && allowSound) {
             playCoalescedChatNotificationSound(dedupeKey);
           }
           if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
@@ -242,9 +225,7 @@ export function useMessageNotificationBridge(
             callStatus: useCallStore.getState().callStatus,
             onNavigateToRoom: navigateToCommunityRoom,
           });
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-          }
+          requestMessengerHubBadgeResync("participant_unread_changed");
         }
       )
       .subscribe();

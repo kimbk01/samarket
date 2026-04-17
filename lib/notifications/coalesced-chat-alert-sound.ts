@@ -1,3 +1,4 @@
+import { MESSENGER_CHAT_ALERT_MIN_GAP_MS } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { playOrderMatchChatAlert } from "@/lib/notifications/play-order-match-alert";
 
@@ -5,8 +6,8 @@ const seenDedupeKeys = new Set<string>();
 const MAX_KEYS = 400;
 
 let lastPlayAt = 0;
-/** 서로 다른 경로(Realtime·미읽음 폴링·채팅방 폴링)가 같은 수신을 중복 재생하지 않도록 */
-const MIN_GAP_MS = 3200;
+/** 서로 다른 경로(Realtime·미읽음 폴링·채팅방 폴링)가 같은 수신을 중복 재생하지 않도록 — `MESSENGER_CHAT_ALERT_MIN_GAP_MS` */
+const MIN_GAP_MS = MESSENGER_CHAT_ALERT_MIN_GAP_MS;
 
 function pruneIfNeeded(): void {
   while (seenDedupeKeys.size >= MAX_KEYS) {

@@ -68,11 +68,11 @@ function StoresHubOwnerOperChip({
         }
       >
         운영
-        {storeOpsAttention > 0 ?
+        {storeOpsAttention > 0 ? (
           <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-[#E4E6EB] dark:ring-[#3A3B3C]`} aria-hidden>
             {storeOpsAttention > 99 ? "99+" : storeOpsAttention}
           </span>
-        : null}
+        ) : null}
       </Link>
     </>
   );

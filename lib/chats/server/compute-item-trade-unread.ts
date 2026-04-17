@@ -23,7 +23,11 @@ export async function computeItemTradeUnreadCount(
   if (!lm) return 0;
 
   const { data: lmRow } = await sbAny.from("chat_messages").select("sender_id").eq("id", lm).maybeSingle();
-  const lastSender = (lmRow as { sender_id?: string | null } | null)?.sender_id ?? null;
+  if (!lmRow) {
+    /** `chat_rooms.last_message_id` 가 삭제된 메시지를 가리키면 힌트·배지와 어긋난 미읽음이 생김 */
+    return 0;
+  }
+  const lastSender = (lmRow as { sender_id?: string | null }).sender_id ?? null;
   if (lastSender === viewer) return 0;
 
   const lr = (input.lastReadMessageId ?? "").trim();

@@ -8,6 +8,10 @@ import {
   refreshOwnerHubBadgeIfHubPath,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
+import {
+  resolveBottomNavTradeTabBadgeCount,
+  resolveMessengerTabTotalUnreadBadgeCount,
+} from "@/lib/notifications/samarket-messenger-notification-regulations";
 
 export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 
@@ -41,9 +45,9 @@ function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
   const s = getOwnerHubBadgeSnapshot();
   switch (icon) {
     case "chat":
-      return s.communityMessengerUnread;
+      return resolveMessengerTabTotalUnreadBadgeCount(s);
     case "trade":
-      return s.chatUnread;
+      return resolveBottomNavTradeTabBadgeCount(s);
     case "community":
       return s.philifeChatUnread;
     case "stores":
@@ -54,7 +58,8 @@ function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
 }
 
 /**
- * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더(전체 네비 리렌더 방지).
+ * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더.
+ * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   return useSyncExternalStore(
@@ -71,3 +76,4 @@ export function useOwnerHubBadgeStoreDeepLink(): string | null {
     () => null
   );
 }
+

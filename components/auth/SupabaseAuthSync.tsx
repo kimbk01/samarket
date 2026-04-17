@@ -14,6 +14,7 @@ import {
 } from "@/lib/ui/network-policy";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
@@ -46,6 +47,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
       invalidateMeProfileDedupedCache();
       setSupabaseProfileCache(null);
       clearBootstrapCache();
+      resetMessengerNotificationSurfacesAfterSignOut();
       dispatchTestAuthChanged();
       return;
     }
@@ -53,6 +55,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
   } catch (e) {
     invalidateMeProfileDedupedCache();
     setSupabaseProfileCache(null);
+    resetMessengerNotificationSurfacesAfterSignOut();
     dispatchTestAuthChanged();
     if (process.env.NODE_ENV === "development") {
       console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
@@ -118,6 +121,7 @@ export function SupabaseAuthSync() {
         invalidateMeProfileDedupedCache();
         setSupabaseProfileCache(null);
         clearBootstrapCache();
+        resetMessengerNotificationSurfacesAfterSignOut();
         dispatchTestAuthChanged();
         return;
       }

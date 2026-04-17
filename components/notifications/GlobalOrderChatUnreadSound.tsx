@@ -12,6 +12,7 @@ import {
   isUnifiedChatRoomDetailPath,
   orderChatUnreadSoundBaselineKey,
 } from "@/lib/chats/chat-room-path-utils";
+import { TRADE_CHAT_HUB_SNAPSHOT_BASED_SOUND_SUPPRESSED } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
 /**
  * 로그인 시 채팅 미읽음 합계 증가를 감시해 짧은 알림음 1회.
@@ -65,9 +66,11 @@ export function GlobalOrderChatUnreadSound({ enabled = true }: { enabled?: boole
       const snap = getOwnerHubBadgeSnapshot();
       const prev = prevSnapRef.current;
       const path = pathnameRef.current;
-      if (!isUnifiedChatRoomDetailPath(path) && prev !== null) {
+      /** §4 CASE 5 — 거래 탐색 표면에서는 허브 스냅샷 기반 인앱 도메인 톤 전부 금지 */
+      const onTradeExploration = orderChatUnreadSoundBaselineKey(path) === "trade:feed";
+      if (!onTradeExploration && !isUnifiedChatRoomDetailPath(path) && prev !== null) {
         /** 합계만 보면 거래/커뮤니티/매장 채팅을 구분할 수 없음 — 항목별 증가분에 맞는 도메인 알림음 */
-        if (snap.chatUnread > prev.chatUnread) {
+        if (!TRADE_CHAT_HUB_SNAPSHOT_BASED_SOUND_SUPPRESSED && snap.chatUnread > prev.chatUnread) {
           void playDomainNotificationSound("trade_chat");
         } else if (snap.philifeChatUnread > prev.philifeChatUnread) {
           void playDomainNotificationSound("community_direct_chat");

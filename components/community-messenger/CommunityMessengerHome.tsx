@@ -706,6 +706,7 @@ export function CommunityMessengerHome({
   const applyParticipantUnreadDelta = useCallback(
     (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => {
       let missedList = false;
+      let tradeRoomForLegacyUnreadResync: string | null = null;
       setData((prev) => {
         if (!prev) return prev;
         let hit = false;
@@ -713,6 +714,7 @@ export function CommunityMessengerHome({
           rooms.map((room) => {
             if (room.id !== hint.roomId) return room;
             hit = true;
+            if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
             return {
               ...room,
               unreadCount: hint.unreadCount,
@@ -731,6 +733,10 @@ export function CommunityMessengerHome({
         return next;
       });
       if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+      else if (tradeRoomForLegacyUnreadResync) {
+        /** Realtime은 CM `unread_count` 만 주므로, 거래 레거시 힌트는 home-summary 재병합으로 맞춘다 */
+        scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
+      }
     },
     [setData, scheduleHomeMissingRoomSummaryMerge]
   );

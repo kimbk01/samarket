@@ -17,6 +17,8 @@ export function isTradeFloatingMenuSurface(pathname: string | null | undefined):
   const raw = typeof pathname === "string" ? pathname : "";
   const safePath = raw.split("?")[0]!.trim();
   if (!safePath) return false;
+  /** 앱 루트는 홈 피드와 동일 거래 표면으로 취급(경로만 `/` 인 경우 reconcile·패딩 누락 방지) */
+  if (normalizeAppPathnameForTier1(safePath) === "/") return true;
   if (safePath === "/home" || safePath === "/market" || startsWithPath(safePath, "/market")) return true;
   if (
     startsWithPath(safePath, "/home/purchases") ||

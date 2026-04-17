@@ -18,10 +18,12 @@ import {
 } from "@/lib/stickers/sticker-content";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import { enrichMessengerTradeUnreadWithLegacyTrade } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
 import type { ChatRoom } from "@/lib/types/chat";
 import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
+import { syncItemTradeReadWithMessengerRoomMark } from "@/lib/trade/sync-item-trade-read-with-messenger-room";
 import {
   itemTradeChatRoomIdFromMessengerDirectKey,
   mirrorCommunityMessengerTextToItemTradeLedger,
@@ -1513,6 +1515,10 @@ export async function getCommunityMessengerSingleRoomSummaryForViewer(
   const summary = summaries[0];
   if (!summary) return null;
   await enrichTradeRoomContextMetaForBootstrap(viewerUserId, [summary]);
+  const sbUnread = getSupabaseOrNull();
+  if (sbUnread) {
+    await enrichMessengerTradeUnreadWithLegacyTrade(sbUnread as any, viewerUserId, [summary]).catch(() => {});
+  }
   return summary;
 }
 
@@ -1849,6 +1855,10 @@ export async function listCommunityMessengerMyChatsAndGroups(userId: string): Pr
     profileById
   );
   await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+  const sbList = getSupabaseOrNull();
+  if (sbList) {
+    await enrichMessengerTradeUnreadWithLegacyTrade(sbList as any, userId, mySummaries).catch(() => {});
+  }
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
   return { chats, groups };
@@ -2426,6 +2436,10 @@ export async function getCommunityMessengerBootstrap(
     profileById
   );
   await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+  const sbBoot = getSupabaseOrNull();
+  if (sbBoot) {
+    await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
+  }
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
 
@@ -4507,6 +4521,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
       if (!error) {
+        await syncItemTradeReadWithMessengerRoomMark(sb as any, {
+          userId: input.userId,
+          communityMessengerRoomId: roomId,
+        });
         invalidateOwnerHubBadgeCache(input.userId);
         return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
       }
@@ -4963,6 +4981,11 @@ export async function getCommunityMessengerRoomSnapshot(
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
   });
+  /** 목록과 동일 — 레거시 거래 미읽음이 있으면 스냅샷 `unreadCount`에 반영해야 방 안 읽음 이펙트가 `mark_read`를 호출한다 */
+  await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
+  if (sb) {
+    await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
+  }
   const members = hydrated.members.map((profile) =>
     ({
       ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),

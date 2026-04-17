@@ -14,6 +14,7 @@ import {
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import { resolveUnifiedChatUnreadHintForDashboard } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
@@ -43,7 +44,7 @@ export function MyPageHomeDashboard({
   homeDashboardCounts?: MyPageHomeDashboardCounts | null;
 }) {
   const { count: favoriteCount } = useMyFavoriteCount();
-  const { socialChatUnread, storeOrderChatUnread } = useOwnerHubBadgeBreakdown();
+  const ownerHub = useOwnerHubBadgeBreakdown();
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
   const [postCount, setPostCount] = useState<number | null>(() => homeDashboardCounts?.communityPostCount ?? null);
 
@@ -97,7 +98,6 @@ export function MyPageHomeDashboard({
       overviewCounts.purchases != null && overviewCounts.sales != null
         ? Math.max(0, overviewCounts.purchases) + Math.max(0, overviewCounts.sales)
         : null;
-    const chatUnread = socialChatUnread + storeOrderChatUnread;
     return [
       {
         label: "진행중 거래",
@@ -111,7 +111,7 @@ export function MyPageHomeDashboard({
       },
       {
         label: "안읽은 채팅",
-        value: formatCount(chatUnread),
+        value: formatCount(resolveUnifiedChatUnreadHintForDashboard(ownerHub)),
         href: buildMypageSectionHref("messenger"),
       },
       {
@@ -130,9 +130,9 @@ export function MyPageHomeDashboard({
     overviewCounts.sales,
     orderCount,
     postCount,
-    socialChatUnread,
-    storeOrderChatUnread,
     favoriteCount,
+    ownerHub.communityMessengerUnread,
+    ownerHub.chatUnread,
   ]);
 
   return (

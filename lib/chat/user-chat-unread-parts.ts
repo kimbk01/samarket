@@ -160,11 +160,13 @@ export async function computeUserChatUnreadParts(
       } else if (rt === "item_trade") {
         const lastMid = meta?.last_message_id ?? null;
         const lastSender = lastMid ? senderByLastMessageId.get(lastMid) ?? null : null;
+        const lastMsgResolvable = !lastMid || senderByLastMessageId.has(lastMid);
         itemTradeParticipantUnread += tradeListUnreadHintFromCursor({
           viewerUserId: userId,
           lastMessageId: lastMid,
           lastMessageSenderId: lastSender,
           lastReadMessageId: p.last_read_message_id ?? null,
+          lastMessageRowResolvable: lastMsgResolvable,
         });
       } else if (rt) {
         communityParticipantUnread += c;
