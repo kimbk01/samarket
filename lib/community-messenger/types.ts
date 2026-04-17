@@ -265,6 +265,11 @@ export type CommunityMessengerRoomSnapshot = {
   membersDeferred?: boolean;
   /** 그룹방에서 `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP` 초과 시 프로필 일부만 내려보냄 */
   membersTruncated?: boolean;
+  /**
+   * RSC/부트스트랩 1차 페이로드에서 통화·거래 도크·presence·레거시 unread 보강 등을 생략했을 때 —
+   * 클라가 idle 에 전체 스냅샷으로 사일런트 보강해야 함(`useMessengerRoomBootstrapLifecycle`).
+   */
+  bootstrapEnrichmentPending?: boolean;
   messages: CommunityMessengerMessage[];
   myRole: "owner" | "admin" | "member";
   readReceipt?: CommunityMessengerReadReceipt | null;

@@ -15,6 +15,8 @@ import {
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
+import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
+import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
@@ -84,14 +86,15 @@ import {
   fetchMeNotificationSettingsGet,
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
-import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
-import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
-import {
-  type CommunityMessengerHomeRealtimeMessageInsertHint,
-  type CommunityMessengerHomeRealtimeParticipantUnreadHint,
-  useCommunityMessengerHomeRealtime,
-} from "@/lib/community-messenger/use-community-messenger-realtime";
+import { RECENT_SEARCHES_STORAGE_KEY } from "@/lib/community-messenger/home/community-messenger-home-constants";
+import type {
+  CommunityMessengerSettingsBackup,
+  FriendSheetState,
+  MessengerNotificationSettings,
+} from "@/lib/community-messenger/home/community-messenger-home-types";
+import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
+import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
+import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -161,34 +164,6 @@ import {
   writeDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 
-type MessengerNotificationSettings = {
-  trade_chat_enabled: boolean;
-  community_chat_enabled: boolean;
-  order_enabled: boolean;
-  store_enabled: boolean;
-  sound_enabled: boolean;
-  vibration_enabled: boolean;
-};
-
-const RECENT_SEARCHES_STORAGE_KEY = "samarket:communityMessenger:recentSearches";
-const HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS = 400;
-
-type CommunityMessengerSettingsBackup = {
-  version: 1;
-  exportedAt: string;
-  notificationSettings: MessengerNotificationSettings;
-  incomingCallSoundEnabled: boolean;
-  incomingCallBannerEnabled: boolean;
-  localSettings: CommunityMessengerLocalSettings;
-  recentSearches: string[];
-  devices: {
-    audioDeviceId: string | null;
-    videoDeviceId: string | null;
-  };
-};
-
-type FriendSheetState = { mode: "profile"; profile: CommunityMessengerProfileLite };
-
 export function CommunityMessengerHome({
   initialTab,
   initialSection,
@@ -216,8 +191,10 @@ export function CommunityMessengerHome({
     (roomId: string) => {
       const id = String(roomId ?? "").trim();
       if (!id) return;
+      const href = `/community-messenger/rooms/${encodeURIComponent(id)}`;
       void prefetchCommunityMessengerRoomSnapshot(id);
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+      void router.prefetch(href);
+      router.push(href);
     },
     [router]
   );
@@ -239,8 +216,6 @@ export function CommunityMessengerHome({
   useCommunityMessengerPresenceRuntime(data?.me?.id ?? null);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
-  /** Realtime 메시지는 왔으나 `homeRoomIds` 청크에 없던 방 — 단건 home-summary 병합 디바운스 */
-  const homeMissingRoomSummaryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [composerOpen, setComposerOpen] = useState(false);
   const [requestSheetOpen, setRequestSheetOpen] = useState(false);
@@ -317,15 +292,6 @@ export function CommunityMessengerHome({
         cancelAnimationFrame(listScrollDismissRafRef.current);
         listScrollDismissRafRef.current = null;
       }
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      for (const t of homeMissingRoomSummaryTimersRef.current.values()) {
-        clearTimeout(t);
-      }
-      homeMissingRoomSummaryTimersRef.current.clear();
     };
   }, []);
 
@@ -490,46 +456,10 @@ export function CommunityMessengerHome({
     return `${window.location.origin}/community-messenger?section=friends`;
   }, []);
 
-  const getMessengerActionErrorMessage = useCallback((error?: string) => {
-    switch (error) {
-      case "bad_peer":
-        return t("nav_messenger_direct_target_invalid");
-      case "blocked_target":
-        return t("nav_messenger_blocked_target");
-      case "friend_required":
-        return t("nav_messenger_friend_required");
-      case "title_required":
-        return t("nav_messenger_title_required");
-      case "password_required":
-        return t("nav_messenger_password_required");
-      case "alias_name_required":
-        return t("nav_messenger_alias_name_required");
-      case "members_required":
-        return t("nav_messenger_members_required");
-      case "invalid_password":
-        return t("nav_messenger_invalid_password");
-      case "room_full":
-        return t("nav_messenger_room_full");
-      case "not_open_group_room":
-        return t("nav_messenger_open_group_only");
-      case "owner_cannot_leave":
-        return t("nav_messenger_owner_cannot_leave");
-      case "room_lookup_failed":
-        return t("nav_messenger_room_lookup_failed");
-      case "room_create_failed":
-      case "room_participant_create_failed":
-        return t("nav_messenger_direct_create_failed");
-      case "group_create_failed":
-      case "group_participant_create_failed":
-        return t("nav_messenger_group_create_failed");
-      case "messenger_storage_unavailable":
-        return t("nav_messenger_storage_unavailable");
-      case "messenger_migration_required":
-        return t("nav_messenger_migration_required");
-      default:
-        return t("nav_messenger_action_failed");
-    }
-  }, [t]);
+  const getMessengerActionErrorMessage = useCallback(
+    (error?: string) => messengerHomeActionErrorMessage(t, error),
+    [t]
+  );
 
   useEffect(() => {
     setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
@@ -646,108 +576,12 @@ export function CommunityMessengerHome({
     };
   }, []);
 
-  const scheduleHomeRealtimeRefresh = useCallback(() => {
-    void refresh(true);
-  }, [refresh]);
-
-  const scheduleHomeMissingRoomSummaryMerge = useCallback(
-    (roomId: string) => {
-      const id = String(roomId ?? "").trim();
-      if (!id) return;
-      const timers = homeMissingRoomSummaryTimersRef.current;
-      const existing = timers.get(id);
-      if (existing) clearTimeout(existing);
-      const t = setTimeout(() => {
-        timers.delete(id);
-        void (async () => {
-          try {
-            const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(id)}/home-summary`, {
-              credentials: "include",
-            });
-            const json = (await res.json().catch(() => ({}))) as {
-              ok?: boolean;
-              room?: CommunityMessengerRoomSummary;
-            };
-            if (!res.ok || !json.ok || !json.room) return;
-            setData((prev) => {
-              if (!prev) return prev;
-              const merged = mergeBootstrapRoomSummaryIntoLists(prev, json.room!);
-              primeBootstrapCache(merged);
-              return merged;
-            });
-          } catch {
-            /* ignore */
-          }
-        })();
-      }, HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS);
-      timers.set(id, t);
-    },
-    [setData]
-  );
-
-  const applyRealtimeMessageListPatch = useCallback(
-    (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => {
-      let missedList = false;
-      setData((prev) => {
-        if (!prev) return prev;
-        const next = patchBootstrapRoomListForRealtimeMessageInsert(prev, hint.roomId, hint.newRecord);
-        if (next === prev) {
-          missedList = true;
-          return prev;
-        }
-        primeBootstrapCache(next);
-        return next;
-      });
-      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
-    },
-    [setData, scheduleHomeMissingRoomSummaryMerge]
-  );
-
-  const applyParticipantUnreadDelta = useCallback(
-    (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => {
-      let missedList = false;
-      let tradeRoomForLegacyUnreadResync: string | null = null;
-      setData((prev) => {
-        if (!prev) return prev;
-        let hit = false;
-        const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
-          rooms.map((room) => {
-            if (room.id !== hint.roomId) return room;
-            hit = true;
-            if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
-            return {
-              ...room,
-              unreadCount: hint.unreadCount,
-            };
-          });
-        const next = {
-          ...prev,
-          chats: patchRooms(prev.chats),
-          groups: patchRooms(prev.groups),
-        };
-        if (!hit) {
-          missedList = true;
-          return prev;
-        }
-        primeBootstrapCache(next);
-        return next;
-      });
-      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
-      else if (tradeRoomForLegacyUnreadResync) {
-        /** Realtime은 CM `unread_count` 만 주므로, 거래 레거시 힌트는 home-summary 재병합으로 맞춘다 */
-        scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
-      }
-    },
-    [setData, scheduleHomeMissingRoomSummaryMerge]
-  );
-
-  useCommunityMessengerHomeRealtime({
-    userId: data?.me?.id ?? null,
+  useCommunityMessengerHomeRealtimeBootstrapList({
+    userId: data?.me?.id,
     roomIds: homeRoomIds,
-    enabled: Boolean(data?.me?.id) && homeRealtimeGateOpen,
-    onRefresh: scheduleHomeRealtimeRefresh,
-    onRealtimeMessageInsert: applyRealtimeMessageListPatch,
-    onParticipantUnreadDelta: applyParticipantUnreadDelta,
+    homeRealtimeGateOpen,
+    refresh,
+    setData,
   });
 
   const reviveDirectRoomForEntry = useCallback(
@@ -956,7 +790,11 @@ export function CommunityMessengerHome({
           void searchUsers();
           /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
           if (result.mergedFromIncoming && typeof result.directRoomId === "string" && result.directRoomId.trim()) {
-            router.push(`/community-messenger/rooms/${encodeURIComponent(result.directRoomId.trim())}`);
+            const rid = result.directRoomId.trim();
+            const href = `/community-messenger/rooms/${encodeURIComponent(rid)}`;
+            void prefetchCommunityMessengerRoomSnapshot(rid);
+            void router.prefetch(href);
+            router.push(href);
           }
           return;
         }
@@ -1043,7 +881,11 @@ export function CommunityMessengerHome({
         if (res.ok && json.ok) {
           void refresh(true);
           if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
-            router.push(`/community-messenger/rooms/${encodeURIComponent(json.directRoomId.trim())}`);
+            const rid = json.directRoomId.trim();
+            const href = `/community-messenger/rooms/${encodeURIComponent(rid)}`;
+            void prefetchCommunityMessengerRoomSnapshot(rid);
+            void router.prefetch(href);
+            router.push(href);
           }
         } else {
           // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
@@ -2327,7 +2169,10 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                  const href = `/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`;
+                  void prefetchCommunityMessengerRoomSnapshot(id);
+                  void router.prefetch(href);
+                  router.push(href);
                 }
               : undefined
           }
@@ -2336,7 +2181,10 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                  const href = `/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`;
+                  void prefetchCommunityMessengerRoomSnapshot(id);
+                  void router.prefetch(href);
+                  router.push(href);
                 }
               : undefined
           }
@@ -2962,82 +2810,9 @@ export function CommunityMessengerHome({
           className={`fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} right-4 z-[41] flex h-14 w-14 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-primary-soft-2)] bg-[color:var(--messenger-primary)] text-white shadow-[var(--messenger-shadow-soft)] transition active:scale-[0.98] active:opacity-90`}
           aria-label={mainSection === "friends" ? "친구 추가" : "새 대화"}
         >
-          <PlusIcon className="h-6 w-6" />
+          <MessengerHomeFabPlusIcon className="h-6 w-6" />
         </button>
       ) : null}
     </div>
   );
-}
-
-function DiscoverableOpenGroupCard({
-  group,
-  busy,
-  onJoin,
-}: {
-  group: CommunityMessengerDiscoverableGroupSummary;
-  busy: boolean;
-  onJoin: () => void;
-}) {
-  return (
-    <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 shadow-[var(--messenger-shadow-soft)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
-            {group.title}
-          </p>
-          <p className="mt-1 line-clamp-2 text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {group.summary || "소개 없음"}
-          </p>
-          <p className="mt-1.5 text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {group.ownerLabel} · {group.memberCount}명
-            {group.isJoined ? " · 참여 중" : ""}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <button
-            type="button"
-            onClick={onJoin}
-            disabled={busy}
-            className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-primary-soft)] px-3 py-2 text-[12px] font-semibold text-[color:var(--messenger-primary)] disabled:opacity-40 active:opacity-90"
-          >
-            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : "참여"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function scoreKeywordMatch(fields: Array<string | null | undefined>, keyword: string): number {
-  const q = keyword.trim().toLowerCase();
-  if (!q) return 0;
-  let best = 0;
-  for (const field of fields) {
-    const value = (field ?? "").trim().toLowerCase();
-    if (!value) continue;
-    if (value === q) {
-      best = Math.max(best, 500);
-      continue;
-    }
-    if (value.startsWith(q)) {
-      best = Math.max(best, 400);
-      continue;
-    }
-    if (value.split(/\s+/).some((part) => part.startsWith(q))) {
-      best = Math.max(best, 300);
-      continue;
-    }
-    if (value.includes(q)) {
-      best = Math.max(best, 200);
-    }
-  }
-  return best;
 }

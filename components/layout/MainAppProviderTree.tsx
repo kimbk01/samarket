@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
@@ -15,6 +16,16 @@ import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
+
+/** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
+function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname() ?? "";
+  const mountCart = pathname.startsWith("/stores") || pathname.startsWith("/mypage");
+  if (!mountCart) {
+    return <>{children}</>;
+  }
+  return <StoreCommerceCartProvider>{children}</StoreCommerceCartProvider>;
+}
 
 /**
  * Provider JSX 전용 — `MainAppProviders` 와 분리해 트리·순서를 한 파일에서 보존하고,
@@ -32,7 +43,7 @@ export function MainAppProviderTree({ children }: { children: ReactNode }) {
         <NotificationSurfaceProvider>
           <WriteCategoryProvider>
             <CategoryListHeaderProvider>
-              <StoreCommerceCartProvider>
+              <StoreCommerceCartMaybeProvider>
                 <MainTier1ChromeProvider>
                   <TradePresenceActivityProvider>
                     <AppTitle />
@@ -41,7 +52,7 @@ export function MainAppProviderTree({ children }: { children: ReactNode }) {
                     <TradeChatEntryCreatingOverlay />
                   </TradePresenceActivityProvider>
                 </MainTier1ChromeProvider>
-              </StoreCommerceCartProvider>
+              </StoreCommerceCartMaybeProvider>
             </CategoryListHeaderProvider>
           </WriteCategoryProvider>
         </NotificationSurfaceProvider>

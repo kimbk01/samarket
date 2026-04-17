@@ -608,16 +608,31 @@ function ensureCommunityMessengerDevFallbackAllowed(error = "messenger_storage_u
   return { ok: false as const, error };
 }
 
+const FETCH_PROFILES_BY_IDS_TTL_MS = 12_000;
+const fetchProfilesByIdsCache = new Map<string, { expiresAt: number; map: Map<string, ProfileRow> }>();
+
 async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow>> {
   const unique = dedupeIds(ids);
   if (!unique.length) return new Map();
+  const cacheKey = unique.slice().sort().join("\0");
+  const hit = fetchProfilesByIdsCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit.map;
   const sb = getSupabaseOrNull();
   if (!sb) return new Map();
   const { data } = await (sb as any)
     .from("profiles")
     .select("id, nickname, username, avatar_url, bio")
     .in("id", unique);
-  return new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
+  const map = new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
+  fetchProfilesByIdsCache.set(cacheKey, { expiresAt: Date.now() + FETCH_PROFILES_BY_IDS_TTL_MS, map });
+  if (fetchProfilesByIdsCache.size > 400) {
+    const now = Date.now();
+    for (const k of [...fetchProfilesByIdsCache.keys()].slice(0, 120)) {
+      const e = fetchProfilesByIdsCache.get(k);
+      if (!e || e.expiresAt <= now) fetchProfilesByIdsCache.delete(k);
+    }
+  }
+  return map;
 }
 
 function roomProfileKey(roomId: string, userId: string) {
@@ -930,16 +945,16 @@ async function hydrateProfiles(
  * 통화 세션 매핑 전용 — `getViewerRelationSets` 생략(친구/팔로우 등 3쿼리)으로 발신·GET TTFB 를 줄인다.
  * 통화 UI는 표시명·아바타 중심이며 관계 뱃지는 불필요하다.
  */
-async function hydrateProfilesLabelsOnly(
+async function hydrateProfilesLabelsOnlyWithMap(
   viewerId: string,
   targetIds: string[],
   options?: { includeSelf?: boolean }
-): Promise<CommunityMessengerProfileLite[]> {
+): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const includeSelf = options?.includeSelf === true;
   const uniqueTargets = dedupeIds(targetIds.filter((id) => id && (includeSelf || id !== viewerId)));
-  if (!uniqueTargets.length) return [];
+  if (!uniqueTargets.length) return { members: [], profileMap: new Map() };
   const profileMap = await fetchProfilesByIds(uniqueTargets);
-  return uniqueTargets.map((id) => {
+  const members = uniqueTargets.map((id) => {
     const profile = profileMap.get(id);
     return {
       id,
@@ -954,6 +969,16 @@ async function hydrateProfilesLabelsOnly(
       isHiddenFriend: false,
     };
   });
+  return { members, profileMap };
+}
+
+async function hydrateProfilesLabelsOnly(
+  viewerId: string,
+  targetIds: string[],
+  options?: { includeSelf?: boolean }
+): Promise<CommunityMessengerProfileLite[]> {
+  const { members } = await hydrateProfilesLabelsOnlyWithMap(viewerId, targetIds, options);
+  return members;
 }
 
 async function resolveCommunityMessengerGroupTitle(
@@ -2089,10 +2114,18 @@ async function mapIncomingCallSessionsBatch(
   );
 }
 
+const ACTIVE_CALL_ROOM_CACHE_TTL_MS = 2500;
+const activeCallSessionByUserRoomCache = new Map<string, { expiresAt: number; session: CommunityMessengerCallSession | null }>();
+
 async function getActiveCallSessionForRoom(
   userId: string,
   roomId: string
 ): Promise<CommunityMessengerCallSession | null> {
+  const rid = trimText(roomId);
+  const uid = trimText(userId);
+  const ck = `${uid}\0${rid}`;
+  const hit = activeCallSessionByUserRoomCache.get(ck);
+  if (hit && hit.expiresAt > Date.now()) return hit.session;
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data, error } = await (sb as any)
@@ -2100,13 +2133,18 @@ async function getActiveCallSessionForRoom(
       .select(
         "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
       )
-      .eq("room_id", roomId)
+      .eq("room_id", rid)
       .in("status", ["ringing", "active"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (data && !error) {
-      return mapCallSession(userId, data as CallSessionRow, undefined, undefined, undefined, "labels_only");
+      const mapped = await mapCallSession(userId, data as CallSessionRow, undefined, undefined, undefined, "labels_only");
+      activeCallSessionByUserRoomCache.set(ck, {
+        expiresAt: Date.now() + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
+        session: mapped,
+      });
+      return mapped;
     }
   }
 
@@ -2114,7 +2152,14 @@ async function getActiveCallSessionForRoom(
   const session = dev.callSessions
     .filter((item) => item.roomId === roomId && (item.status === "ringing" || item.status === "active"))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  return session ? mapCallSession(userId, session, undefined, undefined, undefined, "labels_only") : null;
+  const mapped = session
+    ? await mapCallSession(userId, session, undefined, undefined, undefined, "labels_only")
+    : null;
+  activeCallSessionByUserRoomCache.set(ck, {
+    expiresAt: Date.now() + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
+    session: mapped,
+  });
+  return mapped;
 }
 
 export async function getCommunityMessengerCallSessionById(
@@ -4736,9 +4781,18 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 메시지 발신자·방장·DM 상대 등 최소 집합만 로드한다(`membersDeferred`).
    */
   hydrateFullMemberList?: boolean;
+  /**
+   * true면 `fetchRoomProfilesByRoomIds`·통화·거래 도크·presence·trade unread 보강을 (대부분의 방에서) 생략하고
+   * `bootstrapEnrichmentPending` 을 싣는다. **거래/배달 메신저 방**(summary `contextMeta` 또는 `product_chats` 브리지)은
+   * 통화·거래 도크·presence 를 첫 스냅샷에 포함한다.
+   */
+  deferSnapshotSecondary?: boolean;
 };
 
-/** CM 방 `summary` JSON 에서 trade + productChatId 를 읽어 거래 상세(상품 카드)를 프로필 하이드레이션과 병렬 로드 */
+const TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS = 8000;
+const tradeRoomDetailEntryCache = new Map<string, { expiresAt: number; room: ChatRoom | null }>();
+
+/** CM 방 `summary` JSON 에서 trade + productChatId 를 읽어 거래 상세(상품 카드)를 로드 — 반복 입장 TTL 캐시 */
 function tradeChatRoomDetailPromiseFromMessengerRoomRow(
   room: RoomRow | DevRoom,
   userId: string
@@ -4750,12 +4804,27 @@ function tradeChatRoomDetailPromiseFromMessengerRoomRow(
   const meta = parseCommunityMessengerRoomContextMeta(raw);
   if (meta?.kind !== "trade" || !meta.productChatId?.trim()) return Promise.resolve(null);
   const pcid = meta.productChatId.trim();
+  const uid = trimText(userId);
+  const cacheKey = `${uid}\0${pcid}`;
+  const hit = tradeRoomDetailEntryCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return Promise.resolve(hit.room);
   return loadChatRoomDetailForUser({
     roomId: pcid,
     userId,
     detailScope: "entry",
   })
-    .then((res) => (res.ok ? res.room : null))
+    .then((res) => {
+      const r = res.ok ? res.room : null;
+      tradeRoomDetailEntryCache.set(cacheKey, { expiresAt: Date.now() + TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS, room: r });
+      if (tradeRoomDetailEntryCache.size > 200) {
+        const now = Date.now();
+        for (const k of [...tradeRoomDetailEntryCache.keys()].slice(0, 80)) {
+          const e = tradeRoomDetailEntryCache.get(k);
+          if (!e || e.expiresAt <= now) tradeRoomDetailEntryCache.delete(k);
+        }
+      }
+      return r;
+    })
     .catch(() => null);
 }
 
@@ -4857,6 +4926,9 @@ export async function getCommunityMessengerRoomSnapshot(
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 거래/배달 메신저 방은 첫 화면에 붙이기 위해 생략하지 않음 */
+  const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
+  let deferSecondary = false;
   const id = trimText(roomId);
   if (!id) return null;
   const sb = getSupabaseOrNull();
@@ -4998,6 +5070,19 @@ export async function getCommunityMessengerRoomSnapshot(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
+  if (deferSecondaryRequested && room) {
+    const earlySummaryText = trimText(
+      "room_type" in room ? (room as RoomRow).summary ?? "" : (room as DevRoom).summary ?? ""
+    );
+    const earlyMeta = parseCommunityMessengerRoomContextMeta(earlySummaryText);
+    const trp = tradeResolvedParallel;
+    const productLinked =
+      Boolean(trimText(trp?.productChatId ?? "")) || Boolean(trp?.productChat);
+    const isCommerceMessengerRoom =
+      earlyMeta?.kind === "trade" || earlyMeta?.kind === "delivery" || productLinked;
+    deferSecondary = !isCommerceMessengerRoom;
+  }
+
   const allMemberIds = dedupeParticipantUserIds(participants);
   const hydrationUserIds = hydrateFullMemberList
     ? allMemberIds
@@ -5013,34 +5098,53 @@ export async function getCommunityMessengerRoomSnapshot(
     }
     return "";
   })();
-  const tradeChatRoomDetailPromise = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
-  const presencePromise =
-    earlyDirectPeerUserId !== ""
-      ? fetchPresenceSnapshotsByUserIds([earlyDirectPeerUserId])
-      : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>());
-  const [roomProfileMap, activeCall, hydrated, tradeChatRoomDetail, presenceMap] = await Promise.all([
-    fetchRoomProfilesByRoomIds([id]),
-    getActiveCallSessionForRoom(userId, id),
-    hydrateProfilesWithProfileMap(userId, hydrationUserIds, { includeSelf: true }),
-    tradeChatRoomDetailPromise,
-    presencePromise,
+  const roomProfileMapPromise = deferSecondary
+    ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
+    : fetchRoomProfilesByRoomIds([id]);
+  /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/거래도크/presence 는 아래 2차에서 */
+  const [roomProfileMap, hydratedLabels] = await Promise.all([
+    roomProfileMapPromise,
+    hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, { includeSelf: true }),
   ]);
-  const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydrated.members, {
+  const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydratedLabels.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
   });
-  /** 목록과 동일 — 레거시 거래 미읽음이 있으면 스냅샷 `unreadCount`에 반영해야 방 안 읽음 이펙트가 `mark_read`를 호출한다 */
-  await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
-  if (sb) {
-    await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
+  let activeCall: CommunityMessengerCallSession | null = null;
+  let tradeChatRoomDetail: ChatRoom | null = null;
+  let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
+  if (!deferSecondary) {
+    const peerFromSummary = trimText(summary.peerUserId ?? "");
+    const presenceIds = dedupeIds(
+      [earlyDirectPeerUserId, peerFromSummary].map((x) => trimText(x)).filter(Boolean)
+    );
+    /** trade unread 보강과 통화·도크·presence 는 서로 독립 — 직렬보다 병렬로 총 지연 축소 */
+    const [, phase2] = await Promise.all([
+      (async () => {
+        await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
+        if (sb) {
+          await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
+        }
+      })(),
+      Promise.all([
+        getActiveCallSessionForRoom(userId, id),
+        tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId),
+        presenceIds.length > 0
+          ? fetchPresenceSnapshotsByUserIds(presenceIds)
+          : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>()),
+      ]),
+    ]);
+    activeCall = phase2[0] as CommunityMessengerCallSession | null;
+    tradeChatRoomDetail = phase2[1] as ChatRoom | null;
+    presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
   }
-  const members = hydrated.members.map((profile) =>
+  const members = hydratedLabels.members.map((profile) =>
     ({
       ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),
       memberRole:
         participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === profile.id)?.role ?? undefined,
     }) satisfies CommunityMessengerProfileLite
   );
-  const profileMap = hydrated.profileMap;
+  const profileMap = hydratedLabels.profileMap;
   const meParticipant = participants.find(
     (item) => ("user_id" in item ? item.user_id : item.userId) === userId
   ) as ParticipantRow | DevParticipant | undefined;
@@ -5050,10 +5154,7 @@ export async function getCommunityMessengerRoomSnapshot(
       ? participants.find((item) => ("user_id" in item ? item.user_id : item.userId) !== userId)
       : undefined;
   const peerUserId = trimText(summary.peerUserId ?? "");
-  let resolvedPresenceMap = presenceMap;
-  if (peerUserId && !resolvedPresenceMap.has(peerUserId)) {
-    resolvedPresenceMap = await fetchPresenceSnapshotsByUserIds([peerUserId]);
-  }
+  const resolvedPresenceMap = presenceMap;
   const readReceipt: CommunityMessengerReadReceipt | null =
     summary.roomType === "direct" && peerParticipant
       ? {
@@ -5063,7 +5164,8 @@ export async function getCommunityMessengerRoomSnapshot(
           lastReadMessageId: participantLastReadMessageId(peerParticipant),
         }
       : null;
-  const peerPresence = peerUserId ? (resolvedPresenceMap.get(peerUserId) ?? null) : null;
+  const peerPresence =
+    deferSecondary || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
 
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message) => {
     const isDbMessage = "sender_id" in message;
@@ -5118,6 +5220,7 @@ export async function getCommunityMessengerRoomSnapshot(
     members,
     ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
+    ...(deferSecondary ? { bootstrapEnrichmentPending: true as const } : {}),
     messages: mappedMessages,
     myRole: meRole,
     ...(readReceipt ? { readReceipt } : {}),

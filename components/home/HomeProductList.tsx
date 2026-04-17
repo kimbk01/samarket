@@ -102,10 +102,12 @@ export function HomeProductList({
     });
   }, []);
 
-  /** bfcache 복원 + 탭/앱 복귀 시 한 갈래로 갱신(디바운스) */
+  /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
     enableVisibilityRefetch: true,
     visibilityDebounceMs: 450,
+    enableWindowFocusRefetch: true,
+    windowFocusDebounceMs: 400,
   });
 
   /** 다른 화면(상세·시트 등)에서 찜 변경 시 하트 표시 동기화 */
@@ -124,23 +126,6 @@ export function HomeProductList({
     window.addEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, []);
-
-  /** 같은 탭이 보이는 채로 다른 앱(IDE 등) 갔다 올 때 — visibility 없이 focus 만 오는 경우 */
-  useEffect(() => {
-    let t: ReturnType<typeof setTimeout> | null = null;
-    const onFocus = () => {
-      if (t) clearTimeout(t);
-      t = setTimeout(() => {
-        t = null;
-        void refreshSilent();
-      }, 400);
-    };
-    window.addEventListener("focus", onFocus);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      if (t) clearTimeout(t);
-    };
-  }, [refreshSilent]);
 
   const handleRetry = useCallback(() => {
     setListState("loading");

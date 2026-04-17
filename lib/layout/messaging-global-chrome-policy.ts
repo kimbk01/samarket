@@ -21,10 +21,21 @@ export function resolveMessagingGlobalChromeFromPath(
 ): { stableKey: string; policy: MessagingGlobalChromePolicy } {
   const f = resolveConditionalAppShellFlags(pathname, regionBarInLayout);
   const messengerSurface = f.isCommunityMessengerSurface && !f.isCommunityMessengerCallPage;
-  const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback = messengerSurface
-    ? "full"
-    : "hub_sync_only";
-  const mountMessengerInAppBannerHost = messengerRolloutShowsInAppMessageBanner() && messengerSurface;
+
+  /**
+   * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
+   * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`(인앱 사운드·배너·데스크톱 등).
+   * - 방: `f.isCommunityMessengerRoom` → `hub_sync_only` — participants Realtime·`cm.room.bump`·배지 리싱크는 동일,
+   *   `full` 전용 분기(글로벌 사운드/배너/데스크톱 해석)만 축소 (`use-message-notification-bridge` 주석과 동일 계약).
+   */
+  const isCommunityMessengerHubPlayback = messengerSurface && !f.isCommunityMessengerRoom;
+  const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback =
+    isCommunityMessengerHubPlayback ? "full" : "hub_sync_only";
+
+  /** 방 화면은 대화 UI가 주 표면 — 허브용 인앱 배너 호스트는 마운트하지 않는다. */
+  const mountMessengerInAppBannerHost =
+    messengerRolloutShowsInAppMessageBanner() && isCommunityMessengerHubPlayback;
+
   const stableKey = [
     f.mountGlobalRealtimeChrome ? "1" : "0",
     f.mountNotificationSoundPrime ? "1" : "0",

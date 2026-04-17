@@ -6,6 +6,12 @@ export type RefetchOnRestoreOptions = {
   /** 탭/앱 전환 후 다시 보일 때 갱신 (기본 true) */
   enableVisibilityRefetch?: boolean;
   visibilityDebounceMs?: number;
+  /**
+   * 같은 문서가 보이는 상태에서 창 포커스만 바뀔 때(IDE 등 다른 앱 갔다 옴) — visibility 이벤트 없이 복귀하는 경우 보조.
+   * 기본 false(기존 소비자 부하·중복 호출 방지).
+   */
+  enableWindowFocusRefetch?: boolean;
+  windowFocusDebounceMs?: number;
 };
 
 /**
@@ -21,36 +27,48 @@ export function useRefetchOnPageShowRestore(
 ): void {
   const enableVis = options?.enableVisibilityRefetch !== false;
   const debounceMs = options?.visibilityDebounceMs ?? 450;
+  const enableFocus = options?.enableWindowFocusRefetch === true;
+  const focusDebounceMs = options?.windowFocusDebounceMs ?? 400;
   const refetchRef = useRef(refetch);
-  const visTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** visibility·focus·bfcache 복귀가 같은 틱에 겹쳐도 refetch 는 마지막 이벤트 기준 1회만 */
+  const restoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     refetchRef.current = refetch;
   }, [refetch]);
 
   useEffect(() => {
-    const run = () => void refetchRef.current();
+    const scheduleRestore = (ms: number) => {
+      if (restoreTimerRef.current) clearTimeout(restoreTimerRef.current);
+      restoreTimerRef.current = setTimeout(() => {
+        restoreTimerRef.current = null;
+        void refetchRef.current();
+      }, ms);
+    };
 
     const onPageShow = (e: Event) => {
       const pe = e as PageTransitionEvent;
-      if (pe.persisted) run();
+      if (pe.persisted) scheduleRestore(debounceMs);
     };
 
     const onVisibility = () => {
       if (!enableVis || document.visibilityState !== "visible") return;
-      if (visTimerRef.current) clearTimeout(visTimerRef.current);
-      visTimerRef.current = setTimeout(() => {
-        visTimerRef.current = null;
-        run();
-      }, debounceMs);
+      scheduleRestore(debounceMs);
+    };
+
+    const onFocus = () => {
+      if (!enableFocus) return;
+      scheduleRestore(focusDebounceMs);
     };
 
     window.addEventListener("pageshow", onPageShow);
     if (enableVis) document.addEventListener("visibilitychange", onVisibility);
+    if (enableFocus) window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("pageshow", onPageShow);
       if (enableVis) document.removeEventListener("visibilitychange", onVisibility);
-      if (visTimerRef.current) clearTimeout(visTimerRef.current);
+      if (enableFocus) window.removeEventListener("focus", onFocus);
+      if (restoreTimerRef.current) clearTimeout(restoreTimerRef.current);
     };
-  }, [debounceMs, enableVis]);
+  }, [debounceMs, enableFocus, enableVis, focusDebounceMs]);
 }

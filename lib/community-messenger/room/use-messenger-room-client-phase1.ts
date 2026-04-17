@@ -32,19 +32,8 @@ import {
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
-import {
-  communityMessengerRoomBootstrapPath,
-  communityMessengerRoomMembersPath,
-  communityMessengerRoomResourcePath,
-} from "@/lib/community-messenger/messenger-room-bootstrap";
-import {
-  flushMessengerMonitorQueue,
-  messengerMonitorMessageRtt,
-} from "@/lib/community-messenger/monitoring/client";
-import { cmRtLogCanonicalRedirect } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
-import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
-import { isUuidLikeString } from "@/lib/shared/uuid-string";
-import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
+import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { peekHotRoomSnapshot, peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
@@ -62,17 +51,20 @@ import {
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
-import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
+import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
+import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
+import { useMessengerRoomLocalIndexedDbSnapshot } from "@/lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot";
 import {
-  communityMessengerBumpKnownRoomIds,
-  communityMessengerBumpPayloadMatchesKnownRooms,
-} from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
-import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
-import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
-import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
-import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+  useMessengerRoomPhase1MonitorFlushOnRoomUnmount,
+  useMessengerRoomPhase1SilentBootstrapThrottleCleanup,
+  useMessengerRoomPhase1ViewerBootstrapDedupSync,
+} from "@/lib/community-messenger/room/use-messenger-room-phase1-bootstrap-aux-effects";
+import { useMessengerRoomRemoteCatchup } from "@/lib/community-messenger/room/use-messenger-room-remote-catchup";
+import { useMessengerRoomLoadOlderMessagesFetch } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-fetch";
+import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-intersection";
+import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
+import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
+import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -132,7 +124,13 @@ export function useMessengerRoomClientPhase1({
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
-  const loadedRef = useRef(Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot));
+  const loadedRef = useRef(
+    Boolean(
+      peekHotRoomSnapshot(roomId, initialViewerId || undefined) ??
+        peekRoomSnapshot(roomId, initialViewerId || undefined) ??
+        initialServerSnapshot
+    )
+  );
   /** RSC가 `membersDeferred` 부트스트랩을 내렸으면 사일런트 갱신 시 전원 멤버 프로필을 다시 끌어오지 않음 */
   const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
   const silentRoomRefreshBusyRef = useRef(false);
@@ -165,8 +163,9 @@ export function useMessengerRoomClientPhase1({
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
+    const hot = peekHotRoomSnapshot(roomId, initialViewerId || undefined);
     const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
-    return listPrimed ?? initialServerSnapshot ?? null;
+    return hot ?? listPrimed ?? initialServerSnapshot ?? null;
   });
   /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
   const streamRoomId = useMemo(() => {
@@ -187,7 +186,12 @@ export function useMessengerRoomClientPhase1({
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(
-    () => !Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
+    () =>
+      !Boolean(
+        peekHotRoomSnapshot(roomId, initialViewerId || undefined) ??
+          peekRoomSnapshot(roomId, initialViewerId || undefined) ??
+          initialServerSnapshot
+      )
   );
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
@@ -245,37 +249,17 @@ export function useMessengerRoomClientPhase1({
   const prevActiveSheetRef = useRef<typeof activeSheet>(null);
   const roomMembersDisplayRef = useRef<CommunityMessengerProfileLite[]>([]);
 
-  useNotificationSurfaceCommunityMessengerRoom(roomId);
+  useMessengerRoomPhase1SilentBootstrapThrottleCleanup({
+    roomId,
+    silentBootstrapThrottleCoalesceTimerRef,
+  });
 
-  useEffect(() => {
-    return () => {
-      const t = silentBootstrapThrottleCoalesceTimerRef.current;
-      if (t != null) {
-        clearTimeout(t);
-        silentBootstrapThrottleCoalesceTimerRef.current = null;
-      }
-    };
-  }, [roomId]);
+  useMessengerRoomPhase1ViewerBootstrapDedupSync({
+    snapshotViewerUserId: snapshot?.viewerUserId,
+    viewerBootstrapDedupRef,
+  });
 
-  useEffect(() => {
-    const v = snapshot?.viewerUserId?.trim() ?? "";
-    if (v) viewerBootstrapDedupRef.current = v;
-  }, [snapshot?.viewerUserId]);
-
-  useEffect(() => {
-    const id = roomId?.trim();
-    return () => {
-      if (id && messengerRolloutUsesRoomScrollHints()) {
-        useMessengerRoomReaderStateStore.getState().clearRoom(id);
-      }
-    };
-  }, [roomId]);
-
-  useEffect(() => {
-    const id = roomId?.trim();
-    if (!id || !messengerRolloutUsesRoomScrollHints()) return;
-    useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
-  }, [roomId]);
+  useMessengerRoomReaderScrollRoomLifecycle({ roomId });
 
   useEffect(() => {
     const syncPreferences = () => {
@@ -325,41 +309,34 @@ export function useMessengerRoomClientPhase1({
     setRoomReadyForRealtime,
   });
 
-  // Local-first: 목록 프리패치/서버 시드가 없을 때 IndexedDB 스냅샷으로 first paint를 당긴다.
-  useEffect(() => {
-    if (snapshotRef.current) return;
-    const id = String(roomId ?? "").trim();
-    if (!id) return;
-    let cancelled = false;
-    void (async () => {
-      const local = await getLocalRoomSnapshot(id);
-      if (cancelled) return;
-      if (!local) return;
-      // 방 진입 즉시 렌더 + realtime 구독 허용
-      setSnapshot(local);
-      setLoading(false);
-      loadedRef.current = true;
-      setRoomReadyForRealtime(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [roomId]);
+  useNotificationSurfaceCommunityMessengerRoom(roomId, Boolean(snapshot ?? initialServerSnapshot));
 
-  // 스냅샷이 갱신될 때 로컬에 persist (best-effort, LRU/TTL/상한은 DB 레이어에서 처리)
+  useMessengerRoomLocalIndexedDbSnapshot({
+    roomId,
+    snapshotRef,
+    snapshot,
+    setSnapshot,
+    setLoading,
+    loadedRef,
+    setRoomReadyForRealtime,
+  });
+
   useEffect(() => {
-    const snap = snapshotRef.current;
-    if (!snap) return;
-    const id = String(roomId ?? "").trim();
-    if (!id) return;
-    void putLocalRoomSnapshot(id, snap);
+    const snap = snapshot;
+    const id = roomId.trim();
+    if (!snap?.viewerUserId || !id) return;
+    primeHotRoomSnapshot(id, snap);
   }, [roomId, snapshot]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     return () => {
-      void flushMessengerMonitorQueue();
+      const snap = snapshotRef.current;
+      const id = String(roomId ?? "").trim();
+      if (snap?.viewerUserId && id) primeHotRoomSnapshot(id, snap);
     };
   }, [roomId]);
+
+  useMessengerRoomPhase1MonitorFlushOnRoomUnmount({ roomId });
 
   useEffect(() => {
     setPagedRoomMembers([]);
@@ -396,145 +373,21 @@ export function useMessengerRoomClientPhase1({
     openInfoSheetFromUrl,
   });
 
-  /** 탭 복귀: 최신 id 이후 메시지만 증분 로드(diff) 후 메타용 사일런트 스냅샷 */
-  const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
-    const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
-    if (!id) return false;
-    const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
-    if (confirmed.length === 0) {
-      // 첫 진입/희귀 레이스: 아직 confirmed가 없으면 부트스트랩 refresh로 최신 윈도를 먼저 확보.
-      void refresh(true);
-      return false;
-    }
-    /** 앵커는 배열 끝이 아니라 **시간상 최신 확정 메시지** — 정렬/가상화와 무관하게 `after=` 일관 */
-    let anchorId: string | null = null;
-    let bestTime = -Infinity;
-    let bestIdForTie = "";
-    for (const m of confirmed) {
-      const mid = String(m?.id ?? "").trim();
-      if (!mid || mid.startsWith("pending:") || !isUuidLikeString(mid)) continue;
-      const t = new Date(m.createdAt).getTime();
-      if (!Number.isFinite(t)) continue;
-      if (t > bestTime || (t === bestTime && mid > bestIdForTie)) {
-        bestTime = t;
-        anchorId = mid;
-        bestIdForTie = mid;
-      }
-    }
-    if (!anchorId) {
-      void refresh(true);
-      return false;
-    }
-    try {
-      const res = await fetch(
-        `${communityMessengerRoomResourcePath(id)}/messages?after=${encodeURIComponent(anchorId)}&limit=80`,
-        { cache: "no-store", credentials: "include" }
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        messages?: CommunityMessengerMessage[];
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
-      return true;
-    } catch {
-      /* ignore */
-    }
-    return false;
-  }, [roomId, streamRoomId, refresh]);
+  const { catchUpNewerMessages, catchUpAfterRemoteBump } = useMessengerRoomRemoteCatchup({
+    roomId,
+    streamRoomId,
+    refresh,
+    snapshotRef,
+    roomMessagesRef,
+    setRoomMessages,
+  });
 
-  /** Broadcast v2 `messageId` 로 1건 GET — `after` 페이지보다 가볍고 레이스에 강하다. */
-  const tryMergeSingleMessageFromBump = useCallback(async (messageId: string): Promise<boolean> => {
-    const mid = String(messageId ?? "").trim();
-    if (!mid || !isUuidLikeString(mid)) return false;
-    /**
-     * INSERT 직후 단건 GET 이 404/5xx 면 복제·커밋 레이스 가능 — 짧은 간격으로만 재시도.
-     * (분당 72회 한도: 404/503 등에만 재시도·상한으로 폭주 방지)
-     */
-    const maxAttempts = 14;
-    const gapMs = 130;
-    for (let i = 0; i < maxAttempts; i++) {
-      const rid = (snapshotRef.current?.room?.id?.trim() || streamRoomId?.trim() || "").trim();
-      if (!rid) return false;
-      try {
-        const res = await fetch(
-          `${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(mid)}`,
-          { cache: "no-store", credentials: "include" }
-        );
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          message?: CommunityMessengerMessage;
-        };
-        if (res.ok && json.ok && json.message) {
-          const row = json.message;
-          setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
-          return true;
-        }
-        const retryable = res.status === 404 || res.status === 503 || res.status >= 500;
-        if (!retryable || i + 1 >= maxAttempts) return false;
-      } catch {
-        if (i + 1 >= maxAttempts) return false;
-      }
-      await new Promise<void>((r) => setTimeout(r, gapMs));
-    }
-    return false;
-  }, [streamRoomId]);
-
-  /** 원격 bump 직후: 단건 병합 → 실패 시 `after` 증분 → 마지막에 스냅샷 refresh */
-  const catchUpAfterRemoteBump = useCallback(
-    async (hintMessageId?: string | null) => {
-      const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
-      if (hint && (await tryMergeSingleMessageFromBump(hint))) {
-        return;
-      }
-      const backoffMs = [14, 32, 72];
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (attempt > 0) {
-          await new Promise<void>((r) => setTimeout(r, backoffMs[attempt - 1] ?? 72));
-        }
-        const ok = await catchUpNewerMessages();
-        if (ok) return;
-      }
-      void refresh(true);
-    },
-    [catchUpNewerMessages, refresh, tryMergeSingleMessageFromBump]
-  );
-
-  /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
-  useEffect(() => {
-    let lastBumpAt = 0;
-    const bump = () => {
-      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
-      const now = Date.now();
-      if (now - lastBumpAt < 2000) return; // burst 1~2 + cooldown
-      lastBumpAt = now;
-      void catchUpNewerMessages();
-      void refresh(true);
-    };
-    document.addEventListener("visibilitychange", bump);
-    window.addEventListener("pageshow", bump);
-    return () => {
-      document.removeEventListener("visibilitychange", bump);
-      window.removeEventListener("pageshow", bump);
-    };
-  }, [catchUpNewerMessages, refresh]);
-
-  // Multi-tab: another tab sent a message in this room -> catch up quickly without full reload storms.
-  useEffect(() => {
-    const route = roomId?.trim();
-    const stream = streamRoomId?.trim();
-    if (!route && !stream) return;
-    let lastAt = 0;
-    return onCommunityMessengerBusEvent((ev) => {
-      const evr = ev.roomId.trim();
-      if (evr !== route && evr !== stream) return;
-      const now = Date.now();
-      if (now - lastAt < 1500) return;
-      lastAt = now;
-      void catchUpNewerMessages();
-      void refresh(true);
-    });
-  }, [catchUpNewerMessages, refresh, roomId, streamRoomId]);
+  useMessengerRoomVisibilityBusCatchup({
+    roomId,
+    streamRoomId,
+    catchUpNewerMessages,
+    refresh,
+  });
 
   useMessengerRoomRealtimeMessageIngest({
     routeRoomId: String(roomId ?? "").trim(),
@@ -554,119 +407,26 @@ export function useMessengerRoomClientPhase1({
     },
   });
 
-  /**
-   * `postgres_changes` 가 publication/RLS/세션 타이밍 문제로 누락돼도,
-   * 방 단위 Broadcast bump 신호로 즉시 증분 동기화한다.
-   */
-  useEffect(() => {
-    const viewer =
-      snapshot?.viewerUserId?.trim() ?? initialServerSnapshot?.viewerUserId?.trim() ?? "";
-    if (!viewer || !roomReadyForRealtime) return;
-
-    const route = String(roomId ?? "").trim();
-    const stream = String(streamRoomId ?? "").trim();
-    const snapRoom = String(snapshot?.room?.id ?? "").trim();
-    const bumpSubscribeIds = communityMessengerBumpKnownRoomIds({
-      routeRoomId: route,
-      streamRoomId: stream || route,
-      snapshotRoomId: snapRoom || null,
-    });
-    if (bumpSubscribeIds.size === 0) return;
-
-    const sb = getSupabaseClient();
-    if (!sb) return;
-
-    const channels: ReturnType<typeof subscribeCommunityMessengerRoomBumpBroadcast>[] = [];
-
-    const onBump = (payload: Record<string, unknown>) => {
-      const known = communityMessengerBumpKnownRoomIds({
-        routeRoomId: String(roomId ?? "").trim(),
-        streamRoomId: String(streamRoomId ?? "").trim(),
-        snapshotRoomId: snapshotRef.current?.room?.id ?? null,
-      });
-      if (!communityMessengerBumpPayloadMatchesKnownRooms(payload, known)) return;
-
-      const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-      // 내 bump는 이미 optimistic/confirm 처리되므로 스킵.
-      if (from && from === viewer) return;
-
-      const hint =
-        typeof payload.messageId === "string"
-          ? payload.messageId.trim()
-          : typeof (payload as { message_id?: unknown }).message_id === "string"
-            ? String((payload as { message_id: string }).message_id).trim()
-            : "";
-      const at = typeof payload.at === "string" ? payload.at.trim() : "";
-      const dedupeKey = `${from}|${hint || "no-mid"}|${at}`;
-      if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
-      lastRemoteBumpDedupeRef.current = dedupeKey;
-
-      if (remoteBumpCatchUpRafRef.current != null) {
-        cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
-      }
-      remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
-        remoteBumpCatchUpRafRef.current = null;
-        const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
-        if (pre) {
-          const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
-          const enriched =
-            member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
-          setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
-        }
-        void catchUpAfterRemoteBump(hint || undefined);
-      });
-    };
-
-    for (const rid of bumpSubscribeIds) {
-      channels.push(
-        subscribeCommunityMessengerRoomBumpBroadcast({
-          sb,
-          roomId: rid,
-          onBump,
-        })
-      );
-    }
-
-    return () => {
-      lastRemoteBumpDedupeRef.current = "";
-      if (remoteBumpCatchUpRafRef.current != null) {
-        cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
-        remoteBumpCatchUpRafRef.current = null;
-      }
-      for (const ch of channels) {
-        try {
-          void sb.removeChannel(ch);
-        } catch {
-          /* ignore */
-        }
-      }
-    };
-  }, [
-    catchUpAfterRemoteBump,
-    initialServerSnapshot?.viewerUserId,
+  useMessengerRoomBumpBroadcastSubscription({
     roomId,
-    roomReadyForRealtime,
-    snapshot?.room?.id,
-    snapshot?.viewerUserId,
     streamRoomId,
-  ]);
+    roomReadyForRealtime,
+    snapshot,
+    initialServerSnapshot,
+    snapshotRef,
+    roomMembersDisplayRef,
+    remoteBumpCatchUpRafRef,
+    lastRemoteBumpDedupeRef,
+    setRoomMessages,
+    catchUpAfterRemoteBump,
+  });
 
-  /** URL 이 원장 방 id 와 다르면(거래 채팅 id 등) Realtime·히스토리 일관을 위해 정규 UUID 로 교체 */
-  useEffect(() => {
-    if (!snapshot?.room?.id) return;
-    const canon = String(snapshot.room.id).trim();
-    const route = String(roomId ?? "").trim();
-    if (!canon || !route || canon === route) return;
-    cmRtLogCanonicalRedirect({
-      fromRouteRoomId: route,
-      toCanonicalRoomId: canon,
-      viewerUserId: snapshot.viewerUserId,
-    });
-    const qs = searchParams?.toString();
-    void router.replace(
-      `/community-messenger/rooms/${encodeURIComponent(canon)}${qs && qs.length > 0 ? `?${qs}` : ""}`
-    );
-  }, [roomId, router, searchParams, snapshot]);
+  useMessengerRoomCanonicalRouteReplaceEffect({
+    roomId,
+    router,
+    searchParams,
+    snapshot,
+  });
 
   useLayoutEffect(() => {
     roomLoadingRef.current = loading;
@@ -697,137 +457,40 @@ export function useMessengerRoomClientPhase1({
     setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
   }, [snapshot]);
 
-  useEffect(() => {
-    olderMessagesExhaustedRef.current = false;
-    setHasMoreOlderMessages(false);
-    setLoadingOlderMessages(false);
-  }, [roomId]);
+  const { oldestLoadedMessageId, loadOlderMessages } = useMessengerRoomLoadOlderMessagesFetch({
+    roomId,
+    snapshot,
+    snapshotRef,
+    roomMessages,
+    setRoomMessages,
+    messagesViewportRef,
+    CM_SNAPSHOT_FIRST_PAGE,
+    olderMessagesExhaustedRef,
+    loadOlderMessagesRef,
+    hasMoreOlderMessages,
+    setHasMoreOlderMessages,
+    loadingOlderMessages,
+    setLoadingOlderMessages,
+  });
 
-  useEffect(() => {
-    if (!snapshot) return;
-    if (String(snapshot.room.id) !== String(roomId)) return;
-    if (!olderMessagesExhaustedRef.current) {
-      setHasMoreOlderMessages(snapshot.messages.length >= CM_SNAPSHOT_FIRST_PAGE);
-    }
-  }, [roomId, snapshot]);
+  useMessengerRoomLoadOlderMessagesIntersection({
+    roomId,
+    hasMoreOlderMessages,
+    oldestLoadedMessageId,
+    messagesViewportRef,
+    topOlderSentinelRef,
+    olderMessagesExhaustedRef,
+    loadOlderMessagesRef,
+  });
 
-  const oldestLoadedMessageId = useMemo(() => {
-    for (const m of roomMessages) {
-      if (m.pending) continue;
-      const rid = String(m.id ?? "").trim();
-      if (!rid || rid.startsWith("pending:") || !isUuidLikeString(rid)) continue;
-      return rid;
-    }
-    return null;
-  }, [roomMessages]);
-
-  const loadOlderMessages = useCallback(async () => {
-    if (loadingOlderMessages || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
-    const beforeId = oldestLoadedMessageId;
-    if (!beforeId) return;
-    const apiRoomId = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
-    if (!apiRoomId) return;
-    const vp = messagesViewportRef.current;
-    const prevScrollHeight = vp?.scrollHeight ?? 0;
-    setLoadingOlderMessages(true);
-    try {
-      const res = await fetch(
-        `${communityMessengerRoomResourcePath(apiRoomId)}/messages?before=${encodeURIComponent(beforeId)}`,
-        { cache: "no-store", credentials: "include" }
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        messages?: CommunityMessengerMessage[];
-        hasMore?: boolean;
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.messages)) {
-        olderMessagesExhaustedRef.current = true;
-        setHasMoreOlderMessages(false);
-        return;
-      }
-      if (json.messages.length === 0) {
-        olderMessagesExhaustedRef.current = true;
-        setHasMoreOlderMessages(false);
-        return;
-      }
-      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
-      if (!json.hasMore) {
-        olderMessagesExhaustedRef.current = true;
-      }
-      setHasMoreOlderMessages(Boolean(json.hasMore));
-      window.requestAnimationFrame(() => {
-        const el = messagesViewportRef.current;
-        if (el && prevScrollHeight > 0) {
-          el.scrollTop += el.scrollHeight - prevScrollHeight;
-        }
-      });
-    } finally {
-      setLoadingOlderMessages(false);
-    }
-  }, [roomId, oldestLoadedMessageId, loadingOlderMessages, hasMoreOlderMessages]);
-
-  loadOlderMessagesRef.current = () => {
-    void loadOlderMessages();
-  };
-
-  useEffect(() => {
-    const root = messagesViewportRef.current;
-    const target = topOlderSentinelRef.current;
-    if (!root || !target || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        const hit = entries.some((e) => e.isIntersecting);
-        if (hit) loadOlderMessagesRef.current();
-      },
-      { root, rootMargin: "120px 0px 0px 0px", threshold: 0 }
-    );
-    io.observe(target);
-    return () => io.disconnect();
-  }, [roomId, hasMoreOlderMessages, oldestLoadedMessageId]);
-
-  const scrollMessengerToBottom = useCallback(() => {
-    const id = roomId?.trim();
-    if (id && messengerRolloutUsesRoomScrollHints()) {
-      useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
-      useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
-    }
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const vp = messagesViewportRef.current;
-        if (vp) vp.scrollTop = vp.scrollHeight;
-        messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
-      });
-    });
-  }, [roomId]);
-
-  const updateStickToBottomFromScroll = useCallback(() => {
-    const el = messagesViewportRef.current;
-    if (!el) return;
-    const threshold = 100;
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-    stickToBottomRef.current = dist < threshold;
-    const id = roomId?.trim();
-    if (!id || !messengerRolloutUsesRoomScrollHints()) return;
-    let pos: MessengerChatViewPosition;
-    if (activeSheet === "search") {
-      pos = "jumped-by-search";
-    } else if (stickToBottomRef.current) {
-      pos = "at-bottom";
-    } else {
-      pos = "reading-history";
-    }
-    useMessengerRoomReaderStateStore.getState().setScrollPosition(id, pos);
-  }, [roomId, activeSheet]);
-
-  useEffect(() => {
-    stickToBottomRef.current = true;
-  }, [roomId]);
-
-  useEffect(() => {
-    if (stickToBottomRef.current) {
-      scrollMessengerToBottom();
-    }
-  }, [roomMessages, scrollMessengerToBottom]);
+  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
+    roomId,
+    activeSheet,
+    stickToBottomRef,
+    messagesViewportRef,
+    messageEndRef,
+    roomMessages,
+  });
 
   const roomMembersDisplay = useMemo(() => {
     if (!snapshot) return [];

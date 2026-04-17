@@ -2,7 +2,6 @@
 
 import { useEffect, type MutableRefObject } from "react";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 
 type Args = {
@@ -14,8 +13,8 @@ type Args = {
 };
 
 /**
- * 방 페이지: RSC 스냅샷이 있으면 첫 bootstrap GET 생략 후 idle 사일런트 갱신,
- * 없으면 차단 로드. `useMessengerRoomClientPhase1` 의 네트워크 정책을 한 곳에 둔다.
+ * 방 페이지: 시드 스냅샷(hot/peek/RSC)이 있으면 첫 GET을 막지 않고, 보강 필요 시 곧바로 silent refresh.
+ * 시드가 없으면 차단 로드. `useMessengerRoomClientPhase1` 의 네트워크 정책을 한 곳에 둔다.
  */
 export function useMessengerRoomBootstrapLifecycle({
   roomId,
@@ -34,16 +33,19 @@ export function useMessengerRoomBootstrapLifecycle({
       loadedRef.current = true;
       setRoomReadyForRealtime(true);
       /**
-       * `membersDeferred` 가 아니면 RSC 스냅샷이 이미 목록·메타에 가깝게 완전 — idle `/bootstrap` 재요청을 생략.
-       * 멤버 지연 로드 방만 짧은 idle 사일런트 갱신(기존 2.8s)으로 보강. 탭 가시성·Phase1 `refresh` 경로는 유지.
+       * - `membersDeferred`: 멤버 전원 프로필 보강
+       * - `bootstrapEnrichmentPending`: 경량 시드 — 통화·거래 도크·presence 등 풀 스냅샷으로 즉시 이어붙임
        */
-      if (!initialServerSnapshot.membersDeferred) {
+      const needsImmediateRefresh =
+        initialServerSnapshot.membersDeferred === true ||
+        initialServerSnapshot.bootstrapEnrichmentPending === true;
+      if (!needsImmediateRefresh) {
         return;
       }
-      const idleId = scheduleWhenBrowserIdle(() => {
+      queueMicrotask(() => {
         void refresh(true);
-      }, 2800);
-      return () => cancelScheduledWhenBrowserIdle(idleId);
+      });
+      return;
     }
     // 목록/로컬 스냅샷으로 first paint가 이미 가능하면, 첫 HTTP는 silent로 돌려 UI를 막지 않는다.
     void refresh(Boolean(loadedRef.current));

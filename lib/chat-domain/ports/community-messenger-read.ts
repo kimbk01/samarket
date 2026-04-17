@@ -8,6 +8,11 @@ export type CommunityMessengerRoomSnapshotOptions = {
   initialMessageLimit?: number;
   /** 기본 true. false면 참가자 전원 프로필 생략(첫 페인트 가속) — `membersDeferred` 스냅샷 */
   hydrateFullMemberList?: boolean;
+  /**
+   * true면 방/참가자/메시지·필수 프로필 하이드레이션만 동기 완료하고
+   * 통화·거래 도크·presence·방별 프로필 오버레이·trade 후처리는 생략(`bootstrapEnrichmentPending`).
+   */
+  deferSnapshotSecondary?: boolean;
 };
 
 export interface CommunityMessengerReadPort {

@@ -6,7 +6,7 @@ import { buildHomeTradeSeedRequest } from "@/lib/trade/build-home-trade-seed-req
 import { MainHomeShellLoading } from "@/components/layout/MainRouteLoading";
 import { HomeContent } from "./HomeContent";
 
-/** 피드만 이 경계에서 await — `(main)/loading` 이 전체 피드 완료까지 막히지 않게 한다. */
+/** 피드만 이 경계에서 await — 세션·시드 준비는 `home/loading.tsx`·스트리밍으로 분리 */
 async function HomeTradeFeedShell({
   req,
   viewerUserId,
@@ -24,8 +24,7 @@ async function HomeTradeFeedShell({
   );
 }
 
-/** `headers()`·세션만 먼저 병렬 — 피드는 내부 Suspense */
-async function HomePageBody() {
+export default async function HomePage() {
   const [req, viewerUserId] = await Promise.all([
     buildHomeTradeSeedRequest(),
     getOptionalAuthenticatedUserId(),
@@ -33,14 +32,6 @@ async function HomePageBody() {
   return (
     <Suspense fallback={<MainHomeShellLoading />}>
       <HomeTradeFeedShell req={req} viewerUserId={viewerUserId} />
-    </Suspense>
-  );
-}
-
-export default function HomePage() {
-  return (
-    <Suspense fallback={<MainHomeShellLoading />}>
-      <HomePageBody />
     </Suspense>
   );
 }

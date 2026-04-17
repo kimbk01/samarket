@@ -17,14 +17,17 @@ export function useNotificationSurfaceTradeChatRoom(roomId: string | null | unde
 }
 
 /** 커뮤니티 메신저 방 — 동일 패턴, API 분리 유지 */
-export function useNotificationSurfaceCommunityMessengerRoom(roomId: string | null | undefined): void {
+export function useNotificationSurfaceCommunityMessengerRoom(
+  roomId: string | null | undefined,
+  enabled: boolean = true
+): void {
   const notifSurface = useNotificationSurface();
   useEffect(() => {
-    if (!notifSurface || !roomId?.trim()) return;
+    if (!enabled || !notifSurface || !roomId?.trim()) return;
     const id = roomId.trim();
     notifSurface.setExplicitCommunityChatRoomId(id);
     return () => {
       notifSurface.setExplicitCommunityChatRoomId(null);
     };
-  }, [notifSurface, roomId]);
+  }, [enabled, notifSurface, roomId]);
 }

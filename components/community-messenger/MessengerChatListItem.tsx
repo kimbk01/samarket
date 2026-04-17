@@ -104,7 +104,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
       ? [commerceMeta.headline, commerceMeta.priceLabel].filter(Boolean).join(" · ")
       : null;
-  const prefetchOnceRef = useRef(false);
   const settingsBusy = _busyId === `room-settings:${room.id}`;
   const archiveBusy = _busyId === `room-archive:${room.id}`;
   const readBusy = _busyId === `room-read:${room.id}`;
@@ -127,8 +126,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     (rid: string) => {
       const id = String(rid ?? "").trim();
       if (!id) return;
+      const href = `/community-messenger/rooms/${encodeURIComponent(id)}`;
       void prefetchCommunityMessengerRoomSnapshot(id);
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+      void router.prefetch(href);
+      router.push(href);
     },
     [router]
   );
@@ -234,8 +235,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     longPressTriggeredRef.current = false;
     tapNavigateArmedRef.current = true;
     setIsPressedVisual(!swipeOpen);
-    if (!prefetchOnceRef.current) {
-      prefetchOnceRef.current = true;
+    {
       const href = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
       void prefetchCommunityMessengerRoomSnapshot(room.id);
       void router.prefetch(href);
@@ -483,10 +483,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {...bind}
         onClick={() => {
           if (consumeClickSuppression()) return;
-          if (!prefetchOnceRef.current) {
-            prefetchOnceRef.current = true;
-            void prefetchCommunityMessengerRoomSnapshot(room.id);
-          }
           navigateToCommunityRoom(room.id);
         }}
         onKeyDown={(event) => {
@@ -506,11 +502,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   if (compact) {
     return (
       <Link
+        prefetch
         href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
         onPointerDown={() => {
-          if (prefetchOnceRef.current) return;
-          prefetchOnceRef.current = true;
           void prefetchCommunityMessengerRoomSnapshot(room.id);
+          void router.prefetch(`/community-messenger/rooms/${encodeURIComponent(room.id)}`);
         }}
         className="block rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
       >

@@ -9,6 +9,18 @@ const TTL_MS = 60_000;
 const MAX_ENTRIES = 120;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
 
+/** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(세션 내 소량 LRU) */
+const HOT_MAX = 32;
+const hotEntries = new Map<string, CommunityMessengerRoomSnapshot>();
+
+function pruneHotIfNeeded(): void {
+  while (hotEntries.size > HOT_MAX) {
+    const first = hotEntries.keys().next().value as string | undefined;
+    if (first === undefined) break;
+    hotEntries.delete(first);
+  }
+}
+
 function cacheKey(roomId: string, viewerUserId: string | null | undefined): string {
   const r = roomId.trim();
   const v = (viewerUserId ?? "").trim() || "_";
@@ -33,6 +45,30 @@ export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRo
   const k = cacheKey(roomId, snapshot.viewerUserId);
   entries.set(k, { snapshot, at: Date.now() });
   pruneIfNeeded();
+}
+
+/** 방 이탈·갱신 시 마지막 스냅샷을 보관 — 재입장 시 RSC·consume 전에 첫 프레임에 사용 */
+export function primeHotRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot): void {
+  const k = cacheKey(roomId, snapshot.viewerUserId);
+  if (hotEntries.has(k)) hotEntries.delete(k);
+  hotEntries.set(k, snapshot);
+  pruneHotIfNeeded();
+}
+
+export function peekHotRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
+  const r = roomId.trim();
+  if (!r) return null;
+  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
+    return hotEntries.get(cacheKey(r, viewerUserId.trim())) ?? null;
+  }
+  const suffix = `:${r}`;
+  let found: CommunityMessengerRoomSnapshot | null = null;
+  for (const [k, snap] of hotEntries) {
+    if (!k.endsWith(suffix)) continue;
+    found = snap;
+    break;
+  }
+  return found;
 }
 
 /**
@@ -110,6 +146,7 @@ export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Pr
       const snap = parseCommunityMessengerRoomSnapshotResponse(json);
       if (res.ok && snap) {
         primeRoomSnapshot(key, snap);
+        primeHotRoomSnapshot(key, snap);
         return true;
       }
     } catch {

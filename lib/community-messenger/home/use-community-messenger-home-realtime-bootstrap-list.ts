@@ -1,0 +1,149 @@
+"use client";
+
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
+import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
+import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
+import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
+import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import {
+  type CommunityMessengerHomeRealtimeMessageInsertHint,
+  type CommunityMessengerHomeRealtimeParticipantUnreadHint,
+  useCommunityMessengerHomeRealtime,
+} from "@/lib/community-messenger/use-community-messenger-realtime";
+
+export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
+  userId: string | null | undefined;
+  roomIds: string[];
+  homeRealtimeGateOpen: boolean;
+  refresh: (silent?: boolean) => Promise<void>;
+  setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+};
+
+/**
+ * 홈 방 목록 부트스트랩에 대한 Realtime 메시지/참가자 unread 패치 및 누락 방 home-summary 병합.
+ * `CommunityMessengerHome` 본문에서 네트워크·캐시 갱신 경계만 분리한다.
+ */
+export function useCommunityMessengerHomeRealtimeBootstrapList({
+  userId,
+  roomIds,
+  homeRealtimeGateOpen,
+  refresh,
+  setData,
+}: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
+  const homeMissingRoomSummaryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      for (const t of homeMissingRoomSummaryTimersRef.current.values()) {
+        clearTimeout(t);
+      }
+      homeMissingRoomSummaryTimersRef.current.clear();
+    };
+  }, []);
+
+  const scheduleHomeRealtimeRefresh = useCallback(() => {
+    void refresh(true);
+  }, [refresh]);
+
+  const scheduleHomeMissingRoomSummaryMerge = useCallback(
+    (roomId: string) => {
+      const id = String(roomId ?? "").trim();
+      if (!id) return;
+      const timers = homeMissingRoomSummaryTimersRef.current;
+      const existing = timers.get(id);
+      if (existing) clearTimeout(existing);
+      const t = setTimeout(() => {
+        timers.delete(id);
+        void (async () => {
+          try {
+            const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(id)}/home-summary`, {
+              credentials: "include",
+            });
+            const json = (await res.json().catch(() => ({}))) as {
+              ok?: boolean;
+              room?: CommunityMessengerRoomSummary;
+            };
+            if (!res.ok || !json.ok || !json.room) return;
+            setData((prev) => {
+              if (!prev) return prev;
+              const merged = mergeBootstrapRoomSummaryIntoLists(prev, json.room!);
+              primeBootstrapCache(merged);
+              return merged;
+            });
+          } catch {
+            /* ignore */
+          }
+        })();
+      }, HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS);
+      timers.set(id, t);
+    },
+    [setData]
+  );
+
+  const applyRealtimeMessageListPatch = useCallback(
+    (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => {
+      let missedList = false;
+      setData((prev) => {
+        if (!prev) return prev;
+        const next = patchBootstrapRoomListForRealtimeMessageInsert(prev, hint.roomId, hint.newRecord);
+        if (next === prev) {
+          missedList = true;
+          return prev;
+        }
+        primeBootstrapCache(next);
+        return next;
+      });
+      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+    },
+    [setData, scheduleHomeMissingRoomSummaryMerge]
+  );
+
+  const applyParticipantUnreadDelta = useCallback(
+    (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => {
+      let missedList = false;
+      let tradeRoomForLegacyUnreadResync: string | null = null;
+      setData((prev) => {
+        if (!prev) return prev;
+        let hit = false;
+        const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
+          rooms.map((room) => {
+            if (room.id !== hint.roomId) return room;
+            hit = true;
+            if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
+            return {
+              ...room,
+              unreadCount: hint.unreadCount,
+            };
+          });
+        const next = {
+          ...prev,
+          chats: patchRooms(prev.chats),
+          groups: patchRooms(prev.groups),
+        };
+        if (!hit) {
+          missedList = true;
+          return prev;
+        }
+        primeBootstrapCache(next);
+        return next;
+      });
+      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+      else if (tradeRoomForLegacyUnreadResync) {
+        /** Realtime은 CM `unread_count` 만 주므로, 거래 레거시 힌트는 home-summary 재병합으로 맞춘다 */
+        scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
+      }
+    },
+    [setData, scheduleHomeMissingRoomSummaryMerge]
+  );
+
+  useCommunityMessengerHomeRealtime({
+    userId: userId ?? null,
+    roomIds,
+    enabled: Boolean(userId) && homeRealtimeGateOpen,
+    onRefresh: scheduleHomeRealtimeRefresh,
+    onRealtimeMessageInsert: applyRealtimeMessageListPatch,
+    onParticipantUnreadDelta: applyParticipantUnreadDelta,
+  });
+}
