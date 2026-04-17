@@ -22,40 +22,21 @@ import { CommunityMessengerRoomPhase2MemberActionModal } from "@/components/comm
 import { CommunityMessengerRoomPhase2CallLayer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer";
 import { useCommunityMessengerRoomTypingRuntime } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 
-export function CommunityMessengerRoomClientPhase2() {
-  const room = useMessengerRoomPhase2Controller();
-  useCommunityMessengerRoomTypingRuntime({
-    roomId: room.snapshot?.room.id ?? null,
-    viewerUserId: room.snapshot?.viewerUserId ?? null,
-    peerUserId: room.snapshot?.room.peerUserId ?? null,
-  });
-  const isNarrowViewport = useMatchMaxWidthMd();
-  const vvBox = useVisualViewportMessengerRoomBox(isNarrowViewport);
-  const keyboardOverlapSuppressed = Boolean(isNarrowViewport && vvBox);
-  const mobileShellStyle =
-    isNarrowViewport && vvBox
-      ? ({ maxHeight: vvBox.heightPx } as const)
-      : undefined;
+type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
-  if (room.loading && !room.snapshot) {
-    return <CommunityMessengerRoomShellSkeleton />;
-  }
+type CommunityMessengerRoomClientPhase2MainProps = {
+  room: MessengerRoomPhase2Controller & {
+    snapshot: NonNullable<MessengerRoomPhase2Controller["snapshot"]>;
+  };
+  keyboardOverlapSuppressed: boolean;
+  mobileShellStyle: { maxHeight: number } | undefined;
+};
 
-  if (!room.snapshot) {
-    return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-[16px] font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
-        <button
-          type="button"
-          onClick={() => room.router.replace("/community-messenger?section=chats")}
-          className="rounded-ui-rect bg-ui-fg px-4 py-3 text-[14px] font-semibold text-ui-surface"
-        >
-          {room.t("nav_messenger_home")}
-        </button>
-      </div>
-    );
-  }
-
+function CommunityMessengerRoomClientPhase2Main({
+  room,
+  keyboardOverlapSuppressed,
+  mobileShellStyle,
+}: CommunityMessengerRoomClientPhase2MainProps) {
   const view: MessengerRoomPhase2ViewModel = {
     ...room,
     snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
@@ -183,5 +164,49 @@ export function CommunityMessengerRoomClientPhase2() {
         </div>
       </MessengerRoomPhase2ViewProvider>
     </MessengerRoomMobileViewportProvider>
+  );
+}
+
+export function CommunityMessengerRoomClientPhase2() {
+  const room = useMessengerRoomPhase2Controller();
+  useCommunityMessengerRoomTypingRuntime({
+    roomId: room.snapshot?.room.id ?? null,
+    viewerUserId: room.snapshot?.viewerUserId ?? null,
+    peerUserId: room.snapshot?.room.peerUserId ?? null,
+  });
+  const isNarrowViewport = useMatchMaxWidthMd();
+  const vvBox = useVisualViewportMessengerRoomBox(isNarrowViewport);
+  const keyboardOverlapSuppressed = Boolean(isNarrowViewport && vvBox);
+  const mobileShellStyle =
+    isNarrowViewport && vvBox
+      ? ({ maxHeight: vvBox.heightPx } as const)
+      : undefined;
+
+  if (room.loading && !room.snapshot) {
+    return <CommunityMessengerRoomShellSkeleton />;
+  }
+
+  if (!room.snapshot) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-[16px] font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
+        <button
+          type="button"
+          onClick={() => room.router.replace("/community-messenger?section=chats")}
+          className="rounded-ui-rect bg-ui-fg px-4 py-3 text-[14px] font-semibold text-ui-surface"
+        >
+          {room.t("nav_messenger_home")}
+        </button>
+      </div>
+    );
+  }
+
+  const snapshot = room.snapshot;
+  return (
+    <CommunityMessengerRoomClientPhase2Main
+      room={{ ...room, snapshot }}
+      keyboardOverlapSuppressed={keyboardOverlapSuppressed}
+      mobileShellStyle={mobileShellStyle}
+    />
   );
 }

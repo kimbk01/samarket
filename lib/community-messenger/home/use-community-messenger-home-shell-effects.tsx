@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { MainTier1ExtrasState } from "@/contexts/MainTier1ExtrasContext";
 import { useEffect, useLayoutEffect } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -9,6 +10,7 @@ import {
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
   readCommunityMessengerLocalSettings,
+  type CommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { RECENT_SEARCHES_STORAGE_KEY } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import {
@@ -23,7 +25,6 @@ import type {
   CommunityMessengerFriendRequest,
 } from "@/lib/community-messenger/types";
 import type {
-  CommunityMessengerLocalSettings,
   MessengerNotificationSettings,
   FriendSheetState,
 } from "@/lib/community-messenger/home/community-messenger-home-types";
@@ -31,7 +32,7 @@ import type {
 type Args = {
   router: AppRouterInstance;
   searchParams: ReadonlyURLSearchParams;
-  setMainTier1Extras: ((value: { tier1: { rightSlot: ReactNode } } | null) => void) | undefined;
+  setMainTier1Extras: ((next: MainTier1ExtrasState | null) => void) | null | undefined;
   headerActionsNode: ReactNode;
   roomActionSheetOpen: boolean;
   setRoomActionSheet: Dispatch<SetStateAction<unknown>>;
