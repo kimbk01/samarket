@@ -1,7 +1,7 @@
 "use client";
 
 import type { MutableRefObject } from "react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
@@ -81,7 +81,7 @@ type Props = {
   incomingRequestCount: number;
 };
 
-export function MessengerHomeMainSections({
+export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
   mainSection,
   onPrimarySectionChange,
   openedSwipeItemId,
@@ -290,4 +290,6 @@ export function MessengerHomeMainSections({
       </div>
     </section>
   );
-}
+});
+
+MessengerHomeMainSections.displayName = "MessengerHomeMainSections";

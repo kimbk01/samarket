@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
@@ -59,6 +59,8 @@ export function useCommunityMessengerHomeState({
     [data?.friends, hiddenFriendIds]
   );
 
+  const directRoomMapStableRef = useRef<Map<string, CommunityMessengerRoomSummary>>(new Map());
+
   const directRoomByPeerId = useMemo(() => {
     const map = new Map<string, CommunityMessengerRoomSummary>();
     for (const room of data?.chats ?? []) {
@@ -68,6 +70,11 @@ export function useCommunityMessengerHomeState({
         map.set(room.peerUserId, room);
       }
     }
+    const prevStable = directRoomMapStableRef.current;
+    if (directRoomMapsEqual(prevStable, map)) {
+      return prevStable;
+    }
+    directRoomMapStableRef.current = map;
     return map;
   }, [data?.chats]);
 
@@ -99,7 +106,14 @@ export function useCommunityMessengerHomeState({
 
   const friendStateModel = useMemo(
     () => buildMessengerFriendStateModel(data, directRoomByPeerId),
-    [data, directRoomByPeerId]
+    [
+      data?.friends,
+      data?.hidden,
+      data?.blocked,
+      data?.requests,
+      data?.following,
+      directRoomByPeerId,
+    ]
   );
 
   const sortedChats = useMemo(() => sortRooms(data?.chats ?? []), [data?.chats]);
@@ -120,6 +134,9 @@ export function useCommunityMessengerHomeState({
     () => mergeCallsByConversation(sortCallsByTime(data?.calls ?? [])),
     [data?.calls]
   );
+
+  const unifiedRoomsRowCacheRef = useRef<Map<string, UnifiedRoomListItem>>(new Map());
+  const unifiedRoomsStableListRef = useRef<UnifiedRoomListItem[] | null>(null);
 
   const unifiedRooms = useMemo<UnifiedRoomListItem[]>(() => {
     const roomMap = new Map<string, UnifiedRoomListItem>();
@@ -151,7 +168,35 @@ export function useCommunityMessengerHomeState({
       }
     }
     const merged = collapseDirectPeerRooms([...roomMap.values()]);
-    return merged.sort(sortUnifiedRoomListItems);
+    const sortedNext = merged.sort(sortUnifiedRoomListItems);
+
+    const rowCache = unifiedRoomsRowCacheRef.current;
+    const reconciled: UnifiedRoomListItem[] = [];
+    for (const item of sortedNext) {
+      const id = item.room.id;
+      const prevRow = rowCache.get(id);
+      if (prevRow && unifiedListItemRowVisualEqual(prevRow, item)) {
+        reconciled.push(prevRow);
+      } else {
+        rowCache.set(id, item);
+        reconciled.push(item);
+      }
+    }
+    const nextIds = new Set(reconciled.map((r) => r.room.id));
+    for (const rid of rowCache.keys()) {
+      if (!nextIds.has(rid)) rowCache.delete(rid);
+    }
+
+    const prevList = unifiedRoomsStableListRef.current;
+    if (
+      prevList &&
+      prevList.length === reconciled.length &&
+      prevList.every((row, i) => row === reconciled[i])
+    ) {
+      return prevList;
+    }
+    unifiedRoomsStableListRef.current = reconciled;
+    return reconciled;
   }, [sortedChats, sortedGroups, sortedCalls]);
 
   const baseChatListItems = useMemo(() => {
@@ -242,6 +287,28 @@ export function formatConversationTimestamp(value: string): string {
   const day = date.getDate();
   if (sameYear) return `${month}/${day} ${hh}:${mm}`;
   return `${date.getFullYear()}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")} ${hh}:${mm}`;
+}
+
+function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
+  return (
+    a.room === b.room &&
+    a.preview === b.preview &&
+    a.previewKind === b.previewKind &&
+    a.callStatus === b.callStatus &&
+    a.callKind === b.callKind &&
+    a.lastEventAt === b.lastEventAt
+  );
+}
+
+function directRoomMapsEqual(
+  a: Map<string, CommunityMessengerRoomSummary>,
+  b: Map<string, CommunityMessengerRoomSummary>
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of b) {
+    if (a.get(k) !== v) return false;
+  }
+  return true;
 }
 
 export function getRoomTypeBadgeLabel(room: CommunityMessengerRoomSummary): string {

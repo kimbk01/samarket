@@ -1,11 +1,20 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useTradeActivityCoordinator } from "@/lib/chats/use-trade-activity-coordinator";
 import { useTradeMultiTabVisibilityOr } from "@/lib/chats/use-trade-multi-tab-visibility-or";
 import { TRADE_PRESENCE_HEARTBEAT_INTERVAL_MS } from "@/lib/chats/trade-presence-policy";
+import {
+  shouldRunTradePresenceHttpHeartbeat,
+  TRADE_PRESENCE_HEARTBEAT_SUPPRESSED_TAIL_MS,
+} from "@/lib/chats/trade-presence-heartbeat-surface-policy";
+import { useSamarketTabLeader } from "@/lib/runtime/leader-tab-coordinator";
+import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+
+const TRADE_PRESENCE_HTTP_LEADER_SCOPE = "trade-presence-http-post";
 
 export type TradePresenceActivityContextValue = {
   getLastActivityAtMs: () => number;
@@ -22,6 +31,12 @@ export function useTradePresenceActivityOptional(): TradePresenceActivityContext
  * 로그인 시 앱 전역 거래 presence 용 활동·멀티탭 가시성 + heartbeat.
  */
 export function TradePresenceActivityProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const pathnameRef = useRef<string | null>(null);
+  pathnameRef.current = pathname ?? null;
+  const isLeaderTab = useSamarketTabLeader(TRADE_PRESENCE_HTTP_LEADER_SCOPE);
+  const isLeaderTabRef = useRef(isLeaderTab);
+  isLeaderTabRef.current = isLeaderTab;
   const [userId, setUserId] = useState<string | null>(null);
   const enabled = !!userId?.trim();
   const { getLastActivityAtMs } = useTradeActivityCoordinator(enabled);
@@ -56,7 +71,7 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
 
   useEffect(() => {
     if (!enabled) return;
-    const tick = () => {
+    const postHeartbeat = () => {
       void (async () => {
         try {
           await fetch("/api/me/trade-presence/heartbeat", {
@@ -70,8 +85,34 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
         }
       })();
     };
-    tick();
-    const id = window.setInterval(tick, TRADE_PRESENCE_HEARTBEAT_INTERVAL_MS);
+    let pollTimer: number | null = null;
+    let cancelled = false;
+    const schedulePoll = () => {
+      if (cancelled) return;
+      const allow = shouldRunTradePresenceHttpHeartbeat(pathnameRef.current);
+      const ms = allow ? TRADE_PRESENCE_HEARTBEAT_INTERVAL_MS : TRADE_PRESENCE_HEARTBEAT_SUPPRESSED_TAIL_MS;
+      pollTimer = window.setTimeout(() => {
+        pollTimer = null;
+        if (cancelled) return;
+        if (
+          isLeaderTabRef.current &&
+          shouldRunTradePresenceHttpHeartbeat(pathnameRef.current)
+        ) {
+          samarketRuntimeDebugLog("trade-presence", "leader heartbeat POST", {
+            path: pathnameRef.current ?? null,
+          });
+          postHeartbeat();
+        }
+        schedulePoll();
+      }, ms);
+    };
+    if (
+      isLeaderTabRef.current &&
+      shouldRunTradePresenceHttpHeartbeat(pathnameRef.current)
+    ) {
+      postHeartbeat();
+    }
+    schedulePoll();
     const flushBeacon = () => {
       try {
         const blob = new Blob([JSON.stringify({ kind: "page_hidden" })], { type: "application/json" });
@@ -87,11 +128,12 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("pagehide", onPageHide);
     return () => {
-      window.clearInterval(id);
+      cancelled = true;
+      if (pollTimer != null) window.clearTimeout(pollTimer);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", onPageHide);
     };
-  }, [enabled]);
+  }, [enabled, pathname, isLeaderTab]);
 
   return (
     <TradePresenceActivityContext.Provider value={enabled ? value : null}>

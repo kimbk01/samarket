@@ -43,7 +43,10 @@ export function HomeContent({
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
   useEffect(() => {
-    warmMainShellData();
+    const cancelWarm = warmMainShellData();
+    return () => {
+      cancelWarm();
+    };
   }, []);
   const onNavigate = useCallback(
     (href: string) => {

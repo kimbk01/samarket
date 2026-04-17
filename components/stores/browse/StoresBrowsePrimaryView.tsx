@@ -36,7 +36,12 @@ import {
   STORE_CATEGORY_PILL_SCROLL,
   storeCategoryPillClass,
 } from "@/components/stores/store-category-pill-styles";
-import { StoreDeliveryRowCard, browseItemToRowCard } from "@/components/stores/home/StoreDeliveryRowCard";
+import {
+  StoreDeliveryRowCard,
+  browseItemToRowCard,
+  storeRowCardDataEqual,
+  type StoreRowCardData,
+} from "@/components/stores/home/StoreDeliveryRowCard";
 import { StorePrimaryIndustrySwitcher } from "@/components/stores/home/StorePrimaryIndustrySwitcher";
 import { fetchStoresBrowseDeduped } from "@/lib/stores/store-delivery-api-client";
 
@@ -272,6 +277,41 @@ export function StoresBrowsePrimaryView({
     return sortBrowseStores(remoteRows, listSort, hasGeo);
   }, [remoteRows, listSort, hasGeo]);
 
+  const browseRowCardCacheRef = useRef<Map<string, StoreRowCardData>>(new Map());
+  const browseRowCardListRef = useRef<StoreRowCardData[] | null>(null);
+
+  const storeDeliveryRowDataList = useMemo(() => {
+    const rows = sortedRemoteRows ?? [];
+    if (!rows.length) {
+      browseRowCardCacheRef.current.clear();
+      browseRowCardListRef.current = [];
+      return [];
+    }
+    const cache = browseRowCardCacheRef.current;
+    const nextIds = new Set<string>();
+    const reconciled: StoreRowCardData[] = [];
+    for (const s of rows) {
+      nextIds.add(s.id);
+      const next = browseItemToRowCard(s);
+      const prev = cache.get(s.id);
+      if (prev && storeRowCardDataEqual(prev, next)) {
+        reconciled.push(prev);
+      } else {
+        cache.set(s.id, next);
+        reconciled.push(next);
+      }
+    }
+    for (const id of [...cache.keys()]) {
+      if (!nextIds.has(id)) cache.delete(id);
+    }
+    const prior = browseRowCardListRef.current;
+    if (prior && prior.length === reconciled.length && prior.every((row, i) => row === reconciled[i])) {
+      return prior;
+    }
+    browseRowCardListRef.current = reconciled;
+    return reconciled;
+  }, [sortedRemoteRows]);
+
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
   const browseSubtitle = useMemo(() => {
@@ -410,8 +450,8 @@ export function StoresBrowsePrimaryView({
         : null}
         {useRemoteList ?
           <ul className="space-y-2">
-            {(sortedRemoteRows ?? remoteRows)!.map((s) => (
-              <StoreDeliveryRowCard key={s.id} data={browseItemToRowCard(s)} />
+            {storeDeliveryRowDataList.map((data) => (
+              <StoreDeliveryRowCard key={data.slug} data={data} />
             ))}
           </ul>
         : showEmptyBlock ?

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { memo } from "react";
 import Link from "next/link";
 
 type Props = {
@@ -11,7 +12,13 @@ type Props = {
   tone?: "default" | "danger";
 };
 
-export function MyPageMobileMenuRow({ href, title, icon, accessory, tone = "default" }: Props) {
+export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
+  href,
+  title,
+  icon,
+  accessory,
+  tone = "default",
+}: Props) {
   const titleClass =
     tone === "danger"
       ? "min-w-0 flex-1 text-[15px] font-medium text-red-600"
@@ -28,7 +35,9 @@ export function MyPageMobileMenuRow({ href, title, icon, accessory, tone = "defa
       <Chevron />
     </Link>
   );
-}
+});
+
+MyPageMobileMenuRow.displayName = "MyPageMobileMenuRow";
 
 function Chevron() {
   return (

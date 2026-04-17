@@ -85,6 +85,10 @@ export function AdminUserListPage() {
   const refreshStaff = useCallback(() => setStaffKey((k) => k + 1), []);
   const refreshMembers = useCallback(() => setMembersKey((k) => k + 1), []);
 
+  const handleEditMember = useCallback((u: AdminUser) => {
+    setEditingMember(u);
+  }, []);
+
   const handleCleanup = useCallback(async () => {
     if (!adminUserId || !confirm("관리자(role=admin) 계정만 남기고 나머지 테스트 회원을 삭제합니다. 계속할까요?")) return;
     setCleanupLoading(true);
@@ -202,11 +206,7 @@ export function AdminUserListPage() {
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
             </div>
           ) : (
-            <AdminUserTable
-              users={filtered}
-              showMemberUuid={showMemberUuid}
-              onEditMember={(u) => setEditingMember(u)}
-            />
+            <AdminUserTable users={filtered} showMemberUuid={showMemberUuid} onEditMember={handleEditMember} />
           )}
         </>
       )}

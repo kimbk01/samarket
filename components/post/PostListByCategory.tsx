@@ -293,6 +293,10 @@ export function PostListByCategory({
     load(next);
   }, [loading, hasMore, page, load]);
 
+  const handleFavoriteChange = useCallback((postId: string, isFavorite: boolean) => {
+    setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
+  }, []);
+
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
     if (action === "interest") {
       setToast("관심 있음으로 표시했어요");
@@ -372,9 +376,7 @@ export function PostListByCategory({
             post={post}
             skinKey={skinKey}
             isFavorite={favoriteMap[post.id]}
-            onFavoriteChange={(postId, isFavorite) =>
-              setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }))
-            }
+            onFavoriteChange={handleFavoriteChange}
             onMenuAction={handleMenuAction}
           />
         )

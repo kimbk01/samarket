@@ -13,6 +13,7 @@ import {
   createEmptyDashboardPayload,
   isDashboardApiPayload,
 } from "@/lib/admin-dashboard/empty-dashboard-payload";
+import { mergeDashboardPayloadPreserveRefs } from "@/lib/admin-dashboard/merge-dashboard-payload-preserve-refs";
 import type { DashboardPayload } from "@/lib/types/admin-dashboard";
 import { fetchAdminDashboardStatsDeduped } from "@/lib/admin/fetch-admin-dashboard-stats-deduped";
 
@@ -39,7 +40,7 @@ export function AdminDashboardPage({
     void fetchAdminDashboardStatsDeduped()
       .then(({ status, json }) => {
         if (status === 200 && isDashboardApiPayload(json)) {
-          setPayload(json);
+          setPayload((prev) => mergeDashboardPayloadPreserveRefs(prev, json));
           setLoadState("ready");
           setLastErrorAt(null);
           return;

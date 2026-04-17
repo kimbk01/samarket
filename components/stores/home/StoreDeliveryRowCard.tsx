@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { memo } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavoriteIcon";
@@ -26,6 +27,30 @@ export type StoreRowCardData = {
   isFeatured: boolean;
   coverEmoji?: string;
 };
+
+/** 목록 행 `data` 참조 재사용용 — 카드에 보이는 필드 전부 포함 */
+export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData): boolean {
+  return (
+    a.slug === b.slug &&
+    a.nameKo === b.nameKo &&
+    a.tagline === b.tagline &&
+    a.categoryLine === b.categoryLine &&
+    a.regionBadge === b.regionBadge &&
+    a.status === b.status &&
+    a.rating === b.rating &&
+    a.reviewCount === b.reviewCount &&
+    a.deliveryAvailable === b.deliveryAvailable &&
+    a.pickupAvailable === b.pickupAvailable &&
+    a.minOrderLabel === b.minOrderLabel &&
+    a.estPrepLabel === b.estPrepLabel &&
+    a.deliveryFeeLabel === b.deliveryFeeLabel &&
+    a.distanceKm === b.distanceKm &&
+    a.menuPreview === b.menuPreview &&
+    a.profileImageUrl === b.profileImageUrl &&
+    a.isFeatured === b.isFeatured &&
+    a.coverEmoji === b.coverEmoji
+  );
+}
 
 function reviewLabel(n: number) {
   if (n > 9999) return "9,999+";
@@ -118,7 +143,7 @@ function statusMetaFragment(status: StoreRowCardData["status"]) {
 /**
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
-export function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
+export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
   const href = `/stores/${encodeURIComponent(data.slug)}`;
   const d = distLabel(data.distanceKm);
 
@@ -220,4 +245,6 @@ export function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
       </Link>
     </li>
   );
-}
+});
+
+StoreDeliveryRowCard.displayName = "StoreDeliveryRowCard";

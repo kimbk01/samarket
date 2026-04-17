@@ -1,7 +1,7 @@
 "use client";
 
 import type { MutableRefObject } from "react";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
@@ -92,8 +92,15 @@ export function MessengerFriendsScreen({
   const quickProfile =
     quickMenuUserId == null ? null : sortedFriends.find((f) => f.id === quickMenuUserId) ?? null;
 
-  const favoriteFriends = sortedFriends.filter((friend) => friend.isFavoriteFriend);
-  const normalFriends = sortedFriends.filter((friend) => !friend.isFavoriteFriend);
+  const { favoriteFriends, normalFriends } = useMemo(() => {
+    const favorite: CommunityMessengerProfileLite[] = [];
+    const normal: CommunityMessengerProfileLite[] = [];
+    for (const friend of sortedFriends) {
+      if (friend.isFavoriteFriend) favorite.push(friend);
+      else normal.push(friend);
+    }
+    return { favoriteFriends: favorite, normalFriends: normal };
+  }, [sortedFriends]);
 
   const renderFriendSection = (title: string, rows: CommunityMessengerProfileLite[], accent?: string) => {
     if (rows.length === 0) return null;
@@ -114,27 +121,17 @@ export function MessengerFriendsScreen({
           <MessengerLineFriendRow
             key={friend.id}
             friend={friend}
-            busyId={busyId}
             busyFavorite={busyId === `favorite:${friend.id}`}
-            onRowPress={() => onOpenProfile(friend)}
-            onToggleFavorite={() => onToggleFavorite(friend.id)}
-            onFriendChat={() => onFriendChat(friend.id)}
-            onFriendVoiceCall={() => onFriendVoiceCall(friend.id)}
-            onFriendVideoCall={() => onFriendVideoCall(friend.id)}
-            showMuteRow={friend.isFriend && friendHasDirectRoom(friend.id)}
-            directRoomMuted={getFriendDirectRoomMuted(friend.id)}
+            onToggleFavorite={onToggleFavorite}
             friendKind={getFriendDirectRoomKind(friend.id)}
-            notificationsBusy={friendNotificationsBusy(friend.id)}
-            onToggleDirectMute={() => onFriendToggleRoomMute(friend.id)}
-            pendingCallTarget={pendingCallTarget}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
             onOpenFriendQuickMenu={openFriendQuickMenu}
             onCloseFriendQuickMenu={closeFriendQuickMenu}
             onCloseMenuItem={onCloseMenuItem}
-            onHideFriend={() => onFriendHide(friend.id)}
-            onRemoveFriend={() => onFriendRemove(friend.id)}
-            onBlockFriend={() => onFriendBlock(friend.id)}
+            onHideFriend={onFriendHide}
+            onRemoveFriend={onFriendRemove}
+            onBlockFriend={onFriendBlock}
           />
         ))}
       </div>

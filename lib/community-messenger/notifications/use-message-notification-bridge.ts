@@ -22,6 +22,9 @@ import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesce
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
+/** `full`: 사운드·배너·데스크톱 알림. `hub_sync_only`: participants Realtime + 허브/뱃지/room bump 만(비메신저 표면). */
+export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
+
 type ParticipantRealtimeRow = {
   room_id?: unknown;
   unread_count?: unknown;
@@ -61,10 +64,17 @@ function updateBrowserBadge(nextUnread: number) {
   }
 }
 
-export function useMessageNotificationBridge(enabled = true): void {
+export function useMessageNotificationBridge(
+  enabled = true,
+  playback: MessageNotificationBridgePlayback = "full"
+): void {
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
+  const playbackRef = useRef<MessageNotificationBridgePlayback>(playback);
+  playbackRef.current = playback;
   const surface = useNotificationSurface();
   const surfaceRef = useRef(surface);
   surfaceRef.current = surface;
@@ -73,14 +83,11 @@ export function useMessageNotificationBridge(enabled = true): void {
   );
   const [userId, setUserId] = useState<string | null>(null);
 
-  const navigateToCommunityRoom = useCallback(
-    (roomId: string) => {
-      const id = String(roomId ?? "").trim();
-      if (!id) return;
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
-    },
-    [router]
-  );
+  const navigateToCommunityRoom = useCallback((roomId: string) => {
+    const id = String(roomId ?? "").trim();
+    if (!id) return;
+    routerRef.current.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+  }, []);
 
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
@@ -156,6 +163,13 @@ export function useMessageNotificationBridge(enabled = true): void {
            * 방 화면은 `cm.room.bump`로 증분 동기화를 즉시 실행해 새로고침 없이 따라잡는다.
            */
           postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: nextRoomId, at: Date.now() });
+
+          if (playbackRef.current === "hub_sync_only") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
+            }
+            return;
+          }
 
           if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
             if (pathnameRef.current === `/community-messenger/rooms/${nextRoomId}`) {
@@ -241,5 +255,5 @@ export function useMessageNotificationBridge(enabled = true): void {
     return () => {
       if (channel) void sb.removeChannel(channel);
     };
-  }, [enabled, userId, navigateToCommunityRoom]);
+  }, [enabled, userId]);
 }

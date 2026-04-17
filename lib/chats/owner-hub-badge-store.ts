@@ -1,6 +1,7 @@
 /**
  * 매장 오너 허브 배지 — 전역 단일 폴링·fetch.
- * (BottomNav + StoresHub 등) 여러 컴포넌트가 구독해도 /api/me/store-owner-hub-badge 는 한 갈래만 나감.
+ * (BottomNav + StoresHub 등) 여러 컴포넌트가 구독해도 GET /api/me/store-owner-hub-badge 는 한 갈래만 나감
+ * (서버 28s 캐시). `/unreads`·`/store-attention` 세그먼트는 동일 집계 로직 분리용.
  */
 import {
   OWNER_HUB_BADGE_EMPTY,
@@ -18,6 +19,12 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import {
+  SAMARKET_OWNER_HUB_BADGE_LEADER_SCOPE,
+  SAMARKET_OWNER_HUB_BADGE_SYNC_CHANNEL,
+  subscribeTabLeader,
+} from "@/lib/runtime/leader-tab-coordinator";
+import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 
 const PATH_FETCH_PREFIXES = [
   "/chats",
@@ -62,7 +69,91 @@ function applyFromNetwork(data: unknown) {
 
 const HUB_BADGE_FLIGHT_KEY = "me:store-owner-hub-badge";
 
+let ownerHubLeaderUnsub: (() => void) | null = null;
+let ownerHubSyncBc: BroadcastChannel | null = null;
+let ownerHubSyncOnMessage: ((ev: MessageEvent) => void) | null = null;
+const isLeaderOwnerHubBadgeRef = { current: false };
+
+function broadcastOwnerHubBadgeSnapshot(data: unknown) {
+  if (!ownerHubSyncBc) return;
+  try {
+    ownerHubSyncBc.postMessage({ v: 1 as const, type: "snapshot" as const, data });
+  } catch {
+    /* ignore */
+  }
+}
+
+function postOwnerHubBadgeRefreshRequest(force: boolean) {
+  if (!ownerHubSyncBc) return;
+  try {
+    ownerHubSyncBc.postMessage({ v: 1 as const, type: "request" as const, force, at: Date.now() });
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureOwnerHubLeaderAndSync() {
+  if (typeof window === "undefined") return;
+  if (ownerHubLeaderUnsub) return;
+  ownerHubLeaderUnsub = subscribeTabLeader(SAMARKET_OWNER_HUB_BADGE_LEADER_SCOPE, (leader) => {
+    isLeaderOwnerHubBadgeRef.current = leader;
+  });
+  try {
+    ownerHubSyncBc = new BroadcastChannel(SAMARKET_OWNER_HUB_BADGE_SYNC_CHANNEL);
+  } catch {
+    ownerHubSyncBc = null;
+  }
+  ownerHubSyncOnMessage = (ev: MessageEvent) => {
+    const d = ev.data as {
+      v?: number;
+      type?: string;
+      data?: unknown;
+      force?: boolean;
+      at?: number;
+    };
+    if (!d || d.v !== 1) return;
+    if (d.type === "snapshot") {
+      applyFromNetwork(d.data ?? null);
+      return;
+    }
+    if (d.type === "request" && isLeaderOwnerHubBadgeRef.current) {
+      const force = d.force === true;
+      const now = Date.now();
+      if (!force && now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+      lastEventRefreshAt = now;
+      void fetchOwnerHubBadgeNow(force);
+    }
+  };
+  ownerHubSyncBc?.addEventListener("message", ownerHubSyncOnMessage);
+}
+
+function teardownOwnerHubLeaderAndSync() {
+  ownerHubLeaderUnsub?.();
+  ownerHubLeaderUnsub = null;
+  isLeaderOwnerHubBadgeRef.current = false;
+  if (ownerHubSyncBc && ownerHubSyncOnMessage) {
+    ownerHubSyncBc.removeEventListener("message", ownerHubSyncOnMessage);
+  }
+  ownerHubSyncOnMessage = null;
+  try {
+    ownerHubSyncBc?.close();
+  } catch {
+    /* ignore */
+  }
+  ownerHubSyncBc = null;
+}
+
 export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+  ensureOwnerHubLeaderAndSync();
+
+  if (!isLeaderOwnerHubBadgeRef.current) {
+    postOwnerHubBadgeRefreshRequest(force);
+    return Promise.resolve();
+  }
+
   const now = Date.now();
   if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
     const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
@@ -78,14 +169,18 @@ export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
 
   return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async () => {
     try {
+      /** 단일 GET — 서버 `getCachedOwnerHubBadge`(28s TTL) 효과 유지. 리더 탭만 HTTP, 결과는 BC 로 동기화. */
       const res = await fetch("/api/me/store-owner-hub-badge", {
         credentials: "include",
         cache: "no-store",
       });
       const data = res.ok ? await res.json() : null;
+      samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", { ok: res.ok });
       applyFromNetwork(data);
+      broadcastOwnerHubBadgeSnapshot(data);
     } catch {
       applyFromNetwork(null);
+      broadcastOwnerHubBadgeSnapshot(null);
     }
   });
 }
@@ -131,6 +226,7 @@ function onVisibility() {
 function attachGlobalEventsOnce() {
   if (globalEventsAttached) return;
   globalEventsAttached = true;
+  ensureOwnerHubLeaderAndSync();
   window.addEventListener("focus", onFocusRefresh);
   window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
   window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
@@ -157,6 +253,7 @@ function stopHub() {
     pollInterval = null;
   }
   detachGlobalEvents();
+  teardownOwnerHubLeaderAndSync();
 }
 
 function startHub() {

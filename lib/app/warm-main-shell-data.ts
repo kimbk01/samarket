@@ -16,11 +16,15 @@ import {
 } from "@/lib/ui/network-policy";
 import { shouldRunHomeMainShellWarm } from "@/lib/runtime/next-js-dev-client";
 
-export function warmMainShellData(): void {
-  if (typeof window === "undefined") return;
-  if (!shouldRunHomeMainShellWarm()) return;
-  if (document.visibilityState !== "visible") return;
-  if (isConstrainedNetwork()) return;
+/**
+ * idle 예열 작업을 취소한다. 라우트 이탈 시 effect cleanup 에서 호출해
+ * `pagehide` 만 의존하지 않게 한다(SPA 전환에서는 pagehide 가 안 올 수 있음).
+ */
+export function warmMainShellData(): () => void {
+  if (typeof window === "undefined") return () => {};
+  if (!shouldRunHomeMainShellWarm()) return () => {};
+  if (document.visibilityState !== "visible") return () => {};
+  if (isConstrainedNetwork()) return () => {};
 
   const idleId = scheduleWhenBrowserIdle(() => {
     void Promise.all([fetchMainBottomNavDeduped(), fetchMeStoresListDeduped()]).catch(() => {});
@@ -40,11 +44,12 @@ export function warmMainShellData(): void {
     })();
   }, 1100);
 
-  window.addEventListener(
-    "pagehide",
-    () => {
-      cancelScheduledWhenBrowserIdle(idleId);
-    },
-    { once: true }
-  );
+  const cancelIdle = () => {
+    cancelScheduledWhenBrowserIdle(idleId);
+  };
+  window.addEventListener("pagehide", cancelIdle, { once: true });
+  return () => {
+    cancelIdle();
+    window.removeEventListener("pagehide", cancelIdle);
+  };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
@@ -59,7 +59,7 @@ type Props = {
   onResetTransientUi?: () => void;
 };
 
-export function MessengerChatListItem({
+export const MessengerChatListItem = memo(function MessengerChatListItem({
   item,
   favoriteFriendIds,
   busyId: _busyId,
@@ -631,7 +631,9 @@ export function MessengerChatListItem({
       </div>
     </div>
   );
-}
+});
+
+MessengerChatListItem.displayName = "MessengerChatListItem";
 
 function CommerceThumb({
   src,

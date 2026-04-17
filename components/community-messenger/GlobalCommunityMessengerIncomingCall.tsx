@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   playCommunityMessengerCallSignalSound,
@@ -61,6 +62,10 @@ import {
 } from "@/lib/community-messenger/native-call-receive";
 import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import {
+  INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS,
+  shouldRunIncomingCallBackupHttpPoll,
+} from "@/lib/layout/incoming-call-backup-poll-policy";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -130,6 +135,9 @@ function isTerminalCallSessionStatusValue(status: unknown): boolean {
 
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
+  const pathname = usePathname();
+  const pathnameRef = useRef<string | null>(null);
+  pathnameRef.current = pathname ?? null;
   const { messengerRoomIdFromPath } = useCommunityCallSurface();
   const [userId, setUserId] = useState<string | null>(() =>
     typeof window !== "undefined" ? getCurrentUser()?.id?.trim() || null : null
@@ -345,27 +353,47 @@ export function GlobalCommunityMessengerIncomingCall() {
   /**
    * 폴링은 `sessions` 의존 없이 고정 스케줄 — effect 재실행·GET 폭증 방지.
    * Realtime 정상일 때도 **짧은 백업 폴링**을 유지해 이벤트 유실 시 10~20초 벨 지연을 막는다.
+   *
+   * HTTP GET 백업만 `shouldRunIncomingCallBackupHttpPoll` 로 게이트 — 홈·비채팅 표면에서는
+   * 타이머만 긴 tail 로 유지하고 GET 은 생략(Realtime·Broadcast·SW·포커스 burst 는 그대로).
    */
   useEffect(() => {
     if (!userId) return;
-    queueVisibilityRefreshBurstRef.current();
+    const allowBurst = shouldRunIncomingCallBackupHttpPoll(
+      pathnameRef.current,
+      ringingDirectCalleeRef.current
+    );
+    if (allowBurst) {
+      queueVisibilityRefreshBurstRef.current();
+    }
     let pollTimer: number | null = null;
     let cancelled = false;
 
     const schedulePoll = () => {
       if (cancelled) return;
+      const allowPoll = shouldRunIncomingCallBackupHttpPoll(
+        pathnameRef.current,
+        ringingDirectCalleeRef.current
+      );
       const hidden = document.visibilityState !== "visible" || document.hidden;
-      const ms = hidden
-        ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
-        : incomingRealtimeOkRef.current
-          ? ringingDirectCalleeRef.current
-            ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
-            : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
-          : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false);
+      const ms = allowPoll
+        ? hidden
+          ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
+          : incomingRealtimeOkRef.current
+            ? ringingDirectCalleeRef.current
+              ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
+              : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
+            : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false)
+        : INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
       pollTimer = window.setTimeout(() => {
         pollTimer = null;
         /* 백그라운드에서도 폴링 — 탭 전환·다른 창 작업 중 Realtime 지연 시 수신 누락 방지 */
-        if (!cancelled) void refreshRef.current(true);
+        if (
+          !cancelled &&
+          shouldRunIncomingCallBackupHttpPoll(pathnameRef.current, ringingDirectCalleeRef.current)
+        ) {
+          void refreshRef.current(true);
+        }
         schedulePoll();
       }, ms);
     };
@@ -395,8 +423,17 @@ export function GlobalCommunityMessengerIncomingCall() {
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("focus", onWindowFocus);
+      /** `pathname`·`userId` 재실행 시에도 가시성 burst 타이머가 남지 않게(전역 unmount 전용 effect 외 보강). */
+      for (const timerId of refreshTimerIdsRef.current) {
+        window.clearTimeout(timerId);
+      }
+      refreshTimerIdsRef.current = [];
+      if (pendingBurstTimerRef.current != null) {
+        window.clearTimeout(pendingBurstTimerRef.current);
+        pendingBurstTimerRef.current = null;
+      }
     };
-  }, [userId]);
+  }, [userId, pathname]);
 
   /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
   useEffect(() => {

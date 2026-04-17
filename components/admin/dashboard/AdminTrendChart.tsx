@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { DashboardTrendItem } from "@/lib/types/admin-dashboard";
 
 interface AdminTrendChartProps {
@@ -12,7 +13,11 @@ function formatDate(s: string) {
   return s.slice(5).replace("-", "/");
 }
 
-export function AdminTrendChart({ data, title = "일별 추이", loading }: AdminTrendChartProps) {
+export const AdminTrendChart = memo(function AdminTrendChart({
+  data,
+  title = "일별 추이",
+  loading,
+}: AdminTrendChartProps) {
   const maxVal = Math.max(
     1,
     ...data.flatMap((d) => [
@@ -87,4 +92,6 @@ export function AdminTrendChart({ data, title = "일별 추이", loading }: Admi
       </div>
     </div>
   );
-}
+});
+
+AdminTrendChart.displayName = "AdminTrendChart";

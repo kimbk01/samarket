@@ -187,6 +187,10 @@ export function HomeProductList({
     });
   }, []);
 
+  const handleFavoriteChange = useCallback((postId: string, isFavorite: boolean) => {
+    setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
+  }, []);
+
   const showEmpty = listState === "empty" || posts.length === 0;
   const showError = listState === "error";
   const showLoading = listState === "loading";
@@ -235,9 +239,7 @@ export function HomeProductList({
             key={post.id}
             post={post}
             isFavorite={favoriteMap[post.id]}
-            onFavoriteChange={(postId, isFavorite) =>
-              setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }))
-            }
+            onFavoriteChange={handleFavoriteChange}
             onMenuAction={handleMenuAction}
           />
         )

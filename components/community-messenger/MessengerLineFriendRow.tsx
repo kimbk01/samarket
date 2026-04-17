@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { messengerFriendSwipeItemId } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -12,44 +12,25 @@ const DRAG_CANCEL_Y = 14;
 
 type Props = {
   friend: CommunityMessengerProfileLite;
-  busyId: string | null;
   busyFavorite: boolean;
-  onRowPress: () => void;
-  onToggleFavorite: () => void;
-  onFriendChat: () => void;
-  onFriendVoiceCall: () => void;
-  onFriendVideoCall: () => void;
-  showMuteRow: boolean;
-  directRoomMuted: boolean | undefined;
-  notificationsBusy: boolean;
-  onToggleDirectMute?: () => void;
+  /** 부모에서 안정 참조로 전달 — 행은 `friend.id`로 호출한다. */
+  onToggleFavorite: (userId: string) => void;
   friendKind: "trade" | "delivery" | null;
-  pendingCallTarget: string | null;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
   onOpenFriendQuickMenu: (userId: string) => void;
   onCloseFriendQuickMenu: () => void;
   onCloseMenuItem: (id?: string) => void;
-  onHideFriend: () => void;
-  onRemoveFriend: () => void;
-  onBlockFriend: () => void;
+  onHideFriend: (userId: string) => void;
+  onRemoveFriend: (userId: string) => void;
+  onBlockFriend: (userId: string) => void;
 };
 
-export function MessengerLineFriendRow({
+export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   friend,
-  busyId,
   busyFavorite,
-  onRowPress,
   onToggleFavorite,
-  onFriendChat,
-  onFriendVoiceCall,
-  onFriendVideoCall,
-  showMuteRow,
-  directRoomMuted,
-  notificationsBusy,
-  onToggleDirectMute,
   friendKind,
-  pendingCallTarget,
   openedSwipeItemId,
   onOpenSwipeItem,
   onOpenFriendQuickMenu,
@@ -168,6 +149,26 @@ export function MessengerLineFriendRow({
     [onCloseFriendQuickMenu, snapClosed]
   );
 
+  const swipeToggleFavorite = useCallback(() => {
+    onToggleFavorite(friend.id);
+  }, [friend.id, onToggleFavorite]);
+
+  const swipeHideFriend = useCallback(() => {
+    onHideFriend(friend.id);
+  }, [friend.id, onHideFriend]);
+
+  const swipeRemoveFriend = useCallback(() => {
+    onRemoveFriend(friend.id);
+  }, [friend.id, onRemoveFriend]);
+
+  const swipeBlockFriend = useCallback(() => {
+    onBlockFriend(friend.id);
+  }, [friend.id, onBlockFriend]);
+
+  const starToggleFavorite = useCallback(() => {
+    onToggleFavorite(friend.id);
+  }, [friend.id, onToggleFavorite]);
+
   const openQuickMenu = useCallback(() => {
     snapClosed();
     onOpenFriendQuickMenu(friend.id);
@@ -224,14 +225,14 @@ export function MessengerLineFriendRow({
       <div className="absolute inset-y-0 left-0 flex" aria-hidden={dragX <= 0}>
         <button
           type="button"
-          onClick={() => runAction(onToggleFavorite)}
+          onClick={() => runAction(swipeToggleFavorite)}
           className="flex w-[72px] items-center justify-center bg-violet-600 text-[12px] font-semibold text-white active:opacity-90"
         >
           {friend.isFavoriteFriend ? "해제" : "즐겨찾기"}
         </button>
         <button
           type="button"
-          onClick={() => runAction(onHideFriend)}
+          onClick={() => runAction(swipeHideFriend)}
           className="flex w-[72px] items-center justify-center bg-amber-600 text-[12px] font-semibold text-white active:opacity-90"
         >
           {hideLabel}
@@ -240,14 +241,14 @@ export function MessengerLineFriendRow({
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX >= 0}>
         <button
           type="button"
-          onClick={() => runAction(onRemoveFriend)}
+          onClick={() => runAction(swipeRemoveFriend)}
           className="flex w-[72px] items-center justify-center bg-orange-600 text-[12px] font-semibold text-white active:opacity-90"
         >
           삭제
         </button>
         <button
           type="button"
-          onClick={() => runAction(onBlockFriend)}
+          onClick={() => runAction(swipeBlockFriend)}
           className="flex w-[72px] items-center justify-center bg-red-600 text-[12px] font-semibold text-white active:opacity-90"
         >
           {blockLabel}
@@ -362,7 +363,7 @@ export function MessengerLineFriendRow({
                 snapClosed();
                 return;
               }
-              onToggleFavorite();
+              starToggleFavorite();
             }}
             disabled={busyFavorite}
             className="inline-flex h-8 shrink-0 items-center justify-center rounded-full px-2 text-[12px] font-semibold disabled:opacity-50"
@@ -379,4 +380,6 @@ export function MessengerLineFriendRow({
       </div>
     </div>
   );
-}
+});
+
+MessengerLineFriendRow.displayName = "MessengerLineFriendRow";

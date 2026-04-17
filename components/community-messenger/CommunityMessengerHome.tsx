@@ -1500,6 +1500,19 @@ export function CommunityMessengerHome({
     const peerLabel = fromFriend || room?.title?.trim() || "대화 상대";
     setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
   }, [sortedFriends, data?.chats]);
+
+  const onFriendRowVoiceCallStable = useCallback(
+    (userId: string) => {
+      void openOutgoingCallConfirm(userId, "voice");
+    },
+    [openOutgoingCallConfirm]
+  );
+  const onFriendRowVideoCallStable = useCallback(
+    (userId: string) => {
+      void openOutgoingCallConfirm(userId, "video");
+    },
+    [openOutgoingCallConfirm]
+  );
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
     if (!searchKeywordNormalized) return [];
@@ -1751,6 +1764,71 @@ export function CommunityMessengerHome({
     },
     [getMessengerActionErrorMessage, updateRoomSummaryState]
   );
+
+  const handleMessengerHomeMarkRoomRead = useCallback((room: CommunityMessengerRoomSummary) => {
+    void markRoomRead(room.id);
+  }, [markRoomRead]);
+
+  const handleMessengerHomeToggleRoomArchive = useCallback((room: CommunityMessengerRoomSummary) => {
+    void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room));
+  }, [toggleRoomArchive]);
+
+  const handleMessengerHomeTogglePin = useCallback((room: CommunityMessengerRoomSummary) => {
+    void updateRoomParticipantState(room.id, { isPinned: !room.isPinned });
+  }, [updateRoomParticipantState]);
+
+  const handleMessengerHomeToggleMute = useCallback((room: CommunityMessengerRoomSummary) => {
+    void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
+  }, [updateRoomParticipantState]);
+
+  const getFriendDirectRoomMutedStable = useCallback(
+    (userId: string) => directRoomByPeerId.get(userId)?.isMuted,
+    [directRoomByPeerId]
+  );
+
+  const getFriendDirectRoomKindStable = useCallback(
+    (userId: string) => directRoomByPeerId.get(userId)?.contextMeta?.kind ?? null,
+    [directRoomByPeerId]
+  );
+
+  const friendNotificationsBusyStable = useCallback(
+    (userId: string) =>
+      Boolean(directRoomByPeerId.get(userId)) &&
+      busyId === `room-settings:${directRoomByPeerId.get(userId)?.id ?? ""}`,
+    [directRoomByPeerId, busyId]
+  );
+
+  const onFriendToggleRoomMuteStable = useCallback(
+    (userId: string) => {
+      const room = directRoomByPeerId.get(userId);
+      if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
+    },
+    [directRoomByPeerId, updateRoomParticipantState]
+  );
+
+  const friendHasDirectRoomStable = useCallback((userId: string) => Boolean(directRoomByPeerId.get(userId)), [directRoomByPeerId]);
+
+  const onOpenFriendsPrivacySummaryStable = useCallback(() => {
+    resetMessengerTransientUi();
+    setFriendsPrivacySheetOpen(true);
+  }, [resetMessengerTransientUi]);
+
+  const onOpenProfileForMessengerMainStable = useCallback(
+    (profile: CommunityMessengerProfileLite) => {
+      resetMessengerTransientUi();
+      setFriendSheet({ mode: "profile", profile });
+    },
+    [resetMessengerTransientUi]
+  );
+
+  const onPreviewOpenGroupStable = useCallback(
+    (groupId: string) => {
+      resetMessengerTransientUi();
+      void openJoinModal(groupId);
+    },
+    [resetMessengerTransientUi, openJoinModal]
+  );
+
   const notificationRoomMuteToggle = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
       await updateRoomParticipantState(room.id, { isMuted: !Boolean(room.isMuted) });
@@ -2012,48 +2090,33 @@ export function CommunityMessengerHome({
             sortedFriends={sortedFriends}
             friendStateModel={friendStateModel}
             busyId={busyId}
-            onOpenFriendsPrivacySummary={() => {
-              resetMessengerTransientUi();
-              setFriendsPrivacySheetOpen(true);
-            }}
-            onOpenProfile={(profile) => {
-              resetMessengerTransientUi();
-              setFriendSheet({ mode: "profile", profile });
-            }}
-            onToggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-            onFriendSwipeHide={(userId) => void toggleHiddenFriend(userId)}
-            onFriendSwipeRemove={(userId) => void removeFriend(userId)}
-            onFriendSwipeBlock={(userId) => void toggleBlock(userId)}
-            onFriendRowChat={(userId) => void startDirectRoom(userId)}
-            onFriendRowVoiceCall={(userId) => void openOutgoingCallConfirm(userId, "voice")}
-            onFriendRowVideoCall={(userId) => void openOutgoingCallConfirm(userId, "video")}
-            getFriendDirectRoomMuted={(userId) => directRoomByPeerId.get(userId)?.isMuted}
-            getFriendDirectRoomKind={(userId) => directRoomByPeerId.get(userId)?.contextMeta?.kind ?? null}
-            friendNotificationsBusy={(userId) =>
-              Boolean(directRoomByPeerId.get(userId)) &&
-              busyId === `room-settings:${directRoomByPeerId.get(userId)?.id ?? ""}`
-            }
-            onFriendToggleRoomMute={(userId) => {
-              const room = directRoomByPeerId.get(userId);
-              if (room) void updateRoomParticipantState(room.id, { isMuted: !room.isMuted });
-            }}
-            friendHasDirectRoom={(userId) => Boolean(directRoomByPeerId.get(userId))}
+            onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
+            onOpenProfile={onOpenProfileForMessengerMainStable}
+            onToggleFavoriteFriend={toggleFavoriteFriend}
+            onFriendSwipeHide={toggleHiddenFriend}
+            onFriendSwipeRemove={removeFriend}
+            onFriendSwipeBlock={toggleBlock}
+            onFriendRowChat={startDirectRoom}
+            onFriendRowVoiceCall={onFriendRowVoiceCallStable}
+            onFriendRowVideoCall={onFriendRowVideoCallStable}
+            getFriendDirectRoomMuted={getFriendDirectRoomMutedStable}
+            getFriendDirectRoomKind={getFriendDirectRoomKindStable}
+            friendNotificationsBusy={friendNotificationsBusyStable}
+            onFriendToggleRoomMute={onFriendToggleRoomMuteStable}
+            friendHasDirectRoom={friendHasDirectRoomStable}
             primaryListItems={primaryListItems}
             favoriteFriendIds={favoriteFriendIds}
-            onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
-            onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
-            onMarkRead={(room) => void markRoomRead(room.id)}
-            onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+            onTogglePin={handleMessengerHomeTogglePin}
+            onToggleMute={handleMessengerHomeToggleMute}
+            onMarkRead={handleMessengerHomeMarkRoomRead}
+            onToggleArchive={handleMessengerHomeToggleRoomArchive}
             onOpenRoomActions={openRoomActions}
             chatInboxFilter={chatInboxFilter}
             chatKindFilter={chatKindFilter}
             onChatListChipChange={onChatListChipChange}
             openChatJoinedItems={openChatJoinedItems}
             filteredDiscoverableGroups={filteredDiscoverableGroups}
-            onPreviewOpenGroup={(groupId) => {
-              resetMessengerTransientUi();
-              void openJoinModal(groupId);
-            }}
+            onPreviewOpenGroup={onPreviewOpenGroupStable}
             incomingRequestCount={incomingRequestCount}
           />
           {incomingFriendRequestPopup ? (
@@ -2336,10 +2399,10 @@ export function CommunityMessengerHome({
           searchOpenChatMatches={searchOpenChatMatches}
           favoriteFriendIds={favoriteFriendIds}
           busyId={busyId}
-          onTogglePin={(room) => void updateRoomParticipantState(room.id, { isPinned: !room.isPinned })}
-          onToggleMute={(room) => void updateRoomParticipantState(room.id, { isMuted: !room.isMuted })}
-          onMarkRead={(room) => void markRoomRead(room.id)}
-          onToggleArchive={(room) => void toggleRoomArchive(room.id, !communityMessengerRoomIsInboxHidden(room))}
+          onTogglePin={handleMessengerHomeTogglePin}
+          onToggleMute={handleMessengerHomeToggleMute}
+          onMarkRead={handleMessengerHomeMarkRoomRead}
+          onToggleArchive={handleMessengerHomeToggleRoomArchive}
           onSelectFriend={(friend) => setFriendSheet({ mode: "profile", profile: friend })}
           onSelectOpenGroup={(groupId) => void openJoinModal(groupId)}
           onSelectMessageRoom={(roomId) => navigateToCommunityRoom(roomId)}

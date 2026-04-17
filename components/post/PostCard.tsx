@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { memo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -37,7 +37,7 @@ interface PostCardProps {
   footer?: ReactNode;
 }
 
-export function PostCard({
+export const PostCard = memo(function PostCard({
   post,
   skinKey,
   isFavorite,
@@ -168,4 +168,6 @@ export function PostCard({
       ) : null}
     </div>
   );
-}
+});
+
+PostCard.displayName = "PostCard";

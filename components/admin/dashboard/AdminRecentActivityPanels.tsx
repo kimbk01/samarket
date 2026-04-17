@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { memo } from "react";
 import type {
   RecentProduct,
   RecentUser,
@@ -56,7 +57,7 @@ function formatDate(iso: string) {
   }
 }
 
-export function AdminRecentActivityPanels({
+export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels({
   products,
   users,
   reports,
@@ -208,4 +209,6 @@ export function AdminRecentActivityPanels({
       </AdminCard>
     </div>
   );
-}
+});
+
+AdminRecentActivityPanels.displayName = "AdminRecentActivityPanels";

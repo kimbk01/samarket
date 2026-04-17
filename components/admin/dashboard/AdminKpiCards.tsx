@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { DashboardStats } from "@/lib/types/admin-dashboard";
 
 interface AdminKpiCardsProps {
@@ -20,7 +21,7 @@ const CARDS: { key: keyof DashboardStats; label: string }[] = [
   { key: "averageTrustScore", label: "평균 배터리" },
 ];
 
-export function AdminKpiCards({ stats, loading }: AdminKpiCardsProps) {
+export const AdminKpiCards = memo(function AdminKpiCards({ stats, loading }: AdminKpiCardsProps) {
   return (
     <div
       className="grid grid-cols-2 gap-3 sm:grid-cols-4"
@@ -53,4 +54,6 @@ export function AdminKpiCards({ stats, loading }: AdminKpiCardsProps) {
       })}
     </div>
   );
-}
+});
+
+AdminKpiCards.displayName = "AdminKpiCards";

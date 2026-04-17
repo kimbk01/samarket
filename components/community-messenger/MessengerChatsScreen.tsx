@@ -155,7 +155,7 @@ export function MessengerChatsScreen({
               onTogglePin={onTogglePin}
               onToggleMute={onToggleMute}
               onMarkRead={onMarkRead}
-              onToggleArchive={(room) => onToggleArchive(room)}
+              onToggleArchive={onToggleArchive}
               listContext={listContext}
               onOpenRoomActions={onOpenRoomActions}
               openedSwipeItemId={openedSwipeItemId}
@@ -264,7 +264,7 @@ export function MessengerOpenChatScreen({
                 onTogglePin={onTogglePin}
                 onToggleMute={onToggleMute}
                 onMarkRead={onMarkRead}
-                onToggleArchive={(room) => onToggleArchive(room)}
+                onToggleArchive={onToggleArchive}
                 listContext="default"
                 onOpenRoomActions={onOpenRoomActions}
               openedSwipeItemId={openedSwipeItemId}

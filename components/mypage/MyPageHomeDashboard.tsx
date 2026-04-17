@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
@@ -92,39 +92,48 @@ export function MyPageHomeDashboard({
   const regionLine = resolveProfileLocationAddressLines(profile).join(" · ") || "대표 지역을 설정해 주세요";
   const displayName = profile.nickname?.trim() || "닉네임 없음";
 
-  const activeTrade =
-    overviewCounts.purchases != null && overviewCounts.sales != null
-      ? Math.max(0, overviewCounts.purchases) + Math.max(0, overviewCounts.sales)
-      : null;
-  const chatUnread = socialChatUnread + storeOrderChatUnread;
-
-  const statRows: { label: string; value: string; href: string }[] = [
-    {
-      label: "진행중 거래",
-      value: formatCount(activeTrade),
-      href: buildMypageSectionHref("trade"),
-    },
-    {
-      label: "주문",
-      value: formatCount(orderCount),
-      href: buildMypageSectionHref("store"),
-    },
-    {
-      label: "안읽은 채팅",
-      value: formatCount(chatUnread),
-      href: buildMypageSectionHref("messenger"),
-    },
-    {
-      label: "찜",
-      value: formatCount(favoriteCount ?? null),
-      href: "/mypage/section/trade/favorites",
-    },
-    {
-      label: "내가 쓴 글",
-      value: formatCount(postCount),
-      href: "/mypage/section/community/posts",
-    },
-  ];
+  const statRows = useMemo((): { label: string; value: string; href: string }[] => {
+    const activeTrade =
+      overviewCounts.purchases != null && overviewCounts.sales != null
+        ? Math.max(0, overviewCounts.purchases) + Math.max(0, overviewCounts.sales)
+        : null;
+    const chatUnread = socialChatUnread + storeOrderChatUnread;
+    return [
+      {
+        label: "진행중 거래",
+        value: formatCount(activeTrade),
+        href: buildMypageSectionHref("trade"),
+      },
+      {
+        label: "주문",
+        value: formatCount(orderCount),
+        href: buildMypageSectionHref("store"),
+      },
+      {
+        label: "안읽은 채팅",
+        value: formatCount(chatUnread),
+        href: buildMypageSectionHref("messenger"),
+      },
+      {
+        label: "찜",
+        value: formatCount(favoriteCount ?? null),
+        href: "/mypage/section/trade/favorites",
+      },
+      {
+        label: "내가 쓴 글",
+        value: formatCount(postCount),
+        href: "/mypage/section/community/posts",
+      },
+    ];
+  }, [
+    overviewCounts.purchases,
+    overviewCounts.sales,
+    orderCount,
+    postCount,
+    socialChatUnread,
+    storeOrderChatUnread,
+    favoriteCount,
+  ]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

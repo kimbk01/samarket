@@ -37,6 +37,15 @@ async function mapNicknamesFromProfiles(sbAny: any, ids: string[]): Promise<Map<
   return map;
 }
 
+function dedupeNonEmptyIds(ids: Iterable<unknown>): string[] {
+  const out = new Set<string>();
+  for (const raw of ids) {
+    const s = String(raw ?? "").trim();
+    if (s) out.add(s);
+  }
+  return [...out];
+}
+
 export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -58,142 +67,126 @@ export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
     return "reviewed";
   };
 
-  const [
-    aggRes,
-    trendRes,
-    recentProducts,
-    recentUsers,
-    recentReports,
-    recentChats,
-    recentReviews,
-  ] = await Promise.all([
+  const [aggRes, trendRes, postsRes, usersRes, reportsRes, roomsRes, reviewsRes] = await Promise.all([
     sbAny.rpc("admin_dashboard_aggregate_json", { p_today_start: todayStart }),
     sbAny.rpc("admin_dashboard_trend_utc_json"),
-    (async (): Promise<RecentProduct[]> => {
-      const { data: posts, error } = await sbAny
-        .from(POSTS_TABLE_READ)
-        .select("id, title, status, user_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(RECENT_LIMIT);
-      if (error || !Array.isArray(posts)) return [];
-
-      const userIds = [...new Set(posts.map((p: any) => p.user_id).filter(Boolean))] as string[];
-      const nicknameById = await mapNicknamesFromProfiles(sbAny, userIds);
-
-      return posts.map((p: any) => ({
-        id: p.id,
-        title: p.title ?? "",
-        sellerNickname: (nicknameById.get(String(p.user_id ?? "")) ?? String(p.user_id ?? "").slice(0, 8)) || "-",
-        status: p.status ?? "active",
-        createdAt: p.created_at,
-      }));
-    })(),
-    (async (): Promise<RecentUser[]> => {
-      const { data: users, error } = await sbAny
-        .from("profiles")
-        .select("id, nickname, username, role, created_at, updated_at")
-        .order("created_at", { ascending: false })
-        .limit(RECENT_LIMIT);
-      if (error || !Array.isArray(users)) return [];
-
-      return users.map((u: Record<string, unknown>) => {
-        const role = String(u.role ?? "");
-        const memberType: RecentUser["memberType"] =
-          role === "admin" || role === "master"
-            ? "admin"
-            : role === "special" || role === "premium"
-              ? "premium"
-              : "normal";
-        const id = String(u.id ?? "");
-        const nickname = String(u.nickname ?? u.username ?? id).trim() || id.slice(0, 8);
-        const joinedAt =
-          (typeof u.created_at === "string" && u.created_at) ||
-          (typeof u.updated_at === "string" && u.updated_at) ||
-          nowIso;
-        return {
-          id,
-          nickname,
-          memberType,
-          joinedAt,
-        };
-      });
-    })(),
-    (async (): Promise<RecentReport[]> => {
-      const { data: rows, error } = await sbAny
-        .from("reports")
-        .select("id, target_type, reason_code, status, created_at")
-        .order("created_at", { ascending: false })
-        .limit(RECENT_LIMIT);
-      if (error || !Array.isArray(rows)) return [];
-
-      const toTargetType = (t: string): RecentReport["targetType"] => {
-        if (t === "product" || t === "user") return t;
-        if (t === "chat_room" || t === "chat_message") return "chat";
-        return "product";
-      };
-
-      return rows.map((r: any) => ({
-        id: r.id,
-        targetType: toTargetType(r.target_type ?? ""),
-        reasonLabel: ADMIN_DASHBOARD_REPORT_REASON_LABELS[r.reason_code] ?? r.reason_code ?? "-",
-        status: toReportPanelStatus(r.status ?? "pending"),
-        createdAt: r.created_at,
-      }));
-    })(),
-    (async (): Promise<RecentChat[]> => {
-      const { data: rooms, error } = await sbAny
-        .from("product_chats")
-        .select("id, post_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at")
-        .order("last_message_at", { ascending: false, nullsFirst: false })
-        .limit(RECENT_LIMIT);
-      if (error || !Array.isArray(rooms)) return [];
-
-      const postIds = [...new Set(rooms.map((r: any) => r.post_id).filter(Boolean))] as string[];
-      const partnerIds = [...new Set(rooms.flatMap((r: any) => [r.seller_id, r.buyer_id]).filter(Boolean))] as string[];
-
-      const { data: posts } = postIds.length
-        ? await sbAny.from(POSTS_TABLE_READ).select("id, title").in("id", postIds)
-        : { data: [] };
-      const postTitleById = new Map<string, string>(
-        (posts ?? []).map((p: any) => [String(p.id ?? ""), String(p.title ?? "")])
-      );
-
-      const nicknameById = partnerIds.length ? await mapNicknamesFromProfiles(sbAny, partnerIds) : new Map();
-
-      return rooms.map((r: any) => ({
-        id: r.id,
-        productTitle: postTitleById.get(String(r.post_id ?? "")) || "(제목 없음)",
-        buyerNickname: nicknameById.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
-        sellerNickname: nicknameById.get(String(r.seller_id ?? "")) ?? String(r.seller_id ?? "").slice(0, 8),
-        lastMessageAt: r.last_message_at ?? r.created_at,
-      }));
-    })(),
-    (async (): Promise<RecentReview[]> => {
-      const { data: rows, error } = await sbAny
-        .from("transaction_reviews")
-        .select("id, reviewer_id, reviewee_id, public_review_type, created_at")
-        .order("created_at", { ascending: false })
-        .limit(RECENT_LIMIT);
-      if (error || !Array.isArray(rows)) return [];
-
-      const userIds = [...new Set(rows.flatMap((r: any) => [r.reviewer_id, r.reviewee_id]).filter(Boolean))] as string[];
-      const nicknameById = userIds.length ? await mapNicknamesFromProfiles(sbAny, userIds) : new Map();
-
-      const toRating = (t: string): number => {
-        if (t === "good") return 5;
-        if (t === "bad") return 1;
-        return 3;
-      };
-
-      return rows.map((r: any) => ({
-        id: r.id,
-        reviewerNickname: nicknameById.get(String(r.reviewer_id ?? "")) ?? String(r.reviewer_id ?? "").slice(0, 8),
-        targetNickname: nicknameById.get(String(r.reviewee_id ?? "")) ?? String(r.reviewee_id ?? "").slice(0, 8),
-        rating: toRating(r.public_review_type ?? ""),
-        createdAt: r.created_at,
-      }));
-    })(),
+    sbAny
+      .from(POSTS_TABLE_READ)
+      .select("id, title, status, user_id, created_at")
+      .order("created_at", { ascending: false })
+      .limit(RECENT_LIMIT),
+    sbAny
+      .from("profiles")
+      .select("id, nickname, username, role, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(RECENT_LIMIT),
+    sbAny
+      .from("reports")
+      .select("id, target_type, reason_code, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(RECENT_LIMIT),
+    sbAny
+      .from("product_chats")
+      .select("id, post_id, seller_id, buyer_id, last_message_at, last_message_preview, created_at")
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(RECENT_LIMIT),
+    sbAny
+      .from("transaction_reviews")
+      .select("id, reviewer_id, reviewee_id, public_review_type, created_at")
+      .order("created_at", { ascending: false })
+      .limit(RECENT_LIMIT),
   ]);
+
+  const posts = !postsRes.error && Array.isArray(postsRes.data) ? (postsRes.data as any[]) : [];
+  const users = !usersRes.error && Array.isArray(usersRes.data) ? (usersRes.data as Record<string, unknown>[]) : [];
+  const reportRows = !reportsRes.error && Array.isArray(reportsRes.data) ? (reportsRes.data as any[]) : [];
+  const rooms = !roomsRes.error && Array.isArray(roomsRes.data) ? (roomsRes.data as any[]) : [];
+  const reviewRows = !reviewsRes.error && Array.isArray(reviewsRes.data) ? (reviewsRes.data as any[]) : [];
+
+  const postIdsForChatTitles = dedupeNonEmptyIds(rooms.map((r) => r.post_id));
+  const nicknameSourceIds = dedupeNonEmptyIds([
+    ...posts.map((p) => p.user_id),
+    ...rooms.flatMap((r) => [r.seller_id, r.buyer_id]),
+    ...reviewRows.flatMap((r) => [r.reviewer_id, r.reviewee_id]),
+  ]);
+
+  const [postTitlesRes, nicknameById] = await Promise.all([
+    postIdsForChatTitles.length
+      ? sbAny.from(POSTS_TABLE_READ).select("id, title").in("id", postIdsForChatTitles)
+      : Promise.resolve({ data: [] as { id?: string; title?: string | null }[] }),
+    mapNicknamesFromProfiles(sbAny, nicknameSourceIds),
+  ]);
+
+  const postTitleRows = (postTitlesRes.data ?? []) as { id?: string; title?: string | null }[];
+  const postTitleById = new Map<string, string>(
+    postTitleRows.map((p) => [String(p.id ?? ""), String(p.title ?? "")])
+  );
+
+  const recentProducts: RecentProduct[] = posts.map((p: any) => ({
+    id: p.id,
+    title: p.title ?? "",
+    sellerNickname: (nicknameById.get(String(p.user_id ?? "")) ?? String(p.user_id ?? "").slice(0, 8)) || "-",
+    status: p.status ?? "active",
+    createdAt: p.created_at,
+  }));
+
+  const recentUsers: RecentUser[] = users.map((u) => {
+    const role = String(u.role ?? "");
+    const memberType: RecentUser["memberType"] =
+      role === "admin" || role === "master"
+        ? "admin"
+        : role === "special" || role === "premium"
+          ? "premium"
+          : "normal";
+    const id = String(u.id ?? "");
+    const nickname = String(u.nickname ?? u.username ?? id).trim() || id.slice(0, 8);
+    const joinedAt =
+      (typeof u.created_at === "string" && u.created_at) ||
+      (typeof u.updated_at === "string" && u.updated_at) ||
+      nowIso;
+    return {
+      id,
+      nickname,
+      memberType,
+      joinedAt,
+    };
+  });
+
+  const toTargetType = (t: string): RecentReport["targetType"] => {
+    if (t === "product" || t === "user") return t;
+    if (t === "chat_room" || t === "chat_message") return "chat";
+    return "product";
+  };
+
+  const recentReports: RecentReport[] = reportRows.map((r: any) => ({
+    id: r.id,
+    targetType: toTargetType(r.target_type ?? ""),
+    reasonLabel: ADMIN_DASHBOARD_REPORT_REASON_LABELS[r.reason_code] ?? r.reason_code ?? "-",
+    status: toReportPanelStatus(r.status ?? "pending"),
+    createdAt: r.created_at,
+  }));
+
+  const recentChats: RecentChat[] = rooms.map((r: any) => ({
+    id: r.id,
+    productTitle: postTitleById.get(String(r.post_id ?? "")) || "(제목 없음)",
+    buyerNickname: nicknameById.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
+    sellerNickname: nicknameById.get(String(r.seller_id ?? "")) ?? String(r.seller_id ?? "").slice(0, 8),
+    lastMessageAt: r.last_message_at ?? r.created_at,
+  }));
+
+  const toRating = (t: string): number => {
+    if (t === "good") return 5;
+    if (t === "bad") return 1;
+    return 3;
+  };
+
+  const recentReviews: RecentReview[] = reviewRows.map((r: any) => ({
+    id: r.id,
+    reviewerNickname: nicknameById.get(String(r.reviewer_id ?? "")) ?? String(r.reviewer_id ?? "").slice(0, 8),
+    targetNickname: nicknameById.get(String(r.reviewee_id ?? "")) ?? String(r.reviewee_id ?? "").slice(0, 8),
+    rating: toRating(r.public_review_type ?? ""),
+    createdAt: r.created_at,
+  }));
 
   if (aggRes.error) {
     throw new Error(

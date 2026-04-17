@@ -41,6 +41,71 @@ import {
   shouldEnableNextLinkPrefetchOnMainNav,
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
+import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+
+/** 프로그램적 prefetch 상한 — 메뉴 전환 직후 메인 스레드·RSC 경쟁 완화 */
+const MAIN_BOTTOM_NAV_PREFETCH_MAX = 2;
+
+function findLongestMatchingBottomNavTabIndex(
+  pathname: string | null,
+  tabs: readonly BottomNavItemConfig[]
+): number {
+  const p = pathname?.trim() ?? "";
+  if (!p) return 0;
+  let bestIdx = 0;
+  let bestLen = -1;
+  for (let i = 0; i < tabs.length; i++) {
+    const h = tabs[i]?.href?.trim() ?? "";
+    if (!h) continue;
+    if (p === h || p.startsWith(`${h}/`)) {
+      if (h.length > bestLen) {
+        bestLen = h.length;
+        bestIdx = i;
+      }
+    }
+  }
+  if (bestLen < 0) return 0;
+  return bestIdx;
+}
+
+/**
+ * 현재 경로 기준 **탭바에서 바로 옆 탭 1개**를 우선하고, 여유가 있으면 **거래채팅 메신저 허브**를 둘째로 둔다.
+ * (기존: 모든 탭 + trade 허브를 spread 로 연쇀 prefetch → 동시에 여러 RSC prefetch 가 겹칠 수 있음)
+ */
+function pickMainBottomNavPrefetchHrefs(
+  pathname: string | null,
+  tabs: readonly BottomNavItemConfig[]
+): string[] {
+  const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
+  const tradeHub = TRADE_CHAT_SURFACE.messengerListHref.trim();
+  const messengerPathPrefix = "/community-messenger";
+  const p = pathname?.trim() ?? "";
+
+  const activeIdx = findLongestMatchingBottomNavTabIndex(pathname, list);
+  const n = list.length;
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  const push = (href: string) => {
+    const h = href.trim();
+    if (!h || seen.has(h)) return;
+    if (p === h || p.startsWith(`${h}/`)) return;
+    seen.add(h);
+    out.push(h);
+  };
+
+  const neighborHref = list[(activeIdx + 1) % n]?.href?.trim() ?? "";
+  push(neighborHref);
+
+  if (out.length < MAIN_BOTTOM_NAV_PREFETCH_MAX && tradeHub && !p.startsWith(messengerPathPrefix)) {
+    const tradePathOnly = tradeHub.split("?")[0] ?? "";
+    if (tradePathOnly && !p.startsWith(`${tradePathOnly}/`) && p !== tradePathOnly) {
+      push(tradeHub);
+    }
+  }
+
+  return out.slice(0, MAIN_BOTTOM_NAV_PREFETCH_MAX);
+}
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -319,42 +384,47 @@ export function BottomNav() {
   }, [pathname]);
 
   /**
-   * 주요 탭·거래채팅 허브 RSC 선로딩.
-   * - 경로 변경마다 즉시 전부 `prefetch` 하면 이동 직후 RSC·메인 스레드와 경쟁해 크롬에서 체감이 나빠짐.
-   * - `chrome-navigation-policy`: 디바운스 → idle → `prefetch` 를 시간으로 분산.
-   * - 과도한 배치만 `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끈다.
-   * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리한다.
+   * 주요 탭 RSC 선로딩 — **최대 2개 href**, idle 이후 **순차** prefetch (동시 다발 제거).
+   * - 1순위: 탭바에서 현재 탭의 **다음 이웃** (사용자가 한 칸 옆으로 이동할 확률이 가장 높음)
+   * - 2순위(옵션): 메신저 트리 밖에 있을 때만 **거래채팅 메신저 허브** (`TRADE_CHAT_SURFACE.messengerListHref`)
+   * - `chrome-navigation-policy`: 디바운스 → idle 유지, 두 번째는 `SPREAD_MS` 만큼 뒤에 1회만 스케줄
+   * - `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 전체 끔
+   * - `tabs` 는 ref 로만 읽어 배지·기타 네비 리렌더와 분리
    */
   useEffect(() => {
     if (!shouldRunBottomNavProgrammaticPrefetch()) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const tradeHub = TRADE_CHAT_SURFACE.messengerListHref;
-    const hrefs: string[] = [];
-    if (!pathname?.startsWith(tradeHub)) hrefs.push(tradeHub);
-    for (const tab of tabsRef.current) {
-      const h = tab.href?.trim() ?? "";
-      if (h && !hrefs.includes(h) && h !== pathname) hrefs.push(h);
-    }
     let cancelled = false;
     let idleId = -1;
-    const spreadTimeouts: number[] = [];
+    let chainTimer: number | null = null;
 
     const debounceId = window.setTimeout(() => {
       if (cancelled) return;
       idleId = scheduleWhenBrowserIdle(() => {
         if (cancelled) return;
-        hrefs.forEach((href, idx) => {
-          const tid = window.setTimeout(() => {
-            if (cancelled) return;
-            try {
-              router.prefetch(href);
-            } catch {
-              /* no-op */
-            }
-          }, idx * BOTTOM_NAV_PREFETCH_SPREAD_MS);
-          spreadTimeouts.push(tid);
-        });
+        const hrefs = pickMainBottomNavPrefetchHrefs(pathname ?? null, tabsRef.current);
+        if (hrefs.length === 0) return;
+
+        const runPrefetchAt = (idx: number) => {
+          if (cancelled || idx >= hrefs.length) return;
+          const href = hrefs[idx];
+          try {
+            samarketRuntimeDebugLog("bottom-nav-prefetch", "router.prefetch", {
+              href,
+              pathname: pathname ?? null,
+              index: idx,
+              total: hrefs.length,
+            });
+            router.prefetch(href);
+          } catch {
+            /* no-op */
+          }
+          if (idx + 1 < hrefs.length) {
+            chainTimer = window.setTimeout(() => runPrefetchAt(idx + 1), BOTTOM_NAV_PREFETCH_SPREAD_MS);
+          }
+        };
+        runPrefetchAt(0);
       }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
     }, BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS);
 
@@ -362,10 +432,10 @@ export function BottomNav() {
       cancelled = true;
       window.clearTimeout(debounceId);
       cancelScheduledWhenBrowserIdle(idleId);
-      for (const tid of spreadTimeouts) {
-        window.clearTimeout(tid);
+      if (chainTimer != null) {
+        window.clearTimeout(chainTimer);
+        chainTimer = null;
       }
-      spreadTimeouts.length = 0;
     };
   }, [pathname, router]);
 

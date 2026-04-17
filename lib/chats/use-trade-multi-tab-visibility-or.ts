@@ -34,7 +34,9 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
   const publish = useCallback((visible: boolean) => {
     if (!enabled || typeof window === "undefined") return;
     const tid = idRef.current || (idRef.current = tabId());
-    mapRef.current[tid] = visible;
+    /** `false` 키를 쌓지 않음 — 탭을 많이 열었다 닫으면 `Object.keys` 비용이 커질 수 있음 */
+    if (visible) mapRef.current[tid] = true;
+    else delete mapRef.current[tid];
     setAnyVisible(Object.values(mapRef.current).some(Boolean));
     try {
       const bc = new BroadcastChannel(BC_NAME);
@@ -50,7 +52,8 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
     const tid = idRef.current || (idRef.current = tabId());
     const apply = () => {
       const v = document.visibilityState === "visible";
-      mapRef.current[tid] = v;
+      if (v) mapRef.current[tid] = true;
+      else delete mapRef.current[tid];
       setAnyVisible(Object.values(mapRef.current).some(Boolean));
       try {
         const bc = new BroadcastChannel(BC_NAME);
@@ -69,7 +72,8 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
         const ot = typeof p.tabId === "string" ? p.tabId : "";
         const ov = p.visible === true;
         if (!ot) return;
-        mapRef.current[ot] = ov;
+        if (ov) mapRef.current[ot] = true;
+        else delete mapRef.current[ot];
         setAnyVisible(Object.values(mapRef.current).some(Boolean));
       };
     } catch {
@@ -78,7 +82,7 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
     document.addEventListener("visibilitychange", apply);
     return () => {
       document.removeEventListener("visibilitychange", apply);
-      mapRef.current[tid] = false;
+      delete mapRef.current[tid];
       try {
         const x = new BroadcastChannel(BC_NAME);
         x.postMessage({ tabId: tid, visible: false });
