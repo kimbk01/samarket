@@ -69,6 +69,7 @@ export function PostListByCategory({
   const [page, setPage] = useState(1);
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
@@ -286,6 +287,15 @@ export function PostListByCategory({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current != null) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const loadMore = useCallback(() => {
     if (loading || !hasMore) return;
     const next = page + 1;
@@ -300,7 +310,11 @@ export function PostListByCategory({
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
     if (action === "interest") {
       setToast("관심 있음으로 표시했어요");
-      setTimeout(() => setToast(null), 2000);
+      if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => {
+        toastTimerRef.current = null;
+        setToast(null);
+      }, 2000);
     }
     if (action === "not_interest") {
       setNotInterestedPostIds((prev) => new Set(prev).add(postId));

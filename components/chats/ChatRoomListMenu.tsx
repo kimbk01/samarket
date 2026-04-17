@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
+import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 
 type Props = {
   roomId: string;
@@ -48,7 +48,10 @@ export function ChatRoomListMenu({ roomId, onAfterAction, className }: Props) {
           return;
         }
         setOpen(false);
-        window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+        dispatchTradeChatUnreadUpdated({
+          source: "chat-room-list-menu",
+          key: `${roomId}:${kind}`,
+        });
         onAfterAction?.();
       } catch {
         window.alert(t("nav_trade_network_error"));

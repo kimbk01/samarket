@@ -438,6 +438,35 @@ export function useMessengerRoomClientPhase1({
       memberActionTarget != null;
   }, [loading, activeSheet, messageActionItem, callStubSheet, infoSheetFocus, memberActionTarget]);
 
+  const readGateVersion = useMemo(() => {
+    const latestMessageId =
+      roomMessages[roomMessages.length - 1]?.id ??
+      snapshot?.messages?.[snapshot.messages.length - 1]?.id ??
+      "";
+    return [
+      roomId,
+      snapshot?.room.unreadCount ?? 0,
+      latestMessageId,
+      loading ? "loading" : "ready",
+      activeSheet ?? "no-sheet",
+      messageActionItem?.id ?? "no-message-action",
+      callStubSheet?.id ?? "no-call-stub",
+      infoSheetFocus ?? "no-info-focus",
+      memberActionTarget?.id ?? "no-member-action",
+    ].join("|");
+  }, [
+    roomId,
+    snapshot?.room.unreadCount,
+    snapshot?.messages,
+    roomMessages,
+    loading,
+    activeSheet,
+    messageActionItem?.id,
+    callStubSheet?.id,
+    infoSheetFocus,
+    memberActionTarget?.id,
+  ]);
+
   useMessengerRoomOpenMarkReadEffect({
     roomId,
     snapshotRef,
@@ -447,6 +476,7 @@ export function useMessengerRoomClientPhase1({
     messagesViewportRef,
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
+    readGateVersion,
   });
 
   useEffect(() => {

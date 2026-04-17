@@ -20,8 +20,6 @@ export type MessengerRoomOpenMarkReadPhaseRef = MutableRefObject<{
   phase: "idle" | "in_flight" | "done";
 }>;
 
-const READ_DWELL_TICK_MS = 200;
-
 function lastMarkableMessageId(
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>,
   snapshotMessages: CommunityMessengerMessage[] | undefined
@@ -65,6 +63,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   readPhase1OverlayBlockedRef: MutableRefObject<boolean>;
   /** 초기 부트스트랩 등으로 타임라인 미준비 시 true */
   roomLoadingRef: MutableRefObject<boolean>;
+  /** unread / latest message / overlay / loading 변화 시 재평가 트리거 */
+  readGateVersion: string;
 }): void {
   const {
     roomId,
@@ -75,6 +75,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     messagesViewportRef,
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
+    readGateVersion,
   } = args;
 
   useEffect(() => {
@@ -88,8 +89,16 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     let dwellStartAt: number | null = null;
     let dwellAnchorMessageId: string | null = null;
     let cancelled = false;
+    let dwellTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const tick = () => {
+    const clearDwellTimer = () => {
+      if (dwellTimer != null) {
+        clearTimeout(dwellTimer);
+        dwellTimer = null;
+      }
+    };
+
+    const reevaluate = () => {
       if (cancelled) return;
       const snap = snapshotRef.current;
       if (!snap || String(snap.room.id) !== String(id)) return;
@@ -100,17 +109,20 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (roomOpenMarkReadRef.current.phase !== "idle") {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
+        clearDwellTimer();
         return;
       }
       if (snap.room.unreadCount < 1) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
+        clearDwellTimer();
         return;
       }
 
       if (roomLoadingRef.current || readPhase1OverlayBlockedRef.current || isMessengerRoomReadGateExtraBlocked()) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
+        clearDwellTimer();
         return;
       }
 
@@ -125,6 +137,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (!visible || !focused || !atBottom || !lastId || !latestVisible) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
+        clearDwellTimer();
         return;
       }
 
@@ -132,14 +145,27 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (dwellStartAt == null || dwellAnchorMessageId !== lastId) {
         dwellStartAt = now;
         dwellAnchorMessageId = lastId;
+        clearDwellTimer();
+        dwellTimer = setTimeout(() => {
+          dwellTimer = null;
+          reevaluate();
+        }, CM_ROOM_BOTTOM_READ_DWELL_MS);
         return;
       }
 
-      if (now - dwellStartAt < CM_ROOM_BOTTOM_READ_DWELL_MS) return;
+      if (now - dwellStartAt < CM_ROOM_BOTTOM_READ_DWELL_MS) {
+        clearDwellTimer();
+        dwellTimer = setTimeout(() => {
+          dwellTimer = null;
+          reevaluate();
+        }, CM_ROOM_BOTTOM_READ_DWELL_MS - (now - dwellStartAt));
+        return;
+      }
 
       roomOpenMarkReadRef.current.phase = "in_flight";
       dwellStartAt = null;
       dwellAnchorMessageId = null;
+      clearDwellTimer();
       const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
       void (async () => {
         try {
@@ -164,10 +190,25 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       })();
     };
 
-    const iv = window.setInterval(tick, READ_DWELL_TICK_MS);
+    const onVisibility = () => reevaluate();
+    const onFocus = () => reevaluate();
+    const onResize = () => reevaluate();
+    const onViewportScroll = () => reevaluate();
+    const viewport = messagesViewportRef.current;
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("resize", onResize);
+    viewport?.addEventListener("scroll", onViewportScroll, { passive: true });
+    queueMicrotask(() => {
+      reevaluate();
+    });
     return () => {
       cancelled = true;
-      window.clearInterval(iv);
+      clearDwellTimer();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("resize", onResize);
+      viewport?.removeEventListener("scroll", onViewportScroll);
     };
   }, [
     roomId,
@@ -178,5 +219,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     messagesViewportRef,
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
+    readGateVersion,
   ]);
 }

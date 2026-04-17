@@ -44,8 +44,6 @@ import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
   MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS,
-  MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS,
-  MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS,
   MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
   MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
@@ -133,6 +131,23 @@ function isTerminalCallSessionStatusValue(status: unknown): boolean {
   return s === "ended" || s === "cancelled" || s === "rejected" || s === "missed";
 }
 
+function isIncomingCallWindowForeground(): boolean {
+  if (typeof document === "undefined") return true;
+  if (document.visibilityState !== "visible" || document.hidden) return false;
+  return typeof document.hasFocus === "function" ? document.hasFocus() : true;
+}
+
+function shouldRunIncomingCallBackupHttpRequest(args: {
+  pathname: string | null;
+  hasRingingDirectCallee: boolean;
+  realtimeOk: boolean;
+}): boolean {
+  if (!shouldRunIncomingCallBackupHttpPoll(args.pathname, args.hasRingingDirectCallee)) return false;
+  if (!isIncomingCallWindowForeground()) return false;
+  if (args.hasRingingDirectCallee) return true;
+  return !args.realtimeOk;
+}
+
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -149,6 +164,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [minimizedSessionId, setMinimizedSessionId] = useState<string | null>(null);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
+  const [incomingRealtimeOk, setIncomingRealtimeOk] = useState(false);
   /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
   const [incomingListError, setIncomingListError] = useState<string | null>(null);
   const [sessionActionError, setSessionActionError] = useState<string | null>(null);
@@ -185,7 +201,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   viewerUserIdRef.current = userId;
   /** direct 수신 ringing — 백업 폴링을 더 촘촘히 */
   const ringingDirectCalleeRef = useRef(false);
-  ringingDirectCalleeRef.current =
+  const ringingDirectCallee =
     Boolean(userId) &&
     sessions.some(
       (s) =>
@@ -194,6 +210,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         !s.isMineInitiator &&
         Boolean(s.recipientUserId && userId && messengerUserIdsEqual(s.recipientUserId, userId))
     );
+  ringingDirectCalleeRef.current = ringingDirectCallee;
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
@@ -296,6 +313,15 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */
   const queueVisibilityRefreshBurst = useCallback(() => {
+    if (
+      !shouldRunIncomingCallBackupHttpRequest({
+        pathname: pathnameRef.current,
+        hasRingingDirectCallee: ringingDirectCalleeRef.current,
+        realtimeOk: incomingRealtimeOkRef.current,
+      })
+    ) {
+      return;
+    }
     const runBurst = () => {
       lastBurstAtRef.current = Date.now();
       pendingBurstTimerRef.current = null;
@@ -357,7 +383,13 @@ export function GlobalCommunityMessengerIncomingCall() {
       window.clearTimeout(pendingBurstTimerRef.current);
       pendingBurstTimerRef.current = null;
     }
-    if (shouldRunIncomingCallBackupHttpPoll(cur, ringingDirectCalleeRef.current)) {
+    if (
+      shouldRunIncomingCallBackupHttpRequest({
+        pathname: cur,
+        hasRingingDirectCallee: ringingDirectCalleeRef.current,
+        realtimeOk: incomingRealtimeOkRef.current,
+      })
+    ) {
       queueVisibilityRefreshBurstRef.current();
     }
   }, [pathname, userId]);
@@ -378,18 +410,19 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   /**
-   * 폴링은 `sessions` 의존 없이 고정 스케줄 — effect 재실행·GET 폭증 방지.
-   * Realtime 정상일 때도 **짧은 백업 폴링**을 유지해 이벤트 유실 시 10~20초 벨 지연을 막는다.
+   * 폴링은 `realtime 미정상` 또는 `직통 ringing` 때만 켠다.
+   * Realtime 이 정상이고 현재 창이 foreground 이면 같은 데이터에 대해 HTTP 백업 GET 을 중복으로 돌리지 않는다.
    *
    * HTTP GET 백업만 `shouldRunIncomingCallBackupHttpPoll` 로 게이트 — 홈·비채팅 표면에서는
    * 타이머만 긴 tail 로 유지하고 GET 은 생략(Realtime·Broadcast·SW·포커스 burst 는 그대로).
    */
   useEffect(() => {
     if (!userId) return;
-    const allowBurst = shouldRunIncomingCallBackupHttpPoll(
-      pathnameRef.current,
-      ringingDirectCalleeRef.current
-    );
+    const allowBurst = shouldRunIncomingCallBackupHttpRequest({
+      pathname: pathnameRef.current,
+      hasRingingDirectCallee: ringingDirectCalleeRef.current,
+      realtimeOk: incomingRealtimeOkRef.current,
+    });
     if (allowBurst) {
       queueVisibilityRefreshBurstRef.current();
     }
@@ -398,26 +431,25 @@ export function GlobalCommunityMessengerIncomingCall() {
 
     const schedulePoll = () => {
       if (cancelled) return;
-      const allowPoll = shouldRunIncomingCallBackupHttpPoll(
-        pathnameRef.current,
-        ringingDirectCalleeRef.current
-      );
-      const hidden = document.visibilityState !== "visible" || document.hidden;
-      const ms = allowPoll
-        ? hidden
-          ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
-          : incomingRealtimeOkRef.current
-            ? ringingDirectCalleeRef.current
-              ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
-              : MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS
-            : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false)
+      const allowNetworkPoll = shouldRunIncomingCallBackupHttpRequest({
+        pathname: pathnameRef.current,
+        hasRingingDirectCallee: ringingDirectCalleeRef.current,
+        realtimeOk: incomingRealtimeOkRef.current,
+      });
+      const ms = allowNetworkPoll
+        ? ringingDirectCalleeRef.current
+          ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
+          : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false)
         : INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
       pollTimer = window.setTimeout(() => {
         pollTimer = null;
-        /* 백그라운드에서도 폴링 — 탭 전환·다른 창 작업 중 Realtime 지연 시 수신 누락 방지 */
         if (
           !cancelled &&
-          shouldRunIncomingCallBackupHttpPoll(pathnameRef.current, ringingDirectCalleeRef.current)
+          shouldRunIncomingCallBackupHttpRequest({
+            pathname: pathnameRef.current,
+            hasRingingDirectCallee: ringingDirectCalleeRef.current,
+            realtimeOk: incomingRealtimeOkRef.current,
+          })
         ) {
           void refreshRef.current(true);
         }
@@ -460,7 +492,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         pendingBurstTimerRef.current = null;
       }
     };
-  }, [userId]);
+  }, [incomingRealtimeOk, ringingDirectCallee, userId]);
 
   /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
   useEffect(() => {
@@ -534,13 +566,16 @@ export function GlobalCommunityMessengerIncomingCall() {
 
     let cancelled = false;
     incomingRealtimeOkRef.current = false;
+    setIncomingRealtimeOk(false);
     const sub = subscribeWithRetry({
       sb,
       name: `community-messenger-incoming-call:${userId}`,
       scope: "community-messenger-incoming-call",
       isCancelled: () => cancelled,
       onStatus: (status) => {
-        incomingRealtimeOkRef.current = status === "SUBSCRIBED";
+        const ok = status === "SUBSCRIBED";
+        incomingRealtimeOkRef.current = ok;
+        setIncomingRealtimeOk(ok);
       },
       /** 원격망에서 WS 재연결 실패 시에도 HTTP 로 수신 목록·종료 상태를 맞춤 */
       onAfterSubscribeFailure: () => {
@@ -667,6 +702,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       sub.stop();
       incomingRealtimeOkRef.current = false;
+      setIncomingRealtimeOk(false);
     };
   }, [bumpIncomingListFastSync, scheduleRealtimeIncomingRefresh, userId]);
 

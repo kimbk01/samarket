@@ -7,11 +7,14 @@ import { patchBootstrapRoomListForRealtimeMessageInsert } from "@/lib/community-
 import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   type CommunityMessengerHomeRealtimeMessageInsertHint,
   type CommunityMessengerHomeRealtimeParticipantUnreadHint,
   useCommunityMessengerHomeRealtime,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
+
+const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 
 export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   userId: string | null | undefined;
@@ -33,6 +36,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   setData,
 }: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
   const homeMissingRoomSummaryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const homeSummaryLastFetchAtRef = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     return () => {
@@ -58,9 +62,17 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         timers.delete(id);
         void (async () => {
           try {
-            const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(id)}/home-summary`, {
-              credentials: "include",
-            });
+            const now = Date.now();
+            const lastFetchAt = homeSummaryLastFetchAtRef.current.get(id) ?? 0;
+            if (now - lastFetchAt < HOME_SUMMARY_MIN_FETCH_GAP_MS) return;
+            homeSummaryLastFetchAtRef.current.set(id, now);
+            const res = await runSingleFlight(
+              `community-messenger:home:missing-room-summary:${id}`,
+              () =>
+                fetch(`/api/community-messenger/rooms/${encodeURIComponent(id)}/home-summary`, {
+                  credentials: "include",
+                })
+            );
             const json = (await res.json().catch(() => ({}))) as {
               ok?: boolean;
               room?: CommunityMessengerRoomSummary;
@@ -69,6 +81,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             setData((prev) => {
               if (!prev) return prev;
               const merged = mergeBootstrapRoomSummaryIntoLists(prev, json.room!);
+              if (merged === prev) return prev;
               primeBootstrapCache(merged);
               return merged;
             });

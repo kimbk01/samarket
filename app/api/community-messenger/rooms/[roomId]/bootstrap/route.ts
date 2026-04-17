@@ -13,6 +13,8 @@ import {
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
+const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
+
 /**
  * GET — 한 번에 방 메타, 참가자(멤버), 최근 메시지, 내 unread(room.unreadCount), activeCall.
  * 초기 로드 전용; 이후 갱신은 동일 엔드포인트 또는 `GET /rooms/[id]`(messageLimit 쿼리) 사용.
@@ -42,16 +44,19 @@ export async function GET(
   const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
-  /** `minimal` — 참가자 전원 프로필 생략(첫 페인트·백그라운드 동기화용) */
-  const hydrateFullMemberList = mode === "expand" ? true : memberHydration !== "minimal";
+  const isSeedMode = mode === "lite" || mode === "seed";
+  const hydrateFullMemberList = mode === "expand" || memberHydration === "full";
   const effectiveDefaultLimit =
-    mode === "lite" ? Math.min(18, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT) : COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
+    mode === "expand"
+      ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
+      : Math.min(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
   const opts: CommunityMessengerRoomSnapshotOptions = {
     initialMessageLimit:
       rawLimit != null && rawLimit !== ""
         ? Math.floor(Number(rawLimit)) || effectiveDefaultLimit
         : effectiveDefaultLimit,
     hydrateFullMemberList,
+    deferSnapshotSecondary: isSeedMode,
   };
 
   const t0 = performance.now();

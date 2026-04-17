@@ -126,10 +126,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     (rid: string) => {
       const id = String(rid ?? "").trim();
       if (!id) return;
-      const href = `/community-messenger/rooms/${encodeURIComponent(id)}`;
-      void prefetchCommunityMessengerRoomSnapshot(id);
-      void router.prefetch(href);
-      router.push(href);
+      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
     },
     [router]
   );

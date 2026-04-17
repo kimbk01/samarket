@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +31,7 @@ export default function CommunityMessengerPage({
   searchParams: Promise<MessengerSearch>;
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
+    <Suspense fallback={<CommunityMessengerHomeShellSkeleton />}>
       <CommunityMessengerPageBody searchParamsPromise={searchParams} />
     </Suspense>
   );

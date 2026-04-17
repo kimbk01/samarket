@@ -67,6 +67,7 @@ function MessengerRoomRows({
 }: MessengerRoomRowsProps) {
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? items.length : 0,
+    getItemKey: (index) => items[index]?.room.id ?? index,
     getScrollElement: () =>
       typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null,
     estimateSize: () => MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX,
@@ -289,6 +290,7 @@ export function MessengerChatsScreen({
         />
       ) : (
         <div
+          data-cm-home-empty-state="true"
           className={`px-3 py-8 text-center text-[13px] leading-snug whitespace-pre-line ${
             listContext === "archive"
               ? "rounded-[var(--messenger-radius-md)] border border-dashed border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -12,7 +12,6 @@ import {
   type BottomNavIconKey,
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
-import { refreshOwnerHubBadgeIfHubPath } from "@/lib/chats/owner-hub-badge-store";
 import {
   useOwnerHubBadgeStoreDeepLink,
   useOwnerHubBadgeTabUnreadCount,
@@ -28,8 +27,6 @@ import {
   MAIN_BOTTOM_NAV_LS_REV_KEY,
 } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
-import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
-import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import {
   BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS,
@@ -184,17 +181,21 @@ type BottomNavRouter = ReturnType<typeof useRouter>;
 function BottomNavTabStandard({
   tab,
   pathname,
+  optimisticActive,
+  onNavigationIntent,
   tt,
   t,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
+  optimisticActive: boolean;
+  onNavigationIntent: (tabId: string) => void;
   tt: BottomNavI18n["tt"];
   t: BottomNavI18n["t"];
 }) {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
-  const isActive = isBottomNavTabActive(pathname, tab.href);
+  const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS[tab.icon];
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -250,6 +251,10 @@ function BottomNavTabStandard({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
+      onPointerDown={() => onNavigationIntent(tab.id)}
+      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
+        if (e.key === "Enter" || e.key === " ") onNavigationIntent(tab.id);
+      }}
       onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
     >
       {inner}
@@ -260,25 +265,22 @@ function BottomNavTabStandard({
 function BottomNavTabStores({
   tab,
   pathname,
+  optimisticActive,
+  onNavigationIntent,
   tt,
   t,
-  router,
-  refreshBusinessHubGate,
-  setBusinessHubBlockedModalOpen,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
+  optimisticActive: boolean;
+  onNavigationIntent: (tabId: string) => void;
   tt: BottomNavI18n["tt"];
   t: BottomNavI18n["t"];
-  router: BottomNavRouter;
-  refreshBusinessHubGate: () => Promise<boolean>;
-  setBusinessHubBlockedModalOpen: (open: boolean) => void;
 }) {
   const ownerStore = useOwnerLitePreferredStoreRow();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
-  const storeDeepLink = useOwnerHubBadgeStoreDeepLink();
-  const storeDeepLinkNavBusyRef = useRef(false);
-  const isActive = isBottomNavTabActive(pathname, tab.href);
+  useOwnerHubBadgeStoreDeepLink();
+  const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -334,39 +336,6 @@ function BottomNavTabStores({
     </>
   );
 
-  if (storesNavWithAttention && storeDeepLink) {
-    return (
-      <a
-        href={tab.href}
-        className={className}
-        aria-label={ariaLbl}
-        aria-current={isActive ? "page" : undefined}
-        onClick={(e) => {
-          triggerLightTapFeedback();
-          e.preventDefault();
-          if (storeDeepLinkNavBusyRef.current) return;
-          storeDeepLinkNavBusyRef.current = true;
-          void (async () => {
-            try {
-              if (shouldInterceptBusinessHubHref(storeDeepLink)) {
-                const block = await refreshBusinessHubGate();
-                if (block) {
-                  setBusinessHubBlockedModalOpen(true);
-                  return;
-                }
-              }
-              router.push(storeDeepLink);
-            } finally {
-              storeDeepLinkNavBusyRef.current = false;
-            }
-          })();
-        }}
-      >
-        {inner}
-      </a>
-    );
-  }
-
   return (
     <Link
       href={tab.href}
@@ -376,6 +345,10 @@ function BottomNavTabStores({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
+      onPointerDown={() => onNavigationIntent(tab.id)}
+      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
+        if (e.key === "Enter" || e.key === " ") onNavigationIntent(tab.id);
+      }}
       onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
     >
       {inner}
@@ -397,10 +370,11 @@ export function BottomNav() {
   const { tt, t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const { hubBlockedModal, refresh: refreshBusinessHubGate, setModalOpen: setBusinessHubBlockedModalOpen } =
-    useStoreBusinessHubEntryModal(t("common_confirm"), { eager: false });
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
+  const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
   const tabsRef = useRef(tabs);
+  const pendingActiveResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPathnameForPendingRef = useRef<string | null>(pathname ?? null);
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
@@ -409,6 +383,25 @@ export function BottomNav() {
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/mypage\/trade\/chat\/[^/]+\/?$/) ?? false);
+
+  const clearPendingActiveReset = useCallback(() => {
+    if (pendingActiveResetTimerRef.current != null) {
+      window.clearTimeout(pendingActiveResetTimerRef.current);
+      pendingActiveResetTimerRef.current = null;
+    }
+  }, []);
+
+  const markBottomNavIntent = useCallback(
+    (tabId: string) => {
+      setPendingActiveTabId((prev) => (prev === tabId ? prev : tabId));
+      clearPendingActiveReset();
+      pendingActiveResetTimerRef.current = window.setTimeout(() => {
+        pendingActiveResetTimerRef.current = null;
+        setPendingActiveTabId(null);
+      }, 1500);
+    },
+    [clearPendingActiveReset]
+  );
 
   const applyMainBottomNavItems = useCallback(async (force: boolean) => {
     try {
@@ -457,8 +450,19 @@ export function BottomNav() {
   }, [applyMainBottomNavItems]);
 
   useEffect(() => {
-    refreshOwnerHubBadgeIfHubPath(pathname ?? null);
-  }, [pathname]);
+    const prev = lastPathnameForPendingRef.current;
+    const next = pathname ?? null;
+    lastPathnameForPendingRef.current = next;
+    if (prev === next || pendingActiveTabId == null) return;
+    clearPendingActiveReset();
+    setPendingActiveTabId(null);
+  }, [pathname, pendingActiveTabId, clearPendingActiveReset]);
+
+  useEffect(() => {
+    return () => {
+      clearPendingActiveReset();
+    };
+  }, [clearPendingActiveReset]);
 
   /**
    * 주요 탭 RSC idle 선로딩 — **상한 `MAIN_BOTTOM_NAV_PREFETCH_MAX`**, 순차 `router.prefetch`.
@@ -523,7 +527,6 @@ export function BottomNav() {
 
   return (
     <>
-    {hubBlockedModal}
     <nav
       className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
       aria-label={t("nav_bottom_bar_aria")}
@@ -535,17 +538,18 @@ export function BottomNav() {
               key={tab.id}
               tab={tab}
               pathname={pathname}
+              optimisticActive={pendingActiveTabId === tab.id}
+              onNavigationIntent={markBottomNavIntent}
               tt={tt}
               t={t}
-              router={router}
-              refreshBusinessHubGate={refreshBusinessHubGate}
-              setBusinessHubBlockedModalOpen={setBusinessHubBlockedModalOpen}
             />
           ) : (
             <BottomNavTabStandard
               key={tab.id}
               tab={tab}
               pathname={pathname}
+              optimisticActive={pendingActiveTabId === tab.id}
+              onNavigationIntent={markBottomNavIntent}
               tt={tt}
               t={t}
             />

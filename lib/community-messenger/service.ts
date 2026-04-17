@@ -4926,7 +4926,7 @@ export async function getCommunityMessengerRoomSnapshot(
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
-  /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 거래/배달 메신저 방은 첫 화면에 붙이기 위해 생략하지 않음 */
+  /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주 */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
   let deferSecondary = false;
   const id = trimText(roomId);
@@ -4937,8 +4937,6 @@ export async function getCommunityMessengerRoomSnapshot(
   let messages: Array<MessageRow | DevMessage> = [];
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
-  /** `chat_rooms` / `product_chats` id 브리지 — 첫 CM 조회와 동시에 돌려 레이턴시 중첩 */
-  let tradeResolvedParallel: ResolveProductChatResult | null = null;
   if (sb) {
     const participantSelectCols =
       "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
@@ -4967,7 +4965,6 @@ export async function getCommunityMessengerRoomSnapshot(
       { data: participantData },
       { data: messageData },
       { data: myParticipantData },
-      tradeResolvedFromBatch,
     ] = await Promise.all([
       (sb as any)
         .from("community_messenger_rooms")
@@ -4985,9 +4982,7 @@ export async function getCommunityMessengerRoomSnapshot(
         .order("id", { ascending: false })
         .limit(messageLimit),
       myParticipantQuery,
-      resolveProductChat(sb as never, id),
     ]);
-    tradeResolvedParallel = tradeResolvedFromBatch;
     room = (roomData as RoomRow | null) ?? null;
     let rawParticipantRows = (participantData ?? []) as ParticipantRow[];
     const myRow = (myParticipantData ?? null) as ParticipantRow | null;
@@ -5030,7 +5025,7 @@ export async function getCommunityMessengerRoomSnapshot(
    * 브리지·ensure 없이 CM 방으로 바로 스냅샷. 없으면 기존 ensure 경로.
    */
   if (!room && sb) {
-    const tradeResolved = tradeResolvedParallel as ResolveProductChatResult | null;
+    const tradeResolved = await resolveProductChat(sb as never, id);
     if (tradeResolved?.messengerRoomId) {
       return getCommunityMessengerRoomSnapshot(userId, tradeResolved.messengerRoomId, options);
     }
@@ -5071,16 +5066,7 @@ export async function getCommunityMessengerRoomSnapshot(
   }
 
   if (deferSecondaryRequested && room) {
-    const earlySummaryText = trimText(
-      "room_type" in room ? (room as RoomRow).summary ?? "" : (room as DevRoom).summary ?? ""
-    );
-    const earlyMeta = parseCommunityMessengerRoomContextMeta(earlySummaryText);
-    const trp = tradeResolvedParallel;
-    const productLinked =
-      Boolean(trimText(trp?.productChatId ?? "")) || Boolean(trp?.productChat);
-    const isCommerceMessengerRoom =
-      earlyMeta?.kind === "trade" || earlyMeta?.kind === "delivery" || productLinked;
-    deferSecondary = !isCommerceMessengerRoom;
+    deferSecondary = true;
   }
 
   const allMemberIds = dedupeParticipantUserIds(participants);

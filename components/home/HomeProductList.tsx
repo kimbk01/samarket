@@ -48,6 +48,7 @@ export function HomeProductList({
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const lastLoadedAtRef = useRef(0);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     await runSingleFlight("home-product-list:load", async () => {
@@ -127,6 +128,15 @@ export function HomeProductList({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onFav);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current != null) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleRetry = useCallback(() => {
     setListState("loading");
     void load();
@@ -135,7 +145,11 @@ export function HomeProductList({
   const handleMenuAction = useCallback((postId: string, action: PostListMenuAction) => {
     if (action === "interest") {
       setToast(tt("관심 있음으로 표시했어요"));
-      setTimeout(() => setToast(null), 2000);
+      if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => {
+        toastTimerRef.current = null;
+        setToast(null);
+      }, 2000);
     }
     if (action === "not_interest") {
       setNotInterestedPostIds((prev) => new Set(prev).add(postId));

@@ -44,7 +44,10 @@
  * @see lib/notifications/unified-messenger-trade-alert-contract.ts — 메신저+거래 통합 알림 규격·허브 스냅샷 거래 톤 억제
  */
 
-import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
+import {
+  dispatchOwnerHubBadgeRefresh,
+  KASAMA_OWNER_HUB_BADGE_REFRESH,
+} from "@/lib/chats/chat-channel-events";
 
 /** `playCoalescedChatNotificationSound` 와 동일 값 — 한 곳에서만 정의 */
 export const MESSENGER_CHAT_ALERT_MIN_GAP_MS = 2000;
@@ -78,5 +81,8 @@ export function requestMessengerHubBadgeResync(reason: MessengerHubBadgeResyncRe
     reason,
     at: Date.now(),
   };
-  window.dispatchEvent(new CustomEvent(MESSENGER_OWNER_HUB_BADGE_RESYNC_EVENT, { detail }));
+  dispatchOwnerHubBadgeRefresh({
+    source: detail.source,
+    key: reason,
+  });
 }

@@ -107,13 +107,17 @@ export function createMessengerRoomBootstrapRefresh(
       }
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
       /**
-       * 첫 진입(차단 로드) 성능이 핵심이라 기본은 `minimal` 로 간다.
-       * - 목록/프리패치 스냅샷이 있으면 이미 첫 페인트는 가능
-       * - 이후 멤버 시트 진입 시에만 `/members` 로 페이징 로드(기존 정책 유지)
-       * - 사일런트 갱신도 `membersDeferred`(minimal) 상태면 계속 minimal 유지
+       * 첫 차단 로드는 seed(`lite`)만, 이후 보강은 minimal members를 유지한 채 background로 붙인다.
+       * - blocking first load: seed + secondary defer
+       * - silent refresh after seed: minimal members + secondary enabled
        */
-      const wantMinimal = (!silent && !loadedRef.current && !primed) || (silent && deferredMemberBootstrapRef.current);
-      const bootstrapQuery = wantMinimal ? "?mode=lite&memberHydration=minimal" : "";
+      const wantSeed = !silent && !loadedRef.current && !primed;
+      const wantMinimalMembers = wantSeed || deferredMemberBootstrapRef.current;
+      const bootstrapQuery = wantSeed
+        ? "?mode=lite&memberHydration=minimal"
+        : wantMinimalMembers
+          ? "?memberHydration=minimal"
+          : "";
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
       const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
@@ -130,8 +134,8 @@ export function createMessengerRoomBootstrapRefresh(
       });
       if (roomRes.ok && snap) {
         setSnapshot(snap);
-        if (wantMinimal) {
-          // minimal 로 시작했으면 이후 사일런트 갱신도 minimal 유지(멤버 전원 로드는 members sheet에서만).
+        if (wantMinimalMembers) {
+          // minimal members 로 시작했으면 멤버 전원 로드는 members sheet에서만.
           deferredMemberBootstrapRef.current = true;
         }
         const elapsed =
@@ -143,7 +147,7 @@ export function createMessengerRoomBootstrapRefresh(
             phase: "bootstrap_fetch",
             blocking: true,
             silent,
-            mode: wantMinimal ? "lite" : "default",
+            mode: wantSeed ? "lite" : wantMinimalMembers ? "minimal-members" : "default",
             ms: elapsed,
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
           });

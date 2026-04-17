@@ -15,3 +15,54 @@ export const KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH = "kasama:buyer-store-orders-
 
 /** 관리자 메인 하단 탭 설정 저장 — `BottomNav` 가 즉시 재조회 */
 export const KASAMA_MAIN_BOTTOM_NAV_UPDATED = "kasama:main-bottom-nav-updated";
+
+type ChatChannelDispatchDetail = {
+  source?: string;
+  key?: string;
+  at: number;
+};
+
+const EVENT_DISPATCH_DEFAULT_DEDUPE_MS = 250;
+const recentEventDispatchAt = new Map<string, number>();
+
+function dispatchDedupedWindowEvent(eventName: string, detail: ChatChannelDispatchDetail, dedupeMs: number): void {
+  if (typeof window === "undefined") return;
+  const sig = `${eventName}:${detail.source ?? "unknown"}:${detail.key ?? "global"}`;
+  const now = Date.now();
+  const prev = recentEventDispatchAt.get(sig) ?? 0;
+  if (now - prev < dedupeMs) return;
+  recentEventDispatchAt.set(sig, now);
+  window.dispatchEvent(new CustomEvent(eventName, { detail }));
+}
+
+export function dispatchTradeChatUnreadUpdated(args?: {
+  source?: string;
+  key?: string;
+  dedupeMs?: number;
+}): void {
+  dispatchDedupedWindowEvent(
+    KASAMA_TRADE_CHAT_UNREAD_UPDATED,
+    {
+      source: args?.source,
+      key: args?.key,
+      at: Date.now(),
+    },
+    args?.dedupeMs ?? EVENT_DISPATCH_DEFAULT_DEDUPE_MS
+  );
+}
+
+export function dispatchOwnerHubBadgeRefresh(args?: {
+  source?: string;
+  key?: string;
+  dedupeMs?: number;
+}): void {
+  dispatchDedupedWindowEvent(
+    KASAMA_OWNER_HUB_BADGE_REFRESH,
+    {
+      source: args?.source,
+      key: args?.key,
+      at: Date.now(),
+    },
+    args?.dedupeMs ?? EVENT_DISPATCH_DEFAULT_DEDUPE_MS
+  );
+}

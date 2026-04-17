@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
@@ -36,12 +37,8 @@ export function CommunityMessengerRoomClientPhase2() {
       ? ({ maxHeight: vvBox.heightPx } as const)
       : undefined;
 
-  if (room.loading) {
-    return (
-      <div className="flex min-h-[70vh] items-center justify-center px-4 text-[14px] text-ui-muted">
-        채팅방을 불러오는 중입니다.
-      </div>
-    );
+  if (room.loading && !room.snapshot) {
+    return <CommunityMessengerRoomShellSkeleton />;
   }
 
   if (!room.snapshot) {

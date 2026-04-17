@@ -6,7 +6,7 @@ import {
   BUYER_ORDER_STATUS_LABEL,
   labelForOwnerTransition,
 } from "@/lib/stores/store-order-process-criteria";
-import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
+import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 
 const BTN_PRIMARY =
   "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center text-[13px] font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
@@ -57,9 +57,10 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
         setErr(typeof j?.error === "string" ? j.error : "update_failed");
         return;
       }
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
-      }
+      dispatchOwnerHubBadgeRefresh({
+        source: "owner-store-order-delivery-actions",
+        key: `${storeId}:${order.id}:${status}`,
+      });
       onUpdated();
     } catch {
       setErr("network_error");

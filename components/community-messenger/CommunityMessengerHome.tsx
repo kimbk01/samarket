@@ -15,6 +15,7 @@ import {
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
+import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -25,13 +26,6 @@ import {
   type MessengerNotificationCenterItem,
 } from "@/lib/community-messenger/messenger-notification-center-model";
 
-const MessengerIncomingFriendRequestPopup = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerIncomingFriendRequestPopup").then(
-      (m) => m.MessengerIncomingFriendRequestPopup
-    ),
-  { ssr: false, loading: () => null }
-);
 const MessengerFriendProfileSheet = dynamic(
   () =>
     import("@/components/community-messenger/MessengerFriendProfileSheet").then((m) => m.MessengerFriendProfileSheet),
@@ -119,7 +113,6 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
-import { consumeCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
@@ -163,6 +156,16 @@ import {
   readDismissedCommunityMessengerNotificationIds,
   writeDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
+import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
+import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
+
+type CommunityMessengerHomeOverlayKind =
+  | "composer"
+  | "requests"
+  | "search"
+  | "friends-privacy"
+  | "settings"
+  | "public-group-find";
 
 export function CommunityMessengerHome({
   initialTab,
@@ -183,21 +186,6 @@ export function CommunityMessengerHome({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  useEffect(() => {
-    // 방→리스트 복귀 체감 지연 측정
-    consumeCommunityMessengerHomeReturn();
-  }, []);
-  const navigateToCommunityRoom = useCallback(
-    (roomId: string) => {
-      const id = String(roomId ?? "").trim();
-      if (!id) return;
-      const href = `/community-messenger/rooms/${encodeURIComponent(id)}`;
-      void prefetchCommunityMessengerRoomSnapshot(id);
-      void router.prefetch(href);
-      router.push(href);
-    },
-    [router]
-  );
   const searchParams = useSearchParams();
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
   const tRef = useRef(t) as MutableRefObject<(key: string) => string>;
@@ -217,16 +205,14 @@ export function CommunityMessengerHome({
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [requestSheetOpen, setRequestSheetOpen] = useState(false);
+  const [activeOverlay, setActiveOverlay] = useState<CommunityMessengerHomeOverlayKind | null>(
+    initialTab === "settings" ? "settings" : null
+  );
   const [friendManagerOpen, setFriendManagerOpen] = useState(false);
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
-  const [searchSheetOpen, setSearchSheetOpen] = useState(false);
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
-  const [settingsSheetOpen, setSettingsSheetOpen] = useState(initialTab === "settings");
-  const [publicGroupFindOpen, setPublicGroupFindOpen] = useState(false);
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
     resolveMessengerSection(initialSection, initialTab)
   );
@@ -238,7 +224,6 @@ export function CommunityMessengerHome({
     const { kind } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
     return kind;
   });
-  const [friendsPrivacySheetOpen, setFriendsPrivacySheetOpen] = useState(false);
   const [roomActionSheet, setRoomActionSheet] = useState<{
     item: UnifiedRoomListItem;
     listContext: MessengerChatListContext;
@@ -255,6 +240,23 @@ export function CommunityMessengerHome({
   const scrollResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Coalesce swipe/menu dismiss during list scroll (see `messenger-transient-ui-policy.ts`). */
   const listScrollDismissRafRef = useRef<number | null>(null);
+  const composerOpen = activeOverlay === "composer";
+  const requestSheetOpen = activeOverlay === "requests";
+  const searchSheetOpen = activeOverlay === "search";
+  const friendsPrivacySheetOpen = activeOverlay === "friends-privacy";
+  const settingsSheetOpen = activeOverlay === "settings";
+  const publicGroupFindOpen = activeOverlay === "public-group-find";
+
+  const openHomeOverlay = useCallback((overlay: CommunityMessengerHomeOverlayKind) => {
+    setActiveOverlay((current) => (current === overlay ? current : overlay));
+  }, []);
+
+  const closeHomeOverlay = useCallback((overlay?: CommunityMessengerHomeOverlayKind) => {
+    setActiveOverlay((current) => {
+      if (overlay && current !== overlay) return current;
+      return null;
+    });
+  }, []);
 
   const resetMessengerTransientUi = useCallback(() => {
     setOpenedSwipeItemId(null);
@@ -321,52 +323,16 @@ export function CommunityMessengerHome({
     []
   );
 
-  useEffect(() => {
-    if (!roomActionSheet) return;
-    const handleViewportChange = () => {
-      setRoomActionSheet(null);
-      setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
-    };
-    window.addEventListener("resize", handleViewportChange);
-    return () => window.removeEventListener("resize", handleViewportChange);
-  }, [roomActionSheet]);
-
-  const replaceMessengerSectionUrl = useCallback(
-    (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
-      const qs = new URLSearchParams();
-      qs.set("section", section);
-      if (section === "chats") {
-        const extra = messengerChatFiltersToSearchParams(inbox, kind);
-        extra.forEach((v, k) => qs.set(k, v));
-      }
-      router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
-    },
-    [router]
-  );
-  const onPrimarySectionChange = useCallback(
-    (next: MessengerMainSection) => {
-      resetMessengerTransientUi();
-      setMainSection(next);
-      if (next === "chats") {
-        replaceMessengerSectionUrl("chats", chatInboxFilter, chatKindFilter);
-      } else {
-        const qs = new URLSearchParams();
-        qs.set("section", next);
-        router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
-      }
-    },
-    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, router]
-  );
-  const onChatListChipChange = useCallback(
-    (chip: MessengerChatListChip) => {
-      resetMessengerTransientUi();
-      const { inbox, kind } = chipToInboxKind(chip);
-      setChatInboxFilter(inbox);
-      setChatKindFilter(kind);
-      replaceMessengerSectionUrl("chats", inbox, kind);
-    },
-    [replaceMessengerSectionUrl, resetMessengerTransientUi]
-  );
+  const { navigateToCommunityRoom, onPrimarySectionChange, onChatListChipChange } =
+    useCommunityMessengerHomeNavigation({
+      router,
+      chatInboxFilter,
+      chatKindFilter,
+      resetMessengerTransientUi,
+      setMainSection,
+      setChatInboxFilter,
+      setChatKindFilter,
+    });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [incomingFriendRequestPopup, setIncomingFriendRequestPopup] = useState<CommunityMessengerFriendRequest | null>(null);
@@ -396,6 +362,37 @@ export function CommunityMessengerHome({
   const [joinAliasName, setJoinAliasName] = useState("");
   const [joinAliasBio, setJoinAliasBio] = useState("");
   const [joinAliasAvatarUrl, setJoinAliasAvatarUrl] = useState("");
+  const resetFriendSearchState = useCallback(() => {
+    setSearchKeyword("");
+    setSearchResults([]);
+    setFriendUserSearchAttempted(false);
+  }, []);
+  const resetGroupCreateDraft = useCallback(() => {
+    setGroupTitle("");
+    setGroupMembers([]);
+    setOpenGroupTitle("");
+    setOpenGroupSummary("");
+    setOpenGroupPassword("");
+    setOpenGroupMemberLimit("200");
+    setOpenGroupDiscoverable(true);
+    setOpenGroupJoinPolicy("password");
+    setOpenGroupIdentityPolicy("alias_allowed");
+    setOpenGroupCreatorIdentityMode("real_name");
+    setOpenGroupCreatorAliasName("");
+    setOpenGroupCreatorAliasBio("");
+    setOpenGroupCreatorAliasAvatarUrl("");
+  }, []);
+  const resetJoinOpenGroupDraft = useCallback(() => {
+    setJoinPassword("");
+    setJoinIdentityMode("real_name");
+    setJoinAliasName("");
+    setJoinAliasBio("");
+    setJoinAliasAvatarUrl("");
+  }, []);
+  const closeJoinOpenGroupModal = useCallback(() => {
+    resetJoinOpenGroupDraft();
+    setJoinTargetGroup(null);
+  }, [resetJoinOpenGroupDraft]);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const [outgoingCallConfirm, setOutgoingCallConfirm] = useState<null | {
@@ -462,65 +459,10 @@ export function CommunityMessengerHome({
   );
 
   useEffect(() => {
-    setIncomingCallSoundEnabled(isCommunityMessengerIncomingCallSoundEnabled());
-    setIncomingCallBannerEnabled(isCommunityMessengerIncomingCallBannerEnabled());
-    setLocalSettings(readCommunityMessengerLocalSettings());
-    if (typeof window !== "undefined") {
-      try {
-        const raw = window.localStorage.getItem(RECENT_SEARCHES_STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as unknown;
-          if (Array.isArray(parsed)) {
-            setRecentSearches(
-              parsed
-                .map((item) => (typeof item === "string" ? item.trim() : ""))
-                .filter(Boolean)
-                .slice(0, 8)
-            );
-          }
-        }
-      } catch {
-        /* ignore */
-      }
-      setDismissedNotificationIds(readDismissedCommunityMessengerNotificationIds());
-    }
-  }, []);
-
-  useEffect(() => {
     if (!localSettings.phoneFriendAddEnabled && friendAddTab === "contacts") {
       setFriendAddTab("id");
     }
   }, [friendAddTab, localSettings.phoneFriendAddEnabled]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(RECENT_SEARCHES_STORAGE_KEY, JSON.stringify(recentSearches.slice(0, 8)));
-    } catch {
-      /* ignore */
-    }
-  }, [recentSearches]);
-
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab === "settings") {
-      setSettingsSheetOpen(true);
-      router.replace("/community-messenger", { scroll: false });
-      return;
-    }
-    if (tab === "friends") {
-      setMainSection("friends");
-      router.replace("/community-messenger?section=friends", { scroll: false });
-      return;
-    }
-    const section = searchParams.get("section");
-    const filter = searchParams.get("filter");
-    const kind = searchParams.get("kind");
-    setMainSection(resolveMessengerSection(section ?? undefined, tab ?? undefined));
-    const { inbox, kind: nextKind } = resolveMessengerChatFilters(filter ?? undefined, kind ?? undefined, tab ?? undefined);
-    setChatInboxFilter(inbox);
-    setChatKindFilter(nextKind);
-  }, [searchParams, router]);
 
   useEffect(() => {
     if (!friendManagerOpen) return;
@@ -528,53 +470,69 @@ export function CommunityMessengerHome({
     setSearchResults([]);
   }, [friendManagerOpen]);
 
-  useLayoutEffect(() => {
-    if (!setMainTier1Extras) return;
-    setMainTier1Extras({
-      tier1: {
-        rightSlot: (
-          <div data-messenger-shell className="flex items-center">
-            <CommunityMessengerHeaderActions
-              incomingRequestCount={incomingRequestCount}
-              onOpenSearch={() => setSearchSheetOpen(true)}
-              onOpenRequestList={() => setRequestSheetOpen(true)}
-              onOpenSettings={() => setSettingsSheetOpen(true)}
-            />
-          </div>
-        ),
-      },
-    });
-    return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, incomingRequestCount]);
+  useEffect(() => {
+    if (friendManagerOpen) return;
+    resetFriendSearchState();
+  }, [friendManagerOpen, resetFriendSearchState]);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetchMeNotificationSettingsGet();
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          settings?: Partial<MessengerNotificationSettings>;
-        };
-        if (!cancelled && res.ok && json.ok && json.settings) {
-          setNotificationSettings((prev) => ({
-            ...prev,
-            trade_chat_enabled: json.settings?.trade_chat_enabled !== false,
-            community_chat_enabled: json.settings?.community_chat_enabled !== false,
-            order_enabled: json.settings?.order_enabled !== false,
-            store_enabled: json.settings?.store_enabled !== false,
-            sound_enabled: json.settings?.sound_enabled !== false,
-            vibration_enabled: json.settings?.vibration_enabled !== false,
-          }));
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (activeOverlay === "search") return;
+    setRoomSearchKeyword("");
+  }, [activeOverlay]);
+
+  useEffect(() => {
+    if (activeOverlay === "public-group-find") return;
+    setOpenGroupSearch("");
+  }, [activeOverlay]);
+
+  useEffect(() => {
+    if (groupCreateStep !== "closed") return;
+    resetGroupCreateDraft();
+  }, [groupCreateStep, resetGroupCreateDraft]);
+
+  useEffect(() => {
+    if (joinTargetGroup) return;
+    resetJoinOpenGroupDraft();
+  }, [joinTargetGroup, resetJoinOpenGroupDraft]);
+
+  const headerActionsNode = useMemo(
+    () => (
+      <div data-messenger-shell className="flex items-center">
+        <CommunityMessengerHeaderActions
+          incomingRequestCount={incomingRequestCount}
+          onOpenSearch={() => openHomeOverlay("search")}
+          onOpenRequestList={() => openHomeOverlay("requests")}
+          onOpenSettings={() => openHomeOverlay("settings")}
+        />
+      </div>
+    ),
+    [incomingRequestCount, openHomeOverlay]
+  );
+
+  useCommunityMessengerHomeShellEffects({
+    router,
+    searchParams,
+    setMainTier1Extras,
+    headerActionsNode,
+    roomActionSheetOpen: Boolean(roomActionSheet),
+    setRoomActionSheet: setRoomActionSheet as any,
+    setOpenedMenuItemId,
+    setIncomingCallSoundEnabled,
+    setIncomingCallBannerEnabled,
+    setLocalSettings,
+    setRecentSearches,
+    recentSearches,
+    setDismissedNotificationIds,
+    openSettingsSheet: () => openHomeOverlay("settings"),
+    setMainSection,
+    setChatInboxFilter,
+    setChatKindFilter,
+    incomingRequestCount,
+    setNotificationSettings,
+    data,
+    incomingFriendRequestPopup,
+    setIncomingFriendRequestPopup,
+  });
 
   useCommunityMessengerHomeRealtimeBootstrapList({
     userId: data?.me?.id,
@@ -628,7 +586,7 @@ export function CommunityMessengerHome({
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
         if (!peekRoomSnapshot(existingRoom.id, data?.me?.id ?? undefined)) {
-          await prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
+          void prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
         navigateToCommunityRoom(existingRoom.id);
         return;
@@ -687,7 +645,6 @@ export function CommunityMessengerHome({
               kind,
             },
             (href) => {
-              void router.prefetch(href);
               router.push(href);
             }
           );
@@ -791,10 +748,7 @@ export function CommunityMessengerHome({
           /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
           if (result.mergedFromIncoming && typeof result.directRoomId === "string" && result.directRoomId.trim()) {
             const rid = result.directRoomId.trim();
-            const href = `/community-messenger/rooms/${encodeURIComponent(rid)}`;
-            void prefetchCommunityMessengerRoomSnapshot(rid);
-            void router.prefetch(href);
-            router.push(href);
+          router.push(`/community-messenger/rooms/${encodeURIComponent(rid)}`);
           }
           return;
         }
@@ -882,10 +836,7 @@ export function CommunityMessengerHome({
           void refresh(true);
           if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
             const rid = json.directRoomId.trim();
-            const href = `/community-messenger/rooms/${encodeURIComponent(rid)}`;
-            void prefetchCommunityMessengerRoomSnapshot(rid);
-            void router.prefetch(href);
-            router.push(href);
+            router.push(`/community-messenger/rooms/${encodeURIComponent(rid)}`);
           }
         } else {
           // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
@@ -993,14 +944,6 @@ export function CommunityMessengerHome({
   );
 
   useFriendRequestNotificationRealtime(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), onFriendRequestNotif);
-
-  useEffect(() => {
-    if (!incomingFriendRequestPopup) return;
-    const stillPending = (data?.requests ?? []).some(
-      (r) => r.id === incomingFriendRequestPopup.id && r.direction === "incoming"
-    );
-    if (!stillPending) setIncomingFriendRequestPopup(null);
-  }, [data?.requests, incomingFriendRequestPopup]);
 
   const toggleFavoriteFriend = useCallback(
     async (friendUserId: string) => {
@@ -1148,8 +1091,7 @@ export function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
         void refresh(true);
-        setGroupTitle("");
-        setGroupMembers([]);
+        resetGroupCreateDraft();
         setGroupCreateStep("closed");
         navigateToCommunityRoom(json.roomId);
         return;
@@ -1163,7 +1105,7 @@ export function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, navigateToCommunityRoom, refresh, t]);
+  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, navigateToCommunityRoom, refresh, resetGroupCreateDraft, t]);
 
   const createOpenGroup = useCallback(async () => {
     if (!openGroupTitle.trim()) return;
@@ -1195,17 +1137,7 @@ export function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
         void refresh(true);
-        setOpenGroupTitle("");
-        setOpenGroupSummary("");
-        setOpenGroupPassword("");
-        setOpenGroupMemberLimit("200");
-        setOpenGroupDiscoverable(true);
-        setOpenGroupJoinPolicy("password");
-        setOpenGroupIdentityPolicy("alias_allowed");
-        setOpenGroupCreatorIdentityMode("real_name");
-        setOpenGroupCreatorAliasName("");
-        setOpenGroupCreatorAliasBio("");
-        setOpenGroupCreatorAliasAvatarUrl("");
+        resetGroupCreateDraft();
         setGroupCreateStep("closed");
         navigateToCommunityRoom(json.roomId);
         return;
@@ -1234,6 +1166,7 @@ export function CommunityMessengerHome({
     openGroupSummary,
     openGroupTitle,
     refresh,
+    resetGroupCreateDraft,
     t,
   ]);
 
@@ -1261,13 +1194,8 @@ export function CommunityMessengerHome({
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
         void refresh(true);
-        setJoinPassword("");
-        setJoinIdentityMode("real_name");
-        setJoinAliasName("");
-        setJoinAliasBio("");
-        setJoinAliasAvatarUrl("");
-        setJoinTargetGroup(null);
-        setPublicGroupFindOpen(false);
+        closeJoinOpenGroupModal();
+        closeHomeOverlay("public-group-find");
         navigateToCommunityRoom(json.roomId);
         return;
       }
@@ -1276,6 +1204,8 @@ export function CommunityMessengerHome({
       setBusyId(null);
     }
   }, [
+    closeJoinOpenGroupModal,
+    closeHomeOverlay,
     getMessengerActionErrorMessage,
     joinAliasAvatarUrl,
     joinAliasBio,
@@ -1305,11 +1235,8 @@ export function CommunityMessengerHome({
           return;
         }
         setJoinTargetGroup(json.group);
-        setJoinPassword("");
+        resetJoinOpenGroupDraft();
         setJoinIdentityMode(json.group.identityPolicy === "alias_allowed" ? "alias" : "real_name");
-        setJoinAliasName("");
-        setJoinAliasBio("");
-        setJoinAliasAvatarUrl("");
         if (
           !localSettings.groupJoinPreviewEnabled &&
           json.group.joinPolicy === "free" &&
@@ -1321,7 +1248,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, joinOpenGroup, localSettings.groupJoinPreviewEnabled]
+    [getMessengerActionErrorMessage, joinOpenGroup, localSettings.groupJoinPreviewEnabled, resetJoinOpenGroupDraft]
   );
 
   const {
@@ -1658,8 +1585,8 @@ export function CommunityMessengerHome({
 
   const onOpenFriendsPrivacySummaryStable = useCallback(() => {
     resetMessengerTransientUi();
-    setFriendsPrivacySheetOpen(true);
-  }, [resetMessengerTransientUi]);
+    openHomeOverlay("friends-privacy");
+  }, [openHomeOverlay, resetMessengerTransientUi]);
 
   const onOpenProfileForMessengerMainStable = useCallback(
     (profile: CommunityMessengerProfileLite) => {
@@ -1916,126 +1843,64 @@ export function CommunityMessengerHome({
       data-messenger-shell
       className="min-h-0 space-y-3 bg-[color:var(--messenger-bg)] px-3 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
     >
-      {!loading && !authRequired && data ? (
-        <>
-          <MessengerHomeMainSections
-            mainSection={mainSection}
-            onPrimarySectionChange={onPrimarySectionChange}
-            openedSwipeItemId={openedSwipeItemId}
-            openedMenuItemId={openedMenuItemId}
-            friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
-            messengerOverlayGeneration={messengerOverlayGeneration}
-            selectedArchiveSection={selectedArchiveSection}
-            pendingCallTarget={null}
-            isScrolling={isScrolling}
-            onResetTransientUi={resetMessengerTransientUi}
-            onListScrollStart={notifyMessengerListScroll}
-            onOpenMenuItem={openMessengerMenuItem}
-            onCloseMenuItem={closeMessengerMenuItem}
-            onOpenSwipeItem={setOpenedSwipeItemId}
-            onSelectArchiveSection={setSelectedArchiveSection}
-            me={data.me}
-            sortedFriends={sortedFriends}
-            friendStateModel={friendStateModel}
-            busyId={busyId}
-            onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
-            onOpenProfile={onOpenProfileForMessengerMainStable}
-            onToggleFavoriteFriend={toggleFavoriteFriend}
-            onFriendSwipeHide={toggleHiddenFriend}
-            onFriendSwipeRemove={removeFriend}
-            onFriendSwipeBlock={toggleBlock}
-            onFriendRowChat={startDirectRoom}
-            onFriendRowVoiceCall={onFriendRowVoiceCallStable}
-            onFriendRowVideoCall={onFriendRowVideoCallStable}
-            getFriendDirectRoomMuted={getFriendDirectRoomMutedStable}
-            getFriendDirectRoomKind={getFriendDirectRoomKindStable}
-            friendNotificationsBusy={friendNotificationsBusyStable}
-            onFriendToggleRoomMute={onFriendToggleRoomMuteStable}
-            friendHasDirectRoom={friendHasDirectRoomStable}
-            primaryListItems={primaryListItems}
-            favoriteFriendIds={favoriteFriendIds}
-            onTogglePin={handleMessengerHomeTogglePin}
-            onToggleMute={handleMessengerHomeToggleMute}
-            onMarkRead={handleMessengerHomeMarkRoomRead}
-            onToggleArchive={handleMessengerHomeToggleRoomArchive}
-            onOpenRoomActions={openRoomActions}
-            chatInboxFilter={chatInboxFilter}
-            chatKindFilter={chatKindFilter}
-            onChatListChipChange={onChatListChipChange}
-            openChatJoinedItems={openChatJoinedItems}
-            filteredDiscoverableGroups={filteredDiscoverableGroups}
-            onPreviewOpenGroup={onPreviewOpenGroupStable}
-            incomingRequestCount={incomingRequestCount}
-          />
-          {incomingFriendRequestPopup ? (
-            <MessengerIncomingFriendRequestPopup
-              request={incomingFriendRequestPopup}
-              busyId={busyId}
-              onDismiss={() => setIncomingFriendRequestPopup(null)}
-              onRespond={(requestId, action) => void respondRequest(requestId, action)}
-            />
-          ) : null}
-        </>
-      ) : null}
-
-      {actionError ? (
-        <div
-          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] shadow-[var(--messenger-shadow-soft)]"
-          style={{ color: "var(--messenger-text)" }}
-        >
-          {actionError}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <div
-          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-10 text-center text-[14px] shadow-[var(--messenger-shadow-soft)]"
-          style={{ color: "var(--messenger-text-secondary)" }}
-        >
-          메신저 데이터를 불러오는 중입니다.
-        </div>
-      ) : null}
-
-      {!loading && authRequired ? (
-        <section
-          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
-          style={{ color: "var(--messenger-text)" }}
-        >
-          <p className="text-[16px] font-semibold">로그인이 필요합니다.</p>
-          <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {pageError ?? t("nav_messenger_login_required")}
-          </p>
-          <div className="mt-4 flex justify-center">
-            <Link
-              href="/login"
-              className="rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] px-4 py-3 text-[14px] font-semibold text-white active:opacity-90"
-            >
-              로그인하러 가기
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {!loading && !authRequired && !data ? (
-        <section
-          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
-          style={{ color: "var(--messenger-text)" }}
-        >
-          <p className="text-[16px] font-semibold">메신저를 불러오지 못했습니다.</p>
-          <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {pageError ?? t("common_try_again_later")}
-          </p>
-          <div className="mt-4 flex justify-center">
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              className="rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] px-4 py-3 text-[14px] font-semibold text-white active:opacity-90"
-            >
-              다시 불러오기
-            </button>
-          </div>
-        </section>
-      ) : null}
+      <CommunityMessengerHomeListPane
+        loading={loading}
+        authRequired={authRequired}
+        data={data}
+        actionError={actionError}
+        mainSection={mainSection}
+        onPrimarySectionChange={onPrimarySectionChange}
+        openedSwipeItemId={openedSwipeItemId}
+        openedMenuItemId={openedMenuItemId}
+        friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
+        messengerOverlayGeneration={messengerOverlayGeneration}
+        selectedArchiveSection={selectedArchiveSection}
+        isScrolling={isScrolling}
+        resetMessengerTransientUi={resetMessengerTransientUi}
+        notifyMessengerListScroll={notifyMessengerListScroll}
+        openMessengerMenuItem={openMessengerMenuItem}
+        closeMessengerMenuItem={closeMessengerMenuItem}
+        setOpenedSwipeItemId={setOpenedSwipeItemId}
+        setSelectedArchiveSection={setSelectedArchiveSection}
+        sortedFriends={sortedFriends}
+        friendStateModel={friendStateModel}
+        busyId={busyId}
+        onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
+        onOpenProfile={onOpenProfileForMessengerMainStable}
+        toggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
+        toggleHiddenFriend={(userId) => void toggleHiddenFriend(userId)}
+        removeFriend={(userId) => void removeFriend(userId)}
+        toggleBlock={(userId) => void toggleBlock(userId)}
+        startDirectRoom={(userId) => void startDirectRoom(userId)}
+        onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}
+        onFriendRowVideoCallStable={onFriendRowVideoCallStable}
+        getFriendDirectRoomMutedStable={getFriendDirectRoomMutedStable}
+        getFriendDirectRoomKindStable={getFriendDirectRoomKindStable}
+        friendNotificationsBusyStable={friendNotificationsBusyStable}
+        onFriendToggleRoomMuteStable={onFriendToggleRoomMuteStable}
+        friendHasDirectRoomStable={friendHasDirectRoomStable}
+        primaryListItems={primaryListItems}
+        favoriteFriendIds={favoriteFriendIds}
+        handleMessengerHomeTogglePin={handleMessengerHomeTogglePin}
+        handleMessengerHomeToggleMute={handleMessengerHomeToggleMute}
+        handleMessengerHomeMarkRoomRead={handleMessengerHomeMarkRoomRead}
+        handleMessengerHomeToggleRoomArchive={handleMessengerHomeToggleRoomArchive}
+        openRoomActions={openRoomActions}
+        chatInboxFilter={chatInboxFilter}
+        chatKindFilter={chatKindFilter}
+        onChatListChipChange={onChatListChipChange}
+        openChatJoinedItems={openChatJoinedItems}
+        filteredDiscoverableGroups={filteredDiscoverableGroups}
+        onPreviewOpenGroupStable={onPreviewOpenGroupStable}
+        incomingRequestCount={incomingRequestCount}
+        incomingFriendRequestPopup={incomingFriendRequestPopup}
+        setIncomingFriendRequestPopup={setIncomingFriendRequestPopup}
+        respondRequest={respondRequest}
+        pageError={pageError}
+        loginRequiredText={t("nav_messenger_login_required")}
+        retryText={t("common_try_again_later")}
+        onRetry={() => void refresh()}
+      />
 
       {outgoingCallConfirm ? (
         <MessengerOutgoingCallConfirmDialog
@@ -2169,10 +2034,7 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  const href = `/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`;
-                  void prefetchCommunityMessengerRoomSnapshot(id);
-                  void router.prefetch(href);
-                  router.push(href);
+                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
                 }
               : undefined
           }
@@ -2181,10 +2043,7 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  const href = `/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`;
-                  void prefetchCommunityMessengerRoomSnapshot(id);
-                  void router.prefetch(href);
-                  router.push(href);
+                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
                 }
               : undefined
           }
@@ -2228,11 +2087,11 @@ export function CommunityMessengerHome({
         <MessengerFriendsPrivacySheet
           model={friendStateModel}
           busyId={busyId}
-          onClose={() => setFriendsPrivacySheetOpen(false)}
+          onClose={() => closeHomeOverlay("friends-privacy")}
           onToggleHidden={(userId) => void toggleHiddenFriend(userId)}
           onToggleBlock={(userId) => void toggleBlock(userId)}
           onOpenChat={(userId) => {
-            setFriendsPrivacySheetOpen(false);
+            closeHomeOverlay("friends-privacy");
             void startDirectRoom(userId);
           }}
         />
@@ -2242,7 +2101,7 @@ export function CommunityMessengerHome({
         <MessengerSearchSheet
           keyword={roomSearchKeyword}
           onKeywordChange={setRoomSearchKeyword}
-          onClose={() => setSearchSheetOpen(false)}
+          onClose={() => closeHomeOverlay("search")}
           onCommitRecentSearch={commitRecentSearch}
           onRemoveRecentSearch={removeRecentSearch}
           recentSearches={recentSearches}
@@ -2265,15 +2124,16 @@ export function CommunityMessengerHome({
 
       {composerOpen ? (
         <MessengerNewConversationSheet
-          onClose={() => setComposerOpen(false)}
+          onClose={() => closeHomeOverlay("composer")}
           onFriendChatStart={() => setMainSection("friends")}
           onFriendAdd={() => {
+            closeHomeOverlay("composer");
             setFriendAddTab("id");
             setFriendManagerOpen(true);
             requestAnimationFrame(() => friendSearchRef.current?.focus());
           }}
           onCreateGroup={() => setGroupCreateStep("private_group")}
-          onFindOpenChat={() => setPublicGroupFindOpen(true)}
+          onFindOpenChat={() => openHomeOverlay("public-group-find")}
         />
       ) : null}
 
@@ -2304,7 +2164,7 @@ export function CommunityMessengerHome({
 
       {requestSheetOpen ? (
         <MessengerNotificationCenterSheet
-          onClose={() => setRequestSheetOpen(false)}
+          onClose={() => closeHomeOverlay("requests")}
           summary={notificationCenterSummary}
           items={notificationCenterItems}
           busyId={busyId}
@@ -2324,7 +2184,7 @@ export function CommunityMessengerHome({
 
       {settingsSheetOpen && data ? (
         <MessengerSettingsSheet
-          onClose={() => setSettingsSheetOpen(false)}
+          onClose={() => closeHomeOverlay("settings")}
           busyId={busyId}
           blocked={data.blocked}
           hidden={data.hidden}
@@ -2351,8 +2211,7 @@ export function CommunityMessengerHome({
           backupInputRef={backupInputRef}
           onBackupFileSelected={onBackupFileSelected}
           onOpenOpenChatDiscovery={() => {
-            setSettingsSheetOpen(false);
-            setPublicGroupFindOpen(true);
+            openHomeOverlay("public-group-find");
           }}
         />
       ) : null}
@@ -2363,7 +2222,7 @@ export function CommunityMessengerHome({
             type="button"
             className="min-h-0 flex-1 cursor-default"
             aria-label="닫기"
-            onClick={() => setPublicGroupFindOpen(false)}
+            onClick={() => closeHomeOverlay("public-group-find")}
           />
           <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
@@ -2371,7 +2230,7 @@ export function CommunityMessengerHome({
               <button
                 type="button"
                 className="rounded-ui-rect px-3 py-1.5 text-[15px] text-sam-muted"
-                onClick={() => setPublicGroupFindOpen(false)}
+                onClick={() => closeHomeOverlay("public-group-find")}
               >
                 닫기
               </button>
@@ -2774,14 +2633,7 @@ export function CommunityMessengerHome({
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setJoinTargetGroup(null);
-                  setJoinPassword("");
-                  setJoinIdentityMode("real_name");
-                  setJoinAliasName("");
-                  setJoinAliasBio("");
-                  setJoinAliasAvatarUrl("");
-                }}
+                onClick={closeJoinOpenGroupModal}
                 className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 text-[14px] font-medium text-sam-fg"
               >
                 취소
@@ -2806,7 +2658,7 @@ export function CommunityMessengerHome({
       {!loading && !authRequired ? (
         <button
           type="button"
-          onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : setComposerOpen(true))}
+          onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : openHomeOverlay("composer"))}
           className={`fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} right-4 z-[41] flex h-14 w-14 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-primary-soft-2)] bg-[color:var(--messenger-primary)] text-white shadow-[var(--messenger-shadow-soft)] transition active:scale-[0.98] active:opacity-90`}
           aria-label={mainSection === "friends" ? "친구 추가" : "새 대화"}
         >

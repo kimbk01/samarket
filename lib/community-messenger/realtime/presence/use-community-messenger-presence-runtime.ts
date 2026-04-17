@@ -18,7 +18,7 @@ const ACTIVITY_THROTTLE_MS = 20_000;
 let runtimeRefCount = 0;
 let runtimeUserId = "";
 let runtimeSessionId = "";
-let presenceHeartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let presenceHeartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let presenceCleanup: (() => void) | null = null;
 let lastActivityMs = Date.now();
 let lastActivityThrottleAt = 0;
@@ -44,6 +44,13 @@ function maybeRecordThrottledActivity() {
 function currentDocumentVisible(): boolean {
   if (typeof document === "undefined") return true;
   return document.visibilityState === "visible";
+}
+
+function clearPresenceHeartbeatTimer() {
+  if (presenceHeartbeatTimer != null) {
+    clearTimeout(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = null;
+  }
 }
 
 function persistLastSeenSessionEnd(lastSeenAt: string) {
@@ -161,6 +168,18 @@ function ensurePresenceRuntime(userId: string) {
     postPresenceHeartbeatHttp();
   };
 
+  const scheduleHeartbeat = () => {
+    clearPresenceHeartbeatTimer();
+    if (!currentDocumentVisible()) return;
+    presenceHeartbeatTimer = setTimeout(() => {
+      presenceHeartbeatTimer = null;
+      if (!currentDocumentVisible()) return;
+      void syncOwnState().finally(() => {
+        scheduleHeartbeat();
+      });
+    }, HEARTBEAT_MS);
+  };
+
   const onSync = () => {
     const aggregated = aggregatePresenceState(channel.presenceState());
     const previous = store.getState().byUserId;
@@ -190,12 +209,16 @@ function ensurePresenceRuntime(userId: string) {
       channelSubscribed = status === "SUBSCRIBED";
       if (status === "SUBSCRIBED") {
         void syncOwnState();
+        scheduleHeartbeat();
       }
     });
 
   const onVisibility = () => {
     if (currentDocumentVisible()) {
       lastActivityMs = Date.now();
+      scheduleHeartbeat();
+    } else {
+      clearPresenceHeartbeatTimer();
     }
     void syncOwnState();
   };
@@ -216,16 +239,9 @@ function ensurePresenceRuntime(userId: string) {
   document.addEventListener("keydown", onActivity);
   window.addEventListener("scroll", onActivity, { passive: true });
 
-  presenceHeartbeatTimer = setInterval(() => {
-    void syncOwnState();
-  }, HEARTBEAT_MS);
-
   presenceCleanup = () => {
     channelSubscribed = false;
-    if (presenceHeartbeatTimer != null) {
-      clearInterval(presenceHeartbeatTimer);
-      presenceHeartbeatTimer = null;
-    }
+    clearPresenceHeartbeatTimer();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("focus", onVisibility);
     window.removeEventListener("online", onVisibility);

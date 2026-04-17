@@ -9,7 +9,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-const SESSION_CHECK_INTERVAL_MS = 90_000;
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
 /** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
 const PATHNAME_SESSION_DEBOUNCE_MS = 500;
@@ -120,17 +119,6 @@ export function SessionLostRedirect() {
   }, [pathname, check]);
 
   useRefetchOnPageShowRestore(() => void check(true), { visibilityDebounceMs: 400 });
-
-  useEffect(() => {
-    const onFocus = () => void check(true);
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [check]);
-
-  useEffect(() => {
-    const t = window.setInterval(() => void check(true), SESSION_CHECK_INTERVAL_MS);
-    return () => window.clearInterval(t);
-  }, [check]);
 
   useEffect(() => {
     const onAuth = () => void check(true);

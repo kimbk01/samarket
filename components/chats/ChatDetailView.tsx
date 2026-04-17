@@ -50,8 +50,8 @@ import {
 import { postSellerListingChangeSystemNotice } from "@/lib/chat/postSellerListingChangeNotice";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import {
+  dispatchTradeChatUnreadUpdated,
   KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
-  KASAMA_TRADE_CHAT_UNREAD_UPDATED,
 } from "@/lib/chats/chat-channel-events";
 import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend";
 import {
@@ -1100,7 +1100,10 @@ export function ChatDetailView({
         credentials: "include",
       }).finally(() => {
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+          dispatchTradeChatUnreadUpdated({
+            source: "chat-detail-read",
+            key: `store-order:${storeOrderId}`,
+          });
           window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
         }
       });
@@ -1114,7 +1117,12 @@ export function ChatDetailView({
       })
         .then((r) => r.ok && r.json())
         .then((data) => {
-          if (data?.ok && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+          if (data?.ok) {
+            dispatchTradeChatUnreadUpdated({
+              source: "chat-detail-read",
+              key: `trade-room:${room.id}`,
+            });
+          }
         });
       return;
     }
@@ -1127,10 +1135,11 @@ export function ChatDetailView({
       })
         .then((r) => r.ok && r.json())
         .catch(() => null);
-      if (data?.ok && typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
-      } else if (res.ok && typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+      if (data?.ok || res.ok) {
+        dispatchTradeChatUnreadUpdated({
+          source: "chat-detail-read",
+          key: `legacy-room:${room.id}`,
+        });
       }
     });
   }, [room.id, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
@@ -1552,7 +1561,10 @@ export function ChatDetailView({
         body: JSON.stringify({}),
       });
       if (res.ok) {
-        if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+        dispatchTradeChatUnreadUpdated({
+          source: "chat-detail-leave",
+          key: `trade-room:${room.id}`,
+        });
         router.push(effectiveListHref);
       }
     } catch {

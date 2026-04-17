@@ -41,7 +41,7 @@ import { createCommunityMessengerClientMessageId } from "@/lib/community-messeng
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
-import { KASAMA_TRADE_CHAT_UNREAD_UPDATED } from "@/lib/chats/chat-channel-events";
+import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { bumpCommunityMessengerPresenceActivity } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import {
@@ -54,7 +54,10 @@ export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerR
 function dispatchTradeLinkedNavBadgesAfterMessengerMutation(tradeDock: boolean) {
   if (!tradeDock || typeof window === "undefined") return;
   requestMessengerHubBadgeResync("room_phase2_mark_read");
-  window.dispatchEvent(new Event(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+  dispatchTradeChatUnreadUpdated({
+    source: "community-messenger-room-phase2",
+    key: "trade-linked-nav-badges",
+  });
 }
 
 /** 첨부·위치 선택 후 「보내기」 전 확인 시트용 */

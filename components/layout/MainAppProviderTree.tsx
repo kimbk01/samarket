@@ -6,6 +6,7 @@ import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
+import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
@@ -38,6 +39,7 @@ export function MainAppProviderTree({ children }: { children: ReactNode }) {
   return (
     <RegionProvider>
       <SessionLostRedirect />
+      <OwnerHubBadgeRuntime />
       <MandatoryAddressGate />
       <FavoriteProvider>
         <NotificationSurfaceProvider>

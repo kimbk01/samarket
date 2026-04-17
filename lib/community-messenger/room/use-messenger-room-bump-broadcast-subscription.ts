@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type { CommunityMessengerMessage, CommunityMessengerProfileLite, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
@@ -11,6 +11,51 @@ import {
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
+
+type RoomBumpListener = {
+  onBump: (payload: Record<string, unknown>) => void;
+};
+
+type RoomBumpEntry = {
+  listeners: Set<MutableRefObject<RoomBumpListener>>;
+  stop: () => void;
+};
+
+const roomBumpEntries = new Map<string, RoomBumpEntry>();
+
+function createRoomBumpEntry(key: string, roomIds: string[]): RoomBumpEntry {
+  const sb = getSupabaseClient();
+  const entry: RoomBumpEntry = {
+    listeners: new Set(),
+    stop: () => undefined,
+  };
+  if (!sb || roomIds.length === 0) return entry;
+
+  const channels = roomIds.map((rid) =>
+    subscribeCommunityMessengerRoomBumpBroadcast({
+      sb,
+      roomId: rid,
+      onBump: (payload) => {
+        for (const listener of entry.listeners) {
+          listener.current.onBump(payload);
+        }
+      },
+    })
+  );
+
+  entry.stop = () => {
+    for (const ch of channels) {
+      try {
+        void sb.removeChannel(ch);
+      } catch {
+        /* ignore */
+      }
+    }
+    roomBumpEntries.delete(key);
+  };
+
+  return entry;
+}
 
 /**
  * Broadcast v2 bump — postgres_changes 누락 시에도 방 단위로 증분 동기화.
@@ -41,6 +86,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   catchUpAfterRemoteBump: (hintMessageId?: string | null) => Promise<void>;
 }): void {
+  const listenerRef = useRef<RoomBumpListener>({ onBump: () => undefined });
   /**
    * `postgres_changes` 가 publication/RLS/세션 타이밍 문제로 누락돼도,
    * 방 단위 Broadcast bump 신호로 즉시 증분 동기화한다.
@@ -62,9 +108,6 @@ export function useMessengerRoomBumpBroadcastSubscription({
 
     const sb = getSupabaseClient();
     if (!sb) return;
-
-    const channels: ReturnType<typeof subscribeCommunityMessengerRoomBumpBroadcast>[] = [];
-
     const onBump = (payload: Record<string, unknown>) => {
       const known = communityMessengerBumpKnownRoomIds({
         routeRoomId: String(roomId ?? "").trim(),
@@ -103,16 +146,14 @@ export function useMessengerRoomBumpBroadcastSubscription({
         void catchUpAfterRemoteBump(hint || undefined);
       });
     };
-
-    for (const rid of bumpSubscribeIds) {
-      channels.push(
-        subscribeCommunityMessengerRoomBumpBroadcast({
-          sb,
-          roomId: rid,
-          onBump,
-        })
-      );
+    listenerRef.current.onBump = onBump;
+    const registryKey = `${viewer}:${[...bumpSubscribeIds].sort().join("\0")}`;
+    let entry = roomBumpEntries.get(registryKey);
+    if (!entry) {
+      entry = createRoomBumpEntry(registryKey, [...bumpSubscribeIds]);
+      roomBumpEntries.set(registryKey, entry);
     }
+    entry.listeners.add(listenerRef);
 
     return () => {
       lastRemoteBumpDedupeRef.current = "";
@@ -120,13 +161,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
         cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
         remoteBumpCatchUpRafRef.current = null;
       }
-      for (const ch of channels) {
-        try {
-          void sb.removeChannel(ch);
-        } catch {
-          /* ignore */
-        }
-      }
+      const current = roomBumpEntries.get(registryKey);
+      if (!current) return;
+      current.listeners.delete(listenerRef);
+      if (current.listeners.size === 0) current.stop();
     };
   }, [
     catchUpAfterRemoteBump,

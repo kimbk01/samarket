@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
-import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
+import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
@@ -118,7 +118,10 @@ export function OwnerStoreInquiriesView() {
         return n;
       });
       await load();
-      window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
+      dispatchOwnerHubBadgeRefresh({
+        source: "owner-store-inquiries-answer",
+        key: `${state.storeId}:${id}:answer`,
+      });
     } finally {
       setBusyId(null);
     }
@@ -139,7 +142,10 @@ export function OwnerStoreInquiriesView() {
         }
       );
       await load();
-      window.dispatchEvent(new CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH));
+      dispatchOwnerHubBadgeRefresh({
+        source: "owner-store-inquiries-close",
+        key: `${state.storeId}:${id}:close`,
+      });
     } finally {
       setBusyId(null);
     }

@@ -1,5 +1,5 @@
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 export default function CommunityMessengerSegmentLoading() {
-  return <MainFeedRouteLoading rows={4} />;
+  return <CommunityMessengerHomeShellSkeleton />;
 }

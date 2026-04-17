@@ -67,6 +67,13 @@ function schedulePrune(): void {
   if (pruneTimer != null) return;
   pruneTimer = setInterval(() => {
     const sb = publisherSb;
+    if (roomChannels.size === 0) {
+      if (pruneTimer != null) {
+        clearInterval(pruneTimer);
+        pruneTimer = null;
+      }
+      return;
+    }
     if (!sb) return;
     const now = Date.now();
     for (const [rid, entry] of roomChannels) {
@@ -77,6 +84,10 @@ function schedulePrune(): void {
         /* ignore */
       }
       roomChannels.delete(rid);
+    }
+    if (roomChannels.size === 0 && pruneTimer != null) {
+      clearInterval(pruneTimer);
+      pruneTimer = null;
     }
   }, PRUNE_EVERY_MS);
 }

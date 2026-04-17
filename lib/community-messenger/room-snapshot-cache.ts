@@ -8,6 +8,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 const TTL_MS = 60_000;
 const MAX_ENTRIES = 120;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
+const ROOM_PREFETCH_QUERY = "?mode=lite&memberHydration=minimal";
 
 /** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(세션 내 소량 LRU) */
 const HOT_MAX = 32;
@@ -141,7 +142,13 @@ export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Pr
   return runSingleFlight(`cm:prefetch-room-snapshot:${key}`, async () => {
     if (peekRoomSnapshot(key)) return true;
     try {
-      const res = await fetch(communityMessengerRoomBootstrapPath(key), { cache: "no-store" });
+      /**
+       * 프리패치는 첫 화면용 경량 시드만 당겨온다.
+       * 멤버 전체/2차 보강은 방 페이지 lifecycle 의 silent refresh 가 이어받는다.
+       */
+      const res = await fetch(`${communityMessengerRoomBootstrapPath(key)}${ROOM_PREFETCH_QUERY}`, {
+        cache: "no-store",
+      });
       const json = await res.json().catch(() => null);
       const snap = parseCommunityMessengerRoomSnapshotResponse(json);
       if (res.ok && snap) {

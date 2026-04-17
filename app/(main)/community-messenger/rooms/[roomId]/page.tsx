@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 async function CommunityMessengerRoomPageLoaded({
   params,
@@ -31,7 +31,7 @@ export default function CommunityMessengerRoomPage({
   searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={6} />}>
+    <Suspense fallback={<CommunityMessengerRoomShellSkeleton />}>
       <CommunityMessengerRoomPageLoaded params={params} searchParams={searchParams} />
     </Suspense>
   );
