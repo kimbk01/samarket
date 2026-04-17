@@ -57,7 +57,11 @@ import type {
 } from "@/lib/community-messenger/home/community-messenger-home-types";
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
+import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -127,6 +131,10 @@ import {
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
+import {
+  applyRoomReadEvent,
+  seedMessengerRealtimeFromBootstrap,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 type CommunityMessengerHomeOverlayKind =
   | "composer"
@@ -406,6 +414,10 @@ export function CommunityMessengerHome({
     [data?.chats, data?.groups]
   );
 
+  useEffect(() => {
+    seedMessengerRealtimeFromBootstrap(data);
+  }, [data]);
+
   const directRoomByPeerId = useMemo(() => {
     const map = new Map<string, CommunityMessengerRoomSummary>();
     for (const room of data?.chats ?? []) {
@@ -581,6 +593,24 @@ export function CommunityMessengerHome({
         if (res.ok && json.ok && json.roomId) {
           if (json.snapshot) {
             primeRoomSnapshot(json.roomId, json.snapshot);
+            const uid = data?.me?.id?.trim();
+            const { description: _desc, ...roomSummary } = json.snapshot.room;
+            setData((prev) => {
+              if (!prev) return prev;
+              const next = mergeBootstrapRoomSummaryIntoLists(prev, roomSummary);
+              if (next === prev) return prev;
+              primeBootstrapCache(next);
+              return next;
+            });
+            if (uid) {
+              postCommunityMessengerBusEvent({
+                type: "cm.home.merge_room_summary",
+                viewerUserId: uid,
+                summary: roomSummary,
+                at: Date.now(),
+              });
+            }
+            requestMessengerHubBadgeResync("direct_room_created");
           }
           navigateToCommunityRoom(json.roomId);
           return;
@@ -1477,6 +1507,18 @@ export function CommunityMessengerHome({
           setActionError(getMessengerActionErrorMessage(json.error ?? "room_read_failed"));
           return;
         }
+        applyRoomReadEvent({
+          viewerUserId: data?.me?.id ?? null,
+          roomId,
+          lastReadMessageId: null,
+        });
+        postCommunityMessengerBusEvent({
+          type: "cm.room.read",
+          roomId,
+          viewerUserId: data?.me?.id ?? "",
+          at: Date.now(),
+          lastReadMessageId: null,
+        });
         updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: 0 }));
         if (typeof performance !== "undefined") {
           messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
@@ -1485,7 +1527,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, updateRoomSummaryState]
+    [data?.me?.id, getMessengerActionErrorMessage, updateRoomSummaryState]
   );
   const toggleRoomArchive = useCallback(
     async (roomId: string, archived: boolean) => {
@@ -2074,6 +2116,7 @@ export function CommunityMessengerHome({
       {searchSheetOpen ? (
         <MessengerSearchSheet
           keyword={roomSearchKeyword}
+          viewerUserId={data?.me?.id ?? null}
           onKeywordChange={setRoomSearchKeyword}
           onClose={() => closeHomeOverlay("search")}
           onCommitRecentSearch={commitRecentSearch}

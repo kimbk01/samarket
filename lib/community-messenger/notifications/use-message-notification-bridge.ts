@@ -22,6 +22,8 @@ import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesce
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { applyRoomSummaryPatched } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 /** `full`: 사운드·배너·데스크톱 알림. `hub_sync_only`: participants Realtime + 허브/뱃지/room bump 만(비메신저 표면). */
 export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
@@ -128,6 +130,18 @@ export function useMessageNotificationBridge(
           const nextUnread = getUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
           const prevUnread = getUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
           if (!nextRoomId) return;
+          applyRoomSummaryPatched({
+            viewerUserId: userId,
+            roomId: nextRoomId,
+            unreadCount: nextUnread,
+          });
+          postCommunityMessengerBusEvent({
+            type: "cm.room.summary_patch",
+            roomId: nextRoomId,
+            viewerUserId: userId,
+            unreadCount: nextUnread,
+            at: Date.now(),
+          });
           if (nextUnread <= prevUnread) {
             requestMessengerHubBadgeResync("participant_unread_changed");
             return;
@@ -139,6 +153,7 @@ export function useMessageNotificationBridge(
            * 방 화면은 `cm.room.bump`로 증분 동기화를 즉시 실행해 새로고침 없이 따라잡는다.
            */
           postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: nextRoomId, at: Date.now() });
+          void prefetchCommunityMessengerRoomSnapshot(nextRoomId, { force: true });
 
           if (playbackRef.current === "hub_sync_only") {
             requestMessengerHubBadgeResync("participant_unread_changed");

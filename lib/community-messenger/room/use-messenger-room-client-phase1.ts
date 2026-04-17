@@ -26,7 +26,10 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useMessengerRoomRealtimeMessageIngest } from "@/lib/community-messenger/room/use-messenger-room-realtime-message-ingest";
-import { useMessengerRoomOpenMarkReadEffect } from "@/lib/community-messenger/room/use-messenger-room-open-mark-read-effect";
+import {
+  useMessengerRoomOpenMarkReadEffect,
+  type MessengerRoomOpenMarkReadPhaseRef,
+} from "@/lib/community-messenger/room/use-messenger-room-open-mark-read-effect";
 import {
   clearMessengerRealtimeLocalUnreadForRoom,
   setMessengerRealtimeFocusedRoomId,
@@ -39,7 +42,7 @@ import {
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { peekHotRoomSnapshot, peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
@@ -71,6 +74,16 @@ import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-m
 import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
+import {
+  seedMessengerRealtimeFromRoomSnapshot,
+  setActiveMessengerRealtimeRoom,
+  applyIncomingMessageEvent,
+  applyRoomReadEvent,
+  applyRoomSummaryPatched,
+  getMessengerRealtimeRoomMessages,
+  getMessengerRealtimeRoomSummary,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -121,8 +134,8 @@ export function useMessengerRoomClientPhase1({
   const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
   const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
   const contextMetaFromUrlHandledRef = useRef(false);
-  /** 방 입장 시 미읽음이 있으면 `mark_read` 1회 — 동일 방 재입장마다 초기화 */
-  const roomOpenMarkReadRef = useRef<{ roomId: string | null; phase: "idle" | "in_flight" | "done" }>({
+  /** 뷰포트·하단 체류 조건 충족 시 `mark_read` — unread 0 이어도 상대 신규 메시지가 오면 읽음 커서만 진행(상대 읽음 표시) */
+  const roomOpenMarkReadRef = useRef<MessengerRoomOpenMarkReadPhaseRef["current"]>({
     roomId: null,
     phase: "idle",
   });
@@ -131,11 +144,7 @@ export function useMessengerRoomClientPhase1({
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
   const loadedRef = useRef(
-    Boolean(
-      peekHotRoomSnapshot(roomId, initialViewerId || undefined) ??
-        peekRoomSnapshot(roomId, initialViewerId || undefined) ??
-        initialServerSnapshot
-    )
+    Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
   );
   /** RSC가 `membersDeferred` 부트스트랩을 내렸으면 사일런트 갱신 시 전원 멤버 프로필을 다시 끌어오지 않음 */
   const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
@@ -169,9 +178,9 @@ export function useMessengerRoomClientPhase1({
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
-    const hot = peekHotRoomSnapshot(roomId, initialViewerId || undefined);
+    /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
     const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
-    return hot ?? listPrimed ?? initialServerSnapshot ?? null;
+    return listPrimed ?? initialServerSnapshot ?? null;
   });
   /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
   const streamRoomId = useMemo(() => {
@@ -200,15 +209,73 @@ export function useMessengerRoomClientPhase1({
   const roomLoadingRef = useRef(false);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
+
+  useEffect(() => {
+    seedMessengerRealtimeFromRoomSnapshot(snapshot ?? initialServerSnapshot ?? null);
+  }, [initialServerSnapshot, snapshot]);
+
+  useEffect(() => {
+    const id = String(roomId ?? "").trim();
+    setActiveMessengerRealtimeRoom(id || null);
+    return () => {
+      setActiveMessengerRealtimeRoom(null);
+    };
+  }, [roomId]);
+
+  useEffect(() => {
+    const viewerId = snapshotRef.current?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
+    if (!viewerId) return;
+    const rid = String(roomId ?? "").trim();
+    if (!rid) return;
+    return onCommunityMessengerBusEvent((ev) => {
+      if ("viewerUserId" in ev && String(ev.viewerUserId) !== viewerId) return;
+      if (ev.type === "cm.room.incoming_message") {
+        if (ev.roomId !== rid) return;
+        applyIncomingMessageEvent({
+          viewerUserId: viewerId,
+          roomId: rid,
+          messageRow: ev.messageRow,
+          roomSummary: snapshotRef.current?.room ?? initialServerSnapshot?.room ?? undefined,
+        });
+      } else if (ev.type === "cm.room.read") {
+        if (ev.roomId !== rid) return;
+        applyRoomReadEvent({
+          viewerUserId: viewerId,
+          roomId: rid,
+          lastReadMessageId: ev.lastReadMessageId,
+        });
+      } else if (ev.type === "cm.room.summary_patch") {
+        if (ev.roomId !== rid) return;
+        applyRoomSummaryPatched({
+          viewerUserId: viewerId,
+          roomId: rid,
+          unreadCount: ev.unreadCount,
+          lastReadMessageId: ev.lastReadMessageId,
+        });
+      } else if (ev.type === "cm.room.local_unread") {
+        if (ev.roomId !== rid) return;
+        applyRoomSummaryPatched({
+          viewerUserId: viewerId,
+          roomId: rid,
+          unreadCount: ev.unreadCount,
+        });
+      } else {
+        return;
+      }
+      const summary = getMessengerRealtimeRoomSummary(rid);
+      if (summary) {
+        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, ...summary } } : prev));
+      }
+      const mergedMessages = getMessengerRealtimeRoomMessages(rid);
+      if (mergedMessages.length > 0) {
+        setRoomMessages((prev) => mergeRoomMessages(prev, mergedMessages));
+      }
+    });
+  }, [initialServerSnapshot?.room, initialServerSnapshot?.viewerUserId, roomId, setSnapshot]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [loading, setLoading] = useState(
-    () =>
-      !Boolean(
-        peekHotRoomSnapshot(roomId, initialViewerId || undefined) ??
-          peekRoomSnapshot(roomId, initialViewerId || undefined) ??
-          initialServerSnapshot
-      )
+    () => !Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
   );
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
@@ -504,7 +571,6 @@ export function useMessengerRoomClientPhase1({
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
-    readBottomDwellMs: 0,
   });
 
   useEffect(() => {

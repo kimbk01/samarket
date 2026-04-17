@@ -6,9 +6,9 @@ import {
   getOwnerHubBadgeSnapshot,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
+import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   resolveBottomNavTradeTabBadgeCount,
-  resolveMessengerTabTotalUnreadBadgeCount,
 } from "@/lib/notifications/samarket-messenger-notification-regulations";
 
 export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
@@ -31,8 +31,6 @@ export function useOwnerHubBadgeTotal(): number {
 function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
   const s = getOwnerHubBadgeSnapshot();
   switch (icon) {
-    case "chat":
-      return resolveMessengerTabTotalUnreadBadgeCount(s);
     case "trade":
       return resolveBottomNavTradeTabBadgeCount(s);
     case "community":
@@ -49,11 +47,13 @@ function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
  * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
-  return useSyncExternalStore(
+  const messengerUnreadRooms = useMessengerRealtimeStore((state) => state.totalUnread);
+  const snapshotUnread = useSyncExternalStore(
     subscribeOwnerHubBadge,
     () => tabUnreadFromSnapshot(icon),
     () => 0
   );
+  return icon === "chat" ? messengerUnreadRooms : snapshotUnread;
 }
 
 export function useOwnerHubBadgeStoreDeepLink(): string | null {

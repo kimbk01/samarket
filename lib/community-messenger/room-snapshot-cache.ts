@@ -1,4 +1,8 @@
-import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerMessage,
+  CommunityMessengerRoomSnapshot,
+  CommunityMessengerRoomSummary,
+} from "@/lib/community-messenger/types";
 import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
@@ -46,6 +50,44 @@ export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRo
   const k = cacheKey(roomId, snapshot.viewerUserId);
   entries.set(k, { snapshot, at: Date.now() });
   pruneIfNeeded();
+}
+
+function mergeMessages(
+  prev: CommunityMessengerMessage[],
+  nextMessage: CommunityMessengerMessage
+): CommunityMessengerMessage[] {
+  const next = prev.filter((item) => item.id !== nextMessage.id);
+  next.push(nextMessage);
+  next.sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return next;
+}
+
+function patchEntryMap(
+  map: Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>,
+  roomId: string,
+  viewerUserId: string,
+  updater: (snapshot: CommunityMessengerRoomSnapshot) => CommunityMessengerRoomSnapshot
+): void {
+  const key = cacheKey(roomId, viewerUserId);
+  const row = map.get(key);
+  if (!row) return;
+  map.set(key, { snapshot: updater(row.snapshot), at: Date.now() });
+}
+
+function patchHotMap(
+  roomId: string,
+  viewerUserId: string,
+  updater: (snapshot: CommunityMessengerRoomSnapshot) => CommunityMessengerRoomSnapshot
+): void {
+  const key = cacheKey(roomId, viewerUserId);
+  const row = hotEntries.get(key);
+  if (!row) return;
+  hotEntries.set(key, updater(row));
 }
 
 /** 방 이탈·갱신 시 마지막 스냅샷을 보관 — 재입장 시 RSC·consume 전에 첫 프레임에 사용 */
@@ -111,6 +153,109 @@ export function invalidateRoomSnapshot(roomId: string): void {
   }
 }
 
+export function seedRoomSnapshotFromSummary(args: {
+  room: CommunityMessengerRoomSummary;
+  viewerUserId: string;
+  message?: CommunityMessengerMessage | null;
+}): void {
+  const roomId = args.room.id.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const existing = peekRoomSnapshot(roomId, viewerUserId);
+  const base: CommunityMessengerRoomSnapshot =
+    existing ??
+    ({
+      viewerUserId,
+      room: args.room,
+      members: [],
+      messages: [],
+      myRole: "member",
+      activeCall: null,
+    } satisfies CommunityMessengerRoomSnapshot);
+  const nextMessages = args.message ? mergeMessages(base.messages ?? [], args.message) : base.messages ?? [];
+  const next = {
+    ...base,
+    room: { ...base.room, ...args.room },
+    messages: nextMessages,
+  } satisfies CommunityMessengerRoomSnapshot;
+  primeRoomSnapshot(roomId, next);
+  primeHotRoomSnapshot(roomId, next);
+}
+
+export function mergeMessageIntoRoomSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  roomSummary?: CommunityMessengerRoomSummary | null;
+  message: CommunityMessengerMessage;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const existing = peekRoomSnapshot(roomId, viewerUserId);
+  if (!existing && args.roomSummary) {
+    seedRoomSnapshotFromSummary({
+      room: args.roomSummary,
+      viewerUserId,
+      message: args.message,
+    });
+    return;
+  }
+  if (!existing) return;
+  const update = (snapshot: CommunityMessengerRoomSnapshot) =>
+    ({
+      ...snapshot,
+      ...(args.roomSummary ? { room: { ...snapshot.room, ...args.roomSummary } } : null),
+      messages: mergeMessages(snapshot.messages ?? [], args.message),
+    } satisfies CommunityMessengerRoomSnapshot);
+  patchEntryMap(entries, roomId, viewerUserId, update);
+  patchHotMap(roomId, viewerUserId, update);
+}
+
+export function patchRoomSummaryInSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  patch: Partial<CommunityMessengerRoomSummary>;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const update = (snapshot: CommunityMessengerRoomSnapshot) =>
+    ({
+      ...snapshot,
+      room: { ...snapshot.room, ...args.patch },
+    } satisfies CommunityMessengerRoomSnapshot);
+  patchEntryMap(entries, roomId, viewerUserId, update);
+  patchHotMap(roomId, viewerUserId, update);
+}
+
+export function patchRoomReadStateInSnapshotCache(args: {
+  roomId: string;
+  viewerUserId: string;
+  unreadCount: number;
+  lastReadMessageId?: string | null;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  const update = (snapshot: CommunityMessengerRoomSnapshot) =>
+    ({
+      ...snapshot,
+      room: { ...snapshot.room, unreadCount: Math.max(0, Math.floor(args.unreadCount || 0)) },
+      ...(args.lastReadMessageId !== undefined
+        ? {
+            readReceipt: {
+              roomId,
+              readerUserId: snapshot.readReceipt?.readerUserId ?? "",
+              lastReadAt: snapshot.readReceipt?.lastReadAt ?? null,
+              lastReadMessageId: args.lastReadMessageId ?? null,
+            },
+          }
+        : null),
+    } satisfies CommunityMessengerRoomSnapshot);
+  patchEntryMap(entries, roomId, viewerUserId, update);
+  patchHotMap(roomId, viewerUserId, update);
+}
+
 export function consumeRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
   pruneIfNeeded();
   const r = roomId.trim();
@@ -135,12 +280,24 @@ export function consumeRoomSnapshot(roomId: string, viewerUserId?: string | null
   return null;
 }
 
+export type PrefetchCommunityMessengerRoomSnapshotOpts = {
+  /**
+   * true: TTL 안의 기존 `peek` 이 있어도 무효화 후 다시 GET — 상대 신규 메시지 직후 입장 시 옛 타임라인 시드 방지.
+   */
+  force?: boolean;
+};
+
 /** 호버 등으로 미리 채워 두면 방 진입 시 로딩이 거의 없어짐. */
-export async function prefetchCommunityMessengerRoomSnapshot(roomId: string): Promise<boolean> {
+export async function prefetchCommunityMessengerRoomSnapshot(
+  roomId: string,
+  opts?: PrefetchCommunityMessengerRoomSnapshotOpts
+): Promise<boolean> {
   const key = roomId.trim();
   if (!key) return false;
+  const force = opts?.force === true;
   return runSingleFlight(`cm:prefetch-room-snapshot:${key}`, async () => {
-    if (peekRoomSnapshot(key)) return true;
+    if (!force && peekRoomSnapshot(key)) return true;
+    if (force) invalidateRoomSnapshot(key);
     try {
       /**
        * 프리패치는 첫 화면용 경량 시드만 당겨온다.

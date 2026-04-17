@@ -19,8 +19,9 @@
  * ---------------------------------------------------------------------------
  * 인앱 알림음 (`playCoalescedChatNotificationSound`)
  * ---------------------------------------------------------------------------
- * - 동일 방 + 포그라운드 + 창 포커스 + 타임라인 하단 근처: **무음** (DB unread 는 서버 RPC).
- * - 동일 방 + 포그라운드 + 포커스 + 스크롤 위: **무음** (방 UI에서 “새 메시지” 표시).
+ * - 동일 방 + 포그라운드 + 창 포커스: **INSERT 경로 낙관 bump·즉시 톤 생략** (`notifyMessengerHomeRealtimeMessageInsert`).
+ * - 동일 방 + 포그라운드 + 창 포커스 + 타임라인 하단 근처 + dwell: **mark_read** 로 서버 unread 정리 (`useMessengerRoomOpenMarkReadEffect`).
+ * - 동일 방 + 포그라운드 + 포커스 + 스크롤 위: **무음** (방 UI “새 메시지 n개”·participant 톤 정책은 `resolveParticipantUnreadDeltaInAppEffects` + reader store).
  * - 동일 방 + 포그라운드 + **창 blur**: **톤 허용** (탭은 메신저이나 다른 창을 보는 경우).
  * - 백그라운드: **톤 허용** (뮤트·알림 설정 제외).
  * - 그 외 화면/다른 방: **톤 + 앱 레벨 배너**(rollout 시).
@@ -36,8 +37,8 @@
  * ---------------------------------------------------------------------------
  * 읽음 (`mark_read`)
  * ---------------------------------------------------------------------------
- * - 하단 체류 읽음: `use-messenger-room-open-mark-read-effect` — 가시성 + **창 포커스** + 스티키 하단.
- * - 데스크톱 알림 클릭: `PATCH ... mark_read` 후 방 이동 + 허브 뱃지 resync.
+ * - 하단 체류 읽음: `use-messenger-room-open-mark-read-effect` — 가시성 + **창 포커스** + 스티키 하단(동일 방 실시간 수신으로 `unreadCount` 가 0이어도 최신 말풍선이 바뀌면 `mark_read` 로 읽음 커서 진행).
+ * - 데스크톱 알림 클릭: 방 이동만 수행. 읽음 해제는 방 안에서 가시 조건을 충족한 `useMessengerRoomOpenMarkReadEffect` 만 담당.
  *
  * @see messenger-message-notification-policy.ts
  * @see use-message-notification-bridge.ts
@@ -58,11 +59,15 @@ export const MESSENGER_OWNER_HUB_BADGE_RESYNC_EVENT = KASAMA_OWNER_HUB_BADGE_REF
 export type MessengerHubBadgeResyncReason =
   /** Realtime `community_messenger_participants`·읽음 등으로 탭 배지가 바뀔 수 있을 때 */
   | "participant_unread_changed"
-  | "notification_click_mark_read"
   | "room_phase2_mark_read"
   /** `useMessengerRoomOpenMarkReadEffect` — 뷰포트 가시 + 하단 체류 + 오버레이 없음 후 PATCH mark_read 성공 */
   | "room_open_mark_read"
-  | "auth_signed_out";
+  | "auth_signed_out"
+  /** 홈 `chats`/`groups`에 방 요약을 병합한 직후 — 하단 메신저 탭 배지를 목록과 같은 틱에 맞춤 */
+  | "home_list_merge_summary"
+  | "direct_room_created"
+  | "trade_chat_entry_room_ready"
+  | "sender_echo_room_missing";
 
 export type MessengerHubBadgeResyncDetail = {
   source: "community_messenger";

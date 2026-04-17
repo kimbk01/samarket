@@ -44,6 +44,7 @@ type Props = {
   onOpenSwipeItem: (id: string | null) => void;
   onSelectArchiveSection: (section: MessengerArchiveSection | null) => void;
   me: CommunityMessengerProfileLite | null;
+  viewerUserId?: string | null;
   sortedFriends: CommunityMessengerProfileLite[];
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
@@ -98,6 +99,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onOpenSwipeItem,
   onSelectArchiveSection,
   me,
+  viewerUserId = null,
   sortedFriends,
   friendStateModel,
   busyId,
@@ -226,6 +228,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         {mainSection === "chats" ? (
           <MessengerChatsScreen
             items={primaryListItems}
+            viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
@@ -247,6 +250,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         {mainSection === "open_chat" ? (
           <MessengerOpenChatScreen
             joinedItems={openChatJoinedItems}
+            viewerUserId={viewerUserId}
             discoverableGroups={filteredDiscoverableGroups}
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
@@ -267,6 +271,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         {mainSection === "archive" ? (
           <MessengerArchiveScreen
             items={primaryListItems}
+            viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}

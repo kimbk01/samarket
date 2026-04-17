@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
+import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   messengerRoomMenuItemId,
@@ -38,6 +39,7 @@ export type MessengerMenuAnchorRect = {
 
 type Props = {
   item: UnifiedRoomListItem;
+  viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -62,6 +64,7 @@ type Props = {
 
 export const MessengerChatListItem = memo(function MessengerChatListItem({
   item,
+  viewerUserId = null,
   favoriteFriendIds,
   busyId: _busyId,
   onTogglePin,
@@ -126,9 +129,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     (rid: string) => {
       const id = String(rid ?? "").trim();
       if (!id) return;
+      primeMessengerRoomEntrySnapshot({ viewerUserId, room });
       router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
     },
-    [router]
+    [room, router, viewerUserId]
   );
 
   const closeSwipe = useCallback(() => {
@@ -234,6 +238,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     setIsPressedVisual(!swipeOpen);
     {
       const href = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
+      primeMessengerRoomEntrySnapshot({ viewerUserId, room });
       void prefetchCommunityMessengerRoomSnapshot(room.id);
       void router.prefetch(href);
     }
@@ -245,7 +250,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, room.id, router, swipeOpen]);
+  }, [clearReleasePressTimer, compact, room, router, swipeOpen, viewerUserId]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {

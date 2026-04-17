@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type MutableRefObject } from "react";
-import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 
@@ -28,10 +28,7 @@ export function useMessengerRoomBootstrapLifecycle({
     // Local-first / server-seeded 방은 Realtime 을 가능한 빨리 연다.
     // (초기 HTTP 부트스트랩 완료까지 기다리면 체감 진입이 느려진다.)
     const viewerGuess = initialServerSnapshot?.viewerUserId?.trim() ?? "";
-    const warmFromCache =
-      peekHotRoomSnapshot(roomId, viewerGuess || undefined) ??
-      peekRoomSnapshot(roomId, viewerGuess || undefined) ??
-      null;
+    const warmFromCache = peekRoomSnapshot(roomId, viewerGuess || undefined) ?? null;
     const warmSnapshot = initialServerSnapshot ?? warmFromCache;
     setRoomReadyForRealtime(Boolean(warmSnapshot) || loadedRef.current);
     // 탭→방 컴포넌트 마운트 지연 측정(멈칫/라우팅 스케줄링 병목 확인)

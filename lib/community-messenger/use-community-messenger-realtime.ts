@@ -25,6 +25,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
+import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -121,8 +122,26 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   if (!roomNorm || !viewer) return;
   if (sender && sender === viewer) return;
 
+  applyIncomingMessageEvent({
+    viewerUserId: viewer,
+    roomId: roomRaw,
+    messageRow: row,
+  });
+  postCommunityMessengerBusEvent({
+    type: "cm.room.incoming_message",
+    roomId: roomRaw,
+    viewerUserId: viewer,
+    messageRow: row,
+    at: Date.now(),
+  });
+
   const focused = getMessengerRealtimeFocusedRoomIdNorm();
-  if (focused && focused === roomNorm) {
+  /** 동일 방 + 포그라운드(+창 포커스)일 때만 낙관 bump·톤·허브 resync 생략 — 백그라운드 동일 방은 배지·알림 유지 */
+  const foreground =
+    typeof document !== "undefined" &&
+    document.visibilityState === "visible" &&
+    (typeof document.hasFocus !== "function" || document.hasFocus());
+  if (focused && focused === roomNorm && foreground) {
     return;
   }
 

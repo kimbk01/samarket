@@ -21,6 +21,13 @@ export function resolveMessagingGlobalChromeFromPath(
 ): { stableKey: string; policy: MessagingGlobalChromePolicy } {
   const f = resolveConditionalAppShellFlags(pathname, regionBarInLayout);
   const messengerSurface = f.isCommunityMessengerSurface && !f.isCommunityMessengerCallPage;
+  /**
+   * 홈 첫 화면은 `mountGlobalRealtimeChrome` 에서 제외되어 있었는데, 그 경우 `community_messenger_participants`
+   * 구독이 아예 없어 하단 「메신저」배지·`cm.room.bump` 가 실시간으로 갱신되지 않았다.
+   * 알림/주문 Realtime 전체가 아닌 **참가자 브리지만** 홈에서도 켠다.
+   */
+  const isHome = pathname === "/" || pathname === "/home";
+  const mountCommunityMessengerParticipantBridge = f.mountGlobalRealtimeChrome || isHome;
 
   /**
    * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
@@ -38,6 +45,7 @@ export function resolveMessagingGlobalChromeFromPath(
 
   const stableKey = [
     f.mountGlobalRealtimeChrome ? "1" : "0",
+    mountCommunityMessengerParticipantBridge ? "1" : "0",
     f.mountNotificationSoundPrime ? "1" : "0",
     communityMessengerParticipantPlayback,
     mountMessengerInAppBannerHost ? "1" : "0",
@@ -46,7 +54,7 @@ export function resolveMessagingGlobalChromeFromPath(
   const policy: MessagingGlobalChromePolicy = {
     mountNotificationsBadgeRealtimeBridge: f.mountGlobalRealtimeChrome,
     mountGlobalOrderChatUnreadSound: f.mountGlobalRealtimeChrome,
-    mountGlobalCommunityMessengerParticipantBridge: f.mountGlobalRealtimeChrome,
+    mountGlobalCommunityMessengerParticipantBridge: mountCommunityMessengerParticipantBridge,
     communityMessengerParticipantPlayback,
     mountNotificationSoundPrime: f.mountNotificationSoundPrime,
     mountMessengerInAppBannerHost,

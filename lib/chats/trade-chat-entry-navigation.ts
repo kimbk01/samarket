@@ -11,6 +11,7 @@ import { setTradeChatEntryCreatingOverlayVisible } from "@/lib/chats/trade-chat-
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 
 export type TradeChatRouterLike = {
   push: (href: string) => void;
@@ -87,6 +88,8 @@ export function openCreateTradeChat(
           messengerRoomId: result.messengerRoomId ?? null,
           roomSource: result.roomSource,
         });
+        const cmForList = result.messengerRoomId?.trim();
+        if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
         router.replace(dest, { scroll: false });
         return;
       }

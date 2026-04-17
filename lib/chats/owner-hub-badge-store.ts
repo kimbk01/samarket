@@ -75,6 +75,19 @@ function applyFromNetwork(data: unknown) {
   emit();
 }
 
+export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
+  const nextUnread = Math.max(0, Math.floor(Number(unread) || 0));
+  const next = {
+    ...snapshot,
+    communityMessengerUnread: nextUnread,
+    total: Math.max(0, snapshot.socialChatUnread) + Math.max(0, snapshot.storesTabAttention) + nextUnread,
+  };
+  if (sameOwnerHubBadge(snapshot, next)) return;
+  snapshot = next;
+  emit();
+  broadcastOwnerHubBadgeSnapshot({ ok: true, ...next });
+}
+
 const HUB_BADGE_FLIGHT_KEY = "me:store-owner-hub-badge";
 
 let ownerHubLeaderUnsub: (() => void) | null = null;

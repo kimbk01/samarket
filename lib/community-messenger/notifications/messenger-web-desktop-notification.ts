@@ -1,25 +1,11 @@
 "use client";
 
 import type { MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
-import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { resolveMessengerWebDesktopNotificationIntent } from "@/lib/community-messenger/notifications/messenger-message-notification-policy";
 import type { MessengerAppVisibility } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 
 const recentDedupeAt = new Map<string, number>();
 const DEDUPE_MS = 2000;
-
-function requestMessengerMarkReadAfterNotificationClick(roomId: string): void {
-  const id = String(roomId ?? "").trim();
-  if (!id || typeof window === "undefined") return;
-  void fetch(communityMessengerRoomResourcePath(id), {
-    method: "PATCH",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "mark_read" }),
-  }).catch(() => {});
-  requestMessengerHubBadgeResync("notification_click_mark_read");
-}
 
 export type TryMessengerWebDesktopNotificationInput = {
   roomId: string;
@@ -80,7 +66,6 @@ export function tryShowMessengerWebDesktopNotification(
       } catch {
         /* ignore */
       }
-      requestMessengerMarkReadAfterNotificationClick(input.roomId);
       input.onNavigateToRoom(input.roomId);
       n.close();
     };

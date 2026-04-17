@@ -10,6 +10,7 @@ import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/r
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { applyRoomReadEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -18,6 +19,8 @@ import type {
 export type MessengerRoomOpenMarkReadPhaseRef = MutableRefObject<{
   roomId: string | null;
   phase: "idle" | "in_flight" | "done";
+  /** `mark_read` PATCH 성공 시점의 `lastReadMessageId` — 동일 방·unread 0 인데 상대 신규 메시지가 오면 다시 idle 로 풀어 읽음 커서를 진행한다 */
+  lastMarkedMessageId?: string | null;
 }>;
 
 function lastMarkableMessageId(
@@ -46,7 +49,7 @@ function isLatestMessageVisibleEnoughInViewport(root: HTMLElement | null, messag
 }
 
 /**
- * 미읽음이 있을 때만: **메시지 리스트가 보이는 상태**에서
+ * **메시지 리스트가 보이는 상태**에서(unread 0 이어도 타임라인 최신 id 가 바뀌면 상대 읽음 커서 진행)
  * - 탭/창 활성 + 하단 고정 + **최신 말풍선이 뷰포트에 실제로 노출**
  * - 시트·액션·라이트박스·통화 패널 등 **오버레이 없음**
  * - `CM_ROOM_BOTTOM_READ_DWELL_MS` 이상 유지
@@ -106,8 +109,20 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const snap = snapshotRef.current;
       if (!snap || String(snap.room.id) !== String(id)) return;
 
-      if (snap.room.unreadCount >= 1 && roomOpenMarkReadRef.current.phase === "done") {
-        roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
+      const lastIdEarly = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+      if (roomOpenMarkReadRef.current.phase === "done") {
+        const markedEarly = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
+        if (
+          snap.room.unreadCount >= 1 ||
+          (Boolean(lastIdEarly) && Boolean(markedEarly) && lastIdEarly !== markedEarly)
+        ) {
+          const cur = roomOpenMarkReadRef.current;
+          roomOpenMarkReadRef.current = {
+            roomId: id,
+            phase: "idle",
+            lastMarkedMessageId: cur.lastMarkedMessageId,
+          };
+        }
       }
       if (roomOpenMarkReadRef.current.phase !== "idle") {
         dwellStartAt = null;
@@ -115,7 +130,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         clearDwellTimer();
         return;
       }
-      if (snap.room.unreadCount < 1) {
+      const lastId = lastIdEarly;
+      if (lastId && roomOpenMarkReadRef.current.lastMarkedMessageId === lastId) {
         dwellStartAt = null;
         dwellAnchorMessageId = null;
         clearDwellTimer();
@@ -133,7 +149,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         typeof document === "undefined" ? true : document.visibilityState === "visible";
       const focused = typeof document === "undefined" ? true : document.hasFocus();
       const atBottom = stickToBottomRef.current;
-      const lastId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
       const vp = messagesViewportRef.current;
       const latestVisible = isLatestMessageVisibleEnoughInViewport(vp, lastId);
 
@@ -170,6 +185,18 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       dwellAnchorMessageId = null;
       clearDwellTimer();
       const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+      applyRoomReadEvent({
+        viewerUserId: snap.viewerUserId,
+        roomId: id,
+        lastReadMessageId: lastId,
+      });
+      postCommunityMessengerBusEvent({
+        type: "cm.room.read",
+        roomId: id,
+        viewerUserId: snap.viewerUserId,
+        lastReadMessageId: lastId,
+        at: Date.now(),
+      });
       void (async () => {
         try {
           const res = await fetch(communityMessengerRoomResourcePath(id), {
@@ -183,7 +210,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             if (typeof performance !== "undefined") {
               messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
             }
-            roomOpenMarkReadRef.current.phase = "done";
+            roomOpenMarkReadRef.current = {
+              roomId: id,
+              phase: "done",
+              lastMarkedMessageId: lastId,
+            };
             const snapAfter = snapshotRef.current;
             if (snapAfter && String(snapAfter.room.id) === String(id)) {
               postCommunityMessengerBusEvent({
@@ -197,10 +228,20 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
             requestMessengerHubBadgeResync("room_open_mark_read");
           } else {
-            roomOpenMarkReadRef.current.phase = "idle";
+            const cur = roomOpenMarkReadRef.current;
+            roomOpenMarkReadRef.current = {
+              roomId: id,
+              phase: "idle",
+              lastMarkedMessageId: cur.lastMarkedMessageId,
+            };
           }
         } catch {
-          roomOpenMarkReadRef.current.phase = "idle";
+          const cur = roomOpenMarkReadRef.current;
+          roomOpenMarkReadRef.current = {
+            roomId: id,
+            phase: "idle",
+            lastMarkedMessageId: cur.lastMarkedMessageId,
+          };
         }
       })();
     };

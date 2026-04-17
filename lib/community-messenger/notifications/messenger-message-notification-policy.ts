@@ -196,7 +196,8 @@ export function resolveMessengerMessageArrivalEffects(
 /**
  * `community_messenger_participants` unread 증가만 알 때 — 사운드·배너 (인앱).
  * Realtime 행에는 메시지 본문이 없어, 스크롤·CASE 1 세분화는 message 이벤트 경로에서 보강한다.
- * 동일 방 화면이면 글로벌 톤·배너 생략(방 내부 로직이 담당).
+ * 동일 방·포그라운드·창 포커스면 기본 무음; 스크롤이 하단이 아니면(`sameRoomScrollHint`) 톤·배너 유지 생략.
+ * 메시지 INSERT 경로 `notifyMessengerHomeRealtimeMessageInsert` 는 동일 방·포그라운드일 때 낙관 bump 도 생략한다.
  */
 const STICKY_CHAT_VIEW: MessengerChatViewPosition[] = ["at-bottom", "near-bottom"];
 

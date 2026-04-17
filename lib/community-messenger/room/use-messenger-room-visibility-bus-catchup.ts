@@ -44,7 +44,8 @@ export function useMessengerRoomVisibilityBusCatchup({
     if (!route && !stream) return;
     let lastAt = 0;
     return onCommunityMessengerBusEvent((ev) => {
-      if (ev.type === "cm.room.local_unread") return;
+      if (ev.type === "cm.room.local_unread" || ev.type === "cm.home.merge_room_summary") return;
+      if (ev.type !== "cm.room.message_sent" && ev.type !== "cm.room.bump") return;
       const evr = ev.roomId.trim();
       if (evr !== route && evr !== stream) return;
       const now = Date.now();

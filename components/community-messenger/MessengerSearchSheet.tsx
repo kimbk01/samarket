@@ -48,6 +48,7 @@ export type SearchSheetAction =
 
 type Props = {
   keyword: string;
+  viewerUserId?: string | null;
   onKeywordChange: (next: string) => void;
   onClose: () => void;
   onCommitRecentSearch: (value: string) => void;
@@ -408,6 +409,7 @@ function MessageHitRow({
 
 export function MessengerSearchSheet({
   keyword,
+  viewerUserId = null,
   onKeywordChange,
   onClose,
   onCommitRecentSearch,
@@ -509,6 +511,7 @@ export function MessengerSearchSheet({
                         <MessengerChatListItem
                           key={`search-room-${item.room.id}`}
                           item={item}
+                          viewerUserId={viewerUserId}
                           favoriteFriendIds={favoriteFriendIds}
                           busyId={busyId}
                           onTogglePin={onTogglePin}

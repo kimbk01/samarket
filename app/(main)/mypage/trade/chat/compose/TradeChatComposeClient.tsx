@@ -13,6 +13,7 @@ import {
 import { patchTradeChatEntryMark, readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 
 const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
@@ -70,6 +71,8 @@ export function TradeChatComposeClient({
           messengerRoomId: result.messengerRoomId ?? null,
           roomSource: result.roomSource,
         });
+        const cmForList = result.messengerRoomId?.trim();
+        if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
         router.replace(tradeHubChatRoomHref(navRoomId, result.roomSource), { scroll: false });
         return;

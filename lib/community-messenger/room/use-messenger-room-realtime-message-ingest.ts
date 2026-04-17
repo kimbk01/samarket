@@ -33,6 +33,8 @@ import {
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
@@ -108,7 +110,40 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
         if (event.eventType === "DELETE") {
           cur = cur.filter((item) => item.id !== event.message.id);
         } else {
-          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snap, roomMembersDisplayRef.current, event.message)]);
+          const mapped = mapRealtimeRoomMessage(snap, roomMembersDisplayRef.current, event.message);
+          applyIncomingMessageEvent({
+            viewerUserId: snap.viewerUserId,
+            roomId: streamRoomId.trim(),
+            roomSummary: snap.room,
+            message: mapped,
+            messageRow: {
+              id: event.message.id,
+              room_id: event.message.roomId,
+              sender_id: event.message.senderId,
+              message_type: event.message.messageType,
+              content: event.message.content,
+              metadata: event.message.metadata,
+              created_at: event.message.createdAt,
+            },
+          });
+          if (event.eventType === "INSERT") {
+            postCommunityMessengerBusEvent({
+              type: "cm.room.incoming_message",
+              roomId: streamRoomId.trim(),
+              viewerUserId: snap.viewerUserId,
+              messageRow: {
+                id: event.message.id,
+                room_id: event.message.roomId,
+                sender_id: event.message.senderId,
+                message_type: event.message.messageType,
+                content: event.message.content,
+                metadata: event.message.metadata,
+                created_at: event.message.createdAt,
+              },
+              at: Date.now(),
+            });
+          }
+          cur = mergeRoomMessages(cur, [mapped]);
         }
       }
       return cur;

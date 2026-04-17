@@ -132,6 +132,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               onOpenSwipeItem={props.setOpenedSwipeItemId}
               onSelectArchiveSection={props.setSelectedArchiveSection}
               me={props.data.me}
+              viewerUserId={props.data.me?.id ?? null}
               sortedFriends={props.sortedFriends}
               friendStateModel={props.friendStateModel}
               busyId={props.busyId}

@@ -31,6 +31,7 @@ function useMessengerHomeListDocumentScroll(onScroll: () => void) {
 type MessengerRoomRowsProps = {
   useVirtual: boolean;
   items: UnifiedRoomListItem[];
+  viewerUserId?: string | null;
   listContext: MessengerChatListContext;
   favoriteFriendIds: Set<string>;
   busyId: string | null;
@@ -52,6 +53,7 @@ type MessengerRoomRowsProps = {
 function MessengerRoomRows({
   useVirtual,
   items,
+  viewerUserId = null,
   listContext,
   favoriteFriendIds,
   busyId,
@@ -81,6 +83,7 @@ function MessengerRoomRows({
           <MessengerChatListItem
             key={item.room.id}
             item={item}
+            viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
@@ -120,6 +123,7 @@ function MessengerRoomRows({
           >
             <MessengerChatListItem
               item={item}
+              viewerUserId={viewerUserId}
               favoriteFriendIds={favoriteFriendIds}
               busyId={busyId}
               onTogglePin={onTogglePin}
@@ -150,6 +154,7 @@ function FilterIcon() {
 
 type Props = {
   items: UnifiedRoomListItem[];
+  viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -175,6 +180,7 @@ type Props = {
 
 export function MessengerChatsScreen({
   items,
+  viewerUserId = null,
   favoriteFriendIds,
   busyId,
   onTogglePin,
@@ -275,6 +281,7 @@ export function MessengerChatsScreen({
         <MessengerRoomRows
           useVirtual={useVirt}
           items={items}
+          viewerUserId={viewerUserId}
           listContext={listContext}
           favoriteFriendIds={favoriteFriendIds}
           busyId={busyId}
@@ -306,6 +313,7 @@ export function MessengerChatsScreen({
 
 export function MessengerOpenChatScreen({
   joinedItems,
+  viewerUserId = null,
   discoverableGroups,
   favoriteFriendIds,
   busyId,
@@ -322,6 +330,7 @@ export function MessengerOpenChatScreen({
   onListScrollStart,
 }: {
   joinedItems: UnifiedRoomListItem[];
+  viewerUserId?: string | null;
   discoverableGroups: Array<{
     id: string;
     title: string;
@@ -381,6 +390,7 @@ export function MessengerOpenChatScreen({
           <MessengerRoomRows
             useVirtual={useVirtJoined}
             items={joinedItems}
+            viewerUserId={viewerUserId}
             listContext="default"
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}

@@ -3,6 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { MESSENGER_HOME_META_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
+import { messengerClientMessageToInsertRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
+import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 import type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
@@ -195,6 +198,31 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       break;
     }
     channels.push(roomBundle);
+
+    for (const rid of chunk) {
+      const bumpChannel = subscribeCommunityMessengerRoomBumpBroadcast({
+        sb: args.sb,
+        roomId: rid,
+        onBump: (payload) => {
+          if (cancelled()) return;
+          const parsed = parseCommunityMessengerBumpMessageSnapshot(payload, args.userId);
+          if (!parsed) return;
+          args.messageInsertHintRef.current?.({
+            roomId: rid,
+            newRecord: messengerClientMessageToInsertRow(parsed),
+          });
+        },
+      });
+      channels.push({
+        stop: () => {
+          try {
+            void args.sb.removeChannel(bumpChannel);
+          } catch {
+            /* ignore */
+          }
+        },
+      });
+    }
   }
 
   return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
