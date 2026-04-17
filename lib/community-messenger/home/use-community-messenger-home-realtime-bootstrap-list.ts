@@ -7,6 +7,7 @@ import {
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { getMessengerRealtimeFocusedRoomIdNorm } from "@/lib/community-messenger/realtime/messenger-realtime-client-activity-ref";
 import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -20,6 +21,13 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-realtime";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
+
+function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string): boolean {
+  const rid = String(roomId ?? "").trim();
+  if (!rid) return false;
+  const match = (r: CommunityMessengerRoomSummary) => String(r.id) === rid;
+  return (root.chats ?? []).some(match) || (root.groups ?? []).some(match);
+}
 
 export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   userId: string | null | undefined;
@@ -100,22 +108,37 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     [setData]
   );
 
-  const applyRealtimeMessageListPatch = useCallback(
-    (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => {
-      let missedList = false;
+  const applyRealtimeMessageListBatch = useCallback(
+    (batch: CommunityMessengerHomeRealtimeMessageInsertHint[]) => {
+      if (batch.length === 0) return;
+      const missedRooms = new Set<string>();
       setData((prev) => {
         if (!prev) return prev;
-        const next = patchBootstrapRoomListForRealtimeMessageInsert(prev, hint.roomId, hint.newRecord);
-        if (next === prev) {
-          missedList = true;
-          return prev;
+        let cur = prev;
+        const me = String(userId ?? "").trim();
+        const focused = getMessengerRealtimeFocusedRoomIdNorm();
+        for (const hint of batch) {
+          const rid = String(hint.roomId ?? "").trim();
+          const sender = typeof hint.newRecord?.sender_id === "string" ? hint.newRecord.sender_id.trim() : "";
+          const boostUnreadCount = Boolean(me && sender && sender !== me && (!focused || focused !== rid.toLowerCase()));
+          const next = patchBootstrapRoomListForRealtimeMessageInsert(cur, hint.roomId, hint.newRecord, {
+            boostUnreadCount,
+          });
+          if (next === cur) {
+            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
+          } else {
+            cur = next;
+          }
         }
-        primeBootstrapCache(next);
-        return next;
+        if (cur === prev) return prev;
+        primeBootstrapCache(cur);
+        return cur;
       });
-      if (missedList) scheduleHomeMissingRoomSummaryMerge(hint.roomId);
+      for (const rid of missedRooms) {
+        if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
+      }
     },
-    [setData, scheduleHomeMissingRoomSummaryMerge]
+    [setData, scheduleHomeMissingRoomSummaryMerge, userId]
   );
 
   const applyParticipantUnreadDelta = useCallback(
@@ -130,9 +153,12 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             if (room.id !== hint.roomId) return room;
             hit = true;
             if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
+            const v = hint.unreadCount;
+            if (typeof v !== "number" || !Number.isFinite(v)) return room;
+            const serverUnread = Math.max(0, Math.floor(v));
             return {
               ...room,
-              unreadCount: hint.unreadCount,
+              unreadCount: serverUnread,
             };
           });
         const next = {
@@ -213,7 +239,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     roomIds,
     enabled: Boolean(userId) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
-    onRealtimeMessageInsert: applyRealtimeMessageListPatch,
+    onRealtimeMessageInsertBatch: applyRealtimeMessageListBatch,
     onParticipantUnreadDelta: applyParticipantUnreadDelta,
   });
 }

@@ -1,29 +1,30 @@
 "use client";
 
 import { useEffect, useRef, useState, type MutableRefObject } from "react";
-import {
-  MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS,
-  MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS,
-  MESSENGER_ROOM_META_DEBOUNCE_MS,
-  MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS,
-  MESSENGER_VOICE_AUX_DEBOUNCE_MS,
-} from "@/lib/community-messenger/messenger-latency-config";
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
-import { attachCommunityMessengerRoomCallPostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-call-realtime-channel";
-import { attachCommunityMessengerRoomMetaPostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-meta-realtime-channel";
-import { attachCommunityMessengerRoomMessagePostgresHandlers } from "@/lib/community-messenger/realtime/community-messenger-room-message-realtime-channel";
-import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
+import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
+import {
+  createGlobalMessengerRoomBundleEntry,
+  disposeGlobalMessengerRoomSchedulers,
+  type GlobalMessengerRoomBundleEntry,
+} from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 import type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
   CommunityMessengerRoomRealtimeMessageEvent,
-  CommunityMessengerRoomRealtimeMessageRow,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { syncSupabaseRealtimeAuthFromSession, waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { SAMARKET_REALTIME_TOKEN_REFRESH_EVENT } from "@/lib/supabase/realtime-auth-events";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { cmRtLogAuthEpochBump } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
+import {
+  bumpMessengerRealtimeLocalUnreadForRoom,
+  clearMessengerRealtimeLocalUnreadForRoom,
+  getMessengerRealtimeFocusedRoomIdNorm,
+} from "@/lib/community-messenger/realtime/messenger-realtime-client-activity-ref";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -35,6 +36,8 @@ export type {
 type HomeRealtimeListener = {
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
+  /** 등록 시 단일 콜백보다 우선 — 프레임당 1회 배치 전달로 `setState` 병합에 사용 */
+  onRealtimeMessageInsertBatch?: (hints: CommunityMessengerHomeRealtimeMessageInsertHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
 };
 
@@ -46,77 +49,16 @@ type RoomRealtimeListener = {
 type HomeRealtimeEntry = {
   authEpoch: number;
   listeners: Set<MutableRefObject<HomeRealtimeListener>>;
-  stop: () => void;
-};
-
-type RoomRealtimeEntry = {
-  authEpoch: number;
-  listeners: Set<MutableRefObject<RoomRealtimeListener>>;
+  insertHintBatchQueue: CommunityMessengerHomeRealtimeMessageInsertHint[];
+  insertBatchRafId: number | null;
   stop: () => void;
 };
 
 const homeRealtimeEntries = new Map<string, HomeRealtimeEntry>();
-const roomRealtimeEntries = new Map<string, RoomRealtimeEntry>();
+const globalMessengerRoomBundleByViewer = new Map<string, GlobalMessengerRoomBundleEntry>();
 
-function createRealtimeAuthBridge(args: {
-  sb: NonNullable<ReturnType<typeof getSupabaseClient>>;
-  isCancelled: () => boolean;
-  onReady: () => void;
-}): () => void {
-  const { sb, isCancelled, onReady } = args;
-  let authCleanup: (() => void) | null = null;
-  let retryTimer: ReturnType<typeof setTimeout> | null = null;
-  let ready = false;
-
-  const cleanup = () => {
-    authCleanup?.();
-    authCleanup = null;
-    if (retryTimer != null) {
-      clearTimeout(retryTimer);
-      retryTimer = null;
-    }
-  };
-
-  void (async () => {
-    const authOk = await waitForSupabaseRealtimeAuth(sb);
-    if (ready || isCancelled()) {
-      cleanup();
-      return;
-    }
-    if (authOk) {
-      ready = true;
-      cleanup();
-      onReady();
-      return;
-    }
-
-    const { data } = sb.auth.onAuthStateChange((_e, session) => {
-      if (ready || isCancelled() || !session?.access_token) return;
-      ready = true;
-      cleanup();
-      onReady();
-    });
-    authCleanup = () => {
-      try {
-        data.subscription.unsubscribe();
-      } catch {
-        /* ignore */
-      }
-    };
-
-    retryTimer = setTimeout(() => {
-      if (ready || isCancelled()) return;
-      void syncSupabaseRealtimeAuthFromSession(sb).then((ok) => {
-        if (ready || isCancelled() || !ok) return;
-        ready = true;
-        cleanup();
-        onReady();
-      });
-    }, 180);
-  })();
-
-  return cleanup;
-}
+/** INSERT 힌트 폭주 시 한 프레임 작업량 상한 — 이후 큐는 다음 rAF에서 이어 처리 */
+const HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH = 50;
 
 function emitHomeRefresh(entry: HomeRealtimeEntry): void {
   for (const listener of entry.listeners) {
@@ -124,30 +66,76 @@ function emitHomeRefresh(entry: HomeRealtimeEntry): void {
   }
 }
 
-function emitHomeMessageInsert(entry: HomeRealtimeEntry, hint: CommunityMessengerHomeRealtimeMessageInsertHint): void {
+function flushHomeMessageInsertBatch(entry: HomeRealtimeEntry): void {
+  const batch = entry.insertHintBatchQueue.splice(0, HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH);
+  if (batch.length === 0) return;
   for (const listener of entry.listeners) {
-    listener.current.onRealtimeMessageInsert?.(hint);
+    const batchFn = listener.current.onRealtimeMessageInsertBatch;
+    if (batchFn) {
+      batchFn(batch);
+      continue;
+    }
+    const single = listener.current.onRealtimeMessageInsert;
+    if (single) for (const h of batch) single(h);
   }
+  if (entry.insertHintBatchQueue.length > 0) {
+    entry.insertBatchRafId = requestAnimationFrame(() => {
+      entry.insertBatchRafId = null;
+      flushHomeMessageInsertBatch(entry);
+    });
+  }
+}
+
+function enqueueHomeMessageInsertForEntry(
+  entry: HomeRealtimeEntry,
+  hint: CommunityMessengerHomeRealtimeMessageInsertHint
+): void {
+  entry.insertHintBatchQueue.push(hint);
+  if (entry.insertBatchRafId != null) return;
+  entry.insertBatchRafId = requestAnimationFrame(() => {
+    entry.insertBatchRafId = null;
+    flushHomeMessageInsertBatch(entry);
+  });
 }
 
 function emitHomeParticipantUnread(
   entry: HomeRealtimeEntry,
   hint: CommunityMessengerHomeRealtimeParticipantUnreadHint
 ): void {
+  clearMessengerRealtimeLocalUnreadForRoom(hint.roomId);
   for (const listener of entry.listeners) {
     listener.current.onParticipantUnreadDelta?.(hint);
   }
 }
 
-function emitRoomRefresh(entry: RoomRealtimeEntry): void {
-  for (const listener of entry.listeners) {
-    listener.current.onRefresh();
-  }
-}
+function notifyMessengerHomeRealtimeMessageInsert(args: {
+  viewerUserId: string;
+  hint: CommunityMessengerHomeRealtimeMessageInsertHint;
+}): void {
+  const row = args.hint.newRecord;
+  const roomRaw = String(args.hint.roomId ?? "").trim();
+  const roomNorm = roomRaw.toLowerCase();
+  const sender = typeof row.sender_id === "string" ? row.sender_id.trim() : "";
+  const messageId = typeof row.id === "string" ? row.id.trim() : "";
+  const viewer = args.viewerUserId.trim();
+  if (!roomNorm || !viewer) return;
+  if (sender && sender === viewer) return;
 
-function emitRoomMessageEvent(entry: RoomRealtimeEntry, event: CommunityMessengerRoomRealtimeMessageEvent): void {
-  for (const listener of entry.listeners) {
-    listener.current.onMessageEvent?.(event);
+  const focused = getMessengerRealtimeFocusedRoomIdNorm();
+  if (focused && focused === roomNorm) {
+    return;
+  }
+
+  bumpMessengerRealtimeLocalUnreadForRoom(roomRaw);
+  postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: roomRaw, at: Date.now() });
+  requestMessengerHubBadgeResync("participant_unread_changed");
+
+  const dedupeKey = `home-msg-insert:${roomNorm}:${messageId || Date.now()}`;
+  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+  /** 포그라운드 톤·배너는 `use-message-notification-bridge`(participants) 단일 경로 — 탭 숨김만 여기서 즉시 톤 */
+  const bg = typeof document !== "undefined" && document.visibilityState !== "visible";
+  if (bg && !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathname)) {
+    playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
   }
 }
 
@@ -161,6 +149,8 @@ function createHomeRealtimeEntry(args: {
   const entry: HomeRealtimeEntry = {
     authEpoch: args.authEpoch,
     listeners: new Set(),
+    insertHintBatchQueue: [],
+    insertBatchRafId: null,
     stop: () => undefined,
   };
   if (!sb) return entry;
@@ -179,7 +169,12 @@ function createHomeRealtimeEntry(args: {
       userId: args.userId,
       isCancelled: () => cancelled,
       roomIdsFingerprint: args.roomIdsFingerprint,
-      messageInsertHintRef: { current: (hint) => emitHomeMessageInsert(entry, hint) },
+      messageInsertHintRef: {
+        current: (hint) => {
+          notifyMessengerHomeRealtimeMessageInsert({ viewerUserId: args.userId, hint });
+          enqueueHomeMessageInsertForEntry(entry, hint);
+        },
+      },
       participantUnreadDeltaRef: { current: (hint) => emitHomeParticipantUnread(entry, hint) },
       onRefreshRef: { current: () => emitHomeRefresh(entry) },
     });
@@ -195,6 +190,11 @@ function createHomeRealtimeEntry(args: {
 
   entry.stop = () => {
     cancelled = true;
+    if (entry.insertBatchRafId != null) {
+      cancelAnimationFrame(entry.insertBatchRafId);
+      entry.insertBatchRafId = null;
+    }
+    entry.insertHintBatchQueue.length = 0;
     authBridgeCleanup?.();
     authBridgeCleanup = null;
     cancelSchedulers?.();
@@ -207,147 +207,36 @@ function createHomeRealtimeEntry(args: {
   return entry;
 }
 
-function createRoomRealtimeEntry(args: {
-  key: string;
-  roomId: string;
-  viewerForChannel: string;
-  authEpoch: number;
-}): RoomRealtimeEntry {
-  const sb = getSupabaseClient();
-  const entry: RoomRealtimeEntry = {
-    authEpoch: args.authEpoch,
-    listeners: new Set(),
-    stop: () => undefined,
-  };
-  if (!sb) return entry;
-
-  let cancelled = false;
-  const channels: Array<{ stop: () => void }> = [];
-  let cancelSchedulers: (() => void) | null = null;
-  let authBridgeCleanup: (() => void) | null = null;
-  let roomBound = false;
-
-  const bindRoomChannels = () => {
-    if (cancelled || roomBound) return;
-    roomBound = true;
-
-    const messageFallbackRefreshScheduler = createRefreshScheduler(
-      { current: () => emitRoomRefresh(entry) },
-      MESSENGER_MESSAGE_FALLBACK_DEBOUNCE_MS
-    );
-    const metaRefreshScheduler = createRefreshScheduler(
-      { current: () => emitRoomRefresh(entry) },
-      MESSENGER_ROOM_META_DEBOUNCE_MS
-    );
-    const roomCallBundleRefreshScheduler = createRefreshScheduler(
-      { current: () => emitRoomRefresh(entry) },
-      MESSENGER_ROOM_CALL_REALTIME_BUNDLE_DEBOUNCE_MS
-    );
-    const voiceRefreshScheduler = createRefreshScheduler(
-      { current: () => emitRoomRefresh(entry) },
-      MESSENGER_VOICE_AUX_DEBOUNCE_MS
-    );
-    const subscribedResyncScheduler = createRefreshScheduler(
-      { current: () => emitRoomRefresh(entry) },
-      MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS
-    );
-    cancelSchedulers = () => {
-      messageFallbackRefreshScheduler.cancel();
-      metaRefreshScheduler.cancel();
-      roomCallBundleRefreshScheduler.cancel();
-      voiceRefreshScheduler.cancel();
-      subscribedResyncScheduler.cancel();
-    };
-
-    let roomBundleSubscribedCount = 0;
-    const roomBundle = subscribeWithRetry({
-      sb,
-      name: `community-messenger-room:bundle:${args.viewerForChannel}:${args.roomId}`,
-      logStreamRoomId: args.roomId,
-      scope: "community-messenger-room:bundle",
-      isCancelled: () => cancelled,
-      onStatus: (status) => {
-        if (status !== "SUBSCRIBED" || cancelled) return;
-        roomBundleSubscribedCount += 1;
-        if (roomBundleSubscribedCount === 1) {
-          emitRoomRefresh(entry);
-        } else {
-          subscribedResyncScheduler.schedule();
-        }
-      },
-      onAfterSubscribeFailure: (_status, attempt) => {
-        if (cancelled) return;
-        if (attempt >= 2) messageFallbackRefreshScheduler.schedule();
-      },
-      build: (channel) => {
-        let c = attachCommunityMessengerRoomMessagePostgresHandlers(channel, {
-          roomId: args.roomId,
-          isCancelled: () => cancelled,
-          messageCallbackRef: { current: (event) => emitRoomMessageEvent(entry, event) },
-          messageFallbackRefreshScheduler,
-          roomCallBundleRefreshScheduler,
-          voiceRefreshScheduler,
-        });
-        c = attachCommunityMessengerRoomMetaPostgresHandlers(c, {
-          roomId: args.roomId,
-          isCancelled: () => cancelled,
-          metaRefreshScheduler,
-        });
-        c = attachCommunityMessengerRoomCallPostgresHandlers(c, {
-          roomId: args.roomId,
-          isCancelled: () => cancelled,
-          roomCallBundleRefreshScheduler,
-          onRefreshRef: { current: () => emitRoomRefresh(entry) },
-        });
-        return c;
-      },
-    });
-    if (cancelled) {
-      roomBundle.stop();
-      return;
-    }
-    channels.push(roomBundle);
-  };
-
-  authBridgeCleanup = createRealtimeAuthBridge({
-    sb,
-    isCancelled: () => cancelled,
-    onReady: bindRoomChannels,
-  });
-
-  entry.stop = () => {
-    cancelled = true;
-    authBridgeCleanup?.();
-    authBridgeCleanup = null;
-    cancelSchedulers?.();
-    cancelSchedulers = null;
-    for (const channel of channels) channel.stop();
-    channels.length = 0;
-    roomRealtimeEntries.delete(args.key);
-  };
-
-  return entry;
-}
-
 export function useCommunityMessengerHomeRealtime(args: {
   userId: string | null;
   roomIds?: string[];
   enabled: boolean;
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
+  onRealtimeMessageInsertBatch?: (hints: CommunityMessengerHomeRealtimeMessageInsertHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
 }) {
   const listenerRef = useRef<HomeRealtimeListener>({
     onRefresh: args.onRefresh,
     onRealtimeMessageInsert: args.onRealtimeMessageInsert,
+    onRealtimeMessageInsertBatch: args.onRealtimeMessageInsertBatch,
     onParticipantUnreadDelta: args.onParticipantUnreadDelta,
   });
-  listenerRef.current.onRefresh = args.onRefresh;
-  listenerRef.current.onRealtimeMessageInsert = args.onRealtimeMessageInsert;
-  listenerRef.current.onParticipantUnreadDelta = args.onParticipantUnreadDelta;
+  const [realtimeAuthEpoch, setRealtimeAuthEpoch] = useState(0);
 
   const roomIdsFingerprint = [...new Set((args.roomIds ?? []).filter(Boolean))].sort().join("\0");
-  const [realtimeAuthEpoch, setRealtimeAuthEpoch] = useState(0);
+
+  useEffect(() => {
+    listenerRef.current.onRefresh = args.onRefresh;
+    listenerRef.current.onRealtimeMessageInsert = args.onRealtimeMessageInsert;
+    listenerRef.current.onRealtimeMessageInsertBatch = args.onRealtimeMessageInsertBatch;
+    listenerRef.current.onParticipantUnreadDelta = args.onParticipantUnreadDelta;
+  }, [
+    args.onRefresh,
+    args.onRealtimeMessageInsert,
+    args.onRealtimeMessageInsertBatch,
+    args.onParticipantUnreadDelta,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -397,10 +286,12 @@ export function useCommunityMessengerRoomRealtime(args: {
     onRefresh: args.onRefresh,
     onMessageEvent: args.onMessageEvent,
   });
-  listenerRef.current.onRefresh = args.onRefresh;
-  listenerRef.current.onMessageEvent = args.onMessageEvent;
-
   const [realtimeAuthEpoch, setRealtimeAuthEpoch] = useState(0);
+
+  useEffect(() => {
+    listenerRef.current.onRefresh = args.onRefresh;
+    listenerRef.current.onMessageEvent = args.onMessageEvent;
+  }, [args.onRefresh, args.onMessageEvent]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const fn = () => {
@@ -420,24 +311,43 @@ export function useCommunityMessengerRoomRealtime(args: {
     if (!args.enabled || !args.roomId) return;
     const rid = args.roomId.trim();
     if (!rid) return;
-    const key = `${viewerForChannel}:${rid}`;
-    let entry = roomRealtimeEntries.get(key);
-    if (!entry || entry.authEpoch !== realtimeAuthEpoch) {
-      entry?.stop();
-      entry = createRoomRealtimeEntry({
-        key,
-        roomId: rid,
+    const roomKey = rid.toLowerCase();
+
+    let bundle = globalMessengerRoomBundleByViewer.get(viewerForChannel);
+    if (!bundle || bundle.authEpoch !== realtimeAuthEpoch) {
+      bundle?.stop();
+      bundle = createGlobalMessengerRoomBundleEntry({
         viewerForChannel,
         authEpoch: realtimeAuthEpoch,
+        onStopped: () => {
+          globalMessengerRoomBundleByViewer.delete(viewerForChannel);
+        },
       });
-      roomRealtimeEntries.set(key, entry);
+      globalMessengerRoomBundleByViewer.set(viewerForChannel, bundle);
     }
-    entry.listeners.add(listenerRef);
+
+    let set = bundle.listenersByRoom.get(roomKey);
+    if (!set) {
+      set = new Set();
+      bundle.listenersByRoom.set(roomKey, set);
+    }
+    set.add(listenerRef);
+    if (bundle.channelSubscribed && set.size === 1) {
+      queueMicrotask(() => {
+        listenerRef.current.onRefresh();
+      });
+    }
+
     return () => {
-      const current = roomRealtimeEntries.get(key);
+      const current = globalMessengerRoomBundleByViewer.get(viewerForChannel);
       if (!current) return;
-      current.listeners.delete(listenerRef);
-      if (current.listeners.size === 0) current.stop();
+      const s = current.listenersByRoom.get(roomKey);
+      if (!s) return;
+      s.delete(listenerRef);
+      if (s.size === 0) {
+        current.listenersByRoom.delete(roomKey);
+        disposeGlobalMessengerRoomSchedulers(current, roomKey);
+      }
     };
   }, [args.enabled, args.roomId, viewerForChannel, realtimeAuthEpoch]);
 }

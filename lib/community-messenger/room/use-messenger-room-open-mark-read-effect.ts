@@ -65,6 +65,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   roomLoadingRef: MutableRefObject<boolean>;
   /** unread / latest message / overlay / loading 변화 시 재평가 트리거 */
   readGateVersion: string;
+  /** 하단 체류 후 `mark_read` 지연 — 0 이면 조건 충족 시 즉시 PATCH */
+  readBottomDwellMs?: number;
 }): void {
   const {
     roomId,
@@ -76,6 +78,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
+    readBottomDwellMs = CM_ROOM_BOTTOM_READ_DWELL_MS,
   } = args;
 
   useEffect(() => {
@@ -149,16 +152,16 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         dwellTimer = setTimeout(() => {
           dwellTimer = null;
           reevaluate();
-        }, CM_ROOM_BOTTOM_READ_DWELL_MS);
+        }, readBottomDwellMs);
         return;
       }
 
-      if (now - dwellStartAt < CM_ROOM_BOTTOM_READ_DWELL_MS) {
+      if (now - dwellStartAt < readBottomDwellMs) {
         clearDwellTimer();
         dwellTimer = setTimeout(() => {
           dwellTimer = null;
           reevaluate();
-        }, CM_ROOM_BOTTOM_READ_DWELL_MS - (now - dwellStartAt));
+        }, readBottomDwellMs - (now - dwellStartAt));
         return;
       }
 
@@ -232,5 +235,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
+    readBottomDwellMs,
   ]);
 }

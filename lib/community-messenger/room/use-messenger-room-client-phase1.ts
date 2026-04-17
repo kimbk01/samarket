@@ -1,5 +1,7 @@
 ﻿"use client";
 
+/** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
+
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ChangeEvent,
@@ -25,6 +27,10 @@ import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-cal
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useMessengerRoomRealtimeMessageIngest } from "@/lib/community-messenger/room/use-messenger-room-realtime-message-ingest";
 import { useMessengerRoomOpenMarkReadEffect } from "@/lib/community-messenger/room/use-messenger-room-open-mark-read-effect";
+import {
+  clearMessengerRealtimeLocalUnreadForRoom,
+  setMessengerRealtimeFocusedRoomId,
+} from "@/lib/community-messenger/realtime/messenger-realtime-client-activity-ref";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -175,6 +181,17 @@ export function useMessengerRoomClientPhase1({
     const r = String(roomId ?? "").trim();
     return (c || r).trim();
   }, [snapshot?.room?.id, initialServerSnapshot?.room?.id, roomId]);
+
+  useEffect(() => {
+    const id = streamRoomId.trim();
+    if (!id) return;
+    clearMessengerRealtimeLocalUnreadForRoom(id);
+    setMessengerRealtimeFocusedRoomId(id);
+    return () => {
+      setMessengerRealtimeFocusedRoomId(null);
+    };
+  }, [streamRoomId]);
+
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
@@ -487,6 +504,7 @@ export function useMessengerRoomClientPhase1({
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
+    readBottomDwellMs: 0,
   });
 
   useEffect(() => {

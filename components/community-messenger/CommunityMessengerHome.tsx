@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -22,49 +21,19 @@ import type { MessengerMenuAnchorRect } from "@/components/community-messenger/M
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
+  MessengerChatRoomActionSheet,
+  MessengerFriendAddSheet,
+  MessengerFriendProfileSheet,
+  MessengerFriendsPrivacySheet,
+  MessengerNewConversationSheet,
+  MessengerNotificationCenterSheet,
+  MessengerSearchSheet,
+  MessengerSettingsSheet,
+} from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+import {
   resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
 } from "@/lib/community-messenger/messenger-notification-center-model";
-
-const MessengerFriendProfileSheet = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerFriendProfileSheet").then((m) => m.MessengerFriendProfileSheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerChatRoomActionSheet = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerChatRoomActionSheet").then((m) => m.MessengerChatRoomActionSheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerFriendsPrivacySheet = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerFriendsPrivacySheet").then((m) => m.MessengerFriendsPrivacySheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerSearchSheet = dynamic(
-  () => import("@/components/community-messenger/MessengerSearchSheet").then((m) => m.MessengerSearchSheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerNewConversationSheet = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerNewConversationSheet").then((m) => m.MessengerNewConversationSheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerFriendAddSheet = dynamic(
-  () => import("@/components/community-messenger/MessengerFriendAddSheet").then((m) => m.MessengerFriendAddSheet),
-  { ssr: false, loading: () => null }
-);
-const MessengerNotificationCenterSheet = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerNotificationCenterSheet").then(
-      (m) => m.MessengerNotificationCenterSheet
-    ),
-  { ssr: false, loading: () => null }
-);
-const MessengerSettingsSheet = dynamic(
-  () => import("@/components/community-messenger/MessengerSettingsSheet").then((m) => m.MessengerSettingsSheet),
-  { ssr: false, loading: () => null }
-);
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   type CommunityMessengerLocalSettings,
@@ -201,6 +170,7 @@ export function CommunityMessengerHome({
     refresh,
     homeRealtimeGateOpen,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
+  /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
   useCommunityMessengerPresenceRuntime(data?.me?.id ?? null);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
@@ -534,6 +504,10 @@ export function CommunityMessengerHome({
     setIncomingFriendRequestPopup,
   });
 
+  /**
+   * 메시지 INSERT Realtime → `patchBootstrapRoomListForRealtimeMessageInsert`(프리뷰·최근순 정렬·낙관 unread) +
+   * `use-community-messenger-realtime` 의 `notifyMessengerHomeRealtimeMessageInsert`(배지 resync·탭 숨김 톤).
+   */
   useCommunityMessengerHomeRealtimeBootstrapList({
     userId: data?.me?.id,
     roomIds: homeRoomIds,

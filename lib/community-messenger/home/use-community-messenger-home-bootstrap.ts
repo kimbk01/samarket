@@ -320,6 +320,10 @@ export function useCommunityMessengerHomeBootstrap({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
   }, [mergeDeferredMessengerCallLogs]);
 
+  /** `refresh` 콜백 참조가 바뀌어도 초기 마운트 부트스트랩 effect 가 재실행·중복 fetch 되지 않게 */
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   useEffect(() => {
     if (initialServerBootstrap) {
       primeBootstrapCache(initialServerBootstrap);
@@ -337,14 +341,14 @@ export function useCommunityMessengerHomeBootstrap({
     const stale = peekBootstrapCache();
     if (stale) {
       const idleId = scheduleWhenBrowserIdle(() => {
-        void refresh(true);
+        void refreshRef.current(true);
       }, 420);
       return () => {
         cancelScheduledWhenBrowserIdle(idleId);
       };
     }
-    void refresh();
-  }, [refresh, initialServerBootstrap, mergeDeferredMessengerCallLogs]);
+    void refreshRef.current();
+  }, [initialServerBootstrap, mergeDeferredMessengerCallLogs]);
 
   /** 과거 520ms 지연은 목록·홈 Realtime·알림 브리지와 하단 탭 배지가 서로 어긋나는 체감만 키움 — idle 한 틱으로만 연다. */
   useEffect(() => {

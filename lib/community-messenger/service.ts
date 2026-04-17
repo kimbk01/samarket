@@ -4834,6 +4834,21 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
 }
 
+/** 동일 방·옵션으로 동시에 들어온 스냅샷 요청을 한 번의 로드로 합침(결과 TTL 캐시는 최신 메시지 누락 방지로 두지 않음) */
+const roomSnapshotInflight = new Map<string, Promise<CommunityMessengerRoomSnapshot | null>>();
+
+function messengerRoomSnapshotCacheKey(
+  userId: string,
+  roomId: string,
+  messageLimit: number,
+  hydrateFullMemberList: boolean,
+  deferSnapshotSecondary: boolean
+): string {
+  return `${trimText(userId)}\0${trimText(roomId).toLowerCase()}\0${messageLimit}\0${hydrateFullMemberList ? "1" : "0"}\0${
+    deferSnapshotSecondary ? "1" : "0"
+  }`;
+}
+
 /** 부트스트랩에서 전원 멤버 프로필을 생략할 때 — 말풍선·헤더에 필요한 최소 user id */
 function collectMinimalSnapshotUserIdsForRoomSnapshot(
   userId: string,
@@ -4926,6 +4941,33 @@ export async function getCommunityMessengerRoomSnapshot(
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
+  const id = trimText(roomId);
+  if (!id) return null;
+  const cacheKey = messengerRoomSnapshotCacheKey(
+    userId,
+    id,
+    messageLimit,
+    hydrateFullMemberList,
+    deferSnapshotSecondary
+  );
+  let inflight = roomSnapshotInflight.get(cacheKey);
+  if (!inflight) {
+    inflight = loadCommunityMessengerRoomSnapshotUncached(userId, roomId, options).finally(() => {
+      roomSnapshotInflight.delete(cacheKey);
+    });
+    roomSnapshotInflight.set(cacheKey, inflight);
+  }
+  return await inflight;
+}
+
+async function loadCommunityMessengerRoomSnapshotUncached(
+  userId: string,
+  roomId: string,
+  options?: GetCommunityMessengerRoomSnapshotOptions
+): Promise<CommunityMessengerRoomSnapshot | null> {
+  const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
+  const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주 */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
   let deferSecondary = false;
@@ -4978,6 +5020,7 @@ export async function getCommunityMessengerRoomSnapshot(
         .from("community_messenger_messages")
         .select("id, room_id, sender_id, message_type, content, metadata, created_at")
         .eq("room_id", id)
+        .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .limit(messageLimit),
@@ -5446,6 +5489,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
     .select("id, created_at")
     .eq("id", beforeMessageId)
     .eq("room_id", roomId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (anchorErr || !anchorRow) return { ok: false, error: "not_found" };
 
@@ -5456,6 +5500,7 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
     .from("community_messenger_messages")
     .select("id, room_id, sender_id, message_type, content, metadata, created_at")
     .eq("room_id", roomId)
+    .is("deleted_at", null)
     .lt("created_at", anchorCreatedAt)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })

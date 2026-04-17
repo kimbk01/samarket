@@ -62,6 +62,8 @@ import {
   setMessengerRoomReadBlock,
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
 
+const MESSENGER_TIMELINE_MESSAGES_CAP = 100;
+
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
   const [imageLightbox, setImageLightbox] = useState<{
@@ -144,6 +146,14 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     if (imageLightbox != null) setMessengerRoomReadBlock(key, true);
     return () => setMessengerRoomReadBlock(key, false);
   }, [imageLightbox, vm.streamRoomId]);
+
+  useEffect(() => {
+    if (vm.displayRoomMessages.length <= MESSENGER_TIMELINE_MESSAGES_CAP) return;
+    vm.setRoomMessages((prev) =>
+      prev.length > MESSENGER_TIMELINE_MESSAGES_CAP ? prev.slice(-MESSENGER_TIMELINE_MESSAGES_CAP) : prev
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 길이·방 전환 시에만 상한 재적용(vm 객체 참조는 매 렌더 갱신)
+  }, [vm.displayRoomMessages.length, vm.setRoomMessages, vm.streamRoomId]);
 
   const scheduleScroll = useCallback(() => {
     if (scrollRafRef.current != null) return;

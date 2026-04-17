@@ -5,6 +5,9 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 
+/** 동일 `INSERT` 이벤트 중복 시 정렬·unread 낙관 bump 방지 */
+const lastRealtimeListMessageAppliedByRoomId = new Map<string, string>();
+
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -85,18 +88,41 @@ function patchRoomInList(
  * 홈 부트스트랩의 chats/groups 에서 해당 방만 마지막 메시지 프리뷰 갱신 + 최근순 정렬.
  * unread_count 는 participant Realtime·home-sync 가 진실 — 여기서는 건드리지 않는다.
  */
+function bumpRoomUnreadIfNeeded(
+  rooms: CommunityMessengerRoomSummary[],
+  roomId: string,
+  boost: boolean
+): CommunityMessengerRoomSummary[] {
+  if (!boost) return rooms;
+  let hit = false;
+  const next = rooms.map((r) => {
+    if (String(r.id) !== String(roomId)) return r;
+    hit = true;
+    return { ...r, unreadCount: Math.max(0, (r.unreadCount ?? 0) + 1) };
+  });
+  return hit ? next : rooms;
+}
+
 export function patchBootstrapRoomListForRealtimeMessageInsert(
   data: CommunityMessengerBootstrap,
   roomId: string,
-  messageRow: Record<string, unknown>
+  messageRow: Record<string, unknown>,
+  opts?: { boostUnreadCount?: boolean }
 ): CommunityMessengerBootstrap {
   const rid = String(roomId ?? "").trim();
   if (!rid) return data;
   const preview = listPreviewFromMessengerMessageRow(messageRow);
   if (!preview) return data;
-  const nextChats = patchRoomInList(data.chats ?? [], rid, preview);
-  const nextGroups = patchRoomInList(data.groups ?? [], rid, preview);
+  const mid = typeof messageRow.id === "string" ? messageRow.id.trim() : "";
+  const roomKey = rid.toLowerCase();
+  if (mid && lastRealtimeListMessageAppliedByRoomId.get(roomKey) === mid) {
+    return data;
+  }
+  const boost = Boolean(opts?.boostUnreadCount);
+  const nextChats = bumpRoomUnreadIfNeeded(patchRoomInList(data.chats ?? [], rid, preview), rid, boost);
+  const nextGroups = bumpRoomUnreadIfNeeded(patchRoomInList(data.groups ?? [], rid, preview), rid, boost);
   if (nextChats === data.chats && nextGroups === data.groups) return data;
+  if (mid) lastRealtimeListMessageAppliedByRoomId.set(roomKey, mid);
   return {
     ...data,
     chats: nextChats,
