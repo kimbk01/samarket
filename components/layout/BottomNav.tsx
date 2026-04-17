@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -50,16 +50,19 @@ function findLongestMatchingBottomNavTabIndex(
   pathname: string | null,
   tabs: readonly BottomNavItemConfig[]
 ): number {
-  const p = pathname?.trim() ?? "";
+  const raw = pathname?.trim() ?? "";
+  const p = raw.split("?")[0] ?? "";
   if (!p) return 0;
   let bestIdx = 0;
   let bestLen = -1;
   for (let i = 0; i < tabs.length; i++) {
     const h = tabs[i]?.href?.trim() ?? "";
     if (!h) continue;
-    if (p === h || p.startsWith(`${h}/`)) {
-      if (h.length > bestLen) {
-        bestLen = h.length;
+    const tradeAliasHome = h === "/home" && (p === "/market" || p.startsWith("/market/"));
+    if (p === h || p.startsWith(`${h}/`) || tradeAliasHome) {
+      const effectiveLen = tradeAliasHome ? Math.max(h.length, "/market".length) : h.length;
+      if (effectiveLen > bestLen) {
+        bestLen = effectiveLen;
         bestIdx = i;
       }
     }
@@ -114,6 +117,55 @@ function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): bo
   return true;
 }
 
+/** 탭 `href` 기준 활성 — 거래 허브는 `/home` 탭에 묶이며 `/market` 도 동일 탭으로 본다 */
+function isBottomNavTabActive(pathname: string | null, tabHref: string): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
+  const h = tabHref.split("?")[0]?.trim() ?? "";
+  if (!p || !h) return false;
+  if (p === h || p.startsWith(`${h}/`)) return true;
+  if (h === "/home" && (p === "/market" || p.startsWith("/market/"))) return true;
+  return false;
+}
+
+const BOTTOM_NAV_ITEM_TOUCH_CLASS =
+  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,transform,background-color,opacity] duration-150 ease-out active:scale-[0.96]";
+
+function triggerLightTapFeedback(): void {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(10);
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+function scrollAppShellToTop(): void {
+  if (typeof document === "undefined") return;
+  const mainEl = document.querySelector("main");
+  try {
+    mainEl?.scrollTo?.({ top: 0, behavior: "smooth" });
+  } catch {
+    try {
+      mainEl?.scrollTo?.(0, 0);
+    } catch {
+      /* noop */
+    }
+  }
+  try {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch {
+    window.scrollTo(0, 0);
+  }
+}
+
+function onBottomNavTabActivate(pathname: string | null, tabHref: string, e: MouseEvent<HTMLAnchorElement>): void {
+  triggerLightTapFeedback();
+  if (!isBottomNavTabActive(pathname, tabHref)) return;
+  e.preventDefault();
+  scrollAppShellToTop();
+}
+
 type BottomNavI18n = ReturnType<typeof useI18n>;
 type BottomNavRouter = ReturnType<typeof useRouter>;
 
@@ -130,7 +182,7 @@ function BottomNavTabStandard({
 }) {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
-  const isActive = pathname === tab.href || (pathname?.startsWith(tab.href + "/") ?? false);
+  const isActive = isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS[tab.icon];
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -147,7 +199,10 @@ function BottomNavTabStandard({
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const className = [
-    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2",
+    BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
+    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
     hasOwnerStore && !isActive ? "opacity-80" : "",
   ]
     .filter(Boolean)
@@ -182,6 +237,8 @@ function BottomNavTabStandard({
       scroll={false}
       className={className}
       aria-label={ariaLbl}
+      aria-current={isActive ? "page" : undefined}
+      onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
     >
       {inner}
     </Link>
@@ -209,7 +266,7 @@ function BottomNavTabStores({
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const storeDeepLink = useOwnerHubBadgeStoreDeepLink();
   const storeDeepLinkNavBusyRef = useRef(false);
-  const isActive = pathname === tab.href || (pathname?.startsWith(tab.href + "/") ?? false);
+  const isActive = isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -230,9 +287,13 @@ function BottomNavTabStores({
     tabBadgeCount > 0 && typeof storeDeepLink === "string" && storeDeepLink.length > 0;
 
   const className = [
-    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors",
+    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2",
+    storesTabOwnerLite && !isActive ? "rounded-ui-rect" : "rounded-xl",
+    BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
+    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
     storesTabOwnerLite && !isActive
-      ? "rounded-ui-rect bg-sam-surface/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-sam-border/70"
+      ? "bg-sam-surface/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-sam-border/70"
       : "",
   ]
     .filter(Boolean)
@@ -267,7 +328,9 @@ function BottomNavTabStores({
         href={tab.href}
         className={className}
         aria-label={ariaLbl}
+        aria-current={isActive ? "page" : undefined}
         onClick={(e) => {
+          triggerLightTapFeedback();
           e.preventDefault();
           if (storeDeepLinkNavBusyRef.current) return;
           storeDeepLinkNavBusyRef.current = true;
@@ -300,6 +363,8 @@ function BottomNavTabStores({
       scroll={false}
       className={className}
       aria-label={ariaLbl}
+      aria-current={isActive ? "page" : undefined}
+      onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
     >
       {inner}
     </Link>
@@ -446,6 +511,7 @@ export function BottomNav() {
     {hubBlockedModal}
     <nav
       className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
+      aria-label={t("nav_bottom_bar_aria")}
     >
       <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0 max-w-full`}>
         {tabs.map((tab) =>

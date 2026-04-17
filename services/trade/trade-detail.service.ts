@@ -1,8 +1,10 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
+import type { ChatRoomSource } from "@/lib/types/chat";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import {
   TRADE_SETTINGS_KEY,
   mergeTradeDetailOpsSettings,
@@ -13,6 +15,18 @@ export type TradeItemDetailPageData = {
   sellerItems: PostWithMeta[];
   similarItems: PostWithMeta[];
   ads: PostWithMeta[];
+  /**
+   * 로그인 뷰어 기준 거래방 시드 — 클라에서 `GET /api/chat/item/room-id` 1회 생략.
+   * 비로그인이면 생략(undefined).
+   */
+  viewerTradeRoomBootstrap?: {
+    viewerUserId: string;
+    /** 부트스트랩·프리웜용 `chat_rooms.id` 또는 `product_chats.id` */
+    roomId: string | null;
+    source: ChatRoomSource | null;
+    /** 있으면 메신저 방 URL은 이 UUID 우선 */
+    messengerRoomId?: string | null;
+  };
 };
 
 const SELLER_LIMIT_DEFAULT = 8;
@@ -43,7 +57,10 @@ export async function getItemDetailPageData(
   const itemId = input.itemId.trim();
   if (!itemId) return null;
 
-  const item = await loadPostDetailShared(clients, itemId, input.viewerUserId);
+  const [item, ops] = await Promise.all([
+    loadPostDetailShared(clients, itemId, input.viewerUserId),
+    loadTradeOpsSettings(clients),
+  ]);
   if (!item) return null;
   if (item.type === "community") {
     return {
@@ -61,12 +78,22 @@ export async function getItemDetailPageData(
   const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
-  const ops = await loadTradeOpsSettings(clients);
+  const viewerId = input.viewerUserId?.trim() ?? "";
+  const sb = clients.readSb ?? clients.serviceSb;
+  const viewerRoomPromise =
+    viewerId && sellerId && viewerId !== sellerId && sb
+      ? resolveViewerItemTradeRoom(sb, {
+          itemId,
+          viewerUserId: viewerId,
+          sellerId,
+        })
+      : Promise.resolve({ roomId: null, source: null, messengerRoomId: null });
+
   const sellerLimit = input.sellerLimit ?? ops.fallbackCount ?? SELLER_LIMIT_DEFAULT;
   const similarLimit = input.similarLimit ?? ops.similarCount ?? SIMILAR_LIMIT_DEFAULT;
   const adsLimit = input.adsLimit ?? ops.adsCount ?? ADS_LIMIT_DEFAULT;
 
-  const related = await loadTradeDetailRelatedBundle(clients.readSb, {
+  const relatedPromise = loadTradeDetailRelatedBundle(clients.readSb, {
     itemId,
     sellerId,
     sellerNickname,
@@ -80,24 +107,26 @@ export async function getItemDetailPageData(
     regionGroups: ops.regionGroups,
     completedVisibleDays: ops.completedVisibleDays,
   });
-  if (process.env.NODE_ENV !== "production") {
-    // 로컬 문제 재현 시 원인 추적: seller/similar/ads가 왜 비는지 확인
-    console.info("[trade-detail-related]", {
-      itemId,
-      sellerId,
-      sellerNickname,
-      counts: {
-        seller: related.sellerItems.length,
-        similar: related.similarItems.length,
-        ads: related.ads.length,
-      },
-    });
-  }
+
+  const [viewerRoomRow, related] = await Promise.all([viewerRoomPromise, relatedPromise]);
+
+  const viewerTradeRoomBootstrap: TradeItemDetailPageData["viewerTradeRoomBootstrap"] =
+    viewerId && sellerId && viewerId !== sellerId
+      ? {
+          viewerUserId: viewerId,
+          roomId: viewerRoomRow.roomId,
+          source: viewerRoomRow.source,
+          ...(viewerRoomRow.messengerRoomId
+            ? { messengerRoomId: viewerRoomRow.messengerRoomId }
+            : {}),
+        }
+      : undefined;
 
   return {
     item,
     sellerItems: related.sellerItems,
     similarItems: related.similarItems,
     ads: related.ads,
+    viewerTradeRoomBootstrap,
   };
 }

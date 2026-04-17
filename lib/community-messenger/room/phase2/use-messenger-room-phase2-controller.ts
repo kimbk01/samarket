@@ -41,8 +41,18 @@ import { createCommunityMessengerClientMessageId } from "@/lib/community-messeng
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
+import {
+  KASAMA_OWNER_HUB_BADGE_REFRESH,
+  KASAMA_TRADE_CHAT_UNREAD_UPDATED,
+} from "@/lib/chats/chat-channel-events";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
+
+function dispatchTradeLinkedNavBadgesAfterMessengerMutation(tradeDock: boolean) {
+  if (!tradeDock || typeof window === "undefined") return;
+  window.dispatchEvent(new Event(KASAMA_OWNER_HUB_BADGE_REFRESH));
+  window.dispatchEvent(new Event(KASAMA_TRADE_CHAT_UNREAD_UPDATED));
+}
 
 /** 첨부·위치 선택 후 「보내기」 전 확인 시트용 */
 export type MessengerAttachmentConfirmDraft =
@@ -661,6 +671,7 @@ export function useMessengerRoomPhase2Controller() {
             at: Date.now(),
           });
           forgetRoomBootstrapClientFlightsAfterMutation();
+          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -677,6 +688,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMessagesRef,
       streamRoomId,
       roomMembersDisplay,
+      showMessengerTradeProcessDock,
       scrollMessengerToBottom,
       snapshot,
     ]
@@ -765,6 +777,7 @@ export function useMessengerRoomPhase2Controller() {
             at: Date.now(),
           });
           forgetRoomBootstrapClientFlightsAfterMutation();
+          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -784,6 +797,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
+      showMessengerTradeProcessDock,
       snapshot,
     ]
   );
@@ -876,6 +890,7 @@ export function useMessengerRoomPhase2Controller() {
           );
           scrollMessengerToBottom();
           forgetRoomBootstrapClientFlightsAfterMutation();
+          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -896,6 +911,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
+      showMessengerTradeProcessDock,
       snapshot,
     ]
   );
@@ -982,6 +998,7 @@ export function useMessengerRoomPhase2Controller() {
           );
           scrollMessengerToBottom();
           forgetRoomBootstrapClientFlightsAfterMutation();
+          dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
@@ -1001,6 +1018,7 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       roomUnavailable,
       scrollMessengerToBottom,
+      showMessengerTradeProcessDock,
       snapshot,
     ]
   );

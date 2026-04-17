@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
@@ -10,12 +10,9 @@ import {
   tradeHubChatComposeHref,
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
-import {
-  patchTradeChatEntryMark,
-  readTradeChatEntryMark,
-} from "@/lib/chats/trade-chat-entry-client";
+import { patchTradeChatEntryMark, readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
-import type { ChatRoomSource } from "@/lib/types/chat";
 
 const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
@@ -25,14 +22,11 @@ export function TradeChatComposeClient({
   productId: string;
 }) {
   const router = useRouter();
-  const [resolvedRoomId, setResolvedRoomId] = useState<string | null>(null);
-  /** createOrGetChatRoom 이 돌린 뒤 방 종류 — URL `source` 보다 우선 */
-  const [hubBootstrapSource, setHubBootstrapSource] = useState<ChatRoomSource | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** 방 ID 확정 후 짧게 "이동 중" 표시 — 라우트 전환 전까지 */
+  const [goingRoomId, setGoingRoomId] = useState<string | null>(null);
   const replaceStartedRef = useRef<string | null>(null);
   const shellLoggedRef = useRef(false);
-
-  const activeRoomId = useMemo(() => resolvedRoomId?.trim() || null, [resolvedRoomId]);
 
   useEffect(() => {
     if (shellLoggedRef.current) return;
@@ -50,55 +44,50 @@ export function TradeChatComposeClient({
   }, []);
 
   useEffect(() => {
-    if (activeRoomId) {
-      /** 메신저 방 RSC 부트스트랩으로 이어짐 — 여기서 `/bootstrap` 을 또 호출하면 이중 왕복 */
-      return;
-    }
     let cancelled = false;
     void (async () => {
       const result = await createOrGetChatRoom(productId);
       if (cancelled) return;
-      if (!result.ok) {
-        const next = tradeHubChatComposeHref({ productId });
-        if (redirectForBlockedAction(router, result.error, next)) return;
-        setError(result.error || "채팅방을 열 수 없습니다.");
+      if (result.ok && result.roomId) {
+        if (replaceStartedRef.current === result.roomId) return;
+        replaceStartedRef.current = result.roomId;
+        setGoingRoomId(result.roomId);
+        const mark = patchTradeChatEntryMark({
+          roomId: result.roomId,
+          roomResolvedAt: Date.now(),
+        });
+        if (mark?.roomResolvedAt) {
+          logClientPerf("chat-entry.room-resolved", {
+            mode: mark.mode,
+            productId: mark.productId,
+            roomId: result.roomId,
+            elapsedMs: Math.max(0, mark.roomResolvedAt - mark.startedAt),
+          });
+        }
+        emitTradeChatRoomResolved({
+          productId,
+          roomId: result.roomId,
+          messengerRoomId: result.messengerRoomId ?? null,
+          roomSource: result.roomSource,
+        });
+        const navRoomId = result.messengerRoomId?.trim() || result.roomId;
+        router.replace(tradeHubChatRoomHref(navRoomId, result.roomSource), { scroll: false });
         return;
       }
-      const dest = tradeHubChatRoomHref(result.roomId, result.roomSource);
-      void router.prefetch(dest);
-      setResolvedRoomId(result.roomId);
-      setHubBootstrapSource(result.roomSource);
-      const mark = patchTradeChatEntryMark({
-        roomId: result.roomId,
-        roomResolvedAt: Date.now(),
-      });
-      if (mark?.roomResolvedAt) {
-        logClientPerf("chat-entry.room-resolved", {
-          mode: mark.mode,
-          productId: mark.productId,
-          roomId: result.roomId,
-          elapsedMs: Math.max(0, mark.roomResolvedAt - mark.startedAt),
-        });
-      }
+      const next = tradeHubChatComposeHref({ productId });
+      const errMsg = !result.ok ? result.error : "채팅방을 열 수 없습니다.";
+      if (redirectForBlockedAction(router, errMsg, next)) return;
+      setError(errMsg);
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeRoomId, productId, router]);
+  }, [productId, router]);
 
-  useEffect(() => {
-    if (!activeRoomId) return;
-    if (replaceStartedRef.current === activeRoomId) return;
-    replaceStartedRef.current = activeRoomId;
-    router.replace(tradeHubChatRoomHref(activeRoomId, hubBootstrapSource), {
-      scroll: false,
-    });
-  }, [activeRoomId, router, hubBootstrapSource]);
-
-  /** 방 ID 확정 후 메신저 방으로 `replace` — 이 compose 셸에서 `ChatRoomScreen` 을 마운트하지 않음 */
-  if (activeRoomId) {
+  if (goingRoomId) {
     return (
       <TradeChatLoadingShell
+        variant="creating"
         label="채팅으로 이동 중..."
         description="대화방을 열고 있어요."
       />
@@ -122,8 +111,9 @@ export function TradeChatComposeClient({
 
   return (
     <TradeChatLoadingShell
-      label="채팅 준비 중..."
-      description="대화방을 바로 열고 있어요."
+      variant="creating"
+      label="거래 채팅 방 생성중"
+      description="연결되는 동안 잠시만 기다려 주세요."
     />
   );
 }

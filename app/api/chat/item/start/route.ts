@@ -1,6 +1,12 @@
 /**
  * POST /api/chat/item/start — 거래 채팅 시작/재사용 (구매자=세션)
  * Body: { itemId: string }
+ *
+ * **상품 단위 방**: `chat_rooms` 에 `room_type=item_trade`, `item_id`, `seller_id`, `buyer_id` 로
+ * 동일 쌍·동일 상품에 대해 기본은 한 방 재사용(재문의). 친구 관계여도 **물품 거래 스레드**는
+ * `community_messenger_rooms.direct_key` 가 친구 DM 과 분리된다(`trade_item:` / `trade_pc:`).
+ * 동일 상품·동일 쌍의 **여러 방**: `chat_rooms` 다중 행 허용. 기본은 `updated_at` 최신 방 재사용.
+ * Body `forceNewThread: true` 이면 기존 방을 건너뛰고 **항상 새 `item_trade` 행**을 만든다.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -24,17 +30,13 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-  const access = await assertVerifiedMemberForAction(sb as any, buyerId);
-  if (!access.ok) {
-    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
-  }
-
-  let body: { itemId?: string };
+  let body: { itemId?: string; forceNewThread?: boolean };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
   }
+  const forceNewThread = body.forceNewThread === true;
   const itemId = typeof body.itemId === "string" ? body.itemId.trim() : "";
   if (!itemId) {
     return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
@@ -42,8 +44,16 @@ export async function POST(req: NextRequest) {
 
   const sbAny = sb;
 
-  // 1) 상품 및 판매자 — `/api/posts/.../detail` 과 동일 로더(DETAIL_SELECT → * → posts 폴백)
-  const post = await fetchPostRowForTradeChatById(sbAny, itemId);
+  // 1) 회원 검증 + 상품 로더 — 직렬 대기 1회 제거
+  const [access, post] = await Promise.all([
+    assertVerifiedMemberForAction(sb as any, buyerId),
+    fetchPostRowForTradeChatById(sbAny, itemId),
+  ]);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
+
+  // 상품 및 판매자 — `/api/posts/.../detail` 과 동일 로더(DETAIL_SELECT → * → posts 폴백)
   if (!post) {
     return NextResponse.json({ ok: false, error: "상품을 찾을 수 없습니다." }, { status: 404 });
   }
@@ -84,14 +94,18 @@ export async function POST(req: NextRequest) {
       .eq("user_id", sellerId)
       .eq("blocked_user_id", buyerId)
       .maybeSingle(),
-    sbAny
-      .from("chat_rooms")
-      .select("id")
-      .eq("room_type", "item_trade")
-      .eq("item_id", itemId)
-      .eq("seller_id", sellerId)
-      .eq("buyer_id", buyerId)
-      .maybeSingle(),
+    forceNewThread
+      ? Promise.resolve({ data: null, error: null })
+      : sbAny
+          .from("chat_rooms")
+          .select("id")
+          .eq("room_type", "item_trade")
+          .eq("item_id", itemId)
+          .eq("seller_id", sellerId)
+          .eq("buyer_id", buyerId)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
   ]);
   const block1 = block1Res.data;
   const block2 = block2Res.data;
@@ -101,7 +115,7 @@ export async function POST(req: NextRequest) {
 
   const existing = existingRes.data as { id?: string } | null;
 
-  if (existing?.id) {
+  if (existing?.id && !forceNewThread) {
     // Reopen: participant hidden/left 복구
     const { data: participants } = await sbAny
       .from("chat_room_participants")
@@ -134,22 +148,31 @@ export async function POST(req: NextRequest) {
       .update({ reopened_at: now, updated_at: now })
       .eq("id", existing.id);
 
-    try {
-      await sbAny.from("chat_event_logs").insert({
-        room_id: existing.id,
-        event_type: "room_reopened",
-        actor_user_id: buyerId,
-        metadata: {},
-      });
-    } catch {
-      /* ignore */
-    }
-    /** CM 방 연결은 응답을 막지 않고 백그라운드로 — 클라이언트는 `chat_rooms.id` 로 바로 진입, 스냅샷에서 ensure */
-    void ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id).catch(() => {});
+    /** CM 확정 + 이벤트 로그 — 직렬 대기 1회 제거 */
+    const [messengerRoomId] = await Promise.all([
+      ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id).catch(() => undefined),
+      (async () => {
+        try {
+          await sbAny.from("chat_event_logs").insert({
+            room_id: existing.id,
+            event_type: "room_reopened",
+            actor_user_id: buyerId,
+            metadata: {},
+          });
+        } catch {
+          /* ignore */
+        }
+      })(),
+    ]);
     const metaEx = parsePostMetaField(row.meta);
     const tradeChatKind =
       String(metaEx.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-    return NextResponse.json({ ok: true, roomId: existing.id, tradeChatKind });
+    return NextResponse.json({
+      ok: true,
+      roomId: existing.id,
+      ...(messengerRoomId ? { messengerRoomId } : {}),
+      tradeChatKind,
+    });
   }
 
   // 4) 새 방 생성
@@ -189,21 +212,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  try {
-    await sbAny.from("chat_event_logs").insert({
-      room_id: roomId,
-      event_type: "room_created",
-      actor_user_id: buyerId,
-      metadata: { item_id: itemId },
-    });
-  } catch {
-    /* ignore */
-  }
-
-  void ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId).catch(() => {});
+  const [messengerRoomId] = await Promise.all([
+    ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId).catch(() => undefined),
+    (async () => {
+      try {
+        await sbAny.from("chat_event_logs").insert({
+          room_id: roomId,
+          event_type: "room_created",
+          actor_user_id: buyerId,
+          metadata: { item_id: itemId },
+        });
+      } catch {
+        /* ignore */
+      }
+    })(),
+  ]);
 
   const metaNew = parsePostMetaField(row.meta);
   const tradeChatKind =
     String(metaNew.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
-  return NextResponse.json({ ok: true, roomId, tradeChatKind });
+  return NextResponse.json({
+    ok: true,
+    roomId,
+    ...(messengerRoomId ? { messengerRoomId } : {}),
+    tradeChatKind,
+  });
 }

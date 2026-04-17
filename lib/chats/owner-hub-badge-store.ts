@@ -38,8 +38,8 @@ const PATH_FETCH_PREFIXES = [
 ] as const;
 /** 클라 최소 fetch 간격 — 서버 `HUB_BADGE_TTL_MS`(28s, owner-hub-badge-cache)·폴링과 함께 조정 */
 const MIN_FETCH_GAP_MS = 22_000;
-/** force=true 연타(이벤트·StrictMode) 시에도 짧은 간격은 inFlight 에만 합류 */
-const MIN_FORCE_FETCH_GAP_MS = 3_000;
+/** force=true 연타 시 inFlight 합류 — 거래 탭 배지·알림 즉시성과의 균형 */
+const MIN_FORCE_FETCH_GAP_MS = 1_600;
 const MIN_EVENT_REFRESH_GAP_MS = 5_000;
 /** 가시 탭 주기 폴링 — 포커스·이벤트 갱신과 별도 (`docs/messenger-realtime-policy.md`) */
 const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 60_000;
@@ -192,17 +192,13 @@ function onFocusRefresh() {
 
 function onTradeUnreadUpdated() {
   if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-  const now = Date.now();
-  if (now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
-  lastEventRefreshAt = now;
-  void fetchOwnerHubBadgeNow();
+  /** `MIN_EVENT_REFRESH_GAP_MS` 는 `onOwnerHubRefresh` 와 공유하면 한쪽이 다른 쪽 갱신을 5초 막는다 — force 경로만 사용 */
+  void fetchOwnerHubBadgeNow(true);
 }
 
 function onOwnerHubRefresh() {
   if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-  const now = Date.now();
-  if (now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
-  lastEventRefreshAt = now;
+  /** Realtime·송신 직후 연속 호출 — 외부 간격 제한 없이 `fetchOwnerHubBadgeNow` 의 force·inFlight 만 사용 */
   void fetchOwnerHubBadgeNow(true);
 }
 

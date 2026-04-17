@@ -7,6 +7,9 @@ import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
  */
 export async function createOrGetTradeMessengerChatRoom(input: {
   itemId: string;
+  forceNewThread?: boolean;
 }): Promise<CreateOrGetChatRoomResult> {
-  return createOrGetChatRoom(input.itemId);
+  return createOrGetChatRoom(input.itemId, {
+    ...(input.forceNewThread ? { forceNewThread: true } : {}),
+  });
 }

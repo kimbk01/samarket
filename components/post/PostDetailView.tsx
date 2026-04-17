@@ -60,6 +60,10 @@ import {
   openExistingTradeChat,
   prefetchTradeChatEntry,
 } from "@/lib/chats/trade-chat-entry-navigation";
+import {
+  KASAMA_TRADE_CHAT_ROOM_RESOLVED,
+  type TradeChatRoomResolvedDetail,
+} from "@/lib/chats/trade-chat-room-resolved-event";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 
 const META_LABELS: Record<string, Record<string, string>> = {
@@ -511,9 +515,16 @@ interface PostDetailViewProps {
     similarItems: PostWithMeta[];
     ads: PostWithMeta[];
   };
+  /** RSC에서 시드 — 동일 세션이면 `room-id` GET 생략 */
+  viewerTradeRoomBootstrap?: {
+    viewerUserId: string;
+    roomId: string | null;
+    source: ChatRoomSource | null;
+    messengerRoomId?: string | null;
+  };
 }
 
-export function PostDetailView({ post, related }: PostDetailViewProps) {
+export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: PostDetailViewProps) {
   const router = useRouter();
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
@@ -559,13 +570,22 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  /** 새 채팅은 compose 로 즉시 이동해 방 생성은 다음 화면에서 처리 — 별도 대기 스피너 없음 */
+  /** 신규 채팅은 `openCreateTradeChat` 에서 서버 resolve 후 방으로 이동(실패·게이트만 compose) */
   const chatCtaBusy = false;
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
-  const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(null);
-  const [existingTradeRoomSource, setExistingTradeRoomSource] = useState<ChatRoomSource | null>(null);
+  const [existingTradeRoomId, setExistingTradeRoomId] = useState<string | null>(() =>
+    viewerTradeRoomBootstrap ? viewerTradeRoomBootstrap.roomId : null
+  );
+  const [existingTradeRoomSource, setExistingTradeRoomSource] = useState<ChatRoomSource | null>(() =>
+    viewerTradeRoomBootstrap ? viewerTradeRoomBootstrap.source : null
+  );
+  const [existingTradeMessengerId, setExistingTradeMessengerId] = useState<string | null>(() =>
+    viewerTradeRoomBootstrap?.messengerRoomId && typeof viewerTradeRoomBootstrap.messengerRoomId === "string"
+      ? viewerTradeRoomBootstrap.messengerRoomId.trim() || null
+      : null
+  );
   const [detailMoreOpen, setDetailMoreOpen] = useState(false);
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
   const [tradeAdSheetOpen, setTradeAdSheetOpen] = useState(false);
@@ -601,13 +621,29 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     if (resolvedViewerId === null || post.type === "community") {
       setExistingTradeRoomId(null);
       setExistingTradeRoomSource(null);
+      setExistingTradeMessengerId(null);
       return;
     }
     if (listingOwnerId && resolvedViewerId === listingOwnerId) {
       setExistingTradeRoomId(null);
       setExistingTradeRoomSource(null);
+      setExistingTradeMessengerId(null);
       return;
     }
+    if (
+      viewerTradeRoomBootstrap &&
+      resolvedViewerId === viewerTradeRoomBootstrap.viewerUserId
+    ) {
+      setExistingTradeRoomId(viewerTradeRoomBootstrap.roomId);
+      setExistingTradeRoomSource(viewerTradeRoomBootstrap.source);
+      const mid =
+        typeof viewerTradeRoomBootstrap.messengerRoomId === "string"
+          ? viewerTradeRoomBootstrap.messengerRoomId.trim()
+          : "";
+      setExistingTradeMessengerId(mid || null);
+      return;
+    }
+
     let cancelled = false;
     fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(post.id)}`)
       .then((res) => (res.ok ? res.json() : { roomId: null }))
@@ -617,17 +653,33 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
         setExistingTradeRoomSource(
           data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
         );
+        const mid = typeof data?.messengerRoomId === "string" ? data.messengerRoomId.trim() : "";
+        setExistingTradeMessengerId(mid || null);
       })
       .catch(() => {
         if (!cancelled) {
           setExistingTradeRoomId(null);
           setExistingTradeRoomSource(null);
+          setExistingTradeMessengerId(null);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [post.id, post.type, resolvedViewerId, listingOwnerId]);
+  }, [post.id, post.type, resolvedViewerId, listingOwnerId, viewerTradeRoomBootstrap]);
+
+  useEffect(() => {
+    const onRoomResolved = (ev: Event) => {
+      const d = (ev as CustomEvent<TradeChatRoomResolvedDetail>).detail;
+      if (!d?.productId || d.productId !== post.id) return;
+      setExistingTradeRoomId(d.roomId.trim());
+      setExistingTradeRoomSource(d.roomSource === "product_chat" ? "product_chat" : "chat_room");
+      const mid = typeof d.messengerRoomId === "string" ? d.messengerRoomId.trim() : "";
+      setExistingTradeMessengerId(mid || null);
+    };
+    window.addEventListener(KASAMA_TRADE_CHAT_ROOM_RESOLVED, onRoomResolved);
+    return () => window.removeEventListener(KASAMA_TRADE_CHAT_ROOM_RESOLVED, onRoomResolved);
+  }, [post.id]);
 
   const writeCtx = useWriteCategory();
 
@@ -842,8 +894,9 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
       productId: post.id,
       existingRoomId: existingTradeRoomId,
       existingRoomSource: existingTradeRoomSource,
+      existingMessengerRoomId: existingTradeMessengerId,
     });
-  }, [router, existingTradeRoomId, existingTradeRoomSource, post.id]);
+  }, [router, existingTradeRoomId, existingTradeRoomSource, existingTradeMessengerId, post.id]);
 
   const handleChat = useCallback(async () => {
     setChatError("");
@@ -864,6 +917,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
       openExistingTradeChat(router, {
         productId: post.id,
         roomId: existingTradeRoomId,
+        messengerRoomId: existingTradeMessengerId,
         sourceHint: existingTradeRoomSource,
       });
       return;
@@ -883,6 +937,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     router,
     existingTradeRoomId,
     existingTradeRoomSource,
+    existingTradeMessengerId,
     chatBlockedByOtherReservation,
     chatBlockedByCompleted,
     chatBlockedByReservedState,
@@ -935,6 +990,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
         productId: post.id,
         existingRoomId: existingTradeRoomId,
         existingRoomSource: existingTradeRoomSource,
+        existingMessengerRoomId: existingTradeMessengerId,
         prepareIfCreate: true,
       });
     }, 180);
@@ -942,6 +998,7 @@ export function PostDetailView({ post, related }: PostDetailViewProps) {
     showChat,
     existingTradeRoomId,
     existingTradeRoomSource,
+    existingTradeMessengerId,
     chatBlockedByListingState,
     chatBlockedByOtherReservation,
     isSold,

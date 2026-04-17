@@ -22,8 +22,8 @@ export type UserChatUnreadParts = {
   productChatUnreadDeduped: number;
 };
 
-/** 배지 API와 맞춰 짧은 구간 중복 DB 집계 방지 */
-const UNREAD_CACHE_TTL_MS = 15_000;
+/** 배지 API와 맞춰 짧은 구간 중복 DB 집계 방지 — 무효화 직후에도 체감 지연을 줄이기 위해 보수적으로 짧게 둔다 */
+const UNREAD_CACHE_TTL_MS = 4_000;
 const unreadPartsCache = new Map<
   string,
   { value: UserChatUnreadParts; expiresAt: number }

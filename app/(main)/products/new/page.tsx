@@ -24,7 +24,11 @@ export default function NewProductPage() {
           barangay: primaryRegion?.barangay ?? "",
         }}
         saveProduct={saveProductTradeFromForm}
-        onSubmitSuccess={(id) => router.push(`/products/${id}`)}
+        onSubmitSuccess={(id) => {
+          const href = `/products/${id}`;
+          void router.prefetch(href);
+          router.push(href);
+        }}
         onCancel={() => router.back()}
       />
     </div>

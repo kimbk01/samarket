@@ -17,6 +17,8 @@ interface ChatButtonProps {
   /** 당근형: 있으면 "대화중인 채팅" 표시, 클릭 시 해당 방으로 이동 */
   existingRoomId?: string | null;
   existingRoomSource?: ChatRoomSource | null;
+  /** 메신저 방 UUID — URL·prefetch 에만 사용, 부트스트랩은 `existingRoomId` */
+  existingMessengerRoomId?: string | null;
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -24,13 +26,14 @@ interface ChatButtonProps {
 
 /**
  * 당근형: 채팅하기 / 대화중인 채팅
- * - existingRoomId 없음 → compose로 이동 후 방 확정 (`TradeChatComposeClient`)
- * - existingRoomId 있음 → "대화중인 채팅", 해당 방으로 이동
+ * - existingRoomId 없음 → `openCreateTradeChat` 가 서버 resolve 후 메신저 방으로 바로 이동(실패 시에만 compose)
+ * - existingRoomId 있음 → 해당 방으로 이동
  */
 export function ChatButton({
   productId,
   existingRoomId,
   existingRoomSource,
+  existingMessengerRoomId,
   disabled,
   className,
   children,
@@ -52,8 +55,9 @@ export function ChatButton({
       productId,
       existingRoomId,
       existingRoomSource,
+      existingMessengerRoomId,
     });
-  }, [existingRoomId, existingRoomSource, productId, router]);
+  }, [existingRoomId, existingRoomSource, existingMessengerRoomId, productId, router]);
 
   const handleClick = () => {
     const user = getCurrentUser();
@@ -62,6 +66,7 @@ export function ChatButton({
       openExistingTradeChat(router, {
         productId,
         roomId: existingRoomId,
+        messengerRoomId: existingMessengerRoomId,
         sourceHint: existingRoomSource,
       });
       return;
@@ -79,6 +84,7 @@ export function ChatButton({
             productId,
             existingRoomId,
             existingRoomSource,
+            existingMessengerRoomId,
             prepareIfCreate: true,
           });
         }}

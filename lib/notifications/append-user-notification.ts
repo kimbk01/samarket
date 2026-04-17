@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishNotificationSideEffect } from "@/lib/notifications/publish-notification-side-effect";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 
 export type AppNotificationType =
   | "chat"
@@ -45,6 +46,7 @@ export async function appendUserNotification(
 
   const { error } = await sb.from("notifications").insert(insert);
   if (!error) {
+    invalidateNotificationUnreadCountCache(uid);
     void publishNotificationSideEffect(
       {
         user_id: uid,
@@ -68,6 +70,7 @@ export async function appendUserNotification(
     delete insert.meta;
     const { error: e2 } = await sb.from("notifications").insert(insert);
     if (!e2) {
+      invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
         {
           user_id: uid,
@@ -100,6 +103,7 @@ export async function appendUserNotification(
       is_read: false,
     });
     if (!e3) {
+      invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
         {
           user_id: uid,
@@ -128,6 +132,7 @@ export async function appendUserNotification(
     delete fallback.ref_id;
     const { error: e4 } = await sb.from("notifications").insert(fallback);
     if (!e4) {
+      invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
         {
           user_id: uid,

@@ -4,6 +4,8 @@ import { resolveTradeChatEntry } from "@/lib/chat-domain/use-cases/trade-chat-en
 
 type EntryResolveBody = {
   productId?: string;
+  /** 동일 상품·동일 쌍에서 추가 `item_trade` 스레드 */
+  forceNewThread?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -22,7 +24,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
   }
 
-  const result = await resolveTradeChatEntry(req, auth.userId, productId);
+  const forceNewThread = body.forceNewThread === true;
+  const result = await resolveTradeChatEntry(req, auth.userId, productId, { forceNewThread });
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },
@@ -34,5 +37,6 @@ export async function POST(req: NextRequest) {
     ok: true,
     roomId: result.roomId,
     roomSource: result.roomSource,
+    ...(result.messengerRoomId ? { messengerRoomId: result.messengerRoomId } : {}),
   });
 }

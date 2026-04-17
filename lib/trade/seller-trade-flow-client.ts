@@ -30,11 +30,12 @@ export function isActiveTradeChat(row: { tradeFlowStatus?: string }) {
 
 export function dedupeBuyerCandidates(items: TradeBuyerChatsPayload["items"]): TradeBuyerPickCandidate[] {
   if (!items?.length) return [];
+  /** 동일 구매자·동일 상품에 `item_trade` 방이 여러 개여도 각 `chatId` 를 유지 */
   const m = new Map<string, TradeBuyerPickCandidate>();
   for (const it of items) {
     if (!it.buyerId || !it.chatId) continue;
-    if (!m.has(it.buyerId)) {
-      m.set(it.buyerId, {
+    if (!m.has(it.chatId)) {
+      m.set(it.chatId, {
         buyerId: it.buyerId,
         chatId: it.chatId,
         buyerNickname: it.buyerNickname || it.buyerId.slice(0, 8),

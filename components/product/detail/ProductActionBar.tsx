@@ -24,6 +24,7 @@ interface ProductActionBarProps {
   /** 당근형: 있으면 CTA "대화중인 채팅"으로 표시 */
   existingRoomId?: string | null;
   existingRoomSource?: ChatRoomSource | null;
+  existingMessengerRoomId?: string | null;
   /** 판매자 본인일 때 true → 채팅하기 대신 "채팅 목록 보기" 표시 */
   amISeller?: boolean;
 }
@@ -36,6 +37,7 @@ export function ProductActionBar({
   product,
   existingRoomId,
   existingRoomSource,
+  existingMessengerRoomId,
   amISeller,
 }: ProductActionBarProps) {
   return (
@@ -63,6 +65,7 @@ export function ProductActionBar({
             productId={product.id}
             existingRoomId={existingRoomId}
             existingRoomSource={existingRoomSource}
+            existingMessengerRoomId={existingMessengerRoomId}
             disabled={product.status === "sold"}
             className={PRODUCT_DETAIL_CTA_BUTTON}
           />

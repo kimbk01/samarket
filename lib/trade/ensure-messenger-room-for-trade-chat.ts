@@ -23,19 +23,45 @@ export async function ensureMessengerRoomIdForItemTrade(
   chatRoomId?: string | null
 ): Promise<string | undefined> {
   try {
-    const pc = await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId);
-    if (!pc?.id) return undefined;
-
-    const stored = trimMid((pc as ProductChatRow).community_messenger_room_id);
-    if (stored) {
-      if (chatRoomId?.trim()) await syncChatRoomMessengerLink(sb, chatRoomId.trim(), stored);
-      return stored;
+    const crId = chatRoomId?.trim() ?? "";
+    let pc: ProductChatRow | null = null;
+    if (crId) {
+      const [pcRow, crRes] = await Promise.all([
+        ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId),
+        sb
+          .from("chat_rooms")
+          .select("community_messenger_room_id")
+          .eq("id", crId)
+          .eq("room_type", "item_trade")
+          .maybeSingle(),
+      ]);
+      pc = pcRow as ProductChatRow | null;
+      if (!pc?.id) return undefined;
+      const onCr = trimMid((crRes.data as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id);
+      if (onCr) return onCr;
+    } else {
+      pc = (await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId)) as ProductChatRow | null;
+      if (!pc?.id) return undefined;
     }
 
-    const out = await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id);
+    /**
+     * `chat_rooms` 행이 있으면 메신저 키는 `trade_item:{chat_rooms.id}` 로 친구 DM 과 분리.
+     * 레거시(chat_rooms 없이 product_chats 만)일 때만 PC 에 저장된 CM id 를 단일 경로로 쓴다.
+     */
+    const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
+    if (storedPc && !crId) {
+      return storedPc;
+    }
+
+    const out = await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id, {
+      itemTradeChatRoomId: crId || null,
+      prefetchedProductChat: pc,
+    });
     if (!out.ok || !out.roomId) return undefined;
 
-    if (chatRoomId?.trim()) await syncChatRoomMessengerLink(sb, chatRoomId.trim(), out.roomId);
+    if (crId) {
+      await syncChatRoomMessengerLink(sb, crId, out.roomId);
+    }
     return out.roomId;
   } catch {
     return undefined;

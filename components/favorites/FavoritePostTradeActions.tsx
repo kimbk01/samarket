@@ -13,6 +13,10 @@ import {
   openExistingTradeChat,
   prefetchTradeChatEntry,
 } from "@/lib/chats/trade-chat-entry-navigation";
+import {
+  KASAMA_TRADE_CHAT_ROOM_RESOLVED,
+  type TradeChatRoomResolvedDetail,
+} from "@/lib/chats/trade-chat-room-resolved-event";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { getAppSettings } from "@/lib/app-settings";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
@@ -46,6 +50,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
 
   const [existingRoomId, setExistingRoomId] = useState<string | null>(null);
   const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(null);
+  const [existingMessengerRoomId, setExistingMessengerRoomId] = useState<string | null>(null);
   const [chatError, setChatError] = useState("");
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -53,11 +58,13 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     if (!user?.id || post.type === "community") {
       setExistingRoomId(null);
       setExistingRoomSource(null);
+      setExistingMessengerRoomId(null);
       return;
     }
     if (listingOwnerId && user.id === listingOwnerId) {
       setExistingRoomId(null);
       setExistingRoomSource(null);
+      setExistingMessengerRoomId(null);
       return;
     }
     let cancelled = false;
@@ -71,11 +78,14 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
         setExistingRoomSource(
           data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
         );
+        const mid = typeof data?.messengerRoomId === "string" ? data.messengerRoomId.trim() : "";
+        setExistingMessengerRoomId(mid || null);
       })
       .catch(() => {
         if (!cancelled) {
           setExistingRoomId(null);
           setExistingRoomSource(null);
+          setExistingMessengerRoomId(null);
         }
       });
     return () => {
@@ -84,13 +94,27 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
   }, [post.id, post.type, user?.id, listingOwnerId, authBump]);
 
   useEffect(() => {
+    const onRoomResolved = (ev: Event) => {
+      const d = (ev as CustomEvent<TradeChatRoomResolvedDetail>).detail;
+      if (!d?.productId || d.productId !== post.id) return;
+      setExistingRoomId(d.roomId.trim());
+      setExistingRoomSource(d.roomSource === "product_chat" ? "product_chat" : "chat_room");
+      const mid = typeof d.messengerRoomId === "string" ? d.messengerRoomId.trim() : "";
+      setExistingMessengerRoomId(mid || null);
+    };
+    window.addEventListener(KASAMA_TRADE_CHAT_ROOM_RESOLVED, onRoomResolved);
+    return () => window.removeEventListener(KASAMA_TRADE_CHAT_ROOM_RESOLVED, onRoomResolved);
+  }, [post.id]);
+
+  useEffect(() => {
     if (!user?.id || post.type === "community") return;
     prefetchTradeChatEntry(router, {
       productId: post.id,
       existingRoomId,
       existingRoomSource,
+      existingMessengerRoomId,
     });
-  }, [existingRoomId, existingRoomSource, post.type, router, user?.id]);
+  }, [existingRoomId, existingRoomSource, existingMessengerRoomId, post.type, router, user?.id]);
 
   const chatBlockedByOtherReservation =
     post.type === "community"
@@ -124,6 +148,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
         productId: post.id,
         existingRoomId,
         existingRoomSource,
+        existingMessengerRoomId,
         prepareIfCreate: true,
       });
     }, 180);
@@ -131,6 +156,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     showChat,
     existingRoomId,
     existingRoomSource,
+    existingMessengerRoomId,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
@@ -154,6 +180,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       openExistingTradeChat(router, {
         productId: post.id,
         roomId: existingRoomId,
+        messengerRoomId: existingMessengerRoomId,
         sourceHint: existingRoomSource,
       });
       return;
@@ -173,6 +200,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     post.type,
     existingRoomId,
     existingRoomSource,
+    existingMessengerRoomId,
     chatBlockedByOtherReservation,
     isSold,
     allowChatAfterSold,
@@ -194,6 +222,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
                 productId: post.id,
                 existingRoomId,
                 existingRoomSource,
+                existingMessengerRoomId,
               });
             }}
             onPointerLeave={cancelTradeChatPrepare}

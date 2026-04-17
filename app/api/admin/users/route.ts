@@ -82,11 +82,16 @@ export async function GET(_req: NextRequest) {
           .in("id", profileIds)
       : { data: [] as TestUserRow[] };
 
-  const { data: recentTestRows } = await (supabase as any)
+  let legacyTestUsersQuery = (supabase as any)
     .from("test_users")
     .select("id, username, display_name, role, contact_address, created_at")
     .order("created_at", { ascending: false })
     .limit(250);
+  if (profileIds.length > 0) {
+    /** `profiles` 와 id 가 겹치는 행은 `matchedTestRows` 로 이미 조회 — 최근 250 스캔의 대역·중복 병합 낭비 감소 */
+    legacyTestUsersQuery = legacyTestUsersQuery.not("id", "in", `(${profileIds.join(",")})`);
+  }
+  const { data: recentTestRows } = await legacyTestUsersQuery;
 
   const testRows = [...((matchedTestRows ?? []) as TestUserRow[]), ...((recentTestRows ?? []) as TestUserRow[])];
   const testMap = new Map<string, TestUserRow>(

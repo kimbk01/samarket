@@ -15,7 +15,7 @@ type UpstreamResult = {
 };
 
 export type ResolveTradeChatEntryResult =
-  | { ok: true; roomId: string; roomSource: ChatRoomSource }
+  | { ok: true; roomId: string; roomSource: ChatRoomSource; messengerRoomId?: string }
   | { ok: false; error: string; status: number };
 
 function pickString(v: unknown): string | undefined {
@@ -56,12 +56,22 @@ async function postUpstream(
 export async function resolveTradeChatEntry(
   req: NextRequest,
   userId: string,
-  productId: string
+  productId: string,
+  opts?: { forceNewThread?: boolean }
 ): Promise<ResolveTradeChatEntryResult> {
-  const itemStart = await postUpstream(req, "/api/chat/item/start", { itemId: productId });
+  const itemStart = await postUpstream(req, "/api/chat/item/start", {
+    itemId: productId,
+    ...(opts?.forceNewThread ? { forceNewThread: true } : {}),
+  });
   const itemRoomId = pickString(itemStart.payload.roomId);
+  const itemMessengerId = pickString(itemStart.payload.messengerRoomId);
   if (itemStart.payload.ok && itemRoomId) {
-    return { ok: true, roomId: itemRoomId, roomSource: "chat_room" };
+    return {
+      ok: true,
+      roomId: itemRoomId,
+      roomSource: "chat_room",
+      ...(itemMessengerId ? { messengerRoomId: itemMessengerId } : {}),
+    };
   }
 
   if (!isProductNotFound(itemStart.status, itemStart.payload)) {

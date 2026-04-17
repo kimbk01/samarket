@@ -10,6 +10,7 @@ import {
 import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
 import { getAdminRole } from "@/lib/admin-permission";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
 import { AdminUserTable } from "./AdminUserTable";
@@ -54,18 +55,20 @@ export function AdminUserListPage() {
       return;
     }
     try {
-      const res = await fetch("/api/admin/users", { credentials: "include" });
-      if (!res.ok) {
-        setMembersFromApi(null);
-        return;
-      }
-      const data = await res.json();
-      const list = data.users ?? [];
-      setMembersFromApi(list);
+      await runSingleFlight(`admin-users:list:${adminUserId}:${membersKey}`, async () => {
+        const res = await fetch("/api/admin/users", { credentials: "include" });
+        if (!res.ok) {
+          setMembersFromApi(null);
+          return;
+        }
+        const data = await res.json();
+        const list = data.users ?? [];
+        setMembersFromApi(list);
+      });
     } catch {
       setMembersFromApi(null);
     }
-  }, [adminUserId]);
+  }, [adminUserId, membersKey]);
 
   useEffect(() => {
     if (tab === "members" && adminUserId) {

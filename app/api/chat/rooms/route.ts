@@ -57,48 +57,86 @@ function filterRoomsByListSegment(rows: ChatRoomListRow[], segment: EffectiveLis
   return rows;
 }
 
+function tradeTripleKey(r: ChatRoomListRow): string | null {
+  const pid = (r.productId ?? "").trim();
+  const bid = (r.buyerId ?? "").trim();
+  const sid = (r.sellerId ?? "").trim();
+  if (!pid || !bid || !sid) return null;
+  return `${pid}:${bid}:${sid}`;
+}
+
+function mergeLegacyProductChatIntoItemTradeRow(
+  pc: ChatRoomListRow,
+  cr: ChatRoomListRow
+): ChatRoomListRow {
+  const tCr = new Date(cr.lastMessageAt).getTime();
+  const tPc = new Date(pc.lastMessageAt).getTime();
+  const newer = tPc > tCr ? pc : cr;
+  /** 통합 `chat_room` 행이 있으면 미읽음은 커서 힌트(0/1)만 쓴다 — 레거시 `product_chats` 카운터와 max 하면 배지가 부풀어 오름 */
+  const mergedUnread =
+    cr.source === "chat_room" ? (cr.unreadCount ?? 0) : Math.max(cr.unreadCount ?? 0, pc.unreadCount ?? 0);
+  return {
+    ...cr,
+    lastMessageAt: newer.lastMessageAt,
+    lastMessage: newer.lastMessage,
+    unreadCount: mergedUnread,
+    tradeStatus: newer.tradeStatus ?? cr.tradeStatus ?? pc.tradeStatus,
+  };
+}
+
+/**
+ * 동일 상품·동일 판매자·동일 구매자에 `item_trade` 방이 **여러 개**여도 각각 목록에 남긴다.
+ * 레거시 `product_chats` 행은 동일 (상품·구매자·판매자)에 `chat_room` 이 **정확히 하나**일 때만 한 줄로 합친다.
+ */
 function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
   const general = rows.filter((r) => r.generalChat != null);
   const trade = rows.filter((r) => r.generalChat == null);
   const loose: ChatRoomListRow[] = [];
-  const byKey = new Map<string, ChatRoomListRow>();
+  const crByTriple = new Map<string, ChatRoomListRow[]>();
+  const pcByTriple = new Map<string, ChatRoomListRow>();
 
   for (const r of trade) {
-    const pid = (r.productId ?? "").trim();
-    const bid = (r.buyerId ?? "").trim();
-    const sid = (r.sellerId ?? "").trim();
-    if (!pid || !bid || !sid) {
+    const tk = tradeTripleKey(r);
+    if (!tk) {
       loose.push(r);
       continue;
     }
-    const key = `${pid}:${bid}:${sid}`;
-    const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, r);
-      continue;
+    if (r.source === "chat_room") {
+      const arr = crByTriple.get(tk) ?? [];
+      arr.push(r);
+      crByTriple.set(tk, arr);
+    } else {
+      pcByTriple.set(tk, r);
     }
-    const pickCanonical = (a: ChatRoomListRow, b: ChatRoomListRow) =>
-      a.source === "chat_room" ? a : b.source === "chat_room" ? b : a;
-    const canonical = pickCanonical(existing, r);
-    const other = canonical === existing ? r : existing;
-    const tCanon = new Date(canonical.lastMessageAt).getTime();
-    const tOther = new Date(other.lastMessageAt).getTime();
-    const newer = tOther > tCanon ? other : canonical;
-    /** 통합 `chat_room` 행이 있으면 미읽음은 커서 힌트(0/1)만 쓴다 — 레거시 `product_chats` 카운터와 max 하면 배지가 부풀어 오름 */
-    const mergedUnread =
-      canonical.source === "chat_room"
-        ? (canonical.unreadCount ?? 0)
-        : Math.max(canonical.unreadCount ?? 0, other.unreadCount ?? 0);
-    byKey.set(key, {
-      ...canonical,
-      lastMessageAt: newer.lastMessageAt,
-      lastMessage: newer.lastMessage,
-      unreadCount: mergedUnread,
-      tradeStatus: newer.tradeStatus ?? canonical.tradeStatus ?? other.tradeStatus,
-    });
   }
 
-  return [...general, ...loose, ...byKey.values()];
+  const out: ChatRoomListRow[] = [...loose];
+
+  for (const [tk, crsRaw] of crByTriple) {
+    const crs = [...crsRaw].sort(
+      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
+    const pc = pcByTriple.get(tk);
+    pcByTriple.delete(tk);
+
+    if (crs.length === 0) continue;
+    if (crs.length === 1) {
+      const cr = crs[0];
+      out.push(pc ? mergeLegacyProductChatIntoItemTradeRow(pc, cr) : cr);
+      continue;
+    }
+    const newest = crs[0];
+    out.push(pc ? mergeLegacyProductChatIntoItemTradeRow(pc, newest) : newest);
+    for (let i = 1; i < crs.length; i += 1) {
+      out.push(crs[i]);
+    }
+  }
+
+  for (const pc of pcByTriple.values()) {
+    out.push(pc);
+  }
+
+  return [...general, ...out];
 }
 
 const CHAT_ROOMS_LIST_SELECT =

@@ -54,48 +54,82 @@ export async function GET(req: NextRequest) {
 
   const { data: crRows } = await sbAny
     .from("chat_rooms")
-    .select("item_id, seller_id, buyer_id, last_message_at, last_message_preview")
+    .select(
+      "id, item_id, seller_id, buyer_id, trade_status, last_message_at, last_message_preview, updated_at"
+    )
     .eq("room_type", "item_trade")
     .eq("item_id", postId)
-    .eq("seller_id", userId);
+    .eq("seller_id", userId)
+    .order("last_message_at", { ascending: false, nullsFirst: false });
   for (const cr of crRows ?? []) {
     await touchProductChatPreviewFromItemTradeRoom(sbAny, cr as ItemTradeRoomRowForSync);
   }
 
-  const { data: rooms, error } = await sbAny
-    .from("product_chats")
-    .select(
-      "id, buyer_id, trade_flow_status, chat_mode, last_message_preview, last_message_at"
-    )
-    .eq("post_id", postId)
-    .eq("seller_id", userId)
-    .order("last_message_at", { ascending: false, nullsFirst: false });
+  const mapTradeStatusToFlow = (tradeStatus: string | null | undefined): string => {
+    const t = String(tradeStatus ?? "inquiry").toLowerCase();
+    if (t === "sold" || t === "completed" || t === "done") return "completed";
+    return "chatting";
+  };
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const buyers = [...new Set((rooms ?? []).map((r: { buyer_id: string }) => r.buyer_id))];
+  const buyerIdsFromCr = [...new Set((crRows ?? []).map((r: { buyer_id: string }) => r.buyer_id))];
   const nickById = new Map<string, string>();
-  if (buyers.length) {
+  if (buyerIdsFromCr.length) {
     const { data: profiles } = await sbAny
       .from("profiles")
       .select("id, nickname, username")
-      .in("id", buyers);
+      .in("id", buyerIdsFromCr);
     (profiles ?? []).forEach((p: Record<string, unknown>) => {
       const id = p.id as string;
       nickById.set(id, ((p.nickname ?? p.username) as string) || id.slice(0, 8));
     });
   }
 
-  const items = (rooms ?? []).map((r: Record<string, unknown>) => ({
+  let items = (crRows ?? []).map((r: Record<string, unknown>) => ({
+    /** `chat_rooms.id` — `resolveProductChat`·거래완료 API 가 수용 */
     chatId: String(r.id ?? ""),
     buyerId: String(r.buyer_id ?? ""),
     buyerNickname: nickById.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
-    tradeFlowStatus: (r.trade_flow_status as string) ?? "chatting",
-    chatMode: (r.chat_mode as string) ?? "open",
-    lastMessagePreview: (r.last_message_preview as string) ?? "",
+    tradeFlowStatus: mapTradeStatusToFlow(r.trade_status as string | undefined),
+    chatMode: "open",
+    lastMessagePreview: String(r.last_message_preview ?? ""),
   }));
+
+  if (items.length === 0) {
+    const { data: rooms, error } = await sbAny
+      .from("product_chats")
+      .select(
+        "id, buyer_id, trade_flow_status, chat_mode, last_message_preview, last_message_at"
+      )
+      .eq("post_id", postId)
+      .eq("seller_id", userId)
+      .order("last_message_at", { ascending: false, nullsFirst: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    const buyers = [...new Set((rooms ?? []).map((r: { buyer_id: string }) => r.buyer_id))];
+    const nickPc = new Map<string, string>();
+    if (buyers.length) {
+      const { data: profiles } = await sbAny
+        .from("profiles")
+        .select("id, nickname, username")
+        .in("id", buyers);
+      (profiles ?? []).forEach((p: Record<string, unknown>) => {
+        const id = p.id as string;
+        nickPc.set(id, ((p.nickname ?? p.username) as string) || id.slice(0, 8));
+      });
+    }
+
+    items = (rooms ?? []).map((r: Record<string, unknown>) => ({
+      chatId: String(r.id ?? ""),
+      buyerId: String(r.buyer_id ?? ""),
+      buyerNickname: nickPc.get(String(r.buyer_id ?? "")) ?? String(r.buyer_id ?? "").slice(0, 8),
+      tradeFlowStatus: (r.trade_flow_status as string) ?? "chatting",
+      chatMode: (r.chat_mode as string) ?? "open",
+      lastMessagePreview: (r.last_message_preview as string) ?? "",
+    }));
+  }
 
   return NextResponse.json({
     items,

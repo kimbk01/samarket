@@ -103,6 +103,7 @@ export function PostDetailPageClient({ initialBundle }: Props) {
           similarItems: initialBundle.similarItems,
           ads: initialBundle.ads,
         }}
+        viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
       />
     </>
   );

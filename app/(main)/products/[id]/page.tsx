@@ -23,7 +23,9 @@ async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PagePro
   ]);
   if (!product) notFound();
 
-  let initialViewerTradeRoom: { roomId: string | null; source: ChatRoomSource | null } | undefined;
+  let initialViewerTradeRoom:
+    | { roomId: string | null; source: ChatRoomSource | null; messengerRoomId?: string | null }
+    | undefined;
   if (viewerUserId && product.sellerId) {
     const sb = resolveServiceSupabaseForApi();
     if (sb) {
@@ -32,7 +34,11 @@ async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PagePro
         viewerUserId,
         sellerId: product.sellerId,
       });
-      initialViewerTradeRoom = { roomId: r.roomId, source: r.source };
+      initialViewerTradeRoom = {
+        roomId: r.roomId,
+        source: r.source,
+        ...(r.messengerRoomId ? { messengerRoomId: r.messengerRoomId } : {}),
+      };
     }
   }
 

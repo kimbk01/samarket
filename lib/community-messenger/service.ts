@@ -22,7 +22,15 @@ import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
 import type { ChatRoom } from "@/lib/types/chat";
 import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
-import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
+import {
+  itemTradeChatRoomIdFromMessengerDirectKey,
+  mirrorCommunityMessengerTextToItemTradeLedger,
+} from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
+import {
+  resolveProductChat,
+  type ProductChatRow,
+  type ResolveProductChatResult,
+} from "@/lib/trade/resolve-product-chat";
 import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -1262,15 +1270,22 @@ function sortParticipantsForRoomMemberList<T extends ParticipantRow | DevPartici
   });
 }
 
-/** 그룹방 부트스트랩: 방장·관리자 우선, 그다음 최근 가입 순 */
+/** 그룹방 부트스트랩: 방장·관리자 우선, 그다음 최근 가입 순 — 뷰어는 항상 슬라이스에 포함(캡·정렬로 누락되면 헤더·권한 UI가 깨짐) */
 function sliceGroupParticipantsForRoomBootstrap<T extends ParticipantRow | DevParticipant>(
   rows: T[],
-  _viewerUserId: string,
+  viewerUserId: string,
   cap: number
 ): { rows: T[]; truncated: boolean } {
   if (rows.length <= cap) return { rows, truncated: false };
   const sorted = sortParticipantsForRoomMemberList(rows);
-  return { rows: sorted.slice(0, cap), truncated: true };
+  const viewer = trimText(viewerUserId);
+  const base = sorted.slice(0, cap);
+  const viewerRow = viewer ? sorted.find((r) => participantRowUserId(r) === viewer) : undefined;
+  if (!viewerRow || base.some((r) => participantRowUserId(r) === viewer)) {
+    return { rows: base, truncated: true };
+  }
+  const trimmed = base.slice(0, Math.max(0, cap - 1));
+  return { rows: [...trimmed, viewerRow], truncated: true };
 }
 
 function isDbCallLogRow(row: CallRow | DevCall): row is CallRow {
@@ -3093,6 +3108,31 @@ async function verifyUserIsProductChatCounterpart(
   );
 }
 
+async function verifyUserIsItemTradeRoomCounterpart(
+  userId: string,
+  peerUserId: string,
+  itemTradeChatRoomId: string
+): Promise<boolean> {
+  const cid = trimText(itemTradeChatRoomId);
+  if (!cid) return false;
+  const sb = getSupabaseOrNull();
+  if (!sb) return false;
+  const { data } = await (sb as any)
+    .from("chat_rooms")
+    .select("room_type, seller_id, buyer_id")
+    .eq("id", cid)
+    .maybeSingle();
+  if (!data) return false;
+  const rt = String((data as { room_type?: unknown }).room_type ?? "");
+  if (rt !== "item_trade") return false;
+  const seller = trimText((data as { seller_id?: unknown }).seller_id);
+  const buyer = trimText((data as { buyer_id?: unknown }).buyer_id);
+  if (!seller || !buyer) return false;
+  return (
+    (userId === seller && peerUserId === buyer) || (userId === buyer && peerUserId === seller)
+  );
+}
+
 async function verifyUserIsStoreOrderChatCounterpart(
   userId: string,
   peerUserId: string,
@@ -3116,17 +3156,63 @@ async function verifyUserIsStoreOrderChatCounterpart(
   );
 }
 
+/**
+ * `direct_key` 로 찾은 기존 방 — INSERT 없이 재사용할 때 양쪽 `community_messenger_participants` 가
+ * 모두 있는지 보장한다(과거 레이스·부분 롤백으로 한쪽만 남은 경우 판매자 목록에 방이 안 보임).
+ */
+async function ensureDirectMessengerRoomParticipantsForPair(
+  sb: any,
+  roomId: string,
+  openerUserId: string,
+  peerUserId: string
+): Promise<void> {
+  const rid = trimText(roomId);
+  const opener = trimText(openerUserId);
+  const peer = trimText(peerUserId);
+  if (!rid || !opener || !peer) return;
+  const { data: rows, error } = await sb
+    .from("community_messenger_participants")
+    .select("user_id, role")
+    .eq("room_id", rid);
+  if (error && !isMissingTableError(error)) return;
+  const present = new Map<string, "owner" | "admin" | "member">();
+  for (const row of (rows ?? []) as Array<{ user_id?: string; role?: string }>) {
+    const uid = trimText(row.user_id);
+    if (!uid) continue;
+    const r = row.role;
+    const role: "owner" | "admin" | "member" =
+      r === "owner" || r === "admin" ? (r as "owner" | "admin") : "member";
+    present.set(uid, role);
+  }
+  const hasOwner = [...present.values()].some((role) => role === "owner");
+  const toInsert: Array<{ room_id: string; user_id: string; role: "owner" | "member" }> = [];
+  if (!present.has(opener)) {
+    toInsert.push({ room_id: rid, user_id: opener, role: hasOwner ? "member" : "owner" });
+  }
+  if (!present.has(peer)) {
+    toInsert.push({ room_id: rid, user_id: peer, role: "member" });
+  }
+  if (!toInsert.length) return;
+  const { error: insErr } = await sb.from("community_messenger_participants").insert(toInsert);
+  if (insErr && !isUniqueViolationError(insErr)) {
+    /* 로그 없이 무시 — 운영은 재시도·다음 ensure 에서 보정 */
+  }
+}
+
 export async function ensureCommunityMessengerDirectRoom(
   userId: string,
   peerUserId: string,
-  options?: { productChatId?: string; storeOrderId?: string }
+  options?: { productChatId?: string; storeOrderId?: string; itemTradeChatRoomId?: string }
 ): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
+  const itemTradeChatRoomId = trimText(options?.itemTradeChatRoomId ?? "");
   const productChatId = trimText(options?.productChatId ?? "");
   const storeOrderId = trimText(options?.storeOrderId ?? "");
   let allowWithoutFriend = false;
-  if (productChatId) {
+  if (itemTradeChatRoomId) {
+    allowWithoutFriend = await verifyUserIsItemTradeRoomCounterpart(userId, peerId, itemTradeChatRoomId);
+  } else if (productChatId) {
     allowWithoutFriend = await verifyUserIsProductChatCounterpart(userId, peerId, productChatId);
   } else if (storeOrderId) {
     allowWithoutFriend = await verifyUserIsStoreOrderChatCounterpart(userId, peerId, storeOrderId);
@@ -3135,7 +3221,16 @@ export async function ensureCommunityMessengerDirectRoom(
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
     return { ok: false, error: "blocked_target" };
   }
-  const directKey = directKeyFor(userId, peerId);
+  const basePairKey = directKeyFor(userId, peerId);
+  /** 거래·주문은 친구 DM(`basePairKey`)과 동일 키를 쓰지 않음 — 물품별·스레드별 방 유지 */
+  const directKey =
+    itemTradeChatRoomId !== ""
+      ? `trade_item:${itemTradeChatRoomId}`
+      : productChatId !== ""
+        ? `trade_pc:${productChatId}`
+        : storeOrderId !== ""
+          ? `trade_order:${storeOrderId}`
+          : basePairKey;
   const sb = getSupabaseOrNull();
   if (sb) {
     const loadExistingRoomId = async () => {
@@ -3154,7 +3249,9 @@ export async function ensureCommunityMessengerDirectRoom(
       .eq("direct_key", directKey)
       .maybeSingle();
     if (existing?.id && !existingError) {
-      return { ok: true, roomId: existing.id as string };
+      const rid = existing.id as string;
+      await ensureDirectMessengerRoomParticipantsForPair(sb, rid, userId, peerId);
+      return { ok: true, roomId: rid };
     }
     if (!existing || isMissingTableError(existingError)) {
       const { data: room, error: roomError } = await (sb as any)
@@ -3185,7 +3282,10 @@ export async function ensureCommunityMessengerDirectRoom(
       }
       if (isUniqueViolationError(roomError)) {
         const roomId = await loadExistingRoomId();
-        if (roomId) return { ok: true, roomId };
+        if (roomId) {
+          await ensureDirectMessengerRoomParticipantsForPair(sb, roomId, userId, peerId);
+          return { ok: true, roomId };
+        }
       }
       if (!isMissingTableError(roomError)) {
         return { ok: false, error: String(roomError.message ?? "room_create_failed") };
@@ -3193,7 +3293,10 @@ export async function ensureCommunityMessengerDirectRoom(
     }
     if (isUniqueViolationError(existingError)) {
       const roomId = await loadExistingRoomId();
-      if (roomId) return { ok: true, roomId };
+      if (roomId) {
+        await ensureDirectMessengerRoomParticipantsForPair(sb, roomId, userId, peerId);
+        return { ok: true, roomId };
+      }
     }
     if (existingError && !isMissingTableError(existingError)) {
       return { ok: false, error: String(existingError.message ?? "room_lookup_failed") };
@@ -3265,15 +3368,33 @@ export async function ensureCommunityMessengerDirectRoom(
   return { ok: true, roomId };
 }
 
+export type EnsureCommunityMessengerDirectRoomFromProductChatTradeLink = {
+  itemTradeChatRoomId?: string | null;
+  /** 호출부가 이미 `product_chats` 행을 확보한 경우 `resolveProductChat` DB 왕복 생략 */
+  prefetchedProductChat?: ProductChatRow | null;
+};
+
 export async function ensureCommunityMessengerDirectRoomFromProductChat(
   userId: string,
-  roomIdOrProductChat: string
+  roomIdOrProductChat: string,
+  tradeLink?: EnsureCommunityMessengerDirectRoomFromProductChatTradeLink
 ): Promise<{ ok: boolean; roomId?: string; peerUserId?: string; error?: string }> {
   const rid = trimText(roomIdOrProductChat);
   if (!rid) return { ok: false, error: "bad_room" };
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "server_unavailable" };
-  const resolved = await resolveProductChat(sb as any, rid);
+  const pref = tradeLink?.prefetchedProductChat ?? null;
+  const resolved: ResolveProductChatResult | null =
+    pref && trimText(pref.id) === rid
+      ? {
+          productChat: pref,
+          productChatId: pref.id,
+          messengerRoomId:
+            typeof pref.community_messenger_room_id === "string" && pref.community_messenger_room_id.trim()
+              ? pref.community_messenger_room_id.trim()
+              : null,
+        }
+      : await resolveProductChat(sb as any, rid);
   if (!resolved) return { ok: false, error: "product_chat_not_found" };
   const pc = resolved.productChat;
   const seller = trimText(pc.seller_id);
@@ -3282,11 +3403,17 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
   if (!seller || !buyer) return { ok: false, error: "product_chat_invalid" };
   if (userId !== seller && userId !== buyer) return { ok: false, error: "not_participant" };
   const peer = userId === seller ? buyer : seller;
-  const out = await ensureCommunityMessengerDirectRoom(userId, peer, { productChatId });
+  const itemTradeChatRoomId = trimText(tradeLink?.itemTradeChatRoomId ?? "");
+  const out = await ensureCommunityMessengerDirectRoom(userId, peer, {
+    productChatId,
+    ...(itemTradeChatRoomId ? { itemTradeChatRoomId } : {}),
+  });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
-  await hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId);
+  /** 요약 하이드레이션은 부트스트랩·목록 보강에서도 됨 — `item/start` 응답 RTT 에서 제외 */
+  void hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId, pc).catch(() => {});
   const sbPersist = getSupabaseOrNull();
-  if (sbPersist) {
+  /** `item_trade` 행별 메신저는 `chat_rooms.community_messenger_room_id` 로만 고정 — `product_chats` 단일 행을 덮어쓰지 않음 */
+  if (sbPersist && !itemTradeChatRoomId) {
     await persistProductChatMessengerRoomId(sbPersist as never, productChatId, out.roomId);
   }
   return { ok: true, roomId: out.roomId, peerUserId: peer };
@@ -4491,13 +4618,16 @@ function firstPostThumbnailForTradeMeta(images: unknown): string | null {
 async function hydrateTradeMessengerRoomSummaryFromProductChat(
   userId: string,
   productChatId: string,
-  cmRoomId: string
+  cmRoomId: string,
+  prefetchedPc?: ProductChatRow | null
 ): Promise<void> {
   const sb = getSupabaseOrNull();
   if (!sb) return;
-  const resolved = await resolveProductChat(sb as never, productChatId);
-  if (!resolved) return;
-  const pc = resolved.productChat;
+  const pc =
+    prefetchedPc && String(prefetchedPc.id ?? "").trim() === productChatId.trim()
+      ? prefetchedPc
+      : (await resolveProductChat(sb as never, productChatId))?.productChat;
+  if (!pc) return;
   const postId = String(pc.post_id ?? "").trim();
   const { data: post } = await (sb as any)
     .from(POSTS_TABLE_READ)
@@ -4516,7 +4646,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
   const seller = trimText((pc as { seller_id?: unknown }).seller_id);
   const role: "seller" | "buyer" = userId === seller ? "seller" : "buyer";
   const meta = buildMessengerContextMetaFromProductChatSnapshot({
-    productChatId: resolved.productChatId,
+    productChatId: productChatId.trim(),
     productTitle: title || "거래",
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,
@@ -4670,22 +4800,37 @@ export async function getCommunityMessengerRoomSnapshot(
   let messages: Array<MessageRow | DevMessage> = [];
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
+  /** `chat_rooms` / `product_chats` id 브리지 — 첫 CM 조회와 동시에 돌려 레이턴시 중첩 */
+  let tradeResolvedParallel: ResolveProductChatResult | null = null;
   if (sb) {
+    const participantSelectCols =
+      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
     const participantsQuery = hydrateFullMemberList
       ? (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id")
+          .select(participantSelectCols)
           .eq("room_id", id)
       : (sb as any)
           .from("community_messenger_participants")
-          .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id")
+          .select(participantSelectCols)
           .eq("room_id", id)
           .limit(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP + 1);
+
+    const myParticipantQuery = !hydrateFullMemberList
+      ? (sb as any)
+          .from("community_messenger_participants")
+          .select(participantSelectCols)
+          .eq("room_id", id)
+          .eq("user_id", userId)
+          .maybeSingle()
+      : Promise.resolve({ data: null });
 
     const [
       { data: roomData },
       { data: participantData },
       { data: messageData },
+      { data: myParticipantData },
+      tradeResolvedFromBatch,
     ] = await Promise.all([
       (sb as any)
         .from("community_messenger_rooms")
@@ -4702,20 +4847,24 @@ export async function getCommunityMessengerRoomSnapshot(
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
         .limit(messageLimit),
+      myParticipantQuery,
+      resolveProductChat(sb as never, id),
     ]);
+    tradeResolvedParallel = tradeResolvedFromBatch;
     room = (roomData as RoomRow | null) ?? null;
-    const rawParticipantRows = (participantData ?? []) as ParticipantRow[];
-    // 참여자 여부 검증은 participants 결과로 충분하다(별도 myParticipant round-trip 제거).
+    let rawParticipantRows = (participantData ?? []) as ParticipantRow[];
+    const myRow = (myParticipantData ?? null) as ParticipantRow | null;
+    if (myRow?.user_id === userId && !rawParticipantRows.some((p) => p.user_id === userId)) {
+      rawParticipantRows = [...rawParticipantRows, myRow];
+    }
+    // capped 쿼리만 쓸 때도 `user_id = viewer` 단건으로 멤버십을 확정(그룹·비결정적 limit 조합에서 room 을 잘못 null 처리하지 않음)
     if (room && !rawParticipantRows.some((p) => p.user_id === userId)) {
       room = null;
     } else if (room) {
       // `count: exact` 는 불필요하게 비싸다. 부트스트랩은 표시용이므로 기본은 로드된 rows 수로 충분.
       roomTotalMemberCount = rawParticipantRows.length;
       const roomType = (roomData as RoomRow | null)?.room_type as CommunityMessengerRoomType | undefined;
-      if (!hydrateFullMemberList && rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
-        participants = rawParticipantRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
-        membersTruncated = true;
-      } else if (
+      if (
         roomData &&
         roomType &&
         isCommunityMessengerGroupRoomType(roomType) &&
@@ -4728,6 +4877,9 @@ export async function getCommunityMessengerRoomSnapshot(
         );
         participants = sliced.rows;
         membersTruncated = sliced.truncated;
+      } else if (!hydrateFullMemberList && rawParticipantRows.length > COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP) {
+        participants = rawParticipantRows.slice(0, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP);
+        membersTruncated = true;
       } else {
         participants = rawParticipantRows;
       }
@@ -4741,7 +4893,7 @@ export async function getCommunityMessengerRoomSnapshot(
    * 브리지·ensure 없이 CM 방으로 바로 스냅샷. 없으면 기존 ensure 경로.
    */
   if (!room && sb) {
-    const tradeResolved = await resolveProductChat(sb as never, id);
+    const tradeResolved = tradeResolvedParallel as ResolveProductChatResult | null;
     if (tradeResolved?.messengerRoomId) {
       return getCommunityMessengerRoomSnapshot(userId, tradeResolved.messengerRoomId, options);
     }
@@ -5436,27 +5588,128 @@ export async function getCommunityMessengerRoomMessageById(input: {
   return { ok: true, message };
 }
 
+function parseRpcRecipientUserIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((x) => String(x ?? "").trim()).filter(Boolean);
+}
+
+function communityMessengerTextMessageFromRpcRow(
+  roomId: string,
+  userId: string,
+  msg: Record<string, unknown>
+): CommunityMessengerMessage {
+  const metadata = (msg.metadata ?? {}) as Record<string, unknown>;
+  const clientRaw = metadata.client_message_id;
+  const cmid = typeof clientRaw === "string" && clientRaw.trim() ? clientRaw.trim() : null;
+  return {
+    id: String(msg.id ?? ""),
+    roomId: String(msg.room_id ?? roomId),
+    senderId: typeof msg.sender_id === "string" ? msg.sender_id : userId,
+    senderLabel: "나",
+    messageType: "text",
+    content: trimText(String(msg.content ?? "")),
+    createdAt: trimText(String(msg.created_at ?? "")) || nowIso(),
+    clientMessageId: cmid,
+    isMine: true,
+    callKind: null,
+    callStatus: null,
+  };
+}
+
+function isCommunityMessengerSendTextRpcMissing(err: unknown): boolean {
+  const msg =
+    err && typeof err === "object" && "message" in err
+      ? String((err as { message?: string }).message ?? "")
+      : String(err ?? "");
+  return /community_messenger_send_text_message|does not exist|schema cache|Could not find|function|42883|PGRST202/i.test(
+    msg
+  );
+}
+
+async function trySendCommunityMessengerTextAtomic(
+  sb: any,
+  input: { userId: string },
+  roomId: string,
+  content: string,
+  clientMessageId: string
+): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string } | null> {
+  const createdAt = nowIso();
+  const { data: rpcRaw, error: rpcErr } = await sb.rpc("community_messenger_send_text_message", {
+    p_room_id: roomId,
+    p_sender_id: input.userId,
+    p_content: content,
+    p_client_message_id: clientMessageId.length > 0 ? clientMessageId : null,
+    p_created_at: createdAt,
+  });
+  if (rpcErr) {
+    if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
+    return { ok: false, error: String(rpcErr.message ?? "message_send_failed") };
+  }
+  if (rpcRaw == null || typeof rpcRaw !== "object") {
+    return { ok: false, error: "message_send_failed" };
+  }
+  const payload = rpcRaw as Record<string, unknown>;
+  if (payload.ok !== true) {
+    return { ok: false, error: typeof payload.error === "string" ? payload.error : "message_send_failed" };
+  }
+  const msgRow = payload.message;
+  if (!msgRow || typeof msgRow !== "object") {
+    return { ok: false, error: "message_send_failed" };
+  }
+  const message = communityMessengerTextMessageFromRpcRow(roomId, input.userId, msgRow as Record<string, unknown>);
+  const deduped = payload.deduped === true;
+  if (!deduped) {
+    const recipientUserIds = parseRpcRecipientUserIds(payload.recipient_user_ids);
+    const dk = payload.room_direct_key;
+    const directKeyStr = typeof dk === "string" ? dk : dk == null ? null : String(dk);
+    const itemTradeLedgerId = itemTradeChatRoomIdFromMessengerDirectKey(directKeyStr);
+    if (itemTradeLedgerId) {
+      void mirrorCommunityMessengerTextToItemTradeLedger(sb, {
+        itemTradeChatRoomId: itemTradeLedgerId,
+        senderUserId: input.userId,
+        textContent: content,
+        createdAt: message.createdAt,
+      }).catch(() => {});
+    }
+    const preview = content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
+    void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      roomId,
+      senderUserId: input.userId,
+      preview,
+      recipientUserIds,
+      hasMention: /@\S/.test(content),
+    }).catch(() => {});
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+  }
+  return { ok: true, message };
+}
+
 export async function sendCommunityMessengerMessage(input: {
   userId: string;
   roomId: string;
   content: string;
   clientMessageId?: string;
+  /**
+   * `POST .../messages` 가 `messengerRoomCanonicalOrJsonError` 로 참가·방 식별을 마친 뒤 호출할 때 true.
+   * 동일 RTT 내 `community_messenger_participants` 존재 조회를 한 번 줄인다.
+   */
+  membershipPreflightDone?: boolean;
 }): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
   const clientMessageId = trimText(input.clientMessageId ?? "");
+  const membershipPreflightDone = input.membershipPreflightDone === true;
   const sb = getSupabaseOrNull();
   if (sb) {
-    const participantQ = (sb as any)
-      .from("community_messenger_participants")
-      .select("id")
-      .eq("room_id", roomId)
-      .eq("user_id", input.userId)
-      .maybeSingle();
+    const atomic = await trySendCommunityMessengerTextAtomic(sb, { userId: input.userId }, roomId, content, clientMessageId);
+    if (atomic !== null) {
+      if (atomic.ok) return { ok: true, message: atomic.message };
+      return { ok: false, error: atomic.error };
+    }
     const roomQ = (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_status, is_readonly")
+      .select("id, room_status, is_readonly, direct_key")
       .eq("id", roomId)
       .maybeSingle();
     const dedupeQ =
@@ -5471,6 +5724,14 @@ export async function sendCommunityMessengerMessage(input: {
             .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null });
+    const participantQ = membershipPreflightDone
+      ? Promise.resolve({ data: { id: "_" }, error: null })
+      : (sb as any)
+          .from("community_messenger_participants")
+          .select("id")
+          .eq("room_id", roomId)
+          .eq("user_id", input.userId)
+          .maybeSingle();
     const [participantRes, roomRes, dedupeRes] = await Promise.all([participantQ, roomQ, dedupeQ]);
     const participant = participantRes.data;
     const roomData = roomRes.data;
@@ -5503,7 +5764,12 @@ export async function sendCommunityMessengerMessage(input: {
       }
     }
     const createdAt = nowIso();
-    const { data: insertedMessage, error: insertError } = await (sb as any)
+    const recipientPrefetch = (sb as any)
+      .from("community_messenger_participants")
+      .select("user_id")
+      .eq("room_id", roomId)
+      .neq("user_id", input.userId);
+    const insertPromise = (sb as any)
       .from("community_messenger_messages")
       .insert({
         room_id: roomId,
@@ -5515,6 +5781,10 @@ export async function sendCommunityMessengerMessage(input: {
       })
       .select("id, room_id, sender_id, message_type, content, metadata, created_at")
       .single();
+    const [{ data: insertedMessage, error: insertError }, { data: recipientRowsPrefetch }] = await Promise.all([
+      insertPromise,
+      recipientPrefetch,
+    ]);
     if (!insertError && insertedMessage) {
       const insertedMessageId = String((insertedMessage as { id?: unknown }).id ?? "");
       const roomUpdate = (sb as any)
@@ -5542,21 +5812,25 @@ export async function sendCommunityMessengerMessage(input: {
               .eq("room_id", roomId)
               .eq("user_id", input.userId)
           : Promise.resolve({ data: null, error: null });
-      const recipientQuery = (sb as any)
-        .from("community_messenger_participants")
-        .select("user_id")
-        .eq("room_id", roomId)
-        .neq("user_id", input.userId);
-      const [, { error: unreadRpcError }, , { data: recipientRows }] = await Promise.all([
-        roomUpdate,
-        unreadRpc,
-        senderReadUpdate,
-        recipientQuery,
-      ]);
+      const itemTradeLedgerId = itemTradeChatRoomIdFromMessengerDirectKey(
+        (roomData as { direct_key?: unknown }).direct_key
+      );
+      const postInsertBatch = await Promise.all([roomUpdate, unreadRpc, senderReadUpdate]);
+      const unreadRpcError = (postInsertBatch[1] as { error?: { message?: string } | null })?.error;
       if (unreadRpcError) {
         return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
       }
-      const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
+      if (itemTradeLedgerId) {
+        void mirrorCommunityMessengerTextToItemTradeLedger(sb as any, {
+          itemTradeChatRoomId: itemTradeLedgerId,
+          senderUserId: input.userId,
+          textContent: content,
+          createdAt,
+        }).catch(() => {
+          /* 원장은 베스트에포트 — 전송 RTT 에 chat_* 연쇄 쿼리를 끌어들이지 않음 */
+        });
+      }
+      const recipientUserIds = ((recipientRowsPrefetch ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
       const preview =

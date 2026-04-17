@@ -31,7 +31,11 @@ const STATUS_LABEL: Record<Product["status"], string> = {
 interface ProductDetailViewProps {
   product: Product;
   /** RSC에서 조회 — 로그인 구매자만; 있으면 마운트 시 `/api/chat/item/room-id` 생략 */
-  initialViewerTradeRoom?: { roomId: string | null; source: ChatRoomSource | null };
+  initialViewerTradeRoom?: {
+    roomId: string | null;
+    source: ChatRoomSource | null;
+    messengerRoomId?: string | null;
+  };
 }
 
 export function ProductDetailView({
@@ -67,6 +71,10 @@ export function ProductDetailView({
   const [existingRoomSource, setExistingRoomSource] = useState<ChatRoomSource | null>(() =>
     initialViewerTradeRoom ? initialViewerTradeRoom.source : null
   );
+  const [existingMessengerRoomId, setExistingMessengerRoomId] = useState<string | null>(() => {
+    const m = initialViewerTradeRoom?.messengerRoomId;
+    return typeof m === "string" && m.trim() ? m.trim() : null;
+  });
   const userId = getCurrentUserId();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const amISeller = useMemo(() => {
@@ -79,6 +87,7 @@ export function ProductDetailView({
     if (!product.id || !userId) {
       setExistingRoomId(null);
       setExistingRoomSource(null);
+      setExistingMessengerRoomId(null);
       return;
     }
     fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(product.id)}`, { cache: "no-store" })
@@ -88,10 +97,13 @@ export function ProductDetailView({
         setExistingRoomSource(
           data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
         );
+        const mid = typeof data?.messengerRoomId === "string" ? data.messengerRoomId.trim() : "";
+        setExistingMessengerRoomId(mid || null);
       })
       .catch(() => {
         setExistingRoomId(null);
         setExistingRoomSource(null);
+        setExistingMessengerRoomId(null);
       });
   }, [product.id, userId]);
 
@@ -195,6 +207,7 @@ export function ProductDetailView({
         product={product}
         existingRoomId={existingRoomId}
         existingRoomSource={existingRoomSource}
+        existingMessengerRoomId={existingMessengerRoomId}
         amISeller={amISeller}
       />
       {reportSheet && (

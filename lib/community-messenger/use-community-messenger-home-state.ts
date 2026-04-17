@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
-import { communityMessengerRoomIsDelivery, communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
+import {
+  communityMessengerRoomIsDelivery,
+  communityMessengerRoomIsTrade,
+  messengerDirectThreadListCollapseKey,
+} from "@/lib/community-messenger/messenger-room-domain";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import {
   communityMessengerRoomIsInboxHidden,
@@ -387,9 +391,7 @@ function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRo
 function collapseDirectPeerRooms(items: UnifiedRoomListItem[]): UnifiedRoomListItem[] {
   const groups = new Map<string, UnifiedRoomListItem[]>();
   for (const item of items) {
-    const peerId = item.room.peerUserId;
-    const gkey =
-      item.room.roomType === "direct" && peerId ? `direct:${peerId}` : `id:${item.room.id}`;
+    const gkey = messengerDirectThreadListCollapseKey(item.room);
     const list = groups.get(gkey) ?? [];
     list.push(item);
     groups.set(gkey, list);

@@ -1,3 +1,4 @@
+import { TradeChatEntryRingSpinner } from "@/components/chats/TradeChatEntryRingSpinner";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 const THREAD_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
@@ -6,11 +7,28 @@ export function TradeChatLoadingShell({
   label = "채팅 준비 중...",
   description = "대화방을 여는 중이에요.",
   className = "",
+  variant = "chat-shell",
 }: {
   label?: string;
   description?: string;
   className?: string;
+  /** 거래 방 최초 생성·진입 대기 — 링 스피너 중심 UI */
+  variant?: "chat-shell" | "creating";
 }) {
+  if (variant === "creating") {
+    return (
+      <div
+        className={`flex min-h-0 flex-1 flex-col items-center justify-center bg-sam-surface px-6 ${className}`}
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <TradeChatEntryRingSpinner />
+        <p className="mt-5 text-[15px] font-medium text-sam-fg">{label}</p>
+        {description ? <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{description}</p> : null}
+      </div>
+    );
+  }
+
   return (
     <div className={`flex min-h-0 flex-1 flex-col bg-sam-surface ${className}`} aria-live="polite" aria-busy="true">
       <div className="border-b border-sam-border-soft px-4 py-3">

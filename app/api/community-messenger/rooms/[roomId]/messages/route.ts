@@ -106,20 +106,22 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const rateLimit = await enforceRateLimit({
-    key: `community-messenger:message-send:${getRateLimitKey(req, auth.userId)}`,
-    limit: 30,
-    windowMs: 60_000,
-    message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
-    code: "community_messenger_message_rate_limited",
-  });
-  if (!rateLimit.ok) return rateLimit.response;
-
-  const parsed = await parseJsonBody<{ content?: string; clientMessageId?: string }>(req, "invalid_json");
+  const [parsed, routeParams, rateLimit] = await Promise.all([
+    parseJsonBody<{ content?: string; clientMessageId?: string }>(req, "invalid_json"),
+    params,
+    enforceRateLimit({
+      key: `community-messenger:message-send:${getRateLimitKey(req, auth.userId)}`,
+      limit: 30,
+      windowMs: 60_000,
+      message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+      code: "community_messenger_message_rate_limited",
+    }),
+  ]);
   if (!parsed.ok) return parsed.response;
+  if (!rateLimit.ok) return rateLimit.response;
   const body = parsed.value;
 
-  const { roomId: rawRoomId } = await params;
+  const { roomId: rawRoomId } = routeParams;
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
   if (!canon.ok) {
     return canon.response;
@@ -147,6 +149,7 @@ export async function POST(
       roomId: canonicalRoomId,
       content,
       clientMessageId: clientMessageId || undefined,
+      membershipPreflightDone: true,
     });
     // store short TTL response to dedupe rapid retries/double-clicks
     sendDedupe.set(key, { at: Date.now(), res: r as any });
