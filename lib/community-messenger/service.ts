@@ -1591,6 +1591,7 @@ async function fetchBootstrapRoomsViaRpc(
     title: row.title ?? null,
     summary: row.summary ?? null,
     avatar_url: row.avatar_url ?? null,
+    created_by: null,
     last_message: row.last_message ?? null,
     last_message_at: row.last_message_at ?? null,
     last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],

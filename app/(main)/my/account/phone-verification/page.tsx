@@ -1,6 +1,8 @@
 import { PhoneVerificationRequestForm } from "@/components/my/PhoneVerificationRequestForm";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
+export const dynamic = "force-dynamic";
+
 export default function MyPhoneVerificationPage() {
   return (
     <div className="min-h-screen bg-background">

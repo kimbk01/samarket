@@ -10,6 +10,7 @@ import {
   recordMessengerApiTiming,
   recordMessengerBootstrapBreakdown,
 } from "@/lib/community-messenger/monitoring/server-store";
+import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 
 const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
 
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 
   const fresh = request.nextUrl.searchParams.get("fresh") === "1";
   const lite = request.nextUrl.searchParams.get("lite") === "1";
-  const mode = fresh ? "fresh" : lite ? "lite" : "full";
+  const mode: MessengerBootstrapBreakdown["mode"] = fresh ? "fresh" : lite ? "lite" : "full";
   const cacheKey = `${auth.userId}:${lite ? "lite" : "full"}`;
   for (const [key, entry] of communityMessengerBootstrapCache) {
     if (entry.expiresAt <= Date.now()) {

@@ -106,6 +106,22 @@ export type ResolveHomePostsGetDataOptions = {
    *   (`GET /api/home/posts` 가 헤더용 인증과 favorites용 인증을 한 갈래로 맞추기 위함.)
    */
   precomputedViewerUserId?: string | null;
+  diagnostics?: ResolveHomePostsServerDiagnostics;
+};
+
+export type ResolveHomePostsServerDiagnostics = {
+  startedAt: number;
+  resolveHomePostsStartMs: number;
+  dbQueryStartMs: number;
+  dbQueryEndMs: number;
+  relatedFetchStartMs: number;
+  relatedFetchEndMs: number;
+  transformStartMs: number;
+  transformEndMs: number;
+  serializeStartMs: number;
+  serializeEndMs: number;
+  responseStartMs: number;
+  responseEndMs: number;
 };
 
 /**
@@ -115,6 +131,27 @@ export async function resolveHomePostsGetData(
   req: NextRequest,
   options?: ResolveHomePostsGetDataOptions
 ): Promise<HomePostsOpenResult> {
+  const diagnostics = options?.diagnostics;
+  const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (diagnostics) {
+    diagnostics.startedAt = startedAt;
+    diagnostics.resolveHomePostsStartMs = 0;
+    diagnostics.dbQueryStartMs = 0;
+    diagnostics.dbQueryEndMs = 0;
+    diagnostics.relatedFetchStartMs = 0;
+    diagnostics.relatedFetchEndMs = 0;
+    diagnostics.transformStartMs = 0;
+    diagnostics.transformEndMs = 0;
+    diagnostics.serializeStartMs = 0;
+    diagnostics.serializeEndMs = 0;
+    diagnostics.responseStartMs = 0;
+    diagnostics.responseEndMs = 0;
+  }
+  const elapsedMs = () =>
+    Math.max(
+      0,
+      Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - startedAt)
+    );
   const clients = resolvePostsReadClients(req);
   if (!clients) {
     return { posts: [], hasMore: false, favoriteMap: {} };
@@ -174,6 +211,7 @@ export async function resolveHomePostsGetData(
         return { posts: again.posts, hasMore: again.hasMore };
       }
 
+      if (diagnostics) diagnostics.dbQueryStartMs = elapsedMs();
       const pack = await resolveHomePostsPayload(
         readSb as SupabaseClient<any>,
         serviceSb as SupabaseClient<any> | null,
@@ -182,12 +220,15 @@ export async function resolveHomePostsGetData(
         effectiveType,
         tradeCategoryIds
       );
+      if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
         return null;
       }
 
       /** 캐시에 넣기 전 닉네임 보강 — TTL 동안 요청마다 `profiles` 재조회하지 않음 */
+      if (diagnostics && diagnostics.relatedFetchStartMs === 0) diagnostics.relatedFetchStartMs = elapsedMs();
       await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+      if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
 
       homePostsServerCache.set(cacheKey, {
         posts: pack.posts,
@@ -223,11 +264,13 @@ export async function resolveHomePostsGetData(
       Object.assign(favoriteMap, cachedFavorites.favoriteMap);
     } else {
       const loadFavoritesOnce = async () => {
+        if (diagnostics && diagnostics.relatedFetchStartMs === 0) diagnostics.relatedFetchStartMs = elapsedMs();
         const { data: favorites } = await favoritesSb
           .from("favorites")
           .select("post_id")
           .eq("user_id", userId)
           .in("post_id", postIds);
+        if (diagnostics) diagnostics.relatedFetchEndMs = elapsedMs();
         for (const postId of postIds) {
           favoriteMap[postId] = false;
         }
@@ -255,9 +298,12 @@ export async function resolveHomePostsGetData(
     }
   }
 
-  return {
+  if (diagnostics) diagnostics.transformStartMs = elapsedMs();
+  const result = {
     posts,
     hasMore,
     favoriteMap,
   };
+  if (diagnostics) diagnostics.transformEndMs = elapsedMs();
+  return result;
 }
