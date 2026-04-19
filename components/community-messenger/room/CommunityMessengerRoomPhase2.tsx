@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
@@ -21,6 +21,14 @@ import { CommunityMessengerRoomPhase2RoomSheets } from "@/components/community-m
 import { CommunityMessengerRoomPhase2MemberActionModal } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal";
 import { CommunityMessengerRoomPhase2CallLayer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer";
 import { useCommunityMessengerRoomTypingRuntime } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
+import {
+  recordRouteEntryElapsedMetric,
+  recordRouteEntryMetric,
+  recordRouteEntryFirstContentRender,
+  recordRouteEntryFirstInteractive,
+  recordRouteEntryFullRender,
+  scheduleRouteEntryToPaint,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -37,6 +45,20 @@ function CommunityMessengerRoomClientPhase2Main({
   keyboardOverlapSuppressed,
   mobileShellStyle,
 }: CommunityMessengerRoomClientPhase2MainProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const phase2EnterRecordedRef = useRef(false);
+  const roomStateCommitRecordedRef = useRef(false);
+  const messagesStateCommitRecordedRef = useRef(false);
+  const participantsStateCommitRecordedRef = useRef(false);
+  const profilesStateCommitRecordedRef = useRef(false);
+  const firstMessageRenderRecordedRef = useRef(false);
+  const fullMessageListRenderRecordedRef = useRef(false);
+  const inputReadyRecordedRef = useRef(false);
+  const renderCountRef = useRef(0);
+  const layoutEffectRunCountRef = useRef(0);
+  const effectRunCountRef = useRef(0);
+  renderCountRef.current += 1;
+  recordRouteEntryMetric("messenger_room_entry", "phase2_rerender_count", Math.max(0, renderCountRef.current - 1));
   const view: MessengerRoomPhase2ViewModel = {
     ...room,
     snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
@@ -138,10 +160,98 @@ function CommunityMessengerRoomClientPhase2Main({
     ]
   );
 
+  useLayoutEffect(() => {
+    layoutEffectRunCountRef.current += 1;
+    recordRouteEntryMetric(
+      "messenger_room_entry",
+      "phase2_use_layout_effect_count",
+      layoutEffectRunCountRef.current
+    );
+    if (!phase2EnterRecordedRef.current) {
+      phase2EnterRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "phase2_enter_ms");
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    layoutEffectRunCountRef.current += 1;
+    recordRouteEntryMetric(
+      "messenger_room_entry",
+      "phase2_use_layout_effect_count",
+      layoutEffectRunCountRef.current
+    );
+    if (!roomStateCommitRecordedRef.current && room.snapshot?.room.id) {
+      roomStateCommitRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "json_parse_complete_ms");
+      recordRouteEntryElapsedMetric("messenger_room_entry", "room_state_commit_ms");
+    }
+    if (!messagesStateCommitRecordedRef.current && room.roomMessages.length > 0) {
+      messagesStateCommitRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "messages_state_commit_ms");
+    }
+    if (!participantsStateCommitRecordedRef.current && room.snapshot.members.length > 0) {
+      participantsStateCommitRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "participants_state_commit_ms");
+    }
+    if (!profilesStateCommitRecordedRef.current && room.roomMembersDisplay.length > 0) {
+      profilesStateCommitRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "profiles_state_commit_ms");
+    }
+  }, [room.roomMembersDisplay.length, room.roomMessages.length, room.snapshot]);
+
+  useLayoutEffect(() => {
+    layoutEffectRunCountRef.current += 1;
+    recordRouteEntryMetric(
+      "messenger_room_entry",
+      "phase2_use_layout_effect_count",
+      layoutEffectRunCountRef.current
+    );
+    const initialRenderedCount = room.chatVirtualizer.getVirtualItems().length;
+    if (firstMessageRenderRecordedRef.current) return;
+    if (room.displayRoomMessages.length <= 0 || initialRenderedCount <= 0) return;
+    firstMessageRenderRecordedRef.current = true;
+    recordRouteEntryElapsedMetric("messenger_room_entry", "first_message_render_ms");
+    recordRouteEntryMetric("messenger_room_entry", "initial_rendered_message_count", initialRenderedCount);
+    recordRouteEntryFirstContentRender("messenger_room_entry");
+    scheduleRouteEntryToPaint("messenger_room_entry");
+  }, [room.chatVirtualizer, room.displayRoomMessages.length]);
+
+  useLayoutEffect(() => {
+    layoutEffectRunCountRef.current += 1;
+    recordRouteEntryMetric(
+      "messenger_room_entry",
+      "phase2_use_layout_effect_count",
+      layoutEffectRunCountRef.current
+    );
+    if (fullMessageListRenderRecordedRef.current) return;
+    if (room.displayRoomMessages.length <= 0) return;
+    if (room.snapshot.messages.length <= 0) return;
+    if (room.displayRoomMessages.length < room.snapshot.messages.length) return;
+    fullMessageListRenderRecordedRef.current = true;
+    recordRouteEntryElapsedMetric("messenger_room_entry", "full_message_list_render_ms");
+    recordRouteEntryMetric("messenger_room_entry", "message_render_count", room.displayRoomMessages.length);
+    recordRouteEntryMetric("messenger_room_entry", "image_attachment_count", room.photoMessageCount);
+    recordRouteEntryFullRender("messenger_room_entry");
+  }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length]);
+
+  useEffect(() => {
+    effectRunCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "phase2_use_effect_count", effectRunCountRef.current);
+    const root = rootRef.current;
+    if (!root || inputReadyRecordedRef.current) return;
+    const composer = root.querySelector("textarea");
+    if (composer instanceof HTMLTextAreaElement) {
+      inputReadyRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "input_ready_ms");
+      recordRouteEntryFirstInteractive("messenger_room_entry");
+    }
+  }, [room.displayRoomMessages.length]);
+
   return (
     <MessengerRoomMobileViewportProvider value={{ keyboardOverlapSuppressed }}>
       <MessengerRoomPhase2ViewProvider value={view}>
         <div
+          ref={rootRef}
           data-messenger-shell
           data-cm-room
           className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"

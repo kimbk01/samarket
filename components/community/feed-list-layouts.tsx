@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 export type FeedListCardViewModel = {
   href: string;
@@ -125,7 +126,10 @@ function CardShell({
         prefetch={false}
         onMouseEnter={prefetchOnIntent}
         onTouchStart={prefetchOnIntent}
-        onClick={prefetchOnIntent}
+        onClick={() => {
+          beginRouteEntryPerf("community_detail", href);
+          prefetchOnIntent();
+        }}
         className="block px-4 py-3 transition-colors hover:bg-sam-app/60 active:bg-sam-surface-muted/80"
       >
         {children}

@@ -1,9 +1,12 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest } from "@/lib/http/api-route";
 import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
-import type { CommunityMessengerRoomSnapshotOptions } from "@/lib/chat-domain/ports/community-messenger-read";
+import type {
+  CommunityMessengerRoomSnapshotDiagnostics,
+  CommunityMessengerRoomSnapshotOptions,
+} from "@/lib/chat-domain/ports/community-messenger-read";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import { recordMessengerApiTiming, recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
 import {
@@ -12,6 +15,8 @@ import {
 } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getOrCreateRequestId } from "@/lib/http/api-route";
+import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 
 const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
 
@@ -50,6 +55,7 @@ export async function GET(
     mode === "expand"
       ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
       : Math.min(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
+  const diagnostics: CommunityMessengerRoomSnapshotDiagnostics = {};
   const opts: CommunityMessengerRoomSnapshotOptions = {
     initialMessageLimit:
       rawLimit != null && rawLimit !== ""
@@ -57,6 +63,7 @@ export async function GET(
         : effectiveDefaultLimit,
     hydrateFullMemberList,
     deferSnapshotSecondary: isSeedMode,
+    diagnostics,
   };
 
   const t0 = performance.now();
@@ -94,13 +101,27 @@ export async function GET(
   if (!snapshot) {
     return jsonErrorWithRequest(req, "not_found", 404);
   }
-
-  return jsonOkWithRequest(req, {
+  const requestId = getOrCreateRequestId(req);
+  const body = {
+    ok: true,
+    requestId,
     v: 1,
     domain: "community" as const,
     bootstrap: true,
     viewerUnreadCount: snapshot.room.unreadCount,
     unread: { count: snapshot.room.unreadCount },
     ...snapshot,
+  };
+  const responseSizeBytes = new TextEncoder().encode(JSON.stringify(body)).length;
+  const headers = new Headers({
+    "Cache-Control": "no-store",
+    [SAMARKET_REQUEST_ID_HEADER]: requestId,
+    "x-samarket-route-total-ms": String(ms),
+    "x-samarket-response-size-bytes": String(responseSizeBytes),
+    "x-samarket-room-bootstrap-fetch-ms": String(diagnostics.roomBootstrapFetchMs ?? 0),
+    "x-samarket-messages-fetch-ms": String(diagnostics.messagesFetchMs ?? 0),
+    "x-samarket-participants-profiles-fetch-ms": String(diagnostics.participantsProfilesFetchMs ?? 0),
+    "x-samarket-normalize-merge-ms": String(diagnostics.normalizeMergeMs ?? 0),
   });
+  return NextResponse.json(body, { headers });
 }

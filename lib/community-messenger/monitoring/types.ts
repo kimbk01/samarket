@@ -69,6 +69,47 @@ export type MessengerOutcomeStat = {
   failRate: number;
 };
 
+export type MessengerBootstrapBreakdown = {
+  capturedAt: string;
+  mode: "lite" | "full" | "fresh";
+  cacheHit: boolean;
+  callsLogIncluded: boolean;
+  discoverableIncluded: boolean;
+  routeTotalMs: number;
+  authMs: number;
+  parallelInitialWallMs: number;
+  roomsQueryMs: number;
+  roomsQueryRound1Ms: number;
+  roomsQueryRound2Ms: number;
+  roomsQueryRound2RoomsMs: number;
+  roomsQueryRound2RoomsDbFetchMs: number;
+  roomsQueryRound2RoomsNormalizeMs: number;
+  roomsQueryRound2RoomsMergeMapMs: number;
+  roomsQueryRound2RoomsHydrateLabelMs: number;
+  roomsQueryRound2RoomsPayloadSerializeMs: number;
+  roomsQueryRound2ParticipantsMs: number;
+  roomsQueryRound3Ms: number;
+  roomsQueryTransformMs: number;
+  roomsQueryPostprocessMs: number;
+  unreadMs: number;
+  profilesMs: number;
+  tradeContextMs: number;
+  callsLogMs: number;
+  transformMs: number;
+  responseJsonMs: number;
+  roomCount: number;
+  participantCount: number;
+  roomsQueryRound1RoomIdCount: number;
+  roomsQueryRound2RoomRowCount: number;
+  roomsQueryRound2ParticipantRowCount: number;
+  roomsQueryRound3RoomProfileCount: number;
+  unreadAggregation: string;
+  roomsQueryRounds: number;
+  additionalLookupRounds: number;
+  extraRoomsFetchRounds: number;
+  hasPerRoomNPlusOne: boolean;
+};
+
 export type MessengerMonitoringSummary = {
   generatedAt: string;
   windowEvents: number;
@@ -94,4 +135,6 @@ export type MessengerMonitoringSummary = {
   outcomeStats: MessengerOutcomeStat[];
   /** 세션 suffix 기준: 재연결 경험 세션 수 / 부트스트랩된 통화 세션 수 (근사) */
   reconnectSessionRate: number | null;
+  /** 가장 최근 커뮤니티 메신저 홈 부트스트랩 서버 분해 */
+  latestBootstrapBreakdown: MessengerBootstrapBreakdown | null;
 };

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { Suspense } from "react";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { TradeListPageMountProbe } from "@/components/home/TradeListPageMountProbe";
 import { resolveHomePostsGetData } from "@/lib/posts/home-posts-route-core";
 import { buildHomeTradeSeedRequest } from "@/lib/trade/build-home-trade-seed-request";
 import { MainHomeShellLoading } from "@/components/layout/MainRouteLoading";
@@ -18,6 +19,7 @@ async function HomeTradeFeedShell({
   return (
     <div className="min-h-screen bg-background">
       <div className="min-w-0 max-w-full overflow-x-hidden pt-0 pb-4">
+        <TradeListPageMountProbe />
         <HomeContent initialHomeTradeFeed={initialHomeTradeFeed} />
       </div>
     </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
+import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 
 type PresencePayload = {
   userId?: unknown;
@@ -264,11 +265,24 @@ function releasePresenceRuntime() {
 }
 
 export function useCommunityMessengerPresenceRuntime(userId: string | null | undefined): void {
+  const presenceEffectStartRecordedRef = useRef<string | null>(null);
+  const presenceEffectEndRecordedRef = useRef<string | null>(null);
+  const presenceEffectCountRef = useRef(0);
   useEffect(() => {
     const id = typeof userId === "string" ? userId.trim() : "";
     if (!id) return;
+    presenceEffectCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "presence_effect_count", presenceEffectCountRef.current);
+    if (presenceEffectStartRecordedRef.current !== id) {
+      presenceEffectStartRecordedRef.current = id;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "presence_effect_start_ms");
+    }
     runtimeRefCount += 1;
     ensurePresenceRuntime(id);
+    if (presenceEffectEndRecordedRef.current !== id) {
+      presenceEffectEndRecordedRef.current = id;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "presence_effect_end_ms");
+    }
     return () => {
       runtimeRefCount = Math.max(0, runtimeRefCount - 1);
       releasePresenceRuntime();

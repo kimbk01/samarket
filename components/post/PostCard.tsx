@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -14,6 +14,12 @@ import {
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
+import {
+  bumpTradeListProductCardRenderCount,
+  recordTradeListImageRequestRangeFromResources,
+  recordTradeListMetricOnce,
+} from "@/lib/runtime/trade-list-entry-debug";
 import {
   isPostListOwnedByViewer,
   isTradePostForOwnerMenu,
@@ -33,6 +39,8 @@ interface PostCardProps {
   onFavoriteChange?: (postId: string, isFavorite: boolean) => void;
   /** 리스트 점 세개 메뉴 액션 (이 글 숨기기, 신고하기 등) */
   onMenuAction?: (postId: string, action: PostListMenuAction) => void;
+  /** 홈 첫 렌더 계측용 첫 카드 */
+  isFirstCard?: boolean;
   /** 찜 목록 등 — 카드 하단 보조 액션 */
   footer?: ReactNode;
 }
@@ -43,10 +51,16 @@ export const PostCard = memo(function PostCard({
   isFavorite,
   onFavoriteChange,
   onMenuAction,
+  isFirstCard = false,
   footer,
 }: PostCardProps) {
+  bumpTradeListProductCardRenderCount();
+  if (isFirstCard) {
+    recordTradeListMetricOnce("trade_list_first_card_render_start_ms");
+  }
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const imageRef = useRef<HTMLImageElement | null>(null);
   const currency = getAppSettings().defaultCurrency || "KRW";
   const viewerId = getCurrentUser()?.id ?? null;
   const showOwnerTradeActions =
@@ -68,6 +82,30 @@ export const PostCard = memo(function PostCard({
     post.thumbnail_url ||
     (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
   const isExchangeThumb = listPreview?.thumbnailMode === "exchange";
+
+  useLayoutEffect(() => {
+    if (!isFirstCard) return;
+    recordTradeListMetricOnce("trade_list_first_card_render_end_ms");
+  }, [isFirstCard]);
+
+  useEffect(() => {
+    if (!isFirstCard) return;
+    const capture = () =>
+      recordTradeListImageRequestRangeFromResources(imageRef.current?.currentSrc || thumbnailUrl || null);
+    if (capture()) return;
+    let rafId = 0;
+    let tries = 0;
+    const poll = () => {
+      tries += 1;
+      if (capture() || tries >= 90) return;
+      rafId = requestAnimationFrame(poll);
+    };
+    rafId = requestAnimationFrame(poll);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isFirstCard, thumbnailUrl]);
+
   return (
     <div
       className={`relative flex flex-col transition-colors hover:bg-sam-app/60 ${APP_FEED_LIST_CARD_SHELL}`}
@@ -102,10 +140,15 @@ export const PostCard = memo(function PostCard({
             <span className="text-[18px] leading-none">⋮</span>
           </button>
         </div>
-        <Link href={`/post/${post.id}`} className="flex min-w-0 flex-1 gap-3">
+        <Link
+          href={`/post/${post.id}`}
+          onClick={() => beginRouteEntryPerf("product_detail", `/post/${post.id}`)}
+          className="flex min-w-0 flex-1 gap-3"
+        >
           <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {thumbnailUrl ? (
               <img
+                ref={isFirstCard ? imageRef : undefined}
                 src={thumbnailUrl}
                 alt=""
                 width={100}
@@ -114,6 +157,12 @@ export const PostCard = memo(function PostCard({
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
+                onLoad={() => {
+                  if (!isFirstCard) return;
+                  recordTradeListImageRequestRangeFromResources(
+                    imageRef.current?.currentSrc || thumbnailUrl || null
+                  );
+                }}
               />
             ) : isExchangeThumb ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>

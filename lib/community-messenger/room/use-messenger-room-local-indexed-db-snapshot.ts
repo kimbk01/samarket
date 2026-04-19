@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
+import { recordRouteEntryElapsedMetric } from "@/lib/runtime/samarket-runtime-debug";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 /**
  * Local-first: 목록 프리패치/서버 시드가 없을 때 IndexedDB 스냅샷으로 first paint를 당기고,
@@ -25,6 +26,8 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   loadedRef: MutableRefObject<boolean>;
   setRoomReadyForRealtime: Dispatch<SetStateAction<boolean>>;
 }): void {
+  const localCacheReadStartRecordedRef = useRef(false);
+  const localCacheReadEndRecordedRef = useRef(false);
   // Local-first: 서버 시드가 없을 때만 — 다음 마이크로태스크에서 바로 읽어 첫 페인트를 당김
   useEffect(() => {
     if (snapshotRef.current) return;
@@ -33,7 +36,15 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
     let cancelled = false;
     queueMicrotask(() => {
       void (async () => {
+        if (!localCacheReadStartRecordedRef.current) {
+          localCacheReadStartRecordedRef.current = true;
+          recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_start_ms");
+        }
         const local = await getLocalRoomSnapshot(id);
+        if (!localCacheReadEndRecordedRef.current) {
+          localCacheReadEndRecordedRef.current = true;
+          recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_end_ms");
+        }
         if (cancelled) return;
         if (!local) return;
         if (snapshotRef.current) return;

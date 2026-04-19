@@ -14,6 +14,7 @@ interface PageProps {
 }
 
 async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PageProps["params"] }) {
+  const t0 = performance.now();
   const resolved = await paramsPromise;
   const id = parseId(resolved.id);
   if (!id) notFound();
@@ -42,7 +43,13 @@ async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PagePro
     }
   }
 
-  return <ProductDetailView product={product} initialViewerTradeRoom={initialViewerTradeRoom} />;
+  return (
+    <ProductDetailView
+      product={product}
+      initialViewerTradeRoom={initialViewerTradeRoom}
+      initialRouteTotalMs={Math.round(performance.now() - t0)}
+    />
+  );
 }
 
 export default function ProductDetailPage({ params }: PageProps) {

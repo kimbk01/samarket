@@ -6,6 +6,7 @@ import {
   type ReactNode,
   useCallback,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -57,17 +58,31 @@ import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messen
 import {
   notifyChatInputCommitForPerf,
   notifyChatInputKeydownForPerf,
+  recordRouteEntryElapsedMetric,
+  recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2ComposerView();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
+  const composerMountRecordedRef = useRef(false);
+  const composerEffectCountRef = useRef(0);
 
   /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
   useLayoutEffect(() => {
+    composerEffectCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
     setDraft(vm.message);
   }, [roomKey, vm.message]);
+
+  useLayoutEffect(() => {
+    composerEffectCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
+    if (composerMountRecordedRef.current) return;
+    composerMountRecordedRef.current = true;
+    recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
+  }, []);
   useCommunityMessengerRoomTypingPublisher({
     roomId: vm.snapshot.room.id,
     viewerUserId: vm.snapshot.viewerUserId,

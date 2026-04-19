@@ -9,6 +9,7 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { messengerImageClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-image-message-map";
 import { parseVoiceWaveformPeaksFromMetadata } from "@/lib/community-messenger/voice-waveform";
+import { recordRouteEntryMetric, type RouteEntryPerfScope } from "@/lib/runtime/samarket-runtime-debug";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerProfileLite,
@@ -117,8 +118,13 @@ export function nextOptimisticCommunityMessengerCreatedAtIso(
 
 export function mergeRoomMessages(
   prev: Array<CommunityMessengerMessage & { pending?: boolean }>,
-  next: CommunityMessengerMessage[]
+  next: CommunityMessengerMessage[],
+  opts?: {
+    perfScope?: RouteEntryPerfScope;
+    perfMetricPrefix?: string;
+  }
 ): Array<CommunityMessengerMessage & { pending?: boolean }> {
+  const t0 = typeof performance !== "undefined" ? performance.now() : 0;
   const mergedConfirmed = new Map<string, CommunityMessengerMessage & { pending?: boolean }>();
   for (const item of prev) {
     if (item.pending) continue;
@@ -131,6 +137,8 @@ export function mergeRoomMessages(
       pending: false,
     });
   }
+  const mapIndexMs = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+  const tDedupe0 = typeof performance !== "undefined" ? performance.now() : 0;
   const pending = prev.filter((item) => item.pending);
   const mergedPending = pending.filter((item) => {
     return !next.some((confirmedItem) => {
@@ -155,7 +163,12 @@ export function mergeRoomMessages(
       return confirmedItem.content === item.content && dt < 15_000;
     });
   });
-  return [...mergedConfirmed.values(), ...mergedPending].sort((a, b) => {
+  const dedupeMs = typeof performance !== "undefined" ? Math.round(performance.now() - tDedupe0) : 0;
+  const tNormalize0 = typeof performance !== "undefined" ? performance.now() : 0;
+  const normalized = [...mergedConfirmed.values(), ...mergedPending];
+  const normalizeMs = typeof performance !== "undefined" ? Math.round(performance.now() - tNormalize0) : 0;
+  const tSort0 = typeof performance !== "undefined" ? performance.now() : 0;
+  const sorted = normalized.sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
     const tb = new Date(b.createdAt).getTime();
     if (ta !== tb) return ta - tb;
@@ -163,6 +176,15 @@ export function mergeRoomMessages(
     if (Boolean((a as any).pending) !== Boolean((b as any).pending)) return (a as any).pending ? 1 : -1;
     return String(a.id ?? "").localeCompare(String(b.id ?? ""));
   });
+  const sortMs = typeof performance !== "undefined" ? Math.round(performance.now() - tSort0) : 0;
+  if (opts?.perfScope) {
+    const prefix = opts.perfMetricPrefix?.trim() || "merge_room_messages";
+    recordRouteEntryMetric(opts.perfScope, `${prefix}_map_index_ms`, mapIndexMs);
+    recordRouteEntryMetric(opts.perfScope, `${prefix}_dedupe_ms`, dedupeMs);
+    recordRouteEntryMetric(opts.perfScope, `${prefix}_normalize_ms`, normalizeMs);
+    recordRouteEntryMetric(opts.perfScope, `${prefix}_sort_ms`, sortMs);
+  }
+  return sorted;
 }
 
 export function getLatestCallStubForSession(

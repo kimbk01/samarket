@@ -9,6 +9,7 @@ import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageCli
 export const dynamic = "force-dynamic";
 
 async function PostDetailPageBody({ paramsPromise }: { paramsPromise: Promise<{ id: string }> }) {
+  const t0 = performance.now();
   const { id } = await paramsPromise;
   const trimmed = typeof id === "string" ? id.trim() : "";
   if (!trimmed) {
@@ -28,7 +29,13 @@ async function PostDetailPageBody({ paramsPromise }: { paramsPromise: Promise<{ 
     notFound();
   }
 
-  return <PostDetailPageClient key={bundle.item.id} initialBundle={bundle} />;
+  return (
+    <PostDetailPageClient
+      key={bundle.item.id}
+      initialBundle={bundle}
+      initialRouteTotalMs={Math.round(performance.now() - t0)}
+    />
+  );
 }
 
 export default function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {

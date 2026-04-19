@@ -29,6 +29,7 @@ import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/u
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import { fetchCommunityMessengerOpenGroupsClient } from "@/lib/community-messenger/cm-open-groups-client-fetch";
 import {
+  recordMessengerBootstrapJsonParseComplete,
   recordMessengerHomeRefreshInvocation,
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
@@ -143,6 +144,49 @@ export function useCommunityMessengerHomeBootstrap({
     }
   }, []);
 
+  const mergeHomeSyncIntoBootstrap = useCallback(
+    (payload: {
+      chats?: CommunityMessengerBootstrap["chats"];
+      groups?: CommunityMessengerBootstrap["groups"];
+      requests?: CommunityMessengerBootstrap["requests"];
+      friends?: CommunityMessengerBootstrap["friends"];
+    }) => {
+      setData((prev) => {
+        const base = prev ?? peekBootstrapCache();
+        if (!base) return prev;
+        const chats = payload.chats ?? base.chats;
+        const groups = payload.groups ?? base.groups;
+        const requests = payload.requests ?? base.requests;
+        const friends = payload.friends ?? base.friends;
+        const next: CommunityMessengerBootstrap = {
+          ...base,
+          chats,
+          groups,
+          requests,
+          friends,
+          tabs: {
+            ...base.tabs,
+            chats: chats.length,
+            groups: groups.length,
+            friends: friends.length,
+          },
+        };
+        primeBootstrapCache(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const parseBootstrapJson = useCallback(
+    async <T,>(res: Response): Promise<T> => {
+      const json = (await res.json().catch(() => ({}))) as T;
+      recordMessengerBootstrapJsonParseComplete();
+      return json;
+    },
+    []
+  );
+
   const refresh = useCallback(async (silent = false) => {
     recordMessengerHomeRefreshInvocation(silent);
     if (silent) {
@@ -195,28 +239,11 @@ export function useCommunityMessengerHomeBootstrap({
         }
         if (res.ok && json.ok) {
           refreshDataOk = true;
-          setData((prev) => {
-            const base = prev ?? peekBootstrapCache();
-            if (!base) return prev;
-            const chats = json.chats ?? [];
-            const groups = json.groups ?? [];
-            const requests = json.requests ?? base.requests;
-            const friends = json.friends ?? base.friends;
-            const next: CommunityMessengerBootstrap = {
-              ...base,
-              chats,
-              groups,
-              requests,
-              friends,
-              tabs: {
-                ...base.tabs,
-                chats: chats.length,
-                groups: groups.length,
-                friends: friends.length,
-              },
-            };
-            primeBootstrapCache(next);
-            return next;
+          mergeHomeSyncIntoBootstrap({
+            chats: json.chats ?? [],
+            groups: json.groups ?? [],
+            requests: json.requests,
+            friends: json.friends,
           });
           if (tSilentFetch != null) {
             messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
@@ -231,10 +258,10 @@ export function useCommunityMessengerHomeBootstrap({
           } else {
             samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "fresh" });
             const resFull = await fetchCommunityMessengerBootstrapClient("fresh");
-            const jsonFull = (await resFull.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
+            const jsonFull = await parseBootstrapJson<CommunityMessengerBootstrap & {
               ok?: boolean;
               error?: string;
-            };
+            }>(resFull);
             if (resFull.ok && jsonFull.ok) {
               samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "fresh" });
               refreshDataOk = true;
@@ -271,10 +298,10 @@ export function useCommunityMessengerHomeBootstrap({
           mode: useLiteBootstrap ? "lite" : "full",
         });
         const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full");
-        const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
+        const json = await parseBootstrapJson<CommunityMessengerBootstrap & {
           ok?: boolean;
           error?: string;
-        };
+        }>(res);
         if (res.ok && json.ok) {
           bootstrapClientOk = true;
           refreshDataOk = true;
@@ -305,6 +332,11 @@ export function useCommunityMessengerHomeBootstrap({
           setPageError(null);
           setData(next);
           primeBootstrapCache(next);
+          if (useLiteBootstrap) {
+            scheduleWhenBrowserIdle(() => {
+              void refresh(true);
+            }, 0);
+          }
           if (useLiteBootstrap && deferred) {
             scheduleWhenBrowserIdle(() => {
               void mergeDeferredMessengerCallLogs();
@@ -366,7 +398,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
     // tRef.current 만 읽음 — 언어 전환 시에도 동일 refresh 인스턴스 유지
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
-  }, [mergeDeferredMessengerCallLogs]);
+  }, [mergeDeferredMessengerCallLogs, mergeHomeSyncIntoBootstrap, parseBootstrapJson]);
 
   /** `refresh` 콜백 참조가 바뀌어도 초기 마운트 부트스트랩 effect 가 재실행·중복 fetch 되지 않게 */
   const refreshRef = useRef(refresh);

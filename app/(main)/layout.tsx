@@ -1,4 +1,5 @@
 import { MainAppProviders } from "@/components/layout/MainAppProviders";
+import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messenger/room/MessengerRoomRouteEntryMountProbe";
 
 /**
  * 인증 게이트는 `proxy.ts` 단일 경로에서 처리(getClaims/getUser·세션 갱신·Set-Cookie).
@@ -9,5 +10,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <MainAppProviders>{children}</MainAppProviders>;
+  return (
+    <MainAppProviders>
+      <MessengerRoomRouteEntryMountProbe stage="layout" />
+      {children}
+    </MainAppProviders>
+  );
 }

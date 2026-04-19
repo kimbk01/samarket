@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
@@ -38,15 +39,24 @@ export function HomeContent({
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
 }) {
+  recordTradeListMetricOnce("trade_list_home_content_render_start_ms");
   const pathname = usePathname();
   const router = useRouter();
   const { tabs, activeIndex } = useTradeTabs(pathname);
+
+  useLayoutEffect(() => {
+    recordTradeListMetricOnce("trade_list_home_content_render_end_ms");
+  }, []);
 
   useEffect(() => {
     const cancelWarm = warmMainShellData();
     return () => {
       cancelWarm();
     };
+  }, []);
+
+  useEffect(() => {
+    recordTradeListMetricOnce("trade_list_hydration_complete_ms");
   }, []);
   const onNavigate = useCallback(
     (href: string) => {

@@ -21,12 +21,13 @@ type ApiPostRow = {
 
 type Props = {
   initialBundle: TradeItemDetailPageData;
+  initialRouteTotalMs?: number;
 };
 
 /**
  * 상세 본문은 RSC에서 이미 로드 — 클라이언트는 가시성·포커스 시 목록 필드만 보정.
  */
-export function PostDetailPageClient({ initialBundle }: Props) {
+export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Props) {
   const id = initialBundle.item.id;
   const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
   const lastListingFieldsRefreshAtRef = useRef(0);
@@ -104,6 +105,7 @@ export function PostDetailPageClient({ initialBundle }: Props) {
           ads: initialBundle.ads,
         }}
         viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
+        initialRouteTotalMs={initialRouteTotalMs}
       />
     </>
   );

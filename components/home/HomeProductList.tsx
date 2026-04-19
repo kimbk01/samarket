@@ -24,6 +24,7 @@ import {
   tryTrackFirstMenuListFetchSuccess,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -33,6 +34,7 @@ const ReportReasonModal = dynamic(
 type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 30_000;
 const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null };
+const INITIAL_VISIBLE_CARD_COUNT = 8;
 
 export function HomeProductList({
   initialHomeTradeFeed,
@@ -56,6 +58,12 @@ export function HomeProductList({
   const [toast, setToast] = useState<string | null>(null);
   const lastLoadedAtRef = useRef(0);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const initialVisibleExpansionDoneRef = useRef(false);
+  const [visibleCount, setVisibleCount] = useState(() => {
+    const initialCount = cachedInitial?.posts.length ?? 0;
+    return initialCount > 0 ? Math.min(initialCount, INITIAL_VISIBLE_CARD_COUNT) : 0;
+  });
 
   const load = useCallback(async () => {
     await runSingleFlight("home-product-list:load", async () => {
@@ -114,6 +122,32 @@ export function HomeProductList({
       void load();
     });
   }, [cachedInitial, load]);
+
+  useEffect(() => {
+    if (posts.length <= 0) {
+      initialVisibleExpansionDoneRef.current = false;
+      setVisibleCount(0);
+      return;
+    }
+    if (initialVisibleExpansionDoneRef.current) {
+      setVisibleCount(posts.length);
+      return;
+    }
+    const initialVisibleCount = Math.min(posts.length, INITIAL_VISIBLE_CARD_COUNT);
+    setVisibleCount(initialVisibleCount);
+    if (posts.length <= initialVisibleCount) {
+      initialVisibleExpansionDoneRef.current = true;
+      return;
+    }
+    let rafId = 0;
+    rafId = requestAnimationFrame(() => {
+      initialVisibleExpansionDoneRef.current = true;
+      setVisibleCount(posts.length);
+    });
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [posts.length]);
 
   const refreshSilent = useCallback(async () => {
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
@@ -223,10 +257,34 @@ export function HomeProductList({
   const showError = listState === "error";
   const showLoading = listState === "loading";
   const rootClass = "min-w-0 w-full max-w-full space-y-2.5";
+  const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
+
+  if (!showLoading && !showError && !showEmpty) {
+    recordTradeListMetricOnce("trade_list_product_list_render_start_ms");
+    recordTradeListMetricOnce("trade_list_first_render_map_item_count", visiblePosts.length);
+  }
+
+  useLayoutEffect(() => {
+    if (showLoading || showError || showEmpty) return;
+    recordTradeListMetricOnce("trade_list_product_list_render_end_ms");
+    const root = rootRef.current;
+    if (!root) return;
+    const links = Array.from(root.querySelectorAll('a[href^="/post/"]')).filter(
+      (node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement
+    );
+    if (links.length > 0) {
+      const initialVisibleCount = links.filter((node) => {
+        const rect = node.getBoundingClientRect();
+        return rect.top < window.innerHeight && rect.bottom > 0;
+      }).length;
+      recordTradeListMetricOnce("trade_list_initial_visible_card_count", initialVisibleCount);
+    }
+    recordTradeListMetricOnce("trade_list_first_render_image_component_count", root.querySelectorAll("img").length);
+  }, [showEmpty, showError, showLoading, visiblePosts.length]);
 
   if (showLoading) {
     return (
-      <div className={rootClass}>
+      <div ref={rootRef} className={rootClass}>
         <LoadingState />
       </div>
     );
@@ -234,7 +292,7 @@ export function HomeProductList({
 
   if (showError) {
     return (
-      <div className={rootClass}>
+      <div ref={rootRef} className={rootClass}>
         <ErrorState onRetry={handleRetry} />
       </div>
     );
@@ -242,15 +300,15 @@ export function HomeProductList({
 
   if (showEmpty) {
     return (
-      <div className={rootClass}>
+      <div ref={rootRef} className={rootClass}>
         <EmptyState />
       </div>
     );
   }
 
   return (
-    <div className={rootClass}>
-      {posts.map((post) =>
+    <div ref={rootRef} className={rootClass}>
+      {visiblePosts.map((post, index) =>
         notInterestedPostIds.has(post.id) ? (
           <NotInterestedCard
             key={post.id}
@@ -266,6 +324,7 @@ export function HomeProductList({
           <PostCard
             key={post.id}
             post={post}
+            isFirstCard={index === 0}
             isFavorite={favoriteMap[post.id]}
             onFavoriteChange={handleFavoriteChange}
             onMenuAction={handleMenuAction}

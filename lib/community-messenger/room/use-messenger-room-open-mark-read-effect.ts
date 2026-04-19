@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type MutableRefObject, type RefObject } from "react";
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
@@ -11,6 +11,7 @@ import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monito
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { applyRoomReadEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -83,10 +84,26 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     readGateVersion,
     readBottomDwellMs = CM_ROOM_BOTTOM_READ_DWELL_MS,
   } = args;
+  const readMarkReadyRecordedRoomRef = useRef<string | null>(null);
+  const unreadReadSyncRecordedRoomRef = useRef<string | null>(null);
+  const readMarkEffectStartRecordedRoomRef = useRef<string | null>(null);
+  const readMarkEffectEndRecordedRoomRef = useRef<string | null>(null);
+  const readMarkEffectCountRef = useRef(0);
 
   useEffect(() => {
     const id = roomId?.trim();
     if (!id) return;
+    readMarkEffectCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "read_mark_effect_count", readMarkEffectCountRef.current);
+    if (readMarkReadyRecordedRoomRef.current !== id) readMarkReadyRecordedRoomRef.current = null;
+    if (unreadReadSyncRecordedRoomRef.current !== id) unreadReadSyncRecordedRoomRef.current = null;
+    if (readMarkEffectStartRecordedRoomRef.current !== id) {
+      readMarkEffectStartRecordedRoomRef.current = id;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_start_ms");
+    }
+    if (readMarkEffectEndRecordedRoomRef.current !== id) {
+      readMarkEffectEndRecordedRoomRef.current = null;
+    }
 
     if (roomOpenMarkReadRef.current.roomId !== id) {
       roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
@@ -158,6 +175,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         clearDwellTimer();
         return;
       }
+      if (readMarkReadyRecordedRoomRef.current !== id) {
+        readMarkReadyRecordedRoomRef.current = id;
+        recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_ready_ms");
+      }
 
       const now = Date.now();
       if (dwellStartAt == null || dwellAnchorMessageId !== lastId) {
@@ -208,7 +229,12 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
           if (res.ok && json.ok) {
             if (typeof performance !== "undefined") {
-              messengerMonitorUnreadListSync(id, Math.round(performance.now() - t0), "room_open");
+              const unreadReadSyncMs = Math.round(performance.now() - t0);
+              messengerMonitorUnreadListSync(id, unreadReadSyncMs, "room_open");
+              if (unreadReadSyncRecordedRoomRef.current !== id) {
+                unreadReadSyncRecordedRoomRef.current = id;
+                recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", unreadReadSyncMs);
+              }
             }
             roomOpenMarkReadRef.current = {
               roomId: id,
@@ -255,6 +281,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     window.addEventListener("focus", onFocus);
     window.addEventListener("resize", onResize);
     viewport?.addEventListener("scroll", onViewportScroll, { passive: true });
+    if (readMarkEffectEndRecordedRoomRef.current !== id) {
+      readMarkEffectEndRecordedRoomRef.current = id;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
+    }
     queueMicrotask(() => {
       reevaluate();
     });

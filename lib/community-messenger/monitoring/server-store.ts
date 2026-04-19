@@ -1,5 +1,6 @@
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
 import type {
+  MessengerBootstrapBreakdown,
   MessengerMonitoringAlert,
   MessengerMonitoringEvent,
   MessengerMonitoringSummary,
@@ -37,6 +38,7 @@ type Store = {
   aggregates: Map<string, Agg>;
   apiByRoute: Map<string, { count: number; sum: number; last: number }>;
   clientAggregates: Map<string, Agg>;
+  latestBootstrapBreakdown: MessengerBootstrapBreakdown | null;
   alerts: MessengerMonitoringAlert[];
   outcomes: Map<string, OutcomeBucket>;
   /** 통화 세션 suffix — `first_connected` 기준 */
@@ -54,6 +56,7 @@ function getStore(): Store {
       aggregates: new Map(),
       apiByRoute: new Map(),
       clientAggregates: new Map(),
+      latestBootstrapBreakdown: null,
       alerts: [],
       outcomes: new Map(),
       callSessionsOpened: new Set(),
@@ -66,6 +69,7 @@ function getStore(): Store {
     s.callSessionsOpened ??= new Set();
     s.callSessionsWithReconnect ??= new Set();
     s.lastFailureRatioAlertTs ??= new Map();
+    s.latestBootstrapBreakdown ??= null;
   }
   return g.__messengerMonitoringStore;
 }
@@ -287,6 +291,11 @@ export function recordMessengerApiTiming(
       domain,
     },
   });
+}
+
+export function recordMessengerBootstrapBreakdown(breakdown: MessengerBootstrapBreakdown): void {
+  const store = getStore();
+  store.latestBootstrapBreakdown = breakdown;
 }
 
 export function ingestClientMessengerEvents(events: MessengerMonitoringEvent[]): void {
@@ -567,5 +576,6 @@ export function getMessengerMonitoringSummary(): MessengerMonitoringSummary {
     sloDigest: buildSloDigest(store, aggregates, clientAggregates, apiByRoute),
     outcomeStats: buildOutcomeStats(store),
     reconnectSessionRate,
+    latestBootstrapBreakdown: store.latestBootstrapBreakdown,
   };
 }

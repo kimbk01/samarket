@@ -65,6 +65,15 @@ import {
   type TradeChatRoomResolvedDetail,
 } from "@/lib/chats/trade-chat-room-resolved-event";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import {
+  recordRouteEntryFetchNetworkFromResources,
+  recordRouteEntryFirstContentRender,
+  recordRouteEntryFirstInteractive,
+  recordRouteEntryFullRender,
+  recordRouteEntryJsonParseComplete,
+  recordRouteEntryRouteTotalMs,
+  scheduleRouteEntryToPaint,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -522,10 +531,17 @@ interface PostDetailViewProps {
     source: ChatRoomSource | null;
     messengerRoomId?: string | null;
   };
+  initialRouteTotalMs?: number;
 }
 
-export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: PostDetailViewProps) {
+export function PostDetailView({
+  post,
+  related,
+  viewerTradeRoomBootstrap,
+  initialRouteTotalMs,
+}: PostDetailViewProps) {
   const router = useRouter();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(undefined);
 
@@ -765,6 +781,49 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
     isOwnPost,
     showSellerMoreMenu,
   ]);
+
+  useLayoutEffect(() => {
+    recordRouteEntryRouteTotalMs("product_detail", initialRouteTotalMs);
+    if (typeof window !== "undefined") {
+      recordRouteEntryFetchNetworkFromResources("product_detail", [
+        window.location.pathname,
+        encodeURIComponent(window.location.pathname),
+        "_rsc=",
+      ]);
+    }
+    recordRouteEntryJsonParseComplete("product_detail");
+  }, [initialRouteTotalMs]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const title = root.querySelector("h2");
+    const sellerBlock = root.querySelector('[data-post-detail-seller="true"]');
+    if (title && sellerBlock) {
+      recordRouteEntryFirstContentRender("product_detail");
+      scheduleRouteEntryToPaint("product_detail");
+    }
+    const enabledChatButton = root.querySelector(
+      '[data-post-detail-action-bar="true"] button:not([disabled]), [data-post-detail-action-bar="true"] a[href]'
+    );
+    if (enabledChatButton instanceof HTMLElement) {
+      recordRouteEntryFirstInteractive("product_detail");
+    }
+    const descriptionBlock = root.querySelector("h3 + p, ul, [data-post-detail-seller=\"true\"]");
+    const chatButton = root.querySelector('[data-post-detail-action-bar="true"] button, [data-post-detail-action-bar="true"] a[href]');
+    const firstImage = root.querySelector("img");
+    const imageReady =
+      !firstImage || (firstImage instanceof HTMLImageElement && firstImage.complete && firstImage.naturalWidth > 0);
+    if (title && descriptionBlock && chatButton && imageReady) {
+      recordRouteEntryFullRender("product_detail");
+    }
+    if (firstImage instanceof HTMLImageElement && !imageReady) {
+      const onLoad = () => recordRouteEntryFullRender("product_detail");
+      firstImage.addEventListener("load", onLoad, { once: true });
+      return () => firstImage.removeEventListener("load", onLoad);
+    }
+    return;
+  }, [author, category?.id, post.content, post.id, resolvedViewerId]);
 
   useEffect(() => {
     if (!category || !writeCtx) return;
@@ -1088,7 +1147,7 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
           ? [post.thumbnail_url]
           : [];
     return (
-      <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+      <div ref={rootRef} className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
         <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
           {/* 1. 이미지 — 태블릿·데스크톱에서 좌측 고정 폭 + 스티키 */}
           <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
@@ -1109,6 +1168,7 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
             {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
             <div
               id={POST_DETAIL_SELLER_ANCHOR_ID}
+              data-post-detail-seller="true"
               className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
             >
               <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
@@ -1161,7 +1221,10 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
         ) : null}
 
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
-        <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
+        <div
+          data-post-detail-action-bar="true"
+          className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}
+        >
           {!isOwnPost && (
             <button
               type="button"
@@ -1293,7 +1356,7 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
   }
 
   return (
-    <div className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+    <div ref={rootRef} className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
       <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
         {/* 1. 이미지 — 태블릿·가로: 좌측 열 + 스크롤 시 고정 */}
         <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
@@ -1335,6 +1398,7 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
           {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
           <div
             id={POST_DETAIL_SELLER_ANCHOR_ID}
+            data-post-detail-seller="true"
             className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
           >
         <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
@@ -1484,7 +1548,10 @@ export function PostDetailView({ post, related, viewerTradeRoomBootstrap }: Post
       )}
 
       {/* 하단 고정: 상품 상세와 동일 규격 — 본인 글은 찜 숨김 */}
-      <div className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}>
+      <div
+        data-post-detail-action-bar="true"
+        className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}
+      >
         {!isOwnPost && (
           <button
             type="button"

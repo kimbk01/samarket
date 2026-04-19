@@ -6,7 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   messengerRoomMenuItemId,
@@ -132,6 +132,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       const id = String(rid ?? "").trim();
       if (!id) return;
       primeMessengerRoomEntrySnapshot({ viewerUserId, room });
+      beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(id)}`);
+      recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
       router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
     },
     [room, router, viewerUserId]
@@ -512,6 +514,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           void prefetchCommunityMessengerRoomSnapshot(room.id);
           void router.prefetch(`/community-messenger/rooms/${encodeURIComponent(room.id)}`);
         }}
+        onClick={() =>
+          beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(room.id)}`)
+        }
         className="block rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
       >
         {rowContent}

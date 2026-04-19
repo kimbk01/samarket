@@ -27,6 +27,15 @@ import {
 import { philifeAppPaths } from "@domain/philife/paths";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
+import {
+  recordRouteEntryFetchNetworkFromResources,
+  recordRouteEntryFirstContentRender,
+  recordRouteEntryFirstInteractive,
+  recordRouteEntryFullRender,
+  recordRouteEntryJsonParseComplete,
+  recordRouteEntryRouteTotalMs,
+  scheduleRouteEntryToPaint,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 function CommentLockIcon({ className }: { className?: string }) {
   return (
@@ -52,6 +61,7 @@ export function CommunityDetail({
   initialComments,
   initialCommentsLoaded = false,
   viewerJoinedMeeting = false,
+  initialRouteTotalMs,
 }: {
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
@@ -60,6 +70,7 @@ export function CommunityDetail({
   initialCommentsLoaded?: boolean;
   /** 모임 글: 참여(또는 호스트)일 때만 댓글 작성·목록 허용 */
   viewerJoinedMeeting?: boolean;
+  initialRouteTotalMs?: number;
 }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -80,6 +91,7 @@ export function CommunityDetail({
   const [deleteErr, setDeleteErr] = useState("");
   const mountedAtRef = useRef<number>(perfNow());
   const firstCommentsReadyLoggedRef = useRef(false);
+  const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -106,6 +118,29 @@ export function CommunityDetail({
     });
     return () => setMainTier1Extras(null);
   }, [setMainTier1Extras, tier1Title]);
+
+  useLayoutEffect(() => {
+    recordRouteEntryRouteTotalMs("community_detail", initialRouteTotalMs);
+    if (typeof window !== "undefined") {
+      recordRouteEntryFetchNetworkFromResources("community_detail", [
+        window.location.pathname,
+        encodeURIComponent(window.location.pathname),
+        "_rsc=",
+      ]);
+    }
+    recordRouteEntryJsonParseComplete("community_detail");
+    const root = articleRef.current;
+    if (!root) return;
+    const hasBodyText = (meeting ? stripMeetupPostMetaFromContent(post.content) : post.content).trim().length > 0;
+    if (root.querySelector("h1") && hasBodyText) {
+      recordRouteEntryFirstContentRender("community_detail");
+      scheduleRouteEntryToPaint("community_detail");
+    }
+    const interactiveTarget = root.querySelector("button, textarea, a[href]");
+    if (interactiveTarget instanceof HTMLElement && !interactiveTarget.hasAttribute("disabled")) {
+      recordRouteEntryFirstInteractive("community_detail");
+    }
+  }, [initialRouteTotalMs, meeting, post.content]);
 
   useEffect(() => {
     const viewedKey = `community:viewed:${post.id}`;
@@ -241,6 +276,24 @@ export function CommunityDetail({
     });
   }, [commentsLoading, comments.length, post.id]);
 
+  useEffect(() => {
+    const root = articleRef.current;
+    if (!root || commentsLoading) return;
+    const commentsVisible = true;
+    const firstImage = root.querySelector("img");
+    const imageReady =
+      !firstImage || (firstImage instanceof HTMLImageElement && firstImage.complete && firstImage.naturalWidth > 0);
+    if (commentsVisible && imageReady) {
+      recordRouteEntryFullRender("community_detail");
+    }
+    if (firstImage instanceof HTMLImageElement && !imageReady) {
+      const onLoad = () => recordRouteEntryFullRender("community_detail");
+      firstImage.addEventListener("load", onLoad, { once: true });
+      return () => firstImage.removeEventListener("load", onLoad);
+    }
+    return;
+  }, [commentsLoading, comments.length, post.images.length]);
+
   const onLike = async () => {
     const prevLikeCount = likeCount;
     setBusy(true);
@@ -335,7 +388,7 @@ export function CommunityDetail({
 
   return (
     <div className="min-h-screen bg-[#f3f4f6] pb-24">
-      <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
+      <article ref={articleRef} className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
           {post.images.length > 0 ? (
             <div className="grid grid-cols-1 gap-px bg-sam-surface-muted sm:grid-cols-2">

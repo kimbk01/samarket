@@ -60,6 +60,11 @@ import {
 import { fetchChatRoomDetailApi } from "@/lib/chats/fetch-chat-room-detail-api";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import {
+  recordRouteEntryElapsedMetric,
+  recordRouteEntryElapsedMetricOnce,
+  recordRouteEntryMetric,
+} from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
 import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
 import { useMessengerRoomLocalIndexedDbSnapshot } from "@/lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot";
@@ -125,6 +130,8 @@ export function useMessengerRoomClientPhase1({
   initialCallSessionId,
   initialServerSnapshot = null,
 }: MessengerRoomClientPhase1Props) {
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "useMessengerRoomClientPhase1_init_ms");
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "phase1_start_ms");
   const initialViewerId = initialServerSnapshot?.viewerUserId?.trim() ?? "";
   const { t, tt } = useI18n();
   const router = useRouter();
@@ -180,7 +187,9 @@ export function useMessengerRoomClientPhase1({
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
     /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
     const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
-    return listPrimed ?? initialServerSnapshot ?? null;
+    const prepared = listPrimed ?? initialServerSnapshot ?? null;
+    recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_prepare_ms");
+    return prepared;
   });
   /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
   const streamRoomId = useMemo(() => {
@@ -204,15 +213,30 @@ export function useMessengerRoomClientPhase1({
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
+  const roomStateCommitCountRef = useRef(0);
+  const messagesStateCommitCountRef = useRef(0);
+  const participantsStateCommitCountRef = useRef(0);
+  const profilesStateCommitCountRef = useRef(0);
+  const phase1SnapshotCommitRecordedRef = useRef(false);
   /** `mark_read` — 시트·메시지 액션 등 오버레이 시 금지 */
   const readPhase1OverlayBlockedRef = useRef(false);
   const roomLoadingRef = useRef(false);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
+  if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
+    phase1SnapshotCommitRecordedRef.current = true;
+    recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_commit_ms");
+  }
 
   useEffect(() => {
     seedMessengerRealtimeFromRoomSnapshot(snapshot ?? initialServerSnapshot ?? null);
   }, [initialServerSnapshot, snapshot]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    roomStateCommitCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "room_state_commit_count", roomStateCommitCountRef.current);
+  }, [snapshot]);
 
   useEffect(() => {
     const id = String(roomId ?? "").trim();
@@ -578,8 +602,26 @@ export function useMessengerRoomClientPhase1({
       setRoomMessages([]);
       return;
     }
-    setRoomMessages((prev) => mergeRoomMessages(prev, snapshot.messages));
+    setRoomMessages((prev) => {
+      if (prev.length === 0) {
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
+        return snapshot.messages;
+      }
+      return mergeRoomMessages(prev, snapshot.messages, {
+        perfScope: "messenger_room_entry",
+        perfMetricPrefix: "initial_messages_merge",
+      });
+    });
   }, [snapshot]);
+
+  useEffect(() => {
+    if (roomMessages.length <= 0) return;
+    messagesStateCommitCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "messages_state_commit_count", messagesStateCommitCountRef.current);
+  }, [roomMessages]);
 
   const { oldestLoadedMessageId, loadOlderMessages } = useMessengerRoomLoadOlderMessagesFetch({
     roomId,
@@ -625,7 +667,20 @@ export function useMessengerRoomClientPhase1({
 
   useEffect(() => {
     roomMembersDisplayRef.current = roomMembersDisplay;
+    if (roomMembersDisplay.length <= 0) return;
+    profilesStateCommitCountRef.current += 1;
+    recordRouteEntryMetric("messenger_room_entry", "profiles_state_commit_count", profilesStateCommitCountRef.current);
   }, [roomMembersDisplay]);
+
+  useEffect(() => {
+    if (!snapshot || snapshot.members.length <= 0) return;
+    participantsStateCommitCountRef.current += 1;
+    recordRouteEntryMetric(
+      "messenger_room_entry",
+      "participants_state_commit_count",
+      participantsStateCommitCountRef.current
+    );
+  }, [snapshot]);
 
   const loadMoreRoomMembers = useCallback(async () => {
     if (membersListNextOffset === null || membersPagingBusy || !snapshot) return;

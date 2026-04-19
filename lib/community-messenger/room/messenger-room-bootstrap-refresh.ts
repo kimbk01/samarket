@@ -5,6 +5,14 @@ import {
 } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { messengerMonitorRoomLoad } from "@/lib/community-messenger/monitoring/client";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import {
+  recordRouteEntryMetric,
+  recordRouteEntryElapsedMetric,
+  recordRouteEntryFetchNetworkMs,
+  recordRouteEntryFirstInteractive,
+  recordRouteEntryJsonParseComplete,
+  recordRouteEntryRouteTotalMs,
+} from "@/lib/runtime/samarket-runtime-debug";
 import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
@@ -121,15 +129,58 @@ export function createMessengerRoomBootstrapRefresh(
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
       const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
+        const tFetch = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (shouldBlock) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
+        }
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
           cache: "no-store",
         });
+        const fetchElapsed =
+          typeof performance !== "undefined" ? Math.round(performance.now() - tFetch) : Math.round(Date.now() - tFetch);
+        if (shouldBlock) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_response_end_ms");
+        }
+        recordRouteEntryFetchNetworkMs("messenger_room_entry", fetchElapsed);
+        recordRouteEntryRouteTotalMs(
+          "messenger_room_entry",
+          Number(res.headers.get("x-samarket-route-total-ms") ?? "")
+        );
+        recordRouteEntryMetric(
+          "messenger_room_entry",
+          "response_size_bytes",
+          Number(res.headers.get("x-samarket-response-size-bytes") ?? "")
+        );
+        recordRouteEntryMetric(
+          "messenger_room_entry",
+          "room_bootstrap_fetch_ms",
+          Number(res.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "")
+        );
+        recordRouteEntryMetric(
+          "messenger_room_entry",
+          "messages_fetch_ms",
+          Number(res.headers.get("x-samarket-messages-fetch-ms") ?? "")
+        );
+        recordRouteEntryMetric(
+          "messenger_room_entry",
+          "participants_profiles_fetch_ms",
+          Number(res.headers.get("x-samarket-participants-profiles-fetch-ms") ?? "")
+        );
+        recordRouteEntryMetric(
+          "messenger_room_entry",
+          "normalize_merge_ms",
+          Number(res.headers.get("x-samarket-normalize-merge-ms") ?? "")
+        );
         if (res.status === 429) {
           const ra = res.headers.get("Retry-After");
           const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
           silentBackoffUntil = Date.now() + sec * 1000;
         }
         const raw = await res.json().catch(() => null);
+        if (shouldBlock) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_json_parse_complete_ms");
+          recordRouteEntryJsonParseComplete("messenger_room_entry");
+        }
         return { roomRes: res, snap: parseCommunityMessengerRoomSnapshotResponse(raw) };
       });
       if (roomRes.ok && snap) {
@@ -158,6 +209,7 @@ export function createMessengerRoomBootstrapRefresh(
       }
     } finally {
       setRoomReadyForRealtime(true);
+      recordRouteEntryFirstInteractive("messenger_room_entry");
       finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {
         void refresh(true);
       });

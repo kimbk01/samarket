@@ -20,6 +20,7 @@ interface Props {
 }
 
 async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromise: Props["params"] }) {
+  const t0 = performance.now();
   const { postId } = await paramsPromise;
   const seg = postId?.trim() ?? "";
   if (!seg) redirect("/philife");
@@ -76,6 +77,7 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
       initialComments={initialComments}
       initialCommentsLoaded
       viewerJoinedMeeting={viewerJoinedMeeting}
+      initialRouteTotalMs={Math.round(performance.now() - t0)}
     />
   );
 }

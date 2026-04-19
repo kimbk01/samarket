@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useLayoutEffect, useRef } from "react";
 import type { Product } from "@/lib/types/product";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -18,6 +18,15 @@ import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  recordRouteEntryFetchNetworkFromResources,
+  recordRouteEntryFirstContentRender,
+  recordRouteEntryFirstInteractive,
+  recordRouteEntryFullRender,
+  recordRouteEntryJsonParseComplete,
+  recordRouteEntryRouteTotalMs,
+  scheduleRouteEntryToPaint,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 const STATUS_LABEL: Record<Product["status"], string> = {
   active: "판매중",
@@ -36,12 +45,15 @@ interface ProductDetailViewProps {
     source: ChatRoomSource | null;
     messengerRoomId?: string | null;
   };
+  initialRouteTotalMs?: number;
 }
 
 export function ProductDetailView({
   product,
   initialViewerTradeRoom,
+  initialRouteTotalMs,
 }: ProductDetailViewProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const userId = getCurrentUserId();
     recordRecentView(userId, product.id, "home", null);
@@ -123,8 +135,53 @@ export function ProductDetailView({
     });
   }, [product.id, product.seller?.id, product.title]);
 
+  useLayoutEffect(() => {
+    recordRouteEntryRouteTotalMs("product_detail", initialRouteTotalMs);
+    if (typeof window !== "undefined") {
+      recordRouteEntryFetchNetworkFromResources("product_detail", [
+        window.location.pathname,
+        encodeURIComponent(window.location.pathname),
+        "_rsc=",
+      ]);
+    }
+    recordRouteEntryJsonParseComplete("product_detail");
+    const root = rootRef.current;
+    if (!root) return;
+    const title = root.querySelector("h1");
+    const price = Array.from(root.querySelectorAll("p")).find((node) => node.textContent?.includes("원"));
+    const sellerSection = root.querySelector("section");
+    if (title && price && sellerSection) {
+      recordRouteEntryFirstContentRender("product_detail");
+      scheduleRouteEntryToPaint("product_detail");
+    }
+    const interactiveTarget = root.querySelector('[data-product-detail-action-bar="true"] button, [data-product-detail-action-bar="true"] a[href]');
+    if (interactiveTarget instanceof HTMLElement && !interactiveTarget.hasAttribute("disabled")) {
+      recordRouteEntryFirstInteractive("product_detail");
+    }
+  }, [initialRouteTotalMs]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const title = root.querySelector("h1");
+    const hasDescription = product.description ? Boolean(root.textContent?.includes(product.description)) : true;
+    const chatButton = root.querySelector('[data-product-detail-action-bar="true"] button, [data-product-detail-action-bar="true"] a[href]');
+    const firstImage = root.querySelector("img");
+    const imageReady =
+      !firstImage || (firstImage instanceof HTMLImageElement && firstImage.complete && firstImage.naturalWidth > 0);
+    if (title && hasDescription && chatButton && imageReady) {
+      recordRouteEntryFullRender("product_detail");
+    }
+    if (firstImage instanceof HTMLImageElement && !imageReady) {
+      const onLoad = () => recordRouteEntryFullRender("product_detail");
+      firstImage.addEventListener("load", onLoad, { once: true });
+      return () => firstImage.removeEventListener("load", onLoad);
+    }
+    return;
+  }, [product.description, product.id]);
+
   return (
-    <div className="relative w-full min-w-0 bg-sam-surface pb-20">
+    <div ref={rootRef} className="relative w-full min-w-0 bg-sam-surface pb-20">
       <ProductDetailMainTier1Sync
         product={product}
         onReport={onReportProduct}

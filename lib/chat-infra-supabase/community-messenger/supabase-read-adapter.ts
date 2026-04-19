@@ -10,6 +10,7 @@ function toServiceOptions(o?: CommunityMessengerRoomSnapshotOptions): GetCommuni
     initialMessageLimit: o.initialMessageLimit,
     hydrateFullMemberList: o.hydrateFullMemberList,
     deferSnapshotSecondary: o.deferSnapshotSecondary,
+    diagnostics: o.diagnostics,
   };
 }
 

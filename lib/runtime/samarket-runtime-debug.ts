@@ -312,6 +312,343 @@ export function getMessengerRenderPerfCounts(): Readonly<Record<string, number>>
 
 export type MessengerHomeBootstrapNetworkMode = "lite" | "full" | "fresh";
 
+export type RouteEntryPerfScope = "community_detail" | "messenger_room_entry" | "product_detail";
+
+type RouteEntryPerfState = {
+  activeCycleId: number;
+  startedAt: number;
+  targetPath: string;
+  fetchNetworkRecordedCycleId: number;
+  jsonParseCycleId: number;
+  firstContentRenderCycleId: number;
+  fullRenderCycleId: number;
+  firstInteractiveCycleId: number;
+  toPaintCycleId: number;
+  customMetricCycleIds: Record<string, number>;
+};
+
+const ROUTE_ENTRY_PERF_SESSION_KEY_PREFIX = "samarket:debug:route-entry:" as const;
+const ROUTE_ENTRY_PERF_STATE_GLOBAL_KEY = "__samarketRouteEntryPerfState" as const;
+
+function emptyRouteEntryPerfState(): RouteEntryPerfState {
+  return {
+    activeCycleId: 0,
+    startedAt: 0,
+    targetPath: "",
+    fetchNetworkRecordedCycleId: 0,
+    jsonParseCycleId: 0,
+    firstContentRenderCycleId: 0,
+    fullRenderCycleId: 0,
+    firstInteractiveCycleId: 0,
+    toPaintCycleId: 0,
+    customMetricCycleIds: {},
+  };
+}
+
+function routeEntryPerfStatesStore(): Record<RouteEntryPerfScope, RouteEntryPerfState> {
+  const g = globalThis as unknown as {
+    [ROUTE_ENTRY_PERF_STATE_GLOBAL_KEY]?: Record<RouteEntryPerfScope, RouteEntryPerfState>;
+  };
+  let store = g[ROUTE_ENTRY_PERF_STATE_GLOBAL_KEY];
+  if (!store) {
+    store = {
+      community_detail: emptyRouteEntryPerfState(),
+      messenger_room_entry: emptyRouteEntryPerfState(),
+      product_detail: emptyRouteEntryPerfState(),
+    };
+    g[ROUTE_ENTRY_PERF_STATE_GLOBAL_KEY] = store;
+  }
+  return store;
+}
+
+function routeEntryPerfSessionKey(scope: RouteEntryPerfScope): string {
+  return `${ROUTE_ENTRY_PERF_SESSION_KEY_PREFIX}${scope}`;
+}
+
+function readRouteEntryPerfState(scope: RouteEntryPerfScope): RouteEntryPerfState {
+  const store = routeEntryPerfStatesStore();
+  const state = store[scope];
+  if (state.startedAt > 0) return state;
+  if (typeof window === "undefined") return state;
+  try {
+    const raw = sessionStorage.getItem(routeEntryPerfSessionKey(scope));
+    if (!raw) return state;
+    const parsed = JSON.parse(raw) as Partial<RouteEntryPerfState>;
+    if (typeof parsed.startedAt === "number" && Number.isFinite(parsed.startedAt) && parsed.startedAt > 0) {
+      state.activeCycleId = typeof parsed.activeCycleId === "number" ? parsed.activeCycleId : 1;
+      state.startedAt = parsed.startedAt;
+      state.targetPath = typeof parsed.targetPath === "string" ? parsed.targetPath : "";
+    }
+  } catch {
+    /* ignore */
+  }
+  return state;
+}
+
+function writeRouteEntryPerfState(scope: RouteEntryPerfScope, state: RouteEntryPerfState): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      routeEntryPerfSessionKey(scope),
+      JSON.stringify({
+        activeCycleId: state.activeCycleId,
+        startedAt: state.startedAt,
+        targetPath: state.targetPath,
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function recordRouteEntryElapsedPhase(
+  scope: RouteEntryPerfScope,
+  phaseKey: string,
+  field:
+    | "fetchNetworkRecordedCycleId"
+    | "jsonParseCycleId"
+    | "firstContentRenderCycleId"
+    | "fullRenderCycleId"
+    | "firstInteractiveCycleId"
+    | "toPaintCycleId"
+): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0 || state[field] === state.activeCycleId) return;
+  state[field] = state.activeCycleId;
+  recordAppWidePhaseLastMs(phaseKey, Math.round(performance.now() - state.startedAt));
+}
+
+export function beginRouteEntryPerf(scope: RouteEntryPerfScope, targetPath: string): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = routeEntryPerfStatesStore()[scope];
+  state.activeCycleId += 1;
+  state.startedAt = performance.now();
+  state.targetPath = targetPath;
+  state.fetchNetworkRecordedCycleId = 0;
+  state.jsonParseCycleId = 0;
+  state.firstContentRenderCycleId = 0;
+  state.fullRenderCycleId = 0;
+  state.firstInteractiveCycleId = 0;
+  state.toPaintCycleId = 0;
+  state.customMetricCycleIds = {};
+  writeRouteEntryPerfState(scope, state);
+  if (scope === "messenger_room_entry") {
+    recordAppWidePhaseLastMs(`${scope}_room_route_enter_ms`, 0);
+  }
+}
+
+export function recordRouteEntryRouteTotalMs(scope: RouteEntryPerfScope, ms: number | null | undefined): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return;
+  recordAppWidePhaseLastMs(`${scope}_route_total_ms`, Math.round(ms));
+}
+
+export function recordRouteEntryFetchNetworkMs(scope: RouteEntryPerfScope, ms: number | null | undefined): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.fetchNetworkRecordedCycleId === state.activeCycleId) return;
+  state.fetchNetworkRecordedCycleId = state.activeCycleId;
+  recordAppWidePhaseLastMs(`${scope}_fetch_network_ms`, Math.round(ms));
+}
+
+export function recordRouteEntryFetchNetworkFromResources(scope: RouteEntryPerfScope, matchers: string[]): void {
+  if (!samarketRuntimeDebugEnabled() || typeof performance === "undefined") return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0 || state.fetchNetworkRecordedCycleId === state.activeCycleId) return;
+  const candidates = performance
+    .getEntriesByType("resource")
+    .filter((entry): entry is PerformanceResourceTiming => entry instanceof PerformanceResourceTiming)
+    .filter((entry) => entry.startTime + entry.duration >= state.startedAt)
+    .filter((entry) => {
+      const target = entry.name;
+      return matchers.some((matcher) => matcher && target.includes(matcher));
+    });
+  const picked = candidates[candidates.length - 1];
+  if (!picked) return;
+  recordRouteEntryFetchNetworkMs(scope, Math.round((picked.responseEnd || picked.duration) - picked.startTime));
+}
+
+export function recordRouteEntryJsonParseComplete(scope: RouteEntryPerfScope): void {
+  recordRouteEntryElapsedPhase(scope, `${scope}_json_parse_complete_ms`, "jsonParseCycleId");
+}
+
+export function recordRouteEntryFirstContentRender(scope: RouteEntryPerfScope): void {
+  recordRouteEntryElapsedPhase(scope, `${scope}_first_content_render_ms`, "firstContentRenderCycleId");
+}
+
+export function recordRouteEntryFullRender(scope: RouteEntryPerfScope): void {
+  recordRouteEntryElapsedPhase(scope, `${scope}_full_render_ms`, "fullRenderCycleId");
+}
+
+export function recordRouteEntryFirstInteractive(scope: RouteEntryPerfScope): void {
+  recordRouteEntryElapsedPhase(scope, `${scope}_first_interactive_ms`, "firstInteractiveCycleId");
+}
+
+export function recordRouteEntryMetric(
+  scope: RouteEntryPerfScope,
+  metricSuffix: string,
+  value: number | null | undefined
+): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return;
+  recordAppWidePhaseLastMs(`${scope}_${metricSuffix}`, Math.round(value));
+}
+
+export function recordRouteEntryElapsedMetric(scope: RouteEntryPerfScope, metricSuffix: string): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0) return;
+  recordAppWidePhaseLastMs(`${scope}_${metricSuffix}`, Math.round(performance.now() - state.startedAt));
+}
+
+export function recordRouteEntryElapsedMetricOnce(scope: RouteEntryPerfScope, metricSuffix: string): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0) return;
+  if (state.customMetricCycleIds[metricSuffix] === state.activeCycleId) return;
+  state.customMetricCycleIds[metricSuffix] = state.activeCycleId;
+  recordAppWidePhaseLastMs(`${scope}_${metricSuffix}`, Math.round(performance.now() - state.startedAt));
+}
+
+export function recordRouteEntryResourceMetricRangeFromResources(
+  scope: RouteEntryPerfScope,
+  opts: {
+    startMetricSuffix: string;
+    endMetricSuffix: string;
+    matchers: string[];
+    initiatorTypes?: string[];
+    pick?: "first" | "last";
+  }
+): void {
+  if (!samarketRuntimeDebugEnabled() || typeof performance === "undefined") return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0) return;
+  const startKey = opts.startMetricSuffix;
+  const endKey = opts.endMetricSuffix;
+  if (
+    state.customMetricCycleIds[startKey] === state.activeCycleId &&
+    state.customMetricCycleIds[endKey] === state.activeCycleId
+  ) {
+    return;
+  }
+  const initiatorTypes = opts.initiatorTypes?.filter(Boolean) ?? [];
+  const candidates = performance
+    .getEntriesByType("resource")
+    .filter((entry): entry is PerformanceResourceTiming => entry instanceof PerformanceResourceTiming)
+    .filter((entry) => entry.startTime >= state.startedAt)
+    .filter((entry) => {
+      if (initiatorTypes.length > 0 && !initiatorTypes.includes(entry.initiatorType)) return false;
+      const target = entry.name;
+      return opts.matchers.every((matcher) => target.includes(matcher));
+    })
+    .sort((a, b) => a.startTime - b.startTime);
+  const picked = opts.pick === "last" ? candidates[candidates.length - 1] : candidates[0];
+  if (!picked) return;
+  const startMs = Math.max(0, Math.round(picked.startTime - state.startedAt));
+  const endMs = Math.max(0, Math.round((picked.responseEnd || picked.startTime + picked.duration) - state.startedAt));
+  state.customMetricCycleIds[startKey] = state.activeCycleId;
+  state.customMetricCycleIds[endKey] = state.activeCycleId;
+  recordAppWidePhaseLastMs(`${scope}_${startKey}`, startMs);
+  recordAppWidePhaseLastMs(`${scope}_${endKey}`, endMs);
+}
+
+export function scheduleRouteEntryToPaint(scope: RouteEntryPerfScope): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = readRouteEntryPerfState(scope);
+  if (state.startedAt <= 0 || state.toPaintCycleId === state.activeCycleId) return;
+  state.toPaintCycleId = state.activeCycleId;
+  if (typeof requestAnimationFrame !== "function") {
+    queueMicrotask(() => {
+      recordAppWidePhaseLastMs(`${scope}_to_paint_ms`, Math.round(performance.now() - state.startedAt));
+    });
+    return;
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      recordAppWidePhaseLastMs(`${scope}_to_paint_ms`, Math.round(performance.now() - state.startedAt));
+    });
+  });
+}
+
+type MessengerBootstrapClientPhaseState = {
+  activeCycleId: number;
+  startedAt: number;
+  jsonParseCycleId: number;
+  firstListItemRenderCycleId: number;
+  fullListRenderCycleId: number;
+  firstInteractiveCycleId: number;
+};
+
+const MESSENGER_BOOTSTRAP_CLIENT_PHASE_STATE_GLOBAL_KEY = "__samarketMessengerBootstrapClientPhaseState" as const;
+
+function messengerBootstrapClientPhaseStateStore(): MessengerBootstrapClientPhaseState {
+  const g = globalThis as unknown as {
+    [MESSENGER_BOOTSTRAP_CLIENT_PHASE_STATE_GLOBAL_KEY]?: MessengerBootstrapClientPhaseState;
+  };
+  let state = g[MESSENGER_BOOTSTRAP_CLIENT_PHASE_STATE_GLOBAL_KEY];
+  if (!state) {
+    state = {
+      activeCycleId: 0,
+      startedAt: 0,
+      jsonParseCycleId: 0,
+      firstListItemRenderCycleId: 0,
+      fullListRenderCycleId: 0,
+      firstInteractiveCycleId: 0,
+    };
+    g[MESSENGER_BOOTSTRAP_CLIENT_PHASE_STATE_GLOBAL_KEY] = state;
+  }
+  return state;
+}
+
+function recordMessengerBootstrapClientElapsedPhase(
+  phaseKey: string,
+  field: "jsonParseCycleId" | "firstListItemRenderCycleId" | "fullListRenderCycleId" | "firstInteractiveCycleId"
+): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = messengerBootstrapClientPhaseStateStore();
+  if (state.startedAt <= 0 || state[field] === state.activeCycleId) return;
+  state[field] = state.activeCycleId;
+  recordAppWidePhaseLastMs(phaseKey, Math.round(performance.now() - state.startedAt));
+}
+
+export function beginMessengerBootstrapClientPhase(_mode: MessengerHomeBootstrapNetworkMode): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  const state = messengerBootstrapClientPhaseStateStore();
+  state.activeCycleId += 1;
+  state.startedAt = performance.now();
+  state.jsonParseCycleId = 0;
+  state.firstListItemRenderCycleId = 0;
+  state.fullListRenderCycleId = 0;
+  state.firstInteractiveCycleId = 0;
+}
+
+export function recordMessengerBootstrapResponseSizeBytes(bytes: number | null | undefined): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) return;
+  recordAppWidePhaseLastMs("messenger_bootstrap_response_size_bytes", Math.round(bytes));
+}
+
+export function recordMessengerBootstrapJsonParseComplete(): void {
+  recordMessengerBootstrapClientElapsedPhase("messenger_bootstrap_json_parse_complete_ms", "jsonParseCycleId");
+}
+
+export function recordMessengerBootstrapFirstListItemRender(): void {
+  recordMessengerBootstrapClientElapsedPhase(
+    "messenger_bootstrap_first_list_item_render_ms",
+    "firstListItemRenderCycleId"
+  );
+}
+
+export function recordMessengerBootstrapFullListRender(): void {
+  recordMessengerBootstrapClientElapsedPhase("messenger_bootstrap_full_list_render_ms", "fullListRenderCycleId");
+}
+
+export function recordMessengerBootstrapFirstInteractive(): void {
+  recordMessengerBootstrapClientElapsedPhase("messenger_bootstrap_first_interactive_ms", "firstInteractiveCycleId");
+}
+
 type MessengerHomeVerificationState = {
   /** `fetchCommunityMessengerBootstrapClient` 팩토리가 실제 `fetch` 를 시작한 횟수(모드별) */
   bootstrapClientNetworkFetch: Record<MessengerHomeBootstrapNetworkMode, number>;
@@ -373,6 +710,24 @@ export function resetMessengerHomeVerificationStateForTests(): void {
   firstMenuListFetchSuccessDone = false;
   firstMenuListRenderDone = false;
   chatInputKeydownAt = 0;
+  const bootstrapClientPhase = messengerBootstrapClientPhaseStateStore();
+  bootstrapClientPhase.activeCycleId = 0;
+  bootstrapClientPhase.startedAt = 0;
+  bootstrapClientPhase.jsonParseCycleId = 0;
+  bootstrapClientPhase.firstListItemRenderCycleId = 0;
+  bootstrapClientPhase.fullListRenderCycleId = 0;
+  bootstrapClientPhase.firstInteractiveCycleId = 0;
+  const routeEntryPerfStates = routeEntryPerfStatesStore();
+  (Object.keys(routeEntryPerfStates) as RouteEntryPerfScope[]).forEach((scope) => {
+    routeEntryPerfStates[scope] = emptyRouteEntryPerfState();
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.removeItem(routeEntryPerfSessionKey(scope));
+      } catch {
+        /* ignore */
+      }
+    }
+  });
 }
 
 function exposeMessengerHomeDebugApiToWindowOnce(): void {

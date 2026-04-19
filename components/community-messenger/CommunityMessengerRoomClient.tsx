@@ -7,13 +7,19 @@ import {
   MessengerRoomClientPhase1Context,
 } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
+import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
-
 /** 방 A→B 이동마다 동일 RSC 청크 `prefetch` 가 반복되면 메인 스레드·RSC 큐만 쓴다 — 세션당 1회로 제한 */
 let communityMessengerListRoutesPrefetched = false;
+
+if (typeof window !== "undefined") {
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "client_component_module_eval_start_ms");
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "client_component_module_eval_end_ms");
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "CommunityMessengerRoomClient_first_import_ready_ms");
+}
 
 export function CommunityMessengerRoomClient(props: {
   roomId: string;
@@ -22,6 +28,7 @@ export function CommunityMessengerRoomClient(props: {
   /** RSC에서 `loadCommunityMessengerRoomBootstrap` — 첫 페인트까지 클라이언트 대기 완화 */
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
 }) {
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
   const phase1 = useMessengerRoomClientPhase1(props);
   const router = useRouter();
   useCommunityMessengerPresenceRuntime(phase1.snapshot?.viewerUserId ?? props.initialServerSnapshot?.viewerUserId ?? null);
@@ -94,7 +101,6 @@ export function CommunityMessengerRoomClient(props: {
       phase1.t,
     ]
   );
-
   return (
     <MessengerRoomClientPhase1Context.Provider value={phase1}>
       <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>

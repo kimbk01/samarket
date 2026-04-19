@@ -408,6 +408,14 @@ function isMissingTableError(error: unknown): boolean {
   );
 }
 
+function isMissingRpcFunctionError(error: unknown): boolean {
+  const message =
+    typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
+  const code =
+    typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
+  return code === "PGRST202" || /Could not find the function|function .* does not exist/i.test(message);
+}
+
 function isUniqueViolationError(error: unknown): boolean {
   const message =
     typeof error === "object" && error && "message" in error ? String((error as { message?: unknown }).message ?? "") : "";
@@ -981,6 +989,41 @@ async function hydrateProfilesLabelsOnly(
   return members;
 }
 
+function buildProfilesFromKnownRelations(params: {
+  viewerId: string;
+  targetIds: string[];
+  profileMap: Map<string, ProfileRow>;
+  friendIds?: Iterable<string>;
+  favoriteFriendIds?: Iterable<string>;
+  followingIds?: Iterable<string>;
+  hiddenIds?: Iterable<string>;
+  blockedIds?: Iterable<string>;
+  friendshipAcceptedAtByPeer?: Map<string, string>;
+}): CommunityMessengerProfileLite[] {
+  const friendIdSet = new Set(params.friendIds ?? []);
+  const favoriteFriendIdSet = new Set(params.favoriteFriendIds ?? []);
+  const followingIdSet = new Set(params.followingIds ?? []);
+  const hiddenIdSet = new Set(params.hiddenIds ?? []);
+  const blockedIdSet = new Set(params.blockedIds ?? []);
+  return dedupeIds(params.targetIds).map((id) => {
+    const profile = params.profileMap.get(id);
+    const isViewer = id === params.viewerId;
+    return {
+      id,
+      label: profileLabel(profile, id),
+      subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      bio: trimText(profile?.bio) || null,
+      avatarUrl: trimText(profile?.avatar_url) || null,
+      following: isViewer ? false : followingIdSet.has(id),
+      blocked: isViewer ? false : blockedIdSet.has(id),
+      isFriend: isViewer ? false : friendIdSet.has(id),
+      isFavoriteFriend: isViewer ? false : favoriteFriendIdSet.has(id),
+      isHiddenFriend: isViewer ? false : hiddenIdSet.has(id),
+      friendshipAcceptedAt: params.friendshipAcceptedAtByPeer?.get(id) ?? null,
+    };
+  });
+}
+
 async function resolveCommunityMessengerGroupTitle(
   userId: string,
   memberIds: string[],
@@ -1008,9 +1051,7 @@ async function hydrateSelfProfile(userId: string): Promise<CommunityMessengerPro
   return me[0] ?? null;
 }
 
-export async function listCommunityMessengerFriendRequests(
-  userId: string
-): Promise<CommunityMessengerFriendRequest[]> {
+async function listCommunityMessengerFriendRequestRows(userId: string): Promise<RequestRow[]> {
   const sb = getSupabaseOrNull();
   let rows: RequestRow[] = [];
   if (sb) {
@@ -1029,10 +1070,14 @@ export async function listCommunityMessengerFriendRequests(
       .filter((row) => row.status === "pending" && (row.requester_id === userId || row.addressee_id === userId))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   }
+  return rows;
+}
 
-  const profileMap = await fetchProfilesByIds(
-    dedupeIds(rows.flatMap((row) => [row.requester_id, row.addressee_id]))
-  );
+function buildCommunityMessengerFriendRequestsFromProfileMap(
+  userId: string,
+  rows: RequestRow[],
+  profileMap: Map<string, ProfileRow>
+): CommunityMessengerFriendRequest[] {
   return rows.map((row) => ({
     id: row.id,
     requesterId: row.requester_id,
@@ -1043,6 +1088,16 @@ export async function listCommunityMessengerFriendRequests(
     direction: row.addressee_id === userId ? "incoming" : "outgoing",
     createdAt: row.created_at,
   }));
+}
+
+export async function listCommunityMessengerFriendRequests(
+  userId: string
+): Promise<CommunityMessengerFriendRequest[]> {
+  const rows = await listCommunityMessengerFriendRequestRows(userId);
+  const profileMap = await fetchProfilesByIds(
+    dedupeIds(rows.flatMap((row) => [row.requester_id, row.addressee_id]))
+  );
+  return buildCommunityMessengerFriendRequestsFromProfileMap(userId, rows, profileMap);
 }
 
 async function listAcceptedFriendIds(userId: string): Promise<string[]> {
@@ -1070,6 +1125,30 @@ async function listAcceptedFriendIds(userId: string): Promise<string[]> {
     if (row.status !== "accepted") continue;
     const peerId = row.requester_id === userId ? row.addressee_id : row.requester_id;
     if (peerId) result.add(peerId);
+  }
+  return [...result];
+}
+
+async function listFavoriteFriendIds(userId: string): Promise<string[]> {
+  const result = new Set<string>();
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data } = await (sb as any)
+      .from("community_friend_favorites")
+      .select("target_user_id")
+      .eq("user_id", userId);
+    for (const row of (data ?? []) as Array<{ target_user_id?: string | null }>) {
+      const target = trimText(row.target_user_id);
+      if (target) result.add(target);
+    }
+  }
+  const dev = getDevState();
+  const favorites = dev.favoriteFriends.get(userId);
+  if (favorites) {
+    for (const target of favorites) {
+      const id = trimText(target);
+      if (id) result.add(id);
+    }
   }
   return [...result];
 }
@@ -1388,65 +1467,248 @@ type MessengerRoomsPayload = {
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>;
 };
 
+type CommunityMessengerBootstrapRoomsDiagnostics = {
+  rounds: number;
+  queryCount: number;
+  metaChunkCount: number;
+  roomIdsBeforeCap: number;
+  roomIdsAfterCap: number;
+  round1Ms: number;
+  round2Ms: number;
+  round2RoomsMs: number;
+  round2RoomsDbFetchMs: number;
+  round2RoomsNormalizeMs: number;
+  round2RoomsMergeMapMs: number;
+  round2RoomsHydrateLabelMs: number;
+  round2RoomsPayloadSerializeMs: number;
+  round2ParticipantsMs: number;
+  round3Ms: number;
+  transformMs: number;
+  postprocessMs: number;
+  round1RoomIdCount: number;
+  round2RoomRowCount: number;
+  round2ParticipantRowCount: number;
+  round3RoomProfileCount: number;
+};
+
+export type CommunityMessengerBootstrapDiagnostics = {
+  parallelInitialWallMs: number;
+  roomsQueryMs: number;
+  roomsQueryRound1Ms: number;
+  roomsQueryRound2Ms: number;
+  roomsQueryRound2RoomsMs: number;
+  roomsQueryRound2RoomsDbFetchMs: number;
+  roomsQueryRound2RoomsNormalizeMs: number;
+  roomsQueryRound2RoomsMergeMapMs: number;
+  roomsQueryRound2RoomsHydrateLabelMs: number;
+  roomsQueryRound2RoomsPayloadSerializeMs: number;
+  roomsQueryRound2ParticipantsMs: number;
+  roomsQueryRound3Ms: number;
+  roomsQueryTransformMs: number;
+  roomsQueryPostprocessMs: number;
+  unreadMs: number;
+  profilesMs: number;
+  tradeContextMs: number;
+  callsLogMs: number;
+  transformMs: number;
+  roomCount: number;
+  participantCount: number;
+  roomsQueryRound1RoomIdCount: number;
+  roomsQueryRound2RoomRowCount: number;
+  roomsQueryRound2ParticipantRowCount: number;
+  roomsQueryRound3RoomProfileCount: number;
+  unreadAggregation: string;
+  roomsQueryRounds: number;
+  additionalLookupRounds: number;
+  extraRoomsFetchRounds: number;
+  hasPerRoomNPlusOne: boolean;
+  callsLogIncluded: boolean;
+  discoverableIncluded: boolean;
+};
+
 /** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
 const COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP = 500;
 /** `id in (…)` 메타 조회 시 PostgREST URL 부담을 줄이기 위한 청크 크기 */
 const COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK = 120;
 
-async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayload> {
+type BootstrapRoomIdRpcRow = {
+  room_id?: string | null;
+  last_message_at?: string | null;
+  membership_total_count?: number | null;
+};
+
+type BootstrapRoomRowRpc = {
+  id?: string | null;
+  room_type?: RoomRow["room_type"] | null;
+  room_status?: RoomRow["room_status"] | null;
+  is_readonly?: boolean | null;
+  title?: string | null;
+  summary?: string | null;
+  avatar_url?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  last_message_type?: RoomRow["last_message_type"] | null;
+};
+
+async function fetchBootstrapRoomIdsViaRpc(
+  sb: SupabaseLike,
+  userId: string
+): Promise<{ roomIds: string[]; totalCount: number } | null> {
+  const { data, error } = await (sb as any).rpc("community_messenger_bootstrap_my_room_ids", {
+    p_user_id: userId,
+    p_limit: COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP,
+  });
+  if (error) {
+    if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
+    throw error;
+  }
+  const rows = (data ?? []) as BootstrapRoomIdRpcRow[];
+  const roomIds = dedupeIds(rows.map((row) => String(row.room_id ?? "")).filter(Boolean));
+  const totalCountRaw = rows[0]?.membership_total_count;
+  const totalCount =
+    typeof totalCountRaw === "number" && Number.isFinite(totalCountRaw)
+      ? totalCountRaw
+      : roomIds.length;
+  return { roomIds, totalCount };
+}
+
+async function fetchBootstrapRoomsViaRpc(
+  sb: SupabaseLike,
+  roomIds: string[]
+): Promise<RoomRow[] | null> {
+  const { data, error } = await (sb as any).rpc("community_messenger_bootstrap_rooms", {
+    p_room_ids: roomIds,
+  });
+  if (error) {
+    if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
+    throw error;
+  }
+  return ((data ?? []) as BootstrapRoomRowRpc[]).map((row) => ({
+    id: String(row.id ?? ""),
+    room_type: (row.room_type ?? "direct") as RoomRow["room_type"],
+    room_status: (row.room_status ?? "active") as RoomRow["room_status"],
+    is_readonly: row.is_readonly === true,
+    title: row.title ?? null,
+    summary: row.summary ?? null,
+    avatar_url: row.avatar_url ?? null,
+    last_message: row.last_message ?? null,
+    last_message_at: row.last_message_at ?? null,
+    last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
+  }));
+}
+
+async function fetchMyRoomsPayload(
+  userId: string,
+  options?: {
+    diagnostics?: CommunityMessengerBootstrapRoomsDiagnostics;
+    includeRoomProfiles?: boolean;
+  }
+): Promise<MessengerRoomsPayload> {
+  const diagnostics = options?.diagnostics;
+  const includeRoomProfiles = options?.includeRoomProfiles !== false;
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
 
   if (sb) {
-    const { data: myParticipants, error: myParticipantsError } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("room_id")
-      .eq("user_id", userId);
-    if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
-      let roomIds = dedupeIds(
-        ((myParticipants ?? []) as Array<{ room_id?: string | null }>).map((row) => String(row.room_id ?? ""))
-      );
-      if (roomIds.length > COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP) {
-        const metas: Array<{ id: string; lastAt: string }> = [];
-        const chunks: string[][] = [];
-        for (let i = 0; i < roomIds.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
-          chunks.push(roomIds.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK));
-        }
-        const metaChunks = await Promise.all(
-          chunks.map((chunk) =>
-            (sb as any)
-              .from("community_messenger_rooms")
-              .select("id, last_message_at")
-              .in("id", chunk)
-          )
-        );
-        for (const { data: metaRows } of metaChunks) {
-          for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
-            const id = trimText(row.id);
-            if (!id) continue;
-            metas.push({ id, lastAt: trimText(row.last_message_at) || "" });
-          }
-        }
-        metas.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
-        roomIds = metas.slice(0, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP).map((m) => m.id);
+    diagnostics && (diagnostics.rounds += 1);
+    diagnostics && (diagnostics.queryCount += 1);
+    const tRound1 = performance.now();
+    let roomIds: string[] = [];
+    const rpcRoomIds = await fetchBootstrapRoomIdsViaRpc(sb, userId);
+    if (rpcRoomIds) {
+      roomIds = rpcRoomIds.roomIds;
+      if (diagnostics) {
+        diagnostics.roomIdsBeforeCap = rpcRoomIds.totalCount;
+        diagnostics.round1RoomIdCount = rpcRoomIds.totalCount;
+        diagnostics.roomIdsAfterCap = roomIds.length;
       }
-      if (roomIds.length) {
-        const [{ data: rooms }, { data: participants }] = await Promise.all([
-          (sb as any)
+    } else {
+      const { data: myParticipants, error: myParticipantsError } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("room_id")
+        .eq("user_id", userId);
+      if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
+        roomIds = dedupeIds(
+          ((myParticipants ?? []) as Array<{ room_id?: string | null }>).map((row) => String(row.room_id ?? ""))
+        );
+        if (diagnostics) diagnostics.roomIdsBeforeCap = roomIds.length;
+        if (diagnostics) diagnostics.round1RoomIdCount = roomIds.length;
+        if (roomIds.length > COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP) {
+          const metas: Array<{ id: string; lastAt: string }> = [];
+          const chunks: string[][] = [];
+          for (let i = 0; i < roomIds.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
+            chunks.push(roomIds.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK));
+          }
+          if (diagnostics) {
+            diagnostics.rounds += 1;
+            diagnostics.queryCount += chunks.length;
+            diagnostics.metaChunkCount = chunks.length;
+          }
+          const tTransform = performance.now();
+          const metaChunks = await Promise.all(
+            chunks.map((chunk) =>
+              (sb as any)
+                .from("community_messenger_rooms")
+                .select("id, last_message_at")
+                .in("id", chunk)
+            )
+          );
+          for (const { data: metaRows } of metaChunks) {
+            for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
+              const id = trimText(row.id);
+              if (!id) continue;
+              metas.push({ id, lastAt: trimText(row.last_message_at) || "" });
+            }
+          }
+          metas.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+          roomIds = metas.slice(0, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP).map((m) => m.id);
+          diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransform));
+        }
+        if (diagnostics) diagnostics.roomIdsAfterCap = roomIds.length;
+      }
+    }
+    diagnostics && (diagnostics.round1Ms = Math.round(performance.now() - tRound1));
+    if (roomIds.length) {
+      diagnostics && (diagnostics.rounds += 1);
+      diagnostics && (diagnostics.queryCount += 2);
+      const tRound2 = performance.now();
+      const roomsPromise = (async () => {
+        const tRoomsTotal = performance.now();
+        const tRoomsQuery = performance.now();
+        const rpcRows = await fetchBootstrapRoomsViaRpc(sb, roomIds);
+        const roomRowsRaw =
+          rpcRows ??
+          (((await (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, is_readonly, title, summary, avatar_url, last_message, last_message_at, last_message_type"
             )
             .in("id", roomIds)
-            .order("last_message_at", { ascending: false }),
-          (sb as any)
-            .from("community_messenger_participants")
-            .select("id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at")
-            .in("room_id", roomIds),
-        ]);
-        roomRows = (rooms ?? []) as RoomRow[];
-        participantRows = (participants ?? []) as ParticipantRow[];
+            .order("last_message_at", { ascending: false })).data ?? []) as RoomRow[]);
+        diagnostics && (diagnostics.round2RoomsDbFetchMs = Math.round(performance.now() - tRoomsQuery));
+        const tRoomsNormalize = performance.now();
+        const normalizedRooms = roomRowsRaw.map((row) => row);
+        diagnostics && (diagnostics.round2RoomsNormalizeMs = Math.round(performance.now() - tRoomsNormalize));
+        diagnostics && (diagnostics.round2RoomsMs = Math.round(performance.now() - tRoomsTotal));
+        return normalizedRooms;
+      })();
+      const participantsPromise = (async () => {
+        const tParticipantsQuery = performance.now();
+        const result = await (sb as any)
+          .from("community_messenger_participants")
+          .select("room_id, user_id, unread_count, is_muted, is_pinned, is_archived")
+          .in("room_id", roomIds);
+        diagnostics && (diagnostics.round2ParticipantsMs = Math.round(performance.now() - tParticipantsQuery));
+        return result;
+      })();
+      const [rooms, { data: participants }] = await Promise.all([roomsPromise, participantsPromise]);
+      diagnostics && (diagnostics.round2Ms = Math.round(performance.now() - tRound2));
+      roomRows = rooms;
+      participantRows = (participants ?? []) as ParticipantRow[];
+      if (diagnostics) {
+        diagnostics.round2RoomRowCount = roomRows.length;
+        diagnostics.round2ParticipantRowCount = participantRows.length;
       }
     }
   }
@@ -1462,8 +1724,20 @@ async function fetchMyRoomsPayload(userId: string): Promise<MessengerRoomsPayloa
     participantRows = dev.participants.filter((row) => roomIds.includes(row.roomId));
   }
 
+  const tPostprocess = performance.now();
   const byRoomId = buildParticipantsByRoomMap(participantRows);
-  const roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
+  diagnostics && (diagnostics.postprocessMs = Math.round(performance.now() - tPostprocess));
+  if (includeRoomProfiles && roomRows.length && diagnostics) {
+    diagnostics.rounds += 1;
+    diagnostics.queryCount += 1;
+  }
+  let roomProfileMap = new Map<string, RoomProfileRow | DevRoomProfile>();
+  if (includeRoomProfiles && roomRows.length) {
+    const tRound3 = performance.now();
+    roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
+    diagnostics && (diagnostics.round3Ms = Math.round(performance.now() - tRound3));
+    diagnostics && (diagnostics.round3RoomProfileCount = roomProfileMap.size);
+  }
   return { roomRows, participantRows, byRoomId, roomProfileMap };
 }
 
@@ -2404,27 +2678,134 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
 
 export async function getCommunityMessengerBootstrap(
   userId: string,
-  options?: { skipDiscoverable?: boolean; deferCallLog?: boolean }
+  options?: {
+    skipDiscoverable?: boolean;
+    deferCallLog?: boolean;
+    diagnostics?: CommunityMessengerBootstrapDiagnostics;
+    detailedTimingBreakdown?: boolean;
+  }
 ): Promise<CommunityMessengerBootstrap> {
   const skipDiscoverable = options?.skipDiscoverable === true;
   const deferCallLog = options?.deferCallLog === true;
+  const isMinimalLiteBootstrap = skipDiscoverable && deferCallLog;
+  const diagnostics = options?.diagnostics;
+  const detailedTimingBreakdown = options?.detailedTimingBreakdown === true;
+  const myRoomsDiagnostics: CommunityMessengerBootstrapRoomsDiagnostics = {
+    rounds: 0,
+    queryCount: 0,
+    metaChunkCount: 0,
+    roomIdsBeforeCap: 0,
+    roomIdsAfterCap: 0,
+    round1Ms: 0,
+    round2Ms: 0,
+    round2RoomsMs: 0,
+    round2RoomsDbFetchMs: 0,
+    round2RoomsNormalizeMs: 0,
+    round2RoomsMergeMapMs: 0,
+    round2RoomsHydrateLabelMs: 0,
+    round2RoomsPayloadSerializeMs: 0,
+    round2ParticipantsMs: 0,
+    round3Ms: 0,
+    transformMs: 0,
+    postprocessMs: 0,
+    round1RoomIdCount: 0,
+    round2RoomRowCount: 0,
+    round2ParticipantRowCount: 0,
+    round3RoomProfileCount: 0,
+  };
+  if (diagnostics) {
+    diagnostics.parallelInitialWallMs = 0;
+    diagnostics.roomsQueryMs = 0;
+    diagnostics.roomsQueryRound1Ms = 0;
+    diagnostics.roomsQueryRound2Ms = 0;
+    diagnostics.roomsQueryRound2RoomsMs = 0;
+    diagnostics.roomsQueryRound2RoomsDbFetchMs = 0;
+    diagnostics.roomsQueryRound2RoomsNormalizeMs = 0;
+    diagnostics.roomsQueryRound2RoomsMergeMapMs = 0;
+    diagnostics.roomsQueryRound2RoomsHydrateLabelMs = 0;
+    diagnostics.roomsQueryRound2RoomsPayloadSerializeMs = 0;
+    diagnostics.roomsQueryRound2ParticipantsMs = 0;
+    diagnostics.roomsQueryRound3Ms = 0;
+    diagnostics.roomsQueryTransformMs = 0;
+    diagnostics.roomsQueryPostprocessMs = 0;
+    diagnostics.unreadMs = 0;
+    diagnostics.profilesMs = 0;
+    diagnostics.tradeContextMs = 0;
+    diagnostics.callsLogMs = 0;
+    diagnostics.transformMs = 0;
+    diagnostics.roomCount = 0;
+    diagnostics.participantCount = 0;
+    diagnostics.roomsQueryRound1RoomIdCount = 0;
+    diagnostics.roomsQueryRound2RoomRowCount = 0;
+    diagnostics.roomsQueryRound2ParticipantRowCount = 0;
+    diagnostics.roomsQueryRound3RoomProfileCount = 0;
+    diagnostics.unreadAggregation =
+      "community_messenger_participants.unread_count + trade legacy unread batch max merge";
+    diagnostics.roomsQueryRounds = 0;
+    diagnostics.additionalLookupRounds = 0;
+    diagnostics.extraRoomsFetchRounds = 0;
+    diagnostics.hasPerRoomNPlusOne = false;
+    diagnostics.callsLogIncluded = !deferCallLog;
+    diagnostics.discoverableIncluded = !skipDiscoverable;
+  }
+  const myPayloadPromise = (async () => {
+    const tRooms = performance.now();
+    const payload = await fetchMyRoomsPayload(userId, {
+      diagnostics: myRoomsDiagnostics,
+      includeRoomProfiles: !isMinimalLiteBootstrap,
+    });
+    if (diagnostics) {
+      diagnostics.roomsQueryMs = Math.round(performance.now() - tRooms);
+      diagnostics.roomCount = payload.roomRows.length;
+      diagnostics.participantCount = payload.participantRows.length;
+      diagnostics.roomsQueryRounds = myRoomsDiagnostics.rounds;
+      diagnostics.roomsQueryRound1Ms = myRoomsDiagnostics.round1Ms;
+      diagnostics.roomsQueryRound2Ms = myRoomsDiagnostics.round2Ms;
+      diagnostics.roomsQueryRound2RoomsMs = myRoomsDiagnostics.round2RoomsMs;
+      diagnostics.roomsQueryRound2RoomsDbFetchMs = myRoomsDiagnostics.round2RoomsDbFetchMs;
+      diagnostics.roomsQueryRound2RoomsNormalizeMs = myRoomsDiagnostics.round2RoomsNormalizeMs;
+      diagnostics.roomsQueryRound2RoomsMergeMapMs = myRoomsDiagnostics.round2RoomsMergeMapMs;
+      diagnostics.roomsQueryRound2RoomsHydrateLabelMs = myRoomsDiagnostics.round2RoomsHydrateLabelMs;
+      diagnostics.roomsQueryRound2RoomsPayloadSerializeMs = myRoomsDiagnostics.round2RoomsPayloadSerializeMs;
+      diagnostics.roomsQueryRound2ParticipantsMs = myRoomsDiagnostics.round2ParticipantsMs;
+      diagnostics.roomsQueryRound3Ms = myRoomsDiagnostics.round3Ms;
+      diagnostics.roomsQueryTransformMs = myRoomsDiagnostics.transformMs;
+      diagnostics.roomsQueryPostprocessMs = myRoomsDiagnostics.postprocessMs;
+      diagnostics.roomsQueryRound1RoomIdCount = myRoomsDiagnostics.round1RoomIdCount;
+      diagnostics.roomsQueryRound2RoomRowCount = myRoomsDiagnostics.round2RoomRowCount;
+      diagnostics.roomsQueryRound2ParticipantRowCount = myRoomsDiagnostics.round2ParticipantRowCount;
+      diagnostics.roomsQueryRound3RoomProfileCount = myRoomsDiagnostics.round3RoomProfileCount;
+    }
+    return payload;
+  })();
+  const callRowsPromise = deferCallLog
+    ? Promise.resolve<Array<CallRow | DevCall>>([])
+    : (async () => {
+        const tCalls = performance.now();
+        const rows = await fetchCallLogRowsOnly(userId);
+        diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tCalls));
+        return rows;
+      })();
+  const tParallelInitial = performance.now();
   const [
     friendIds,
+    favoriteFriendIds,
     followingIds,
     hiddenIds,
     blockedIds,
-    requests,
+    requestRows,
     myPayload,
     discState,
     callRows,
     friendshipAcceptedAtByPeer,
   ] = await Promise.all([
     listAcceptedFriendIds(userId),
+    listFavoriteFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "hidden"),
     listFollowingIds(userId, "blocked"),
-    listCommunityMessengerFriendRequests(userId),
-    fetchMyRoomsPayload(userId),
+    listCommunityMessengerFriendRequestRows(userId),
+    myPayloadPromise,
     skipDiscoverable
       ? Promise.resolve<DiscoverableOpenGroupsRawState>({
           roomRows: [],
@@ -2434,20 +2815,42 @@ export async function getCommunityMessengerBootstrap(
           joinedRoomIds: new Set(),
         })
       : fetchDiscoverableOpenGroupsRawState(userId),
-    deferCallLog ? Promise.resolve<Array<CallRow | DevCall>>([]) : fetchCallLogRowsOnly(userId),
+    callRowsPromise,
     fetchFriendshipAcceptedAtByPeerId(userId),
   ]);
+  diagnostics && (diagnostics.parallelInitialWallMs = Math.round(performance.now() - tParallelInitial));
+  if (isMinimalLiteBootstrap && diagnostics) {
+    diagnostics.unreadAggregation = "community_messenger_participants.unread_count";
+  }
 
   const callRoomIds = dedupeIds(
     callRows.map((row) => callLogRoomId(row)).filter((value): value is string => Boolean(value))
   );
   const myRoomIdSet = new Set(myPayload.roomRows.map((r) => r.id));
   const missingCallRoomIds = callRoomIds.filter((id) => !myRoomIdSet.has(id));
+  const shouldHydrateCallData = !deferCallLog && callRows.length > 0;
   const extraPayload =
-    missingCallRoomIds.length > 0 ? await fetchRoomsPayloadByRoomIds(missingCallRoomIds) : null;
+    shouldHydrateCallData && missingCallRoomIds.length > 0
+      ? await (async () => {
+          const tExtraRooms = performance.now();
+          const payload = await fetchRoomsPayloadByRoomIds(missingCallRoomIds);
+          diagnostics && (diagnostics.extraRoomsFetchRounds += 1);
+          diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tExtraRooms));
+          return payload;
+        })()
+      : null;
 
-  const sessionIds = dedupeIds(callRows.map((row) => callLogSessionId(row) ?? "").filter(Boolean));
-  const sessionParticipantUserIds = await fetchCallSessionParticipantUserIds(sessionIds);
+  const sessionIds = shouldHydrateCallData
+    ? dedupeIds(callRows.map((row) => callLogSessionId(row) ?? "").filter(Boolean))
+    : [];
+  const sessionParticipantUserIds = shouldHydrateCallData
+    ? await (async () => {
+        const tSessionUsers = performance.now();
+        const ids = await fetchCallSessionParticipantUserIds(sessionIds);
+        diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tSessionUsers));
+        return ids;
+      })()
+    : [];
 
   const peerIdsFromCalls = dedupeIds(
     callRows.map((row) => callLogPeerUserId(row) ?? "").filter(Boolean)
@@ -2456,9 +2859,11 @@ export async function getCommunityMessengerBootstrap(
   const allIds = dedupeIds([
     userId,
     ...friendIds,
+    ...favoriteFriendIds,
     ...followingIds,
     ...hiddenIds,
     ...blockedIds,
+    ...requestRows.flatMap((row) => [row.requester_id, row.addressee_id]),
     ...dedupeParticipantUserIds(myPayload.participantRows),
     ...dedupeParticipantUserIds(discState.participantRows),
     ...(extraPayload ? dedupeParticipantUserIds(extraPayload.participantRows) : []),
@@ -2466,9 +2871,23 @@ export async function getCommunityMessengerBootstrap(
     ...sessionParticipantUserIds,
   ]);
 
-  const allProfiles = await hydrateProfiles(userId, allIds, { includeSelf: true });
+  const tProfiles = performance.now();
+  const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(userId, allIds, { includeSelf: true });
+  diagnostics && (diagnostics.profilesMs = Math.round(performance.now() - tProfiles));
+  const allProfiles = buildProfilesFromKnownRelations({
+    viewerId: userId,
+    targetIds: allIds,
+    profileMap,
+    friendIds,
+    favoriteFriendIds,
+    followingIds,
+    hiddenIds,
+    blockedIds,
+    friendshipAcceptedAtByPeer,
+  });
   const profileById = new Map(allProfiles.map((profile) => [profile.id, profile]));
 
+  const tTransformCore = performance.now();
   const me = profileById.get(userId) ?? null;
   const friends = friendIds
     .map((id) => profileById.get(id))
@@ -2486,20 +2905,25 @@ export async function getCommunityMessengerBootstrap(
   const blocked = blockedIds
     .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
+  const requests = buildCommunityMessengerFriendRequestsFromProfileMap(userId, requestRows, profileMap);
   const hiddenIdSet = new Set(hidden.map((profile) => profile.id));
 
-  const mySummaries = summarizeRoomsBatchWithProfileMap(
-    userId,
-    myPayload.roomRows,
-    myPayload.roomProfileMap,
-    myPayload.byRoomId,
-    profileById
-  );
-  await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
-  const sbBoot = getSupabaseOrNull();
-  if (sbBoot) {
-    await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
+  const tRoomsHydrateLabel = performance.now();
+  const mySummaries = summarizeRoomsBatchWithProfileMap(userId, myPayload.roomRows, myPayload.roomProfileMap, myPayload.byRoomId, profileById);
+  diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
+  diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
+  if (!isMinimalLiteBootstrap) {
+    const tTrade = performance.now();
+    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+    diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));
+    const sbBoot = getSupabaseOrNull();
+    if (sbBoot) {
+      const tUnread = performance.now();
+      await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
+      diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
+    }
   }
+  const tTransformLists = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
 
@@ -2535,8 +2959,10 @@ export async function getCommunityMessengerBootstrap(
     })
     .filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
 
+  const tRoomsMergeMap = performance.now();
   const roomSummaryMap = new Map<string, CommunityMessengerRoomSummary>();
   for (const s of mySummaries) roomSummaryMap.set(s.id, s);
+  diagnostics && (diagnostics.roomsQueryRound2RoomsMergeMapMs = Math.round(performance.now() - tRoomsMergeMap));
   if (extraPayload) {
     const extraSummaries = summarizeRoomsBatchWithProfileMap(
       userId,
@@ -2547,8 +2973,25 @@ export async function getCommunityMessengerBootstrap(
     );
     for (const s of extraSummaries) roomSummaryMap.set(s.id, s);
   }
+  if (diagnostics && detailedTimingBreakdown) {
+    const tRoomsSerialize = performance.now();
+    JSON.stringify({ chats, groups });
+    diagnostics.roomsQueryRound2RoomsPayloadSerializeMs = Math.round(performance.now() - tRoomsSerialize);
+  }
+  diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformLists));
 
-  const { sessionMap, participantsBySession } = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+  const { sessionMap, participantsBySession } = shouldHydrateCallData
+    ? await (async () => {
+        const tSessionMaps = performance.now();
+        const maps = await loadSessionMapsForCallLogs(userId, sessionIds, profileById);
+        diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tSessionMaps));
+        return maps;
+      })()
+    : {
+        sessionMap: new Map<string, CallSessionMetaRow | DevCallSession>(),
+        participantsBySession: new Map<string, CommunityMessengerCallParticipant[]>(),
+      };
+  const tTransformCalls = performance.now();
   const calls = buildCallLogEntriesFromRows(
     userId,
     callRows,
@@ -2557,6 +3000,7 @@ export async function getCommunityMessengerBootstrap(
     sessionMap,
     participantsBySession
   );
+  diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCalls));
 
   const base: CommunityMessengerBootstrap = {
     me,
@@ -2576,6 +3020,13 @@ export async function getCommunityMessengerBootstrap(
     discoverableGroups,
     calls,
   };
+  if (diagnostics) {
+    diagnostics.additionalLookupRounds =
+      (diagnostics.profilesMs > 0 ? 1 : 0) +
+      (diagnostics.tradeContextMs > 0 ? 2 : 0) +
+      (diagnostics.unreadMs > 0 ? 3 : 0) +
+      (shouldHydrateCallData && diagnostics.callsLogMs > 0 ? 3 : 0);
+  }
   return deferCallLog ? { ...base, deferredCallLog: true as const } : base;
 }
 
@@ -4787,6 +5238,12 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 통화·거래 도크·presence 를 첫 스냅샷에 포함한다.
    */
   deferSnapshotSecondary?: boolean;
+  diagnostics?: {
+    roomBootstrapFetchMs?: number;
+    messagesFetchMs?: number;
+    participantsProfilesFetchMs?: number;
+    normalizeMergeMs?: number;
+  };
 };
 
 const TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS = 8000;
@@ -4966,11 +5423,16 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   roomId: string,
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
+  const tBootstrap0 = performance.now();
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  const diagnostics = options?.diagnostics;
   /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주 */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
   let deferSecondary = false;
+  let participantsProfilesFetchMs = 0;
+  let messagesFetchMs = 0;
+  let normalizeMergeMs = 0;
   const id = trimText(roomId);
   if (!id) return null;
   const sb = getSupabaseOrNull();
@@ -5002,29 +5464,39 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           .maybeSingle()
       : Promise.resolve({ data: null });
 
-    const [
-      { data: roomData },
-      { data: participantData },
-      { data: messageData },
-      { data: myParticipantData },
-    ] = await Promise.all([
-      (sb as any)
-        .from("community_messenger_rooms")
-        .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      participantsQuery,
-      (sb as any)
+    const roomQuery = (sb as any)
+      .from("community_messenger_rooms")
+      .select(
+        "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+      )
+      .eq("id", id)
+      .maybeSingle();
+    const participantsFetch = (async () => {
+      const tParticipants0 = performance.now();
+      const [participantRes, myParticipantRes] = await Promise.all([participantsQuery, myParticipantQuery]);
+      participantsProfilesFetchMs += performance.now() - tParticipants0;
+      return {
+        participantData: participantRes.data,
+        myParticipantData: myParticipantRes.data,
+      };
+    })();
+    const messagesFetch = (async () => {
+      const tMessages0 = performance.now();
+      const messageRes = await (sb as any)
         .from("community_messenger_messages")
         .select("id, room_id, sender_id, message_type, content, metadata, created_at")
         .eq("room_id", id)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(messageLimit),
-      myParticipantQuery,
+        .limit(messageLimit);
+      messagesFetchMs = performance.now() - tMessages0;
+      return messageRes;
+    })();
+    const [{ data: roomData }, { participantData, myParticipantData }, { data: messageData }] = await Promise.all([
+      roomQuery,
+      participantsFetch,
+      messagesFetch,
     ]);
     room = (roomData as RoomRow | null) ?? null;
     let rawParticipantRows = (participantData ?? []) as ParticipantRow[];
@@ -5131,13 +5603,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
     : fetchRoomProfilesByRoomIds([id]);
   /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/거래도크/presence 는 아래 2차에서 */
+  const tProfileHydration0 = performance.now();
   const [roomProfileMap, hydratedLabels] = await Promise.all([
     roomProfileMapPromise,
     hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, { includeSelf: true }),
   ]);
+  participantsProfilesFetchMs += performance.now() - tProfileHydration0;
+  const tSummary0 = performance.now();
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydratedLabels.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
   });
+  normalizeMergeMs += performance.now() - tSummary0;
   let activeCall: CommunityMessengerCallSession | null = null;
   let tradeChatRoomDetail: ChatRoom | null = null;
   let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
@@ -5208,6 +5684,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const peerPresence =
     deferSecondary || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
 
+  const tMappedMessages0 = performance.now();
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message) => {
     const isDbMessage = "sender_id" in message;
     const senderId = (isDbMessage ? message.sender_id : message.senderId) ?? null;
@@ -5247,8 +5724,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
     };
   });
+  normalizeMergeMs += performance.now() - tMappedMessages0;
 
-  return {
+  const snapshot = {
     viewerUserId: userId,
     room: {
       ...summary,
@@ -5269,6 +5747,13 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     activeCall,
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
   };
+  if (diagnostics) {
+    diagnostics.roomBootstrapFetchMs = Math.round(performance.now() - tBootstrap0);
+    diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
+    diagnostics.participantsProfilesFetchMs = Math.round(participantsProfilesFetchMs);
+    diagnostics.normalizeMergeMs = Math.round(normalizeMergeMs);
+  }
+  return snapshot;
 }
 
 const COMMUNITY_MESSENGER_ROOM_MEMBERS_PAGE_DEFAULT = 40;

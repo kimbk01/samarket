@@ -1,7 +1,14 @@
 "use client";
 
-import { bumpMessengerRenderPerf, tryTrackFirstMenuListRender } from "@/lib/runtime/samarket-runtime-debug";
+import {
+  bumpMessengerRenderPerf,
+  recordMessengerBootstrapFirstInteractive,
+  recordMessengerBootstrapFirstListItemRender,
+  recordMessengerBootstrapFullListRender,
+  tryTrackFirstMenuListRender,
+} from "@/lib/runtime/samarket-runtime-debug";
 import dynamic from "next/dynamic";
+import { useLayoutEffect, useRef } from "react";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
@@ -95,13 +102,51 @@ type Props = {
 export function CommunityMessengerHomeListPane(props: Props) {
   bumpMessengerRenderPerf("messenger_home_list_render");
   tryTrackFirstMenuListRender();
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const canRenderList = !props.authRequired && Boolean(props.data);
   const showRefreshingOverlay = props.loading && canRenderList;
   const showCompactSkeleton = props.loading && !canRenderList;
 
+  useLayoutEffect(() => {
+    if (!canRenderList || !props.data) return;
+    const frame = frameRef.current;
+    if (!frame) return;
+    const rowSelector = '[data-messenger-chat-row="true"]';
+    const rowCountNow = frame.querySelectorAll(rowSelector).length;
+    if (rowCountNow > 0) {
+      recordMessengerBootstrapFirstListItemRender();
+      if (rowCountNow >= props.primaryListItems.length) {
+        recordMessengerBootstrapFullListRender();
+      }
+    }
+    if (typeof requestAnimationFrame !== "function") return;
+    let raf1 = 0;
+    let raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      const rowCountAfterPaint = frame.querySelectorAll(rowSelector).length;
+      if (rowCountAfterPaint > 0) {
+        recordMessengerBootstrapFirstListItemRender();
+        if (rowCountAfterPaint >= props.primaryListItems.length) {
+          recordMessengerBootstrapFullListRender();
+        }
+      }
+      raf2 = requestAnimationFrame(() => {
+        const interactiveTarget = frame.querySelector('[data-messenger-chat-row="true"] [role="button"]');
+        if (interactiveTarget instanceof HTMLElement) {
+          recordMessengerBootstrapFirstInteractive();
+        }
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [canRenderList, props.data, props.primaryListItems.length]);
+
   return (
     <>
       <div
+        ref={frameRef}
         className="relative min-h-[56dvh]"
         data-cm-home-frame="true"
         data-cm-home-state={
