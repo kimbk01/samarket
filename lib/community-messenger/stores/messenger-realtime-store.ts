@@ -470,3 +470,36 @@ export function primeMessengerRoomEntrySnapshot(args: {
     message: latest,
   });
 }
+
+/** `samarket-runtime-debug` 와 순환 금지 — `window.peekMessengerRealtimeStoreDebugSnapshot` 으로만 노출 */
+export function peekMessengerRealtimeStoreDebugSnapshot(): {
+  roomSummariesCount: number;
+  roomOrderLength: number;
+  messagesByRoomIds: number;
+  unreadKeys: number;
+  totalUnread: number;
+  incomingDedupeRooms: number;
+} {
+  const s = useMessengerRealtimeStore.getState();
+  return {
+    roomSummariesCount: Object.keys(s.roomSummariesById).length,
+    roomOrderLength: s.roomOrder.length,
+    messagesByRoomIds: Object.keys(s.messagesByRoomId).length,
+    unreadKeys: Object.keys(s.unreadByRoomId).length,
+    totalUnread: s.totalUnread,
+    incomingDedupeRooms: seenIncomingMessageIdsByRoom.size,
+  };
+}
+
+if (typeof window !== "undefined") {
+  queueMicrotask(() => {
+    try {
+      if (sessionStorage.getItem("samarket:debug:runtime") === "1") {
+        (window as unknown as { peekMessengerRealtimeStoreDebugSnapshot?: typeof peekMessengerRealtimeStoreDebugSnapshot }).peekMessengerRealtimeStoreDebugSnapshot =
+          peekMessengerRealtimeStoreDebugSnapshot;
+      }
+    } catch {
+      /* ignore */
+    }
+  });
+}

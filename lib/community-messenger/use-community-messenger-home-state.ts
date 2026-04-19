@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import {
@@ -37,6 +38,49 @@ type Params = {
   openGroupSearch: string;
 };
 
+/** `sortRooms` 비교에 쓰이는 필드만 — 동일 내용이면 정렬·카운터 재실행 생략 */
+function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
+  if (rooms.length === 0) return "";
+  return rooms
+    .map(
+      (r) =>
+        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}`
+    )
+    .join("\n");
+}
+
+const sortRoomsByInputKey = new Map<string, CommunityMessengerRoomSummary[]>();
+const SORT_ROOMS_CACHE_MAX = 48;
+
+function sortRoomsWithStableOutput(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRoomSummary[] {
+  const key = communityMessengerRoomsSortCacheKey(rooms);
+  const hit = sortRoomsByInputKey.get(key);
+  if (hit) return hit;
+  const sorted = sortRooms(rooms);
+  if (sortRoomsByInputKey.size >= SORT_ROOMS_CACHE_MAX) sortRoomsByInputKey.clear();
+  sortRoomsByInputKey.set(key, sorted);
+  return sorted;
+}
+
+const visibleChatListByInputKey = new Map<string, UnifiedRoomListItem[]>();
+const VISIBLE_CHAT_LIST_CACHE_MAX = 24;
+
+function visibleChatListInputKey(
+  items: UnifiedRoomListItem[],
+  inbox: MessengerChatInboxFilter,
+  kind: MessengerChatKindFilter,
+  kw: string
+): string {
+  if (items.length === 0) return `0|${inbox}|${kind}|${kw}`;
+  const rowSig = items
+    .map(
+      (i) =>
+        `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}`
+    )
+    .join("\n");
+  return `${items.length}|${inbox}|${kind}|${kw}|${rowSig}`;
+}
+
 export function useCommunityMessengerHomeState({
   data,
   mainSection,
@@ -47,9 +91,10 @@ export function useCommunityMessengerHomeState({
 }: Params) {
   /** 렌더 중 Date.now() 금지(react-hooks/purity) — lazy init + 부트스트랩 갱신 시 시각 동기화 */
   const [friendSortEpochMs, setFriendSortEpochMs] = useState(() => Date.now());
+  /** `data` 전체가 아닌 친구 배열만 바뀔 때만 정렬 시각 갱신 — 채팅/그룹만 갱신될 때 불필요한 `sortedFriends` 재정렬 방지 */
   useEffect(() => {
     setFriendSortEpochMs(Date.now());
-  }, [data]);
+  }, [data?.friends]);
 
   const hiddenFriendIds = useMemo(() => new Set((data?.hidden ?? []).map((friend) => friend.id)), [data?.hidden]);
 
@@ -120,8 +165,8 @@ export function useCommunityMessengerHomeState({
     ]
   );
 
-  const sortedChats = useMemo(() => sortRooms(data?.chats ?? []), [data?.chats]);
-  const sortedGroups = useMemo(() => sortRooms(data?.groups ?? []), [data?.groups]);
+  const sortedChats = useMemo(() => sortRoomsWithStableOutput(data?.chats ?? []), [data?.chats]);
+  const sortedGroups = useMemo(() => sortRoomsWithStableOutput(data?.groups ?? []), [data?.groups]);
 
   const filteredDiscoverableGroups = useMemo(() => {
     const keyword = openGroupSearch.trim().toLowerCase();
@@ -172,6 +217,7 @@ export function useCommunityMessengerHomeState({
       }
     }
     const merged = collapseDirectPeerRooms([...roomMap.values()]);
+    bumpMessengerRenderPerf("messenger_room_list_sort");
     const sortedNext = merged.sort(sortUnifiedRoomListItems);
 
     const rowCache = unifiedRoomsRowCacheRef.current;
@@ -218,7 +264,11 @@ export function useCommunityMessengerHomeState({
 
   const visibleChatListItems = useMemo(() => {
     const keyword = roomSearchKeyword.trim().toLowerCase();
-    return baseChatListItems.filter((item) => {
+    const cacheKey = visibleChatListInputKey(baseChatListItems, chatInboxFilter, chatKindFilter, keyword);
+    const cached = visibleChatListByInputKey.get(cacheKey);
+    if (cached) return cached;
+    bumpMessengerRenderPerf("messenger_room_list_filter");
+    const out = baseChatListItems.filter((item) => {
       const room = item.room;
       if (chatInboxFilter === "unread" && room.unreadCount < 1) return false;
       if (chatInboxFilter === "pinned" && !room.isPinned) return false;
@@ -230,6 +280,9 @@ export function useCommunityMessengerHomeState({
       const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
       return haystack.includes(keyword);
     });
+    if (visibleChatListByInputKey.size >= VISIBLE_CHAT_LIST_CACHE_MAX) visibleChatListByInputKey.clear();
+    visibleChatListByInputKey.set(cacheKey, out);
+    return out;
   }, [baseChatListItems, chatInboxFilter, chatKindFilter, roomSearchKeyword]);
 
   const searchSheetRoomItems = useMemo(() => {
@@ -374,6 +427,7 @@ function formatSystemPreview(value: string): string {
 }
 
 function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRoomSummary[] {
+  bumpMessengerRenderPerf("messenger_room_list_sort");
   return [...rooms].sort((a, b) => {
     if (Boolean(a.isPinned) !== Boolean(b.isPinned)) return a.isPinned ? -1 : 1;
     const timeA = new Date(a.lastMessageAt).getTime();

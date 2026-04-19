@@ -15,6 +15,7 @@ import {
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
+import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
@@ -37,69 +38,76 @@ function fetchProfileEnsureDeduped(): Promise<Response> {
  * - 세션 메타만 쓰면(OAuth/Google picture만 반영) 저장한 프로필 사진이 사라지는 문제가 난다.
  */
 async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
-  let user: Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"] = null;
+  bumpAppWidePerf("profile_resolve_start");
+  const t0 = performance.now();
   try {
-    const {
-      data: { user: u },
-      error,
-    } = await sb.auth.getUser();
-    if (error || !u) {
+    let user: Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"] = null;
+    try {
+      const {
+        data: { user: u },
+        error,
+      } = await sb.auth.getUser();
+      if (error || !u) {
+        invalidateMeProfileDedupedCache();
+        setSupabaseProfileCache(null);
+        clearBootstrapCache();
+        resetMessengerNotificationSurfacesAfterSignOut();
+        dispatchTestAuthChanged();
+        return;
+      }
+      user = u;
+    } catch (e) {
       invalidateMeProfileDedupedCache();
       setSupabaseProfileCache(null);
-      clearBootstrapCache();
       resetMessengerNotificationSurfacesAfterSignOut();
       dispatchTestAuthChanged();
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
+      }
       return;
     }
-    user = u;
-  } catch (e) {
-    invalidateMeProfileDedupedCache();
-    setSupabaseProfileCache(null);
-    resetMessengerNotificationSurfacesAfterSignOut();
+    if (!user) return;
+    let nextProfile = userToProfile(user);
+    try {
+      const res = await fetchProfileEnsureDeduped();
+      const data = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            profile?: {
+              id: string;
+              email: string;
+              nickname: string;
+              avatar_url?: string | null;
+              username?: string | null;
+              role?: string;
+              member_type?: string;
+              phone?: string | null;
+              phone_verified?: boolean;
+              phone_verification_status?: string;
+              auth_provider?: string | null;
+              temperature?: number;
+            };
+          }
+        | null;
+      if (res.ok && data?.ok && data.profile) {
+        const p = data.profile;
+        nextProfile = {
+          ...nextProfile,
+          ...p,
+          avatar_url: p.avatar_url ?? nextProfile?.avatar_url ?? null,
+          temperature: p.temperature ?? nextProfile?.temperature ?? 50,
+          auth_provider: p.auth_provider ?? nextProfile?.auth_provider ?? null,
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+    setSupabaseProfileCache(nextProfile);
     dispatchTestAuthChanged();
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
-    }
-    return;
+  } finally {
+    bumpAppWidePerf("profile_resolve_success");
+    recordAppWidePhaseLastMs("profile_resolve_ms", Math.round(performance.now() - t0));
   }
-  if (!user) return;
-  let nextProfile = userToProfile(user);
-  try {
-    const res = await fetchProfileEnsureDeduped();
-    const data = (await res.json().catch(() => null)) as
-      | {
-          ok?: boolean;
-          profile?: {
-            id: string;
-            email: string;
-            nickname: string;
-            avatar_url?: string | null;
-            username?: string | null;
-            role?: string;
-            member_type?: string;
-            phone?: string | null;
-            phone_verified?: boolean;
-            phone_verification_status?: string;
-            auth_provider?: string | null;
-            temperature?: number;
-          };
-        }
-      | null;
-    if (res.ok && data?.ok && data.profile) {
-      const p = data.profile;
-      nextProfile = {
-        ...nextProfile,
-        ...p,
-        avatar_url: p.avatar_url ?? nextProfile?.avatar_url ?? null,
-        temperature: p.temperature ?? nextProfile?.temperature ?? 50,
-        auth_provider: p.auth_provider ?? nextProfile?.auth_provider ?? null,
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  setSupabaseProfileCache(nextProfile);
-  dispatchTestAuthChanged();
 }
 
 /**
@@ -110,10 +118,22 @@ export function SupabaseAuthSync() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    /** 첫 하이드레이션만 너무 미루면 채팅 등에서 `getCurrentUser()` 캐시 공백이 길어짐 — timeout 은 rIC 최대 대기(ms) */
-    const idleId = scheduleWhenBrowserIdle(() => {
-      void hydrateProfileCacheFromSession(sb);
-    }, 240);
+    /**
+     * 첫 프로필 하이드레이션: rIC idle(최대 ~240ms) 대기는 첫 홈·채팅 체감 지연로 이어질 수 있어
+     * 다음 페인트 프레임으로만 미룸(메인 스택 직후·레이아웃 직전). rAF 없는 환경은 기존 idle 폴백.
+     */
+    let initialHydrateCancel: (() => void) | null = null;
+    if (typeof requestAnimationFrame === "function" && typeof cancelAnimationFrame === "function") {
+      const rafId = requestAnimationFrame(() => {
+        void hydrateProfileCacheFromSession(sb);
+      });
+      initialHydrateCancel = () => cancelAnimationFrame(rafId);
+    } else {
+      const idleId = scheduleWhenBrowserIdle(() => {
+        void hydrateProfileCacheFromSession(sb);
+      }, 240);
+      initialHydrateCancel = () => cancelScheduledWhenBrowserIdle(idleId);
+    }
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((_event, session) => {
@@ -131,7 +151,7 @@ export function SupabaseAuthSync() {
     });
 
     return () => {
-      cancelScheduledWhenBrowserIdle(idleId);
+      initialHydrateCancel?.();
       subscription.unsubscribe();
     };
   }, []);

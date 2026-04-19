@@ -1572,6 +1572,17 @@ export function ChatDetailView({
     }
   }, [room.id, isChatRoom, router, effectiveListHref]);
 
+  const handleLeaveToListOnly = useCallback(() => {
+    router.push(effectiveListHref);
+  }, [router, effectiveListHref]);
+
+  const handleImageFilesSelectedStable = useCallback(
+    async (files: File[]) => {
+      for (const f of files) await handleSendImageFile(f);
+    },
+    [handleSendImageFile]
+  );
+
   const moreMenuPanel = menuOpen ? (
     <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg">
       {!isStoreOrderBuyer && amISeller && postId && room.product && (room.product.status ?? "").toLowerCase() !== "sold" ? (
@@ -1753,14 +1764,12 @@ export function ChatDetailView({
             ? undefined
             : isChatRoom
               ? handleLeave
-              : () => router.push(effectiveListHref)
+              : handleLeaveToListOnly
         }
         placeholder={isStoreOrderBuyer ? "메세지를 입력해주세요" : undefined}
         showEmojiButton={!isStoreOrderBuyer}
         variant={isStoreOrderChat ? "instagram" : "default"}
-        onImageFilesSelected={async (files) => {
-          for (const f of files) await handleSendImageFile(f);
-        }}
+        onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}
       />
     </>

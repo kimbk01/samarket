@@ -23,6 +23,12 @@ import {
 } from "@/lib/community-messenger/realtime/messenger-realtime-client-activity-ref";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import {
+  publishMessengerHomeRealtimeMapSnapshot,
+  recordMessengerHomeRealtimeReactListenerGaugeDelta,
+  recordMessengerHomeSupabaseHomeChannelGaugeDelta,
+  samarketMessengerHomeDebugEvent,
+} from "@/lib/runtime/samarket-runtime-debug";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -57,6 +63,14 @@ type HomeRealtimeEntry = {
 
 const homeRealtimeEntries = new Map<string, HomeRealtimeEntry>();
 const globalMessengerRoomBundleByViewer = new Map<string, GlobalMessengerRoomBundleEntry>();
+
+function pushMessengerHomeRealtimeMapProbe(): void {
+  let listenerRefs = 0;
+  for (const e of homeRealtimeEntries.values()) {
+    listenerRefs += e.listeners.size;
+  }
+  publishMessengerHomeRealtimeMapSnapshot(homeRealtimeEntries.size, listenerRefs);
+}
 
 /** INSERT 힌트 폭주 시 한 프레임 작업량 상한 — 이후 큐는 다음 rAF에서 이어 처리 */
 const HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH = 50;
@@ -199,6 +213,7 @@ function createHomeRealtimeEntry(args: {
     });
     cancelSchedulers = cancel;
     for (const item of next) channels.push(item);
+    recordMessengerHomeSupabaseHomeChannelGaugeDelta(next.length);
   };
 
   authBridgeCleanup = createRealtimeAuthBridge({
@@ -218,9 +233,14 @@ function createHomeRealtimeEntry(args: {
     authBridgeCleanup = null;
     cancelSchedulers?.();
     cancelSchedulers = null;
+    const chLen = channels.length;
+    if (chLen > 0) {
+      recordMessengerHomeSupabaseHomeChannelGaugeDelta(-chLen);
+    }
     for (const item of channels) item.stop();
     channels.length = 0;
     homeRealtimeEntries.delete(args.key);
+    pushMessengerHomeRealtimeMapProbe();
   };
 
   return entry;
@@ -284,11 +304,17 @@ export function useCommunityMessengerHomeRealtime(args: {
       });
       homeRealtimeEntries.set(key, entry);
     }
+    samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", { key });
     entry.listeners.add(listenerRef);
+    recordMessengerHomeRealtimeReactListenerGaugeDelta(1);
+    pushMessengerHomeRealtimeMapProbe();
     return () => {
+      samarketMessengerHomeDebugEvent("messenger_home_subscribe_cleanup", { key });
       const current = homeRealtimeEntries.get(key);
       if (!current) return;
       current.listeners.delete(listenerRef);
+      recordMessengerHomeRealtimeReactListenerGaugeDelta(-1);
+      pushMessengerHomeRealtimeMapProbe();
       if (current.listeners.size === 0) current.stop();
     };
   }, [args.enabled, args.userId, roomIdsFingerprint, realtimeAuthEpoch]);

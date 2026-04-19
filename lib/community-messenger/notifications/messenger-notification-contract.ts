@@ -49,6 +49,7 @@ import {
   dispatchOwnerHubBadgeRefresh,
   KASAMA_OWNER_HUB_BADGE_REFRESH,
 } from "@/lib/chats/chat-channel-events";
+import { samarketMessengerHomeDebugEvent } from "@/lib/runtime/samarket-runtime-debug";
 
 /** `playCoalescedChatNotificationSound` 와 동일 값 — 한 곳에서만 정의 */
 export const MESSENGER_CHAT_ALERT_MIN_GAP_MS = 2000;
@@ -81,6 +82,7 @@ export type MessengerHubBadgeResyncDetail = {
  */
 export function requestMessengerHubBadgeResync(reason: MessengerHubBadgeResyncReason): void {
   if (typeof window === "undefined") return;
+  samarketMessengerHomeDebugEvent("messenger_home_badge_resync", { reason });
   const detail: MessengerHubBadgeResyncDetail = {
     source: "community_messenger",
     reason,

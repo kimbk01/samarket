@@ -26,6 +26,8 @@
     "lint": "eslint . --quiet",
     "lint:strict": "eslint . --max-warnings 0",
     "test": "vitest run",
+    "verify:messenger-home": "vitest run lib/runtime/__tests__/messenger-home-verification-counters.test.ts",
+    "verify:messenger-render-perf": "PLAYWRIGHT_NO_WEBSERVER=1 playwright test tests/e2e/messenger-home-render-perf.spec.ts",
     "test:watch": "vitest",
     "generate:vapid": "node scripts/generate-vapid-keys.cjs",
     "cap:sync": "npx cap sync",
@@ -60,7 +62,7 @@
   "devDependencies": {
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
-    "@next/bundle-analyzer": "^16.2.3",
+    "@next/bundle-analyzer": "^16.2.4",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/google.maps": "^3.58.1",

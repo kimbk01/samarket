@@ -6,6 +6,7 @@
  * 정책 표: `docs/messenger-realtime-policy.md`
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { recordMessengerHomeHomeSyncNetworkFetch } from "@/lib/runtime/samarket-runtime-debug";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerProfileLite,
@@ -27,6 +28,7 @@ export type CommunityMessengerHomeSilentListsPayload = {
 
 export function fetchCommunityMessengerHomeSilentLists(): Promise<CommunityMessengerHomeSilentListsPayload> {
   return runSingleFlight(FLIGHT_KEY, async () => {
+    recordMessengerHomeHomeSyncNetworkFetch();
     const res = await fetch("/api/community-messenger/home-sync", { cache: "no-store" });
     const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
     return { res, json };

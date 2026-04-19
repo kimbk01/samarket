@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MyTestLoginSection } from "@/components/my/MyTestLoginSection";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
+import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
@@ -109,16 +110,27 @@ function LoginPageContent() {
       setError("세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.");
       return;
     }
+    const loginUntilNavT0 = performance.now();
     /** `document.cookie` 반영 후 이동 — 없으면 첫 보호 경로 요청에 sb 쿠키가 비는 경우가 있음 */
+    const doubleRafT0 = performance.now();
+    /** 두 프레임 대기는 유지하되, 두 번째 프레임과 겹치게 세션 GET 을 시작해 순차 대기만큼의 시간을 줄임 */
+    const fetchAuthT0 = performance.now();
+    let sessionPromise: Promise<unknown> = Promise.resolve();
     await new Promise<void>((r) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => r()));
+      requestAnimationFrame(() => {
+        sessionPromise = fetchAuthSessionNoStore().catch(() => {});
+        requestAnimationFrame(() => r());
+      });
     });
+    recordAppWidePhaseLastMs("login_double_raf_ms", Math.round(performance.now() - doubleRafT0));
     /** 서버 Route Handler 세션과 동기화 — 바로 다음 HTML 요청이 401·로그인 루프 나는 것 완화 */
     try {
-      await fetchAuthSessionNoStore();
+      await sessionPromise;
     } catch {
       /* ignore */
     }
+    recordAppWidePhaseLastMs("login_fetch_auth_session_ms", Math.round(performance.now() - fetchAuthT0));
+    recordAppWidePhaseLastMs("login_until_navigation_ms", Math.round(performance.now() - loginUntilNavT0));
     setLoading(false);
     /**
      * `router.push` 만 쓰면 로그인 직후 RSC/프록시가 쿠키 없이 돌고 `/login` 으로 튕기는 경우가 있음.

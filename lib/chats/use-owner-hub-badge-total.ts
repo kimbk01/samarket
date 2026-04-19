@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
@@ -10,6 +10,7 @@ import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/mess
 import {
   resolveBottomNavTradeTabBadgeCount,
 } from "@/lib/notifications/samarket-messenger-notification-regulations";
+import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 
@@ -48,12 +49,17 @@ function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const messengerUnreadRooms = useMessengerRealtimeStore((state) => state.totalUnread);
-  const snapshotUnread = useSyncExternalStore(
-    subscribeOwnerHubBadge,
-    () => tabUnreadFromSnapshot(icon),
-    () => 0
-  );
-  return icon === "chat" ? messengerUnreadRooms : snapshotUnread;
+  const readSnapshotUnread = useCallback(() => tabUnreadFromSnapshot(icon), [icon]);
+  const snapshotUnread = useSyncExternalStore(subscribeOwnerHubBadge, readSnapshotUnread, () => 0);
+  const raw = icon === "chat" ? messengerUnreadRooms : snapshotUnread;
+  const lastBumpRef = useRef<{ icon: BottomNavIconKey; n: number } | null>(null);
+  useEffect(() => {
+    const lb = lastBumpRef.current;
+    if (lb && lb.icon === icon && lb.n === raw) return;
+    bumpMessengerRenderPerf("messenger_badge_compute");
+    lastBumpRef.current = { icon, n: raw };
+  }, [icon, raw]);
+  return raw;
 }
 
 export function useOwnerHubBadgeStoreDeepLink(): string | null {

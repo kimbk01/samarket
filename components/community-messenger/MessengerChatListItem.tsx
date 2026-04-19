@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   messengerRoomMenuItemId,
@@ -80,6 +81,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onCloseMenuItem,
   onResetTransientUi,
 }: Props) {
+  bumpMessengerRenderPerf("messenger_room_row_render");
   const router = useRouter();
   const room = item.room;
   const rowRef = useRef<HTMLDivElement | null>(null);

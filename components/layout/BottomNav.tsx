@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -37,7 +37,7 @@ import {
   shouldEnableNextLinkPrefetchOnMainNav,
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
-import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 
 /**
@@ -149,6 +149,15 @@ function triggerLightTapFeedback(): void {
   }
 }
 
+const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className={OWNER_HUB_BADGE_DOT_CLASS}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+});
+
 function scrollAppShellToTop(): void {
   if (typeof document === "undefined") return;
   const mainEl = document.querySelector("main");
@@ -175,24 +184,18 @@ function onBottomNavTabActivate(pathname: string | null, tabHref: string, e: Mou
   scrollAppShellToTop();
 }
 
-type BottomNavI18n = ReturnType<typeof useI18n>;
-type BottomNavRouter = ReturnType<typeof useRouter>;
-
-function BottomNavTabStandard({
+const BottomNavTabStandard = memo(function BottomNavTabStandard({
   tab,
   pathname,
   optimisticActive,
   onNavigationIntent,
-  tt,
-  t,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
-  tt: BottomNavI18n["tt"];
-  t: BottomNavI18n["t"];
 }) {
+  const { tt, t } = useI18n();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
@@ -231,11 +234,7 @@ function BottomNavTabStandard({
       <span className={isActive ? iconActive : iconInactive}>
         <span className="relative inline-flex">
           <Icon className={iconSize} />
-          {tabBadgeCount > 0 ? (
-            <span className={OWNER_HUB_BADGE_DOT_CLASS}>
-              {tabBadgeCount > 99 ? "99+" : tabBadgeCount}
-            </span>
-          ) : null}
+          <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </span>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
@@ -260,26 +259,23 @@ function BottomNavTabStandard({
       {inner}
     </Link>
   );
-}
+});
 
-function BottomNavTabStores({
+const BottomNavTabStores = memo(function BottomNavTabStores({
   tab,
   pathname,
   optimisticActive,
   onNavigationIntent,
-  tt,
-  t,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
-  tt: BottomNavI18n["tt"];
-  t: BottomNavI18n["t"];
 }) {
+  const { tt, t } = useI18n();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
-  const storeDeepLink = useOwnerHubBadgeStoreDeepLink();
+  const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
   const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
@@ -297,8 +293,6 @@ function BottomNavTabStores({
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const storesTabOwnerLite = !!ownerStore;
-  const storesNavWithAttention =
-    tabBadgeCount > 0 && typeof storeDeepLink === "string" && storeDeepLink.length > 0;
 
   const className = [
     "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2",
@@ -325,11 +319,7 @@ function BottomNavTabStores({
       <span className={isActive ? iconActive : iconInactive}>
         <span className="relative inline-flex">
           <Icon className={iconSize} />
-          {tabBadgeCount > 0 ? (
-            <span className={OWNER_HUB_BADGE_DOT_CLASS}>
-              {tabBadgeCount > 99 ? "99+" : tabBadgeCount}
-            </span>
-          ) : null}
+          <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </span>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
@@ -354,7 +344,7 @@ function BottomNavTabStores({
       {inner}
     </Link>
   );
-}
+});
 
 const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
   home: HomeIcon,
@@ -367,7 +357,8 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
 };
 
 export function BottomNav() {
-  const { tt, t } = useI18n();
+  bumpMessengerRenderPerf("messenger_bottom_nav_render");
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
@@ -541,8 +532,6 @@ export function BottomNav() {
               pathname={pathname}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
-              tt={tt}
-              t={t}
             />
           ) : (
             <BottomNavTabStandard
@@ -551,8 +540,6 @@ export function BottomNav() {
               pathname={pathname}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
-              tt={tt}
-              t={t}
             />
           )
         )}

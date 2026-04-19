@@ -127,7 +127,9 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       d.type !== "cm.room.summary_patch"
     )
       return;
-    if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
+    if (d.type !== "cm.home.merge_room_summary") {
+      if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
+    }
     if (d.type === "cm.room.local_unread") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
       if (typeof d.unreadCount !== "number" || !Number.isFinite(d.unreadCount) || d.unreadCount < 0) return;

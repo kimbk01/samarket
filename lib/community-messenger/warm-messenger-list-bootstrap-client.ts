@@ -4,6 +4,10 @@ import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  recordMessengerHomeWarmCallSiteInvocation,
+  samarketMessengerHomeDebugEvent,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 /**
  * 하단 탭 `router.prefetch("/community-messenger")` 직후 등 — lite 부트스트랩을 한 번 받아
@@ -12,7 +16,9 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
  */
 export function warmMessengerListBootstrapClient(): void {
   if (typeof window === "undefined") return;
+  recordMessengerHomeWarmCallSiteInvocation();
   void runSingleFlight("community-messenger:list-bootstrap-warm", async () => {
+    samarketMessengerHomeDebugEvent("messenger_home_warm_start");
     const res = await fetchCommunityMessengerBootstrapClient("lite");
     if (!res.ok) return;
     const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
@@ -20,5 +26,6 @@ export function warmMessengerListBootstrapClient(): void {
     const payload = { ...json };
     delete payload.ok;
     primeBootstrapCache(payload as CommunityMessengerBootstrap);
+    samarketMessengerHomeDebugEvent("messenger_home_warm_success");
   });
 }

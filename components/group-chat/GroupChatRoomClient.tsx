@@ -213,7 +213,7 @@ export function GroupChatRoomClient({
       {!loading && !err ? (
         <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
           <ChatInputBar
-            onSend={(msg) => void handleSend(msg)}
+            onSend={handleSend}
             draftStorageKey={`group-chat:${roomId}`}
             disabled={!currentUserId}
             placeholder={currentUserId ? "메시지를 입력하세요" : "로그인 후 메시지를 보낼 수 있어요"}

@@ -17,6 +17,13 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
+import {
+  bumpAppWidePerf,
+  recordAppWidePhaseLastMs,
+  tryTrackFirstMenuListFetchStart,
+  tryTrackFirstMenuListFetchSuccess,
+  tryTrackFirstMenuListRender,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -55,15 +62,37 @@ export function HomeProductList({
       if (lastLoadedAtRef.current === 0) {
         setListState("loading");
       }
+      const firstNetworkList = lastLoadedAtRef.current === 0;
+      let tradeFetchT0 = 0;
+      if (firstNetworkList) {
+        tryTrackFirstMenuListFetchStart();
+        bumpAppWidePerf("trade_list_fetch_start");
+        tradeFetchT0 = performance.now();
+      }
       try {
         const res = await getPostsForHome(HOME_POST_LIST_OPTIONS);
         setPosts(res.posts);
         setFavoriteMap(res.favoriteMap);
         lastLoadedAtRef.current = Date.now();
         setListState(res.posts.length === 0 ? "empty" : "idle");
+        if (firstNetworkList) {
+          bumpAppWidePerf("trade_list_fetch_success");
+          recordAppWidePhaseLastMs("trade_list_fetch_ms", Math.round(performance.now() - tradeFetchT0));
+          tryTrackFirstMenuListFetchSuccess();
+          bumpAppWidePerf("trade_list_render");
+          tryTrackFirstMenuListRender();
+          const paintT0 = tradeFetchT0;
+          queueMicrotask(() => {
+            if (typeof requestAnimationFrame !== "function") return;
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                recordAppWidePhaseLastMs("trade_list_to_paint_ms", Math.round(performance.now() - paintT0));
+              });
+            });
+          });
+        }
       } catch {
-        setPosts([]);
-        setFavoriteMap({});
+        /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
         setListState("error");
       }
     });

@@ -28,6 +28,10 @@ import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import { fetchCommunityMessengerOpenGroupsClient } from "@/lib/community-messenger/cm-open-groups-client-fetch";
+import {
+  recordMessengerHomeRefreshInvocation,
+  samarketMessengerHomeDebugEvent,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 export type UseCommunityMessengerHomeBootstrapArgs = {
   initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
@@ -64,6 +68,8 @@ export function useCommunityMessengerHomeBootstrap({
   const silentBackoffUntilRef = useRef(0);
   /** `lastSilentRefreshAtRef` 380ms 창 안 요청은 버리지 않고 한 번만 지연 실행(방 부트스트랩과 동일 계약) */
   const silentThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** `refresh(false)` 가 Strict Mode·중복 effect 로 겹칠 때 동일 네트워크 라운드 방지 */
+  const bootstrapNonSilentInFlightRef = useRef(false);
 
   /**
    * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
@@ -97,6 +103,16 @@ export function useCommunityMessengerHomeBootstrap({
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVis = () => {
+      if (document.visibilityState !== "visible") return;
+      samarketMessengerHomeDebugEvent("messenger_home_visibility_resume");
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   /** 서버 `deferCallLog` 분기 — `listCommunityMessengerCallLogs` 단일 왕복 */
   const mergeDeferredMessengerCallLogs = useCallback(async () => {
     try {
@@ -128,6 +144,7 @@ export function useCommunityMessengerHomeBootstrap({
   }, []);
 
   const refresh = useCallback(async (silent = false) => {
+    recordMessengerHomeRefreshInvocation(silent);
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntilRef.current) return;
@@ -148,6 +165,16 @@ export function useCommunityMessengerHomeBootstrap({
     if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
       return;
     }
+    if (!silent && bootstrapNonSilentInFlightRef.current) {
+      samarketMessengerHomeDebugEvent("messenger_home_refresh_skip_non_silent_inflight");
+      return;
+    }
+    if (!silent) {
+      bootstrapNonSilentInFlightRef.current = true;
+    }
+    samarketMessengerHomeDebugEvent("messenger_home_refresh_start", { silent });
+    let refreshDataOk = false;
+    let bootstrapClientOk = false;
     const stale = !silent ? peekBootstrapCache() : null;
     const shouldBlock = !silent && !loadedRef.current && !stale;
     const useLiteBootstrap = !silent && !stale && !loadedRef.current;
@@ -167,6 +194,7 @@ export function useCommunityMessengerHomeBootstrap({
           silentBackoffUntilRef.current = Date.now() + sec * 1000;
         }
         if (res.ok && json.ok) {
+          refreshDataOk = true;
           setData((prev) => {
             const base = prev ?? peekBootstrapCache();
             if (!base) return prev;
@@ -201,12 +229,15 @@ export function useCommunityMessengerHomeBootstrap({
             setPageError(tRef.current("nav_messenger_login_required"));
             setData(null);
           } else {
+            samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "fresh" });
             const resFull = await fetchCommunityMessengerBootstrapClient("fresh");
             const jsonFull = (await resFull.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
               ok?: boolean;
               error?: string;
             };
             if (resFull.ok && jsonFull.ok) {
+              samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "fresh" });
+              refreshDataOk = true;
               const next: CommunityMessengerBootstrap = {
                 me: jsonFull.me ?? null,
                 tabs: {
@@ -236,12 +267,20 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       } else {
+        samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", {
+          mode: useLiteBootstrap ? "lite" : "full",
+        });
         const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full");
         const json = (await res.json().catch(() => ({}))) as CommunityMessengerBootstrap & {
           ok?: boolean;
           error?: string;
         };
         if (res.ok && json.ok) {
+          bootstrapClientOk = true;
+          refreshDataOk = true;
+          samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", {
+            mode: useLiteBootstrap ? "lite" : "full",
+          });
           const deferred = Boolean((json as { deferredCallLog?: unknown }).deferredCallLog);
           const next: CommunityMessengerBootstrap = {
             me: json.me ?? null,
@@ -310,6 +349,15 @@ export function useCommunityMessengerHomeBootstrap({
         }
       }
     } finally {
+      if (refreshDataOk) {
+        samarketMessengerHomeDebugEvent("messenger_home_refresh_success", {
+          silent,
+          bootstrapClientOk,
+        });
+      }
+      if (!silent) {
+        bootstrapNonSilentInFlightRef.current = false;
+      }
       finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
         void refresh(true);
       });
@@ -340,9 +388,10 @@ export function useCommunityMessengerHomeBootstrap({
     }
     const stale = peekBootstrapCache();
     if (stale) {
+      /* 예열·캐시 히트가 늘면서 420ms 는 첫 목록 체감만 지연 — 짧은 idle 로 사일런트 sync 만 미룬다 */
       const idleId = scheduleWhenBrowserIdle(() => {
         void refreshRef.current(true);
-      }, 420);
+      }, 100);
       return () => {
         cancelScheduledWhenBrowserIdle(idleId);
       };

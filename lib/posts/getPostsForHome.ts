@@ -1,6 +1,7 @@
 "use client";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular";
@@ -97,18 +98,29 @@ export async function getPostsForHome(
         params.set("tradeMarketParent", tradeMarketParent);
       }
 
+      const dbg = samarketRuntimeDebugEnabled();
+      const wallT0 = dbg ? performance.now() : 0;
+      const tNet0 = dbg ? performance.now() : 0;
       const res = await fetch(`/api/home/posts?${params.toString()}`, {
         credentials: "include",
       });
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
+      }
       if (!res.ok) {
         return { posts: [], hasMore: false, favoriteMap: {} };
       }
 
+      const tJson0 = dbg ? performance.now() : 0;
       const data = (await res.json()) as {
         posts?: PostWithMeta[];
         hasMore?: boolean;
         favoriteMap?: Record<string, boolean>;
       };
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
+      }
+      const tBuild0 = dbg ? performance.now() : 0;
       const result = {
         posts: Array.isArray(data.posts) ? data.posts : [],
         hasMore: data.hasMore === true,
@@ -118,6 +130,10 @@ export async function getPostsForHome(
         data: result,
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,
       });
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));
+      }
       return result;
     } catch {
       return { posts: [], hasMore: false, favoriteMap: {} };

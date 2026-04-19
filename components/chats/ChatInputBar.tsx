@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, memo } from "react";
+import {
+  notifyChatInputCommitForPerf,
+  notifyChatInputKeydownForPerf,
+  notifyChatInputRenderForPerf,
+  notifyChatSendStartForPerf,
+  notifyChatSendSuccessForPerf,
+} from "@/lib/runtime/samarket-runtime-debug";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAppSettings } from "@/lib/app-settings";
 import { MAX_CHAT_IMAGE_ATTACH } from "@/lib/chats/chat-image-bundle";
@@ -50,7 +57,7 @@ function draftKey(k: string) {
   return `kasama-chat-draft:${k}`;
 }
 
-export function ChatInputBar({
+function ChatInputBarInner({
   onSend,
   disabled,
   onLeave,
@@ -85,6 +92,10 @@ export function ChatInputBar({
   const hasText = !!text.trim();
   const inputLocked = !!disabled || imageSending;
 
+  useEffect(() => {
+    notifyChatInputRenderForPerf();
+  }, [text]);
+
   const persistDraft = (value: string) => {
     if (!draftStorageKey || typeof window === "undefined") return;
     try {
@@ -102,7 +113,9 @@ export function ChatInputBar({
   const handleSubmit = () => {
     const trimmed = text.trim().slice(0, maxLength);
     if (!trimmed || inputLocked) return;
+    notifyChatSendStartForPerf();
     onSend(trimmed);
+    notifyChatSendSuccessForPerf();
     setText("");
     notifyComposer("");
     setEmojiOpen(false);
@@ -116,6 +129,7 @@ export function ChatInputBar({
       setText(next);
       notifyComposer(next);
       persistDraft(next);
+      queueMicrotask(() => notifyChatInputCommitForPerf());
       return;
     }
     const start = el.selectionStart ?? text.length;
@@ -124,6 +138,7 @@ export function ChatInputBar({
     setText(next);
     notifyComposer(next);
     persistDraft(next);
+    queueMicrotask(() => notifyChatInputCommitForPerf());
     requestAnimationFrame(() => {
       el.focus();
       const newPos = start + emoji.length;
@@ -139,6 +154,7 @@ export function ChatInputBar({
         const v = saved.slice(0, maxLength);
         setText(v);
         notifyComposer(v);
+        queueMicrotask(() => notifyChatInputCommitForPerf());
       }
     } catch {
       /* ignore */
@@ -331,12 +347,15 @@ export function ChatInputBar({
           value={text}
           onChange={(e) => {
             const v = e.target.value.slice(0, maxLength);
+            if (v === text) return;
             setText(v);
             notifyComposer(v);
             persistDraft(v);
+            notifyChatInputCommitForPerf();
           }}
           maxLength={maxLength}
           onKeyDown={(e) => {
+            notifyChatInputKeydownForPerf();
             if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
             if (e.shiftKey) return;
             /** 한글·중국어 IME 조합 확정 Enter 는 전송하지 않음 */
@@ -389,6 +408,10 @@ export function ChatInputBar({
     </>
   );
 }
+
+/** 메시지 목록 등 상위가 자주 리렌더돼도 props 가 같으면 입력 트리는 스킵 */
+export const ChatInputBar = memo(ChatInputBarInner);
+ChatInputBar.displayName = "ChatInputBar";
 
 function LeaveIcon({ className }: { className?: string }) {
   return (

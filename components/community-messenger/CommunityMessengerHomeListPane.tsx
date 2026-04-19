@@ -1,5 +1,6 @@
 "use client";
 
+import { bumpMessengerRenderPerf, tryTrackFirstMenuListRender } from "@/lib/runtime/samarket-runtime-debug";
 import dynamic from "next/dynamic";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -92,6 +93,8 @@ type Props = {
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
+  bumpMessengerRenderPerf("messenger_home_list_render");
+  tryTrackFirstMenuListRender();
   const canRenderList = !props.authRequired && Boolean(props.data);
   const showRefreshingOverlay = props.loading && canRenderList;
   const showCompactSkeleton = props.loading && !canRenderList;

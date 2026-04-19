@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
@@ -17,6 +19,7 @@ import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
+import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
 
 /** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
 function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
@@ -26,6 +29,46 @@ function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
   return <StoreCommerceCartProvider>{children}</StoreCommerceCartProvider>;
+}
+
+function AppWideRuntimePerfHooks() {
+  const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
+  useEffect(() => {
+    bumpAppWidePerf("app_bootstrap_start");
+    const t0 = performance.now();
+    bootstrapRafRef.current.a = requestAnimationFrame(() => {
+      bootstrapRafRef.current.b = requestAnimationFrame(() => {
+        bumpAppWidePerf("app_bootstrap_success");
+        recordAppWidePhaseLastMs("app_bootstrap_ms", Math.round(performance.now() - t0));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(bootstrapRafRef.current.a);
+      cancelAnimationFrame(bootstrapRafRef.current.b);
+    };
+  }, []);
+
+  const pathname = usePathname() ?? "";
+  const prevPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevPathRef.current !== null && prevPathRef.current !== pathname) {
+      bumpAppWidePerf("route_reenter");
+    }
+    prevPathRef.current = pathname;
+  }, [pathname]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") {
+        bumpAppWidePerf("visibility_resume");
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  return null;
 }
 
 /**
@@ -38,7 +81,9 @@ function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
 export function MainAppProviderTree({ children }: { children: ReactNode }) {
   return (
     <RegionProvider>
+      <AppWideRuntimePerfHooks />
       <SessionLostRedirect />
+      <MessengerBootstrapEarlyWarm />
       <OwnerHubBadgeRuntime />
       <MandatoryAddressGate />
       <FavoriteProvider>

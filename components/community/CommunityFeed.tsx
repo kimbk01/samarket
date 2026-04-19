@@ -22,6 +22,63 @@ import {
   NEIGHBORHOOD_FEED_PAGE_SIZE,
   PHILIFE_GLOBAL_FEED_SESSION_KEY,
 } from "@/lib/philife/neighborhood-feed-client-url";
+import {
+  bumpAppWidePerf,
+  getAppWidePhaseLastMs,
+  getMessengerHomeVerificationSnapshot,
+  recordAppWidePhaseLastMs,
+  samarketRuntimeDebugEnabled,
+  tryTrackFirstMenuListFetchStart,
+  tryTrackFirstMenuListFetchSuccess,
+  tryTrackFirstMenuListRender,
+} from "@/lib/runtime/samarket-runtime-debug";
+
+declare global {
+  interface Window {
+    /**
+     * 필라이프 피드 초기 로드 분해 ms — 개발 번들에서만 채움(`NODE_ENV=development`).
+     * `recordAppWidePhaseLastMs` 는 `samarket:debug:runtime=1` 일 때만 스냅샷에 들어가므로, E2E·수동은 이 객체를 우선 읽는다.
+     */
+    __samarketPhilifePerfLast?: Record<string, number>;
+  }
+}
+
+function setPhilifePerfMirrorDev(partial: Record<string, number>): void {
+  if (typeof window === "undefined") return;
+  /** 개발 빌드 또는 런타임 디버그 켜짐 — E2E(sessionStorage) 만 켠 경우에도 미러 채움 */
+  if (process.env.NODE_ENV !== "development" && !samarketRuntimeDebugEnabled()) return;
+  window.__samarketPhilifePerfLast = { ...(window.__samarketPhilifePerfLast ?? {}), ...partial };
+}
+
+function philifePerfDiagEnabled(): boolean {
+  return (
+    process.env.NODE_ENV === "development" &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/philife"
+  );
+}
+
+function philifePerfDiag(event: string, extra: Record<string, unknown>): void {
+  if (!philifePerfDiagEnabled() || typeof console.debug !== "function") return;
+  console.debug(`[community-feed:perf-diag] ${event}`, extra);
+}
+
+function philifeDiagSnapshot(tag: string): void {
+  if (!philifePerfDiagEnabled()) return;
+  const raw = globalThis as unknown as { __samarketAppWidePhaseLastMs?: Record<string, number> };
+  const snap = getMessengerHomeVerificationSnapshot();
+  philifePerfDiag(`snapshot_${tag}`, {
+    rawGlobalPhaseKeys: Object.keys(raw.__samarketAppWidePhaseLastMs ?? {}),
+    snapPhaseKeys: Object.keys(snap.appWidePhaseLastMs ?? {}),
+    getAppWidePhaseLastMsKeys: Object.keys(getAppWidePhaseLastMs()),
+  });
+}
+
+function recordPhilifeCommunityPhase(key: string, ms: number, isInitialPage: boolean): void {
+  if (!isInitialPage) return;
+  philifePerfDiag("phase_before_record", { key, ms, willCallRecordAppWidePhaseLastMs: true });
+  recordAppWidePhaseLastMs(key, ms);
+}
 
 function mergeNeighborhoodFeedById(
   prev: NeighborhoodFeedPostDTO[],
@@ -113,6 +170,20 @@ export function CommunityFeed() {
               controller.abort();
             }, 28_000)
           : undefined;
+      const isInitialPage = !append && nextOffset === 0;
+      let communityFetchT0 = 0;
+      if (isInitialPage) {
+        philifePerfDiag("fetchPage_enter", {
+          append,
+          nextOffset,
+          isInitialPage,
+          session,
+          runtimeDebugFlag: samarketRuntimeDebugEnabled(),
+        });
+        tryTrackFirstMenuListFetchStart();
+        bumpAppWidePerf("community_list_fetch_start");
+        communityFetchT0 = performance.now();
+      }
       try {
         const url = buildPhilifeNeighborhoodFeedClientUrl({
           globalFeed: true,
@@ -122,12 +193,22 @@ export function CommunityFeed() {
           limit: NEIGHBORHOOD_FEED_PAGE_SIZE,
         });
         const personalized = neighborOnly || viewerSig !== "_anon";
+        const tFetchStart = performance.now();
         const res = await fetch(url, {
           credentials: "include",
           signal: controller.signal,
           priority: "high",
           ...(personalized ? { cache: "no-store" as RequestCache } : {}),
         });
+        const tAfterNetwork = performance.now();
+        if (isInitialPage) {
+          philifeDiagSnapshot("before_first_community_record");
+          recordPhilifeCommunityPhase(
+            "community_list_fetch_network_ms",
+            Math.round(tAfterNetwork - tFetchStart),
+            isInitialPage
+          );
+        }
         let j: {
           ok?: boolean;
           posts?: NeighborhoodFeedPostDTO[];
@@ -136,12 +217,18 @@ export function CommunityFeed() {
           nextOffset?: number | null;
           dbPageLength?: number;
         };
+        let jsonParseMs = 0;
         try {
+          const tJson0 = performance.now();
           j = (await res.json()) as typeof j;
+          jsonParseMs = Math.round(performance.now() - tJson0);
+          if (isInitialPage) {
+            recordPhilifeCommunityPhase("community_list_fetch_json_ms", jsonParseMs, isInitialPage);
+          }
         } catch {
           if (session !== feedSessionRef.current) return;
           setErr("응답을 해석하지 못했습니다.");
-          if (!append) setPosts([]);
+          /* fetch 실패 ≠ 빈 피드 — 세션 캐시·직전 목록 유지 */
           setHasMore(false);
           return;
         }
@@ -165,12 +252,23 @@ export function CommunityFeed() {
                 ? "서버 설정을 확인할 수 없습니다."
                 : (j.error ?? "피드를 불러오지 못했습니다.");
           setErr(human);
-          if (!append) setPosts([]);
           setHasMore(false);
           return;
         }
         const next = j.posts ?? [];
-        setPosts((prev) => mergeNeighborhoodFeedById(prev, next, append));
+        const tMerge0 = performance.now();
+        let mergedForCache: NeighborhoodFeedPostDTO[] | null = null;
+        if (!append) {
+          mergedForCache = mergeNeighborhoodFeedById([], next, false);
+          setPosts(mergedForCache);
+        } else {
+          setPosts((prev) => mergeNeighborhoodFeedById(prev, next, true));
+        }
+        const mergeMs = Math.round(performance.now() - tMerge0);
+        if (isInitialPage) {
+          recordPhilifeCommunityPhase("community_list_merge_ms", mergeMs, isInitialPage);
+        }
+        const tAfterMerge = performance.now();
         setHasMore(!!j.hasMore);
         const advance =
           typeof j.dbPageLength === "number" ? j.dbPageLength : next.length;
@@ -178,18 +276,72 @@ export function CommunityFeed() {
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
         nextOffsetRef.current = resolvedNextOffset;
 
-        if (!append && session === feedSessionRef.current && next.length > 0) {
-          const cachedPosts = mergeNeighborhoodFeedById([], next, false);
+        if (!append && session === feedSessionRef.current && mergedForCache && mergedForCache.length > 0) {
           writePhilifeFeedCache(PHILIFE_GLOBAL_FEED_SESSION_KEY, category, neighborOnly, viewerSig, {
-            posts: cachedPosts,
+            posts: mergedForCache,
             hasMore: !!j.hasMore,
             nextOffset: resolvedNextOffset,
+          });
+        }
+        if (isInitialPage) {
+          const renderPrepareMs = Math.round(performance.now() - tAfterMerge);
+          recordPhilifeCommunityPhase("community_list_render_prepare_ms", renderPrepareMs, isInitialPage);
+          bumpAppWidePerf("community_list_fetch_success");
+          const tWall = performance.now();
+          const wallMs = Math.round(tWall - communityFetchT0);
+          recordPhilifeCommunityPhase("community_list_fetch_ms", wallMs, isInitialPage);
+          tryTrackFirstMenuListFetchSuccess();
+          bumpAppWidePerf("community_list_render");
+          tryTrackFirstMenuListRender();
+          {
+            const networkMs = Math.round(tAfterNetwork - tFetchStart);
+            const mirrorPartial = {
+              community_list_fetch_network_ms: networkMs,
+              community_list_fetch_json_ms: jsonParseMs,
+              community_list_merge_ms: mergeMs,
+              community_list_render_prepare_ms: renderPrepareMs,
+              community_list_fetch_ms: wallMs,
+            };
+            philifePerfDiag("before_mirror_window", {
+              partialKeys: Object.keys(mirrorPartial),
+              prevMirrorKeys: Object.keys(window.__samarketPhilifePerfLast ?? {}),
+            });
+            setPhilifePerfMirrorDev(mirrorPartial);
+            philifePerfDiag("after_mirror_window", {
+              mirrorKeys: Object.keys(window.__samarketPhilifePerfLast ?? {}),
+            });
+            philifeDiagSnapshot("after_mirror_batch");
+          }
+          const paintT0 = communityFetchT0;
+          const rafStart = tWall;
+          queueMicrotask(() => {
+            if (typeof requestAnimationFrame !== "function") return;
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                const tPaint = performance.now();
+                const toPaint = Math.round(tPaint - paintT0);
+                const paintRaf = Math.round(tPaint - rafStart);
+                recordPhilifeCommunityPhase("community_list_to_paint_ms", toPaint, true);
+                recordPhilifeCommunityPhase("community_list_paint_raf_ms", paintRaf, true);
+                philifePerfDiag("before_mirror_window_paint", {
+                  partialKeys: ["community_list_to_paint_ms", "community_list_paint_raf_ms"],
+                  prevMirrorKeys: Object.keys(window.__samarketPhilifePerfLast ?? {}),
+                });
+                setPhilifePerfMirrorDev({
+                  community_list_to_paint_ms: toPaint,
+                  community_list_paint_raf_ms: paintRaf,
+                });
+                philifePerfDiag("after_mirror_window_paint", {
+                  mirrorKeys: Object.keys(window.__samarketPhilifePerfLast ?? {}),
+                });
+                philifeDiagSnapshot("after_paint_mirror");
+              });
+            });
           });
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (session !== feedSessionRef.current) return;
-        if (!append) setPosts([]);
         setHasMore(false);
         setErr("피드를 불러오지 못했습니다.");
       } finally {
@@ -373,7 +525,7 @@ export function CommunityFeed() {
         ) : null}
         {loading && postsForList.length === 0 ? (
           <CommunityFeedSkeleton />
-        ) : postsForList.length === 0 ? (
+        ) : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">

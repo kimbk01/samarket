@@ -64,6 +64,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
+import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
@@ -161,6 +162,7 @@ export function CommunityMessengerHome({
   initialKind?: string;
   initialServerBootstrap?: CommunityMessengerBootstrap | null;
 }) {
+  bumpMessengerRenderPerf("messenger_home_render");
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
