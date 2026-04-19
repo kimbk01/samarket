@@ -9,7 +9,8 @@ const blockedIdsCacheByViewer = new Map<string, { at: number; ids: Set<string> }
  */
 export async function fetchBlockedAuthorIdsForViewer(
   sb: SupabaseClient<any>,
-  viewerId: string
+  viewerId: string,
+  metrics?: { supabaseSelectCalls: number }
 ): Promise<Set<string>> {
   const out = new Set<string>();
   const v = viewerId.trim();
@@ -21,6 +22,7 @@ export async function fetchBlockedAuthorIdsForViewer(
     return new Set(hit.ids);
   }
 
+  if (metrics) metrics.supabaseSelectCalls += 4;
   const [{ data: outBlocks }, { data: inBlocks }, { data: relOut }, { data: relIn }] = await Promise.all([
     sb.from("user_blocks").select("blocked_user_id").eq("user_id", v),
     sb.from("user_blocks").select("user_id").eq("blocked_user_id", v),

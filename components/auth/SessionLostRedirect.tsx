@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
-import { clearTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { clearTestAuth, getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -60,6 +60,8 @@ export function SessionLostRedirect() {
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
+    /** `test_users` 아이디 로그인은 Supabase 세션이 없어 `/api/auth/session` 이 항상 401 — Kasama·프록시와 동일하게 유지 */
+    if (getTestAuth()) return;
     const path = pathnameRef.current;
     if (path === "/login" || path.startsWith("/login/")) return;
     const now = Date.now();

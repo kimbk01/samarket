@@ -54,6 +54,10 @@ import { useMessengerRoomPhase2ComposerView } from "@/components/community-messe
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
+import {
+  notifyChatInputCommitForPerf,
+  notifyChatInputKeydownForPerf,
+} from "@/lib/runtime/samarket-runtime-debug";
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2ComposerView();
@@ -129,8 +133,12 @@ export function CommunityMessengerRoomPhase2Composer() {
               <textarea
                 ref={vm.composerTextareaRef}
                 value={draft}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  queueMicrotask(() => notifyChatInputCommitForPerf());
+                }}
                 onKeyDown={(e) => {
+                  notifyChatInputKeydownForPerf();
                   if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
                   if (e.shiftKey) return;
                   if (e.nativeEvent.isComposing) return;

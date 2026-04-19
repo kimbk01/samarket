@@ -28,20 +28,37 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
     const pass = process.env.E2E_TEST_PASSWORD ?? "";
     test.skip(!user || !pass, "E2E_TEST_USERNAME / E2E_TEST_PASSWORD 환경변수로 test-login 가능한 계정 필요");
 
-    await page.goto(baseURL ?? "http://localhost:3000/", { waitUntil: "domcontentloaded" });
-    const loginOk = await page.evaluate(
-      async ({ origin, username, password }) => {
-        const r = await fetch(`${origin}/api/test-login`, {
+    const origin = baseURL ?? "http://localhost:3000";
+    await page.goto(origin, { waitUntil: "domcontentloaded" });
+    const loginResult = await page.evaluate(
+      async ({ o, username, password }) => {
+        const r = await fetch(`${o}/api/test-login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ username, password }),
         });
-        return r.ok;
+        const data = (await r.json()) as { ok?: boolean; userId?: string; username?: string; role?: string };
+        if (!data?.ok || !data.userId || !data.username) return false;
+        try {
+          sessionStorage.removeItem("samarket.messenger.bootstrap.v1");
+        } catch {
+          /* ignore */
+        }
+        sessionStorage.setItem("test_user_id", data.userId);
+        sessionStorage.setItem("test_username", data.username);
+        sessionStorage.setItem("test_role", data.role || "member");
+        try {
+          document.cookie = `kasama_dev_uid_pub=${encodeURIComponent(data.userId)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+        } catch {
+          /* ignore */
+        }
+        window.dispatchEvent(new Event("kasama-test-auth-changed"));
+        return true;
       },
-      { origin: baseURL ?? "http://localhost:3000", username: user, password: pass }
+      { o: origin, username: user, password: pass }
     );
-    expect(loginOk, "test-login 실패 — test_users·NEXT_PUBLIC 표면 확인").toBe(true);
+    expect(loginResult, "test-login + test auth 세션 실패 — test_users·표면 확인").toBe(true);
 
     await page.goto(`${baseURL ?? "http://localhost:3000"}/community-messenger`, { waitUntil: "domcontentloaded" });
     await page.waitForResponse(

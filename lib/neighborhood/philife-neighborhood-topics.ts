@@ -2,8 +2,16 @@
  * 어드민 `community_topics`(동네 피드 섹션 — 기본 `dongnae`, 운영은 admin_settings) ↔ 필라이프 동네 피드·글쓰기 연동
  */
 
-import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
-import { listTopicsForSectionSlug } from "@/lib/community-feed/queries";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import {
+  getPhilifeNeighborhoodSectionResolvedServer,
+  type PhilifeSectionResolveTimings,
+} from "@/lib/community-feed/philife-neighborhood-section";
+import {
+  listTopicsForSectionSlug,
+  mapCommunityTopicRowsToDto,
+  type PhilifeTopicsListQueryTimings,
+} from "@/lib/community-feed/queries";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import {
   normalizeCommunityFeedListSkin,
@@ -27,23 +35,163 @@ let philifeSectionTopicsCache: { topics: CommunityTopicDTO[]; expiresAt: number 
 const PHILIFE_SECTION_TOPICS_TTL_MS = 45_000;
 const PHILIFE_TOPICS_FLIGHT_KEY = "philife:default-section-topics";
 
+const collectTopicsDiag = process.env.NODE_ENV === "development";
+
+/** 마지막 `loadPhilifeDefaultSectionTopics` 콜드 경로 분해 — 개발 전용, 동시 요청 시 마지막 완료분만 유효 */
+export type PhilifeTopicsColdLoadMetrics = {
+  topics_cache_hit: boolean;
+  /** `admin_settings` 기반 normalize 후보 slug — 없으면 null */
+  section_slug_candidate: string | null;
+  resolved_slug: string;
+  /** `getPhilife…Resolved` 가 `sectionId` 를 줘 `listTopics` 가 섹션 id 조회를 생략했는지 */
+  section_id_lookup_skipped: boolean;
+  community_topics_query_rounds: number;
+  topics_settings_lookup_ms: number;
+  topics_section_resolve_ms: number;
+  topics_topics_query_ms: number;
+  topics_topics_fallback_ms: number;
+  /** `runSingleFlight` 콜백 내부(섹션 해석 + 토픽 목록) 벽시계 */
+  topics_total_ms: number;
+  /** DB RPC 한 번으로 admin+section+topics 처리 여부 */
+  topics_unified_rpc?: boolean;
+};
+
+let lastPhilifeTopicsColdMetrics: PhilifeTopicsColdLoadMetrics | null = null;
+
+export function peekLastPhilifeTopicsColdMetrics(): PhilifeTopicsColdLoadMetrics | null {
+  return lastPhilifeTopicsColdMetrics;
+}
+
+function setTopicsCacheHitMetrics(): void {
+  if (!collectTopicsDiag) return;
+  lastPhilifeTopicsColdMetrics = {
+    topics_cache_hit: true,
+    section_slug_candidate: null,
+    resolved_slug: "",
+    section_id_lookup_skipped: false,
+    community_topics_query_rounds: 0,
+    topics_settings_lookup_ms: 0,
+    topics_section_resolve_ms: 0,
+    topics_topics_query_ms: 0,
+    topics_topics_fallback_ms: 0,
+    topics_total_ms: 0,
+    topics_unified_rpc: false,
+  };
+}
+
+type PhilifeTopicsRpcPayload = {
+  resolved_slug?: string;
+  section_slug_candidate?: string;
+  topics?: unknown;
+};
+
+async function tryLoadPhilifeDefaultTopicsViaDbRpc(): Promise<{
+  topics: CommunityTopicDTO[];
+  rpcMs: number;
+  meta: { resolved_slug: string; section_slug_candidate: string };
+} | null> {
+  try {
+    const sb = getSupabaseServer();
+    const t0 = performance.now();
+    const { data, error } = await sb.rpc("philife_list_default_section_topics_for_feed");
+    const rpcMs = performance.now() - t0;
+    if (error || data == null) return null;
+    const root = data as PhilifeTopicsRpcPayload;
+    const raw = root.topics;
+    if (!Array.isArray(raw)) return null;
+    const topics = mapCommunityTopicRowsToDto(raw as Record<string, unknown>[]);
+    return {
+      topics,
+      rpcMs,
+      meta: {
+        resolved_slug: String(root.resolved_slug ?? "dongnae"),
+        section_slug_candidate: String(root.section_slug_candidate ?? "dongnae"),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** 섹션 기준 피드 주제 행 (서버 프로세스 메모리 캐시, TTL 약 45초) */
 export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicDTO[]> {
   const now = Date.now();
   if (philifeSectionTopicsCache && philifeSectionTopicsCache.expiresAt > now) {
+    setTopicsCacheHitMetrics();
     return philifeSectionTopicsCache.topics;
   }
   return runSingleFlight(PHILIFE_TOPICS_FLIGHT_KEY, async () => {
     const hit = philifeSectionTopicsCache;
     if (hit && hit.expiresAt > Date.now()) {
+      setTopicsCacheHitMetrics();
       return hit.topics;
     }
-    const slug = await getPhilifeNeighborhoodSectionSlugServer();
-    const topics = await listTopicsForSectionSlug(slug);
+    const tInner0 = performance.now();
+    const rpcPack = await tryLoadPhilifeDefaultTopicsViaDbRpc();
+    let topics: CommunityTopicDTO[];
+    if (rpcPack) {
+      topics = rpcPack.topics;
+      philifeSectionTopicsCache = {
+        topics,
+        expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
+      };
+      if (collectTopicsDiag) {
+        lastPhilifeTopicsColdMetrics = {
+          topics_cache_hit: false,
+          section_slug_candidate: rpcPack.meta.section_slug_candidate,
+          resolved_slug: rpcPack.meta.resolved_slug,
+          section_id_lookup_skipped: true,
+          community_topics_query_rounds: 1,
+          topics_settings_lookup_ms: 0,
+          topics_section_resolve_ms: 0,
+          topics_topics_query_ms: Math.round(rpcPack.rpcMs),
+          topics_topics_fallback_ms: 0,
+          topics_total_ms: Math.round(performance.now() - tInner0),
+          topics_unified_rpc: true,
+        };
+      }
+      return topics;
+    }
+
+    const sectionTimings: PhilifeSectionResolveTimings = {
+      topics_settings_lookup_ms: 0,
+      topics_section_resolve_ms: 0,
+    };
+    const listTimings: PhilifeTopicsListQueryTimings = {
+      topics_topics_query_ms: 0,
+      topics_topics_fallback_ms: 0,
+      communityTopicsQueryRounds: 0,
+    };
+    const resolved = await getPhilifeNeighborhoodSectionResolvedServer(
+      undefined,
+      collectTopicsDiag ? sectionTimings : undefined
+    );
+    topics = await listTopicsForSectionSlug(
+      resolved.slug,
+      {
+        sectionId: resolved.sectionId ? resolved.sectionId : undefined,
+        timings: collectTopicsDiag ? listTimings : undefined,
+      }
+    );
     philifeSectionTopicsCache = {
       topics,
       expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
     };
+    if (collectTopicsDiag) {
+      lastPhilifeTopicsColdMetrics = {
+        topics_cache_hit: false,
+        section_slug_candidate: resolved.topicsAdminCandidateSlug,
+        resolved_slug: resolved.slug,
+        section_id_lookup_skipped: Boolean(resolved.sectionId),
+        community_topics_query_rounds: listTimings.communityTopicsQueryRounds,
+        topics_settings_lookup_ms: Math.round(sectionTimings.topics_settings_lookup_ms),
+        topics_section_resolve_ms: Math.round(sectionTimings.topics_section_resolve_ms),
+        topics_topics_query_ms: Math.round(listTimings.topics_topics_query_ms),
+        topics_topics_fallback_ms: Math.round(listTimings.topics_topics_fallback_ms),
+        topics_total_ms: Math.round(performance.now() - tInner0),
+        topics_unified_rpc: false,
+      };
+    }
     return topics;
   });
 }

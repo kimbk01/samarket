@@ -36,12 +36,14 @@ export function postOwnedByUserId(
  */
 export async function fetchNicknamesForUserIds(
   sbAny: SupabaseClient<any>,
-  userIds: string[]
+  userIds: string[],
+  metrics?: { profileSelect: number; testUsersSelect: number }
 ): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
   if (ids.length === 0) return map;
 
+  if (metrics) metrics.profileSelect += 1;
   const { data: profiles } = await sbAny.from("profiles").select("id, nickname, username").in("id", ids);
   (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
     const id = p.id as string;
@@ -52,6 +54,7 @@ export async function fetchNicknamesForUserIds(
   const needTest = ids.filter((id) => !map.has(id));
   if (needTest.length === 0) return map;
 
+  if (metrics) metrics.testUsersSelect += 1;
   const { data: testUsers } = await sbAny
     .from("test_users")
     .select("id, display_name, username")

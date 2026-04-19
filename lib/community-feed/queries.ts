@@ -14,9 +14,34 @@ import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
 
+/** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
+export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
+  return rows.map((row) => ({
+    id: String(row.id),
+    section_id: String(row.section_id ?? ""),
+    name: String(row.name ?? ""),
+    slug: String(row.slug ?? ""),
+    color: row.color != null ? String(row.color) : null,
+    icon: row.icon != null ? String(row.icon) : null,
+    sort_order: Number(row.sort_order ?? 0),
+    is_visible: !!row.is_visible,
+    is_feed_sort: !!row.is_feed_sort,
+    allow_question: !!row.allow_question,
+    allow_meetup: !!row.allow_meetup,
+    feed_list_skin: normalizeCommunityFeedListSkin(row.feed_list_skin),
+  }));
+}
+
 type Sb = ReturnType<typeof getSupabaseServer>;
 
 export { normalizeSectionSlug } from "./constants";
+
+/** `loadPhilifeDefaultSectionTopics` 진단용 — `listTopicsForSectionSlug` 가 선택적으로 채움 */
+export type PhilifeTopicsListQueryTimings = {
+  topics_topics_query_ms: number;
+  topics_topics_fallback_ms: number;
+  communityTopicsQueryRounds: number;
+};
 
 export async function listCommunitySections(): Promise<CommunitySectionDTO[]> {
   try {
@@ -48,56 +73,64 @@ export async function listAllCommunitySectionsForAdmin(): Promise<CommunitySecti
   }
 }
 
-export async function listTopicsForSectionSlug(sectionSlug: string): Promise<CommunityTopicDTO[]> {
+export async function listTopicsForSectionSlug(
+  sectionSlug: string,
+  opts?: { sectionId?: string | null; timings?: PhilifeTopicsListQueryTimings }
+): Promise<CommunityTopicDTO[]> {
   try {
     const sb = getSupabaseServer();
-    const { data: sec, error: e1 } = await sb
-      .from("community_sections")
-      .select("id")
-      .eq("slug", sectionSlug)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (e1 || !sec) return [];
+    const tim = opts?.timings;
+    let sectionId: string;
+    const preId = opts?.sectionId != null ? String(opts.sectionId).trim() : "";
+    if (preId) {
+      sectionId = preId;
+    } else {
+      const { data: sec, error: e1 } = await sb
+        .from("community_sections")
+        .select("id")
+        .eq("slug", sectionSlug)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (e1 || !sec) return [];
+      sectionId = (sec as { id: string }).id;
+    }
 
     const selWith =
       "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin";
     const selNo =
       "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup";
+    const tq1 = tim ? performance.now() : 0;
     const r1 = await sb
       .from("community_topics")
       .select(selWith)
-      .eq("section_id", (sec as { id: string }).id)
+      .eq("section_id", sectionId)
       .eq("is_active", true)
       .eq("is_visible", true)
       .order("sort_order", { ascending: true });
+    if (tim) {
+      tim.topics_topics_query_ms += performance.now() - tq1;
+      tim.communityTopicsQueryRounds = 1;
+    }
     let topicRows: unknown = r1.data;
     let error = r1.error;
     if (error && isMissingDbColumnError(error, "feed_list_skin")) {
+      const tq2 = tim ? performance.now() : 0;
       const r2 = await sb
         .from("community_topics")
         .select(selNo)
-        .eq("section_id", (sec as { id: string }).id)
+        .eq("section_id", sectionId)
         .eq("is_active", true)
         .eq("is_visible", true)
         .order("sort_order", { ascending: true });
+      if (tim) {
+        tim.topics_topics_fallback_ms += performance.now() - tq2;
+        tim.communityTopicsQueryRounds = 2;
+      }
       topicRows = r2.data;
       error = r2.error;
     }
     if (error || !Array.isArray(topicRows)) return [];
-    return (topicRows as Record<string, unknown>[]).map((row) => ({
-      id: String(row.id),
-      section_id: String(row.section_id ?? ""),
-      name: String(row.name ?? ""),
-      slug: String(row.slug ?? ""),
-      color: row.color != null ? String(row.color) : null,
-      icon: row.icon != null ? String(row.icon) : null,
-      sort_order: Number(row.sort_order ?? 0),
-      is_visible: !!row.is_visible,
-      is_feed_sort: !!row.is_feed_sort,
-      allow_question: !!row.allow_question,
-      allow_meetup: !!row.allow_meetup,
-      feed_list_skin: normalizeCommunityFeedListSkin(row.feed_list_skin),
-    }));
+    return mapCommunityTopicRowsToDto(topicRows as Record<string, unknown>[]);
   } catch {
     return [];
   }

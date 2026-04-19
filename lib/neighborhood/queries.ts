@@ -32,6 +32,66 @@ function summarize(text: string, max = 120): string {
   return `${t.slice(0, max)}…`;
 }
 
+function countCsvSelectColumns(selectList: string): number {
+  return selectList.split(",").map((c) => c.trim()).filter(Boolean).length;
+}
+
+/** 개발·진단용 — `listNeighborhoodFeed` 가 채움(프로덕션 응답 본문에는 포함하지 않음) */
+export type NeighborhoodFeedServerPerfMs = {
+  /**
+   * 메인 `community_posts` 구간 합 — `main_query_filter_prepare_ms` + `main_query_db_ms` + `main_query_postprocess_ms`.
+   * (과거에는 DB await 만 포함했으나, 분해와 합계를 맞추기 위해 전 구간으로 통일)
+   */
+  community_query_main_ms: number;
+  /** `buildFeedQuery` 동기 체인 구성(각 라운드 합) */
+  main_query_filter_prepare_ms: number;
+  /** Supabase 왕복(await) 합 — 라운드마다 1회 이상 */
+  main_query_db_ms: number;
+  /** 마지막 성공 응답 직후 ~ `rows`·`postIds` 확정까지(차단/이웃 필터·slice). meetings/닉 제외 */
+  main_query_postprocess_ms: number;
+  /** `range` 전 DB가 돌려준 원시 행 수(필터 전) */
+  main_query_row_count: number;
+  /** 성공 시 사용한 select 문자열의 컬럼 개수(쉼표 분리) */
+  main_query_selected_columns_count: number;
+  /** 마지막 성공 라운드의 select 목록(진단용) */
+  main_query_select_columns: string;
+  /** eq / or / range 요약 */
+  main_query_where_summary: string;
+  /** order + range 요약 */
+  main_query_order_summary: string;
+  /** 차단/관심이웃 프리페치 + 닉네임·모임 병렬 구간 합(벽시계 합, 순차 단계) */
+  community_query_related_ms: number;
+  community_result_transform_ms: number;
+  main_query_rounds: number;
+  post_return_count: number;
+  image_url_count_approx: number;
+  /** `fetchNicknamesForUserIds` 내부: profiles 1회 + 필요 시 test_users 1회 */
+  nickname_query_rounds: number;
+  /** meetings `.in(post_id)` 시도 횟수(컬럼 폴백) */
+  meetings_query_rounds: number;
+  /** 로그인 시 `fetchBlockedAuthorIdsForViewer` 가 실행한 Supabase `.from` 호출 수(캐시 히트면 0) */
+  blocked_supabase_calls: number;
+  neighbor_follow_query: 0 | 1;
+  /** `fetchBlockedAuthorIdsForViewer` 단일 await 구간(내부 최대 4 parallel select) */
+  related_blocked_filter_ms: number;
+  /** `neighborOnly` 이고 로그인일 때만 `fetchNeighborFollowTargetIds` */
+  related_neighbor_filter_ms: number;
+  /** `fetchNicknamesForUserIds` 전체(배치 profiles + 필요 시 test_users) */
+  related_nickname_ms: number;
+  /** `meetings` `.in(post_id, …)` 1회 */
+  related_meetings_ms: number;
+  /**
+   * 병렬 구간에서 각 다리 벽시계 합보다 큰 잔여(이벤트 루프·`topicsPromise`가 social과 겹칠 때 등).
+   * `community_query_related_ms` ≈ max(social 다리) + max(nick, meetings) + related_other_ms 가 아님 —
+   * related_ms는 순차(social 벽시계 + nick∥meet 벽시계)이므로 other는 각 병렬 묶음의 잔여 합.
+   */
+  related_other_ms: number;
+  /** 필터 통과 후 글 행 기준 고유 `user_id` 수 — 닉네임 배치 입력 크기 */
+  related_distinct_author_ids: number;
+  /** meetings `.in` 에 넣은 `community_posts.id` 개수 */
+  related_meetings_post_ids: number;
+};
+
 export type NeighborhoodFeedPageResult = {
   posts: NeighborhoodFeedPostDTO[];
   hasMore: boolean;
@@ -40,6 +100,8 @@ export type NeighborhoodFeedPageResult = {
    * 필터로 반환 건수가 줄어도 offset은 이 값만큼 진행해야 페이지 경계에서 중복이 나지 않음.
    */
   dbScannedCount: number;
+  /** `NODE_ENV === "development"` 일 때만 채움 — 라우트가 응답 헤더로 노출 */
+  serverCommunityPerf?: NeighborhoodFeedServerPerfMs;
 };
 
 export async function listNeighborhoodFeed(options: {
@@ -74,19 +136,51 @@ export async function listNeighborhoodFeed(options: {
   const lid = options.locationId?.trim() ?? "";
   if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
 
+  const collectPerf = process.env.NODE_ENV === "development";
+  const blockedMetrics = { supabaseSelectCalls: 0 };
+  const nickMetrics = { profileSelect: 0, testUsersSelect: 0 };
+  let meetingsQueryRounds = 0;
+  let socialPreflightMs = 0;
+  let mainPrepareMs = 0;
+  let mainDbMs = 0;
+  let mainPostprocessMs = 0;
+  let mainRounds = 0;
+  let nickMeetMs = 0;
+  let transformMs = 0;
+  let relatedBlockedFilterMs = 0;
+  let relatedNeighborFilterMs = 0;
+  let relatedNicknameMs = 0;
+  let relatedMeetingsMs = 0;
+
   const v = options.viewerUserId?.trim() ?? "";
   const topicsPromise = options.topics ? Promise.resolve(options.topics) : loadPhilifeDefaultSectionTopics();
-  const [topics, socialPair] = await Promise.all([
-    topicsPromise,
-    v
-      ? Promise.all([
-          fetchBlockedAuthorIdsForViewer(sb, v),
-          options.neighborOnly === true ? fetchNeighborFollowTargetIds(sb, v) : Promise.resolve<Set<string> | null>(null),
-        ])
-      : Promise.resolve([new Set<string>(), null] as [Set<string>, Set<string> | null]),
-  ]);
-  const blockExclude = socialPair[0];
-  const neighborOnlySet: Set<string> | null = socialPair[1];
+
+  const blockedP: Promise<Set<string>> = v
+    ? (async () => {
+        const t0 = performance.now();
+        try {
+          return await fetchBlockedAuthorIdsForViewer(sb, v, collectPerf ? blockedMetrics : undefined);
+        } finally {
+          if (collectPerf) relatedBlockedFilterMs = performance.now() - t0;
+        }
+      })()
+    : Promise.resolve(new Set<string>());
+
+  const neighborP: Promise<Set<string> | null> =
+    v && options.neighborOnly === true
+      ? (async () => {
+          const t0 = performance.now();
+          try {
+            return await fetchNeighborFollowTargetIds(sb, v);
+          } finally {
+            if (collectPerf) relatedNeighborFilterMs = performance.now() - t0;
+          }
+        })()
+      : Promise.resolve<Set<string> | null>(null);
+
+  const tSoc0 = performance.now();
+  const [topics, blockExclude, neighborOnlySet] = await Promise.all([topicsPromise, blockedP, neighborP]);
+  socialPreflightMs = performance.now() - tSoc0;
 
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
@@ -97,13 +191,13 @@ export async function listNeighborhoodFeed(options: {
   const authorUserId = options.authorUserId?.trim();
 
   const FEED_SELECT_FULL =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const FEED_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE =
-    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
   const buildFeedQuery = (selectCols: string, useTopicSlugFilter: boolean) => {
     let qq = sb
@@ -132,11 +226,24 @@ export async function listNeighborhoodFeed(options: {
     return qq.range(offset, offset + fetchCount - 1);
   };
 
+  const runMainSelect = async (selectCols: string, useTopicSlugFilter: boolean) => {
+    const tPrep = performance.now();
+    const q = buildFeedQuery(selectCols, useTopicSlugFilter);
+    mainPrepareMs += performance.now() - tPrep;
+    const tDb = performance.now();
+    const res = await q;
+    mainDbMs += performance.now() - tDb;
+    mainRounds += 1;
+    return res;
+  };
+
   let useTopicSlug = true;
-  let { data, error } = await buildFeedQuery(FEED_SELECT_FULL, true);
+  let effectiveSelectCols = FEED_SELECT_FULL;
+  let { data, error } = await runMainSelect(FEED_SELECT_FULL, true);
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlug = false;
-    ({ data, error } = await buildFeedQuery(FEED_SELECT_FULL_NO_TOPIC_SLUG, false));
+    ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG, false));
+    effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG;
   }
   if (
     error &&
@@ -144,14 +251,48 @@ export async function listNeighborhoodFeed(options: {
       isMissingDbColumnError(error, "is_meetup") ||
       isMissingDbColumnError(error, "meetup_place"))
   ) {
-    ({ data, error } = await buildFeedQuery(
-      useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG,
-      useTopicSlug
-    ));
+    effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG;
+    ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug));
   }
 
-  if (error || !Array.isArray(data)) return { posts: [], hasMore: false, dbScannedCount: 0 };
+  if (error || !Array.isArray(data)) {
+    const empty: NeighborhoodFeedPageResult = { posts: [], hasMore: false, dbScannedCount: 0 };
+    if (collectPerf) {
+      const maxSocLeg = Math.max(relatedBlockedFilterMs, relatedNeighborFilterMs);
+      const relatedOtherSocial = Math.max(0, socialPreflightMs - maxSocLeg);
+      const mainTotalErr = mainPrepareMs + mainDbMs;
+      empty.serverCommunityPerf = {
+        community_query_main_ms: Math.round(mainTotalErr),
+        main_query_filter_prepare_ms: Math.round(mainPrepareMs),
+        main_query_db_ms: Math.round(mainDbMs),
+        main_query_postprocess_ms: 0,
+        main_query_row_count: 0,
+        main_query_selected_columns_count: 0,
+        main_query_select_columns: "",
+        main_query_where_summary: "",
+        main_query_order_summary: "",
+        community_query_related_ms: Math.round(socialPreflightMs),
+        community_result_transform_ms: 0,
+        main_query_rounds: mainRounds,
+        post_return_count: 0,
+        image_url_count_approx: 0,
+        nickname_query_rounds: 0,
+        meetings_query_rounds: 0,
+        blocked_supabase_calls: blockedMetrics.supabaseSelectCalls,
+        neighbor_follow_query: options.neighborOnly === true && v ? 1 : 0,
+        related_blocked_filter_ms: Math.round(relatedBlockedFilterMs),
+        related_neighbor_filter_ms: Math.round(relatedNeighborFilterMs),
+        related_nickname_ms: 0,
+        related_meetings_ms: 0,
+        related_other_ms: Math.round(relatedOtherSocial),
+        related_distinct_author_ids: 0,
+        related_meetings_post_ids: 0,
+      };
+    }
+    return empty;
+  }
 
+  const tSyncA = performance.now();
   const dbScannedCount = data.length;
   let rows = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
@@ -169,26 +310,43 @@ export async function listNeighborhoodFeed(options: {
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
   const postIds = rows.map((r) => String(r.id));
+  mainPostprocessMs = performance.now() - tSyncA;
+  /**
+   * `tenure_type` 은 `supabase/migrations/20260401120000_meetings_tenure_type.sql` 기준으로 고정.
+   * 컬럼 미적용 DB에서의 2라운드 폴백은 RTT 낭비라 제거(운영 스키마가 마이그레이션을 따른다는 전제).
+   */
   const meetingsPromise =
     postIds.length > 0
       ? (async () => {
-          const rMeet = await sb
-            .from("meetings")
-            .select("id, post_id, meeting_date, tenure_type")
-            .in("post_id", postIds);
-          if (rMeet.error && isMissingDbColumnError(rMeet.error, "tenure_type")) {
-            const r2 = await sb.from("meetings").select("id, post_id, meeting_date").in("post_id", postIds);
-            return (r2.data as unknown[] | null) ?? null;
+          meetingsQueryRounds += 1;
+          const t0 = performance.now();
+          try {
+            const rMeet = await sb
+              .from("meetings")
+              .select("id, post_id, meeting_date, tenure_type")
+              .in("post_id", postIds);
+            return (rMeet.data as unknown[] | null) ?? null;
+          } finally {
+            if (collectPerf) relatedMeetingsMs = performance.now() - t0;
           }
-          return (rMeet.data as unknown[] | null) ?? null;
         })()
       : Promise.resolve(null);
+  const syncAfterMainMs = performance.now() - tSyncA;
 
-  const [nickMap, meetings] = await Promise.all([
-    fetchNicknamesForUserIds(sb as never, uids),
-    meetingsPromise,
-  ]);
+  const nickPromise = (async () => {
+    const t0 = performance.now();
+    try {
+      return await fetchNicknamesForUserIds(sb as never, uids, collectPerf ? nickMetrics : undefined);
+    } finally {
+      if (collectPerf) relatedNicknameMs = performance.now() - t0;
+    }
+  })();
 
+  const tNick0 = performance.now();
+  const [nickMap, meetings] = await Promise.all([nickPromise, meetingsPromise]);
+  nickMeetMs = performance.now() - tNick0;
+
+  const tSyncB = performance.now();
   const meetByPost = new Map<string, { id: string; meeting_date: string | null; tenure_type?: string | null }>();
   if (Array.isArray(meetings)) {
     for (const m of meetings as {
@@ -252,8 +410,63 @@ export async function listNeighborhoodFeed(options: {
           : meet?.meeting_date ?? (r.meetup_date != null ? String(r.meetup_date) : null),
     };
   });
+  transformMs = syncAfterMainMs + (performance.now() - tSyncB);
 
-  return { posts, hasMore, dbScannedCount };
+  const main_query_where_summary = (() => {
+    const parts = [`status.eq.${COMMUNITY_POST_FEED_STATUS_ACTIVE}`];
+    if (allLocations) parts.push("scope=global");
+    else parts.push("scope=location_id+not_null");
+    if (cat) {
+      if (cat === "meetup") parts.push("filter=category.eq.meetup");
+      else if (useTopicSlug && normalizeNeighborhoodCategory(cat))
+        parts.push(`filter=or(category.eq.${cat},topic_slug.eq.${cat})`);
+      else if (useTopicSlug) parts.push(`filter=topic_slug.eq.${cat}`);
+      else parts.push(`filter=category.eq.${cat}`);
+    } else parts.push("filter=none");
+    if (authorUserId) parts.push("user_id.eq");
+    return parts.join(";");
+  })();
+  const main_query_order_summary = `order=created_at.desc,id.desc;range=${offset}-${offset + fetchCount - 1};window=${fetchCount}`;
+
+  const maxSocialLeg = Math.max(relatedBlockedFilterMs, relatedNeighborFilterMs);
+  const relatedOtherSocial = Math.max(0, socialPreflightMs - maxSocialLeg);
+  const maxNickMeetLeg = Math.max(relatedNicknameMs, relatedMeetingsMs);
+  const relatedOtherNickMeet = Math.max(0, nickMeetMs - maxNickMeetLeg);
+  const relatedOtherMs = relatedOtherSocial + relatedOtherNickMeet;
+
+  const mainTotalMs = mainPrepareMs + mainDbMs + mainPostprocessMs;
+
+  const serverCommunityPerf: NeighborhoodFeedServerPerfMs | undefined = collectPerf
+    ? {
+        community_query_main_ms: Math.round(mainTotalMs),
+        main_query_filter_prepare_ms: Math.round(mainPrepareMs),
+        main_query_db_ms: Math.round(mainDbMs),
+        main_query_postprocess_ms: Math.round(mainPostprocessMs),
+        main_query_row_count: dbScannedCount,
+        main_query_selected_columns_count: countCsvSelectColumns(effectiveSelectCols),
+        main_query_select_columns: effectiveSelectCols,
+        main_query_where_summary,
+        main_query_order_summary,
+        community_query_related_ms: Math.round(socialPreflightMs + nickMeetMs),
+        community_result_transform_ms: Math.round(transformMs),
+        main_query_rounds: mainRounds,
+        post_return_count: posts.length,
+        image_url_count_approx: posts.reduce((n, p) => n + (Array.isArray(p.images) ? p.images.length : 0), 0),
+        nickname_query_rounds: nickMetrics.profileSelect + nickMetrics.testUsersSelect,
+        meetings_query_rounds: meetingsQueryRounds,
+        blocked_supabase_calls: blockedMetrics.supabaseSelectCalls,
+        neighbor_follow_query: options.neighborOnly === true && v ? 1 : 0,
+        related_blocked_filter_ms: Math.round(relatedBlockedFilterMs),
+        related_neighbor_filter_ms: Math.round(relatedNeighborFilterMs),
+        related_nickname_ms: Math.round(relatedNicknameMs),
+        related_meetings_ms: Math.round(relatedMeetingsMs),
+        related_other_ms: Math.round(relatedOtherMs),
+        related_distinct_author_ids: uids.length,
+        related_meetings_post_ids: postIds.length,
+      }
+    : undefined;
+
+  return { posts, hasMore, dbScannedCount, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
 }
 
 /** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */
@@ -293,16 +506,15 @@ export async function getNeighborhoodPostDetail(
 
   const v = options?.viewerUserId?.trim() ?? "";
   const DETAIL_SELECT_FULL =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const DETAIL_SELECT_FULL_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE =
-    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, content, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
   const DETAIL_SELECT_BASE_NO_TOPIC_SLUG =
-    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status, is_sample_data";
+    "id, user_id, title, content, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
   const fetchDetailRow = async (cols: string) => {
-    /** `is_sample_data` 는 어드민·시드 구분용 — 공개 피드·상세와 동일하게 플래그만으로 숨기지 않음 */
     let q = sb.from("community_posts").select(cols).eq("id", postId);
     if (v) {
       q = q.or(`status.eq.${COMMUNITY_POST_FEED_STATUS_ACTIVE},user_id.eq.${v}`);

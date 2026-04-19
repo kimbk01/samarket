@@ -6,10 +6,18 @@ import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-l
 import {
   isPhilifeFeedCategorySlugAllowedByTopics,
   loadPhilifeDefaultSectionTopics,
+  peekLastPhilifeTopicsColdMetrics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 
+const COMMUNITY_FEED_PERF_HEADER = "x-samarket-community-feed-perf" as const;
+
 export async function GET(req: NextRequest) {
+  const tRoute0 = performance.now();
+  let authResolveMs = 0;
+  let topicsResolveMs = 0;
+  let locationEnsureMs = 0;
+
   const globalFeed = req.nextUrl.searchParams.get("globalFeed") === "1";
   const locationKey = req.nextUrl.searchParams.get("locationKey")?.trim() ?? "";
   const city = req.nextUrl.searchParams.get("city")?.trim() ?? "";
@@ -26,8 +34,18 @@ export async function GET(req: NextRequest) {
   }
 
   const [viewerUserId, topics] = await Promise.all([
-    getOptionalAuthenticatedUserId(),
-    loadPhilifeDefaultSectionTopics(),
+    (async () => {
+      const a = performance.now();
+      const r = await getOptionalAuthenticatedUserId();
+      authResolveMs = performance.now() - a;
+      return r;
+    })(),
+    (async () => {
+      const a = performance.now();
+      const r = await loadPhilifeDefaultSectionTopics();
+      topicsResolveMs = performance.now() - a;
+      return r;
+    })(),
   ]);
 
   let locationId: string | null = null;
@@ -39,7 +57,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
     }
     const coalesced = coalesceNeighborhoodLocationInput(locationKey, { city, district, name });
+    const tLoc0 = performance.now();
     locationId = await ensureLocationId(sb, locationKey, coalesced);
+    locationEnsureMs = performance.now() - tLoc0;
   }
 
   if (neighborOnly && !viewerUserId) {
@@ -73,7 +93,7 @@ export async function GET(req: NextRequest) {
   const offset = Math.min(Math.max(parseInt(offsetRaw, 10) || 0, 0), 500);
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
 
-  const { posts, hasMore, dbScannedCount } = await listNeighborhoodFeed({
+  const listResult = await listNeighborhoodFeed({
     ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
     category: category ?? undefined,
     authorUserId: authorId,
@@ -83,6 +103,7 @@ export async function GET(req: NextRequest) {
     neighborOnly,
     topics,
   });
+  const { posts, hasMore, dbScannedCount, serverCommunityPerf } = listResult;
 
   const body = {
     ok: true as const,
@@ -101,6 +122,52 @@ export async function GET(req: NextRequest) {
    */
   if (!neighborOnly && !authorId && !viewerUserId) {
     headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=120");
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    let responseJsonMs = 0;
+    const tJson = performance.now();
+    try {
+      JSON.stringify(body);
+    } catch {
+      /* ignore */
+    }
+    responseJsonMs = performance.now() - tJson;
+    const community_route_total_ms = Math.round(performance.now() - tRoute0);
+    const topicsDiag = peekLastPhilifeTopicsColdMetrics();
+    const topicsBreakdown =
+      topicsDiag != null
+        ? {
+            topics_cache_hit: topicsDiag.topics_cache_hit,
+            section_slug_candidate: topicsDiag.section_slug_candidate,
+            resolved_slug: topicsDiag.resolved_slug,
+            section_id_lookup_skipped: topicsDiag.section_id_lookup_skipped,
+            community_topics_query_rounds: topicsDiag.community_topics_query_rounds,
+            topics_settings_lookup_ms: topicsDiag.topics_settings_lookup_ms,
+            topics_section_resolve_ms: topicsDiag.topics_section_resolve_ms,
+            topics_topics_query_ms: topicsDiag.topics_topics_query_ms,
+            topics_topics_fallback_ms: topicsDiag.topics_topics_fallback_ms,
+            topics_total_ms: topicsDiag.topics_total_ms,
+            topics_unified_rpc: topicsDiag.topics_unified_rpc === true,
+            /** `runSingleFlight` 대기 등으로 `community_topics_resolve_ms` 가 `topics_total_ms` 보다 클 때 */
+            topics_outer_vs_inner_delta_ms: topicsDiag.topics_cache_hit
+              ? 0
+              : Math.max(0, Math.round(topicsResolveMs) - topicsDiag.topics_total_ms),
+          }
+        : {};
+    headers.set(
+      COMMUNITY_FEED_PERF_HEADER,
+      JSON.stringify({
+        community_route_total_ms,
+        community_auth_resolve_ms: Math.round(authResolveMs),
+        community_topics_resolve_ms: Math.round(topicsResolveMs),
+        community_location_ensure_ms: Math.round(locationEnsureMs),
+        community_response_json_ms: Math.round(responseJsonMs),
+        global_feed: globalFeed,
+        ...topicsBreakdown,
+        ...(serverCommunityPerf ?? {}),
+      })
+    );
   }
 
   return NextResponse.json(body, { headers });
