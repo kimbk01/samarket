@@ -3,9 +3,13 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import {
+
   getNeighborhoodDevSamplePost,
   toggleNeighborhoodDevSamplePostLike,
 } from "@/lib/neighborhood/dev-sample-data";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const auth = await requireAuthenticatedUserId();

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const RECENT_ORDER_STATUSES = [
   "pending",
   "accepted",
@@ -12,8 +15,6 @@ const RECENT_ORDER_STATUSES = [
   "completed",
   "refund_requested",
 ] as const;
-
-export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: Request,

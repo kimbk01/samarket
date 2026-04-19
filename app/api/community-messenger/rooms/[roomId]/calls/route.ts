@@ -4,6 +4,9 @@ import { startCommunityMessengerCallSession } from "@/lib/community-messenger/se
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

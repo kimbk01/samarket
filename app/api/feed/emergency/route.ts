@@ -5,6 +5,7 @@ import { loadFeedEmergencyBundleFromDb } from "@/lib/feed-emergency/feed-emergen
 import { computeFeedEmergencyPublicSnapshot, createDefaultFeedEmergencyBundle } from "@/lib/feed-emergency/feed-emergency-state";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SURFACES = new Set<RecommendationSurface>(["home", "search", "shop"]);

@@ -3,6 +3,7 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

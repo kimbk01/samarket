@@ -7,6 +7,9 @@ import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-locati
 import type { MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
 
 async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {

@@ -4,6 +4,9 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { cancelMyPostAd } from "@/lib/ads/mock-ad-data";
 import { cancelPostAdForUserWithServiceRole } from "@/lib/ads/post-ads-supabase";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/me/post-ads/[adId]/cancel
  * 승인 전(draft / pending_payment / pending_review)만 취소.

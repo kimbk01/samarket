@@ -6,6 +6,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 import { jsonErrorWithRequest, jsonWithRequestIdHeader } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

@@ -5,9 +5,13 @@ import { fetchCommunityMessengerVoicePlaybackBytes } from "@/lib/community-messe
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
+
   resolveVoicePlaybackContentType,
   sliceAudioBufferForRangeRequest,
 } from "@/lib/community-messenger/voice-playback";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,

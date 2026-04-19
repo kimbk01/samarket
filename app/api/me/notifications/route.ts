@@ -7,11 +7,13 @@ import {
   isOwnerStoreCommerceNotificationRow,
 } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import {
+
   getCachedNotificationUnreadCount,
   invalidateNotificationUnreadCountCache,
   type UnreadCountMode,
 } from "@/lib/notifications/notification-unread-count-cache";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isUnreachableUpstreamError(err: unknown): boolean {

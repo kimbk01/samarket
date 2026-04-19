@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { runAdminCommunityMessengerReportAction } from "@/lib/admin-community-messenger/service";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type ReportAction =
   | "reviewing"
   | "resolved"

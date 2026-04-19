@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TYPES = new Set(["product", "order", "store", "complaint"]);

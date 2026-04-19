@@ -19,6 +19,9 @@ import {
 } from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();

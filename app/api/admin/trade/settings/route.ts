@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
+
   TRADE_SETTINGS_KEY,
   mergeTradeDetailOpsSettings,
   type TradeDetailOpsSettings,
 } from "@/services/trade/trade-settings.service";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

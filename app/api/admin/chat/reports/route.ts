@@ -7,6 +7,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_REPORTS_ADMIN_SELECT } from "@/lib/chat/chat-sql-selects";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

@@ -6,6 +6,7 @@ import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 심사·운영 중 매장 — 동일 계정 2건 신청 방지·전화번호 중복 방지에 공통 사용 */

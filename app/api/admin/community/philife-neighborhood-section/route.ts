@@ -3,10 +3,12 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import {
+
   PHILIFE_NEIGHBORHOOD_SECTION_SETTINGS_KEY,
   getPhilifeNeighborhoodSectionSlugServer,
 } from "@/lib/community-feed/philife-neighborhood-section";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

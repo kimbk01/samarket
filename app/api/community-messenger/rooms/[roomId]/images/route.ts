@@ -9,6 +9,9 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_FILES = 10;

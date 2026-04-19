@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/posts/[postId]/seller-listing-state
  * Body: { sellerListingState, reservedBuyerId? } — 예약 시 reservedBuyerId 필수(이 글·판매자·해당 구매자 채팅 존재 검증)

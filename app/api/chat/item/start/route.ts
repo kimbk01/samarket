@@ -18,6 +18,9 @@ import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

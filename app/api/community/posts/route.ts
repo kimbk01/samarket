@@ -18,6 +18,9 @@ import {
 } from "@/lib/http/api-route";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function summarize(text: string, max = 160): string {
   const t = text.replace(/\s+/g, " ").trim();
   if (t.length <= max) return t;

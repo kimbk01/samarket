@@ -10,6 +10,7 @@ import {
 } from "@/lib/stores/record-store-order-payment";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

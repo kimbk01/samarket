@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getVapidPublicKeyForServer } from "@/lib/push/web-push-config";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

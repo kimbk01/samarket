@@ -6,6 +6,10 @@ import {
 } from "@/lib/neighborhood/queries";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export { POST } from "../../../../community/posts/[postId]/comments/route";
 
 function flattenNeighborhoodComments(

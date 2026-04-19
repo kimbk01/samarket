@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type RelationType = "favorite" | "hidden" | "blocked";

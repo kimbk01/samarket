@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/chat/rooms/:roomId/messages — 메시지 목록 (세션)
  * POST /api/chat/rooms/:roomId/messages — 메시지 전송 (body: body, messageType?)

@@ -4,6 +4,9 @@ import { updateOpenGroupRoomSettings } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ roomId: string }> }

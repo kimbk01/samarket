@@ -17,6 +17,9 @@ import {
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

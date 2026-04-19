@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** POST — 거래 presence heartbeat 시 `last_seen` 갱신(연결 유지·활동 기록) */

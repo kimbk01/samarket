@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function mapRow(row: Record<string, unknown> | null) {

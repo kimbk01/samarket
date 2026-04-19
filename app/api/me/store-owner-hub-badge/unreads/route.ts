@@ -8,6 +8,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { buildOwnerHubBadgeUnreadSegment } from "@/lib/chats/build-owner-hub-badge-payload";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

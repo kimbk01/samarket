@@ -7,6 +7,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
 import { resolveLegacyProductChatCreateOrGet } from "@/lib/chat-domain/use-cases/legacy-product-chat-create-or-get";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

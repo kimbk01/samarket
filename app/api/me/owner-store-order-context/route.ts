@@ -6,6 +6,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { loadOwnerStoreOrderContext } from "@/lib/business/load-owner-store-order-context";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

@@ -7,10 +7,12 @@ import { loadCategoryLite } from "@/lib/posts/category-lite";
 import { resolveServiceSegment } from "@/lib/posts/listing-service-segment";
 import type { TradeAdProductRow } from "@/lib/trade-ads/load-trade-ad-product";
 import {
+
   evaluateTradePostAdEligibility,
   TRADE_PAID_AD_FORMAT_GUIDE,
 } from "@/lib/trade-ads/trade-post-ad-policy";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ProductSummary = {

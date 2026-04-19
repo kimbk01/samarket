@@ -37,6 +37,9 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function isStoreOrderStatusCheckViolation(message: string | undefined): boolean {
   if (!message) return false;
   const m = message.toLowerCase();
@@ -45,8 +48,6 @@ function isStoreOrderStatusCheckViolation(message: string | undefined): boolean 
     (m.includes("violates check constraint") && m.includes("order_status"))
   );
 }
-
-export const dynamic = "force-dynamic";
 
 async function restoreDecrementedStock(
   sb: SupabaseClient,

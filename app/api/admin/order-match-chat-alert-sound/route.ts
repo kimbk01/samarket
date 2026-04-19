@@ -11,6 +11,7 @@ import {
 import { isValidStoreDeliverySoundUrlInput } from "@/lib/stores/store-delivery-alert-sound";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SOUND_BUCKET = "store-order-sounds";

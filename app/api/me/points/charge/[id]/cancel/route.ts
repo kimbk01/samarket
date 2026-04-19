@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import {
+
   cancelPointChargeRequest,
   getPointChargeRequestById,
 } from "@/lib/points/mock-point-charge-requests";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * POST /api/me/points/charge/[id]/cancel

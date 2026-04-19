@@ -4,9 +4,10 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { summarizeLifeDefaultAppLocation } from "@/lib/addresses/life-default-location-summary";
 
-/** 생활·거래·배달 기본지 — `user_addresses` 전용. `profiles` 위치와 자동 동기화되지 않음. @see `lib/addresses/address-source-architecture.ts` */
-
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 생활·거래·배달 기본지 — `user_addresses` 전용. `profiles` 위치와 자동 동기화되지 않음. @see `lib/addresses/address-source-architecture.ts` */
 
 export async function GET() {
   const userId = await getRouteUserId();

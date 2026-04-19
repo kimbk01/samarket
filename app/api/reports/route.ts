@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/reports — 통합 신고 접수 (public.reports)
  * 서비스 롤로 삽입. 신고자 ID는 세션(또는 로컬 테스트 쿠키)에서만 결정.

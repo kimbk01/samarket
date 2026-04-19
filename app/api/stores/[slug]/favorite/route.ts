@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function resolveStoreId(supabase: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>, slug: string) {

@@ -7,6 +7,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type BodyAction =
   | "block_room"
   | "unblock_room"

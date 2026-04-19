@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getVapidPublicKeyForServer } from "@/lib/push/web-push-config";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

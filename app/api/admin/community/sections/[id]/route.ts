@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

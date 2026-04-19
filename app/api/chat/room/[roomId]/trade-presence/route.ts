@@ -10,6 +10,7 @@ import {
 } from "@/lib/chats/trade-presence-rules";
 import { formatTradeLastSeenKo } from "@/lib/chats/trade-presence-policy";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PresenceRow = {

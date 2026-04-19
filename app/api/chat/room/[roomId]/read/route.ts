@@ -9,6 +9,9 @@ import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { parseRoomId } from "@/lib/validate-params";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

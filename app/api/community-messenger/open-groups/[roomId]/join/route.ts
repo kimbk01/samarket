@@ -3,6 +3,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { joinOpenGroupRoomWithPassword } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ roomId: string }> }

@@ -5,6 +5,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024;

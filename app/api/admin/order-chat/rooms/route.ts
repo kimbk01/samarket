@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { listOrderChatRoomsForAdmin } from "@/lib/order-chat/service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

@@ -5,6 +5,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SOUND_BUCKET = "store-order-sounds";

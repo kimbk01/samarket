@@ -4,6 +4,9 @@ import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk } from "@/lib/http
 import { listCommunityMessengerRoomMembersPage } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** 참가자 목록 페이지 — 부트스트랩과 동일 정렬 기준으로 offset 슬라이스 */
 export async function GET(
   req: NextRequest,

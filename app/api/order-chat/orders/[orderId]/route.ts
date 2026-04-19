@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

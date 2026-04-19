@@ -3,6 +3,7 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { recordStoreOrderPaid } from "@/lib/stores/record-store-order-payment";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(

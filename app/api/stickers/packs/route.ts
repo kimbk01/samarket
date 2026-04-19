@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { listStickerPacksForApi } from "@/lib/stickers/sticker-catalog-db";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export const revalidate = 600;
 
 /** 패크 목록만 — 스티커 이미지는 로드하지 않음 */

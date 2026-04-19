@@ -3,6 +3,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { createRequestId, SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

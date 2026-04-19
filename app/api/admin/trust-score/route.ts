@@ -9,6 +9,9 @@ import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { applyTrustScoreDelta } from "@/lib/trust/trust-score-apply";
 import { clampTrustScore, TRUST_SCORE_DEFAULT } from "@/lib/trust/trust-score-core";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

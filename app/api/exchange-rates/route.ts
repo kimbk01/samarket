@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** PHP → KRW 환율 (ECB 기준, Frankfurter) - 1 PHP = ? KRW */
 const FRANKFURTER_API = "https://api.frankfurter.app/latest?from=PHP&to=KRW";
 const EXCHANGE_RATE_HTTP_CACHE_CONTROL = "public, max-age=60, s-maxage=300, stale-while-revalidate=600";

@@ -3,6 +3,7 @@ import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function parseCoord(v: string | null): number | null {

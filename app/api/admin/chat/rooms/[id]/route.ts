@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/chat/rooms/:id — 관리자 채팅방 상세 (관리자 세션)
  */
@@ -11,6 +14,7 @@ import { resolveChatRoomId } from "@/lib/admin-chats/resolve-chat-room-id";
 import { fetchModerationLogsForRoom } from "@/lib/admin-chats/fetch-moderation-logs-for-room";
 import { PRODUCT_CHAT_ADMIN_LIST_SELECT, REPORT_ROW_ADMIN_MIN_SELECT } from "@/lib/admin/product-chat-sql-select";
 import {
+
   CHAT_EVENT_LOGS_ADMIN_SELECT,
   CHAT_REPORTS_ADMIN_SELECT,
   CHAT_ROOM_ADMIN_DETAIL_SELECT,

@@ -5,6 +5,7 @@ import {
 } from "@/lib/stores/buyer-public-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 공개 매장 리뷰 목록 (visible만) */

@@ -4,6 +4,7 @@ import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { getOrderChatSnapshotForAdmin } from "@/lib/order-chat/service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

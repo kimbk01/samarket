@@ -5,6 +5,7 @@ import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types
 import { createUserAddress, listUserAddresses } from "@/lib/addresses/user-address-service";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function parseCoord(v: unknown): number | null {

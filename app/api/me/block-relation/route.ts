@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET ?otherUserId=uuid
  * 양방향 차단 여부 (서비스 롤 — RLS로는 상대가 나를 차단한 행을 볼 수 없을 수 있음)

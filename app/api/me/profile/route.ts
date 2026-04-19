@@ -8,9 +8,10 @@ import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
-/** 회원 프로필 위치 — `user_addresses`·매장 주소를 이 핸들러에서 수정하지 않음. @see `lib/addresses/address-source-architecture.ts` */
-
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 회원 프로필 위치 — `user_addresses`·매장 주소를 이 핸들러에서 수정하지 않음. @see `lib/addresses/address-source-architecture.ts` */
 
 type PatchKey = keyof ProfileUpdatePayload;
 

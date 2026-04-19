@@ -4,6 +4,9 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { chargePointsOnTradePostAdActivation } from "@/lib/trade-ads/charge-trade-post-ad-points";
 import { releaseHeldPointsForTradePostAd } from "@/lib/trade-ads/trade-post-ad-point-flow";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** `select('*')` 지양 — 응답·DB 대역 최소화 (스키마: trade_post_ads 마이그레이션) */
 const TRADE_POST_ADS_ROW =
   "id, post_id, user_id, ad_product_id, apply_status, point_cost, priority, start_at, end_at, admin_memo, approved_by, approved_at, rejected_by, rejected_at, created_at, updated_at";

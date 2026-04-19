@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId, requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
+
   createCommunityMessengerCallLog,
   listCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();

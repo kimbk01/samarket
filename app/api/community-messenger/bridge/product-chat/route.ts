@@ -18,6 +18,9 @@ import {
 } from "@/lib/http/api-route";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function firstPostThumbnail(images: unknown): string | null {
   if (images == null) return null;
   if (Array.isArray(images) && images.length > 0) {

@@ -7,6 +7,9 @@ import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";
 import { ADMIN_LEGACY_PRODUCT_CHAT_LIST_LIMIT, CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const DB_ROOM_STATUS: Record<string, RoomStatus> = {
   active: "active",
   blocked: "blocked",

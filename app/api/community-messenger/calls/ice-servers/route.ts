@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function parseUrls(raw: string | undefined): string[] {

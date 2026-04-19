@@ -3,6 +3,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { updateMeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
 import type { MeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ reportId: string }>;
 }

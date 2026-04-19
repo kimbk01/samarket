@@ -3,6 +3,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { MEETING_EVENT_TYPES } from "@/lib/neighborhood/meeting-event-format";
 import { listMeetingEventsAdminPage } from "@/lib/neighborhood/meeting-events-admin-query";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function csvEscape(value: string): string {
   if (/[",\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;

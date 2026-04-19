@@ -5,6 +5,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PatchBody = { status?: string };

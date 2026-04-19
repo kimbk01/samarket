@@ -8,9 +8,10 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
-type CookieToSet = { name: string; value: string; options: CookieOptions };
-
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
   for (const c of from.cookies.getAll()) {

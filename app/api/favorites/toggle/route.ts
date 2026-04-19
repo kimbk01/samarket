@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/favorites/toggle — 찜 토글
  * Body: { postId: string } — 사용자는 세션에서만 결정

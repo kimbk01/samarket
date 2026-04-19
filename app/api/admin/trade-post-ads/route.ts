@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/trade-post-ads — 거래 상세 광고 신청 목록 (서비스 롤).
  */

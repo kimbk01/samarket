@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 판매자: 특정 글에 열린 구매자 채팅방 목록 (거래완료 진입용)
  * GET /api/my/post-buyer-chats?postId=

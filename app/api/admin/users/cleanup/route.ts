@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 테스트 회원 정리 — role=admin 인 행만 남기고 나머지 test_users 삭제
  */

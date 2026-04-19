@@ -3,10 +3,12 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
+
   BUYER_PUBLIC_LABEL_FALLBACK,
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

@@ -7,7 +7,9 @@ import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 const STORE_BROWSE_HTTP_CACHE_CONTROL = "public, max-age=15, s-maxage=30, stale-while-revalidate=60";
 
 function parseCoord(v: string | null): number | null {

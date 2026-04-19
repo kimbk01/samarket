@@ -9,6 +9,7 @@ import {
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { enforcePhoneVerificationPatchQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

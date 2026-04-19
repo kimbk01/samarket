@@ -10,6 +10,7 @@ import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function parseCategoryIds(raw: string | null): string[] {

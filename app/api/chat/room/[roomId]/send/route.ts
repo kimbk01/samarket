@@ -19,6 +19,9 @@ import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-h
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

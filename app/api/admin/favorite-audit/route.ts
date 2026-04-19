@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

@@ -4,6 +4,9 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ postId: string }>;
 }

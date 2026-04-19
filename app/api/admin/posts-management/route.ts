@@ -4,6 +4,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { fetchAdminPostsManagementProducts } from "@/lib/admin-products/admin-posts-management-data";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 게시물 관리 목록 — 서비스 롤로 posts + 카테고리 조인
  * GET /api/admin/posts-management (관리자 세션)

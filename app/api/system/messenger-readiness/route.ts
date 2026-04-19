@@ -3,6 +3,7 @@ import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { runMessengerReadinessProbe } from "@/lib/system/messenger-readiness";
 import { timingSafeEqualUtf8 } from "@/lib/security/timing-safe-string";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

@@ -18,6 +18,9 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getOrCreateRequestId } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
 
 /**

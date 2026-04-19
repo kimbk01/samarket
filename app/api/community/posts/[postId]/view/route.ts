@@ -3,10 +3,14 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import {
+
   getNeighborhoodDevSamplePost,
   getNeighborhoodDevSamplePostViewCount,
   incrementNeighborhoodDevSamplePostView,
 } from "@/lib/neighborhood/dev-sample-data";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const VIEW_COUNT_COOLDOWN_MS = 60_000;
 const viewHitMap = new Map<string, number>();

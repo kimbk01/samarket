@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { runAdminCommunityMessengerRoomAction } from "@/lib/admin-community-messenger/service";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type RoomAction =
   | "block_room"
   | "unblock_room"

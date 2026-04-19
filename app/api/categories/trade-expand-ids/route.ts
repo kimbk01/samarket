@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

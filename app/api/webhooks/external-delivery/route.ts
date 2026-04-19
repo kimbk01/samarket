@@ -7,6 +7,7 @@ import { mapExternalDeliveryPartnerStatus } from "@/lib/stores/external-delivery
 import type { StoreOrderStatus } from "@/lib/stores/order-status-transitions";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID_RE =

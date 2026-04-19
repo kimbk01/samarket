@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
 import { parseRoomId } from "@/lib/validate-params";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

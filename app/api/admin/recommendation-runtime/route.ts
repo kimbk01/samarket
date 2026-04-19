@@ -9,6 +9,7 @@ import {
 import type { RecommendationRuntimeBundleV1 } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { createDefaultRecommendationRuntimeBundle } from "@/lib/recommendation-ops/recommendation-runtime-state";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isBundle(x: unknown): x is RecommendationRuntimeBundleV1 {

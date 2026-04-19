@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/chat/item/room-id — 해당 상품에 대한 현재 사용자의 기존 채팅방 ID 조회
  * Query: itemId (세션)

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const FALLBACK_VERSION = "1.0.0";

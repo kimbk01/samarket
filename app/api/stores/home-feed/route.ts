@@ -7,7 +7,9 @@ import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 const STORE_HOME_FEED_SERVER_CACHE_TTL_MS = 20_000;
 const STORE_HOME_FEED_HTTP_CACHE_CONTROL = "public, max-age=10, s-maxage=20, stale-while-revalidate=40";
 

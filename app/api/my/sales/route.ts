@@ -14,10 +14,14 @@ import {
   countSalesHistoryItems,
 } from "@/lib/mypage/trade-history-load-server";
 import {
+
   counterpartyUserIdForSellerView,
   pickItemTradeRoomForProductChat,
   type ItemTradeRoomPair,
 } from "@/lib/mypage/sales-history-scope";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();

@@ -10,6 +10,7 @@ import {
 } from "@/lib/chats/build-owner-hub-badge-payload";
 import { countOwnerOrderChatUnread } from "@/lib/order-chat/service";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

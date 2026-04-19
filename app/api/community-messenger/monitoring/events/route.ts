@@ -4,6 +4,9 @@ import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest, jsonOkWithRequ
 import { ingestClientMessengerEvents } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const MAX_BATCH = 64;
 
 export async function POST(req: NextRequest) {

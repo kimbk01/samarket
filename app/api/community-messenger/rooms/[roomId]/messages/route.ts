@@ -17,6 +17,9 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const SEND_DEDUPE_TTL_MS = 2500;
 const sendDedupe = new Map<string, { at: number; res: { ok: boolean; message?: unknown; error?: string } }>();
 

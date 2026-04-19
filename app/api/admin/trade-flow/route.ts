@@ -9,6 +9,9 @@ import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-pos
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 거래 흐름(product_chats) + 온도 로그 샘플 — 관리자(테스트 계정 또는 profiles.role)
  * POST (관리자 세션)

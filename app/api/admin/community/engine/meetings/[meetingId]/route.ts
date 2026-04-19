@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** PATCH — 정원·상태 (관리자) */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ meetingId: string }> }) {
   const admin = await requireAdminApiUser();

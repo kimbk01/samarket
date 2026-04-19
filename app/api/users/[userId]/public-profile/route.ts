@@ -11,6 +11,7 @@ import {
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

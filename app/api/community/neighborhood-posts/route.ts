@@ -15,6 +15,9 @@ import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type MeetingEntryPolicy = "open" | "approve" | "password" | "invite_only";
 
 function resolveMeetingEntryPolicy(meet: { entry_policy?: unknown; join_policy?: unknown }): MeetingEntryPolicy {

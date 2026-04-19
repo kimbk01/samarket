@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -94,7 +95,6 @@ export async function POST(
     parentId = p.id;
   }
 
-   
   const db = sb as any;
   const insertPayload: Record<string, unknown> = {
     post_id: id,

@@ -6,6 +6,7 @@ import {
 import { getOrCreateRequestId, jsonWithRequestIdHeader } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function responseHeaders(authenticated: boolean): HeadersInit {

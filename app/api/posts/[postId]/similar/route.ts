@@ -3,6 +3,7 @@ import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clien
 import { fetchSimilarPostsWithSupabase } from "@/lib/posts/similar-posts-query-core";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

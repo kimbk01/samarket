@@ -4,6 +4,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {

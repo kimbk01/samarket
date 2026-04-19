@@ -8,6 +8,10 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type ChatRowForRead = {
   room_type?: string | null;
   meeting_id?: string | null;

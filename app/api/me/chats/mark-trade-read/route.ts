@@ -8,6 +8,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { markTradeChatChannelsReadForUser } from "@/lib/chats/mark-trade-chats-read-for-user";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {

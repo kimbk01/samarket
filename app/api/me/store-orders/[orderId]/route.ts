@@ -17,6 +17,7 @@ import {
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function loadStoreOrderReviewMeta(

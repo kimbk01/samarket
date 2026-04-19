@@ -10,6 +10,9 @@ import {
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const COMMUNITY_FEED_PERF_HEADER = "x-samarket-community-feed-perf" as const;
 
 export async function GET(req: NextRequest) {

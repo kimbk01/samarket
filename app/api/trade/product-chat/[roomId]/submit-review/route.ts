@@ -13,6 +13,9 @@ import { reviewTrustBaseDelta } from "@/lib/trust/trust-score-core";
 import type { PublicReviewType, ReviewRoleType } from "@/lib/types/daangn";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Body {
   revieweeId?: string;
   roleType?: ReviewRoleType;

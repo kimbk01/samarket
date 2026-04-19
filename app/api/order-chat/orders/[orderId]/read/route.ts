@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { markOrderChatReadForUser } from "@/lib/order-chat/service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(

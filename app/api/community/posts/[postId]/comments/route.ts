@@ -23,6 +23,9 @@ import {
 } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const startedAt = Date.now();
   const { postId } = await ctx.params;

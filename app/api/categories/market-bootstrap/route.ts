@@ -9,6 +9,7 @@ import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { loadMarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/favorites/list — 세션 사용자의 찜한 게시글 목록 (찜한 순)
  * 클라이언트 직접 Supabase 조회(RLS/세션 불일치) 대신 service role + api-session userId 사용.
@@ -14,8 +17,6 @@ import {
   POST_TRADE_LIST_SELECT,
 } from "@/lib/posts/trade-posts-range-query";
 import type { PostWithMeta } from "@/lib/posts/schema";
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   const userId = (await getOptionalAuthenticatedUserId()) ?? "";

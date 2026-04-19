@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const SAMPLE_AUTHOR_ID = "00000000-0000-4000-8000-000000000001";
 
 /** 관심이웃 여부 조회 */

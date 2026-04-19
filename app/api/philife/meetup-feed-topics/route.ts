@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { listMeetupFeedTopicsPublic } from "@/lib/neighborhood/meetup-feed-topics";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 로그인 사용자 — 모임 만들기 피드 주제 = 동네(dongnae) 섹션 `community_topics` 중 어드민 「모임」 탭과 동일 집합 */

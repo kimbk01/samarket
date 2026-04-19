@@ -4,6 +4,9 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const REPORT_TYPES = ["room", "message", "user"] as const;
 const REASON_TYPES = [
   "abuse",

@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 관리자: 해당 채팅방 거래 완료·후기 구간을 되돌림 → 판매중(chatting) + 동일 글 다른 방 복구 + 후기·온도 로그 정리
  * POST { roomId: string }

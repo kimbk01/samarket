@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, parseJsonBody } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_SUBSCRIPTIONS_PER_USER = 10;

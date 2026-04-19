@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/posts/[postId] — 글 단건(거래표시용). 부모 경로 404·프리패치 대응.
  * Query: userId (선택, 추후 RLS 대비)
@@ -7,8 +10,6 @@ import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-
-export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,

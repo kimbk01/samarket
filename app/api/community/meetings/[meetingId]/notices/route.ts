@@ -3,6 +3,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { listMeetingNotices } from "@/lib/neighborhood/queries";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }

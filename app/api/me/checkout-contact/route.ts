@@ -6,6 +6,7 @@ import { toCheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

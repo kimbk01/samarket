@@ -3,6 +3,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { toggleCommunityMessengerFavoriteFriend } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ friendUserId: string }> }

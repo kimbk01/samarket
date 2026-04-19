@@ -3,9 +3,13 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
 import {
+
   POINT_CHARGE_REQUEST_ROW_SELECT,
   POINT_LEDGER_ROW_SELECT,
 } from "@/lib/points/point-query-select";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function isMissingTable(message: string, table: string): boolean {
   const lowered = message.toLowerCase();

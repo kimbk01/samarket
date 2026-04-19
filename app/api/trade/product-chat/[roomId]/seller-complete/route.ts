@@ -7,6 +7,9 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 판매자 거래완료 — posts sold + sold_buyer_id, 동일 글 다른 채팅방 archived/readonly
  * 인증: 세션(또는 로컬 전용 테스트 쿠키)

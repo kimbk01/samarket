@@ -5,6 +5,7 @@ import { normalizeFeedSlug } from "@/lib/community-feed/constants";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

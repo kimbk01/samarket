@@ -8,6 +8,9 @@ import {
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** 테스트용 아이디/비밀번호 검증 (test_users 테이블) */
 export async function POST(req: NextRequest) {
   const loginRl = await enforceRateLimit({

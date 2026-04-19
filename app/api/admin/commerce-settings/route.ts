@@ -12,6 +12,7 @@ import {
 import { isValidStoreDeliverySoundUrlInput } from "@/lib/stores/store-delivery-alert-sound";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 관리자: 매장 커머스 수치(자동완료·정산) 조회 — DB+env 병합 결과 */

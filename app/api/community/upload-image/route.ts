@@ -4,6 +4,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
 

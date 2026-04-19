@@ -8,6 +8,7 @@ import { pruneOrphanMarketTabsInMainBottomNavValueJson } from "@/lib/main-menu/p
 import { resolveMainBottomNavAdminRows } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

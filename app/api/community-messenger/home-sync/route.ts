@@ -4,6 +4,9 @@ import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http
 import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 홈 사일런트 갱신 전용 — `rooms` + `friend-requests` + `friends` 를 한 HTTP 왕복으로 묶어
  * 클라 RTT·Next 핸들러 반복을 줄인다 (`list_bootstrap_align` 측정 구간).

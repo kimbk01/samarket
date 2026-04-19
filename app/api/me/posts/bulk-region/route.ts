@@ -6,6 +6,7 @@ import { getLocationLabel, REGIONS } from "@/lib/products/form-options";
 import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ResolvedLocation = {

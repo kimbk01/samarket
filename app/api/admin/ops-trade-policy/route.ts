@@ -7,10 +7,14 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getServiceOrAnonClient } from "@/lib/admin/verify-admin-user-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
+
   clampPolicyDays,
   DEFAULT_BUYER_AUTO_CONFIRM_DAYS,
   DEFAULT_BUYER_REVIEW_DEADLINE_DAYS,
 } from "@/lib/trade/ops-trade-policy";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest) {
   const admin = await requireAdminApiUser();

@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
+
   getNeighborhoodDevSampleMeeting,
   getNeighborhoodDevSampleMeetingMembers,
 } from "@/lib/neighborhood/dev-sample-data";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface Ctx {
   params: Promise<{ meetingId: string }>;

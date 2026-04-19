@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/admin/posts/bulk-delete
  * body: { ids: string[] } — 거래 posts 테이블 영구 삭제

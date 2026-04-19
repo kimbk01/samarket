@@ -6,6 +6,7 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { parseCreateBoardBody } from "@/lib/admin-boards/parse-create-board-body";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BOARDS_LIST_SELECT =

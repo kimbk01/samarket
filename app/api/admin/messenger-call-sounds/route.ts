@@ -3,6 +3,8 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ADMIN_MESSENGER_CALL_SOUND_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 import { invalidateMessengerCallAdminPolicyCache } from "@/lib/community-messenger/messenger-call-admin-policy";
+
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function sbOr503() {

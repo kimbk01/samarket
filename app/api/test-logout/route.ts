@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import {
+
   KASAMA_DEV_UID_COOKIE,
   KASAMA_DEV_UID_PUB_COOKIE,
 } from "@/lib/auth/dev-session-cookie";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /** 아이디 로그인(test_users) 세션 — HttpOnly 쿠키 제거 */
 export async function POST() {

@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getCommunityReportByIdForAdmin } from "@/lib/community-feed/admin-community-reports";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STATUSES = new Set(["open", "reviewing", "resolved", "dismissed"]);

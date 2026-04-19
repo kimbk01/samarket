@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** `load-trade-ad-product` 와 동일 컬럼 + 감사용 타임스탬프 */
 const AD_PRODUCTS_PATCH_RETURN =
   "id, name, description, board_key, ad_type, duration_days, point_cost, priority_default, is_active, placement, service_type, category_id, region_target, allow_duplicate, auto_approve, created_at, updated_at";

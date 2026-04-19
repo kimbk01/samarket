@@ -4,10 +4,14 @@
  */
 import { NextResponse } from "next/server";
 import {
+
   buildPhilifeFeedChipsFromTopics,
   buildPhilifeWriteTopicOptionsFromTopics,
   loadPhilifeDefaultSectionTopics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /** 브라우저·CDN이 짧게 재사용 — 주제 변경은 수초~분 단위로 반영되면 충분 */
 const TOPIC_OPTIONS_CACHE_CONTROL = "public, max-age=30, s-maxage=45, stale-while-revalidate=300";

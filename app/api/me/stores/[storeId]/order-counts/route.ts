@@ -9,6 +9,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { getCachedStoreOrderCounts } from "@/lib/stores/store-order-counts-cache";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 매장 오너: 접수 대기·동네배달·환불 요청 카운트 (허브 배지·알림용) */

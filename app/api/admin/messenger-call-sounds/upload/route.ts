@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SOUND_BUCKET = "store-order-sounds";

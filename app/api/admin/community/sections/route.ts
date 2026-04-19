@@ -4,6 +4,7 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { listAllCommunitySectionsForAdmin } from "@/lib/community-feed/queries";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

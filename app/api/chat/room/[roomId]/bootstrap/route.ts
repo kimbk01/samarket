@@ -11,6 +11,7 @@ import type { TradeChatBootstrapPhase } from "@/lib/chat-domain/ports/trade-chat
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

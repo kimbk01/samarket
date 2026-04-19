@@ -6,6 +6,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const REPORT_TYPES = ["room", "message", "user", "item"] as const;
 const REASON_TYPES = [
   "abuse", "spam", "scam", "sexual", "hate", "threat", "no_show",

@@ -6,6 +6,7 @@ import { notifyBuyerStoreOrderAutoCompleted } from "@/lib/notifications/notify-s
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 관리자: 게시물 강제 — 물품 판매 취소(숨김+예약해제) / 거래완료 표시
  * POST /api/admin/posts/[postId]/trade-override  body: { action: "cancel_sale" | "force_complete" }

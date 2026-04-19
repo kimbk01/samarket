@@ -3,6 +3,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }

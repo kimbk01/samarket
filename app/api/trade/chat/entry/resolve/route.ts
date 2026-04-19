@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveTradeChatEntry } from "@/lib/chat-domain/use-cases/trade-chat-entry-resolve";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type EntryResolveBody = {
   productId?: string;
   /** 동일 상품·동일 쌍에서 추가 `item_trade` 스레드 */

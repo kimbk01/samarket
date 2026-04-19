@@ -6,6 +6,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchPostRowForOwnerEdit } from "@/lib/posts/owner-edit-select-post-row";
 import {
+
   allowAnyPostUpdate,
   allowEditCoreFields,
   allowSoftDelete,
@@ -13,6 +14,7 @@ import {
   tradeLifecycleHint,
 } from "@/lib/trade/trade-lifecycle-policy";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(

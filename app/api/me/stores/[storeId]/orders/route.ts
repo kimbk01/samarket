@@ -10,10 +10,12 @@ import {
 } from "@/lib/stores/owner-store-pending-counts";
 import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
 import {
+
   BUYER_PUBLIC_LABEL_FALLBACK,
   mapBuyerUserIdsToPublicLabels,
 } from "@/lib/stores/buyer-public-label";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 매장 오너: 해당 매장 주문 목록 + 라인 (?meta_only=1 이면 목록 없이 meta만) */

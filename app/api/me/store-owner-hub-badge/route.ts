@@ -16,6 +16,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";
 import { buildOwnerHubBadgePayloadMerged } from "@/lib/chats/build-owner-hub-badge-payload";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {

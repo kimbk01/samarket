@@ -15,6 +15,7 @@ import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limi
 import { markAllCommunityMessengerParticipantsReadForUser } from "@/lib/community-messenger/bulk-mark-all-read";
 import { markAllOrderChatsReadForUser } from "@/lib/order-chat/service";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {

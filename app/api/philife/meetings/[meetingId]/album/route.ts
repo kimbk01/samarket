@@ -4,6 +4,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { MeetingAlbumItemDTO } from "@/lib/neighborhood/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const ALBUM_MAX_BYTES = 8 * 1024 * 1024; // 8MB
 const ALBUM_ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
 

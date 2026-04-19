@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 판매자 거래완료 처리된 채팅 목록 (구매자 미반영 구분용)
  * POST (본문 없음, 관리자 세션)

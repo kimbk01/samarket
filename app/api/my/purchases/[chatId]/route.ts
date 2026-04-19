@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 구매내역 상세 — buyer 본인 + 해당 product_chat만
  * GET /api/my/purchases/[chatId] (세션)

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { upsertAdProduct, getAdProductById } from "@/lib/ads/mock-ad-data";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * PATCH /api/admin/ad-products/[id]
  * 관리자: 광고 상품 수정

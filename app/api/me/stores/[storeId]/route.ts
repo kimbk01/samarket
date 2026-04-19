@@ -4,6 +4,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BLOCKED_APPROVAL = new Set(["rejected", "suspended"]);

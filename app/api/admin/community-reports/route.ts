@@ -4,6 +4,7 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { listCommunityReportsForAdmin } from "@/lib/community-feed/admin-community-reports";
 import { mapCommunityReportsToReports } from "@/lib/admin-reports/map-community-reports";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 관리자: 동네생활 피드 신고 목록(JSON) — 통합 신고함 병합용 */

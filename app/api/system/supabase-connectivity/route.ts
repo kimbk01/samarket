@@ -3,7 +3,9 @@ import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-f
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 /**
  * 로컬 개발용: Node(Next 서버)에서 Supabase Auth 헬스에 연결 가능한지 확인.
  * 프로덕션 빌드에서는 비활성화(프로젝트 존재·지연 정보 노출 방지).

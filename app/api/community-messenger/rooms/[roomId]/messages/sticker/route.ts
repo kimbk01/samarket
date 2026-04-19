@@ -5,6 +5,9 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest, { params }: { params: Promise<{ roomId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

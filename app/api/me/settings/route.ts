@@ -8,6 +8,7 @@ import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isUserSettingsTableMissing(message: string): boolean {

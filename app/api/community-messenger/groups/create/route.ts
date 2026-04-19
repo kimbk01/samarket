@@ -3,10 +3,14 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createOpenGroupRoom, createPrivateGroupRoom } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import type {
+
   CommunityMessengerIdentityMode,
   CommunityMessengerRoomIdentityPolicy,
   CommunityMessengerRoomJoinPolicy,
 } from "@/lib/community-messenger/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();

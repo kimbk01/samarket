@@ -7,6 +7,9 @@ import {
 import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk } from "@/lib/http/api-route";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string; messageId: string }> }

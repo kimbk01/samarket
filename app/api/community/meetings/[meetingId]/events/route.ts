@@ -4,6 +4,9 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { canUserViewMeetingEvents } from "@/lib/neighborhood/meeting-events-access";
 import { listMeetingEventsPage } from "@/lib/neighborhood/queries";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }

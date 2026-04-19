@@ -9,6 +9,7 @@ import {
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
@@ -264,4 +265,3 @@ export async function POST(
 
   return NextResponse.json({ ok: true, product: created });
 }
-

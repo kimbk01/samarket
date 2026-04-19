@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/posts/[postId]/trade-lifecycle
  * Body: { action: "resume_active" | "cancel_trade" }
@@ -11,8 +14,6 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { deriveTradeLifecycleStatus, type TradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
 import { insertPostTradeStatusLog } from "@/lib/trade/post-trade-status-log";
-
-export const dynamic = "force-dynamic";
 
 type Body = { action?: string };
 

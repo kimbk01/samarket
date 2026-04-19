@@ -3,6 +3,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { runAdminCommunityMessengerFriendRequestAction } from "@/lib/admin-community-messenger/service";
 import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

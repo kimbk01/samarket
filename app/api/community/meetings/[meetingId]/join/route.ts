@@ -7,6 +7,9 @@ import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }

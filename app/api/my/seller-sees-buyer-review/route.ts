@@ -6,6 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

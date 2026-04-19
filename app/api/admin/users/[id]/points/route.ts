@@ -4,6 +4,9 @@ import { getUserPointBalance } from "@/lib/admin-users/mock-admin-users";
 import { getPointLedgerByUserId } from "@/lib/points/mock-point-ledger";
 import { getPointChargeRequestsByUser } from "@/lib/points/mock-point-charge-requests";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/admin/users/[id]/points
  * 관리자: 특정 회원의 포인트 잔액 + 원장 + 충전 신청 내역

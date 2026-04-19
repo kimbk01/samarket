@@ -5,6 +5,9 @@ import { inferReportReasonCode } from "@/lib/reports/report-reason-code";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 동네생활 피드 전용 신고 — public.community_reports
  */

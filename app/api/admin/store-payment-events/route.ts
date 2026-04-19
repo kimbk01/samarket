@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function clampLimit(raw: string | null, fallback: number) {

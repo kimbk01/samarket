@@ -4,7 +4,9 @@ import { MAIN_BOTTOM_NAV_SETTINGS_KEY } from "@/lib/main-menu/main-bottom-nav-ke
 import { resolveMainBottomNavDisplayItems } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { overlayBottomNavLabelsFromTradeCategories } from "@/lib/main-menu/overlay-bottom-nav-labels-from-trade-categories";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 /** 운영에서 순서 변경이 즉시 반영되도록 — CDN/브라우저에 공개 캐시 금지 (구성은 admin_settings 에서 자주 바뀜) */
 const MAIN_BOTTOM_NAV_HTTP_CACHE_CONTROL = "private, no-store, max-age=0, must-revalidate";
 

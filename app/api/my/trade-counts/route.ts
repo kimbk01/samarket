@@ -8,11 +8,13 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { applyBuyerAutoConfirmAllDue } from "@/lib/trade/apply-buyer-auto-confirm";
 import {
+
   loadPurchaseHistoryRows,
   loadSalesHistoryRows,
   countSalesHistoryItems,
 } from "@/lib/mypage/trade-history-load-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

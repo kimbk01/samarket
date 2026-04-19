@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 전역 매장 상품 카테고리(메뉴 그룹) — 오너 폼에서 선택용 */

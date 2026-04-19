@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/posts/[postId]/owner-delete — 판매자 본인만, 예약 전 단계 글 삭제(soft)
  */
@@ -7,8 +10,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { allowSoftDelete, deriveTradeLifecycleStatus } from "@/lib/trade/trade-lifecycle-policy";
-
-export const dynamic = "force-dynamic";
 
 export async function POST(
   _req: NextRequest,

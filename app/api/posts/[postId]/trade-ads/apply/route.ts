@@ -9,6 +9,7 @@ import { loadTradeAdProductById } from "@/lib/trade-ads/load-trade-ad-product";
 import { holdPointsForTradePostAdApply } from "@/lib/trade-ads/trade-post-ad-point-flow";
 import { evaluateTradePostAdEligibility } from "@/lib/trade-ads/trade-post-ad-policy";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Body = { ad_product_id?: string };

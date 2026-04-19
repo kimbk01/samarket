@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
+
   approvePointChargeRequest,
   rejectPointChargeRequest,
   holdPointChargeRequest,
   setPointChargeRequestAdminMemo,
 } from "@/lib/points/mock-point-charge-requests";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface PatchBody {
   action: "approve" | "reject" | "hold";

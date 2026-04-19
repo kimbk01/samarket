@@ -3,6 +3,9 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { createPointChargeRequest } from "@/lib/points/mock-point-charge-requests";
 import type { PointPaymentMethod } from "@/lib/types/point";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface ChargeBody {
   planId: string;
   paymentMethod: PointPaymentMethod;

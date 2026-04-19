@@ -4,6 +4,9 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { getCommunityMessengerSingleRoomSummaryForViewer } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

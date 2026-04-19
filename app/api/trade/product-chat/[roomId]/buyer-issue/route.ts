@@ -7,6 +7,9 @@ import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** 구매자 문제있어요 — 분쟁 + 온도 보류 로그 + 신고 접수 */
 export async function POST(
   req: NextRequest,

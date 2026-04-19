@@ -4,6 +4,7 @@ import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST() {

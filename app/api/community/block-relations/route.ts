@@ -6,6 +6,9 @@ import {
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const SAMPLE_AUTHOR_ID = "00000000-0000-4000-8000-000000000001";
 
 /** 차단 여부 조회 */

@@ -9,6 +9,7 @@ import {
 import type { RecommendationOpsBundleV1 } from "@/lib/recommendation-ops/recommendation-ops-state";
 import { createDefaultRecommendationOpsBundle } from "@/lib/recommendation-ops/recommendation-ops-state";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isBundle(x: unknown): x is RecommendationOpsBundleV1 {

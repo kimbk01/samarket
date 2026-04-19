@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const RECENT_ORDER_STATUSES = [

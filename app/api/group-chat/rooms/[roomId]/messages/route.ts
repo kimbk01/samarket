@@ -17,6 +17,9 @@ import { loadGroupRoomMessageRowsForUser } from "@/lib/group-chat/server/load-gr
 import { getActiveGroupMembership } from "@/lib/group-chat/server/assert-group-member";
 import { notifyGroupChatMessageRecipients } from "@/lib/notifications/group-chat-inapp-notify";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

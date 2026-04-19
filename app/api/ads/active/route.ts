@@ -5,6 +5,7 @@ import { getActiveAdFeedPosts } from "@/lib/ads/mock-ad-data";
 import { fetchActiveTopFixedAdFeedPostsFromDb } from "@/lib/ads/post-ads-supabase";
 import type { ActiveAdsResponse } from "@/lib/ads/types";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

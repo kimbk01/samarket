@@ -16,6 +16,9 @@ import {
 } from "@/lib/http/api-route";
 import { parseRoomId } from "@/lib/validate-params";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }

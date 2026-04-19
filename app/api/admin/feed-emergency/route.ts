@@ -6,6 +6,7 @@ import { loadFeedEmergencyBundleFromDb, saveFeedEmergencyBundleToDb } from "@/li
 import type { FeedEmergencyBundleV1 } from "@/lib/feed-emergency/feed-emergency-state";
 import { createDefaultFeedEmergencyBundle } from "@/lib/feed-emergency/feed-emergency-state";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function isBundle(x: unknown): x is FeedEmergencyBundleV1 {

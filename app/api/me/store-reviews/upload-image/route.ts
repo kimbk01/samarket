@@ -4,6 +4,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { enforceImageUploadQuota } from "@/lib/security/rate-limit-presets";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024;

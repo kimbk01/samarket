@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
+
   COMMUNITY_FEED_OPS_KEY,
   mergeCommunityFeedOps,
   type CommunityFeedOps,
 } from "@/lib/community-feed/community-ops-settings";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

@@ -9,6 +9,9 @@ import {
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * 관리자 회원 수동 생성
  * - 일반 회원과 동일하게 Supabase `auth.users` + `public.profiles`(동일 PK = auth uid).

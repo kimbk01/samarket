@@ -6,6 +6,9 @@ import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-loca
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { MemberType } from "@/lib/types/admin-user";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type ProfileRow = {
   id: string;
   email: string | null;

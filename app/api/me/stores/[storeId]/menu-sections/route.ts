@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 매장 오너: 메뉴 카테고리(store_menu_sections) 목록 */

@@ -12,6 +12,7 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {

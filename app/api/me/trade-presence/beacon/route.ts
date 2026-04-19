@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

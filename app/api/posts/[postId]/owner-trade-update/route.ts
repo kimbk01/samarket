@@ -1,5 +1,8 @@
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * PATCH /api/posts/[postId]/owner-trade-update
  * 본인 trade 글 수정 — 거래 라이프사이클·카테고리별 핵심 필드 검증 (클라이언트와 동일 규칙)
@@ -9,6 +12,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import {
+
   allowAnyPostUpdate,
   allowEditCoreFields,
   allowsCancelledPartialEdit,
@@ -19,8 +23,6 @@ import {
   resolveTradeKindFromCategory,
   validateRestrictedMetaPatch,
 } from "@/lib/trade/trade-lifecycle-policy";
-
-export const dynamic = "force-dynamic";
 
 type PatchBody = {
   categoryId?: string;

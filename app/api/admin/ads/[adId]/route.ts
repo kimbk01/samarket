@@ -5,6 +5,9 @@ import type { AdApplyStatus } from "@/lib/ads/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { adminPatchPostAdInDb } from "@/lib/ads/post-ads-supabase";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface PatchBody {
   action?: "approve" | "reject" | "cancel" | "expire" | "update";
   adminNote?: string;

@@ -26,6 +26,9 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
 import { tradeListUnreadHintFromCursor } from "@/lib/chats/server/trade-list-unread-hint";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type ChatRoomsListCacheEntry = { at: number; payload: unknown };
 /** 짧은 TTL — 미읽음 배지와 균형. 너무 짧으면 탭 전환·시트 재오픈 시 동일 요청이 반복되어 체감 지연 */
 const CHAT_ROOMS_LIST_CACHE_TTL_MS = 5000;

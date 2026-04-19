@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const DEFAULTS = {

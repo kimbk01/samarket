@@ -6,6 +6,7 @@ import { clientSafeInternalErrorMessage, parseJsonBody } from "@/lib/http/api-ro
 import { sendOrderChatAdminNote } from "@/lib/order-chat/service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

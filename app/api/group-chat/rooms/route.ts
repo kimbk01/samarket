@@ -6,6 +6,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { jsonError, parseJsonBody } from "@/lib/http/api-route";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

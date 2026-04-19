@@ -10,6 +10,9 @@ import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /** 구매자 거래완료 확인(buyer-confirm) — 평가·후기 작성 가능 상태로 */
 export async function POST(
   req: NextRequest,

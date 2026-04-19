@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { buildAdminDashboardPayload } from "@/lib/admin-dashboard/build-admin-dashboard-payload";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

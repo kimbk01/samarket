@@ -11,6 +11,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PatchBody = { order_status?: string };

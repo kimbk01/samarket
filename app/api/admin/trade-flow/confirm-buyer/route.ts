@@ -9,6 +9,9 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { fetchOpsTradePolicy, reviewDeadlineIsoFromNow } from "@/lib/trade/ops-trade-policy";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;

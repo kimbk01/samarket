@@ -3,6 +3,9 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { listCommunityMessengerFriends } from "@/lib/community-messenger/service";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

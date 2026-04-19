@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { parseSupabasePublicUrl } from "@/lib/system/parse-supabase-public-url";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**

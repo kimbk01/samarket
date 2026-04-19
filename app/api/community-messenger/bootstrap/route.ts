@@ -12,6 +12,9 @@ import {
 } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
 
 type CommunityMessengerBootstrapCacheEntry = {

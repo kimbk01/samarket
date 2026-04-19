@@ -5,6 +5,7 @@ import type { NotificationDomain } from "@/lib/notifications/notification-domain
 import { NOTIFICATION_DOMAINS } from "@/lib/notifications/notification-domains";
 import { ADMIN_NOTIFICATION_SETTINGS_SELECT } from "@/lib/admin/admin-public-settings-select";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function sbOr503() {

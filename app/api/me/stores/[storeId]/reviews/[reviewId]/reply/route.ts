@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PatchBody = { reply?: string };

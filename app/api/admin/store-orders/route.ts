@@ -6,11 +6,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
+
   mapStoreOrderToAdminDelivery,
   type StoreOrderItemRow,
   type StoreOrderRow,
 } from "@/lib/admin/map-store-order-to-admin-delivery";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {

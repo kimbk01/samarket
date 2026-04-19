@@ -3,6 +3,9 @@ import { applyForAd } from "@/lib/ads/mock-ad-data";
 import type { AdApplyRequest, AdApplyResponse } from "@/lib/ads/types";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 /**
  * POST /api/ads/apply
  * 광고 신청. 포인트 방식이면 즉시 차감 후 pending_review.

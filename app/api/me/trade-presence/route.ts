@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { parseTradePresenceAudience } from "@/lib/chats/trade-presence-rules";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Row = {

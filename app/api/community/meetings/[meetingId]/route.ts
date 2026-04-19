@@ -4,6 +4,9 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getMeetingDetail } from "@/lib/neighborhood/queries";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 interface Ctx {
   params: Promise<{ meetingId: string }>;
 }

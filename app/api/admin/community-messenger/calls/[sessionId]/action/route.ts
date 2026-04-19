@@ -3,6 +3,9 @@ import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { isCommunityMessengerCallForceEndReasonCode } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import { runAdminCommunityMessengerCallSessionAction } from "@/lib/admin-community-messenger/service";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 type CallAction = "force_end";
 
 export async function POST(
