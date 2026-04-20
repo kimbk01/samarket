@@ -22,7 +22,8 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_NO_WEBSERVER
     ? undefined
     : {
-        command: "npm run dev",
+        /** Windows 등에서 기존 `.next` 잔류 시 `ENOTEMPTY` 로 webServer 기동이 실패하는 경우 완화 */
+        command: "npm run dev:fresh",
         url: baseURL,
         /** 첫 Turbopack/컴파일이 길 때 `webServer` 가 먼저 실패하지 않도록 */
         timeout: 240_000,

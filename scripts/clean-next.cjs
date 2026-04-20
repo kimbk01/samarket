@@ -16,6 +16,8 @@ function rmQuiet(p) {
 }
 
 rmQuiet(path.join(root, ".next"));
+/** 동시 dev / 잠금 잔류 시 한 번에 비워지지 않는 경우가 있어 2패스 */
+rmQuiet(path.join(root, ".next"));
 
 if (process.platform === "win32") {
   const base = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");

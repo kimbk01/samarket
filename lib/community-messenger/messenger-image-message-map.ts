@@ -48,7 +48,7 @@ export function messengerImageClientFieldsFromMetadata(
     return {
       imageAlbumUrls: albumDisplay,
       imageAlbumPreviewUrls: albumPreview,
-      imageAlbumOriginalUrls: originals.length >= 2 ? originals : albumDisplay,
+      imageAlbumOriginalUrls: originals,
     };
   }
 

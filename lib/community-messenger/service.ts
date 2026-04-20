@@ -5852,11 +5852,14 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   /** 메시지마다 resolveRoomProfileLite·roomProfileKey·profileLabel 체인 반복 제거 */
   const senderIdsInMessages = new Set<string>();
   const messageIsDbRow: boolean[] = new Array(messages.length);
+  /** 위 sender 스캔과 동일 값 — map 단계에서 row.sender_* 를 다시 읽지 않음 */
+  const messageSenderIdByMi: Array<string | null> = new Array(messages.length);
   for (let mi = 0; mi < messages.length; mi += 1) {
     const msg = messages[mi];
     const dbRow = "sender_id" in msg;
     messageIsDbRow[mi] = dbRow;
     const sid = (dbRow ? msg.sender_id : msg.senderId) ?? null;
+    messageSenderIdByMi[mi] = sid;
     if (sid) senderIdsInMessages.add(sid);
   }
   const senderLabelByUserId = new Map<string, string>();
@@ -5874,20 +5877,24 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message, mi) => {
     let tStep = performance.now();
     const isDbMessage = messageIsDbRow[mi];
+    const senderId = messageSenderIdByMi[mi];
     let rowDb: MessageRow | undefined;
     let rowDev: DevMessage | undefined;
+    let safeMt: CommunityMessengerMessage["messageType"];
+    let rawMeta: Record<string, unknown> | null | undefined;
     if (isDbMessage) {
       rowDb = message as MessageRow;
+      safeMt = rowDb.message_type as CommunityMessengerMessage["messageType"];
+      rawMeta = rowDb.metadata;
     } else {
       rowDev = message as DevMessage;
+      safeMt = rowDev.messageType as CommunityMessengerMessage["messageType"];
+      rawMeta = rowDev.metadata;
     }
-    const senderId = (isDbMessage ? rowDb!.sender_id : rowDev!.senderId) ?? null;
-    const safeMt = (isDbMessage ? rowDb!.message_type : rowDev!.messageType) as CommunityMessengerMessage["messageType"];
-    const rawMeta = isDbMessage ? rowDb!.metadata : rowDev!.metadata;
     const metadata = (rawMeta ?? emptyMessageMetadata) as Record<string, unknown>;
     let clientMessageId: string | null = null;
-    if (rawMeta != null) {
-      const rawClientMessageId = rawMeta.client_message_id;
+    if (metadata !== emptyMessageMetadata) {
+      const rawClientMessageId = metadata.client_message_id;
       if (typeof rawClientMessageId === "string") {
         const tClient = rawClientMessageId.trim();
         if (tClient) clientMessageId = tClient;
