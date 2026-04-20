@@ -61,9 +61,14 @@ function mapRowToProduct(
   const userId = (row.user_id ?? row.author_id ?? "") as string;
   const location = [row.region, row.city].filter(Boolean).join(" ") || "";
   const thumbnail = row.thumbnail_url ?? row.images?.[0] ?? "";
+  const metaNorm = normalizePostMeta(row.meta);
   const catId = row.trade_category_id ?? row.category_id ?? null;
   const cat = catId ? categoryById?.[catId] : undefined;
-  const svcId = row.service_id ?? null;
+  const svcId =
+    row.service_id ??
+    (metaNorm && typeof metaNorm.service_id === "string" && metaNorm.service_id.trim()
+      ? metaNorm.service_id.trim()
+      : null);
   const svc = svcId ? serviceById?.[svcId] : undefined;
   const now = new Date().toISOString();
   const categoryName =
@@ -71,7 +76,11 @@ function mapRowToProduct(
     (catId && (!cat || (!cat.name && !cat.slug))
       ? `카테고리 미해석 (${String(catId).slice(0, 8)}…)`
       : undefined);
-  const postMeta = normalizePostMeta(row.meta) ?? undefined;
+  const postMeta = metaNorm ?? undefined;
+  const visibilityFromMeta =
+    metaNorm && typeof metaNorm.visibility === "string" && metaNorm.visibility.trim()
+      ? metaNorm.visibility.trim()
+      : row.visibility ?? "public";
   return {
     id: row.id,
     title: row.title ?? "",
@@ -101,7 +110,7 @@ function mapRowToProduct(
     serviceSlug: svc?.slug,
     postKind: row.type,
     postMeta,
-    visibility: row.visibility ?? "public",
+    visibility: visibilityFromMeta,
     sellerListingState: normalizeSellerListingState(row.seller_listing_state, row.status),
   };
 }
@@ -128,15 +137,15 @@ function formatSupabaseError(err: unknown): string {
 }
 
 /**
- * 컬럼이 많은 순으로 시도. author_id 없는 DB 대응으로 user_id만 사용 (author_id 티어 제거).
+ * 컬럼이 많은 순으로 시도 — OpenAPI `posts` 스키마에 없는 컬럼은 SELECT 에 포함하지 않음
+ * (`category_id`, `board_id`, `service_id`, `visibility`, `author_id` 등).
  */
 const POSTS_SELECT_TIERS = [
-  "id, user_id, title, content, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, service_id, is_free_share, visibility, meta",
-  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, service_id, is_free_share, visibility",
-  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, category_id, board_id, is_free_share, visibility",
-  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, board_id, is_free_share, visibility",
-  "id, user_id, title, content, price, status, view_count, visibility, created_at, updated_at, trade_category_id, board_id",
-  "id, user_id, title, content, price, status, view_count, created_at, updated_at, trade_category_id, board_id",
+  "id, user_id, title, content, price, status, seller_listing_state, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, community_topic_id, type, is_free_share, is_price_offer, is_deleted, meta, sold_buyer_id, reserved_buyer_id",
+  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, community_topic_id, type, is_free_share, is_deleted, meta",
+  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, community_topic_id, type, is_free_share, meta",
+  "id, user_id, title, content, price, status, view_count, thumbnail_url, images, region, city, favorite_count, chat_count, created_at, updated_at, trade_category_id, type, meta",
+  "id, user_id, title, content, price, status, view_count, created_at, updated_at, trade_category_id, type",
   "id, user_id, title, price, status, created_at, updated_at",
   "id, user_id, title, status, created_at",
   /**

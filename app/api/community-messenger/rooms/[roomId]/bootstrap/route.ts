@@ -8,6 +8,10 @@ import type {
   CommunityMessengerRoomSnapshotOptions,
 } from "@/lib/chat-domain/ports/community-messenger-read";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
+import {
+  classifyCommunityMessengerRoomBootstrapCmReqSrc,
+  communityMessengerRoomBootstrapApiTimingRouteKey,
+} from "@/lib/community-messenger/messenger-room-bootstrap";
 import { recordMessengerApiTiming, recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
 import {
   getCachedRoomBootstrap,
@@ -85,7 +89,9 @@ export async function GET(
       });
   const snapMs = Math.round(performance.now() - tSnap0);
   const ms = Math.round(performance.now() - t0);
-  recordMessengerApiTiming("GET /api/community-messenger/rooms/[roomId]/bootstrap", ms, snapshot ? 200 : 404);
+  const cmReqSrcRaw = req.nextUrl.searchParams.get("cmReqSrc");
+  const cmReqSrcBucket = classifyCommunityMessengerRoomBootstrapCmReqSrc(cmReqSrcRaw);
+  recordMessengerApiTiming(communityMessengerRoomBootstrapApiTimingRouteKey(cmReqSrcRaw), ms, snapshot ? 200 : 404);
   if (trace || snapMs >= 450) {
     recordMessengerMonitoringEvent({
       ts: Date.now(),
@@ -96,6 +102,7 @@ export async function GET(
       unit: "ms",
       labels: {
         route: "GET /api/community-messenger/rooms/[roomId]/bootstrap",
+        cmReqSrc: cmReqSrcBucket,
         hydration: hydrateFullMemberList ? "full" : "minimal",
         status: String(snapshot ? 200 : 404),
       },

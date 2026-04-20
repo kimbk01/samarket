@@ -5,7 +5,7 @@ import {
   KASAMA_DEV_UID_COOKIE,
   KASAMA_DEV_UID_PUB_COOKIE,
 } from "@/lib/auth/dev-session-cookie";
-import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { getPublicDeployTier, isProductionDeploy } from "@/lib/config/deploy-surface";
 import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 
 export const runtime = "nodejs";
@@ -13,14 +13,21 @@ export const dynamic = "force-dynamic";
 
 /** 테스트용 아이디/비밀번호 검증 (test_users 테이블) */
 export async function POST(req: NextRequest) {
-  const loginRl = await enforceRateLimit({
-    key: `test-login:${getClientIp(req)}`,
-    limit: 25,
-    windowMs: 900_000,
-    message: "시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
-    code: "test_login_rate_limited",
-  });
-  if (!loginRl.ok) return loginRl.response;
+  /**
+   * 로컬 `next dev` 에서는 `x-forwarded-for` 가 없어 `getClientIp` 가 모두 `"unknown"` 이 되고,
+   * Playwright·브라우저·다른 스펙이 **동일 키**로 25회/15분 한도를 공유해 E2E 가 쉽게 429 가 된다.
+   * `local` 배포 구간에서만 이 라우트의 IP 한도를 생략한다(스테이징·프로덕션은 그대로).
+   */
+  if (getPublicDeployTier() !== "local") {
+    const loginRl = await enforceRateLimit({
+      key: `test-login:${getClientIp(req)}`,
+      limit: 25,
+      windowMs: 900_000,
+      message: "시도 횟수가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+      code: "test_login_rate_limited",
+    });
+    if (!loginRl.ok) return loginRl.response;
+  }
 
   if (isProductionDeploy() || !isTestUsersSurfaceEnabled()) {
     return NextResponse.json(

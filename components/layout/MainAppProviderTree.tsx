@@ -20,6 +20,7 @@ import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceConte
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
+import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 /** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
 function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
@@ -78,7 +79,13 @@ function AppWideRuntimePerfHooks() {
  * 통화 표면(`CallProvider`)·수신 오버레이는 `ConditionalAppShell` 경로 게이트 안의
  * `CallIncomingChrome` 으로만 올린다. 알림/메신저 unread 브리지는 `MessagingGlobalChrome`.
  */
-export function MainAppProviderTree({ children }: { children: ReactNode }) {
+export function MainAppProviderTree({
+  children,
+  initialMainBottomNavItems = null,
+}: {
+  children: ReactNode;
+  initialMainBottomNavItems?: BottomNavItemConfig[] | null;
+}) {
   return (
     <RegionProvider>
       <AppWideRuntimePerfHooks />
@@ -95,7 +102,12 @@ export function MainAppProviderTree({ children }: { children: ReactNode }) {
                   <TradePresenceActivityProvider>
                     <AppTitle />
                     <AppStickyHeader />
-                    <ConditionalAppShell regionBarInLayout={true}>{children}</ConditionalAppShell>
+                    <ConditionalAppShell
+                      regionBarInLayout={true}
+                      initialMainBottomNavItems={initialMainBottomNavItems}
+                    >
+                      {children}
+                    </ConditionalAppShell>
                     <TradeChatEntryCreatingOverlay />
                   </TradePresenceActivityProvider>
                 </MainTier1ChromeProvider>

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
+import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 /**
  * `(main)` 전역 클라이언트 Provider 스택 — 실제 트리는 `MainAppProviderTree`.
@@ -14,6 +15,16 @@ import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
  *   로그인 직후 쿠키 레이스를 망가뜨릴 수 있음(`app/(main)/layout.tsx` 주석과 동일).
  * - 새 Provider 는 **정말 전역**일 때만 추가하고, 화면 전용 상태는 해당 라우트·feature 쪽으로 둔다.
  */
-export function MainAppProviders({ children }: { children: ReactNode }) {
-  return <MainAppProviderTree>{children}</MainAppProviderTree>;
+export function MainAppProviders({
+  children,
+  initialMainBottomNavItems = null,
+}: {
+  children: ReactNode;
+  initialMainBottomNavItems?: BottomNavItemConfig[] | null;
+}) {
+  return (
+    <MainAppProviderTree initialMainBottomNavItems={initialMainBottomNavItems}>
+      {children}
+    </MainAppProviderTree>
+  );
 }

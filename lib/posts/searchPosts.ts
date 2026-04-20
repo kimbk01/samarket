@@ -1,6 +1,6 @@
 "use client";
 
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PostWithMeta } from "./schema";
@@ -34,6 +34,8 @@ export async function searchPosts(
       .from(POSTS_TABLE_READ)
       .select(POST_TRADE_LIST_SELECT)
       .or("status.is.null,status.not.in.(hidden,sold)")
+      // 거래·마켓 검색: `type = community` 글은 제외. 레거시 null type 은 유지.
+      .or("type.is.null,type.neq.community")
       .ilike("title", `%${q}%`);
 
     if (options.categoryId?.trim()) {
@@ -49,6 +51,7 @@ export async function searchPosts(
         .from(POSTS_TABLE_READ)
         .select(POST_TRADE_LIST_SELECT)
         .or("status.is.null,status.not.in.(hidden,sold)")
+        .or("type.is.null,type.neq.community")
         .ilike("title", `%${q}%`)
         .eq("category_id", options.categoryId!.trim());
       const res = await select.order("created_at", { ascending: false }).range(from, from + limit - 1);

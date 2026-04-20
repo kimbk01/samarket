@@ -12,6 +12,7 @@ import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { FloatingAddButton } from "./FloatingAddButton";
 import { OwnerLiteStoreBar } from "./OwnerLiteStoreBar";
+import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const PhilifeFeedWarmPrefetch = dynamic(
   () => import("@/components/community/PhilifeFeedWarmPrefetch").then((mod) => mod.PhilifeFeedWarmPrefetch),
@@ -25,10 +26,12 @@ const WebConnectivityBanner = dynamic(
 export function ConditionalAppShell({
   children,
   regionBarInLayout = false,
+  initialMainBottomNavItems = null,
 }: {
   children: React.ReactNode;
   /** true면 **메인 1단**(`RegionBar`)는 `AppStickyHeader`에서만 렌더 — 여기서 중복 삽입 안 함 (`lib/layout/main-tier1.ts`) */
   regionBarInLayout?: boolean;
+  initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
   const f = useMemo(
@@ -57,7 +60,7 @@ export function ConditionalAppShell({
           {children}
         </div>
       </main>
-      {f.showBottomNav && <BottomNav />}
+      {f.showBottomNav && <BottomNav initialTabs={initialMainBottomNavItems} />}
       {f.showBottomNav && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
       {f.showFloat && <FloatingAddButton />}
     </div>

@@ -49,6 +49,8 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
 export function createMessengerRoomBootstrapRefresh(
   deps: MessengerRoomBootstrapRefreshDeps
 ): (silent?: boolean) => Promise<void> {
+  /** 시드 직후 동일 silent·동일 flightKey 가 연속으로 겹칠 때(againRef 등) 짧은 창에서 한 번만 네트워크를 연다. */
+  const silentSameKeyCoalesceRef = { key: "", at: 0 };
   const {
     roomId,
     viewerBootstrapDedupRef,
@@ -100,6 +102,8 @@ export function createMessengerRoomBootstrapRefresh(
         viewerBootstrapDedupRef.current.trim() ? viewerBootstrapDedupRef.current.trim() : null
       );
     const shouldBlock = !silent && !loadedRef.current && !primed;
+    /** consumeRoomSnapshot 시드 직후에도 이어지는 `room_client` GET — `shouldBlock` perf 와 분리 */
+    const isPrimedFollowupRoomClient = !silent && primed;
     if (shouldBlock) setLoading(true);
     try {
       if (primed) {
@@ -126,20 +130,51 @@ export function createMessengerRoomBootstrapRefresh(
         : wantMinimalMembers
           ? "?memberHydration=minimal"
           : "";
+      /** 계측: silent / 차단 시드 / 프라임 직후 보강 — 네트워크 URL(`cmReqSrc`)만으로 구분 */
+      const reqSrc = silent
+        ? "room_silent"
+        : shouldBlock
+          ? "room_client_block"
+          : primed
+            ? "room_client_primed_followup"
+            : "room_client_legacy";
+      const bootstrapQueryWithSrc = bootstrapQuery
+        ? `${bootstrapQuery}&cmReqSrc=${reqSrc}`
+        : `?cmReqSrc=${reqSrc}`;
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
       const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
+      if (silent && loadedRef.current) {
+        const now = Date.now();
+        if (
+          silentSameKeyCoalesceRef.key === flightKey &&
+          now - silentSameKeyCoalesceRef.at < 220
+        ) {
+          finishSilentRefreshRound(true, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {
+            void refresh(true);
+          });
+          return;
+        }
+        silentSameKeyCoalesceRef.key = flightKey;
+        silentSameKeyCoalesceRef.at = now;
+      }
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
         const tFetch = typeof performance !== "undefined" ? performance.now() : Date.now();
         if (shouldBlock) {
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
         }
-        const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQuery}`, {
+        if (isPrimedFollowupRoomClient) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_primed_followup_request_start_ms");
+        }
+        const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
           cache: "no-store",
         });
         const fetchElapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tFetch) : Math.round(Date.now() - tFetch);
         if (shouldBlock) {
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_response_end_ms");
+        }
+        if (isPrimedFollowupRoomClient) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_primed_followup_response_end_ms");
         }
         recordRouteEntryFetchNetworkMs("messenger_room_entry", fetchElapsed);
         recordRouteEntryRouteTotalMs(
@@ -181,6 +216,9 @@ export function createMessengerRoomBootstrapRefresh(
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_json_parse_complete_ms");
           recordRouteEntryJsonParseComplete("messenger_room_entry");
         }
+        if (isPrimedFollowupRoomClient) {
+          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_primed_followup_json_parse_complete_ms");
+        }
         return { roomRes: res, snap: parseCommunityMessengerRoomSnapshotResponse(raw) };
       });
       if (roomRes.ok && snap) {
@@ -191,13 +229,14 @@ export function createMessengerRoomBootstrapRefresh(
         }
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
-        messengerMonitorRoomLoad(roomId, elapsed, { silent });
+        messengerMonitorRoomLoad(roomId, elapsed, { silent, cmReqSrc: reqSrc });
         if (shouldBlock) {
           const suf = roomId.trim();
           logClientPerf("messenger-room.enter", {
             phase: "bootstrap_fetch",
             blocking: true,
             silent,
+            cmReqSrc: reqSrc,
             mode: wantSeed ? "lite" : wantMinimalMembers ? "minimal-members" : "default",
             ms: elapsed,
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),

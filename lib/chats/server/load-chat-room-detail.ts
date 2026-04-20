@@ -14,6 +14,7 @@ import {
   fetchPostRowForChat,
   fetchPostRowForChatFirstResolved,
   fetchPostRowForChatViaProductChatsPair,
+  type FetchPostRowForChatDiagnostics,
 } from "@/lib/chats/post-select-compat";
 import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
 import {
@@ -57,6 +58,83 @@ export type LoadChatRoomDetailResult =
   | LoadChatRoomDetailError;
 
 export type ChatRoomDetailScope = "full" | "entry";
+
+/** `loadChatRoomDetailForUser` 내부 계측 — `detailEntryMs` 는 항상 0, 나머지는 진입 시각 대비 누적 ms */
+export type LoadChatRoomDetailDiagnostics = {
+  detailEntryMs?: number;
+  detailQueryADoneMs?: number;
+  detailQueryBDoneMs?: number;
+  detailComputeStartMs?: number;
+  detailComputeDoneMs?: number;
+  detailPreReturnMs?: number;
+  detailGapEntryToQueryADoneMs?: number;
+  detailGapQueryADoneToQueryBDoneMs?: number;
+  detailGapQueryBDoneToComputeStartMs?: number;
+  detailGapComputeStartToComputeDoneMs?: number;
+  detailGapComputeDoneToReturnMs?: number;
+  /** 레거시 product_chat 분기 — `detailQueryADoneMs` 이후 `detailQueryBDoneMs` 직전 */
+  detailQueryBLegacyEntryMs?: number;
+  detailQueryBLegacyPostFetchDoneMs?: number;
+  detailQueryBLegacyChatRoomsDoneMs?: number;
+  detailQueryBLegacyFirstResolvedDoneMs?: number;
+  detailQueryBLegacyPairDoneMs?: number;
+  detailGapQueryBLegacyEntryToPostMs?: number;
+  detailGapPostFetchToChatRoomsMs?: number;
+  detailGapChatRoomsToFirstResolvedMs?: number;
+  detailGapFirstResolvedToPairMs?: number;
+  detailGapPairToQueryBDoneMs?: number;
+  /** crSame 분기 `fetchPostRowForChat(r.post_id)` — `MESSENGER_PERF_TRACE_ROOM_SNAPSHOT` + diagnostics 전달 시 */
+  fetchPostRowForChatSellerMatch?: FetchPostRowForChatDiagnostics;
+};
+
+function fillSkippedQueryBLegacyMilestones(d: LoadChatRoomDetailDiagnostics): void {
+  const postT = d.detailQueryBLegacyPostFetchDoneMs;
+  const crT = d.detailQueryBLegacyChatRoomsDoneMs;
+  if (postT == null || crT == null) return;
+  if (d.detailQueryBLegacyFirstResolvedDoneMs == null) {
+    d.detailQueryBLegacyFirstResolvedDoneMs = Math.max(postT, crT);
+  }
+  if (d.detailQueryBLegacyPairDoneMs == null) {
+    d.detailQueryBLegacyPairDoneMs = d.detailQueryBLegacyFirstResolvedDoneMs;
+  }
+}
+
+function copyPairFromFirstIfMissing(d: LoadChatRoomDetailDiagnostics): void {
+  if (d.detailQueryBLegacyPairDoneMs == null && d.detailQueryBLegacyFirstResolvedDoneMs != null) {
+    d.detailQueryBLegacyPairDoneMs = d.detailQueryBLegacyFirstResolvedDoneMs;
+  }
+}
+
+function finalizeQueryBLegacyGapFields(d: LoadChatRoomDetailDiagnostics): void {
+  const ent = d.detailQueryBLegacyEntryMs;
+  if (ent == null) return;
+  fillSkippedQueryBLegacyMilestones(d);
+  const post = d.detailQueryBLegacyPostFetchDoneMs;
+  const cr = d.detailQueryBLegacyChatRoomsDoneMs;
+  const fr = d.detailQueryBLegacyFirstResolvedDoneMs;
+  const pr = d.detailQueryBLegacyPairDoneMs;
+  const qbd = d.detailQueryBDoneMs;
+  if (post != null) d.detailGapQueryBLegacyEntryToPostMs = Math.round(post - ent);
+  if (post != null && cr != null) d.detailGapPostFetchToChatRoomsMs = Math.round(cr - post);
+  if (cr != null && fr != null) d.detailGapChatRoomsToFirstResolvedMs = Math.round(fr - cr);
+  if (fr != null && pr != null) d.detailGapFirstResolvedToPairMs = Math.round(pr - fr);
+  if (pr != null && qbd != null) d.detailGapPairToQueryBDoneMs = Math.round(qbd - pr);
+}
+
+export function finalizeChatRoomDetailLoadDiagnostics(d: LoadChatRoomDetailDiagnostics): void {
+  const e = d.detailEntryMs ?? 0;
+  const qa = d.detailQueryADoneMs;
+  const qb = d.detailQueryBDoneMs;
+  const cs = d.detailComputeStartMs;
+  const cd = d.detailComputeDoneMs;
+  const pr = d.detailPreReturnMs;
+  if (qa != null) d.detailGapEntryToQueryADoneMs = Math.round(qa - e);
+  if (qa != null && qb != null) d.detailGapQueryADoneToQueryBDoneMs = Math.round(qb - qa);
+  if (qb != null && cs != null) d.detailGapQueryBDoneToComputeStartMs = Math.round(cs - qb);
+  if (cs != null && cd != null) d.detailGapComputeStartToComputeDoneMs = Math.round(cd - cs);
+  if (cd != null && pr != null) d.detailGapComputeDoneToReturnMs = Math.round(pr - cd);
+  finalizeQueryBLegacyGapFields(d);
+}
 
 function ok(room: ChatRoom, cacheHit = false): LoadChatRoomDetailSuccess {
   return { ok: true, room, cacheHit };
@@ -142,6 +220,8 @@ export async function loadChatRoomDetailForUser(input: {
    * `full`: 기본 — API·재검증과 동일한 메타(캐시 대상).
    */
   detailScope?: ChatRoomDetailScope;
+  /** 스냅샷·perf 용 — 호출자가 객체 ref 를 넘기면 단계별 ms 기록 */
+  diagnostics?: LoadChatRoomDetailDiagnostics;
 }): Promise<LoadChatRoomDetailResult> {
   const startedAt = Date.now();
   const detailScope: ChatRoomDetailScope = input.detailScope ?? "full";
@@ -192,6 +272,16 @@ export async function loadChatRoomDetailForUser(input: {
     return fail(500, "서버 설정 필요");
   }
   const sbAny = sb as SupabaseClient<any>;
+  const detailDiag = input.diagnostics;
+  const detailT0 = detailDiag ? performance.now() : 0;
+  const stampDetail = (field: keyof LoadChatRoomDetailDiagnostics) => {
+    if (detailDiag) {
+      (detailDiag as Record<string, number>)[field as string] = Math.round(performance.now() - detailT0);
+    }
+  };
+  if (detailDiag) {
+    detailDiag.detailEntryMs = 0;
+  }
 
   const { data: r, error } = await sbAny
     .from("product_chats")
@@ -200,6 +290,7 @@ export async function loadChatRoomDetailForUser(input: {
     )
     .eq("id", roomId)
     .maybeSingle();
+  stampDetail("detailQueryADoneMs");
 
   if (!error && r && (r.seller_id === input.userId || r.buyer_id === input.userId)) {
     /**
@@ -208,7 +299,14 @@ export async function loadChatRoomDetailForUser(input: {
      * 레거시(product_chat) 분기로 떨어져 chat_messages 를 안 보는 문제가 생긴다.
      * → 동일 상품·동일 구매자 방 중 게시글 판매자 후보와 맞는 행을 고른다.
      */
-    const postForSellerMatch = await fetchPostRowForChat(sbAny, r.post_id as string);
+    stampDetail("detailQueryBLegacyEntryMs");
+    if (detailDiag) detailDiag.fetchPostRowForChatSellerMatch = {};
+    const postForSellerMatch = await fetchPostRowForChat(
+      sbAny,
+      r.post_id as string,
+      detailDiag?.fetchPostRowForChatSellerMatch
+    );
+    stampDetail("detailQueryBLegacyPostFetchDoneMs");
     const sellerCandidatesForCr = new Set(
       [r.seller_id, typeof postForSellerMatch?.user_id === "string" ? postForSellerMatch.user_id : ""].filter(
         (x): x is string => typeof x === "string" && x.length > 0
@@ -223,6 +321,7 @@ export async function loadChatRoomDetailForUser(input: {
       .eq("item_id", r.post_id)
       .eq("buyer_id", r.buyer_id)
       .order("updated_at", { ascending: false });
+    stampDetail("detailQueryBLegacyChatRoomsDoneMs");
     const crSame =
       (crSameRows ?? []).find((row: { seller_id: string }) => sellerCandidatesForCr.has(row.seller_id)) ??
       null;
@@ -251,6 +350,7 @@ export async function loadChatRoomDetailForUser(input: {
             String(r.post_id ?? "").trim(),
           ]),
         ]);
+        stampDetail("detailQueryBLegacyFirstResolvedDoneMs");
         let post2Resolved = post2;
         if (!post2Resolved) {
           post2Resolved = await fetchPostRowForChatViaProductChatsPair(
@@ -259,13 +359,16 @@ export async function loadChatRoomDetailForUser(input: {
             crRow.buyer_id,
             [itemIdRaw, relatedSame, String(r.post_id ?? "").trim()]
           );
+          stampDetail("detailQueryBLegacyPairDoneMs");
         }
+        if (detailDiag) copyPairFromFirstIfMissing(detailDiag);
         const unreadCount = await computeItemTradeUnreadCount(sbAny, {
           roomId: roomIdCr,
           viewerUserId: input.userId,
           lastMessageId: (crSame as { last_message_id?: string | null }).last_message_id,
           lastReadMessageId: (partRow as { last_read_message_id?: string | null } | null)?.last_read_message_id ?? null,
         });
+        stampDetail("detailQueryBDoneMs");
         const batchIdsCr = [
           ...new Set([partnerId2, postAuthorUserId(post2Resolved ?? undefined) ?? ""].filter(Boolean)),
         ] as string[];
@@ -281,6 +384,7 @@ export async function loadChatRoomDetailForUser(input: {
                 input.userId,
                 r.buyer_id as string
               );
+        stampDetail("detailComputeStartMs");
         const [partnerMapCr, buyerReviewSubmitted] = await Promise.all([
           fetchPartnerDisplayFieldsMap(sbAny, batchIdsCr),
           buyerReviewPromiseCr,
@@ -328,6 +432,7 @@ export async function loadChatRoomDetailForUser(input: {
           adminChatSuspended,
           ...tradeExtras,
         } satisfies ChatRoom;
+        stampDetail("detailComputeDoneMs");
         if (detailScope === "full") {
           roomDetailCache.set(cacheKey, { at: Date.now(), payload });
         }
@@ -339,6 +444,7 @@ export async function loadChatRoomDetailForUser(input: {
           detailScope,
           elapsedMs: Date.now() - startedAt,
         });
+        stampDetail("detailPreReturnMs");
         return ok(payload);
       }
     }
@@ -347,16 +453,23 @@ export async function loadChatRoomDetailForUser(input: {
     const row = r as Record<string, unknown>;
     const unreadCount = amISeller ? (row.unread_count_seller ?? 0) : (row.unread_count_buyer ?? 0);
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
-    const [postFirst, crRowsLegacyRes] = await Promise.all([
-      fetchPostRowForChat(sbAny, r.post_id as string),
-      sbAny
-        .from("chat_rooms")
-        .select("id, seller_id, buyer_id, updated_at, related_post_id, item_id")
-        .eq("room_type", "item_trade")
-        .eq("item_id", r.post_id)
-        .eq("buyer_id", r.buyer_id)
-        .order("updated_at", { ascending: false }),
-    ]);
+    stampDetail("detailQueryBLegacyEntryMs");
+    const pPostLegacy = fetchPostRowForChat(sbAny, r.post_id as string).then((v) => {
+      stampDetail("detailQueryBLegacyPostFetchDoneMs");
+      return v;
+    });
+    const pCrLegacy = sbAny
+      .from("chat_rooms")
+      .select("id, seller_id, buyer_id, updated_at, related_post_id, item_id")
+      .eq("room_type", "item_trade")
+      .eq("item_id", r.post_id)
+      .eq("buyer_id", r.buyer_id)
+      .order("updated_at", { ascending: false })
+      .then((res) => {
+        stampDetail("detailQueryBLegacyChatRoomsDoneMs");
+        return res;
+      });
+    const [postFirst, crRowsLegacyRes] = await Promise.all([pPostLegacy, pCrLegacy]);
     const postSellerCandidates = new Set(
       [r.seller_id, typeof postFirst?.user_id === "string" ? (postFirst.user_id as string) : ""].filter(
         (x) => typeof x === "string" && x.length > 0
@@ -379,12 +492,16 @@ export async function loadChatRoomDetailForUser(input: {
         typeof rp === "string" ? rp : "",
         typeof altItem === "string" ? altItem : "",
       ]);
+      stampDetail("detailQueryBLegacyFirstResolvedDoneMs");
     }
     if (!post) {
       post = await fetchPostRowForChatViaProductChatsPair(sbAny, r.seller_id, r.buyer_id, [
         String(r.post_id ?? "").trim(),
       ]);
+      stampDetail("detailQueryBLegacyPairDoneMs");
     }
+    if (detailDiag) fillSkippedQueryBLegacyMilestones(detailDiag);
+    stampDetail("detailQueryBDoneMs");
     const batchIdsPc = [
       ...new Set([partnerId, postAuthorUserId(post ?? undefined) ?? ""].filter(Boolean)),
     ] as string[];
@@ -399,6 +516,7 @@ export async function loadChatRoomDetailForUser(input: {
             input.userId,
             r.buyer_id as string
           );
+    stampDetail("detailComputeStartMs");
     const [partnerMapPc, buyerReviewSubmittedPc, adminChatSuspendedPc] = await Promise.all([
       fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc),
       buyerReviewPromisePc,
@@ -434,6 +552,7 @@ export async function loadChatRoomDetailForUser(input: {
       ...(linkedChatRoomId ? { chatRoomId: linkedChatRoomId } : {}),
       ...tradeExtrasPc,
     } satisfies ChatRoom;
+    stampDetail("detailComputeDoneMs");
     if (detailScope === "full") {
       roomDetailCache.set(cacheKey, { at: Date.now(), payload });
     }
@@ -445,6 +564,7 @@ export async function loadChatRoomDetailForUser(input: {
       detailScope,
       elapsedMs: Date.now() - startedAt,
     });
+    stampDetail("detailPreReturnMs");
     return ok(payload);
   }
 
@@ -455,6 +575,7 @@ export async function loadChatRoomDetailForUser(input: {
     )
     .eq("id", roomId)
     .maybeSingle();
+  stampDetail("detailQueryBDoneMs");
   if (crErr || !cr) {
     logChatRoomDetailPerf({
       roomId,
@@ -714,12 +835,14 @@ export async function loadChatRoomDetailForUser(input: {
     lastMessageId: (cr as { last_message_id?: string | null }).last_message_id,
     lastReadMessageId: (partRow as { last_read_message_id?: string | null } | null)?.last_read_message_id ?? null,
   });
+  stampDetail("detailQueryBDoneMs");
   const amISeller2 = crRow.seller_id === input.userId;
   const partnerId2 = amISeller2 ? crRow.buyer_id : crRow.seller_id;
   const resolvedTradePostId = String((post2 as { id?: string } | null)?.id ?? postIdForTradeCard).trim();
   const batchIdsTrade = [
     ...new Set([partnerId2, postAuthorUserId(post2 ?? undefined) ?? ""].filter(Boolean)),
   ] as string[];
+  stampDetail("detailComputeStartMs");
   const [partnerMapTrade, pcFallbackRes] = await Promise.all([
     fetchPartnerDisplayFieldsMap(sbAny, batchIdsTrade),
     sbAny
@@ -790,6 +913,7 @@ export async function loadChatRoomDetailForUser(input: {
     adminChatSuspended: adminChatSuspendedTrade,
     ...tradeExtrasFb,
   } satisfies ChatRoom;
+  stampDetail("detailComputeDoneMs");
   if (detailScope === "full") {
     roomDetailCache.set(cacheKey, { at: Date.now(), payload });
   }
@@ -801,5 +925,6 @@ export async function loadChatRoomDetailForUser(input: {
     detailScope,
     elapsedMs: Date.now() - startedAt,
   });
+  stampDetail("detailPreReturnMs");
   return ok(payload);
 }

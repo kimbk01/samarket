@@ -11,14 +11,20 @@ import { resolveAuthorIdFromPostRow } from "@/lib/posts/resolve-post-author-id";
 import { applyPostgrestAndGroup } from "@/lib/posts/apply-postgrest-and-group";
 import { buildTradePostsStatusAndCategoryAndFilter } from "@/lib/posts/trade-posts-category-filter";
 import { expandTradeCategoryIdsForRoot } from "@/lib/trade/trade-market-catalog";
+import { POST_TRADE_LIST_SELECT } from "@/lib/posts/trade-posts-range-query";
 
 export const HOME_POSTS_PAGE_SIZE = 50;
 
+/**
+ * 컬럼 집합은 `POST_TRADE_LIST_SELECT`(OpenAPI `posts` 정의)와 동일 계열.
+ * `category_id` / `author_id` / `author_nickname` / `comment_count` 등 스키마에 없는 컬럼은 넣지 않음.
+ */
 export const HOME_POSTS_SELECT_TIERS = [
-  "id, category_id, trade_category_id, user_id, author_id, type, title, price, is_free_share, is_price_offer, region, city, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
-  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, is_price_offer, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, author_nickname, favorite_count, comment_count",
-  "id, category_id, trade_category_id, user_id, type, title, price, is_free_share, region, city, status, view_count, thumbnail_url, images, meta, created_at, updated_at, favorite_count, comment_count",
-  "id, user_id, trade_category_id, category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share",
+  `${POST_TRADE_LIST_SELECT},seller_listing_state,sold_buyer_id,community_topic_id,is_deleted`,
+  `${POST_TRADE_LIST_SELECT},seller_listing_state,community_topic_id`,
+  `${POST_TRADE_LIST_SELECT},seller_listing_state`,
+  POST_TRADE_LIST_SELECT,
+  "id, user_id, type, trade_category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer",
   "*",
 ] as const;
 
@@ -34,7 +40,10 @@ export function mapPostRowForHome(row: Record<string, unknown>): PostWithMeta {
       ? row.thumbnail_url
       : images?.[0] ?? null;
   const author_id = resolveAuthorIdFromPostRow(row) ?? "";
-  const category_id = (row.category_id as string) ?? (row.trade_category_id as string);
+  const category_id =
+    (typeof row.trade_category_id === "string" && row.trade_category_id.trim()
+      ? row.trade_category_id
+      : null) ?? "";
   const price = normalizePostPrice(row.price);
   const meta = normalizePostMeta(row.meta);
   const is_free_share = row.is_free_share === true || row.is_free_share === "true";
@@ -84,9 +93,9 @@ export async function loadHomePostsPage(
     if (type === "trade") {
       q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
     } else if (type === "community") {
-      q = q.not("board_id", "is", null).neq("board_id", "");
+      q = q.eq("type", "community");
     } else if (type === "service") {
-      q = q.not("service_id", "is", null).neq("service_id", "");
+      q = q.eq("type", "service");
     } else if (type === "feature") {
       // no-op
     }

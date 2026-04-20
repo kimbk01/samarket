@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { MAIN_BOTTOM_NAV_SETTINGS_KEY } from "@/lib/main-menu/main-bottom-nav-key";
 import { resolveMainBottomNavDisplayItems } from "@/lib/main-menu/resolve-main-bottom-nav";
-import { overlayBottomNavLabelsFromTradeCategories } from "@/lib/main-menu/overlay-bottom-nav-labels-from-trade-categories";
+import { resolveMainBottomNavDisplayItemsWithTradeOverlay } from "@/lib/main-menu/overlay-bottom-nav-labels-from-trade-categories";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,12 +15,7 @@ async function respondWithOverlay(
   valueJson: unknown,
   source: "db" | "default"
 ) {
-  const resolved = resolveMainBottomNavDisplayItems(valueJson);
-  let items = await overlayBottomNavLabelsFromTradeCategories(sb, resolved);
-  /** `/market/…` 만 있던 구성이 전부 유효하지 않으면(삭제 등) 기본 탭으로 되돌림 */
-  if (items.length === 0) {
-    items = await overlayBottomNavLabelsFromTradeCategories(sb, resolveMainBottomNavDisplayItems(null));
-  }
+  const items = await resolveMainBottomNavDisplayItemsWithTradeOverlay(sb, valueJson);
   return NextResponse.json(
     { ok: true as const, source, items },
     { headers: { "Cache-Control": MAIN_BOTTOM_NAV_HTTP_CACHE_CONTROL } }

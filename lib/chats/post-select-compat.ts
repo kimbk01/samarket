@@ -11,6 +11,128 @@ import {
   POST_TRADE_RELATION_SELECT,
 } from "@/lib/posts/post-query-select";
 
+/** `fetchPostRowForChat` 이 최종적으로 채택한 posts 행 출처(관계 폴백 체인 포함) */
+export type FetchPostRowForChatRelationAdoptedFrom =
+  | "posts_preferred"
+  | "posts_safe_r2"
+  | "rNarrow"
+  | "rRel"
+  | "rAbs"
+  | "rBare"
+  | "none";
+
+/** `fetchPostRowForChat` 단계 계측 — `fetchPostEntryMs` 는 0, 나머지는 함수 진입 대비 누적 ms */
+export type FetchPostRowForChatDiagnostics = {
+  fetchPostEntryMs?: number;
+  fetchPostPostsQueryStartMs?: number;
+  fetchPostPostsQueryDoneMs?: number;
+  /** `fetchPostPostsQueryDoneMs` 직후 동일 시점(연속 스탬프) */
+  fetchPostAfterPostsQueryDoneMs?: number;
+  fetchPostR2StartMs?: number;
+  fetchPostR2DoneMs?: number;
+  fetchPostRNarrowStartMs?: number;
+  fetchPostRNarrowDoneMs?: number;
+  /** `fetchPostRNarrowDoneMs` 직후 */
+  fetchPostAfterRNarrowDoneMs?: number;
+  fetchPostRRelStartMs?: number;
+  fetchPostRRelDoneMs?: number;
+  fetchPostRAbsStartMs?: number;
+  fetchPostRAbsDoneMs?: number;
+  fetchPostRBareStartMs?: number;
+  fetchPostRBareDoneMs?: number;
+  /** 각 `fetchPostRelationDoneMs` 스탬프 직전 */
+  fetchPostBeforeRelationDoneMs?: number;
+  fetchPostRelationDoneMs?: number;
+  fetchPostMappingDoneMs?: number;
+  fetchPostPreReturnMs?: number;
+  fetchPostGapEntryToPostsQueryDoneMs?: number;
+  fetchPostGapPostsDoneToRelationDoneMs?: number;
+  fetchPostGapRelationToMappingDoneMs?: number;
+  fetchPostGapMappingToReturnMs?: number;
+  /** posts_query_done → r2 완료(미실행 시 posts 와 동일 시각으로 0ms) */
+  fetchPostGapPostsDoneToR2DoneMs?: number;
+  /** r2 완료 → rNarrow 첫 await 완료(미실행 시 0ms) */
+  fetchPostGapR2DoneToRNarrowDoneMs?: number;
+  /** rNarrow 완료 → relation_done */
+  fetchPostGapRNarrowDoneToRelationDoneMs?: number;
+  /** rNarrow 완료 → rRel await 완료(rRel 미실행 시 0ms에 가깝게) */
+  fetchPostGapRNarrowDoneToRRelDoneMs?: number;
+  fetchPostGapRRelDoneToRAbsDoneMs?: number;
+  fetchPostGapRAbsDoneToRBareDoneMs?: number;
+  fetchPostGapRBareDoneToRelationDoneMs?: number;
+  /** 최종 채택 단계(진단) */
+  fetchPostRelationAdoptedFrom?: FetchPostRowForChatRelationAdoptedFrom;
+  /** `if (error)` 폴백에서 rRel await 을 실제로 호출했는지 */
+  fetchPostRRelRan?: boolean;
+  fetchPostRRelHasError?: boolean;
+  fetchPostRRelHasData?: boolean;
+  fetchPostRAbsRan?: boolean;
+  fetchPostRAbsHasError?: boolean;
+  fetchPostRAbsHasData?: boolean;
+  fetchPostRBareRan?: boolean;
+  fetchPostRBareHasError?: boolean;
+  fetchPostRBareHasData?: boolean;
+  /** PostgREST `if (error)` 폴백 단계별 오류(있을 때만) */
+  fetchPostRNarrowErrorCode?: string;
+  fetchPostRNarrowErrorMessage?: string;
+  fetchPostRRelErrorCode?: string;
+  fetchPostRRelErrorMessage?: string;
+  fetchPostRAbsErrorCode?: string;
+  fetchPostRAbsErrorMessage?: string;
+};
+
+function stampPostgrestErrorFields(
+  diag: FetchPostRowForChatDiagnostics | undefined,
+  step: "rNarrow" | "rRel" | "rAbs",
+  err: { message?: string; code?: string } | null | undefined
+): void {
+  if (!diag || !err) return;
+  const code = typeof err.code === "string" ? err.code : undefined;
+  const message = typeof err.message === "string" ? err.message : err.message != null ? String(err.message) : undefined;
+  if (step === "rNarrow") {
+    diag.fetchPostRNarrowErrorCode = code;
+    diag.fetchPostRNarrowErrorMessage = message;
+  } else if (step === "rRel") {
+    diag.fetchPostRRelErrorCode = code;
+    diag.fetchPostRRelErrorMessage = message;
+  } else {
+    diag.fetchPostRAbsErrorCode = code;
+    diag.fetchPostRAbsErrorMessage = message;
+  }
+}
+
+export function finalizeFetchPostRowForChatDiagnostics(d: FetchPostRowForChatDiagnostics): void {
+  const e = d.fetchPostEntryMs ?? 0;
+  const pd = d.fetchPostPostsQueryDoneMs;
+  const rel = d.fetchPostRelationDoneMs;
+  const map = d.fetchPostMappingDoneMs;
+  const pr = d.fetchPostPreReturnMs;
+  if (pd != null) d.fetchPostGapEntryToPostsQueryDoneMs = Math.round(pd - e);
+  if (pd != null && rel != null) d.fetchPostGapPostsDoneToRelationDoneMs = Math.round(rel - pd);
+  if (rel != null && map != null) d.fetchPostGapRelationToMappingDoneMs = Math.round(map - rel);
+  if (map != null && pr != null) d.fetchPostGapMappingToReturnMs = Math.round(pr - map);
+
+  const r2dReal = d.fetchPostR2DoneMs;
+  const rndReal = d.fetchPostRNarrowDoneMs;
+  const effR2d = r2dReal ?? pd;
+  const effRnd = rndReal ?? effR2d;
+  if (pd != null && effR2d != null) d.fetchPostGapPostsDoneToR2DoneMs = Math.round(effR2d - pd);
+  if (effR2d != null && effRnd != null) d.fetchPostGapR2DoneToRNarrowDoneMs = Math.round(effRnd - effR2d);
+  if (effRnd != null && rel != null) d.fetchPostGapRNarrowDoneToRelationDoneMs = Math.round(rel - effRnd);
+
+  const rn = d.fetchPostRNarrowDoneMs;
+  if (rn != null && rel != null) {
+    const afterN = d.fetchPostAfterRNarrowDoneMs ?? rn;
+    const rRelD = d.fetchPostRRelDoneMs ?? afterN;
+    const rAbsD = d.fetchPostRAbsDoneMs ?? rRelD;
+    const rBareD = d.fetchPostRBareDoneMs ?? rAbsD;
+    d.fetchPostGapRNarrowDoneToRRelDoneMs = Math.round(rRelD - rn);
+    d.fetchPostGapRRelDoneToRAbsDoneMs = Math.round(rAbsD - rRelD);
+    d.fetchPostGapRAbsDoneToRBareDoneMs = Math.round(rBareD - rAbsD);
+    d.fetchPostGapRBareDoneToRelationDoneMs = Math.round(rel - rBareD);
+  }
+}
+
 export function isMissingSellerListingColumnError(message: string | undefined | null): boolean {
   const m = String(message ?? "");
   return (
@@ -19,30 +141,64 @@ export function isMissingSellerListingColumnError(message: string | undefined | 
   );
 }
 
-/** 채팅 카드·거래 보조 필드용 기본 컬럼 */
+/** 채팅 카드·거래 보조 필드용 기본 컬럼 — PostgREST `posts` OpenAPI 속성과 정합(없는 컬럼 제외) */
 const POST_COLUMNS_CHAT_SAFE =
-  "id, user_id, title, content, description, price, status, sold_buyer_id, reserved_buyer_id, thumbnail_url, images, region, city, district, meta, view_count, favorite_count, created_at, updated_at, trade_category_id, board_id, service_id, is_free_share, visibility";
-const POST_COLUMNS_CHAT_PREFERRED = `${POST_COLUMNS_CHAT_SAFE}, seller_listing_state, author_id`;
+  "id, user_id, title, content, price, status, sold_buyer_id, reserved_buyer_id, thumbnail_url, images, region, city, meta, view_count, favorite_count, created_at, updated_at, trade_category_id, is_free_share";
+const POST_COLUMNS_CHAT_PREFERRED = `${POST_COLUMNS_CHAT_SAFE}, seller_listing_state`;
 
 export async function fetchPostRowForChat(
   sbAny: SupabaseClient<any>,
-  postId: string
+  postId: string,
+  diag?: FetchPostRowForChatDiagnostics
 ): Promise<Record<string, unknown> | null> {
+  const t0 = diag ? performance.now() : 0;
+  const stamp = (field: keyof FetchPostRowForChatDiagnostics) => {
+    if (diag) (diag as Record<string, number>)[field as string] = Math.round(performance.now() - t0);
+  };
+  const stampRelFallbackOutcome = (patch: Partial<FetchPostRowForChatDiagnostics>) => {
+    if (diag) Object.assign(diag, patch);
+  };
+  if (diag) diag.fetchPostEntryMs = 0;
   const pid = typeof postId === "string" ? postId.trim() : "";
   if (!pid) return null;
 
+  stamp("fetchPostPostsQueryStartMs");
   let { data, error } = await sbAny
     .from(POSTS_TABLE_READ)
     .select(POST_COLUMNS_CHAT_PREFERRED)
     .eq("id", pid)
     .maybeSingle();
+  stamp("fetchPostPostsQueryDoneMs");
+  stamp("fetchPostAfterPostsQueryDoneMs");
   if (error && isMissingSellerListingColumnError(error.message)) {
+    stamp("fetchPostR2StartMs");
     const r2 = await sbAny.from(POSTS_TABLE_READ).select(POST_COLUMNS_CHAT_SAFE).eq("id", pid).maybeSingle();
+    stamp("fetchPostR2DoneMs");
     data = (r2.data ?? null) as unknown as typeof data;
     error = r2.error;
+    if (diag && !error && data) {
+      diag.fetchPostRelationAdoptedFrom = "posts_safe_r2";
+    }
+    stamp("fetchPostBeforeRelationDoneMs");
+    stamp("fetchPostRelationDoneMs");
   }
 
-  if (!error && data) return data as Record<string, unknown>;
+  if (!error && data) {
+    stampRelFallbackOutcome({
+      fetchPostRelationAdoptedFrom: diag?.fetchPostRelationAdoptedFrom ?? "posts_preferred",
+      fetchPostRRelRan: false,
+      fetchPostRAbsRan: false,
+      fetchPostRBareRan: false,
+    });
+    if (diag && diag.fetchPostRelationDoneMs == null && diag.fetchPostPostsQueryDoneMs != null) {
+      stamp("fetchPostBeforeRelationDoneMs");
+      diag.fetchPostRelationDoneMs = diag.fetchPostPostsQueryDoneMs;
+    }
+    stamp("fetchPostMappingDoneMs");
+    stamp("fetchPostPreReturnMs");
+    if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+    return data as Record<string, unknown>;
+  }
 
   /**
    * 배포·마이그레이션마다 `posts` 컬럼 집합이 달라, 존재하지 않는 컬럼이 SELECT 에 포함되면
@@ -51,16 +207,107 @@ export async function fetchPostRowForChat(
    * 「글 · UUID…」, ₩0, 썸네일 없음 이 됨 → `*` 로 실제 행을 반드시 가져온다.
    */
   if (error) {
+    stamp("fetchPostRNarrowStartMs");
     const rNarrow = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_DETAIL_SELECT).eq("id", pid).maybeSingle();
-    if (!rNarrow.error && rNarrow.data) return rNarrow.data as Record<string, unknown>;
+    stamp("fetchPostRNarrowDoneMs");
+    stamp("fetchPostAfterRNarrowDoneMs");
+    stampPostgrestErrorFields(diag, "rNarrow", rNarrow.error);
+    if (!rNarrow.error && rNarrow.data) {
+      stampRelFallbackOutcome({
+        fetchPostRelationAdoptedFrom: "rNarrow",
+        fetchPostRRelRan: false,
+        fetchPostRAbsRan: false,
+        fetchPostRBareRan: false,
+      });
+      stamp("fetchPostBeforeRelationDoneMs");
+      stamp("fetchPostRelationDoneMs");
+      stamp("fetchPostMappingDoneMs");
+      stamp("fetchPostPreReturnMs");
+      if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+      return rNarrow.data as Record<string, unknown>;
+    }
+    stamp("fetchPostRRelStartMs");
     const rRel = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", pid).maybeSingle();
-    if (!rRel.error && rRel.data) return rRel.data as Record<string, unknown>;
+    stamp("fetchPostRRelDoneMs");
+    stampPostgrestErrorFields(diag, "rRel", rRel.error);
+    stampRelFallbackOutcome({
+      fetchPostRRelRan: true,
+      fetchPostRRelHasError: !!rRel.error,
+      fetchPostRRelHasData: !!rRel.data,
+    });
+    if (!rRel.error && rRel.data) {
+      stampRelFallbackOutcome({
+        fetchPostRelationAdoptedFrom: "rRel",
+        fetchPostRAbsRan: false,
+        fetchPostRBareRan: false,
+      });
+      stamp("fetchPostBeforeRelationDoneMs");
+      stamp("fetchPostRelationDoneMs");
+      stamp("fetchPostMappingDoneMs");
+      stamp("fetchPostPreReturnMs");
+      if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+      return rRel.data as Record<string, unknown>;
+    }
+    stamp("fetchPostRAbsStartMs");
     const rAbs = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT).eq("id", pid).maybeSingle();
-    if (!rAbs.error && rAbs.data) return rAbs.data as Record<string, unknown>;
+    stamp("fetchPostRAbsDoneMs");
+    stampPostgrestErrorFields(diag, "rAbs", rAbs.error);
+    stampRelFallbackOutcome({
+      fetchPostRAbsRan: true,
+      fetchPostRAbsHasError: !!rAbs.error,
+      fetchPostRAbsHasData: !!rAbs.data,
+    });
+    if (!rAbs.error && rAbs.data) {
+      stampRelFallbackOutcome({
+        fetchPostRelationAdoptedFrom: "rAbs",
+        fetchPostRBareRan: false,
+      });
+      stamp("fetchPostBeforeRelationDoneMs");
+      stamp("fetchPostRelationDoneMs");
+      stamp("fetchPostMappingDoneMs");
+      stamp("fetchPostPreReturnMs");
+      if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+      return rAbs.data as Record<string, unknown>;
+    }
+    stamp("fetchPostRBareStartMs");
     const rBare = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_CHAT_BARE_MIN_SELECT).eq("id", pid).maybeSingle();
-    if (!rBare.error && rBare.data) return rBare.data as Record<string, unknown>;
+    stamp("fetchPostRBareDoneMs");
+    stampRelFallbackOutcome({
+      fetchPostRBareRan: true,
+      fetchPostRBareHasError: !!rBare.error,
+      fetchPostRBareHasData: !!rBare.data,
+    });
+    if (!rBare.error && rBare.data) {
+      stampRelFallbackOutcome({ fetchPostRelationAdoptedFrom: "rBare" });
+      stamp("fetchPostBeforeRelationDoneMs");
+      stamp("fetchPostRelationDoneMs");
+      stamp("fetchPostMappingDoneMs");
+      stamp("fetchPostPreReturnMs");
+      if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+      return rBare.data as Record<string, unknown>;
+    }
+    stampRelFallbackOutcome({ fetchPostRelationAdoptedFrom: "none" });
+    stamp("fetchPostBeforeRelationDoneMs");
+    stamp("fetchPostRelationDoneMs");
+    stamp("fetchPostMappingDoneMs");
+    stamp("fetchPostPreReturnMs");
+    if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
+    return null;
   }
 
+  if (diag && diag.fetchPostRelationDoneMs == null && diag.fetchPostPostsQueryDoneMs != null) {
+    stamp("fetchPostBeforeRelationDoneMs");
+    diag.fetchPostRelationDoneMs = diag.fetchPostPostsQueryDoneMs;
+  }
+  stampRelFallbackOutcome({
+    fetchPostRelationAdoptedFrom: "none",
+    fetchPostRRelRan: false,
+    fetchPostRAbsRan: false,
+    fetchPostRBareRan: false,
+  });
+  stamp("fetchPostMappingDoneMs");
+  stamp("fetchPostPreReturnMs");
+  if (diag) finalizeFetchPostRowForChatDiagnostics(diag);
   return null;
 }
 

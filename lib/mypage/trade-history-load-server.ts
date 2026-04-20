@@ -1,7 +1,17 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 /**
  * 구매/판매 내역 API 공통 — 행 목록까지 로드 (썸네일·닉네임 제외)
+ *
+ * **판매 후보 posts(`loadOwnedPostsForSalesScope`) 정합 — `sales-history-scope` 와 같이 본다.**
+ * - `type === 'community'` → 판매 내역 후보 아님.
+ * - `posts.board_id` 컬럼이 채워져 있으면(레거시) → 커뮤니티 보드 소속으로 보고 제외.
+ * - `meta.board_id` 가 있으면(`normalizePostMeta`) → 동네생활 글과 동일 계약으로 제외.
+ * - `trade_category_id` / `category_id` 가 비어 있으면 → 판매 매물로 보지 않음(거래 피드 정합).
+ * - `posts.type` 은 일부 DB에 없을 수 있어 **건수 전용** SELECT 티어에는 넣지 않음 — 대신 위 규칙으로 구분.
+ * - 상세 행 로드(`forCount: false`)는 `POST_TRADE_RELATION_SELECT`(= `POST_TRADE_LIST_SELECT`) 단일 경로.
+ *   `type` 컬럼이 없으면 PostgREST 가 실패할 수 있음 → 필요 시 `searchPosts` / `trade-posts-range-query` 처럼
+ *   컬럼 축소·폴백을 이 모듈에도 도입할지 별도 판단.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";

@@ -24,9 +24,14 @@ export const PAGE_SIZE_TRADE_FEED = 20;
  * 목록 카드용 — `content` 등 대용량 텍스트 제외.
  * 일부 DB에 컬럼이 없으면 PostgREST 오류 → `select('*')` 폴백.
  */
+/**
+ * --- `POST_TRADE_LIST_SELECT` vs 운영 PostgREST `posts` ---
+ * 컬럼 집합은 프로젝트 Supabase `GET /rest/v1/` + `Accept: application/openapi+json` 의
+ * `definitions.posts.properties` 키와 대조(저장소 DDL 없음).
+ */
 /** `author_id` 는 일부 Supabase `posts` 스키마에 없음 — 없으면 PostgREST 전체 select 실패. 앱에서는 `user_id`로 `author_id` 보강 */
 export const POST_TRADE_LIST_SELECT =
-  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, contact_method, status, seller_listing_state, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, category_id, favorite_count, comment_count, chat_count, author_nickname, board_id, service_id, visibility";
+  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, status, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, chat_count";
 
 export function looksLikeMissingColumnOrSchemaError(message: string | undefined | null): boolean {
   const m = String(message ?? "").toLowerCase();

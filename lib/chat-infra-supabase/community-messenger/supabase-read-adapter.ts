@@ -11,6 +11,7 @@ function toServiceOptions(o?: CommunityMessengerRoomSnapshotOptions): GetCommuni
     hydrateFullMemberList: o.hydrateFullMemberList,
     deferSnapshotSecondary: o.deferSnapshotSecondary,
     diagnostics: o.diagnostics,
+    e2eRoomSnapshotDiag: o.e2eRoomSnapshotDiag,
   };
 }
 

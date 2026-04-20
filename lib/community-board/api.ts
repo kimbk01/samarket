@@ -19,6 +19,7 @@ import type {
 } from "./types";
 import { mapBoardRow } from "./board-row-mapper";
 import { COMMUNITY_BOARDS_ROW_SELECT } from "@/lib/community-board/boards-select";
+import { normalizePostMeta } from "@/lib/posts/post-normalize";
 
 type Sb = ReturnType<typeof getSupabaseServer>;
 type NicknameSb = Parameters<typeof fetchNicknamesForUserIds>[0];
@@ -120,6 +121,19 @@ async function resolvePostListFilters(
   };
 }
 
+/** `posts.board_id` 컬럼이 없을 때 — `meta.board_id` 로 게시판 소속 보존 */
+function boardIdFromPostMeta(row: Record<string, unknown>): string | null {
+  const m = normalizePostMeta(row.meta);
+  const v = m?.board_id;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+function visibilityFromPostMeta(row: Record<string, unknown>): string {
+  const m = normalizePostMeta(row.meta);
+  const v = m?.visibility;
+  return typeof v === "string" && v.trim() ? v.trim() : "public";
+}
+
 function mapCommunityTopic(raw: unknown): CommunityTopicRef | null {
   if (!raw || typeof raw !== "object") return null;
   const t = raw as Record<string, unknown>;
@@ -216,16 +230,16 @@ export async function getPostsByBoardId(
   let q = sb
     .from(POSTS_TABLE_READ)
     .select(
-      "id, board_id, title, content, created_at, updated_at, view_count, status, visibility, user_id, is_deleted, community_topic_id, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
+      "id, title, content, created_at, updated_at, view_count, status, user_id, is_deleted, community_topic_id, meta, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
     )
-    .eq("board_id", boardId)
+    .eq("type", "community")
+    .filter("meta->>board_id", "eq", boardId)
     .eq("status", "active")
-    .eq("visibility", "public")
     .eq("is_deleted", false)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (filters.boardCategoryId) q = q.eq("board_category_id", filters.boardCategoryId);
+  if (filters.boardCategoryId) q = q.filter("meta->>board_category_id", "eq", filters.boardCategoryId);
   if (filters.communityTopicIds.length === 1) {
     q = q.eq("community_topic_id", filters.communityTopicIds[0]!);
   } else if (filters.communityTopicIds.length > 1) {
@@ -245,14 +259,14 @@ export async function getPostsByBoardId(
     const uid = String(r.user_id ?? "");
     return {
       id: String(r.id),
-      board_id: String(r.board_id ?? boardId),
+      board_id: boardIdFromPostMeta(r) ?? boardId,
       title: String(r.title ?? ""),
       content: String(r.content ?? ""),
       created_at: String(r.created_at ?? ""),
       updated_at: String(r.updated_at ?? ""),
       view_count: Number(r.view_count ?? 0),
       status: String(r.status ?? "active"),
-      visibility: String(r.visibility ?? "public"),
+      visibility: visibilityFromPostMeta(r),
       author: uid
         ? {
             id: uid,
@@ -285,12 +299,12 @@ export async function countPostsByBoardId(
   let q = sb
     .from(POSTS_TABLE_READ)
     .select("id", { count: "exact", head: true })
-    .eq("board_id", boardId)
+    .eq("type", "community")
+    .filter("meta->>board_id", "eq", boardId)
     .eq("status", "active")
-    .eq("visibility", "public")
     .eq("is_deleted", false);
 
-  if (filters.boardCategoryId) q = q.eq("board_category_id", filters.boardCategoryId);
+  if (filters.boardCategoryId) q = q.filter("meta->>board_category_id", "eq", filters.boardCategoryId);
   if (filters.communityTopicIds.length === 1) {
     q = q.eq("community_topic_id", filters.communityTopicIds[0]!);
   } else if (filters.communityTopicIds.length > 1) {
@@ -313,7 +327,7 @@ export async function getPostById(postId: string, boardId?: string): Promise<Pos
   const q = sb
     .from(POSTS_TABLE_READ)
     .select(
-      "id, board_id, title, content, created_at, updated_at, view_count, status, visibility, user_id, is_deleted, community_topic_id, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
+      "id, title, content, created_at, updated_at, view_count, status, user_id, is_deleted, community_topic_id, meta, community_topics ( id, slug, name ), post_images ( id, url, storage_path, sort_order )"
     )
     .eq("id", postId)
     .eq("is_deleted", false)
@@ -324,21 +338,21 @@ export async function getPostById(postId: string, boardId?: string): Promise<Pos
 
   const row = data as Record<string, unknown>;
   if (row.is_deleted === true) return null;
-  if (boardId && String(row.board_id ?? "") !== boardId) return null;
+  if (boardId && boardIdFromPostMeta(row) !== boardId) return null;
 
   const uid = String(row.user_id ?? "");
   const nickMap = await enrichAuthors(sb, [{ user_id: uid }]);
 
   return {
     id: String(row.id),
-    board_id: String(row.board_id ?? ""),
+    board_id: boardIdFromPostMeta(row) ?? "",
     title: String(row.title ?? ""),
     content: String(row.content ?? ""),
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
     view_count: Number(row.view_count ?? 0),
     status: String(row.status ?? "active"),
-    visibility: String(row.visibility ?? "public"),
+    visibility: visibilityFromPostMeta(row),
     author: uid
       ? {
           id: uid,
@@ -402,20 +416,23 @@ export async function createPost(payload: PostCreatePayload, authorUserId: strin
     communityTopicId = rawTopic;
   }
 
-  const insertRow: Record<string, unknown> = {
-    service_id: commId,
+  const meta: Record<string, unknown> = {
     board_id: payload.board_id,
+    ...(boardCategoryIdTrim ? { board_category_id: boardCategoryIdTrim } : {}),
+    visibility: "public",
+  };
+
+  const insertRow: Record<string, unknown> = {
     user_id: authorUserId.trim(),
     title: payload.title.trim(),
     content: (payload.content ?? "").trim(),
     trade_category_id: null,
-    board_category_id: boardCategoryIdTrim,
     community_topic_id: communityTopicId,
+    type: "community",
     status: "active",
-    visibility: "public",
+    meta,
   };
 
-   
   const { data: inserted, error: insErr } = await (sb as any).from(POSTS_TABLE_WRITE).insert(insertRow).select("id").single();
 
   if (insErr || !inserted?.id) {

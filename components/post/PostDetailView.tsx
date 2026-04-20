@@ -519,6 +519,7 @@ function PostDetailSellerProfileRow({
 
 interface PostDetailViewProps {
   post: PostWithMeta;
+  sellerProfile?: PublicSellerProfileDTO | null;
   related?: {
     sellerItems: PostWithMeta[];
     similarItems: PostWithMeta[];
@@ -536,6 +537,7 @@ interface PostDetailViewProps {
 
 export function PostDetailView({
   post,
+  sellerProfile = null,
   related,
   viewerTradeRoomBootstrap,
   initialRouteTotalMs,
@@ -574,9 +576,20 @@ export function PostDetailView({
 
   const [backHref, setBackHref] = useState("/home");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
-  const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(null);
+  const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(() =>
+    sellerProfile?.id
+      ? {
+          id: sellerProfile.id,
+          nickname: sellerProfile.nickname,
+          avatar_url: sellerProfile.avatar_url,
+          trustScore: sellerProfile.trustScore,
+        }
+      : null
+  );
   /** `/api/users/.../public-profile` — 기본 거래 주소 동네(글 지역이 비었을 때) */
-  const [sellerTradeLocationLine, setSellerTradeLocationLine] = useState<string | null>(null);
+  const [sellerTradeLocationLine, setSellerTradeLocationLine] = useState<string | null>(
+    () => sellerProfile?.tradeLocationLine?.trim() || null
+  );
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(() => {
     const n = post.favorite_count;
@@ -839,6 +852,16 @@ export function PostDetailView({
       setSellerTradeLocationLine(null);
       return;
     }
+    if (sellerProfile?.id && sellerProfile.id === sellerUserId) {
+      setAuthor({
+        id: sellerProfile.id,
+        nickname: sellerProfile.nickname,
+        avatar_url: sellerProfile.avatar_url,
+        trustScore: sellerProfile.trustScore,
+      });
+      setSellerTradeLocationLine(sellerProfile.tradeLocationLine?.trim() || null);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -883,7 +906,15 @@ export function PostDetailView({
     return () => {
       cancelled = true;
     };
-  }, [listingOwnerId, post.author_id]);
+  }, [
+    listingOwnerId,
+    post.author_id,
+    sellerProfile?.avatar_url,
+    sellerProfile?.id,
+    sellerProfile?.nickname,
+    sellerProfile?.tradeLocationLine,
+    sellerProfile?.trustScore,
+  ]);
 
   useEffect(() => {
     getFavoriteStatus(post.id).then(setIsFavorite);

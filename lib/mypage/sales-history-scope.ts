@@ -1,3 +1,4 @@
+import { normalizePostMeta } from "@/lib/posts/post-normalize";
 
 /** 제목·메타 기준 「구해요/삽니다」형 글 — 판매내역(내가 판 매물)에서 제외 */
 export function isBuyingIntentTradePost(post: Record<string, unknown> | undefined): boolean {
@@ -23,6 +24,8 @@ export function isSellingPostForSalesHistory(post: Record<string, unknown> | und
   // posts.type 없음: 커뮤니티 글은 보통 trade_category_id 가 비어 있거나 board_id 가 있음
   const bid = post.board_id;
   if (bid != null && String(bid).trim()) return false;
+  const metaBoard = normalizePostMeta(post.meta)?.board_id;
+  if (typeof metaBoard === "string" && metaBoard.trim()) return false;
   const tc = post.trade_category_id ?? post.category_id;
   if (tc == null || !String(tc).trim()) return false;
   return true;

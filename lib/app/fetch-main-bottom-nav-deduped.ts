@@ -50,6 +50,14 @@ export function fetchMainBottomNavDeduped(
   });
 }
 
+export function primeMainBottomNavDedupedCache(items: BottomNavItemConfig[]): void {
+  if (!Array.isArray(items) || items.length === 0) return;
+  cached = {
+    items: items.map((item) => ({ ...item })),
+    expiresAt: Date.now() + TTL_MS,
+  };
+}
+
 /** 관리자가 탭을 바꾼 뒤 즉시 반영해야 할 때 */
 export function invalidateMainBottomNavDedupedCache(): void {
   cached = null;

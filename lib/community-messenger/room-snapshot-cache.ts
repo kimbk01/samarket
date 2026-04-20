@@ -12,7 +12,8 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 const TTL_MS = 60_000;
 const MAX_ENTRIES = 120;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
-const ROOM_PREFETCH_QUERY = "?mode=lite&memberHydration=minimal";
+/** 계측: 목록·호버 프리패치 — 방 클라 `createMessengerRoomBootstrapRefresh` GET 과 URL 로그에서 분리 */
+const ROOM_PREFETCH_QUERY = "?mode=lite&memberHydration=minimal&cmReqSrc=list_prefetch";
 
 /** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(세션 내 소량 LRU) */
 const HOT_MAX = 32;

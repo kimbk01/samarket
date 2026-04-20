@@ -59,15 +59,36 @@ import {
   notifyChatInputCommitForPerf,
   notifyChatInputKeydownForPerf,
   recordRouteEntryElapsedMetric,
+  recordRouteEntryElapsedMetricOnce,
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+
+function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
+  try {
+    if (typeof el.checkVisibility === "function") {
+      return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+    }
+  } catch {
+    /* ignore */
+  }
+  const st = window.getComputedStyle(el);
+  if (st.visibility === "hidden" || st.display === "none") return false;
+  return el.offsetWidth > 0 && el.offsetHeight > 0;
+}
 
 export function CommunityMessengerRoomPhase2Composer() {
   const vm = useMessengerRoomPhase2ComposerView();
+  const {
+    notifyComposerTextareaVisibleForSeededBootstrap,
+    loading: phase1Loading,
+    snapshot: phase1Snapshot,
+  } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
   const composerMountRecordedRef = useRef(false);
   const composerEffectCountRef = useRef(0);
+  const seededSilentHoldReleasedRef = useRef(false);
 
   /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
   useLayoutEffect(() => {
@@ -83,6 +104,40 @@ export function CommunityMessengerRoomPhase2Composer() {
     composerMountRecordedRef.current = true;
     recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
   }, []);
+
+  useLayoutEffect(() => {
+    seededSilentHoldReleasedRef.current = false;
+  }, [roomKey]);
+
+  useLayoutEffect(() => {
+    if (seededSilentHoldReleasedRef.current) return;
+    const tryRelease = () => {
+      if (seededSilentHoldReleasedRef.current) return;
+      if (vm.voiceRecording) {
+        seededSilentHoldReleasedRef.current = true;
+        notifyComposerTextareaVisibleForSeededBootstrap();
+        return;
+      }
+      const ta = vm.composerTextareaRef.current;
+      if (!ta || !isDomTextareaLikelyVisible(ta)) return;
+      seededSilentHoldReleasedRef.current = true;
+      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
+      notifyComposerTextareaVisibleForSeededBootstrap();
+    };
+    tryRelease();
+    if (seededSilentHoldReleasedRef.current) return;
+    const raf = requestAnimationFrame(() => tryRelease());
+    return () => cancelAnimationFrame(raf);
+  }, [
+    roomKey,
+    phase1Loading,
+    phase1Snapshot,
+    vm.voiceRecording,
+    vm.busy,
+    vm.roomUnavailable,
+    notifyComposerTextareaVisibleForSeededBootstrap,
+    vm.composerTextareaRef,
+  ]);
   useCommunityMessengerRoomTypingPublisher({
     roomId: vm.snapshot.room.id,
     viewerUserId: vm.snapshot.viewerUserId,

@@ -16,3 +16,10 @@
 - **근본 원인(빈 목록)**: 예전 구현은 **브라우저 Supabase(anon + RLS)** 로 `boards` 를 직접 `select` 했다. RLS 가 관리자에게도 읽기를 막거나, 세션이 anon 클라이언트에 제대로 안 실리면 **행 0건**으로 보인다.
 - **정의**: 관리자 목록은 **`GET /api/admin/boards`** 만 사용 — `isRouteAdmin()` + **서비스 롤**(`tryGetSupabaseForStores`)로 조회. 생성(`POST`)과 동일한 DB 권한 계층.
 - **DB가 비어 있음**: 마이그레이션만 있고 seed 가 없으면 목록은 당연히 비어 있다. 이 경우 UI 문구대로 **게시판 추가** 또는 `services`·`boards` seed 가 필요하다.
+
+## 동네생활 `posts` + `boards` 최소 시드 (운영)
+
+- **앱 계약**: `lib/community-board/api.ts` — 글 목록·카운트는 `type = 'community'` 이고 **`meta->>board_id`** 로 게시판을 가른다. 신규 글은 `createPost` 가 `meta.board_id` 에 `boards.id` 를 넣는다.
+- **최소 조건**: `services.slug = 'community'` 활성 행 1개 이상, 해당 `service_id` 에 연결된 **`boards` 행 1개 이상**. `category_mode = board_category` 인 게시판은 **`board_categories`** 도 필요.
+- **SQL 템플릿**: `supabase/scripts/seed-community-operational-min.sql` (실행 전 해당 프로젝트 `services` / `boards` 컬럼과 맞는지 확인).
+- **PostgREST 자동 반영(로컬·스테이징)**: `node scripts/apply-community-seed-and-trade-room.mjs` — `.env.local` 서비스 롤로 `services`·`boards` 삽입 후, E2E용 거래 `summary`가 있는 CM 방 1개를 묶어 `E2E_SNAPSHOT_DIAG_ROOM_ID` 를 stdout JSON 으로 낸다(`service_type` 등 NOT NULL 컬럼 보강 포함).

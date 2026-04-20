@@ -35,3 +35,33 @@ export function parseCommunityMessengerRoomSnapshotResponse(json: unknown): Comm
   } = o;
   return snap as CommunityMessengerRoomSnapshot;
 }
+
+/** 운영 집계·대시보드·E2E — `GET .../bootstrap` URL 의 `cmReqSrc` 버킷 */
+export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_CM_REQ_SRC_VALUES = [
+  "room_client_block",
+  "room_client_primed_followup",
+  "room_silent",
+  "list_prefetch",
+  "room_client",
+  "room_client_legacy",
+] as const;
+
+export type CommunityMessengerRoomBootstrapCmReqSrcKnown =
+  (typeof COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_CM_REQ_SRC_VALUES)[number];
+
+export function classifyCommunityMessengerRoomBootstrapCmReqSrc(
+  raw: string | null | undefined
+): CommunityMessengerRoomBootstrapCmReqSrcKnown | "legacy_absent" | `other:${string}` {
+  const v = typeof raw === "string" ? raw.trim() : "";
+  if (!v) return "legacy_absent";
+  if ((COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_CM_REQ_SRC_VALUES as readonly string[]).includes(v)) {
+    return v as CommunityMessengerRoomBootstrapCmReqSrcKnown;
+  }
+  return `other:${v}`;
+}
+
+/** `recordMessengerApiTiming` 등 서버 측 `apiByRoute` 키 — 버킷별 분리 */
+export function communityMessengerRoomBootstrapApiTimingRouteKey(cmReqSrcRaw: string | null | undefined): string {
+  const bucket = classifyCommunityMessengerRoomBootstrapCmReqSrc(cmReqSrcRaw);
+  return `GET /api/community-messenger/rooms/[roomId]/bootstrap|${bucket}`;
+}

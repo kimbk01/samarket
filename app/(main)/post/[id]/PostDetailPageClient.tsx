@@ -99,6 +99,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
       <PostDetailFeedChromeReset />
       <PostDetailView
         post={post}
+        sellerProfile={initialBundle.sellerProfile ?? null}
         related={{
           sellerItems: initialBundle.sellerItems,
           similarItems: initialBundle.similarItems,

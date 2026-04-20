@@ -32,6 +32,7 @@ import {
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -377,13 +378,17 @@ export function useCommunityMessengerRoomRealtime(args: {
       bundle.listenersByRoom.set(roomKey, set);
     }
     set.add(listenerRef);
+    let idleOnFirstRoomListener = -1;
     if (bundle.channelSubscribed && set.size === 1) {
-      queueMicrotask(() => {
+      idleOnFirstRoomListener = scheduleWhenBrowserIdle(() => {
         listenerRef.current.onRefresh();
-      });
+      }, 800);
     }
 
     return () => {
+      if (idleOnFirstRoomListener >= 0) {
+        cancelScheduledWhenBrowserIdle(idleOnFirstRoomListener);
+      }
       const current = globalMessengerRoomBundleByViewer.get(viewerForChannel);
       if (!current) return;
       const s = current.listenersByRoom.get(roomKey);

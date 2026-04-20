@@ -369,11 +369,14 @@ function buildSloDigest(
     });
   }
 
-  const bootApi = apiByRoute["GET /api/community-messenger/rooms/[roomId]/bootstrap"];
-  if (bootApi) {
+  const bootPrefix = "GET /api/community-messenger/rooms/[roomId]/bootstrap|";
+  for (const [routeKey, bootApi] of Object.entries(apiByRoute)) {
+    if (!routeKey.startsWith(bootPrefix)) continue;
+    const cmReqSrc = routeKey.slice(bootPrefix.length);
+    const safeId = cmReqSrc.replace(/[^a-z0-9_-]/gi, "_");
     rows.push({
-      id: "room_bootstrap_server",
-      label: "방 부트스트랩 HTTP (서버 라우트)",
+      id: `room_bootstrap_server_${safeId}`,
+      label: `방 부트스트랩 HTTP (cmReqSrc=${cmReqSrc})`,
       unit: "ms",
       target: ref.roomBootstrap.target,
       warning: ref.roomBootstrap.warning,
@@ -381,7 +384,22 @@ function buildSloDigest(
       observedAvg: bootApi.avgMs,
       observedLast: bootApi.lastMs,
       sampleCount: bootApi.count,
-      sourceHint: "GET /api/community-messenger/rooms/[roomId]/bootstrap",
+      sourceHint: `GET /api/community-messenger/rooms/[roomId]/bootstrap · ${cmReqSrc}`,
+    });
+  }
+  const bootLegacy = apiByRoute["GET /api/community-messenger/rooms/[roomId]/bootstrap"];
+  if (bootLegacy) {
+    rows.push({
+      id: "room_bootstrap_server_legacy_route_key",
+      label: "방 부트스트랩 HTTP (구 apiByRoute 키, cmReqSrc 미분리)",
+      unit: "ms",
+      target: ref.roomBootstrap.target,
+      warning: ref.roomBootstrap.warning,
+      critical: ref.roomBootstrap.critical,
+      observedAvg: bootLegacy.avgMs,
+      observedLast: bootLegacy.lastMs,
+      sampleCount: bootLegacy.count,
+      sourceHint: "GET /api/community-messenger/rooms/[roomId]/bootstrap (레거시 집계)",
     });
   }
 

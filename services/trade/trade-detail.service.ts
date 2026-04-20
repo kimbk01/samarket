@@ -1,10 +1,17 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import type { ChatRoomSource } from "@/lib/types/chat";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
+import {
+  mapProfileRowToPublicSeller,
+  mapTestUserRowToPublicSeller,
+  type PublicSellerProfileDTO,
+} from "@/lib/users/map-profile-to-public-seller";
 import {
   TRADE_SETTINGS_KEY,
   mergeTradeDetailOpsSettings,
@@ -12,6 +19,7 @@ import {
 
 export type TradeItemDetailPageData = {
   item: PostWithMeta;
+  sellerProfile?: PublicSellerProfileDTO | null;
   sellerItems: PostWithMeta[];
   similarItems: PostWithMeta[];
   ads: PostWithMeta[];
@@ -32,6 +40,61 @@ export type TradeItemDetailPageData = {
 const SELLER_LIMIT_DEFAULT = 8;
 const SIMILAR_LIMIT_DEFAULT = 8;
 const ADS_LIMIT_DEFAULT = 8;
+
+async function loadSellerPublicProfile(
+  clients: PostsReadClients,
+  userId: string
+): Promise<PublicSellerProfileDTO | null> {
+  const sellerId = userId.trim();
+  if (!sellerId) return null;
+  const profileSelect =
+    "id, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
+  const fallbacks = [clients.serviceSb, clients.readSb].filter(Boolean);
+  for (const sb of fallbacks) {
+    const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+    let { data: prof, error: profErr } = await sbAny
+      .from("profiles")
+      .select(profileSelect)
+      .eq("id", sellerId)
+      .maybeSingle();
+
+    if (
+      profErr &&
+      /column|does not exist|schema cache|Could not find/i.test(String(profErr.message ?? ""))
+    ) {
+      const retry = await sbAny
+        .from("profiles")
+        .select("id, nickname, username, avatar_url")
+        .eq("id", sellerId)
+        .maybeSingle();
+      prof = retry.data as typeof prof;
+      profErr = retry.error;
+    }
+
+    if (!profErr && prof && typeof (prof as { id?: string }).id === "string") {
+      const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>);
+      if (!profile.id) break;
+      let tradeLocationLine: string | null = null;
+      try {
+        const defaults = await getUserAddressDefaults(sbAny, sellerId);
+        tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
+      } catch {
+        /* ignore optional address fallback */
+      }
+      return { ...profile, tradeLocationLine };
+    }
+
+    const { data: testRow } = await sbAny
+      .from("test_users")
+      .select("id, display_name, username")
+      .eq("id", sellerId)
+      .maybeSingle();
+    if (testRow && typeof (testRow as { id?: string }).id === "string") {
+      return mapTestUserRowToPublicSeller(testRow as Record<string, unknown>);
+    }
+  }
+  return null;
+}
 
 async function loadTradeOpsSettings(clients: PostsReadClients) {
   const sb = clients.serviceSb ?? clients.readSb;
@@ -108,7 +171,11 @@ export async function getItemDetailPageData(
     completedVisibleDays: ops.completedVisibleDays,
   });
 
-  const [viewerRoomRow, related] = await Promise.all([viewerRoomPromise, relatedPromise]);
+  const [viewerRoomRow, related, sellerProfile] = await Promise.all([
+    viewerRoomPromise,
+    relatedPromise,
+    loadSellerPublicProfile(clients, sellerId),
+  ]);
 
   const viewerTradeRoomBootstrap: TradeItemDetailPageData["viewerTradeRoomBootstrap"] =
     viewerId && sellerId && viewerId !== sellerId
@@ -124,6 +191,7 @@ export async function getItemDetailPageData(
 
   return {
     item,
+    sellerProfile,
     sellerItems: related.sellerItems,
     similarItems: related.similarItems,
     ads: related.ads,

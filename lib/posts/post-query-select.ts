@@ -20,7 +20,7 @@ export const POST_TRADE_DETAIL_SELECT = `${POST_TRADE_LIST_SELECT}, content`;
  * (여전히 실패하면 `POST_TRADE_CHAT_BARE_MIN_SELECT` → null)
  */
 export const POST_TRADE_CHAT_ABSOLUTE_MIN_SELECT =
-  "id, user_id, title, price, status, thumbnail_url, images, meta, region, city, created_at, updated_at, trade_category_id, board_id, service_id, visibility, reserved_buyer_id, author_nickname, seller_listing_state, content, description, district, sold_buyer_id";
+  "id, user_id, title, price, status, thumbnail_url, images, meta, region, city, created_at, updated_at, trade_category_id, reserved_buyer_id, content, sold_buyer_id";
 
 /** 극단적 스키마 축소 시 — 카드·지역 라벨 일부만 희생하고 행 존재 여부 확보 */
 export const POST_TRADE_CHAT_BARE_MIN_SELECT =

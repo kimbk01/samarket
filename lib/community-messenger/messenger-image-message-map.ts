@@ -4,9 +4,18 @@ function t(v: unknown): string {
   return String(v ?? "").trim();
 }
 
+function isHttpOrBlobUrl(u: string): boolean {
+  return /^https?:\/\//i.test(u) || u.startsWith("blob:");
+}
+
 function parseMessengerImageUrlArray(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((x) => t(x)).filter((u) => /^https?:\/\//i.test(u) || u.startsWith("blob:"));
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  const out: string[] = [];
+  for (let i = 0; i < raw.length; i += 1) {
+    const u = t(raw[i]);
+    if (u && isHttpOrBlobUrl(u)) out.push(u);
+  }
+  return out;
 }
 
 /**
@@ -24,31 +33,34 @@ export function messengerImageClientFieldsFromMetadata(
   >
 > {
   if (safeMt !== "image") return {};
-  const c = t(content);
+
   const thumbs = parseMessengerImageUrlArray(metadata.image_thumb_urls ?? metadata.imageThumbUrls);
   const legacy = parseMessengerImageUrlArray(metadata.image_urls ?? metadata.imageUrls);
-  const previews = parseMessengerImageUrlArray(metadata.image_preview_urls ?? metadata.imagePreviewUrls);
 
-  const albumDisplay = thumbs.length >= 2 ? thumbs : legacy.length >= 2 ? legacy : [];
-  if (albumDisplay.length >= 2) {
+  const thumbsAlbum = thumbs.length >= 2;
+  const legacyAlbum = legacy.length >= 2;
+  const albumDisplay = thumbsAlbum ? thumbs : legacyAlbum ? legacy : [];
+  if (thumbsAlbum || legacyAlbum) {
+    const previews = parseMessengerImageUrlArray(metadata.image_preview_urls ?? metadata.imagePreviewUrls);
     const albumPreview =
-      previews.length >= 2 ? previews : thumbs.length >= 2 ? thumbs : legacy.length >= 2 ? legacy : albumDisplay;
-    const originals = legacy.length >= 2 ? legacy : albumDisplay;
+      previews.length >= 2 ? previews : thumbsAlbum ? thumbs : legacyAlbum ? legacy : albumDisplay;
+    const originals = legacyAlbum ? legacy : albumDisplay;
     return {
       imageAlbumUrls: albumDisplay,
-      imageAlbumPreviewUrls: albumPreview.length >= 2 ? albumPreview : albumDisplay,
+      imageAlbumPreviewUrls: albumPreview,
       imageAlbumOriginalUrls: originals.length >= 2 ? originals : albumDisplay,
     };
   }
 
+  const c = t(content);
   const pv = t(metadata.image_preview_url ?? metadata.imagePreviewUrl);
   const ov = t(metadata.image_original_url ?? metadata.imageOriginalUrl);
   const out: Partial<
     Pick<CommunityMessengerMessage, "imagePreviewUrl" | "imageOriginalUrl">
   > = {};
-  if (pv && (/^https?:\/\//i.test(pv) || pv.startsWith("blob:"))) out.imagePreviewUrl = pv;
+  if (pv && isHttpOrBlobUrl(pv)) out.imagePreviewUrl = pv;
   else if (c) out.imagePreviewUrl = c;
-  if (ov && (/^https?:\/\//i.test(ov) || ov.startsWith("blob:"))) out.imageOriginalUrl = ov;
+  if (ov && isHttpOrBlobUrl(ov)) out.imageOriginalUrl = ov;
   else if (c) out.imageOriginalUrl = c;
   return out;
 }

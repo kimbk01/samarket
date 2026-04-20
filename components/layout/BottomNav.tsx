@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -25,6 +25,7 @@ import {
 import {
   fetchMainBottomNavDeduped,
   MAIN_BOTTOM_NAV_LS_REV_KEY,
+  primeMainBottomNavDedupedCache,
 } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
 import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -356,12 +357,14 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
   my: MyIcon,
 };
 
-export function BottomNav() {
+export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemConfig[] | null }) {
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() => [...BOTTOM_NAV_ITEMS]);
+  const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() =>
+    initialTabs && initialTabs.length > 0 ? initialTabs.map((tab) => ({ ...tab })) : [...BOTTOM_NAV_ITEMS]
+  );
   const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
   const tabsRef = useRef(tabs);
   /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
@@ -370,6 +373,11 @@ export function BottomNav() {
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
+  useLayoutEffect(() => {
+    if (!initialTabs || initialTabs.length <= 0) return;
+    primeMainBottomNavDedupedCache(initialTabs);
+    setTabs((prev) => (areBottomNavItemConfigsEqual(prev, initialTabs) ? prev : initialTabs.map((tab) => ({ ...tab }))));
+  }, [initialTabs]);
   const prevPathnameForNavRef = useRef<string | null>(null);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
@@ -420,8 +428,9 @@ export function BottomNav() {
       return;
     }
     if (prev !== null) return;
+    if (initialTabs && initialTabs.length > 0) return;
     void applyMainBottomNavItems(false);
-  }, [pathname, applyMainBottomNavItems]);
+  }, [pathname, applyMainBottomNavItems, initialTabs]);
 
   useEffect(() => {
     const onRemoteUpdate = () => void applyMainBottomNavItems(true);

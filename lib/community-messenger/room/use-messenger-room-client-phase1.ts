@@ -117,6 +117,10 @@ import {
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 
+/** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
+const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
+const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 200;
+
 export type MessengerRoomClientPhase1Props = {
   roomId: string;
   initialCallAction?: string;
@@ -381,7 +385,7 @@ export function useMessengerRoomClientPhase1({
     };
   }, []);
 
-  const refresh = useMemo(
+  const refreshBootstrap = useMemo(
     () =>
       createMessengerRoomBootstrapRefresh({
         roomId,
@@ -409,13 +413,87 @@ export function useMessengerRoomClientPhase1({
     ]
   );
 
-  useMessengerRoomBootstrapLifecycle({
-    roomId,
-    initialServerSnapshot,
-    refresh,
-    loadedRef,
-    setRoomReadyForRealtime,
-  });
+  const entrySilentBurstUntilRef = useRef(0);
+  const entrySilentRefreshDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const entrySilentBurstAwaitRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  /** RSC 시드가 있을 때만 — composer textarea 가 실제 visible 될 때까지 silent `refresh(true)` 보류 */
+  const seededRoomEntryRef = useRef(Boolean(initialServerSnapshot));
+  const seededFirstSilentHoldPromiseRef = useRef(Promise.resolve() as Promise<void>);
+  const releaseSeededFirstSilentHoldRef = useRef<(() => void) | null>(null);
+
+  useLayoutEffect(() => {
+    entrySilentBurstUntilRef.current =
+      (typeof performance !== "undefined" ? performance.now() : Date.now()) + ROOM_ENTRY_SILENT_REFRESH_BURST_MS;
+    seededRoomEntryRef.current = Boolean(initialServerSnapshot);
+    releaseSeededFirstSilentHoldRef.current?.();
+    releaseSeededFirstSilentHoldRef.current = null;
+    if (Boolean(initialServerSnapshot)) {
+      seededFirstSilentHoldPromiseRef.current = new Promise<void>((resolve) => {
+        releaseSeededFirstSilentHoldRef.current = () => {
+          resolve();
+        };
+      });
+    } else {
+      seededFirstSilentHoldPromiseRef.current = Promise.resolve();
+    }
+    return () => {
+      releaseSeededFirstSilentHoldRef.current?.();
+      releaseSeededFirstSilentHoldRef.current = null;
+      if (entrySilentRefreshDebounceTimerRef.current != null) {
+        clearTimeout(entrySilentRefreshDebounceTimerRef.current);
+        entrySilentRefreshDebounceTimerRef.current = null;
+      }
+      const pending = entrySilentBurstAwaitRef.current;
+      if (pending) {
+        entrySilentBurstAwaitRef.current = null;
+        pending.resolve();
+      }
+    };
+  }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps -- roomId 전환 시에만 시드·게이트 재설정
+
+  const notifyComposerTextareaVisibleForSeededBootstrap = useCallback(() => {
+    const release = releaseSeededFirstSilentHoldRef.current;
+    if (release) {
+      releaseSeededFirstSilentHoldRef.current = null;
+      release();
+    }
+  }, []);
+
+  const refresh = useCallback(
+    async (silent?: boolean) => {
+      if (silent === true) {
+        if (seededRoomEntryRef.current && releaseSeededFirstSilentHoldRef.current) {
+          await seededFirstSilentHoldPromiseRef.current;
+        }
+        const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+        if (now < entrySilentBurstUntilRef.current) {
+          let slot = entrySilentBurstAwaitRef.current;
+          if (!slot) {
+            let resolve!: () => void;
+            const promise = new Promise<void>((r) => {
+              resolve = r;
+            });
+            slot = { promise, resolve };
+            entrySilentBurstAwaitRef.current = slot;
+          }
+          if (entrySilentRefreshDebounceTimerRef.current != null) {
+            clearTimeout(entrySilentRefreshDebounceTimerRef.current);
+          }
+          const awaitSlot = slot;
+          entrySilentRefreshDebounceTimerRef.current = setTimeout(() => {
+            entrySilentRefreshDebounceTimerRef.current = null;
+            void refreshBootstrap(true).finally(() => {
+              entrySilentBurstAwaitRef.current = null;
+              awaitSlot.resolve();
+            });
+          }, ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS);
+          return awaitSlot.promise;
+        }
+      }
+      await refreshBootstrap(silent);
+    },
+    [refreshBootstrap]
+  );
 
   useNotificationSurfaceCommunityMessengerRoom(roomId, Boolean(snapshot ?? initialServerSnapshot));
 
@@ -425,6 +503,14 @@ export function useMessengerRoomClientPhase1({
     snapshot,
     setSnapshot,
     setLoading,
+    loadedRef,
+    setRoomReadyForRealtime,
+  });
+
+  useMessengerRoomBootstrapLifecycle({
+    roomId,
+    initialServerSnapshot,
+    refresh,
     loadedRef,
     setRoomReadyForRealtime,
   });
@@ -851,6 +937,7 @@ export function useMessengerRoomClientPhase1({
   chatVirtualizer,
   CM_SNAPSHOT_FIRST_PAGE,
   composerTextareaRef,
+  notifyComposerTextareaVisibleForSeededBootstrap,
   contextMetaFromUrlHandledRef,
   deferredMemberBootstrapRef,
   dismissRoomSheet,

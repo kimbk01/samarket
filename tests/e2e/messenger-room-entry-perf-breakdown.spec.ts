@@ -89,6 +89,16 @@ test.describe("messenger room entry perf breakdown", () => {
       )
       .not.toBeNull();
 
+    await expect
+      .poll(
+        async () => {
+          const snap = await readSnap(page);
+          return pickNum(snap, "messenger_room_entry_composer_textarea_visible_ms");
+        },
+        { timeout: 15_000 }
+      )
+      .not.toBeNull();
+
     const snap = await readSnap(page);
     const result = {
       messenger_room_entry_room_route_enter_ms: pickNum(snap, "messenger_room_entry_room_route_enter_ms"),
@@ -140,13 +150,25 @@ test.describe("messenger room entry perf breakdown", () => {
         snap,
         "messenger_room_entry_room_bootstrap_request_start_ms"
       ),
+      messenger_room_entry_room_bootstrap_primed_followup_request_start_ms: pickNum(
+        snap,
+        "messenger_room_entry_room_bootstrap_primed_followup_request_start_ms"
+      ),
       messenger_room_entry_room_bootstrap_response_end_ms: pickNum(
         snap,
         "messenger_room_entry_room_bootstrap_response_end_ms"
       ),
+      messenger_room_entry_room_bootstrap_primed_followup_response_end_ms: pickNum(
+        snap,
+        "messenger_room_entry_room_bootstrap_primed_followup_response_end_ms"
+      ),
       messenger_room_entry_room_bootstrap_json_parse_complete_ms: pickNum(
         snap,
         "messenger_room_entry_room_bootstrap_json_parse_complete_ms"
+      ),
+      messenger_room_entry_room_bootstrap_primed_followup_json_parse_complete_ms: pickNum(
+        snap,
+        "messenger_room_entry_room_bootstrap_primed_followup_json_parse_complete_ms"
       ),
       messenger_room_entry_phase1_start_ms: pickNum(snap, "messenger_room_entry_phase1_start_ms"),
       messenger_room_entry_phase1_snapshot_prepare_ms: pickNum(
@@ -189,6 +211,7 @@ test.describe("messenger room entry perf breakdown", () => {
       messenger_room_entry_participants_state_commit_ms: pickNum(snap, "messenger_room_entry_participants_state_commit_ms"),
       messenger_room_entry_profiles_state_commit_ms: pickNum(snap, "messenger_room_entry_profiles_state_commit_ms"),
       messenger_room_entry_composer_mount_ms: pickNum(snap, "messenger_room_entry_composer_mount_ms"),
+      messenger_room_entry_composer_textarea_visible_ms: pickNum(snap, "messenger_room_entry_composer_textarea_visible_ms"),
       messenger_room_entry_read_mark_effect_start_ms: pickNum(snap, "messenger_room_entry_read_mark_effect_start_ms"),
       messenger_room_entry_read_mark_effect_end_ms: pickNum(snap, "messenger_room_entry_read_mark_effect_end_ms"),
       messenger_room_entry_presence_effect_start_ms: pickNum(snap, "messenger_room_entry_presence_effect_start_ms"),
@@ -207,6 +230,28 @@ test.describe("messenger room entry perf breakdown", () => {
 
     // eslint-disable-next-line no-console
     console.log("\n=== MESSENGER_ROOM_ENTRY_PERF_JSON ===\n" + JSON.stringify(result, null, 2) + "\n=== END ===\n");
+
+    const seg = (a: number | null, b: number | null): number | null =>
+      a != null && b != null ? b - a : null;
+    const rscDone =
+      result.messenger_room_entry_route_module_request_end_ms ??
+      result.messenger_room_entry_client_chunk_request_end_ms;
+    /** `page_module_eval_*` 는 청크 로드 시점이라 RSC 종료보다 앞설 수 있음 — 방 페이지 클라 마운트를 hydration 프록시로 쓴다 */
+    const hydrationStart = result.messenger_room_entry_page_mount_start_ms;
+    const componentMount = result.messenger_room_entry_first_client_component_mount_ms;
+    const phase1Done = result.messenger_room_entry_phase1_snapshot_commit_ms;
+    const composerMount = result.messenger_room_entry_composer_mount_ms;
+    const textareaVisible = result.messenger_room_entry_composer_textarea_visible_ms;
+    const timeline = {
+      route_start_to_rsc_done_ms: seg(0, rscDone ?? null),
+      rsc_done_to_hydration_start_ms: seg(rscDone ?? null, hydrationStart),
+      hydration_start_to_component_mount_ms: seg(hydrationStart, componentMount),
+      component_mount_to_phase1_done_ms: seg(componentMount, phase1Done),
+      phase1_done_to_composer_mount_ms: seg(phase1Done, composerMount),
+      composer_mount_to_textarea_visible_ms: seg(composerMount, textareaVisible),
+    };
+    // eslint-disable-next-line no-console
+    console.log("MESSENGER_ROOM_ENTRY_TIMELINE_JSON:" + JSON.stringify(timeline));
 
     expect(result.messenger_room_entry_first_message_render_ms).not.toBeNull();
     expect(result.messenger_room_entry_phase2_enter_ms).not.toBeNull();

@@ -31,11 +31,12 @@ export function parseVoiceWaveformPeaksFromMetadata(raw: unknown): number[] | un
     }
   }
   if (!arr || arr.length === 0) return undefined;
-  const out = arr.map((item) => {
-    const v = Number(item);
-    if (!Number.isFinite(v)) return 0;
-    return Math.min(1, Math.max(0, v));
-  });
-  if (out.length <= COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS) return out;
+  const n = arr.length;
+  const out: number[] = new Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const v = Number(arr[i]);
+    out[i] = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+  }
+  if (n <= COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS) return out;
   return downsampleVoiceWaveformPeaks(out, COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS);
 }

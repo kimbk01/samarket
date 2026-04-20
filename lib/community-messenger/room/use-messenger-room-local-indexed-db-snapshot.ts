@@ -34,26 +34,24 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
     const id = String(roomId ?? "").trim();
     if (!id) return;
     let cancelled = false;
-    queueMicrotask(() => {
-      void (async () => {
-        if (!localCacheReadStartRecordedRef.current) {
-          localCacheReadStartRecordedRef.current = true;
-          recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_start_ms");
-        }
-        const local = await getLocalRoomSnapshot(id);
-        if (!localCacheReadEndRecordedRef.current) {
-          localCacheReadEndRecordedRef.current = true;
-          recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_end_ms");
-        }
-        if (cancelled) return;
-        if (!local) return;
-        if (snapshotRef.current) return;
-        setSnapshot(local);
-        setLoading(false);
-        loadedRef.current = true;
-        setRoomReadyForRealtime(true);
-      })();
-    });
+    void (async () => {
+      if (!localCacheReadStartRecordedRef.current) {
+        localCacheReadStartRecordedRef.current = true;
+        recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_start_ms");
+      }
+      const local = await getLocalRoomSnapshot(id);
+      if (!localCacheReadEndRecordedRef.current) {
+        localCacheReadEndRecordedRef.current = true;
+        recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_end_ms");
+      }
+      if (cancelled) return;
+      if (!local) return;
+      if (snapshotRef.current) return;
+      setSnapshot(local);
+      setLoading(false);
+      loadedRef.current = true;
+      setRoomReadyForRealtime(true);
+    })();
     return () => {
       cancelled = true;
     };

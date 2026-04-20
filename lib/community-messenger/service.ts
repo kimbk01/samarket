@@ -1,3 +1,4 @@
+import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
@@ -20,7 +21,10 @@ import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messe
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichMessengerTradeUnreadWithLegacyTrade } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
+import {
+  finalizeChatRoomDetailLoadDiagnostics,
+  loadChatRoomDetailForUser,
+} from "@/lib/chats/server/load-chat-room-detail";
 import type { ChatRoom } from "@/lib/types/chat";
 import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
 import { syncItemTradeReadWithMessengerRoomMark } from "@/lib/trade/sync-item-trade-read-with-messenger-room";
@@ -5239,12 +5243,9 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 통화·거래 도크·presence 를 첫 스냅샷에 포함한다.
    */
   deferSnapshotSecondary?: boolean;
-  diagnostics?: {
-    roomBootstrapFetchMs?: number;
-    messagesFetchMs?: number;
-    participantsProfilesFetchMs?: number;
-    normalizeMergeMs?: number;
-  };
+  diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
+  /** 비프로덕션 — `x-samarket-e2e-room-diag` 로 활성화된 E2E 방 스냅샷 계측 */
+  e2eRoomSnapshotDiag?: boolean;
 };
 
 const TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS = 8000;
@@ -5253,7 +5254,8 @@ const tradeRoomDetailEntryCache = new Map<string, { expiresAt: number; room: Cha
 /** CM 방 `summary` JSON 에서 trade + productChatId 를 읽어 거래 상세(상품 카드)를 로드 — 반복 입장 TTL 캐시 */
 function tradeChatRoomDetailPromiseFromMessengerRoomRow(
   room: RoomRow | DevRoom,
-  userId: string
+  userId: string,
+  chatRoomDetailLoad?: import("@/lib/chats/server/load-chat-room-detail").LoadChatRoomDetailDiagnostics
 ): Promise<ChatRoom | null> {
   const raw =
     "room_type" in room
@@ -5265,13 +5267,20 @@ function tradeChatRoomDetailPromiseFromMessengerRoomRow(
   const uid = trimText(userId);
   const cacheKey = `${uid}\0${pcid}`;
   const hit = tradeRoomDetailEntryCache.get(cacheKey);
-  if (hit && hit.expiresAt > Date.now()) return Promise.resolve(hit.room);
+  /**
+   * 진단: `loadChatRoomDetailForUser` 를 타지 않으면 `chatRoomDetailLoad.fetchPostRowForChatSellerMatch` 등이
+   * 영원히 비어 `#samarket-room-snapshot-diag` JSON 과 불일치한다. `chatRoomDetailLoad` ref 가 넘어온 경우만
+   * TTL 캐시 단축을 쓰지 않고 동일 productChatId 로 한 번 더 로드해 진단 필드를 채운다(반환 room 은 동일).
+   */
+  if (hit && hit.expiresAt > Date.now() && chatRoomDetailLoad == null) return Promise.resolve(hit.room);
   return loadChatRoomDetailForUser({
     roomId: pcid,
     userId,
     detailScope: "entry",
+    diagnostics: chatRoomDetailLoad,
   })
     .then((res) => {
+      if (chatRoomDetailLoad) finalizeChatRoomDetailLoadDiagnostics(chatRoomDetailLoad);
       const r = res.ok ? res.room : null;
       tradeRoomDetailEntryCache.set(cacheKey, { expiresAt: Date.now() + TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS, room: r });
       if (tradeRoomDetailEntryCache.size > 200) {
@@ -5391,6 +5400,52 @@ export async function resolveCommunityMessengerCanonicalRoomIdForUser(
   return { ok: false, error: "room_not_found" };
 }
 
+/**
+ * 비프로덕션 E2E trade 진단 전용: RSC 첫 응답과 분리한 `GET .../e2e-room-snapshot-diag` 에서 호출해
+ * `chatRoomDetailLoad`·`fetchPostRelationAdoptedFrom` 등을 채운다. 거래 방이 아니면 `deferTradeDiagSkipped` 만 표시.
+ */
+export async function runCommunityMessengerRoomTradeDiagnosticsParallelForE2e(
+  userId: string,
+  canonicalRoomId: string,
+  diagnostics: CommunityMessengerRoomSnapshotDiagnostics
+): Promise<void> {
+  if (process.env.NODE_ENV === "production") return;
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    diagnostics.deferTradeDiagSkipped = true;
+    return;
+  }
+  const id = trimText(canonicalRoomId);
+  const uid = trimText(userId);
+  if (!id || !uid) {
+    diagnostics.deferTradeDiagSkipped = true;
+    return;
+  }
+  diagnostics.chatRoomDetailLoad ??= {};
+  const { data: roomData } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select(
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+    )
+    .eq("id", id)
+    .maybeSingle();
+  const roomRow = (roomData as RoomRow | null) ?? null;
+  if (!roomRow) {
+    diagnostics.deferTradeDiagSkipped = true;
+    return;
+  }
+  const raw =
+    "room_type" in roomRow
+      ? trimText(roomRow.summary ?? "")
+      : trimText((roomRow as DevRoom).summary ?? "");
+  const meta = parseCommunityMessengerRoomContextMeta(raw);
+  if (meta?.kind !== "trade" || !meta.productChatId?.trim()) {
+    diagnostics.deferTradeDiagSkipped = true;
+    return;
+  }
+  await tradeChatRoomDetailPromiseFromMessengerRoomRow(roomRow, uid, diagnostics.chatRoomDetailLoad);
+}
+
 /** 스냅샷에 담는 최근 메시지 개수 — `listCommunityMessengerRoomMessagesBefore`와 함께 동작 */
 export async function getCommunityMessengerRoomSnapshot(
   userId: string,
@@ -5402,6 +5457,11 @@ export async function getCommunityMessengerRoomSnapshot(
   const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
   const id = trimText(roomId);
   if (!id) return null;
+  // `diagnostics` 는 호출자별 객체 ref 로 채워진다. inflight 공유 시 첫 호출자만 돌고,
+  // 나머지는 동일 스냅샷을 받아도 diagnostics 가 {} 로 남는다(RSC·prefetch·API 동시 등).
+  if (options?.diagnostics) {
+    return loadCommunityMessengerRoomSnapshotUncached(userId, roomId, options);
+  }
   const cacheKey = messengerRoomSnapshotCacheKey(
     userId,
     id,
@@ -5428,6 +5488,16 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const diagnostics = options?.diagnostics;
+  if (diagnostics) {
+    diagnostics.snapshotEntryMs = 0;
+  }
+  if (
+    diagnostics &&
+    (process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" ||
+      (process.env.NODE_ENV !== "production" && options?.e2eRoomSnapshotDiag === true))
+  ) {
+    diagnostics.chatRoomDetailLoad ??= {};
+  }
   /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주 */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
   let deferSecondary = false;
@@ -5499,6 +5569,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       participantsFetch,
       messagesFetch,
     ]);
+    if (diagnostics) {
+      diagnostics.snapshotQueryAParallelEndMs = Math.round(performance.now() - tBootstrap0);
+    }
     room = (roomData as RoomRow | null) ?? null;
     let rawParticipantRows = (participantData ?? []) as ParticipantRow[];
     const myRow = (myParticipantData ?? null) as ParticipantRow | null;
@@ -5543,11 +5616,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   if (!room && sb) {
     const tradeResolved = await resolveProductChat(sb as never, id);
     if (tradeResolved?.messengerRoomId) {
-      return getCommunityMessengerRoomSnapshot(userId, tradeResolved.messengerRoomId, options);
+      return getCommunityMessengerRoomSnapshot(userId, tradeResolved.messengerRoomId, {
+        ...options,
+        diagnostics: undefined,
+      });
     }
     const bridged = await ensureCommunityMessengerDirectRoomFromProductChat(userId, id);
     if (bridged.ok && bridged.roomId && bridged.roomId !== id) {
-      return getCommunityMessengerRoomSnapshot(userId, bridged.roomId, options);
+      return getCommunityMessengerRoomSnapshot(userId, bridged.roomId, {
+        ...options,
+        diagnostics: undefined,
+      });
     }
   }
 
@@ -5581,6 +5660,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
   }
 
+  if (diagnostics && !sb) {
+    diagnostics.snapshotQueryAParallelEndMs = Math.round(performance.now() - tBootstrap0);
+  }
+
   if (deferSecondaryRequested && room) {
     deferSecondary = true;
   }
@@ -5610,49 +5693,107 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, { includeSelf: true }),
   ]);
   participantsProfilesFetchMs += performance.now() - tProfileHydration0;
+  if (diagnostics) {
+    diagnostics.snapshotQueryBProfilesEndMs = Math.round(performance.now() - tBootstrap0);
+  }
+  if (diagnostics) {
+    diagnostics.snapshotNormalizeStartMs = Math.round(performance.now() - tBootstrap0);
+  }
   const tSummary0 = performance.now();
+  /** `deferSecondary` slowest 계산용 — `Math.round` 된 timeline 키만으로는 동일 ms 버킷에 묶여 0ms 만 나올 수 있음 */
+  let tHiDeferAfterSummary = 0;
+  let tHiDeferAfterMembersMap = 0;
+  let tHiDeferAfterMessagesMap = 0;
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydratedLabels.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
   });
   normalizeMergeMs += performance.now() - tSummary0;
+  if (diagnostics) {
+    diagnostics.normalizeTimelineSummaryEndMs = Math.round(performance.now() - tBootstrap0);
+  }
+  tHiDeferAfterSummary = performance.now();
   let activeCall: CommunityMessengerCallSession | null = null;
   let tradeChatRoomDetail: ChatRoom | null = null;
   let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
+  let didFullSecondaryParallel = false;
   if (!deferSecondary) {
+    didFullSecondaryParallel = true;
     const peerFromSummary = trimText(summary.peerUserId ?? "");
     const presenceIds = dedupeIds(
       [earlyDirectPeerUserId, peerFromSummary].map((x) => trimText(x)).filter(Boolean)
     );
     /** trade unread 보강과 통화·도크·presence 는 서로 독립 — 직렬보다 병렬로 총 지연 축소 */
-    const [, phase2] = await Promise.all([
-      (async () => {
-        await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
-        if (sb) {
-          await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
-        }
-      })(),
-      Promise.all([
-        getActiveCallSessionForRoom(userId, id),
-        tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId),
-        presenceIds.length > 0
-          ? fetchPresenceSnapshotsByUserIds(presenceIds)
-          : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>()),
-      ]),
-    ]);
-    activeCall = phase2[0] as CommunityMessengerCallSession | null;
-    tradeChatRoomDetail = phase2[1] as ChatRoom | null;
-    presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
-  } else if (room) {
-    /** seed(lite) 부트스트랩 — 통화·presence 는 생략하되 거래 1:1 상단 카드만 즉시 채워 입장 체감 지연을 줄인다. */
-    const raw =
-      "room_type" in room ? trimText(room.summary ?? "") : trimText((room as DevRoom).summary ?? "");
-    const seedTradeMeta = parseCommunityMessengerRoomContextMeta(raw);
-    if (seedTradeMeta?.kind === "trade" && seedTradeMeta.productChatId?.trim()) {
+    const enrichPromise = (async () => {
       await enrichTradeRoomContextMetaForBootstrap(userId, [summary]);
       if (sb) {
         await enrichMessengerTradeUnreadWithLegacyTrade(sb as any, userId, [summary]).catch(() => {});
       }
-      tradeChatRoomDetail = await tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId);
+      if (diagnostics) {
+        diagnostics.normalizeTimelineEnrichPathEndMs = Math.round(performance.now() - tBootstrap0);
+      }
+    })();
+    const pCall = getActiveCallSessionForRoom(userId, id).then((r) => {
+      if (diagnostics) {
+        diagnostics.normalizeTimelineActiveCallEndMs = Math.round(performance.now() - tBootstrap0);
+      }
+      return r;
+    });
+    const pTrade = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then(
+      (r) => {
+        if (diagnostics) {
+          diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
+        }
+        return r;
+      }
+    );
+    const pPresence = (presenceIds.length > 0
+      ? fetchPresenceSnapshotsByUserIds(presenceIds)
+      : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>())
+    ).then((r) => {
+      if (diagnostics) {
+        diagnostics.normalizeTimelinePresenceEndMs = Math.round(performance.now() - tBootstrap0);
+      }
+      return r;
+    });
+    const [, phase2] = await Promise.all([enrichPromise, Promise.all([pCall, pTrade, pPresence])]);
+    activeCall = phase2[0] as CommunityMessengerCallSession | null;
+    tradeChatRoomDetail = phase2[1] as ChatRoom | null;
+    presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
+    if (diagnostics) {
+      diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
+      const s = diagnostics.normalizeTimelineSummaryEndMs ?? diagnostics.snapshotNormalizeStartMs ?? 0;
+      const cands: Array<[string, number | undefined]> = [
+        ["enrichTradeRoomContextMetaForBootstrap_chain", diagnostics.normalizeTimelineEnrichPathEndMs],
+        ["getActiveCallSessionForRoom", diagnostics.normalizeTimelineActiveCallEndMs],
+        ["tradeChatRoomDetailPromiseFromMessengerRoomRow", diagnostics.normalizeTimelineTradeDetailEndMs],
+        ["fetchPresenceSnapshotsByUserIds", diagnostics.normalizeTimelinePresenceEndMs],
+      ];
+      let maxN = "";
+      let maxMs = -1;
+      for (const [n, end] of cands) {
+        if (end == null) continue;
+        const d = end - s;
+        if (d > maxMs) {
+          maxMs = d;
+          maxN = n;
+        }
+      }
+      if (maxMs >= 0 && maxN) {
+        diagnostics.normalizeSlowestNormalizeSubstepName = maxN;
+        diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs);
+      }
+    }
+  } else if (room) {
+    /**
+     * seed(lite) / RSC 첫 응답: 통화·presence·거래 상세·trade context enrich 은 첫 응답에서 await 하지 않는다.
+     * `bootstrapEnrichmentPending` + 클라 silent `GET .../bootstrap` 이 합류하고, E2E 진단은 방 페이지에서 병렬 오버레이로 채운다.
+     */
+    if (diagnostics) {
+      diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
+    }
+  } else {
+    if (diagnostics) {
+      diagnostics.normalizeTimelineParallelOuterEndMs = diagnostics.normalizeTimelineSummaryEndMs;
     }
   }
   const members = hydratedLabels.members.map((profile) =>
@@ -5662,6 +5803,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === profile.id)?.role ?? undefined,
     }) satisfies CommunityMessengerProfileLite
   );
+  tHiDeferAfterMembersMap = performance.now();
+  if (diagnostics) {
+    diagnostics.normalizeTimelineMembersMapEndMs = Math.round(performance.now() - tBootstrap0);
+  }
   const profileMap = hydratedLabels.profileMap;
   const meParticipant = participants.find(
     (item) => ("user_id" in item ? item.user_id : item.userId) === userId
@@ -5685,47 +5830,180 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const peerPresence =
     deferSecondary || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
 
+  /** 메시지마다 `members.find` 선형 탐색 제거 — 발신자 id 기준 O(1) */
+  const memberByUserId = new Map<string, CommunityMessengerProfileLite>();
+  for (const m of members) {
+    const mid = m.id;
+    if (typeof mid === "string" && mid && !memberByUserId.has(mid)) {
+      memberByUserId.set(mid, m);
+    }
+  }
+
   const tMappedMessages0 = performance.now();
-  const mappedMessages: CommunityMessengerMessage[] = messages.map((message) => {
-    const isDbMessage = "sender_id" in message;
-    const senderId = (isDbMessage ? message.sender_id : message.senderId) ?? null;
-    const metadata = ((isDbMessage ? message.metadata : message.metadata) ?? {}) as Record<string, unknown>;
-    const clientMessageId =
-      typeof metadata.client_message_id === "string" && metadata.client_message_id.trim()
-        ? metadata.client_message_id.trim()
-        : null;
-    const safeMt = (isDbMessage ? message.message_type : message.messageType) as CommunityMessengerMessage["messageType"];
+  const traceMappedMessages = deferSecondary && !!diagnostics;
+  const mappedMsgAcc = traceMappedMessages
+    ? {
+        messageShapeAndMetadata: 0,
+        senderLabelResolve: 0,
+        voiceEnvelopeWhenVoice: 0,
+        messengerImageClientFieldsFromMetadata: 0,
+      }
+    : null;
+  /** 메시지마다 resolveRoomProfileLite·roomProfileKey·profileLabel 체인 반복 제거 */
+  const senderIdsInMessages = new Set<string>();
+  const messageIsDbRow: boolean[] = new Array(messages.length);
+  for (let mi = 0; mi < messages.length; mi += 1) {
+    const msg = messages[mi];
+    const dbRow = "sender_id" in msg;
+    messageIsDbRow[mi] = dbRow;
+    const sid = (dbRow ? msg.sender_id : msg.senderId) ?? null;
+    if (sid) senderIdsInMessages.add(sid);
+  }
+  const senderLabelByUserId = new Map<string, string>();
+  for (const uid of senderIdsInMessages) {
+    senderLabelByUserId.set(
+      uid,
+      resolveRoomProfileLite(memberByUserId.get(uid), roomProfileMap.get(roomProfileKey(id, uid)))?.label ??
+        profileLabel(profileMap.get(uid), uid)
+    );
+  }
+  /** `metadata === null` 인 행마다 새 `{}` 할당하지 않음 — 읽기 전용으로만 사용 */
+  const emptyMessageMetadata: Record<string, unknown> = {};
+  /** 비보이스 메시지마다 `voiceExtra` 용 새 `{}` 할당 방지 — spread 만 하며 변이 없음 */
+  const emptyVoiceEnvelopeExtra = {};
+  const mappedMessages: CommunityMessengerMessage[] = messages.map((message, mi) => {
+    let tStep = performance.now();
+    const isDbMessage = messageIsDbRow[mi];
+    let rowDb: MessageRow | undefined;
+    let rowDev: DevMessage | undefined;
+    if (isDbMessage) {
+      rowDb = message as MessageRow;
+    } else {
+      rowDev = message as DevMessage;
+    }
+    const senderId = (isDbMessage ? rowDb!.sender_id : rowDev!.senderId) ?? null;
+    const safeMt = (isDbMessage ? rowDb!.message_type : rowDev!.messageType) as CommunityMessengerMessage["messageType"];
+    const rawMeta = isDbMessage ? rowDb!.metadata : rowDev!.metadata;
+    const metadata = (rawMeta ?? emptyMessageMetadata) as Record<string, unknown>;
+    let clientMessageId: string | null = null;
+    if (rawMeta != null) {
+      const rawClientMessageId = rawMeta.client_message_id;
+      if (typeof rawClientMessageId === "string") {
+        const tClient = rawClientMessageId.trim();
+        if (tClient) clientMessageId = tClient;
+      }
+    }
+    if (mappedMsgAcc) {
+      mappedMsgAcc.messageShapeAndMetadata += performance.now() - tStep;
+      tStep = performance.now();
+    }
+    const senderLabel = senderId
+      ? (senderLabelByUserId.get(senderId) ?? profileLabel(profileMap.get(senderId), senderId))
+      : "시스템";
+    if (mappedMsgAcc) {
+      mappedMsgAcc.senderLabelResolve += performance.now() - tStep;
+      tStep = performance.now();
+    }
+    let voiceExtra: object;
+    if (safeMt !== "voice") {
+      voiceExtra = emptyVoiceEnvelopeExtra;
+    } else {
+      const dur = metadata.durationSeconds;
+      const peaksIn = metadata.waveformPeaks;
+      const mimeIn = metadata.mimeType;
+      voiceExtra = {
+        voiceDurationSeconds: Math.max(0, Math.floor(Number(dur ?? 0)) || 0),
+        voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(peaksIn) ?? null,
+        voiceMimeType: trimText(mimeIn as string) || null,
+      };
+    }
+    if (mappedMsgAcc) {
+      mappedMsgAcc.voiceEnvelopeWhenVoice += performance.now() - tStep;
+      tStep = performance.now();
+    }
+    const contentTrimmed = trimText(message.content);
+    const imageExtra = messengerImageClientFieldsFromMetadata(safeMt, metadata, contentTrimmed);
+    if (mappedMsgAcc) {
+      mappedMsgAcc.messengerImageClientFieldsFromMetadata += performance.now() - tStep;
+    }
     return {
       id: message.id,
-      roomId: isDbMessage ? message.room_id : message.roomId,
+      roomId: isDbMessage ? rowDb!.room_id : rowDev!.roomId,
       senderId,
-      senderLabel: senderId
-        ? (
-            resolveRoomProfileLite(
-              members.find((member) => member.id === senderId),
-              roomProfileMap.get(roomProfileKey(id, senderId))
-            )?.label ?? profileLabel(profileMap.get(senderId), senderId)
-          )
-        : "시스템",
+      senderLabel,
       messageType: safeMt,
-      content: trimText(isDbMessage ? message.content : message.content),
-      createdAt: trimText(isDbMessage ? message.created_at : message.createdAt) || nowIso(),
+      content: contentTrimmed,
+      createdAt: trimText(isDbMessage ? rowDb!.created_at : rowDev!.createdAt) || nowIso(),
       clientMessageId,
       isMine: senderId === userId,
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
       callSessionId: trimText(metadata.sessionId as string) || null,
-      ...(safeMt === "voice"
-        ? {
-            voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
-            voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
-            voiceMimeType: trimText(metadata.mimeType as string) || null,
-          }
-        : {}),
-      ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
+      ...voiceExtra,
+      ...imageExtra,
     };
   });
+  if (mappedMsgAcc && diagnostics) {
+    const rounded: Record<string, number> = {};
+    let maxN = "";
+    let maxV = -1;
+    for (const [k, v] of Object.entries(mappedMsgAcc)) {
+      const r = Math.round(v * 100) / 100;
+      rounded[k] = r;
+      if (v > maxV) {
+        maxV = v;
+        maxN = k;
+      }
+    }
+    diagnostics.mappedMessagesNormalizeSubstepsMs = rounded;
+    if (maxN) {
+      diagnostics.mappedMessagesSlowestSubstepName = maxN;
+      diagnostics.mappedMessagesSlowestSubstepMs = Math.round(maxV * 100) / 100;
+    }
+  }
+  tHiDeferAfterMessagesMap = performance.now();
   normalizeMergeMs += performance.now() - tMappedMessages0;
+  if (diagnostics) {
+    diagnostics.snapshotNormalizeDoneMs = Math.round(performance.now() - tBootstrap0);
+    diagnostics.normalizeTimelineMessageMapEndMs = diagnostics.snapshotNormalizeDoneMs;
+    if (didFullSecondaryParallel) {
+      const ns = diagnostics.snapshotNormalizeStartMs ?? 0;
+      const tt = diagnostics.normalizeTimelineTradeDetailEndMs;
+      const tc = diagnostics.normalizeTimelineActiveCallEndMs;
+      const tp = diagnostics.normalizeTimelinePresenceEndMs;
+      const tm = diagnostics.snapshotNormalizeDoneMs;
+      if (tt != null) diagnostics.normalizeGapNsToTradeMs = Math.round(tt - ns);
+      if (tt != null && tc != null) diagnostics.normalizeGapTradeToCallMs = Math.round(tc - tt);
+      if (tc != null && tp != null) diagnostics.normalizeGapCallToPresenceMs = Math.round(tp - tc);
+      if (tp != null && tm != null) diagnostics.normalizeGapPresenceToMessageMapMs = Math.round(tm - tp);
+      if (tm != null) diagnostics.normalizeGapMessageMapToNormalizeDoneMs = 0;
+    }
+    /**
+     * `deferSecondary` 시드 경로에는 enrich/call/trade/presence 병렬 구간이 없어 위 `didFullSecondaryParallel` 분기가 돌지 않는다.
+     * `normalizeTimelineSummaryEndMs` 이후 실제로 도는 members·messages map 구간 중 느린 쪽을 slowest 로 남긴다.
+     */
+    if (deferSecondary) {
+      const dMembersHi = Math.max(0, tHiDeferAfterMembersMap - tHiDeferAfterSummary);
+      const dMsgsHi = Math.max(0, tHiDeferAfterMessagesMap - tHiDeferAfterMembersMap);
+      const cands: Array<[string, number]> = [
+        ["hydratedMembersMapForSnapshot", dMembersHi],
+        ["mappedMessagesForSnapshot", dMsgsHi],
+      ];
+      let maxN = "";
+      let maxMs = -1;
+      for (const [n, d] of cands) {
+        if (d > maxMs) {
+          maxMs = d;
+          maxN = n;
+        }
+      }
+      if (maxMs >= 0 && maxN) {
+        diagnostics.normalizeSlowestNormalizeSubstepName = maxN;
+        /** 1ms 미만 구간도 0으로만 보이지 않게 둘째 자리까지 유지 */
+        diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs * 100) / 100;
+      }
+    }
+  }
 
   const snapshot = {
     viewerUserId: userId,
@@ -5749,10 +6027,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
   };
   if (diagnostics) {
-    diagnostics.roomBootstrapFetchMs = Math.round(performance.now() - tBootstrap0);
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
     diagnostics.participantsProfilesFetchMs = Math.round(participantsProfilesFetchMs);
     diagnostics.normalizeMergeMs = Math.round(normalizeMergeMs);
+    diagnostics.roomBootstrapFetchMs = Math.round(performance.now() - tBootstrap0);
+    diagnostics.snapshotPreReturnMs = Math.round(performance.now() - tBootstrap0);
   }
   return snapshot;
 }
