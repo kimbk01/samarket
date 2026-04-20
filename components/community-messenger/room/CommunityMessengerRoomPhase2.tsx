@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
@@ -240,7 +240,7 @@ function CommunityMessengerRoomClientPhase2Main({
     recordRouteEntryFullRender("messenger_room_entry");
   }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     effectRunCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "phase2_use_effect_count", effectRunCountRef.current);
     const root = rootRef.current;

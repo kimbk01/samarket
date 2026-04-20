@@ -17,13 +17,25 @@
 
 ---
 
+## 체크시트 ↔ 최적화 (완료 / 미완료)
+
+| 구분 | 의미 | 적는 곳 |
+|------|------|---------|
+| **완료** | 해당 `#` 행 기준을 **측정 또는 합의된 기준**으로 충족했다고 판단 → `[x]` | **본 파일만** `[x]` + 위 요약 표 `%` 재계산. |
+| **미완료** | 아직 `[ ]` | 라운드 수치·판정·가설은 **[samarket-performance-track-state.md](./samarket-performance-track-state.md)**에만 쌓고, **증거 없이 `[x]`를 켜지 않는다.** |
+
+**참조 수준 (본 체크시트 기준):** 메신저 **카카오톡** · 거래+커뮤니티 **당근마켓** · 배달·서비스형 **배달의민족**. 메신저 구간 ms·경고선은 [messenger-performance-targets.md](./messenger-performance-targets.md)(카톡·라인 참조)와 맞춘다.  
+> [samarket-native-feel-charter.md](./samarket-native-feel-charter.md) 본문의 메신저 표현은 **텔레그램·바이버**로 남아 있다. **제품 운영에서의 체크시트 참조 앱**은 본 문서 표기(카카오톡 등)를 따른다.
+
+---
+
 ## 요약 (매 작업/라운드 끝에 갱신)
 
 | 도메인 | 참조 수준 | 완료 항목 | 전체 | 완료율 |
 |--------|-----------|-----------|------|--------|
-| 거래 + 커뮤니티 | 당근급 | 0 | 5 | **0%** |
-| 메신저 | 텔레그램·바이버급 | 0 | 5 | **0%** |
-| 배달·서비스형 | 배민급 | 0 | 5 | **0%** |
+| 거래 + 커뮤니티 | 당근마켓급 | 0 | 5 | **0%** |
+| 메신저 | 카카오톡급 | 0 | 5 | **0%** |
+| 배달·서비스형 | 배달의민족급 | 0 | 5 | **0%** |
 
 ---
 
@@ -39,9 +51,9 @@
 
 ---
 
-## 2) 메신저 (텔레그램 · 바이버 수준)
+## 2) 메신저 (카카오톡 수준)
 
-> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지.
+> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지. **추가(2026-04-23):** 라운드 M — `messenger-room-entry-perf-breakdown` 3회 **CTV→input 0ms**, FMR−CTV **~18ms**대(H 대비 개선); 전체 **즉시 입력**·`composer_wall` SLO 합의 전까지 `[ ]` 유지. (연동표: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 메신저」.)
 
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|

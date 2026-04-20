@@ -6,14 +6,29 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-22 |
+| Last updated | 2026-04-24 |
 | Owner | (선택) |
 
 ---
 
 ## 현재 최종 목표 (한 줄)
 
-거래+커뮤니티 **당근급** · 메신저 **텔레그램·바이버급** · 배달·서비스형 **배민급**; 탭·리스트·전환 **선택 즉시 반응**. (UI 토큰·컴포넌트 시각 규격은 별도 관리.)
+거래+커뮤니티 **당근마켓급** · 메신저 **카카오톡급** · 배달·서비스형 **배달의민족급**; 탭·리스트·전환 **선택 즉시 반응**. (UI 토큰·컴포넌트 시각 규격은 별도 관리.)  
+**체크시트·완료율 %:** [samarket-perf-domain-checksheet.md](./samarket-perf-domain-checksheet.md) — 항목 `[x]` = 완료, 라운드 수치만 바뀐 경우는 **트랙 상태(본 파일)**에만 기록.
+
+---
+
+## 체크시트 연동 — 메신저 ([samarket-perf-domain-checksheet.md](./samarket-perf-domain-checksheet.md) §2)
+
+| # | 기준(요약) | 체크시트 | 최근 증거·메모 |
+|---|------------|----------|----------------|
+| 1 | 방 탭 후 즉시 입력 | **미완료** `[ ]` | `composer_wall` 축은 **종료**. **라운드 M**(2026-04-23): `input_ready` 기록을 `useEffect`→`useLayoutEffect` — breakdown **CTV→input 3회 모두 0ms**, **FMR−CTV ~16–21ms**(H 78.7 대비 ↓). 전체 `composer_wall`/SLO는 별도 합의 전까지 `[ ]` 유지. |
+| 2 | 목록·말풍선 지연 | **미완료** `[ ]` | breakdown·부트스트랩 라운드는 진행·종료 기록 있으나 **본 항목 합의 완료 아님**. |
+| 3 | 스크롤·재진입·뒤로가기 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
+| 4 | 배지·읽음·목록 정합 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
+| 5 | 탭·채팅 선택 즉시 반응 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
+
+**도메인 완료율(메신저):** **0 / 5 → 0%** (위 항목이 모두 `[x]`일 때만 100%).
 
 ---
 
@@ -22,7 +37,16 @@
 | 항목 | 내용 |
 |------|------|
 | 트랙 이름 | 메신저·앱 체감 — **클라이언트 gate / hydration / route 전환 blocking** 병목 **1개 특정**(탐색 단계) |
-| 한 줄 요약 | **라운드 K**: `estimateSize` **96→80**만 변경(overscan 12 유지) → **FMR−CTV 평균 ~83ms**(H **78.7ms** 대비 **미감소**), **CTV→input_ready 평균 ~23.7ms**(H **20.7ms** 대비 **악화**) → **롤백**. 다음: **가상화 외 클라 blocking** 또는 **estimateSize 미세 상향(한 값)** 등 단일 레버 재검토. |
+| **트랙 상태** | **보류(일시 중단)** — 2026-04-24 기준. 라운드 **M~P** 반영분은 **코드 유지**, 추가 라운드는 **재개 시** 이어감. |
+| 한 줄 요약 | **여기까지 보류.** 직전 확정: **P**(`messageRowPreamble`)·winner **15/15/23ms** 평균 **~17.7ms**. **재개:** 사용자가 **「다음 라운드 최적화 하자」** / **「최적화 이어가자」**라고 하면 **본 파일「트랙 일시 중단」+ 맨 아래「다음 후보」**를 읽고 **원인 1개·수정 1건**으로 이어간다. |
+
+---
+
+## 트랙 일시 중단 (보류)
+
+1. **중단 시점:** 라운드 **P** 측정·문서 반영 직후. **composer_wall 동일 축**·**가상화 숫자만 조정** 트랙은 이미 **종료(재개 금지)** — 아래 **「종료된 트랙」** 표 참고.  
+2. **유지:** `CommunityMessengerRoomPhase2`(M), `use-messenger-room-derived-message-lists`(N), 타임라인 읽음 배지(O), `messageRowPreamble`(P) 등 **보류 판정과 함께 채택된 구조 개선 코드**는 롤백하지 않음.  
+3. **재개 트리거(연속성):** 채팅/새 창에서 **「다음 라운드 최적화 하자」** 또는 **「최적화 이어가자」** 등으로 요청하면, **먼저** 본 절 + **「다음 후보 1개」**를 읽고 **라운드 Q**를 연다.
 
 ---
 
@@ -31,10 +55,121 @@
 | 트랙 이름 | 종료일 | 종료 사유 (헌장 [6] 항목) | 메모 |
 |-----------|--------|---------------------------|------|
 | 메신저 — 방 입장 `composer_wall_ms` (서버 스냅샷·동일 축) | 2026-04-21 | 동일 축 반복 한계·측정 비재현 | 라운드 G **실패**; F의 `deferSeedRecentMessagesFetchCap` 12→6은 **안정적 개선으로 비채택**·**12 롤백**. 재개 시 새 트랙 명·새 병목 1개로 연다. |
+| 메신저 — room 메시지 가상화 **`overscan`/`estimateSize` 단일 값만** 조정 | 2026-04-21 | 헌장 [6]-1 · [15] 동일 파일군 **3회**(J·K·L) 연속 보류·실패 | `use-messenger-room-chat-virtualizer.ts`만의 1값 실험은 **재개 금지**. 가상화 자체 개편이 필요하면 **새 트랙명·다른 병목 1개**로 연다. |
 
 ---
 
-## 이번 라운드 (최신: 라운드 K — `estimateSize` 96→80 시도 후 롤백)
+## 이번 라운드 (최신: 라운드 P — 가상 행 map 직전 createdAt·아바타 중복 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **가상 행 `map`마다** 인접 `gapMs`용 **`new Date(createdAt).getTime()` 2회**, 내 말풍선마다 **동일 `viewerUserId` 아바타** `communityMessengerMemberAvatar`(내부 `members.find`) **반복**, 상대 말풍선마다 **동일 `senderId`에 대한 `find` 반복**. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` — `messenger-room-entry-perf-breakdown.spec.ts` `--workers=1` **3회**(3회차 1회 실패 후 **재시도 1회**로 대체). |
+| 완료 기준 | winner **`display_room_messages_ready_to_first_message_render_ms`** 가 라운드 O warm 대비 **안정적 감소**. |
+| 수정 파일 (1~3) | **`CommunityMessengerRoomPhase2MessageTimeline.tsx`만** |
+
+### 라운드 P — 3회 (ms)
+
+| Run | `phase2_enter` | `merge_applied` | `display_room_messages_ready` | `first_message_render` | **display_ready→FMR** |
+|-----|----------------|-----------------|--------------------------------|--------------------------|------------------------|
+| 1 | 8627 | 8640 | 8628 | 8643 | **15** |
+| 2 | 1703 | 1716 | 1703 | 1718 | **15** |
+| 3 | 2601 | 2620 | 2601 | 2624 | **23** |
+
+**P 평균:** **~17.7 ms** (O warm 런2–3 **16+23** 평균 **19.5 ms** 대비 **↓**) · 런1은 절대 시각이 크나 **winner는 15ms**  
+**판정:** **보류** — **2/3회 15ms**로 베스트는 좋아졌으나 **23ms** 한 번으로 **완전 입증은 어려움**; 구조 변경은 **유지**.
+
+---
+
+## 이번 라운드 (참고: 라운드 O — 타임라인 읽음 배지 파생 단일화)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **`latestReadableMineMessageId`** 와 **`peerHasReadMyLatestMessage`** 가 각각 `displayRoomMessages`를 **역순 전체 스캔**하고, 후자는 추가로 **`filter(!pending)` 전 배열 + `find` 2회**로 **동일 렌더 틱에 중복 스캔**이 발생했다. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` — `messenger-room-entry-perf-breakdown.spec.ts` `--workers=1` **3회**. |
+| 완료 기준 | winner **`display_room_messages_ready_to_first_message_render_ms`** 가 라운드 N 대비 **안정적 감소**. |
+| 수정 파일 (1~3) | **`CommunityMessengerRoomPhase2MessageTimeline.tsx`만** |
+
+### 라운드 O — 3회 (ms)
+
+| Run | `phase2_enter` | `merge_applied` | `display_room_messages_ready` | `first_message_render` | **display_ready→FMR** |
+|-----|----------------|-----------------|--------------------------------|--------------------------|------------------------|
+| 1 | 7828 | 7850 | 7828 | 7856 | **28** |
+| 2 | 2775 | 2796 | 2776 | 2799 | **23** |
+| 3 | 1836 | 1849 | 1836 | 1852 | **16** |
+
+**O 평균(warm 런2–3만):** **~19.5 ms** (N warm **~19.0 ms**와 동급) · 런1은 절대 시각 cold에 가까워 **제외**  
+**판정:** **보류** — 구조 개선(스캔 횟수 실감 감소) **채택**, winner ms **유의미 감소 미입증**.
+
+---
+
+## 이번 라운드 (참고: 라운드 N — `useMessengerRoomDerivedMessageLists` 단일 순회)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **`roomMessages` 갱신 직후** `useMessengerRoomDerivedMessageLists`가 **서로 독립인 `useMemo` 6~7개**로 **각각 전 배열을 순회**해, `displayRoomMessages`가 타임라인·가상화에 도달하기 전 **동일 렌더 틱에서 CPU를 과다 사용**한다. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` — `messenger-room-entry-perf-breakdown.spec.ts` `--workers=1` **3회**(warm 위주; 1회는 절대 시각이 커 cold에 가까움). |
+| 완료 기준 | `MESSENGER_ROOM_ENTRY_PREFMR_GAP_JSON`의 **`display_room_messages_ready_to_first_message_render_ms`(winner)** 가 **직전(M 이후) 관측 대비 유의미 감소**. |
+| 수정 파일 (1~3) | **`use-messenger-room-derived-message-lists.ts`만** |
+
+### 라운드 N — 3회 (ms)
+
+| Run | `display_room_messages_ready` | `first_message_render` | **display_ready → FMR** (winner) | 비고 |
+|-----|--------------------------------|------------------------|----------------------------------|------|
+| 1 | 2105 | 2128 | **23** | phase2·display 동대역 |
+| 2 | 2509 | 2525 | **16** | |
+| 3 | 2107 | 2125 | **18** | |
+
+**N 평균(winner):** **~19.0 ms** (M 직후 동일 스펙에서 자주 보던 **~16–21ms**와 **동급**; cold 혼입 러닝에서는 **29ms**까지 벌어짐)  
+**판정:** **보류** — 구조적으로 **O(n) 한 번**으로 줄였으나, **로컬 dev 3회만으로 winner 구간의 안정적 단축은 입증되지 않음**(노이즈·cold 경로). **코드는 유지**(메시지 수 증가 시 이점 확대).
+
+---
+
+## 이번 라운드 (참고: 라운드 M — `input_ready` 를 `useLayoutEffect`로 이전)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **`input_ready_ms`** 가 **`useEffect`**(페인트 이후)에서만 기록·`first_interactive` 호출되어, 동일 DOM 기준에서도 **CTV→input** 게이트가 **프레임만큼 불필요하게 커질 수 있음**. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` — `messenger-room-entry-perf-breakdown.spec.ts` `--workers=1` **3회 연속**. |
+| 완료 기준 | **H 대비** CTV→input **악화 없음** + FMR−CTV **감소**(동일 스펙·로컬 dev). |
+| 수정 파일 (1~3) | **`CommunityMessengerRoomPhase2.tsx`만** |
+
+### 라운드 M — 3회 (ms)
+
+| Run | `phase2_enter` | `composer_textarea_visible` | `input_ready` | `first_message_render` | **FMR − CTV** | **CTV → input** | **p2 → CTV** |
+|-----|----------------|----------------------------|---------------|--------------------------|---------------|-------------------|--------------|
+| 1 | 5799 | 5799 | 5799 | 5820 | **+21** | **0** | **0** |
+| 2 | 2121 | 2121 | 2121 | 2139 | **+18** | **0** | **0** |
+| 3 | 1658 | 1658 | 1658 | 1674 | **+16** | **0** | **0** |
+
+**M 평균:** FMR−CTV **~18.3 ms** (H **78.7 ms** 대비 ↓) · CTV→input **0 ms** (H **20.7 ms** 대비 ↓) · p2→CTV **0 ms**  
+**판정:** **성공** — 동일 조건 3회에서 **역행·편차 과대 없음**.
+
+---
+
+## 이번 라운드 (참고: 라운드 L — `estimateSize` 96→104 시도 후 롤백)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **가설:** `estimateSize(96)`이 과소 추정이면 초기 가상 행 수가 많아 **첫 메시지 커밋 비용**이 커진다 → **104**로만 **한 값** 상향 검증. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` — `messenger-room-entry-perf-breakdown.spec.ts` **프로세스 분리 3회**(`--workers=1`). (중간 실패 2회는 재시도로 대체.) |
+| 완료 기준 | FMR−CTV **H 78.7ms 대비 감소** + CTV→input_ready·phase2→CTV **악화 없음** |
+| 수정 파일 (1~3) | **`use-messenger-room-chat-virtualizer.ts`만** — 시도 후 **`estimateSize` 96 원복** |
+
+### 라운드 L — 3회 (ms)
+
+| Run | `phase2_enter` | `composer_textarea_visible` | `input_ready` | `first_message_render` | **FMR − CTV** | **CTV → input** | **p2 → CTV** |
+|-----|----------------|----------------------------|---------------|--------------------------|---------------|-------------------|--------------|
+| 1 | 5225 | 5225 | 5233 | 5242 | **+17** | **8** | **0** |
+| 2 | 2119 | 2119 | 2247 | 2270 | **+151** | **128** | **0** |
+| 3 | 1887 | 1887 | 1897 | 1905 | **+18** | **10** | **0** |
+
+**L 평균:** FMR−CTV **~62 ms** (H **78.7**보다 ↓) · CTV→input **~48.7 ms** (H **20.7**보다 ↑ — **런2 악화로 기준 불충족**) · p2→CTV **0 ms**  
+**판정:** **보류** — 동일 스펙에서 **런 간 편차 큼**(FMR−CTV 17↔151); 채택 시 **입력 지연 악화** 구간 재현 가능.
+
+---
+
+## 이번 라운드 (참고: 라운드 K — `estimateSize` 96→80 시도 후 롤백)
 
 | 항목 | 내용 |
 |------|------|
@@ -233,9 +368,10 @@
 | 대상 (병목/파일군) | 연속 보류·무효 횟수 | 비고 |
 |--------------------|---------------------|------|
 | 메신저 `composer_wall` / `service.ts` 첫 `Promise.all` | — | **트랙 종료**(2026-04-21)로 본 축 카운터 종료. |
+| 메신저 room **`use-messenger-room-chat-virtualizer.ts` 단일 레버** (`overscan` / `estimateSize`) | **3** | **J·K·L** 누적 → 헌장 **[15]**에 따라 **이 파일에서 overscan·estimateSize만 바꾸는 미세 트랙 종료**. 다음 라운드는 **가상화 외** 축만. |
 
 ---
 
 ## 다음 후보 1개 (헌장 [8] 순서)
 
-**가상화 밖 병목** — `overscan`·`estimateSize` 단일 변경은 **연속 악화 또는 미개선**. 다음은 **route chunk / Phase1 merge / 타임라인 외 레이아웃** 등 breakdown 상 **다른 마크 간격**이 큰 축을 1개만 고르거나, **estimateSize를 96보다 소량 상향(한 값)** 같은 반대 방향 실험을 **별도 라운드**로 한정.
+**재개 시(「다음 라운드 최적화 하자」·「최적화 이어가자」):** 라운드 **P** 직후 — **`CommunityMessengerRoomPhase2MessageTimeline.tsx`** 안 **`viberInnerBody` IIFE**를 메시지 타입별 **`memo` 소컴포넌트**로 나누어 **가상 행 map 직후 JSX 비용**을 줄이거나, winner가 그대로면 **`MESSENGER_ROOM_ENTRY_TIMELINE_JSON`** 기준 **scroll·가상 측정** 축을 **1개만** 잡아 계측·수정. (**금지:** composer 본문, `overscan`/`estimateSize` **숫자만** 변경.)

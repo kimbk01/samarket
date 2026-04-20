@@ -71,48 +71,62 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     originals: string[];
     index: number;
   } | null>(null);
-  const latestReadableMineMessageId = useMemo(() => {
-    for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
-      const item = vm.displayRoomMessages[i];
+  /**
+   * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
+   * 역순 1회로 mine id 확정 후, 읽음 판별에 필요한 두 id만 단일 순방향 스캔으로 찾는다.
+   */
+  const { latestReadableMineMessageId, peerHasReadMyLatestMessage } = useMemo(() => {
+    const msgs = vm.displayRoomMessages;
+    let latestMineId: string | null = null;
+    for (let i = msgs.length - 1; i >= 0; i -= 1) {
+      const item = msgs[i];
       if (item.pending) continue;
       if (!item.isMine) continue;
       if (item.messageType === "system") continue;
-      return item.id;
+      latestMineId = item.id;
+      break;
     }
-    return null;
-  }, [vm.displayRoomMessages]);
-  /**
-   * 상대 `last_read_message_id` 는 「마지막으로 본 메시지」이므로, 내 최신 발화 id 와 **일치할 때만** 읽음이면
-   * 상대가 그 이후(예: 본인 답장)까지 읽어도 항상 「안읽음」으로 남는다. 타임라인 순서로 cursor 가 내 최신 이후면 읽음.
-   */
-  const peerHasReadMyLatestMessage = useMemo(() => {
+
     const readCursor = vm.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
-    if (!readCursor) return false;
-    const mineLatestId = (() => {
-      for (let i = vm.displayRoomMessages.length - 1; i >= 0; i -= 1) {
-        const item = vm.displayRoomMessages[i];
-        if (item.pending) continue;
-        if (!item.isMine) continue;
-        if (item.messageType === "system") continue;
-        return item.id;
-      }
-      return null;
-    })();
-    if (!mineLatestId) return false;
-    if (readCursor === mineLatestId) return true;
+    if (!readCursor) {
+      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
+    }
+    if (!latestMineId) {
+      return { latestReadableMineMessageId: null, peerHasReadMyLatestMessage: false };
+    }
+    if (readCursor === latestMineId) {
+      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
+    }
 
-    const confirmed = vm.displayRoomMessages.filter((m) => !m.pending);
-    const fromList = (id: string) => confirmed.find((m) => m.id === id);
-    const fromSnap = (id: string) => vm.snapshot.messages.find((m) => m.id === id);
-    const cursorMsg = fromList(readCursor) ?? fromSnap(readCursor);
-    const mineLatestMsg = fromList(mineLatestId) ?? fromSnap(mineLatestId);
-    if (!cursorMsg || !mineLatestMsg) return false;
+    let cursorMsg: (typeof msgs)[number] | undefined;
+    let mineLatestMsg: (typeof msgs)[number] | undefined;
+    for (let i = 0; i < msgs.length; i += 1) {
+      const m = msgs[i];
+      if (m.pending) continue;
+      if (m.id === readCursor) cursorMsg = m;
+      if (m.id === latestMineId) mineLatestMsg = m;
+      if (cursorMsg && mineLatestMsg) break;
+    }
 
-    const ta = new Date(cursorMsg.createdAt).getTime();
-    const tb = new Date(mineLatestMsg.createdAt).getTime();
-    if (ta > tb) return true;
-    if (ta < tb) return false;
-    return readCursor.localeCompare(mineLatestId) >= 0;
+    const fromSnap = (id: string) => vm.snapshot.messages.find((msg) => msg.id === id);
+    const cMsg = cursorMsg ?? fromSnap(readCursor);
+    const mMsg = mineLatestMsg ?? fromSnap(latestMineId);
+    if (!cMsg || !mMsg) {
+      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
+    }
+
+    const ta = new Date(cMsg.createdAt).getTime();
+    const tb = new Date(mMsg.createdAt).getTime();
+    if (ta > tb) {
+      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
+    }
+    if (ta < tb) {
+      return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
+    }
+    return {
+      latestReadableMineMessageId: latestMineId,
+      peerHasReadMyLatestMessage: readCursor.localeCompare(latestMineId) >= 0,
+    };
   }, [vm.displayRoomMessages, vm.snapshot.messages, vm.snapshot.readReceipt?.lastReadMessageId]);
 
   /**
@@ -162,6 +176,21 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       onScroll();
     });
   }, [onScroll]);
+
+  /** 가상 행 map 직전: 행마다 `new Date(createdAt)` 2회·동일 viewer 아바타 N회·동일 sender `members.find` 반복을 줄인다. */
+  const messageRowPreamble = useMemo(() => {
+    const createdAtMs = vm.displayRoomMessages.map((m) => new Date(m.createdAt).getTime());
+    const avatarBySenderId = new Map<string, ReturnType<typeof communityMessengerMemberAvatar>>();
+    const peerAvatarFor = (senderId: string | null | undefined) => {
+      if (!senderId) return null;
+      if (avatarBySenderId.has(senderId)) return avatarBySenderId.get(senderId) ?? null;
+      const v = communityMessengerMemberAvatar(vm.roomMembersDisplay, senderId);
+      avatarBySenderId.set(senderId, v);
+      return v;
+    };
+    const myRowAvatar = communityMessengerMemberAvatar(vm.roomMembersDisplay, vm.snapshot.viewerUserId);
+    return { createdAtMs, peerAvatarFor, myRowAvatar };
+  }, [vm.displayRoomMessages, vm.roomMembersDisplay, vm.snapshot.viewerUserId]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -234,7 +263,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const prev = index > 0 ? vm.displayRoomMessages[index - 1] : null;
               const gapMs =
                 prev && prev.messageType !== "system" && item.messageType !== "system"
-                  ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
+                  ? Math.max(0, messageRowPreamble.createdAtMs[index]! - messageRowPreamble.createdAtMs[index - 1]!)
                   : 0;
               const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
               const peerSenderChanged =
@@ -256,7 +285,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   prev.isMine ||
                   peerSenderChanged ||
                   isNewClusterFromTime);
-              const peerAvatar = !item.isMine ? communityMessengerMemberAvatar(vm.roomMembersDisplay, item.senderId) : null;
+              const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
               const showMyAvatar =
                 item.isMine &&
                 item.messageType !== "system" &&
@@ -266,9 +295,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   mySenderChanged ||
                   isNewClusterFromTime);
               const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
-              const myAvatar = item.isMine
-                ? communityMessengerMemberAvatar(vm.roomMembersDisplay, vm.snapshot.viewerUserId)
-                : null;
+              const myAvatar = item.isMine ? messageRowPreamble.myRowAvatar : null;
 
               const bindMessageInteraction =
                 item.messageType === "system"
