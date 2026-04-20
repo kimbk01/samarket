@@ -74,6 +74,11 @@ export type CommunityMessengerRoomSnapshotDiagnostics = {
   /** `mappedMessagesNormalizeSubstepsMs` 중 누적이 가장 큰 하위 단계 */
   mappedMessagesSlowestSubstepName?: string;
   mappedMessagesSlowestSubstepMs?: number;
+  /** `messengerImageClientFieldsFromMetadata` 처리량(한 번의 `messages.map` 패스 기준, E2E 진단 전용) */
+  imageMetaCallCount?: number;
+  imageMetaAlbumCandidateCount?: number;
+  imageMetaAlbumParseElementTotal?: number;
+  imageMetaSingleFallbackCount?: number;
 };
 
 export interface CommunityMessengerReadPort {

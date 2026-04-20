@@ -52,7 +52,11 @@ import {
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
-import { messengerImageClientFieldsFromMetadata } from "@/lib/community-messenger/messenger-image-message-map";
+import {
+  messengerImageClientFieldsFromMetadata,
+  peekMessengerImageMetaDiagnosticsCounts,
+  resetMessengerImageMetaDiagnosticsCounts,
+} from "@/lib/community-messenger/messenger-image-message-map";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -5302,7 +5306,36 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
 }
 
 /** 동일 방·옵션으로 동시에 들어온 스냅샷 요청을 한 번의 로드로 합침(결과 TTL 캐시는 최신 메시지 누락 방지로 두지 않음) */
-const roomSnapshotInflight = new Map<string, Promise<CommunityMessengerRoomSnapshot | null>>();
+type RoomSnapshotInflightEntry = {
+  promise: Promise<CommunityMessengerRoomSnapshot | null>;
+  /** `loadCommunityMessengerRoomSnapshotUncached` 가 직접 갱신하는 단일 진단 버킷 */
+  diagSink: CommunityMessengerRoomSnapshotDiagnostics;
+  /** 완료 후 `diagSink` 스냅샷을 각 ref 로 복제(호출자별 객체 유지) */
+  diagReplicaRefs: Set<CommunityMessengerRoomSnapshotDiagnostics>;
+};
+
+const roomSnapshotInflight = new Map<string, RoomSnapshotInflightEntry>();
+
+/** inflight 공유 시 호출자 diagnostics 가 각자 동일 스냅샷을 갖도록 복제 */
+function replicateRoomSnapshotDiagnosticsToTargets(
+  sink: CommunityMessengerRoomSnapshotDiagnostics,
+  targets: ReadonlySet<CommunityMessengerRoomSnapshotDiagnostics>
+): void {
+  if (!targets.size) return;
+  const keys = Object.keys(sink) as (keyof CommunityMessengerRoomSnapshotDiagnostics)[];
+  if (!keys.length) return;
+  for (const to of targets) {
+    for (const k of keys) {
+      const v = sink[k];
+      if (v === undefined) continue;
+      try {
+        (to as Record<string, unknown>)[k as string] = structuredClone(v as object) as never;
+      } catch {
+        (to as Record<string, unknown>)[k as string] = v as never;
+      }
+    }
+  }
+}
 
 function messengerRoomSnapshotCacheKey(
   userId: string,
@@ -5457,11 +5490,11 @@ export async function getCommunityMessengerRoomSnapshot(
   const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
   const id = trimText(roomId);
   if (!id) return null;
-  // `diagnostics` 는 호출자별 객체 ref 로 채워진다. inflight 공유 시 첫 호출자만 돌고,
-  // 나머지는 동일 스냅샷을 받아도 diagnostics 가 {} 로 남는다(RSC·prefetch·API 동시 등).
-  if (options?.diagnostics) {
-    return loadCommunityMessengerRoomSnapshotUncached(userId, roomId, options);
-  }
+  /**
+   * 계측 ref 가 있어도 inflight 는 유지한다. `load*` 는 공용 `diagSink` 만 갱신하고,
+   * 완료 시점에 각 호출자 `options.diagnostics` 로 동일 내용을 복제한다(동시 요청 1회 페치).
+   * 진단 소비자가 없을 때도 빈 `diagSink` 를 쓰면 후행 동시 호출자가 붙었을 때 복제 불가하므로 항상 sink 를 둔다.
+   */
   const cacheKey = messengerRoomSnapshotCacheKey(
     userId,
     id,
@@ -5469,14 +5502,34 @@ export async function getCommunityMessengerRoomSnapshot(
     hydrateFullMemberList,
     deferSnapshotSecondary
   );
-  let inflight = roomSnapshotInflight.get(cacheKey);
-  if (!inflight) {
-    inflight = loadCommunityMessengerRoomSnapshotUncached(userId, roomId, options).finally(() => {
+  const existing = roomSnapshotInflight.get(cacheKey);
+  if (existing) {
+    if (options?.diagnostics) {
+      existing.diagReplicaRefs.add(options.diagnostics);
+    }
+    return existing.promise;
+  }
+
+  const diagSink: CommunityMessengerRoomSnapshotDiagnostics = {};
+  const diagReplicaRefs = new Set<CommunityMessengerRoomSnapshotDiagnostics>();
+  if (options?.diagnostics) {
+    diagReplicaRefs.add(options.diagnostics);
+  }
+
+  const promise = loadCommunityMessengerRoomSnapshotUncached(userId, roomId, {
+    ...options,
+    diagnostics: diagSink,
+  })
+    .then((snap) => {
+      replicateRoomSnapshotDiagnosticsToTargets(diagSink, diagReplicaRefs);
+      return snap;
+    })
+    .finally(() => {
       roomSnapshotInflight.delete(cacheKey);
     });
-    roomSnapshotInflight.set(cacheKey, inflight);
-  }
-  return await inflight;
+
+  roomSnapshotInflight.set(cacheKey, { promise, diagSink, diagReplicaRefs });
+  return promise;
 }
 
 async function loadCommunityMessengerRoomSnapshotUncached(
@@ -5903,6 +5956,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const emptyMessageMetadata: Record<string, unknown> = {};
   /** 비보이스 메시지마다 `voiceExtra` 용 새 `{}` 할당 방지 — spread 만 하며 변이 없음 */
   const emptyVoiceEnvelopeExtra = {};
+  if (traceMappedMessages) {
+    resetMessengerImageMetaDiagnosticsCounts();
+  }
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message, mi) => {
     let tStep = performance.now();
     const senderId = messageSenderIdByMi[mi];
@@ -5939,7 +5995,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       tStep = performance.now();
     }
     const contentTrimmed = trimText(message.content);
-    const imageExtra = messengerImageClientFieldsFromMetadata(safeMt, metadata, contentTrimmed);
+    const imageExtra =
+      safeMt === "image"
+        ? messengerImageClientFieldsFromMetadata(safeMt, metadata, contentTrimmed)
+        : {};
     if (mappedMsgAcc) {
       mappedMsgAcc.messengerImageClientFieldsFromMetadata += performance.now() - tStep;
     }
@@ -5977,6 +6036,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       diagnostics.mappedMessagesSlowestSubstepName = maxN;
       diagnostics.mappedMessagesSlowestSubstepMs = Math.round(maxV * 100) / 100;
     }
+    const imgMeta = peekMessengerImageMetaDiagnosticsCounts();
+    diagnostics.imageMetaCallCount = imgMeta.imageMetaCallCount;
+    diagnostics.imageMetaAlbumCandidateCount = imgMeta.imageMetaAlbumCandidateCount;
+    diagnostics.imageMetaAlbumParseElementTotal = imgMeta.imageMetaAlbumParseElementTotal;
+    diagnostics.imageMetaSingleFallbackCount = imgMeta.imageMetaSingleFallbackCount;
   }
   tHiDeferAfterMessagesMap = performance.now();
   normalizeMergeMs += performance.now() - tMappedMessages0;
@@ -6199,7 +6263,9 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
-        ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
+        ...(safeMt === "image"
+          ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content))
+          : {}),
       };
     });
   };
@@ -6252,7 +6318,9 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
-        ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content)),
+        ...(safeMt === "image"
+          ? messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content))
+          : {}),
       };
     });
     return { ok: true, messages, hasMore };
@@ -6363,7 +6431,9 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
-        ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content)),
+        ...(safeMt === "image"
+          ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content))
+          : {}),
       };
     });
   };
@@ -6421,7 +6491,9 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
               fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
             }
           : {}),
-        ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content)),
+        ...(safeMt === "image"
+          ? messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(message.content))
+          : {}),
       };
     });
     return { ok: true, messages, hasMore };
@@ -6511,7 +6583,9 @@ export async function getCommunityMessengerRoomMessageById(input: {
             fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
           }
         : {}),
-      ...messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(row.content)),
+      ...(safeMt === "image"
+        ? messengerImageClientFieldsFromMetadata(safeMt, metadata as Record<string, unknown>, trimText(row.content))
+        : {}),
     };
     return { ok: true, message };
   }
@@ -6581,7 +6655,9 @@ export async function getCommunityMessengerRoomMessageById(input: {
           fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
         }
       : {}),
-    ...messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(r.content)),
+    ...(safeMt === "image"
+      ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(r.content))
+      : {}),
   };
   return { ok: true, message };
 }

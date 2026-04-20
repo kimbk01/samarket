@@ -50,7 +50,10 @@ async function CommunityMessengerRoomPageLoaded({
     }
     canonicalRoomIdForE2eOverlay = canonical.canonicalRoomId;
     rscTimers.mark("bootstrap_start");
-    roomSnapshotDiagnostics = {};
+    /** 계측 객체를 항상 넘기면 `getRoomSnapshot` 이 inflight 공유를 건너뛴다 — 일반 진입에서는 생략 */
+    const wantRoomSnapshotDiagnostics =
+      process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace;
+    roomSnapshotDiagnostics = wantRoomSnapshotDiagnostics ? {} : null;
     const readPort = createSupabaseCommunityMessengerReadPort();
     initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, viewerUserId, canonical.canonicalRoomId, {
       initialMessageLimit: Math.min(
@@ -59,7 +62,7 @@ async function CommunityMessengerRoomPageLoaded({
       ),
       hydrateFullMemberList: false,
       deferSnapshotSecondary: true,
-      diagnostics: roomSnapshotDiagnostics,
+      diagnostics: roomSnapshotDiagnostics ?? undefined,
       e2eRoomSnapshotDiag: e2eRoomTrace,
     });
     if (process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace) {

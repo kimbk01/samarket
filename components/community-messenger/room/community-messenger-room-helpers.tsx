@@ -333,7 +333,9 @@ export function mapRealtimeRoomMessage(
     ...(fileName !== undefined ? { fileName } : {}),
     ...(fileMimeType !== undefined ? { fileMimeType } : {}),
     ...(fileSizeBytes !== undefined ? { fileSizeBytes } : {}),
-    ...messengerImageClientFieldsFromMetadata(message.messageType, message.metadata, contentTrim),
+    ...(message.messageType === "image"
+      ? messengerImageClientFieldsFromMetadata(message.messageType, message.metadata, contentTrim)
+      : {}),
   };
 }
 
