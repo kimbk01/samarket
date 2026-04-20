@@ -1,12 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
+
+const CommunityMessengerCallClient = dynamic(
+  () =>
+    import("@/components/community-messenger/CommunityMessengerCallClient").then(
+      (m) => m.CommunityMessengerCallClient
+    ),
+  { ssr: false, loading: () => <CommunityMessengerCallRouteLoading /> }
+);
 
 /**
  * 통화 화면은 발신 직후 `sessionStorage` 시드 + 클라 GET으로 충분하다.
- * RSC에서 DB 세션을 await 하면 Suspense·TTFB가 길어져 「영상 선택 → 화면 전환」이 느려진다.
+ * `ssr:false` 로 첫 페인트부터 시드를 동기 소비해 로딩·권한 대기 없이 벨/연결 UI 로 진입한다.
  */
 export default function CommunityMessengerCallPage() {
   const params = useParams();

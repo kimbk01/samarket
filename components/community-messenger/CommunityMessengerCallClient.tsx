@@ -33,6 +33,7 @@ import {
   openCommunityMessengerPermissionSettings,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   shouldSkipCallerMediaGateOverlay,
+  shouldSkipCallerMediaGateOverlaySync,
 } from "@/lib/community-messenger/call-permission";
 import {
   COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE,
@@ -67,6 +68,7 @@ import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
   ensureCallNavigationSeedMemoryMatchesRoute,
+  hydrateCommunityMessengerCallClientSession,
   navigateBackFromCommunityMessengerCall,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
@@ -202,8 +204,11 @@ export function CommunityMessengerCallClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
-  const [session, setSession] = useState<CommunityMessengerCallSession | null>(() => initialSession ?? null);
-  const [loading, setLoading] = useState(() => initialSession == null);
+  const [initialCallHydration] = useState(() =>
+    hydrateCommunityMessengerCallClientSession(sessionId, initialSession)
+  );
+  const [session, setSession] = useState<CommunityMessengerCallSession | null>(initialCallHydration.session);
+  const [loading, setLoading] = useState(() => initialCallHydration.loading);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
@@ -291,10 +296,10 @@ export function CommunityMessengerCallClient({
    * 「허용하고 연결」 확인 후에만 Agora 조인한다. 수신은 수락 버튼·자동수락 경로에서 이미 제스처가 있다.
    */
   const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(() => {
-    const init = initialSession;
-    if (init == null) return true;
-    if (!init.isMineInitiator) return true;
-    return hasCommunityMessengerMediaTrustedMark();
+    const s = initialCallHydration.session;
+    if (!s) return true;
+    if (!s.isMineInitiator) return true;
+    return shouldSkipCallerMediaGateOverlaySync(s.callKind);
   });
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
@@ -356,7 +361,7 @@ export function CommunityMessengerCallClient({
     setEndedDurationSeconds(null);
   }, [sessionId]);
 
-  /** 발신 직후 네비게이션 시드 — RSC/GET 전에 세션을 채워 로딩 스피너 단축 */
+  /** 시드가 lazy 초기화 이후에만 채워지는 경로(테스트·비동적 로드)용 보강 */
   useLayoutEffect(() => {
     if (initialSessionRef.current != null) return;
     ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
@@ -364,6 +369,11 @@ export function CommunityMessengerCallClient({
     if (seeded) {
       setSession(seeded);
       setLoading(false);
+      if (!seeded.isMineInitiator) {
+        setCallerMediaConsentDone(true);
+      } else {
+        setCallerMediaConsentDone(shouldSkipCallerMediaGateOverlaySync(seeded.callKind));
+      }
     }
   }, [sessionId]);
 

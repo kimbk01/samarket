@@ -17,6 +17,25 @@ export function ensureCallNavigationSeedMemoryMatchesRoute(routedSessionId: stri
 }
 
 /**
+ * `/calls/:sessionId` 첫 렌더 — `initialSession` 이 없어도 네비 직전 `sessionStorage` 시드로 세션을 동기 채운다.
+ * 번들 로드가 클라이언트에서만 일어나면(`dynamic` `ssr:false`) 스피너 한 틱·Permissions 대기 없이 통화 UI 로 진입한다.
+ */
+export function hydrateCommunityMessengerCallClientSession(
+  sessionId: string,
+  initialSession: CommunityMessengerCallSession | null | undefined
+): { session: CommunityMessengerCallSession | null; loading: boolean } {
+  if (initialSession != null) {
+    return { session: initialSession, loading: false };
+  }
+  if (typeof window === "undefined") {
+    return { session: null, loading: true };
+  }
+  ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
+  const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
+  return seeded ? { session: seeded, loading: false } : { session: null, loading: true };
+}
+
+/**
  * 통화 전 화면 URL(채팅·메신저 홈 등)을 저장해, 종료·취소 시 `router.replace` 로 그대로 돌아간다.
  * 통화 라우트 자체는 저장하지 않는다(루프 방지).
  */

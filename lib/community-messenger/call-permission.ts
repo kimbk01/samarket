@@ -23,26 +23,22 @@ export function hasCommunityMessengerMediaTrustedMark(): boolean {
   }
 }
 
-/**
- * 발신 통화의 「마이크·카메라 허용」 전체 화면 확인을 건너뛸지.
- * - 이전에 성공적으로 허용한 기록(localStorage) 또는
- * - Permissions API 로 이미 granted 인 경우
- */
-export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (hasCommunityMessengerMediaTrustedMark()) return true;
-  const perm = navigator.permissions;
-  if (!perm?.query) return false;
+const PERMISSIONS_QUERY_BUDGET_MS = 380;
+
+async function readPermissionStateBudgeted(
+  query: () => Promise<PermissionStatus>
+): Promise<PermissionState | null> {
   try {
-    const mic = await perm.query({ name: "microphone" as PermissionName });
-    if (mic.state !== "granted") return false;
-    if (kind === "video") {
-      const cam = await perm.query({ name: "camera" as PermissionName });
-      if (cam.state !== "granted") return false;
-    }
-    return true;
+    const r = await Promise.race([
+      query(),
+      new Promise<null>((resolve) => {
+        window.setTimeout(() => resolve(null), PERMISSIONS_QUERY_BUDGET_MS);
+      }),
+    ]);
+    if (!r) return null;
+    return r.state;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -159,6 +155,37 @@ function primedStreamIsUsableForKind(kind: CommunityMessengerCallKind): boolean 
 /** 전역 수락 직후 방으로 이동했을 때 자동 수락 effect 가 getUserMedia 를 호출해도 되는지(프라임 성공 여부) */
 export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMessengerCallKind): boolean {
   return primedStreamIsUsableForKind(kind);
+}
+
+/** Permissions API 대기 없이 즉시 — 발신 통화 첫 페인트·자동 조인 판단용 */
+export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCallKind): boolean {
+  if (typeof window === "undefined") return false;
+  if (hasCommunityMessengerMediaTrustedMark()) return true;
+  return hasUsablePrimedCommunityMessengerDeviceStream(kind);
+}
+
+/**
+ * 발신 통화의 「마이크·카메라 허용」 전체 화면 확인을 건너뛸지.
+ * - 이전에 성공적으로 허용한 기록(localStorage) 또는
+ * - 채팅방 클릭 직후 프라임된 스트림이 아직 유효한 경우
+ * - Permissions API 로 이미 granted 인 경우(쿼리는 상한 ms — 일부 환경에서 수 초 걸려 연결 화면이 늦게 뜨는 문제 방지)
+ */
+export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
+  if (shouldSkipCallerMediaGateOverlaySync(kind)) return true;
+  if (typeof window === "undefined") return false;
+  const perm = navigator.permissions;
+  if (!perm?.query) return false;
+  try {
+    const micState = await readPermissionStateBudgeted(() => perm.query({ name: "microphone" as PermissionName }));
+    if (micState !== "granted") return false;
+    if (kind === "video") {
+      const camState = await readPermissionStateBudgeted(() => perm.query({ name: "camera" as PermissionName }));
+      if (camState !== "granted") return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream) {
