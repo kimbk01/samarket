@@ -232,9 +232,12 @@ export function buildDeliveryDetailLines(a: UserAddressDTO): string {
 export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string {
   const fa = a.fullAddress?.trim();
   if (fa && !isDisplayNullish(fa)) return fa;
+  /** 상세(동·호)만 있을 때 `buildDeliveryDetailLines`를 먼저 쓰면 본문이 "444"처럼 잘못 잡힘 */
+  const trade = buildTradePublicLine(a);
+  if (trade !== "주소 미입력") return trade;
   const detail = buildDeliveryDetailLines(a).trim();
   if (detail) return detail.replace(/\n/g, ", ");
-  return buildTradePublicLine(a);
+  return trade;
 }
 
 export type CheckoutDeliveryPayload = {

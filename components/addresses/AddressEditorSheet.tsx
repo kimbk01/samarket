@@ -6,6 +6,8 @@ import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
+import { nextAutoUnspecifiedNickname } from "@/lib/addresses/unspecified-address-nickname";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 
 type Mode = "create" | "edit";
 
@@ -13,19 +15,21 @@ type Mode = "create" | "edit";
  * 작은 위치 미리보기 — Google Static Maps 는 Maps Static API·리퍼러 허용이 필요해 로컬에서 자주 깨짐.
  * 실패 시 OpenStreetMap 정적 타일(키 불필요)로 폴백.
  */
-function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
+function AddressMapThumb({ lat, lng, sizePx = 72 }: { lat: number; lng: number; sizePx?: number }) {
   const gkey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
+  const apiSize = Math.min(640, Math.max(128, Math.round(sizePx * 2)));
+  const mapDim = `${apiSize}x${apiSize}`;
   const candidates = useMemo(() => {
     const q = [
       ...(gkey
         ? [
-            `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=128x128&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${gkey}`,
+            `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=${mapDim}&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${gkey}`,
           ]
         : []),
-      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=128x128&maptype=mapnik&markers=${lat},${lng},lightblue1`,
+      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=${mapDim}&maptype=mapnik&markers=${lat},${lng},lightblue1`,
     ];
     return q;
-  }, [gkey, lat, lng]);
+  }, [gkey, lat, lng, mapDim]);
 
   const [i, setI] = useState(0);
   const src = candidates[i];
@@ -33,7 +37,8 @@ function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
   if (!src || i >= candidates.length) {
     return (
       <div
-        className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted text-[11px] text-sam-meta"
+        className="flex shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted text-[11px] text-sam-meta"
+        style={{ width: sizePx, height: sizePx }}
         aria-hidden
       >
         지도
@@ -47,9 +52,10 @@ function AddressMapThumb({ lat, lng }: { lat: number; lng: number }) {
       key={i}
       src={src}
       alt=""
-      width={72}
-      height={72}
-      className="h-[72px] w-[72px] shrink-0 rounded-ui-rect object-cover bg-sam-surface-muted"
+      width={sizePx}
+      height={sizePx}
+      className="shrink-0 rounded-ui-rect object-cover bg-sam-surface-muted"
+      style={{ width: sizePx, height: sizePx }}
       loading="lazy"
       decoding="async"
       onError={() => setI((x) => x + 1)}
@@ -70,7 +76,7 @@ export function AddressEditorSheet(props: {
   } | null;
   onClose: () => void;
   onSaved: () => void;
-  /** 중복 이름 검사용(현재 사용자 주소 목록) */
+  /** 중복 지정 주소 검사용(현재 사용자 주소 목록) */
   allAddresses?: UserAddressDTO[];
 }) {
   const { open, mode, initial, mapBootstrap = null, onClose, onSaved, allAddresses = [] } = props;
@@ -186,19 +192,16 @@ export function AddressEditorSheet(props: {
       setBusy(false);
       return;
     }
-    const nameTrimmed = nickname.trim();
-    if (!normalizeAddressNicknameKey(nameTrimmed)) {
-      setErr("주소 이름을 입력 하세요");
-      setBusy(false);
-      return;
-    }
-    const nameKey = normalizeAddressNicknameKey(nameTrimmed);
-    const dup = allAddresses.some((a) => {
-      if (mode === "edit" && initial?.id === a.id) return false;
-      return normalizeAddressNicknameKey(a.nickname ?? "") === nameKey;
-    });
+    const siblingRows = allAddresses.filter((a) => !(mode === "edit" && initial?.id === a.id));
+    const resolvedName = nickname.trim()
+      ? nickname.trim()
+      : nextAutoUnspecifiedNickname(siblingRows.map((a) => a.nickname ?? ""));
+    const nameKey = normalizeAddressNicknameKey(resolvedName);
+    const dup = siblingRows.some(
+      (a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey,
+    );
     if (dup) {
-      setErr("이미 같은 이름의 주소가 있어요.");
+      setErr("이미 같은 지정 주소가 있어요.");
       setBusy(false);
       return;
     }
@@ -210,7 +213,7 @@ export function AddressEditorSheet(props: {
       }
       const body = {
         labelType,
-        nickname: nameTrimmed,
+        nickname: resolvedName,
         recipientName: recipientName.trim() || null,
         phoneNumber: ph.value,
         appRegionId: region.trim() || null,
@@ -254,18 +257,24 @@ export function AddressEditorSheet(props: {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col justify-end bg-black/40 sm:items-center sm:justify-center sm:p-4">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3 sm:p-4 md:p-6">
       <div
-        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface sm:max-h-[90vh] sm:max-w-lg sm:rounded-ui-rect sm:shadow-xl"
+        className={`flex max-h-[min(90dvh,92vh)] w-full min-w-0 flex-col overflow-hidden rounded-ui-rect bg-sam-surface text-sam-fg shadow-xl ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-editor-title"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft bg-sam-surface px-3 py-3">
+        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-primary-border/50 bg-sam-primary-soft px-3 py-3.5">
+          <h2
+            id="addr-editor-title"
+            className="text-[17px] font-semibold tracking-tight text-signature"
+          >
+            주소상세
+          </h2>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 min-w-[44px] items-center justify-center rounded-ui-rect text-[14px] text-sam-muted"
+            className="absolute right-1 top-1/2 flex h-10 min-w-[44px] -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-icon-soft transition-colors hover:bg-white/60 hover:text-signature"
             aria-label="닫기"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -277,38 +286,72 @@ export function AddressEditorSheet(props: {
               />
             </svg>
           </button>
-          <h2 id="addr-editor-title" className="text-[16px] font-semibold text-sam-fg">
-            주소상세
-          </h2>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void submit()}
-            className="min-w-[52px] rounded-ui-rect px-2 py-1.5 text-[15px] font-semibold text-signature disabled:opacity-40"
-          >
-            {busy ? "…" : "저장"}
-          </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6">
-          <div>
-            <p className="mb-2 text-[14px] font-medium text-sam-fg">
-              이름 <span className="text-red-600">*</span>
-            </p>
-            <input
-              value={nickname}
-              onChange={(e) => {
-                setNickname(e.target.value);
-                setErr(null);
-              }}
-              placeholder="예: 우리집, 사무실"
-              autoComplete="off"
-              aria-required
-              className="w-full border-0 border-b border-sam-border bg-transparent py-2 text-[17px] text-sam-fg outline-none placeholder:text-sam-meta"
-            />
-          </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-sam-app/80 px-4 py-4 sm:bg-sam-surface sm:py-5">
+          {latitude != null && longitude != null ? (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] gap-x-3 gap-y-2.5">
+              <div className="col-start-1 row-start-1 flex min-w-0 flex-nowrap items-center gap-2.5">
+                <span className="shrink-0 text-[13px] font-semibold text-signature/90">지정 주소</span>
+                <input
+                  value={nickname}
+                  onChange={(e) => {
+                    setNickname(e.target.value);
+                    setErr(null);
+                  }}
+                  placeholder="비우면 지정안함 입력됨"
+                  autoComplete="off"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 text-[14px] text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:text-[13px] focus-visible:border-signature"
+                />
+              </div>
+              <p className="col-start-1 row-start-2 min-w-0 self-start text-[14px] leading-relaxed text-sam-muted">
+                {fullAddress.trim() ||
+                  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+              </p>
+              <div className="col-start-1 row-start-3 flex min-w-0 flex-nowrap items-center gap-2.5">
+                <span className="shrink-0 text-[13px] font-semibold text-signature/90">상세주소</span>
+                <input
+                  value={unitFloorRoom}
+                  onChange={(e) => setUnitFloorRoom(e.target.value)}
+                  placeholder="지번, 건물명, 동·호 등"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 text-[15px] text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-signature"
+                />
+              </div>
+              <div className="col-start-2 row-span-3 row-start-1 self-start justify-self-end rounded-ui-rect p-0.5 ring-1 ring-sam-primary-border/60">
+                <AddressMapThumb lat={latitude} lng={longitude} sizePx={120} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
+                <span className="shrink-0 text-[13px] font-semibold text-signature/90">지정 주소</span>
+                <input
+                  value={nickname}
+                  onChange={(e) => {
+                    setNickname(e.target.value);
+                    setErr(null);
+                  }}
+                  placeholder="비우면 지정안함 입력됨"
+                  autoComplete="off"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 text-[14px] text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:text-[13px] focus-visible:border-signature"
+                />
+              </div>
+              <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
+                <span className="shrink-0 text-[13px] font-semibold text-signature/90">상세주소</span>
+                <input
+                  value={unitFloorRoom}
+                  onChange={(e) => setUnitFloorRoom(e.target.value)}
+                  placeholder="지번, 건물명, 동·호 등"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 text-[15px] text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-signature"
+                />
+              </div>
+            </>
+          )}
+        </div>
 
-          <div>
+        <div className="shrink-0 space-y-2 border-t border-sam-primary-border/35 bg-sam-primary-soft/40 px-4 py-3 safe-area-pb">
+          {err ? <p className="text-[13px] font-medium text-red-600">{err}</p> : null}
+          <div className="flex gap-2.5">
             <button
               type="button"
               onClick={() => {
@@ -319,45 +362,19 @@ export function AddressEditorSheet(props: {
                 );
                 router.push("/address/select");
               }}
-              className="w-full rounded-ui-rect bg-sam-surface-muted py-4 text-[15px] font-medium text-sam-fg"
+              className="flex-1 rounded-ui-rect border border-sam-primary-border bg-white py-3 text-[15px] font-semibold text-signature shadow-sm transition-colors hover:bg-sam-primary-soft"
             >
               위치 선택
             </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void submit()}
+              className="flex-1 rounded-ui-rect bg-signature py-3 text-[15px] font-semibold text-white shadow-sm transition-opacity hover:bg-signature/90 disabled:opacity-40"
+            >
+              {busy ? "저장 중…" : "저장"}
+            </button>
           </div>
-
-          {latitude != null && longitude != null ? (
-            <div className="flex gap-3">
-              <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-sam-fg">
-                {fullAddress.trim() ||
-                  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
-              </p>
-              <AddressMapThumb lat={latitude} lng={longitude} />
-            </div>
-          ) : null}
-
-          <div>
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <p className="text-[14px] font-medium text-sam-fg">상세주소</p>
-              {unitFloorRoom.trim() ? (
-                <button
-                  type="button"
-                  onClick={() => setUnitFloorRoom("")}
-                  className="text-[13px] text-sam-meta hover:text-sam-fg"
-                  aria-label="상세주소 지우기"
-                >
-                  ✕
-                </button>
-              ) : null}
-            </div>
-            <input
-              value={unitFloorRoom}
-              onChange={(e) => setUnitFloorRoom(e.target.value)}
-              placeholder="지번, 건물명, 동·호 등"
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg placeholder:text-sam-meta"
-            />
-          </div>
-
-          {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
         </div>
       </div>
     </div>

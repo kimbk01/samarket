@@ -19,6 +19,9 @@
  *     없으면 `defaults.trade` 의 `app_region_id` / `app_city_id` (`TradeDefaultLocationBlock`)
  *   - 생활 동네 요약: `defaults.life` + `summarizeLifeDefaultAppLocation`
  *   - 배달 기본: `defaults.delivery` → 체크아웃 등
+ *   - `POST /api/me/posts/bulk-region`: 내 판매 글 `region`/`city` 일괄 패치 시 좌표는
+ *     **대표(master) → 거래 기본 → 생활 기본 → 프로필 `region_*`** 순
+ *     (`resolveBulkRegionPatchLocationForUser`) — 글쓰기 기본 지역과 동일 우선순위
  * - **프로필만 저장해도 이 테이블은 바뀌지 않음** → 거래/배달 기본을 프로필과 맞추려면
  *   주소록에서 기본 항목을 따로 맞춰야 함
  *

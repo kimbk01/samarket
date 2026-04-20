@@ -105,6 +105,10 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "내정보", showHubQuickActions: true });
   }
 
+  if (p === "/address/select") {
+    return backMypage({ titleText: "주소 설정", showHubQuickActions: false });
+  }
+
   if (p === "/community-messenger") {
     return backHome({
       titleText: "메신저",

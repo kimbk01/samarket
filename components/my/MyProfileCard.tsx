@@ -13,6 +13,7 @@ import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registr
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
 export type AddressDefaultsFlags = {
+  master: boolean;
   life: boolean;
   trade: boolean;
   delivery: boolean;
@@ -54,6 +55,7 @@ export function MyProfileCard({
   const chips: { key: string; label: string; warn: boolean }[] = [];
   if (!hasRegion) chips.push({ key: "region", label: tt("기본 동네 미설정"), warn: true });
   if (addressDefaults) {
+    if (!addressDefaults.master) chips.push({ key: "master", label: tt("대표 주소 미설정"), warn: true });
     if (!addressDefaults.life) chips.push({ key: "life", label: tt("생활 주소 미설정"), warn: true });
     if (!addressDefaults.trade) chips.push({ key: "trade", label: tt("거래 주소 미설정"), warn: true });
     if (!addressDefaults.delivery) chips.push({ key: "delivery", label: tt("배달 주소 미설정"), warn: true });

@@ -27,6 +27,8 @@ export type MySubpageHeaderProps = {
   rightSlot?: ReactNode;
   /** 탭·서브네비 등 — CTA 스트립 아래에 붙음 */
   stickyBelow?: ReactNode;
+  /** `RegionBar` 좌측 — 기본 뒤로 대신 커스텀(예: 위치 선택 단계 백) */
+  leftSlot?: ReactNode;
   /** 거래·주문·게시판·매장·계정 — 상황별 빠른 이동 칩 */
   section?: ManagedMySection;
   /** section 대신 직접 CTA (둘 다 있으면 ctaLinks 우선) */
@@ -58,6 +60,7 @@ export function MySubpageHeader({
   hideCtaStrip = false,
   showHubQuickActions = false,
   registerMainTier1 = true,
+  leftSlot,
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
@@ -87,6 +90,7 @@ export function MySubpageHeader({
           ariaLabel: resolvedAriaLabel,
           rightSlot,
           showHubQuickActions,
+          ...(leftSlot != null ? { leftSlot } : {}),
         },
         ctaLinks: stripLinks.length > 0 ? stripLinks : undefined,
         stickyBelow,
@@ -109,6 +113,7 @@ export function MySubpageHeader({
     resolvedAriaLabel,
     rightSlot,
     showHubQuickActions,
+    leftSlot,
     stripLinks,
     stickyBelow,
   ]);

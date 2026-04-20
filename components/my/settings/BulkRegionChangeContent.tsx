@@ -47,7 +47,7 @@ export function BulkRegionChangeContent() {
   return (
     <div className="space-y-4">
       <p className="text-[14px] text-sam-muted">
-        거래 기본 주소를 우선 사용하고, 없으면 현재 프로필 지역을 기준으로 등록한 판매 글의 동네를 한 번에 변경합니다.
+        대표 주소를 우선 사용하고, 없으면 거래·생활 기본 주소 순으로 쓰며, 모두 없으면 프로필 지역을 기준으로 등록한 판매 글의 동네를 한 번에 변경합니다.
       </p>
       {success ? <div className="rounded-ui-rect bg-emerald-50 px-4 py-3 text-[13px] text-emerald-700">{success}</div> : null}
       {error ? <div className="rounded-ui-rect bg-red-50 px-4 py-3 text-[13px] text-red-600">{error}</div> : null}

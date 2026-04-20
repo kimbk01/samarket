@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import { ADDR_SEARCH_INPUT, ADDR_SEARCH_WRAP } from "@/lib/ui/address-flow-viber";
 
 type AddressSearchProps = {
   onPlaceResolved: (lat: number, lng: number, formattedAddress: string) => void;
@@ -61,8 +62,8 @@ export function AddressSearch({
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 rounded-ui-rect border border-ig-border bg-ui-page px-3 py-3">
-        <svg className="h-5 w-5 shrink-0 text-ui-muted" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <div className={ADDR_SEARCH_WRAP}>
+        <svg className="h-5 w-5 shrink-0 text-signature/70" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path
             d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm9.2 2-4.2-4.2"
             stroke="currentColor"
@@ -76,7 +77,7 @@ export function AddressSearch({
           enterKeyHint="search"
           autoComplete="off"
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-ui-fg outline-none placeholder:text-ui-muted"
+          className={ADDR_SEARCH_INPUT}
         />
       </div>
     </div>

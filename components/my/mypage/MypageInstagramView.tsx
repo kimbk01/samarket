@@ -369,6 +369,7 @@ export function MypageInstagramView({
   const accountAlerts = [
     !hasRegion ? { label: "지역 설정", href: editHref } : null,
     !contactFormal ? { label: "연락처 인증", href: accountHref } : null,
+    addressDefaults && !addressDefaults.master ? { label: "대표 주소", href: addressesHref } : null,
     addressDefaults && !addressDefaults.life ? { label: "생활 주소", href: addressesHref } : null,
     addressDefaults && !addressDefaults.trade ? { label: "거래 주소", href: addressesHref } : null,
     addressDefaults && !addressDefaults.delivery ? { label: "배달 주소", href: addressesHref } : null,

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { AddressSearch } from "@/components/map/AddressSearch";
 import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
@@ -17,6 +19,18 @@ import {
 } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
+import {
+  ADDR_BOTTOM_BAR,
+  ADDR_BOTTOM_INNER,
+  ADDR_BTN_PRIMARY_FULL,
+  ADDR_BTN_TERTIARY_FULL,
+  ADDR_BODY,
+  ADDR_FLOW_MIN_VIEWPORT,
+  ADDR_LIST_ROW_BTN,
+  ADDR_MAP_HOST,
+  ADDR_SECTION_LABEL,
+  ADDR_SETTINGS_BODY,
+} from "@/lib/ui/address-flow-viber";
 import Link from "next/link";
 
 type LatLng = { lat: number; lng: number };
@@ -264,27 +278,40 @@ export function AddressSelectClient() {
   }, [displayAddress, marker, shownAddressPin]);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-ui-page">
+    <div className={ADDR_FLOW_MIN_VIEWPORT}>
+      {step === "settings" ? (
+        <MySubpageHeader title="주소 설정" backHref="/mypage" hideCtaStrip showHubQuickActions={false} />
+      ) : (
+        <MySubpageHeader
+          title="위치 선택"
+          backHref="/mypage"
+          hideCtaStrip
+          showHubQuickActions={false}
+          leftSlot={
+            <AppBackButton
+              preferHistoryBack={false}
+              onBack={() => {
+                if (mapPhase === "detail") {
+                  setMapPhase("pin");
+                  setPinSnapshot(null);
+                  setDetailLine("");
+                  return;
+                }
+                setStep("settings");
+                setGeoHint(null);
+                setManualAddress(null);
+                manualAnchorRef.current = null;
+                setDetailLine("");
+              }}
+              ariaLabel="뒤로"
+              className="text-sam-fg hover:bg-sam-primary-soft/50"
+            />
+          }
+        />
+      )}
       {step === "settings" ? (
         <>
-          <header className="shrink-0 border-b border-ig-border bg-ui-surface px-3 py-2">
-            <div className="mx-auto flex max-w-lg items-center gap-2">
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="flex h-11 min-w-[44px] items-center justify-center rounded-ui-rect text-ui-fg"
-                aria-label="뒤로"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-              <h1 className="flex-1 text-center text-[16px] font-semibold text-ui-fg">주소 설정</h1>
-              <span className="w-11" aria-hidden />
-            </div>
-          </header>
-
-          <div className="shrink-0 space-y-3 bg-ui-page px-3 py-4">
+          <div className={ADDR_SETTINGS_BODY}>
             {mapsError ? (
               <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">{mapsError}</p>
             ) : null}
@@ -293,7 +320,7 @@ export function AddressSelectClient() {
               type="button"
               onClick={() => void onCurrentLocation()}
               disabled={locating || Boolean(mapsError)}
-              className="flex w-full items-center justify-center gap-2 rounded-ui-rect border border-ig-border bg-ui-surface py-3.5 text-[14px] font-medium text-ui-muted disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 text-[14px] font-medium text-sam-muted disabled:opacity-50"
             >
               <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
@@ -309,24 +336,24 @@ export function AddressSelectClient() {
             {geoHint ? <p className="text-[13px] leading-snug text-red-700">{geoHint}</p> : null}
 
             <div>
-              <p className="mb-2 text-[14px] font-semibold text-ui-fg">최근 주소</p>
+              <p className={ADDR_SECTION_LABEL}>최근 주소</p>
               <ul className="space-y-1">
                 {recentMerged.length === 0 ? (
-                  <li className="text-[13px] text-ui-muted">최근 검색 기록이 없습니다.</li>
+                  <li className={`text-[13px] ${ADDR_BODY}`}>최근 검색 기록이 없습니다.</li>
                 ) : (
                   recentMerged.map((r) => (
                     <li key={mapAddressRecentRowKey(r)} className="flex items-stretch gap-1">
                       <button
                         type="button"
                         onClick={() => goToMap({ lat: r.latitude, lng: r.longitude })}
-                        className="min-w-0 flex-1 rounded-ui-rect border border-transparent px-2 py-3 text-left text-[14px] text-ui-fg hover:border-ig-border hover:bg-ui-hover"
+                        className={ADDR_LIST_ROW_BTN}
                       >
                         {r.address}
                       </button>
                       <button
                         type="button"
                         onClick={() => removeRecentRow(r)}
-                        className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 text-[13px] text-ui-muted hover:bg-ui-hover hover:text-ui-fg"
+                        className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 text-[13px] text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
                         aria-label="최근 주소 목록에서 삭제"
                       >
                         삭제
@@ -341,7 +368,7 @@ export function AddressSelectClient() {
               type="button"
               onClick={() => goToMap(marker)}
               disabled={Boolean(mapsError)}
-              className="w-full rounded-ui-rect border border-dashed border-ig-border bg-ui-surface py-3 text-[14px] font-medium text-ui-fg disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-dashed border-sam-primary-border/70 bg-sam-surface py-3 text-[14px] font-medium text-signature disabled:opacity-40"
             >
               지도에서 직접 선택
             </button>
@@ -349,38 +376,9 @@ export function AddressSelectClient() {
         </>
       ) : (
         <>
-          <header className="shrink-0 border-b border-ig-border bg-ui-surface px-3 py-2">
-            <div className="mx-auto flex max-w-lg items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (mapPhase === "detail") {
-                    setMapPhase("pin");
-                    setPinSnapshot(null);
-                    setDetailLine("");
-                    return;
-                  }
-                  setStep("settings");
-                  setGeoHint(null);
-                  setManualAddress(null);
-                  manualAnchorRef.current = null;
-                  setDetailLine("");
-                }}
-                className="flex h-11 min-w-[44px] items-center justify-center rounded-ui-rect text-ui-fg"
-                aria-label="뒤로"
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                </svg>
-              </button>
-              <h1 className="flex-1 text-center text-[16px] font-semibold text-ui-fg">위치 선택</h1>
-              <span className="w-11" aria-hidden />
-            </div>
-          </header>
-
-          <div className="relative min-h-0 flex-1">
+          <div className={`relative min-h-0 flex-1 ${ADDR_MAP_HOST}`}>
             {mapsError ? (
-              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-ui-muted">
+              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-sam-muted">
                 환경 변수 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 를 확인해 주세요.
               </div>
             ) : (
@@ -396,10 +394,10 @@ export function AddressSelectClient() {
                   type="button"
                   onClick={() => void onMapMyLocation()}
                   disabled={locating || mapPhase === "detail"}
-                  className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-ig-border bg-ui-surface shadow-md disabled:opacity-50"
+                  className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-sam-border bg-sam-surface shadow-md disabled:opacity-50"
                   aria-label="현재 위치로 이동"
                 >
-                  <svg className="h-6 w-6 text-ui-fg" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <svg className="h-6 w-6 text-sam-fg" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
                     <path
                       d="M12 5V2M12 22v-3M5 12H2M22 12h-3M6.3 6.3 4.9 4.9M19.1 19.1 17.7 17.7M17.7 6.3 19.1 4.9M6.3 17.7 4.9 19.1"
@@ -413,14 +411,14 @@ export function AddressSelectClient() {
             )}
           </div>
 
-          <div className="safe-area-pb shrink-0 border-t border-ig-border bg-ui-surface px-3 pt-3">
-            <div className="mx-auto flex max-w-lg flex-col gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className={ADDR_BOTTOM_BAR}>
+            <div className={ADDR_BOTTOM_INNER}>
               {geoHint ? <p className="text-[12px] text-red-700">{geoHint}</p> : null}
               {mapPhase === "pin" ? (
                 <>
-                  <p className="text-[12px] font-medium text-ui-muted">선택한 위치</p>
-                  <div className="flex items-start gap-2 rounded-ui-rect bg-ui-page px-3 py-2.5">
-                    <p className="min-h-[44px] flex-1 text-[14px] leading-snug text-ui-fg">
+                  <p className="text-[12px] font-medium text-sam-muted">선택한 위치</p>
+                  <div className="flex items-start gap-2 rounded-ui-rect bg-sam-app px-3 py-2.5">
+                    <p className={`min-h-[44px] flex-1 text-[14px] ${ADDR_BODY} text-sam-fg`}>
                       {geocodeBusy && !manualAddress
                         ? "주소를 불러오는 중…"
                         : shownAddressPin || "지도를 움직여 주소를 지정하세요."}
@@ -428,7 +426,7 @@ export function AddressSelectClient() {
                     <button
                       type="button"
                       onClick={openAddressEdit}
-                      className="shrink-0 rounded-ui-rect p-2 text-ui-muted hover:bg-ui-hover hover:text-ui-fg"
+                      className="shrink-0 rounded-ui-rect p-2 text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
                       aria-label="주소 수정"
                     >
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -446,25 +444,25 @@ export function AddressSelectClient() {
                     type="button"
                     disabled={pinPrimaryDisabled}
                     onClick={onPinConfirm}
-                    className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+                    className={ADDR_BTN_PRIMARY_FULL}
                   >
                     선택한 위치로 설정
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="text-[12px] font-medium text-ui-muted">선택한 위치</p>
-                  <div className="rounded-ui-rect bg-ui-page px-3 py-2.5 text-[14px] leading-snug text-ui-fg">
+                  <p className="text-[12px] font-medium text-sam-muted">선택한 위치</p>
+                  <div className={`rounded-ui-rect bg-sam-app px-3 py-2.5 text-[14px] ${ADDR_BODY} text-sam-fg`}>
                     {pinSnapshot?.baseAddress ?? ""}
                   </div>
                   <label className="block">
-                    <span className="mb-1 block text-[12px] font-medium text-ui-muted">상세주소</span>
+                    <span className="mb-1 block text-[12px] font-medium text-sam-muted">상세주소</span>
                     <textarea
                       value={detailLine}
                       onChange={(e) => setDetailLine(e.target.value)}
                       rows={2}
                       placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
-                      className="w-full resize-none rounded-ui-rect border border-ig-border bg-ui-page px-3 py-2.5 text-[14px] text-ui-fg placeholder:text-ui-muted"
+                      className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-[14px] text-sam-fg placeholder:text-sam-muted"
                       autoComplete="street-address"
                     />
                   </label>
@@ -472,7 +470,7 @@ export function AddressSelectClient() {
                     type="button"
                     disabled={!pinSnapshot || Boolean(mapsError)}
                     onClick={onFinalConfirm}
-                    className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white disabled:opacity-40"
+                    className={ADDR_BTN_PRIMARY_FULL}
                   >
                     확인
                   </button>
@@ -480,7 +478,7 @@ export function AddressSelectClient() {
               )}
               <Link
                 href={buildMypageItemHref("settings", "address")}
-                className="pb-1 text-center text-[12px] text-ui-muted underline"
+                className={`block pb-1 text-center ${ADDR_BTN_TERTIARY_FULL}`}
               >
                 주소 목록
               </Link>

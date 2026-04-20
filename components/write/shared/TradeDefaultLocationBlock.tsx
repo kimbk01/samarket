@@ -11,6 +11,7 @@ import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-lo
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getLocationLabel } from "@/lib/products/form-options";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 const ADDRESSES_HREF = "/mypage/addresses";
 
@@ -116,6 +117,12 @@ export function TradeDefaultLocationBlock({
     const onPop = () => void load();
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, [load]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => void load();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
   /** 수정 폼 스냅샷 라벨 — API 로딩 중 임시 표시·API 실패 시 폴백 */

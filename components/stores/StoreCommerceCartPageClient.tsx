@@ -58,6 +58,7 @@ import {
   writeStoreFulfillmentPref,
 } from "@/lib/stores/store-fulfillment-pref";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -114,6 +115,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [hoursTick, setHoursTick] = useState(0);
   const [profileSnap, setProfileSnap] = useState<ProfileContactSnap | null>(null);
   const [checkoutContactReady, setCheckoutContactReady] = useState(false);
+  const checkoutContactFetchGenRef = useRef(0);
 
   const [addressBook, setAddressBook] = useState<DeliveryAddressBookEntry[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -339,84 +341,89 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return d;
   }, [buyerPhone]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/me/checkout-contact", { credentials: "include" });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          contact_phone?: string | null;
-          contact_address?: string | null;
-          default_delivery?: {
-            user_address_id: string;
-            phone: string | null;
-            app_region_id: string | null;
-            app_city_id: string | null;
-            summary_line: string;
-            address_detail: string;
-          } | null;
-        };
-        if (cancelled) return;
-        if (!json.ok) {
-          setProfileSnap(null);
-          return;
-        }
-        const dd = json.default_delivery;
-        if (dd?.user_address_id) {
-          const phoneDigits = parsePhMobileInput(dd.phone ?? json.contact_phone ?? "");
-          const snap: ProfileContactSnap = {
-            phone: phoneDigits,
-            region: dd.app_region_id ?? "",
-            city: dd.app_city_id ?? "",
-            freeSummaryLine: (dd.summary_line ?? "").trim(),
-            addressDetail: (dd.address_detail ?? "").trim(),
-          };
-          if (cancelled) return;
-          setProfileSnap(snap);
-          setBuyerPhone(snap.phone);
-          return;
-        }
-
-        const phoneDigits = parsePhMobileInput(json.contact_phone ?? "");
-        let nextRegion = "";
-        let nextCity = "";
-        let nextFree = "";
-        let nextDetail = "";
-        const raw = json.contact_address?.trim();
-        if (raw) {
-          const firstLine = raw.split(/\r?\n/)[0]?.trim() ?? "";
-          const rest = raw.split(/\r?\n/).slice(1).join("\n").trim();
-          const ids = parseLocationLabelToIds(firstLine);
-          if (ids) {
-            nextRegion = ids.regionId;
-            nextCity = ids.cityId;
-            nextDetail = rest;
-          } else {
-            nextFree = firstLine;
-            nextDetail = rest;
-          }
-        }
+  const fetchCheckoutContact = useCallback(async () => {
+    const gen = ++checkoutContactFetchGenRef.current;
+    try {
+      const res = await fetch("/api/me/checkout-contact", { credentials: "include" });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        contact_phone?: string | null;
+        contact_address?: string | null;
+        default_delivery?: {
+          user_address_id: string;
+          phone: string | null;
+          app_region_id: string | null;
+          app_city_id: string | null;
+          summary_line: string;
+          address_detail: string;
+        } | null;
+      };
+      if (gen !== checkoutContactFetchGenRef.current) return;
+      if (!json.ok) {
+        setProfileSnap(null);
+        return;
+      }
+      const dd = json.default_delivery;
+      if (dd?.user_address_id) {
+        const phoneDigits = parsePhMobileInput(dd.phone ?? json.contact_phone ?? "");
         const snap: ProfileContactSnap = {
           phone: phoneDigits,
-          region: nextRegion,
-          city: nextCity,
-          freeSummaryLine: nextFree,
-          addressDetail: nextDetail,
+          region: dd.app_region_id ?? "",
+          city: dd.app_city_id ?? "",
+          freeSummaryLine: (dd.summary_line ?? "").trim(),
+          addressDetail: (dd.address_detail ?? "").trim(),
         };
-        if (cancelled) return;
+        if (gen !== checkoutContactFetchGenRef.current) return;
         setProfileSnap(snap);
         setBuyerPhone(snap.phone);
-      } catch {
-        if (!cancelled) setProfileSnap(null);
-      } finally {
-        if (!cancelled) setCheckoutContactReady(true);
+        return;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+
+      const phoneDigits = parsePhMobileInput(json.contact_phone ?? "");
+      let nextRegion = "";
+      let nextCity = "";
+      let nextFree = "";
+      let nextDetail = "";
+      const raw = json.contact_address?.trim();
+      if (raw) {
+        const firstLine = raw.split(/\r?\n/)[0]?.trim() ?? "";
+        const rest = raw.split(/\r?\n/).slice(1).join("\n").trim();
+        const ids = parseLocationLabelToIds(firstLine);
+        if (ids) {
+          nextRegion = ids.regionId;
+          nextCity = ids.cityId;
+          nextDetail = rest;
+        } else {
+          nextFree = firstLine;
+          nextDetail = rest;
+        }
+      }
+      const snap: ProfileContactSnap = {
+        phone: phoneDigits,
+        region: nextRegion,
+        city: nextCity,
+        freeSummaryLine: nextFree,
+        addressDetail: nextDetail,
+      };
+      if (gen !== checkoutContactFetchGenRef.current) return;
+      setProfileSnap(snap);
+      setBuyerPhone(snap.phone);
+    } catch {
+      if (gen === checkoutContactFetchGenRef.current) setProfileSnap(null);
+    } finally {
+      if (gen === checkoutContactFetchGenRef.current) setCheckoutContactReady(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchCheckoutContact();
+  }, [fetchCheckoutContact]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => void fetchCheckoutContact();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [fetchCheckoutContact]);
 
   /** 예전에 주소록에 복사해 둔 마이페이지 주소와 동일한 항목 제거(중복 방지) */
   useEffect(() => {

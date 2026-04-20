@@ -7,6 +7,7 @@ import {
   buildAddressManagementListPrimaryLine,
   stripCountryFromAddressDisplayLine,
 } from "@/lib/addresses/user-address-format";
+import { ADDR_BODY, ADDR_ROW_TITLE } from "@/lib/ui/address-flow-viber";
 
 export function AddressRowCard(props: {
   row: UserAddressDTO;
@@ -25,52 +26,55 @@ export function AddressRowCard(props: {
       : ADDRESS_LABEL_KO[row.labelType];
   const sub = stripCountryFromAddressDisplayLine(
     buildAddressManagementListPrimaryLine(row),
-    row.countryName
+    row.countryName,
   );
   const detailLine = buildAddressListDetailLine(row, sub);
 
   return (
-    <li className="flex items-start gap-3 py-4">
+    <li className="flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2">
       <button
         type="button"
         disabled={rowBusy}
         onClick={() => onSetAsRepresentative?.()}
-        className="min-w-0 flex-1 rounded-ui-rect px-0 py-0 text-left disabled:opacity-50"
+        className="min-w-0 flex-1 rounded-ui-rect px-0 py-0 pr-1 text-left disabled:opacity-50 sm:pr-0"
         aria-label={
           row.isDefaultMaster
-            ? `${title}, 현재 대표 주소, ${sub}${detailLine ? `. ${detailLine}` : ""}`
-            : `${title}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `. ${detailLine}` : ""}`
+            ? `${title}, 현재 대표 주소, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
+            : `${title}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
         }
       >
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[15px] font-semibold text-sam-fg">{title}</span>
+          <span className={ADDR_ROW_TITLE}>{title}</span>
           {row.isDefaultMaster ? (
-            <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[10px] font-semibold text-signature">
+            <span className="rounded-full bg-signature px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
               대표
             </span>
           ) : (
-            <span className="text-[10px] font-medium text-sam-meta">탭하여 대표</span>
+            <span className="text-[11px] font-medium text-sam-muted">탭하여 대표</span>
           )}
         </div>
-        <p className="mt-0.5 text-[13px] leading-snug text-sam-muted">{sub || "—"}</p>
+        <p className={`mt-0.5 ${ADDR_BODY} text-[13px]`}>{sub || "—"}</p>
         {detailLine ? (
-          <p
-            className="mt-1 text-[13px] leading-snug text-sam-muted"
-            translate="no"
-          >
-            ({detailLine})
-          </p>
+          <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
+            <span className="shrink-0 pb-0.5 text-[12px] font-semibold text-signature/90">상세주소</span>
+            <span
+              className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[13px] text-sam-fg"
+              translate="no"
+            >
+              {detailLine}
+            </span>
+          </div>
         ) : null}
       </button>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-start justify-end gap-0 self-start pt-0.5">
         <button
           type="button"
           onClick={onEdit}
           disabled={rowBusy}
-          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-muted hover:bg-sam-app disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-sam-muted transition-colors hover:bg-sam-primary-soft/50 hover:text-signature disabled:opacity-40"
           aria-label="수정"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
               d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.83L17.33 5.5a2 2 0 0 0-2.83 0L4 15.5V20z"
               stroke="currentColor"
@@ -84,10 +88,10 @@ export function AddressRowCard(props: {
           type="button"
           onClick={onDelete}
           disabled={rowBusy}
-          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-muted hover:bg-sam-app hover:text-red-700 disabled:opacity-40"
+          className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-sam-muted transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
           aria-label="삭제"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
               d="M6 6l12 12M18 6L6 18"
               stroke="currentColor"

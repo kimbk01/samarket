@@ -186,24 +186,14 @@ export function AdminUserListPage() {
               로 <code className="rounded bg-sam-surface/80 px-1">projectRef</code> 비교.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <AdminUserFilterBar
-              filters={filters}
-              searchQuery={searchQuery}
-              onFiltersChange={setFilters}
-              onSearchChange={setSearchQuery}
-              showMemberUuid={showMemberUuid}
-            />
-            <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg shadow-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature"
-                checked={showMemberUuid}
-                onChange={(e) => setShowMemberUuid(e.target.checked)}
-              />
-              회원 UUID 표시
-            </label>
-          </div>
+          <AdminUserFilterBar
+            filters={filters}
+            searchQuery={searchQuery}
+            onFiltersChange={setFilters}
+            onSearchChange={setSearchQuery}
+            showMemberUuid={showMemberUuid}
+            onShowMemberUuidChange={setShowMemberUuid}
+          />
           {filtered.length === 0 ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.

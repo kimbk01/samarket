@@ -21,6 +21,7 @@ import {
   subscribeUserSettings,
   syncUserSettings,
 } from "@/lib/settings/user-settings-store";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
   const hub0 = initialMyPageData?.hubServerExtras;
@@ -58,11 +59,12 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       const res = await fetch("/api/me/address-defaults", { credentials: "include" });
       const json = (await res.json()) as {
         ok?: boolean;
-        defaults?: { life?: unknown; trade?: unknown; delivery?: unknown };
+        defaults?: { master?: unknown; life?: unknown; trade?: unknown; delivery?: unknown };
         neighborhoodFromLife?: LifeDefaultLocationSummary;
       };
       if (res.ok && json.ok && json.defaults) {
         setAddressDefaults({
+          master: json.defaults.master != null,
           life: json.defaults.life != null,
           trade: json.defaults.trade != null,
           delivery: json.defaults.delivery != null,
@@ -128,8 +130,15 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       void load();
       void loadAddressDefaultsRef.current();
     };
+    const onAddressesUpdated = () => {
+      void loadAddressDefaultsRef.current();
+    };
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
-    return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
+      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    };
   }, [load]);
 
   useEffect(() => {

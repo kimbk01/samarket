@@ -14,6 +14,7 @@ import {
   writeMapAddressPickContext,
 } from "@/lib/map/map-address-pick-storage";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
@@ -168,7 +169,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   return (
-    <div className={embedded ? "" : "min-h-screen bg-background"}>
+    <div
+      className={
+        embedded ? "" : "min-h-screen w-full min-w-0 max-w-[100dvw] overflow-x-clip bg-background"
+      }
+    >
       {!embedded ? (
         <MySubpageHeader title={tt("주소 관리")} backHref="/mypage" hideCtaStrip />
       ) : null}
@@ -195,7 +200,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
               {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
             </p>
           ) : (
-            <ul className="divide-y divide-sam-border-soft">
+            <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
               {list.map((row) => (
                 <AddressRowCard
                   key={row.id}
@@ -213,7 +218,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <button
           type="button"
           onClick={openCreate}
-          className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 text-[14px] font-semibold text-sam-fg"
+          className={ADDR_ADD_CTA}
         >
           {tt("+ 주소 추가")}
         </button>

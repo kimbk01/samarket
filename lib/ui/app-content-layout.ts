@@ -16,9 +16,8 @@ export const APP_MAIN_GUTTER_X_CLASS = "px-3 sm:px-4 md:px-5";
 /** 상위에 GUTTER_X가 있을 때 자식을 가로 풀폭으로 맞추기(스티키 바 등) */
 export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-3 sm:-mx-4 md:-mx-5";
 
-/** 내정보 하위 페이지 기본 본문 폭 — 모바일 1열, 태블릿부터 읽기 폭만 점진 확장 */
-export const APP_MYPAGE_SUBPAGE_BODY_CLASS =
-  "mx-auto w-full min-w-0 max-w-lg px-3 sm:max-w-xl sm:px-4 md:max-w-2xl md:px-5";
+/** 내정보 하위 페이지 기본 본문 폭 — 피드·1단과 동일 `max-w` 체인(가로 태블릿까지) */
+export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
 /** 설정·알림 등 폼형 하위 페이지 — 태블릿에서만 약간 넓혀 주고 과도한 가로 확장은 막음 */
 export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS =

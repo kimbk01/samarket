@@ -11,6 +11,7 @@ import type {
   UserAddressWritePayload,
 } from "@/lib/addresses/user-address-types";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
+import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 
 const SEL =
   "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
@@ -127,6 +128,69 @@ export async function getUserAddressDefaults(
     life: list.find((x) => x.isDefaultLife) ?? null,
     trade: list.find((x) => x.isDefaultTrade) ?? null,
     delivery: list.find((x) => x.isDefaultDelivery) ?? null,
+  };
+}
+
+/** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
+export type BulkRegionPatchResolvedLocation = {
+  regionId: string;
+  cityId: string;
+  regionLabel: string;
+  cityLabel: string;
+  barangayLabel: string | null;
+  source: "master_address" | "trade_address" | "life_address" | "profile";
+};
+
+function resolveLocationFromUserAddressDto(
+  row: UserAddressDTO | null | undefined,
+  source: BulkRegionPatchResolvedLocation["source"],
+): BulkRegionPatchResolvedLocation | null {
+  if (!row?.id) return null;
+  const regionId = row.appRegionId?.trim() ?? "";
+  const cityId = row.appCityId?.trim() ?? "";
+  if (!regionId || !cityId) return null;
+  const regionLabel = REGIONS.find((r) => r.id === regionId)?.name ?? regionId;
+  const cityLabel =
+    REGIONS.find((r) => r.id === regionId)?.cities.find((c) => c.id === cityId)?.name ?? cityId;
+  const barangayLabel = row.neighborhoodName?.trim() || null;
+  return { regionId, cityId, regionLabel, cityLabel, barangayLabel, source };
+}
+
+/**
+ * 내 거래 글 일괄 지역 패치·유사 배치용 좌표 한 벌.
+ * 대표(master) → 거래 기본 → 생활 기본 → `profiles.region_*` (프로필 동네)
+ */
+export async function resolveBulkRegionPatchLocationForUser(
+  sb: SupabaseClient<any>,
+  userId: string,
+): Promise<BulkRegionPatchResolvedLocation | null> {
+  const defs = await getUserAddressDefaults(sb, userId);
+  const fromBook =
+    resolveLocationFromUserAddressDto(defs.master, "master_address") ??
+    resolveLocationFromUserAddressDto(defs.trade, "trade_address") ??
+    resolveLocationFromUserAddressDto(defs.life, "life_address");
+  if (fromBook) return fromBook;
+
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("region_code, region_name")
+    .eq("id", userId)
+    .maybeSingle();
+  const profileLocation = decodeProfileAppLocationPair(
+    typeof profile?.region_code === "string" ? profile.region_code : null,
+    typeof profile?.region_name === "string" ? profile.region_name : null,
+  );
+  if (!profileLocation.regionId || !profileLocation.cityId) return null;
+  const regionId = profileLocation.regionId;
+  const cityId = profileLocation.cityId;
+  return {
+    regionId,
+    cityId,
+    regionLabel: REGIONS.find((x) => x.id === regionId)?.name ?? regionId,
+    cityLabel:
+      REGIONS.find((x) => x.id === regionId)?.cities.find((c) => c.id === cityId)?.name ?? cityId,
+    barangayLabel: null,
+    source: "profile",
   };
 }
 

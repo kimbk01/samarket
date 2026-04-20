@@ -62,6 +62,7 @@ export async function loadMypageHubExtrasServer(
       ? getUserAddressDefaults(sbStores, uid)
           .then((defaults) => ({
             addressDefaults: {
+              master: defaults.master != null,
               life: defaults.life != null,
               trade: defaults.trade != null,
               delivery: defaults.delivery != null,

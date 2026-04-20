@@ -8,6 +8,7 @@ import {
 } from "@/lib/addresses/user-address-format";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 export type RepresentativeAddressLineState =
   | { status: "loading" }
@@ -66,6 +67,12 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
     const onPop = () => void load();
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, [load]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => void load();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
   return state;

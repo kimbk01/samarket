@@ -17,6 +17,7 @@ interface AdminUserFilterBarProps {
   onSearchChange: (q: string) => void;
   /** false면 검색 placeholder에서 UUID 안내 생략 (표시 설정과 맞춤) */
   showMemberUuid?: boolean;
+  onShowMemberUuidChange?: (show: boolean) => void;
 }
 
 export function AdminUserFilterBar({
@@ -25,6 +26,7 @@ export function AdminUserFilterBar({
   onFiltersChange,
   onSearchChange,
   showMemberUuid = false,
+  onShowMemberUuidChange,
 }: AdminUserFilterBarProps) {
   const { tt, t } = useI18n();
   const searchPlaceholder = showMemberUuid
@@ -32,13 +34,13 @@ export function AdminUserFilterBar({
     : t("admin_search_member");
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full min-w-0 flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
       <input
         type="text"
         placeholder={searchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[180px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[180px] max-w-[min(100%,280px)] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.moderationStatus}
@@ -48,7 +50,7 @@ export function AdminUserFilterBar({
             moderationStatus: e.target.value as AdminUserFilters["moderationStatus"],
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -64,7 +66,7 @@ export function AdminUserFilterBar({
             memberType: e.target.value as AdminUser["memberType"] | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -77,8 +79,19 @@ export function AdminUserFilterBar({
         placeholder={t("common_region")}
         value={filters.location}
         onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-        className="min-w-[100px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[100px] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
       />
+      {onShowMemberUuidChange ? (
+        <label className="flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg shadow-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4 shrink-0 rounded border-sam-border text-signature focus:ring-signature"
+            checked={showMemberUuid}
+            onChange={(e) => onShowMemberUuidChange(e.target.checked)}
+          />
+          회원 UUID 표시
+        </label>
+      ) : null}
       <select
         value={filters.sortKey}
         onChange={(e) =>
@@ -87,7 +100,7 @@ export function AdminUserFilterBar({
             sortKey: e.target.value as AdminUserSortKey,
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
