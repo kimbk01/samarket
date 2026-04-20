@@ -121,6 +121,15 @@ import {
 const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
 const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 200;
 
+function resolveMessengerRoomInitialSnapshot(
+  roomId: string,
+  initialViewerId: string,
+  initialServerSnapshot: CommunityMessengerRoomSnapshot | null
+): CommunityMessengerRoomSnapshot | null {
+  const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
+  return listPrimed ?? initialServerSnapshot ?? null;
+}
+
 export type MessengerRoomClientPhase1Props = {
   roomId: string;
   initialCallAction?: string;
@@ -190,8 +199,7 @@ export function useMessengerRoomClientPhase1({
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
     /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
-    const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
-    const prepared = listPrimed ?? initialServerSnapshot ?? null;
+    const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_prepare_ms");
     return prepared;
   });
@@ -214,7 +222,10 @@ export function useMessengerRoomClientPhase1({
     };
   }, [streamRoomId]);
 
-  const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>([]);
+  const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
+    const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
+    return (prepared?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+  });
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
   const roomStateCommitCountRef = useRef(0);
@@ -688,18 +699,32 @@ export function useMessengerRoomClientPhase1({
       setRoomMessages([]);
       return;
     }
+    if (roomMessagesRef.current === snapshot.messages && roomMessagesRef.current.length > 0) {
+      recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
+      recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
+      recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
+      recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
+      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
+      return;
+    }
     setRoomMessages((prev) => {
+      let next: Array<CommunityMessengerMessage & { pending?: boolean }>;
       if (prev.length === 0) {
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
-        return snapshot.messages;
+        next = snapshot.messages;
+      } else {
+        next = mergeRoomMessages(prev, snapshot.messages, {
+          perfScope: "messenger_room_entry",
+          perfMetricPrefix: "initial_messages_merge",
+        });
       }
-      return mergeRoomMessages(prev, snapshot.messages, {
-        perfScope: "messenger_room_entry",
-        perfMetricPrefix: "initial_messages_merge",
-      });
+      if (next.length > 0) {
+        recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
+      }
+      return next;
     });
   }, [snapshot]);
 

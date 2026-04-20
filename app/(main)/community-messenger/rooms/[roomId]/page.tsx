@@ -14,7 +14,6 @@ import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
-import { resolveCommunityMessengerCanonicalRoomIdForUser } from "@/lib/community-messenger/service";
 import { createMessengerRoomPageRscTimers } from "@/lib/community-messenger/server/messenger-room-page-rsc-timers";
 
 const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
@@ -44,18 +43,18 @@ async function CommunityMessengerRoomPageLoaded({
   let roomSnapshotDiagnostics: CommunityMessengerRoomSnapshotDiagnostics | null = null;
   let canonicalRoomIdForE2eOverlay: string | null = null;
   if (viewerUserId) {
-    const canonical = await resolveCommunityMessengerCanonicalRoomIdForUser(viewerUserId, rid);
-    if (!canonical.ok) {
-      notFound();
-    }
-    canonicalRoomIdForE2eOverlay = canonical.canonicalRoomId;
     rscTimers.mark("bootstrap_start");
     /** 계측 객체를 항상 넘기면 `getRoomSnapshot` 이 inflight 공유를 건너뛴다 — 일반 진입에서는 생략 */
     const wantRoomSnapshotDiagnostics =
       process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace;
     roomSnapshotDiagnostics = wantRoomSnapshotDiagnostics ? {} : null;
     const readPort = createSupabaseCommunityMessengerReadPort();
-    initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, viewerUserId, canonical.canonicalRoomId, {
+    /**
+     * URL `roomId` 는 CM UUID·레거시 거래 키 등 그대로 전달한다. `getCommunityMessengerRoomSnapshot` 가
+     * 멤버십·브리지를 단일 경로로 처리하며, 여기서 `resolveCommunityMessengerCanonicalRoomIdForUser` 를
+     * **직렬로** 한 번 더 호출하지 않는다(동일 `participants` 조회가 부트스트랩 첫 `Promise.all` 에 포함됨).
+     */
+    initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, viewerUserId, rid, {
       initialMessageLimit: Math.min(
         COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
         COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
@@ -72,6 +71,7 @@ async function CommunityMessengerRoomPageLoaded({
     if (!initialServerSnapshot) {
       notFound();
     }
+    canonicalRoomIdForE2eOverlay = String(initialServerSnapshot.room.id ?? "").trim() || null;
   }
   rscTimers.mark("pre_return");
   rscTimers.scheduleResponseAfter();

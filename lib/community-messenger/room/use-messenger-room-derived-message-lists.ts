@@ -27,14 +27,26 @@ export function useMessengerRoomDerivedMessageLists(
     });
   }, [roomMessages, roomSearchQuery]);
 
-  const mediaGalleryMessages = useMemo(() => {
-    return roomMessages.filter((m) => {
-      if (m.messageType === "voice" || m.messageType === "image" || m.messageType === "sticker") return true;
-      if (m.messageType === "text") {
-        return looksLikeDirectImageUrl(m.content);
+  const { mediaGalleryMessages, photoMessageCount } = useMemo(() => {
+    const mediaGalleryMessages: Array<CommunityMessengerMessage & { pending?: boolean }> = [];
+    let photoMessageCount = 0;
+    for (const m of roomMessages) {
+      const t = m.messageType;
+      if (t === "image") {
+        photoMessageCount += 1;
+        mediaGalleryMessages.push(m);
+        continue;
       }
-      return false;
-    });
+      if (t === "voice" || t === "sticker") {
+        mediaGalleryMessages.push(m);
+        continue;
+      }
+      if (t === "text" && looksLikeDirectImageUrl(m.content)) {
+        photoMessageCount += 1;
+        mediaGalleryMessages.push(m);
+      }
+    }
+    return { mediaGalleryMessages, photoMessageCount };
   }, [roomMessages]);
 
   const linkThreadMessages = useMemo(() => {
@@ -57,14 +69,6 @@ export function useMessengerRoomDerivedMessageLists(
         .filter((m) => m.messageType === "system" && m.content.trim())
         .slice(-5)
         .reverse(),
-    [roomMessages]
-  );
-
-  const photoMessageCount = useMemo(
-    () =>
-      roomMessages.filter(
-        (m) => m.messageType === "image" || (m.messageType === "text" && looksLikeDirectImageUrl(m.content))
-      ).length,
     [roomMessages]
   );
 

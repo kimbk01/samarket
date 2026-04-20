@@ -651,6 +651,29 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
   return map;
 }
 
+type ParticipantRowWithOptionalProfileEmbed = ParticipantRow & { profiles?: ProfileRow | null };
+
+/** `profiles (…)` embed 가 붙은 participants 쿼리 결과에서 행을 평탄화하고 프로필 맵을 수집한다. */
+function embeddedProfilesFromParticipantQueryRows(data: unknown): { rows: ParticipantRow[]; profiles: Map<string, ProfileRow> } {
+  const profiles = new Map<string, ProfileRow>();
+  const rows: ParticipantRow[] = [];
+  const list = Array.isArray(data) ? data : data && typeof data === "object" ? [data] : [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as ParticipantRowWithOptionalProfileEmbed;
+    const embRaw = r.profiles;
+    const emb = Array.isArray(embRaw) ? embRaw[0] : embRaw;
+    if (emb && typeof emb === "object" && "id" in emb) {
+      const pr = emb as ProfileRow;
+      const pid = trimText(pr.id);
+      if (pid) profiles.set(pid, pr);
+    }
+    const { profiles: _drop, ...rest } = r as unknown as ParticipantRowWithOptionalProfileEmbed;
+    rows.push(rest as ParticipantRow);
+  }
+  return { rows, profiles };
+}
+
 function roomProfileKey(roomId: string, userId: string) {
   return `${roomId}:${userId}`;
 }
@@ -964,12 +987,15 @@ async function hydrateProfiles(
 async function hydrateProfilesLabelsOnlyWithMap(
   viewerId: string,
   targetIds: string[],
-  options?: { includeSelf?: boolean }
+  options?: { includeSelf?: boolean; prefetchedProfiles?: Map<string, ProfileRow> }
 ): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const includeSelf = options?.includeSelf === true;
   const uniqueTargets = dedupeIds(targetIds.filter((id) => id && (includeSelf || id !== viewerId)));
   if (!uniqueTargets.length) return { members: [], profileMap: new Map() };
-  const profileMap = await fetchProfilesByIds(uniqueTargets);
+  const prefetched = options?.prefetchedProfiles ?? new Map<string, ProfileRow>();
+  const missingForFetch = uniqueTargets.filter((tid) => !prefetched.has(tid));
+  const fetched = missingForFetch.length ? await fetchProfilesByIds(missingForFetch) : new Map<string, ProfileRow>();
+  const profileMap = new Map<string, ProfileRow>([...prefetched, ...fetched]);
   const members = uniqueTargets.map((id) => {
     const profile = profileMap.get(id);
     return {
@@ -5565,34 +5591,46 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let messages: Array<MessageRow | DevMessage> = [];
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
+  /** defer seed + Supabase: participants embed 에서 수집한 프로필 — `hydrateProfilesLabelsOnlyWithMap` 의 추가 `fetchProfilesByIds` 를 줄인다. */
+  let embeddedProfilesFromParticipantRows = new Map<string, ProfileRow>();
   if (sb) {
     const participantSelectCols =
       "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
+    /** defer seed: `fetchProfilesByIds` RTT 를 줄이기 위해 participants 와 profiles 를 한 번에 embed (첫 Promise.all 안). */
+    const participantProfileEmbedSelect =
+      deferSecondaryRequested && !hydrateFullMemberList
+        ? ", profiles!community_messenger_participants_user_id_fkey ( id, nickname, username, avatar_url, bio )"
+        : "";
+    const participantSelectForBootstrap = participantSelectCols + participantProfileEmbedSelect;
     const participantsQuery = hydrateFullMemberList
       ? (sb as any)
           .from("community_messenger_participants")
-          .select(participantSelectCols)
+          .select(participantSelectForBootstrap)
           .eq("room_id", id)
       : (sb as any)
           .from("community_messenger_participants")
-          .select(participantSelectCols)
+          .select(participantSelectForBootstrap)
           .eq("room_id", id)
           .limit(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP + 1);
 
     const myParticipantQuery = !hydrateFullMemberList
       ? (sb as any)
           .from("community_messenger_participants")
-          .select(participantSelectCols)
+          .select(participantSelectForBootstrap)
           .eq("room_id", id)
           .eq("user_id", userId)
           .maybeSingle()
       : Promise.resolve({ data: null });
 
+    /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
+    const roomSelectColsDeferSeedNoNoticeBody =
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+    const roomSelectColsFull =
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+    const roomSelectForBootstrap = deferSecondaryRequested ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
       .from("community_messenger_rooms")
-      .select(
-        "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
-      )
+      .select(roomSelectForBootstrap)
       .eq("id", id)
       .maybeSingle();
     const participantsFetch = (async () => {
@@ -5604,6 +5642,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         myParticipantData: myParticipantRes.data,
       };
     })();
+    /** defer seed RSC: 첫 paint 전 row 수·metadata 페이로드를 줄이기 위해 최근 메시지 fetch 상한만 별도 캡(컬럼 shape 동일). */
+    const deferSeedRecentMessagesFetchCap = 12;
+    const messagesQueryLimit = deferSecondaryRequested
+      ? Math.min(messageLimit, deferSeedRecentMessagesFetchCap)
+      : Math.min(messageLimit, 20);
     const messagesFetch = (async () => {
       const tMessages0 = performance.now();
       const messageRes = await (sb as any)
@@ -5613,7 +5656,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
-        .limit(messageLimit);
+        .limit(messagesQueryLimit);
       messagesFetchMs = performance.now() - tMessages0;
       return messageRes;
     })();
@@ -5626,8 +5669,13 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       diagnostics.snapshotQueryAParallelEndMs = Math.round(performance.now() - tBootstrap0);
     }
     room = (roomData as RoomRow | null) ?? null;
-    let rawParticipantRows = (participantData ?? []) as ParticipantRow[];
-    const myRow = (myParticipantData ?? null) as ParticipantRow | null;
+    const listSplit = embeddedProfilesFromParticipantQueryRows(participantData);
+    const mineSplit = embeddedProfilesFromParticipantQueryRows(
+      myParticipantData && typeof myParticipantData === "object" ? [myParticipantData] : []
+    );
+    embeddedProfilesFromParticipantRows = new Map<string, ProfileRow>([...listSplit.profiles, ...mineSplit.profiles]);
+    let rawParticipantRows = listSplit.rows;
+    const myRow = mineSplit.rows[0] ?? null;
     if (myRow?.user_id === userId && !rawParticipantRows.some((p) => p.user_id === userId)) {
       rawParticipantRows = [...rawParticipantRows, myRow];
     }
@@ -5743,7 +5791,13 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const tProfileHydration0 = performance.now();
   const [roomProfileMap, hydratedLabels] = await Promise.all([
     roomProfileMapPromise,
-    hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, { includeSelf: true }),
+    hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
+      includeSelf: true,
+      prefetchedProfiles:
+        deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
+          ? embeddedProfilesFromParticipantRows
+          : undefined,
+    }),
   ]);
   participantsProfilesFetchMs += performance.now() - tProfileHydration0;
   if (diagnostics) {

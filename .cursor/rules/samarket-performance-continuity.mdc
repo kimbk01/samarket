@@ -5,7 +5,7 @@ alwaysApply: true
 
 # 체감 성능 운영 (네이티브급 목표)
 
-- **정책 전문**: `docs/samarket-native-feel-charter.md` — 절대 목표·금지·라운드 절차·판정·트랙 종료·출력 형식([11])·새 창 규칙([12][14]).
+- **정책 전문**: `docs/samarket-native-feel-charter.md` — 절대 목표·금지·라운드 절차·판정·**`[5-보조]`** composer_wall·warm 추가 규칙·트랙 종료·출력 형식([11])·새 창 규칙([12][14]).
 - **가변 상태·미완 체크**: `docs/samarket-performance-track-state.md` — 진행/종료 트랙, 이번 원인 1개, 측정 명령, 3회 측정, 판정. 라운드 끝마다 갱신한다.
 - **도메인 완료율**: `docs/samarket-perf-domain-checksheet.md` — 성능 작업 시작·종료 시 갱신. 도메인 간 **동일 산식** \(완료 체크 수 / 5 × 100%\)으로 %를 맞춰 보고한다. UI 시각 규격은 이 시트 범위 밖.
 

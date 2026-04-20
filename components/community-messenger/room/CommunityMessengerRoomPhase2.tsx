@@ -23,6 +23,7 @@ import { CommunityMessengerRoomPhase2CallLayer } from "@/components/community-me
 import { useCommunityMessengerRoomTypingRuntime } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import {
   recordRouteEntryElapsedMetric,
+  recordRouteEntryElapsedMetricOnce,
   recordRouteEntryMetric,
   recordRouteEntryFirstContentRender,
   recordRouteEntryFirstInteractive,
@@ -52,6 +53,7 @@ function CommunityMessengerRoomClientPhase2Main({
   const participantsStateCommitRecordedRef = useRef(false);
   const profilesStateCommitRecordedRef = useRef(false);
   const firstMessageRenderRecordedRef = useRef(false);
+  const displayRoomMessagesReadyRecordedRef = useRef(false);
   const fullMessageListRenderRecordedRef = useRef(false);
   const inputReadyRecordedRef = useRef(false);
   const renderCountRef = useRef(0);
@@ -189,6 +191,10 @@ function CommunityMessengerRoomClientPhase2Main({
       messagesStateCommitRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "messages_state_commit_ms");
     }
+    if (!displayRoomMessagesReadyRecordedRef.current && room.displayRoomMessages.length > 0) {
+      displayRoomMessagesReadyRecordedRef.current = true;
+      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "display_room_messages_ready_ms");
+    }
     if (!participantsStateCommitRecordedRef.current && room.snapshot.members.length > 0) {
       participantsStateCommitRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "participants_state_commit_ms");
@@ -197,7 +203,7 @@ function CommunityMessengerRoomClientPhase2Main({
       profilesStateCommitRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "profiles_state_commit_ms");
     }
-  }, [room.roomMembersDisplay.length, room.roomMessages.length, room.snapshot]);
+  }, [room.displayRoomMessages.length, room.roomMembersDisplay.length, room.roomMessages.length, room.snapshot]);
 
   useLayoutEffect(() => {
     layoutEffectRunCountRef.current += 1;

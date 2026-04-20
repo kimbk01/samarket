@@ -38,6 +38,7 @@ function parseMessengerImageUrlArray(
   arrayAlreadyVerified?: boolean
 ): string[] {
   if (!arrayAlreadyVerified && !Array.isArray(raw)) return [];
+  const arr: unknown[] = Array.isArray(raw) ? raw : (raw as unknown[]);
   /** verified + 숫자 trusted 는 상위에서 배열·길이 확정 — `Array.isArray` / `raw.length` 폴백 미참조 */
   const n =
     arrayAlreadyVerified === true && typeof trustedElementCount === "number"
@@ -51,7 +52,7 @@ function parseMessengerImageUrlArray(
   messengerImageMetaDiag.imageMetaAlbumParseElementTotal += n;
   const out: string[] = [];
   for (let i = 0; i < n; i += 1) {
-    const el = raw[i];
+    const el = arr[i];
     /** primitive string 은 `String(el)` ToString 생략 — 그 외 타입은 `t` 와 동일 규칙 `String(el ?? "").trim()` */
     const u = typeof el === "string" ? el.trim() : String(el ?? "").trim();
     if (u && isHttpOrBlobUrl(u)) out.push(u);
@@ -102,14 +103,14 @@ export function messengerImageClientFieldsFromMetadata(
   let thumbsLen = 0;
   let legacyIs = false;
   let legacyLen = 0;
-  thumbsIs = Array.isArray(rawThumbs);
-  if (thumbsIs) {
+  if (Array.isArray(rawThumbs)) {
+    thumbsIs = true;
     thumbsLen = rawThumbs.length;
     if (thumbsLen >= 2) mayHaveAlbum = true;
   }
   if (!mayHaveAlbum) {
-    legacyIs = Array.isArray(rawLegacy);
-    if (legacyIs) {
+    if (Array.isArray(rawLegacy)) {
+      legacyIs = true;
       legacyLen = rawLegacy.length;
       if (legacyLen >= 2) mayHaveAlbum = true;
     }

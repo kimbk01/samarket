@@ -41,6 +41,8 @@
 
 ## 2) 메신저 (텔레그램 · 바이버 수준)
 
+> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지.
+
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|
 | 1 | 채팅방 탭 후 **즉시 입력** 가능에 가깝다 (`composer_wall_ms` 등 프로젝트 측정과 정합) | [ ] |
