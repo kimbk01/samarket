@@ -5851,15 +5851,44 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     : null;
   /** 메시지마다 resolveRoomProfileLite·roomProfileKey·profileLabel 체인 반복 제거 */
   const senderIdsInMessages = new Set<string>();
-  const messageIsDbRow: boolean[] = new Array(messages.length);
   /** 위 sender 스캔과 동일 값 — map 단계에서 row.sender_* 를 다시 읽지 않음 */
   const messageSenderIdByMi: Array<string | null> = new Array(messages.length);
+  /** 스캔 시점과 동일 — map 의 messageShapeAndMetadata 구간에서 message_type·metadata 재읽기 제거 */
+  const messageSafeMtByMi: CommunityMessengerMessage["messageType"][] = new Array(messages.length);
+  const messageRawMetaByMi: Array<Record<string, unknown> | null | undefined> = new Array(messages.length);
+  /** 반환용 room / created — map 에서 rowDb·rowDev 로 room_id·created_at 재읽기 제거 */
+  const messageRoomIdByMi: string[] = new Array(messages.length);
+  const messageCreatedAtRawByMi: Array<string | null> = new Array(messages.length);
+  /** map 의 messageShapeAndMetadata 구간에서 client_message_id 파싱 반복 제거 */
+  const messageClientMessageIdByMi: Array<string | null> = new Array(messages.length);
   for (let mi = 0; mi < messages.length; mi += 1) {
     const msg = messages[mi];
     const dbRow = "sender_id" in msg;
-    messageIsDbRow[mi] = dbRow;
     const sid = (dbRow ? msg.sender_id : msg.senderId) ?? null;
     messageSenderIdByMi[mi] = sid;
+    if (dbRow) {
+      const r = msg as MessageRow;
+      messageSafeMtByMi[mi] = r.message_type as CommunityMessengerMessage["messageType"];
+      messageRawMetaByMi[mi] = r.metadata;
+      messageRoomIdByMi[mi] = r.room_id;
+      messageCreatedAtRawByMi[mi] = r.created_at;
+    } else {
+      const d = msg as DevMessage;
+      messageSafeMtByMi[mi] = d.messageType as CommunityMessengerMessage["messageType"];
+      messageRawMetaByMi[mi] = d.metadata;
+      messageRoomIdByMi[mi] = d.roomId;
+      messageCreatedAtRawByMi[mi] = d.createdAt;
+    }
+    const rm = messageRawMetaByMi[mi];
+    let cmid: string | null = null;
+    if (rm != null) {
+      const rawClientMessageId = rm.client_message_id;
+      if (typeof rawClientMessageId === "string") {
+        const tClient = rawClientMessageId.trim();
+        if (tClient) cmid = tClient;
+      }
+    }
+    messageClientMessageIdByMi[mi] = cmid;
     if (sid) senderIdsInMessages.add(sid);
   }
   const senderLabelByUserId = new Map<string, string>();
@@ -5876,30 +5905,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const emptyVoiceEnvelopeExtra = {};
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message, mi) => {
     let tStep = performance.now();
-    const isDbMessage = messageIsDbRow[mi];
     const senderId = messageSenderIdByMi[mi];
-    let rowDb: MessageRow | undefined;
-    let rowDev: DevMessage | undefined;
-    let safeMt: CommunityMessengerMessage["messageType"];
-    let rawMeta: Record<string, unknown> | null | undefined;
-    if (isDbMessage) {
-      rowDb = message as MessageRow;
-      safeMt = rowDb.message_type as CommunityMessengerMessage["messageType"];
-      rawMeta = rowDb.metadata;
-    } else {
-      rowDev = message as DevMessage;
-      safeMt = rowDev.messageType as CommunityMessengerMessage["messageType"];
-      rawMeta = rowDev.metadata;
-    }
+    const safeMt = messageSafeMtByMi[mi];
+    const rawMeta = messageRawMetaByMi[mi];
+    const clientMessageId = messageClientMessageIdByMi[mi];
     const metadata = (rawMeta ?? emptyMessageMetadata) as Record<string, unknown>;
-    let clientMessageId: string | null = null;
-    if (metadata !== emptyMessageMetadata) {
-      const rawClientMessageId = metadata.client_message_id;
-      if (typeof rawClientMessageId === "string") {
-        const tClient = rawClientMessageId.trim();
-        if (tClient) clientMessageId = tClient;
-      }
-    }
     if (mappedMsgAcc) {
       mappedMsgAcc.messageShapeAndMetadata += performance.now() - tStep;
       tStep = performance.now();
@@ -5935,12 +5945,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     return {
       id: message.id,
-      roomId: isDbMessage ? rowDb!.room_id : rowDev!.roomId,
+      roomId: messageRoomIdByMi[mi],
       senderId,
       senderLabel,
       messageType: safeMt,
       content: contentTrimmed,
-      createdAt: trimText(isDbMessage ? rowDb!.created_at : rowDev!.createdAt) || nowIso(),
+      createdAt: trimText(messageCreatedAtRawByMi[mi]) || nowIso(),
       clientMessageId,
       isMine: senderId === userId,
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
