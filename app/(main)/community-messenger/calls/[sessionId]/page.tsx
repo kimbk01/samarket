@@ -1,20 +1,19 @@
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+"use client";
+
+import { useParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
+import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 
-async function CommunityMessengerCallPageBody({ paramsPromise }: { paramsPromise: Promise<{ sessionId: string }> }) {
-  const { sessionId } = await paramsPromise;
-  const userId = await getOptionalAuthenticatedUserId();
-  const initialSession = userId ? await getCommunityMessengerCallSessionById(userId, sessionId) : null;
-  return <CommunityMessengerCallClient sessionId={sessionId} initialSession={initialSession} />;
-}
-
-export default function CommunityMessengerCallPage({ params }: { params: Promise<{ sessionId: string }> }) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
-      <CommunityMessengerCallPageBody paramsPromise={params} />
-    </Suspense>
-  );
+/**
+ * 통화 화면은 발신 직후 `sessionStorage` 시드 + 클라 GET으로 충분하다.
+ * RSC에서 DB 세션을 await 하면 Suspense·TTFB가 길어져 「영상 선택 → 화면 전환」이 느려진다.
+ */
+export default function CommunityMessengerCallPage() {
+  const params = useParams();
+  const raw = params?.sessionId;
+  const sessionId = Array.isArray(raw) ? String(raw[0] ?? "").trim() : String(raw ?? "").trim();
+  if (!sessionId) {
+    return <CommunityMessengerCallRouteLoading />;
+  }
+  return <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />;
 }

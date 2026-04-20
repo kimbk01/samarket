@@ -22,9 +22,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       ? ({ position: "absolute", left: pipPixel.left, top: pipPixel.top } as const)
       : undefined;
 
+  /** 발신 영상: 벨·연결·통화 중 로컬 프리뷰(전체 배경) 위에 상단만 상태 — 가운데 카드는 쓰지 않음 */
+  const outgoingSoloVideoLayout = vm.mode === "video" && vm.direction === "outgoing" && !vm.showRemoteVideo;
+  const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
+
   return (
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
       <div ref={pip?.stageRef} className="relative min-h-0 flex-1">
+        {/* 비디오 레이어는 항상 뒤 — 로컬 풀프리뷰가 상태 문구를 덮지 않게 함 */}
+        <div className="absolute inset-0 z-0">{vm.mainVideoSlot}</div>
+
         {vm.showRemoteVideo ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
@@ -37,28 +44,53 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
 
-        <div className="absolute right-3 z-[4] top-[max(52px,calc(env(safe-area-inset-top)+40px))]">
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
-            aria-label="참가자"
-            onClick={() => showMessengerSnackbar("참가자 초대는 준비 중입니다.")}
-          >
-            <Monitor size={22} />
-          </button>
-        </div>
+        {outgoingSoloVideoLayout ? (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
+            <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
+              <div className="text-[20px] font-semibold tracking-tight text-white">{vm.peerLabel}</div>
+              <div className="mt-1 flex items-center justify-center gap-2 text-[14px] font-medium text-white/90">
+                <span
+                  className={
+                    vm.phase === "connected"
+                      ? "inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]"
+                      : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
+                  }
+                  aria-hidden
+                />
+                <span>{timer ?? vm.statusText}</span>
+              </div>
+              {detailLine ? (
+                <p className="mt-1.5 text-[13px] leading-snug text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]">
+                  {detailLine}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
-        {!vm.showRemoteVideo ? (
-          <div className="absolute inset-0 flex items-center justify-center px-8">
+        {vm.showRemoteVideo ? (
+          <div className="absolute right-3 z-[4] top-[max(52px,calc(env(safe-area-inset-top)+40px))]">
+            <button
+              type="button"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
+              aria-label="참가자"
+              onClick={() => showMessengerSnackbar("참가자 초대는 준비 중입니다.")}
+            >
+              <Monitor size={22} />
+            </button>
+          </div>
+        ) : null}
+
+        {!vm.showRemoteVideo && !outgoingSoloVideoLayout ? (
+          <div className="absolute inset-0 z-[4] flex items-center justify-center px-8">
             <CallStatusText
               title={vm.peerLabel}
               status={vm.statusText}
               timer={timer}
-              detail={vm.connectionLabel ?? vm.subStatusText ?? null}
+              detail={detailLine}
             />
           </div>
         ) : null}
-        {vm.mainVideoSlot}
         {vm.showLocalVideo && pip ? (
           <MiniLocalVideo
             ref={pip.pipRef}

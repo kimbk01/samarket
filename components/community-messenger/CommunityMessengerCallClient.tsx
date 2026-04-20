@@ -28,6 +28,7 @@ async function loadCommunityMessengerCallProvider() {
 }
 import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
+  hasCommunityMessengerMediaTrustedMark,
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
   primeCommunityMessengerDevicePermissionFromUserGesture,
@@ -65,6 +66,8 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   consumeCommunityMessengerCallNavigationSeed,
+  ensureCallNavigationSeedMemoryMatchesRoute,
+  navigateBackFromCommunityMessengerCall,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
@@ -287,9 +290,12 @@ export function CommunityMessengerCallClient({
    * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
    * 「허용하고 연결」 확인 후에만 Agora 조인한다. 수신은 수락 버튼·자동수락 경로에서 이미 제스처가 있다.
    */
-  const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(
-    () => !(initialSession?.isMineInitiator ?? false)
-  );
+  const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(() => {
+    const init = initialSession;
+    if (init == null) return true;
+    if (!init.isMineInitiator) return true;
+    return hasCommunityMessengerMediaTrustedMark();
+  });
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
   /** postgres_changes 연속 이벤트로 GET 이 폭주하지 않게 묶는다 */
@@ -353,6 +359,7 @@ export function CommunityMessengerCallClient({
   /** 발신 직후 네비게이션 시드 — RSC/GET 전에 세션을 채워 로딩 스피너 단축 */
   useLayoutEffect(() => {
     if (initialSessionRef.current != null) return;
+    ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
     const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
     if (seeded) {
       setSession(seeded);
@@ -1247,9 +1254,7 @@ export function CommunityMessengerCallClient({
       joinedRef.current = false;
       setRemoteJoined(false);
       void disposeCallMedia().catch(() => {});
-      if (snap?.roomId?.trim()) {
-        router.replace(`/community-messenger/rooms/${encodeURIComponent(snap.roomId.trim())}`);
-      }
+      navigateBackFromCommunityMessengerCall(router, snap?.roomId ?? null);
     } finally {
       setBusy(null);
     }
@@ -1294,9 +1299,7 @@ export function CommunityMessengerCallClient({
         session.status === "ringing" && session.isMineInitiator ? "cancelled" : "ended";
       applyTerminalSessionAfterPatch(json, roomId, sid, optimisticEnd);
       void disposeCallMedia().catch(() => {});
-      if (roomId.trim()) {
-        router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`);
-      }
+      navigateBackFromCommunityMessengerCall(router, roomId);
     } finally {
       setBusy(null);
     }
@@ -1736,9 +1739,7 @@ export function CommunityMessengerCallClient({
         setRemoteJoined(false);
         void disposeCallMedia().catch(() => {});
         void refreshSession(true);
-        if (snapshot.roomId.trim()) {
-          router.replace(`/community-messenger/rooms/${encodeURIComponent(snapshot.roomId.trim())}`);
-        }
+        navigateBackFromCommunityMessengerCall(router, snapshot.roomId);
       },
     });
     return () => {
@@ -1758,27 +1759,37 @@ export function CommunityMessengerCallClient({
       return;
     }
     let cancelled = false;
+
+    const tryInitiatorJoin = () => {
+      const cur = sessionRef.current;
+      if (
+        cur &&
+        cur.isMineInitiator &&
+        cur.sessionMode === "direct" &&
+        !isTerminalCallSessionStatus(cur.status)
+      ) {
+        void joinCall(cur);
+      }
+    };
+
+    /** Permissions API 대기 없이 즉시 조인 — 재방문·이미 허용한 브라우저에서 체감 지연 제거 */
+    if (hasCommunityMessengerMediaTrustedMark()) {
+      setCallerMediaConsentDone(true);
+      tryInitiatorJoin();
+    }
+
     void (async () => {
       const skip = await shouldSkipCallerMediaGateOverlay(session.callKind);
       if (cancelled) return;
       setCallerMediaConsentDone(skip);
-      /* 게이트 생략 시 effect 재실행 전에 바로 Agora 조인(발신자 전용). joinCall 내부 가드로 중복 방지 */
       if (skip) {
-        const cur = sessionRef.current;
-        if (
-          cur &&
-          cur.isMineInitiator &&
-          cur.sessionMode === "direct" &&
-          !isTerminalCallSessionStatus(cur.status)
-        ) {
-          void joinCall(cur);
-        }
+        tryInitiatorJoin();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [joinCall, session?.id, session?.isMineInitiator, session?.callKind]);
+  }, [joinCall, session?.callKind, session?.id, session?.isMineInitiator, session?.sessionMode, session?.status]);
 
   useEffect(() => {
     if (!session) return;
@@ -1932,6 +1943,11 @@ export function CommunityMessengerCallClient({
     return () => window.clearInterval(timer);
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
+  /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
+  const closeTerminalView = useCallback(() => {
+    navigateBackFromCommunityMessengerCall(router, sessionRef.current?.roomId);
+  }, [router]);
+
   if (loading && !session) {
     return <CommunityMessengerCallRouteLoading />;
   }
@@ -1985,10 +2001,6 @@ export function CommunityMessengerCallClient({
     })();
   };
 
-  const closeTerminalView = useCallback(() => {
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(session.roomId)}`);
-  }, [router, session.roomId]);
-
   const primaryActions: CallActionItem[] = [];
   const secondaryActions: CallActionItem[] = [];
 
@@ -2000,7 +2012,12 @@ export function CommunityMessengerCallClient({
       onClick: () => startOutgoingAgain("voice"),
       disabled: !session.peerUserId,
     });
-  } else if (session.isMineInitiator && directPhase === "ringing" && !showCallerMediaGate) {
+  } else if (
+    session.isMineInitiator &&
+    directPhase === "ringing" &&
+    !showCallerMediaGate &&
+    !(videoCall && joined)
+  ) {
     primaryActions.push({
       id: "end",
       label: busy === "end" ? "취소 중" : "취소",

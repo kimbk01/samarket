@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
+import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   tradeChatCallPolicyAllowsVideo,
@@ -76,7 +77,10 @@ export function TradeChatCallHeaderButtons(props: {
       <button
         type="button"
         disabled={busy}
-        onClick={() => void startCall("voice")}
+        onClick={() => {
+          void primeCommunityMessengerDevicePermissionFromUserGesture("voice");
+          void startCall("voice");
+        }}
         className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
         aria-label="음성 통화"
       >
@@ -86,7 +90,10 @@ export function TradeChatCallHeaderButtons(props: {
         <button
           type="button"
           disabled={busy}
-          onClick={() => void startCall("video")}
+          onClick={() => {
+            void primeCommunityMessengerDevicePermissionFromUserGesture("video");
+            void startCall("video");
+          }}
           className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
           aria-label="영상 통화"
         >

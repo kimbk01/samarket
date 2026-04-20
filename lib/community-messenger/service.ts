@@ -5268,9 +5268,9 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    */
   hydrateFullMemberList?: boolean;
   /**
-   * true면 `fetchRoomProfilesByRoomIds`·통화·거래 도크·presence·trade unread 보강을 (대부분의 방에서) 생략하고
-   * `bootstrapEnrichmentPending` 을 싣는다. **거래/배달 메신저 방**(summary `contextMeta` 또는 `product_chats` 브리지)은
-   * 통화·거래 도크·presence 를 첫 스냅샷에 포함한다.
+   * true면 `fetchRoomProfilesByRoomIds`·통화·presence·trade unread 보강을 (대부분의 방에서) 생략하고
+   * `bootstrapEnrichmentPending` 을 싣는다. **거래 1:1 방**은 `tradeChatRoomDetail`(상품 카드)만 프로필과 병렬로
+   * 첫 스냅샷에 포함하고, 통화·presence·enrich 는 후속 부트스트랩으로 합류한다.
    */
   deferSnapshotSecondary?: boolean;
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
@@ -5577,7 +5577,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   ) {
     diagnostics.chatRoomDetailLoad ??= {};
   }
-  /** `true` 이면 통화·거래도크·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주 */
+  /**
+   * `true` 이면 통화·presence 등 2차 묶음을 생략 — 첫 진입은 seed 위주.
+   * 거래 1:1 방은 상품 카드(`tradeChatRoomDetail`)만 프로필 하이드레이션과 병렬로 넣어 첫 페인트에 포함한다.
+   */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
   let deferSecondary = false;
   let participantsProfilesFetchMs = 0;
@@ -5787,9 +5790,19 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const roomProfileMapPromise = deferSecondary
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
     : fetchRoomProfilesByRoomIds([id]);
-  /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/거래도크/presence 는 아래 2차에서 */
+  /** defer seed: 거래 방 상품 카드만 프로필과 동시에 로드(통화·presence·enrich 는 여전히 후속 부트스트랩) */
+  const tradeDetailParallelForDeferSeed =
+    deferSecondary && room
+      ? tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then((r) => {
+          if (diagnostics) {
+            diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
+          }
+          return r;
+        })
+      : Promise.resolve(null);
+  /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/presence·(비거래 defer 시)거래도크 는 아래 2차에서 */
   const tProfileHydration0 = performance.now();
-  const [roomProfileMap, hydratedLabels] = await Promise.all([
+  const [roomProfileMap, hydratedLabels, tradeDetailFromDeferSeedParallel] = await Promise.all([
     roomProfileMapPromise,
     hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
       includeSelf: true,
@@ -5798,6 +5811,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           ? embeddedProfilesFromParticipantRows
           : undefined,
     }),
+    tradeDetailParallelForDeferSeed,
   ]);
   participantsProfilesFetchMs += performance.now() - tProfileHydration0;
   if (diagnostics) {
@@ -5820,7 +5834,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
   tHiDeferAfterSummary = performance.now();
   let activeCall: CommunityMessengerCallSession | null = null;
-  let tradeChatRoomDetail: ChatRoom | null = null;
+  let tradeChatRoomDetail: ChatRoom | null = deferSecondary
+    ? (tradeDetailFromDeferSeedParallel as ChatRoom | null)
+    : null;
   let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
   let didFullSecondaryParallel = false;
   if (!deferSecondary) {
@@ -5892,8 +5908,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   } else if (room) {
     /**
-     * seed(lite) / RSC 첫 응답: 통화·presence·거래 상세·trade context enrich 은 첫 응답에서 await 하지 않는다.
-     * `bootstrapEnrichmentPending` + 클라 silent `GET .../bootstrap` 이 합류하고, E2E 진단은 방 페이지에서 병렬 오버레이로 채운다.
+     * seed(lite) / RSC 첫 응답: 통화·presence·trade context enrich 은 첫 응답에서 await 하지 않는다.
+     * 거래 방 상품 카드(`tradeChatRoomDetail`)는 위에서 프로필과 병렬 로드되어 스냅샷에 포함된다.
+     * `bootstrapEnrichmentPending` + 클라 silent `GET .../bootstrap` 이 나머지를 합류한다.
      */
     if (diagnostics) {
       diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);

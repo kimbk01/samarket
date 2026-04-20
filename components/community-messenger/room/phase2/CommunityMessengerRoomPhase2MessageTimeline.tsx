@@ -448,7 +448,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                       disabled={stubBusy}
                       onClick={(e) => {
                         e.stopPropagation();
-                        void vm.requestOutgoingCallFromStub(kind);
+                        vm.openCallStubOutgoingConfirm(kind);
                       }}
                       className="flex w-full max-w-full items-center gap-2.5 rounded-[12px] py-1 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
                     >

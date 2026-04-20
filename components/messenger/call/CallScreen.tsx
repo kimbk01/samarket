@@ -37,7 +37,7 @@ export function CallScreen({
         mode={vm.mode}
         phase={vm.phase}
         videoSlot={vm.mainVideoSlot}
-        showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot) && !(vm.direction === "outgoing" && vm.phase === "ringing")}
+        showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
       />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
         {!(vm.direction === "incoming" && vm.phase === "ringing") ? (
@@ -64,7 +64,8 @@ function renderCallView(
   if (vm.direction === "incoming" && vm.phase === "ringing") {
     return <IncomingCallView vm={vm} dockTop={variant === "dock-top"} />;
   }
-  if (vm.direction === "outgoing" && vm.phase === "ringing") {
+  /** 음성 발신 벨만 전용 패널 — 영상 발신은 아래와 동일 풀스크린으로 통일 */
+  if (vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice") {
     return <OutgoingCallPanel vm={vm} />;
   }
   /** 영상: 벨·연결·통화 중 모두 동일 풀스크린 레이아웃(발신 시 로컬 프리뷰가 배경 전체). */

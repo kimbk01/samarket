@@ -65,6 +65,7 @@ import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifi
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
@@ -636,6 +637,7 @@ export function CommunityMessengerHome({
       if (outgoingDialSyncGuardRef.current) return;
       outgoingDialSyncGuardRef.current = true;
       setActionError(null);
+      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
       const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
       if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
         void reviveDirectRoomForEntry(existingRoom);

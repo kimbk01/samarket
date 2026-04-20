@@ -16,18 +16,21 @@ export type MessengerOutgoingCallConfirmDialogProps = {
 
 export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallConfirmDialogProps) {
   const { open, peerLabel, kind, busy = false, onCancel, onConfirm } = props;
-  if (!open) return null;
 
   const title = kind === "video" ? "영상 통화" : "음성 통화";
   const dialogLabel = `${peerLabel.trim() || "상대"} ${title}`;
+  const peer = peerLabel.trim() || "상대방";
 
   useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !busy) onCancel();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, onCancel]);
+  }, [open, busy, onCancel]);
+
+  if (!open) return null;
 
   return (
     <div
@@ -48,9 +51,8 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
           <h2 id="outgoing-call-confirm-title" className="text-[17px] font-semibold tracking-tight text-[#2d1d55]">
             {title}
           </h2>
-          <p className="mt-2 text-[15px] leading-snug text-[#2d1d55]">
-            통화를 시작하시겠습니까?
-          </p>
+          <p className="mt-1 text-[13px] font-medium text-[#2d1d55]/85">{peer}</p>
+          <p className="mt-2 text-[15px] leading-snug text-[#2d1d55]">통화를 시작하시겠습니까?</p>
         </div>
         <div className="flex border-t border-[#2d1d55]/10">
           <button

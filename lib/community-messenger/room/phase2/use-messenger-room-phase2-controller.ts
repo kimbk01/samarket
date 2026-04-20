@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -31,7 +32,10 @@ import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
-import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  bootstrapCommunityMessengerOutgoingCallAndNavigate,
+  rememberCallNavigationReturnPath,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import {
   mergeRoomMessages,
@@ -468,6 +472,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const openDirectCallPage = useCallback(
     (nextSessionId: string, action?: "accept") => {
+      rememberCallNavigationReturnPath();
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
       const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
       void router.prefetch(href);
@@ -485,6 +490,7 @@ export function useMessengerRoomPhase2Controller() {
       setOutgoingDialLocked(true);
 
       setManagedDirectCallError(null);
+      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
       const existingSession = snapshot?.activeCall;
       if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
         outgoingDialSyncGuardRef.current = false;
@@ -1293,6 +1299,8 @@ export function useMessengerRoomPhase2Controller() {
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 
+      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+
       return (async () => {
         try {
           const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
@@ -1360,19 +1368,39 @@ export function useMessengerRoomPhase2Controller() {
     [call, canStartGroupCall, dismissRoomSheet]
   );
 
-  /** 통화 로그 말풍선 — Viber 처럼 탭 후 확인 → 동일 종류(음성/영상)로 재연결 */
-  const requestOutgoingCallFromStub = useCallback(
-    async (kind: "voice" | "video") => {
+  /** 통화 로그에서 재발신 — 브라우저 confirm 대신 헤더와 동일한 `MessengerOutgoingCallConfirmDialog` */
+  const [callStubOutgoingConfirm, setCallStubOutgoingConfirm] = useState<null | { kind: "voice" | "video" }>(null);
+  const pendingStubCallKindRef = useRef<"voice" | "video" | null>(null);
+
+  const openCallStubOutgoingConfirm = useCallback(
+    (kind: "voice" | "video") => {
       if (roomUnavailable) return;
-      if (!window.confirm("통화를 연결할까요?")) return;
-      if (isGroupRoom) {
-        await startGroupCall(kind);
-      } else {
-        startManagedDirectCall(kind);
-      }
+      pendingStubCallKindRef.current = kind;
+      setCallStubOutgoingConfirm({ kind });
     },
-    [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]
+    [roomUnavailable]
   );
+
+  const cancelCallStubOutgoingConfirm = useCallback(() => {
+    pendingStubCallKindRef.current = null;
+    setCallStubOutgoingConfirm(null);
+  }, []);
+
+  const confirmCallStubOutgoing = useCallback(async () => {
+    const kind = pendingStubCallKindRef.current;
+    if (!kind || roomUnavailable) return;
+    if (isGroupRoom) {
+      pendingStubCallKindRef.current = null;
+      setCallStubOutgoingConfirm(null);
+      await startGroupCall(kind);
+      return;
+    }
+    const ok = await startManagedDirectCall(kind);
+    if (ok) {
+      pendingStubCallKindRef.current = null;
+      setCallStubOutgoingConfirm(null);
+    }
+  }, [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]);
 
   useEffect(() => {
     if (!messageActionItem && !callStubSheet) return;
@@ -1685,7 +1713,10 @@ export function useMessengerRoomPhase2Controller() {
     startDirectCallWithMember,
     removeGroupMember,
     startGroupCall,
-    requestOutgoingCallFromStub,
+    callStubOutgoingConfirm,
+    openCallStubOutgoingConfirm,
+    cancelCallStubOutgoingConfirm,
+    confirmCallStubOutgoing,
     reportTarget,
     getMessageCopyText,
     copyMessageText,

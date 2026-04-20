@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { useCommunityCallSurface } from "@/contexts/CommunityCallSurfaceContext";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
+import { rememberCallNavigationReturnPath } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   isCommunityMessengerIncomingCallBannerEnabled,
@@ -880,6 +881,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, sessions]);
 
   const acceptCall = useCallback((session: CommunityMessengerCallSession) => {
+    rememberCallNavigationReturnPath();
     suppressMissedSoundRef.current.add(session.id);
     stopCommunityMessengerCallFeedback();
     setBusyId(`accept:${session.id}`);

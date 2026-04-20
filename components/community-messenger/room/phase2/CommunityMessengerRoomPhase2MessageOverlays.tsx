@@ -47,6 +47,7 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
@@ -133,7 +134,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
                 onClick={() => {
                   const kind = callStubSheet.callKind === "video" ? "video" : "voice";
                   vm.setCallStubSheet(null);
-                  void vm.requestOutgoingCallFromStub(kind);
+                  vm.openCallStubOutgoingConfirm(kind);
                 }}
               >
                 다시 걸기
@@ -190,6 +191,19 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {vm.callStubOutgoingConfirm ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={vm.snapshot.room.title?.trim() || "상대"}
+          kind={vm.callStubOutgoingConfirm.kind}
+          busy={vm.outgoingDialLocked}
+          onCancel={vm.cancelCallStubOutgoingConfirm}
+          onConfirm={() => {
+            void vm.confirmCallStubOutgoing();
+          }}
+        />
       ) : null}
 
       {vm.replyToMessage && !vm.voiceRecording ? (

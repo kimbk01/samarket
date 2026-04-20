@@ -2,6 +2,66 @@ import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 
 const KEY = "samarket.cm.call_session_seed.v1";
+const RETURN_PATH_KEY = "samarket.cm.call_return_path.v1";
+
+/** React Strict Mode 등으로 consume 이 두 번 호출될 때 두 번째는 storage 가 비어 있어도 동일 세션을 돌려준다. */
+let lastConsumedNavigationSeed: { sessionId: string; session: CommunityMessengerCallSession } | null = null;
+
+/** 라우트의 sessionId 와 메모리 캐시가 어긋나면(다른 통화로 전환 등) 잘못된 시드를 쓰지 않도록 비운다. */
+export function ensureCallNavigationSeedMemoryMatchesRoute(routedSessionId: string): void {
+  const sid = routedSessionId.trim();
+  if (!sid) return;
+  if (lastConsumedNavigationSeed && lastConsumedNavigationSeed.sessionId !== sid) {
+    lastConsumedNavigationSeed = null;
+  }
+}
+
+/**
+ * 통화 전 화면 URL(채팅·메신저 홈 등)을 저장해, 종료·취소 시 `router.replace` 로 그대로 돌아간다.
+ * 통화 라우트 자체는 저장하지 않는다(루프 방지).
+ */
+export function rememberCallNavigationReturnPath(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const p = `${window.location.pathname}${window.location.search}`;
+    if (p.includes("/community-messenger/calls/")) return;
+    if (!p.startsWith("/") || p.startsWith("//") || p.length > 512) return;
+    window.sessionStorage.setItem(RETURN_PATH_KEY, p);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+/** 한 번 읽으면 제거. 유효한 앱 내부 경로만 반환한다. */
+export function takeCallNavigationReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = sessionStorage.getItem(RETURN_PATH_KEY);
+    sessionStorage.removeItem(RETURN_PATH_KEY);
+    if (!v || !v.startsWith("/") || v.startsWith("//") || v.length > 512) return null;
+    if (v.includes("/community-messenger/calls/")) return null;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+export function navigateBackFromCommunityMessengerCall(
+  router: { replace: (href: string) => void },
+  roomIdFallback: string | null | undefined
+): void {
+  const back = takeCallNavigationReturnPath();
+  if (back) {
+    router.replace(back);
+    return;
+  }
+  const room = roomIdFallback?.trim();
+  if (room) {
+    router.replace(`/community-messenger/rooms/${encodeURIComponent(room)}`);
+    return;
+  }
+  router.replace("/community-messenger");
+}
 
 export type BuildCommunityMessengerOutgoingDialHrefArgs = {
   kind: CommunityMessengerCallKind;
@@ -116,6 +176,9 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
 ): Promise<OutgoingCallSessionBootstrapResult> {
   const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
   if (!result.ok) return result;
+  if (typeof window !== "undefined") {
+    rememberCallNavigationReturnPath();
+  }
   primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
   navigate(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
   return result;
@@ -130,6 +193,7 @@ export function primeCommunityMessengerCallNavigationSeed(
   session: CommunityMessengerCallSession
 ): void {
   if (typeof window === "undefined") return;
+  lastConsumedNavigationSeed = null;
   try {
     window.sessionStorage.setItem(
       KEY,
@@ -144,12 +208,16 @@ export function consumeCommunityMessengerCallNavigationSeed(
   sessionId: string
 ): CommunityMessengerCallSession | null {
   if (typeof window === "undefined") return null;
+  if (lastConsumedNavigationSeed?.sessionId === sessionId) {
+    return lastConsumedNavigationSeed.session;
+  }
   try {
     const raw = window.sessionStorage.getItem(KEY);
     if (!raw) return null;
     const o = JSON.parse(raw) as { sessionId?: string; session?: CommunityMessengerCallSession };
     if (!o.session || o.sessionId !== sessionId) return null;
     window.sessionStorage.removeItem(KEY);
+    lastConsumedNavigationSeed = { sessionId, session: o.session };
     return o.session;
   } catch {
     return null;
