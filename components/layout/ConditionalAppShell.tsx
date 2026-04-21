@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { RegionBar } from "./RegionBar";
@@ -60,7 +61,17 @@ export function ConditionalAppShell({
           {children}
         </div>
       </main>
-      {f.showBottomNav && <BottomNav initialTabs={initialMainBottomNavItems} />}
+      {f.showBottomNav ? (
+        <Suspense
+          fallback={
+            <div className={BOTTOM_NAV_SHELL.outerClassName} aria-hidden>
+              <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`} />
+            </div>
+          }
+        >
+          <BottomNav initialTabs={initialMainBottomNavItems} />
+        </Suspense>
+      ) : null}
       {f.showBottomNav && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
       {f.showFloat && <FloatingAddButton />}
     </div>
