@@ -47,7 +47,6 @@ import {
   type SellerListingState,
   normalizeSellerListingState,
 } from "@/lib/products/seller-listing-state";
-import { postSellerListingChangeSystemNotice } from "@/lib/chat/postSellerListingChangeNotice";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import {
   dispatchTradeChatUnreadUpdated,
@@ -82,6 +81,7 @@ import {
   useChatRoomRealtime,
   type ChatRoomRealtimeConnectionState,
 } from "@/lib/chats/use-chat-room-realtime";
+import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
@@ -290,7 +290,41 @@ export function ChatDetailView({
     room.product?.sellerListingState,
     room.product?.status
   );
+  /** DB·상대 동기화(자동 문의중/판매중, 메뉴 변경) — `posts` Realtime */
+  const [listingFromPostRealtime, setListingFromPostRealtime] = useState<SellerListingState | null>(null);
   const amISeller = room.sellerId === currentUserId;
+
+  usePostSellerListingRealtime({
+    postId: postId || null,
+    enabled:
+      Boolean(postId) &&
+      !isStoreOrderChat &&
+      !isGeneralPurposeChat &&
+      Boolean(currentUserId?.trim()),
+    onSellerListingState: (raw) => {
+      setListingFromPostRealtime(normalizeSellerListingState(raw, room.product?.status));
+    },
+  });
+
+  useEffect(() => {
+    setListingFromPostRealtime(null);
+  }, [room.id, postId]);
+
+  useEffect(() => {
+    if (listingFromPostRealtime == null) return;
+    if (listingFromPostRealtime === propListing) {
+      setListingFromPostRealtime(null);
+    }
+  }, [propListing, listingFromPostRealtime]);
+
+  useEffect(() => {
+    if (!amISeller || listingFromPostRealtime == null || !postId) return;
+    if (pinnedForProductId !== postId || pinnedListing == null) return;
+    if (pinnedListing !== listingFromPostRealtime) {
+      setPinnedListing(null);
+      setPinnedForProductId(null);
+    }
+  }, [amISeller, listingFromPostRealtime, postId, pinnedForProductId, pinnedListing]);
 
   const partnerDisplayNickname = useMemo(
     () => room.partnerNickname?.trim() || t("common_partner"),
@@ -336,7 +370,7 @@ export function ChatDetailView({
   const displayListing: SellerListingState =
     amISeller && pinnedListing != null && pinnedForProductId === postId && postId
       ? pinnedListing
-      : propListing;
+      : listingFromPostRealtime ?? propListing;
 
   const effectiveProductChatId = (room.productChatRoomId || room.id).trim();
   const showMessengerTradeCta = room.chatDomain === "trade" && !isGeneralPurposeChat && Boolean(effectiveProductChatId);
@@ -688,19 +722,16 @@ export function ChatDetailView({
         setListingNotice(w || null);
         setPinnedListing(data.sellerListingState as SellerListingState);
         setPinnedForProductId(postId);
-        /** 채팅에서만 안내 — 내정보 등 다른 경로 변경 시에는 호출하지 않음 */
-        const noticeBody = `제품의 상태가 ${label}으로 변경되었습니다.`;
-        const added = await postSellerListingChangeSystemNotice(room, currentUserId, noticeBody);
-        if (added) {
-          setMessages((prev) => [...prev, added]);
-        }
+        /** 시스템 안내는 서버 `seller-listing-state` API에서 모든 채팅·메신저 스레드에 기록 */
+        dispatchTradeChatUnreadUpdated({ source: "seller-listing-state", key: postId });
+        onRoomReload?.();
       } catch {
         setListingError("네트워크 오류로 저장하지 못했습니다.");
       } finally {
         setListingSaving(false);
       }
     },
-    [postId, currentUserId, displayListing, room, amISeller]
+    [postId, currentUserId, displayListing, room, amISeller, onRoomReload]
   );
 
   // ⋮ 메뉴 밖 클릭 시 닫기
@@ -1554,9 +1585,11 @@ export function ChatDetailView({
   }, [effectiveProductChatId, currentUserId, onRoomReload]);
 
   const handleLeave = useCallback(async () => {
-    if (!isChatRoom) return;
     try {
-      const res = await fetch(`/api/chat/rooms/${room.id}/leave`, {
+      const url = isChatRoom
+        ? `/api/chat/rooms/${encodeURIComponent(room.id)}/leave`
+        : `/api/chat/room/${encodeURIComponent(room.id)}/leave`;
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -1572,10 +1605,6 @@ export function ChatDetailView({
       /* ignore */
     }
   }, [room.id, isChatRoom, router, effectiveListHref]);
-
-  const handleLeaveToListOnly = useCallback(() => {
-    router.push(effectiveListHref);
-  }, [router, effectiveListHref]);
 
   const handleImageFilesSelectedStable = useCallback(
     async (files: File[]) => {
@@ -1675,8 +1704,7 @@ export function ChatDetailView({
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    if (isChatRoom) handleLeave();
-                    else router.push(effectiveListHref);
+                    void handleLeave();
                   }}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
@@ -1760,13 +1788,7 @@ export function ChatDetailView({
         draftStorageKey={room.id}
         onComposerTextChange={isTradeProductPresenceRoom ? setTradeComposerDraft : undefined}
         onSend={handleSend}
-        onLeave={
-          isStoreOrderBuyer
-            ? undefined
-            : isChatRoom
-              ? handleLeave
-              : handleLeaveToListOnly
-        }
+        onLeave={isStoreOrderBuyer ? undefined : handleLeave}
         placeholder={isStoreOrderBuyer ? "메세지를 입력해주세요" : undefined}
         showEmojiButton={!isStoreOrderBuyer}
         variant={isStoreOrderChat ? "instagram" : "default"}
@@ -1931,7 +1953,12 @@ export function ChatDetailView({
               ) : null}
               {room.product && (
                 <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
-                  <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
+                  <ChatProductSummary
+                    product={room.product}
+                    hideFavorite={amISeller}
+                    sellerUserId={room.sellerId}
+                    sellerListingStateOverride={postId ? displayListing : undefined}
+                  />
                 </div>
               )}
               {showMessengerTradeCta ? (
@@ -2104,7 +2131,12 @@ export function ChatDetailView({
               {room.product ? (
                 <section className="rounded-ui-rect border border-sam-border bg-[#F8FAF9] p-3">
                   <p className="mb-3 sam-text-body font-semibold text-sam-fg">{t("nav_trade_connected_product")}</p>
-                  <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
+                  <ChatProductSummary
+                    product={room.product}
+                    hideFavorite={amISeller}
+                    sellerUserId={room.sellerId}
+                    sellerListingStateOverride={postId ? displayListing : undefined}
+                  />
                 </section>
               ) : null}
             </div>
@@ -2173,7 +2205,7 @@ export function ChatDetailView({
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
               <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 작성</h2>

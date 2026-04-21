@@ -60,13 +60,14 @@ import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
+import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
-import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -417,6 +418,17 @@ export function CommunityMessengerHome({
     [data?.chats, data?.groups]
   );
 
+  const messengerTradePostIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const room of [...(data?.chats ?? []), ...(data?.groups ?? [])]) {
+      const m = room.contextMeta;
+      if (!m || m.kind !== "trade") continue;
+      const pid = String(m.postId ?? "").trim();
+      if (pid) ids.add(pid);
+    }
+    return [...ids];
+  }, [data?.chats, data?.groups]);
+
   useEffect(() => {
     seedMessengerRealtimeFromBootstrap(data);
   }, [data]);
@@ -531,6 +543,13 @@ export function CommunityMessengerHome({
     setData,
   });
 
+  useCommunityMessengerTradePostListingRealtime({
+    viewerUserId: data?.me?.id ?? null,
+    tradePostIds: messengerTradePostIds,
+    enabled: Boolean(data?.me?.id) && homeRealtimeGateOpen && messengerTradePostIds.length > 0,
+    setData,
+  });
+
   const reviveDirectRoomForEntry = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
       if (room.roomType !== "direct" || !communityMessengerRoomIsInboxHidden(room)) return true;
@@ -631,10 +650,10 @@ export function CommunityMessengerHome({
     [data?.chats, data?.me?.id, getMessengerActionErrorMessage, navigateToCommunityRoom, reviveDirectRoomForEntry, t]
   );
 
-  /** 1:1 발신 — `lib/community-messenger/outgoing-call-surfaces.ts` (friendsFavoriteQuickActions, friendProfileSheet) 에만 연결 */
+  /** 1:1 발신 — 세션 생성 후 `/calls/:sessionId` 로만 이동(`calls/outgoing` 중간 화면 없음). `peerLabelForDial` 은 확인 모달 표시명. */
   const startDirectCall = useCallback(
-    (peerUserId: string, kind: "voice" | "video") => {
-      if (outgoingDialSyncGuardRef.current) return;
+    (peerUserId: string, kind: "voice" | "video", _peerLabelForDial?: string | null): boolean => {
+      if (outgoingDialSyncGuardRef.current) return false;
       outgoingDialSyncGuardRef.current = true;
       setActionError(null);
       void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
@@ -644,28 +663,27 @@ export function CommunityMessengerHome({
       }
 
       void (async () => {
-        setBusyId("messenger-outgoing-call");
         try {
-          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+          const roomId = existingRoom?.id?.trim() ? existingRoom.id.trim() : null;
+          const peer = peerUserId.trim();
+          const result = await startOutgoingCallSessionAndOpen(
             {
-              roomId: existingRoom?.id ?? null,
-              peerUserId: existingRoom?.id ? null : peerUserId,
+              roomId,
+              peerUserId: roomId ? null : peer,
               kind,
             },
-            (href) => {
-              router.push(href);
-            }
+            router
           );
           if (!result.ok) {
             setActionError(result.userMessage);
           }
         } catch {
-          setActionError("네트워크 오류로 통화를 시작하지 못했습니다.");
+          setActionError("통화 화면으로 이동하지 못했습니다.");
         } finally {
-          setBusyId(null);
           outgoingDialSyncGuardRef.current = false;
         }
       })();
+      return true;
     },
     [data?.chats, reviveDirectRoomForEntry, router]
   );
@@ -1277,12 +1295,15 @@ export function CommunityMessengerHome({
     roomSearchKeyword,
     openGroupSearch,
   });
-  const openOutgoingCallConfirm = useCallback((peerUserId: string, kind: "voice" | "video") => {
-    const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
-    const room = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId);
-    const peerLabel = fromFriend || room?.title?.trim() || "대화 상대";
-    setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
-  }, [sortedFriends, data?.chats]);
+  const openOutgoingCallConfirm = useCallback(
+    (peerUserId: string, kind: "voice" | "video") => {
+      const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
+      const room = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId);
+      const peerLabel = fromFriend || room?.title?.trim() || "대화 상대";
+      setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
+    },
+    [sortedFriends, data?.chats]
+  );
 
   const onFriendRowVoiceCallStable = useCallback(
     (userId: string) => {
@@ -1928,12 +1949,11 @@ export function CommunityMessengerHome({
           open
           peerLabel={outgoingCallConfirm.peerLabel}
           kind={outgoingCallConfirm.kind}
-          busy={busyId === "messenger-outgoing-call"}
           onCancel={() => setOutgoingCallConfirm(null)}
           onConfirm={() => {
             const next = outgoingCallConfirm;
-            setOutgoingCallConfirm(null);
-            startDirectCall(next.peerUserId, next.kind);
+            if (!next) return;
+            if (startDirectCall(next.peerUserId, next.kind, next.peerLabel)) setOutgoingCallConfirm(null);
           }}
         />
       ) : null}

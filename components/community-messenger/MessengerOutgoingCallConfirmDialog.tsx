@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 /**
- * 발신 전 확인 — 카카오톡형 취소 / 통화 2버튼.
+ * 발신 전 확인 — 취소 / 통화 2버튼. `busy` 시 연결 진행 중임을 표시한다.
  */
 export type MessengerOutgoingCallConfirmDialogProps = {
   open: boolean;
@@ -38,6 +38,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
       role="dialog"
       aria-modal="true"
       aria-labelledby="outgoing-call-confirm-title"
+      aria-busy={busy}
       aria-label={dialogLabel}
       onClick={() => {
         if (!busy) onCancel();

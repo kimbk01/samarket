@@ -136,7 +136,7 @@ export function useCommunityMessengerHomeShellEffects({
     const tab = searchParams.get("tab");
     if (tab === "settings") {
       openSettingsSheet();
-      router.replace("/community-messenger", { scroll: false });
+      router.replace("/community-messenger?section=chats", { scroll: false });
       return;
     }
     if (tab === "friends") {

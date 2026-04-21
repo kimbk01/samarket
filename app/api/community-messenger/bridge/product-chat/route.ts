@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
 
   const meta = buildMessengerContextMetaFromProductChatSnapshot({
     productChatId: resolved.productChatId,
+    postId: postId || undefined,
     productTitle: title || "거래",
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,

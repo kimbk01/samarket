@@ -26,7 +26,7 @@ export function PurchaseReviewSheet({
     <div
       className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
     >
-      <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:max-h-[min(90vh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect">
+      <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect">
         <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 보내기</h2>
           <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">

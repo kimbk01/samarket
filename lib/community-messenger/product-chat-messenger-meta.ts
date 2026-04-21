@@ -5,6 +5,8 @@ import { formatPrice } from "@/lib/utils/format";
 /** 거래채팅 → 메신저 목록용 contextMeta (v1). */
 export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   productChatId: string;
+  /** `posts.id` — 클라이언트가 거래 글 Realtime 구독 시 사용 */
+  postId?: string;
   productTitle: string;
   price: number | null | undefined;
   currency?: string | null;
@@ -23,6 +25,8 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
     headline,
     productChatId: input.productChatId.trim(),
   };
+  const postId = typeof input.postId === "string" ? input.postId.trim() : "";
+  if (postId) meta.postId = postId;
   if (typeof input.price === "number" && Number.isFinite(input.price) && input.price >= 0) {
     meta.priceLabel = formatPrice(input.price, input.currency?.trim() || "PHP");
   }

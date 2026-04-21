@@ -18,6 +18,8 @@ export type MainBottomNavStoredItem = {
   labelSizeClass?: string;
   /** 라벨 폰트 패밀리 (font-sans 등) */
   labelFontFamilyClass?: string;
+  /** 활성 탭 셀 배경·테두리 */
+  activeShellClass?: string;
 };
 
 export type MainBottomNavStoredPayload = {

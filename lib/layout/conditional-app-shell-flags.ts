@@ -16,6 +16,11 @@ export function resolveSuppressIncomingCallOverlay(pathname: string | null): boo
   );
 }
 
+/** 커뮤니티 메신저 채팅방 — 메인 하단 탭(`BottomNav`)을 같이 쓰는 화면 */
+export function isCommunityMessengerRoomPathname(pathname: string | null): boolean {
+  return Boolean(pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/));
+}
+
 export type ConditionalAppShellResolvedFlags = {
   isSettings: boolean;
   isLogout: boolean;
@@ -79,7 +84,7 @@ export function resolveConditionalAppShellFlags(
   const isStoreProductDetail = Boolean(pathname?.match(/^\/stores\/[^/]+\/p\/[^/]+$/));
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
-  const isCommunityMessengerRoom = Boolean(pathname?.match(/^\/community-messenger\/rooms\/[^/]+$/));
+  const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
   const suppressIncomingCallOverlay = resolveSuppressIncomingCallOverlay(pathname);
   const isAddressMapSelect = pathname === "/address/select";
@@ -129,10 +134,12 @@ export function resolveConditionalAppShellFlags(
     !isCommunityMessengerSurface &&
     !isOrdersHub &&
     !isTradeFloatingSurface;
+  /** 메신저 채팅방은 하단 탭 유지 — 기타 채팅 상세·통화 전용은 숨김 */
+  const suppressBottomNavForChatDetail = isChatRoomDetail && !isCommunityMessengerRoom;
   const showBottomNav =
     !hideBarAndFloat &&
     !isWritePage &&
-    !isChatRoomDetail &&
+    !suppressBottomNavForChatDetail &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail &&
@@ -172,7 +179,9 @@ export function resolveConditionalAppShellFlags(
     !isWritePage &&
     !isChatRoomDetail &&
     !isCommunityMessengerCallPage;
-  const mainBottomClass = isChatRoomDetail
+  const chatDetailUsesZeroBottomPadding =
+    isChatRoomDetail && (!isCommunityMessengerRoom || isCommunityMessengerCallPage);
+  const mainBottomClass = chatDetailUsesZeroBottomPadding
     ? "pb-0"
     : showBottomNav || isPostDetail
       ? isTradeFloatingSurface

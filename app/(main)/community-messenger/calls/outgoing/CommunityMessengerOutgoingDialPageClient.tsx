@@ -2,8 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CallScreen } from "@/components/messenger/call/CallScreen";
-import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -29,14 +27,14 @@ function readOutgoingDialParamsFromLocation(): OutgoingDialParams {
 }
 
 /**
- * 1:1 outgoing dial: avoid useSearchParams Suspense; parse location in layout for first paint.
- * Session POST runs in useEffect (async).
+ * 딥링크·북마크용 `/calls/outgoing` — 앱 내 발신은 `startOutgoingCallSessionAndOpen` 으로 이 경로를 거치지 않는다.
+ * 중간에 CallScreen(전화 거는 중)을 그리면 `/calls/:id` 진입 시 화면이 겹쳐 보이므로, 여기서는 최소 로딩만 표시한다.
  */
 export function CommunityMessengerOutgoingDialPageClient() {
   const router = useRouter();
   const [dial, setDial] = useState<OutgoingDialParams | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const bootStartedRef = useRef(false);
+  const cancelledRef = useRef(false);
 
   useLayoutEffect(() => {
     const p = readOutgoingDialParamsFromLocation();
@@ -50,18 +48,17 @@ export function CommunityMessengerOutgoingDialPageClient() {
   }, []);
 
   useEffect(() => {
+    cancelledRef.current = false;
     if (!dial) return;
     if (!dial.roomId && !dial.peerUserId) {
       setError("방 정보가 없어 통화를 시작할 수 없습니다.");
       return;
     }
-    if (bootStartedRef.current) return;
-    bootStartedRef.current = true;
 
+    const ac = new AbortController();
     const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     logClientPerf("messenger-call.outgoing.bootstrap", { phase: "start", ...dial });
 
-    const ac = new AbortController();
     void (async () => {
       try {
         const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
@@ -73,7 +70,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
           },
           (href) => router.replace(href)
         );
-        if (ac.signal.aborted) return;
+        if (cancelledRef.current || ac.signal.aborted) return;
         const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
         logClientPerf("messenger-call.outgoing.bootstrap", {
           phase: result.ok ? "ok" : "fail",
@@ -92,7 +89,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
           sessionId: result.session.id,
         });
       } catch (e) {
-        if (ac.signal.aborted) return;
+        if (cancelledRef.current || ac.signal.aborted) return;
         const name = typeof e === "object" && e && "name" in e ? String((e as { name?: unknown }).name) : "";
         setError(
           name === "AbortError"
@@ -103,66 +100,10 @@ export function CommunityMessengerOutgoingDialPageClient() {
     })();
 
     return () => {
+      cancelledRef.current = true;
       ac.abort();
-      bootStartedRef.current = false;
     };
   }, [dial, router]);
-
-  const displayName = dial?.peerLabelRaw || "상대방";
-  const kindLabel = dial?.kind === "video" ? "영상 통화" : "음성 통화";
-
-  const outgoingVm: CallScreenViewModel = {
-    mode: dial?.kind === "video" ? "video" : "voice",
-    direction: "outgoing",
-    phase: "ringing",
-    peerLabel: dial ? displayName : "…",
-    peerAvatarUrl: null,
-    statusText: "Ringing...",
-    subStatusText: "세션을 준비하는 동안 전체 화면 통화 UI로 전환 중입니다.",
-    topLabel: dial?.kind === "video" ? kindLabel : null,
-    onTopLabelClick: null,
-    footerNote: "실제 통화 시간은 상대가 받고 연결된 뒤부터 시작됩니다.",
-    mediaState: {
-      micEnabled: true,
-      speakerEnabled: dial?.kind === "video",
-      cameraEnabled: dial?.kind === "video",
-      localVideoMinimized: true,
-    },
-    onBack: null,
-    primaryActions: [
-      {
-        id: "speaker",
-        label: "스피커",
-        icon: "speaker",
-        active: dial?.kind === "video",
-        disabled: true,
-        onClick: () => {},
-      },
-      {
-        id: "video",
-        label: dial?.kind === "video" ? "카메라" : "영상 전환",
-        icon: dial?.kind === "video" ? "camera" : "video",
-        active: dial?.kind === "video",
-        disabled: true,
-        onClick: () => {},
-      },
-      {
-        id: "mute",
-        label: "음소거",
-        icon: "mic",
-        active: false,
-        disabled: true,
-        onClick: () => {},
-      },
-      {
-        id: "end",
-        label: "종료",
-        icon: "end",
-        tone: "danger",
-        onClick: () => router.back(),
-      },
-    ],
-  };
 
   if (error) {
     return (
@@ -173,11 +114,24 @@ export function CommunityMessengerOutgoingDialPageClient() {
           className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 sam-text-body font-medium text-white"
           onClick={() => router.back()}
         >
-          {"돌아가기"}
+          돌아가기
         </button>
       </div>
     );
   }
 
-  return <CallScreen vm={outgoingVm} variant="page" />;
+  return (
+    <div
+      className="flex min-h-[100dvh] flex-col items-center justify-center bg-[linear-gradient(180deg,#7b63ef_0%,#4a56d4_58%,#3a72d4_100%)] px-6"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div
+        className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white"
+        aria-hidden
+      />
+      <p className="mt-6 text-center sam-text-body text-white/90">통화 준비 중…</p>
+    </div>
+  );
 }

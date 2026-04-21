@@ -1,106 +1,97 @@
 "use client";
 
-import { BellOff, Check, ChevronDown, MessageCircle, Phone, PhoneOff, Video } from "lucide-react";
+import { Check, ChevronDown, Clock, MessageCircle, Phone, X } from "lucide-react";
 import type { CallScreenViewModel } from "./call-ui.types";
 
-/** 수신 벨 화면 — Viber 톤: 딥 퍼플 배경, 하단 거절/응답. */
-export function IncomingCallView({
-  vm,
-  dockTop = false,
-}: {
-  vm: CallScreenViewModel;
-  /** 채팅방 상단 도킹 시 높이가 작아 음수 마진으로 이름이 잘리지 않게 함 */
-  dockTop?: boolean;
-}) {
+/** 수신 벨 — 텔레그램 iOS형: 풀스크린 단색, 상단 중앙 앱·통화 종류, 큰 이름, 하단 보조/주 버튼. */
+export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const accept = vm.primaryActions.find((a) => a.icon === "accept" || a.tone === "accept") ?? null;
   const decline = vm.primaryActions.find((a) => a.icon === "decline" || a.tone === "danger") ?? null;
 
   const peerName = vm.peerLabel.trim() || "?";
-  const callKindLine = vm.mode === "video" ? "영상 통화" : "음성 통화";
+  const appCallLine = vm.mode === "video" ? "사마켓 영상 통화" : "사마켓 음성 통화";
 
   return (
-    <div
-      className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#4d2cb1_34%,#251447_100%)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] ${dockTop ? "pt-2" : "pt-[max(8px,env(safe-area-inset-top))]"}`}
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.14),transparent_38%),radial-gradient(circle_at_50%_90%,rgba(255,255,255,0.06),transparent_34%)]" />
-      <div className="flex shrink-0 justify-center pt-1">
-        <button
-          type="button"
-          onClick={() => vm.onBack?.()}
-          className="flex flex-col items-center gap-0.5 text-white/55 transition active:scale-[0.98] active:text-white/80"
-          aria-label="통화 창 최소화"
-        >
-          <ChevronDown size={28} strokeWidth={2} className="-mb-0.5" />
-          <span className="sam-text-xxs font-medium tracking-wide">내리기</span>
-        </button>
-      </div>
+    <div className="relative z-[2] flex min-h-0 min-h-[100dvh] flex-1 flex-col overflow-hidden bg-[#8B5E2E] px-5 pb-[max(20px,env(safe-area-inset-bottom))]">
+      <button
+        type="button"
+        onClick={() => vm.onBack?.()}
+        className="absolute right-3 top-[max(8px,env(safe-area-inset-top))] z-10 flex h-11 w-11 items-center justify-center rounded-full text-white/80 transition active:scale-[0.97] active:text-white"
+        aria-label="통화 창 최소화"
+      >
+        <ChevronDown size={26} strokeWidth={2} />
+      </button>
 
-      <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
-        <div className={`flex flex-col items-center ${dockTop ? "mt-0" : "-mt-[10vh]"}`}>
-          <div className="flex items-center gap-1.5 sam-text-body font-semibold text-white/72">
-            {vm.mode === "video" ? (
-              <Video size={16} className="opacity-80" />
-            ) : (
-              <Phone size={15} className="opacity-80" />
-            )}
-            <span>{callKindLine}</span>
+      <div className="flex min-h-0 flex-1 flex-col items-center">
+        <div className="flex w-full max-w-[340px] flex-col items-center pt-[max(52px,11dvh)]">
+          <div className="flex max-w-full items-center justify-center gap-2 text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white" aria-hidden>
+              <Phone size={18} strokeWidth={2} />
+            </span>
+            <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">{appCallLine}…</span>
           </div>
-          <h2 className="mt-2 text-center sam-text-hero font-bold tracking-tight text-white">{peerName}</h2>
+          <h2 className="mt-5 text-center text-[1.75rem] font-bold leading-tight tracking-tight text-white sm:text-[2rem]">
+            {peerName}
+          </h2>
+          {vm.subStatusText ? (
+            <p className="mt-3 max-w-[300px] text-center sam-text-body-secondary leading-snug text-white/75">{vm.subStatusText}</p>
+          ) : null}
         </div>
-        {vm.subStatusText ? (
-          <p className="mt-4 max-w-[300px] text-center sam-text-body-secondary leading-snug text-white/68">{vm.subStatusText}</p>
-        ) : null}
 
-        <div className="mt-auto flex w-full max-w-[360px] items-center justify-between pb-[max(4px,env(safe-area-inset-bottom))]">
+        <div className="mt-auto flex w-full max-w-[340px] items-center justify-between pb-2 pt-10">
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={() => vm.onBack?.()}
-            className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white/16 text-white/92 backdrop-blur-sm transition active:scale-[0.96]"
+              className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-black/20 text-white transition active:scale-[0.96]"
               aria-label="메시지 보내기"
             >
-              <MessageCircle size={22} />
+              <MessageCircle size={22} strokeWidth={2} />
             </button>
-            <span className="sam-text-body-secondary font-medium text-white/88">메시지 보내기</span>
+            <span className="max-w-[118px] text-center sam-text-body-secondary font-medium leading-tight text-white">
+              메시지 보내기
+            </span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <button
               type="button"
               onClick={() => vm.onBack?.()}
-            className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-white/16 text-white/92 backdrop-blur-sm transition active:scale-[0.96]"
+              className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-black/20 text-white transition active:scale-[0.96]"
               aria-label="나중에 알림"
             >
-              <BellOff size={22} />
+              <Clock size={22} strokeWidth={2} />
             </button>
-            <span className="sam-text-body-secondary font-medium text-white/88">나중에 알림</span>
+            <span className="max-w-[118px] text-center sam-text-body-secondary font-medium leading-tight text-white">
+              나중에 알림
+            </span>
           </div>
         </div>
-      </div>
 
-      <div className="relative flex shrink-0 items-center justify-center gap-[78px] pb-2 pt-4">
-        <div className="flex flex-col items-center gap-3">
-          <button
-            type="button"
-            disabled={decline?.disabled}
-            onClick={() => decline?.onClick()}
-            className="flex h-[90px] w-[90px] shrink-0 items-center justify-center rounded-full bg-[#ef3b2d] text-white shadow-[0_14px_36px_rgba(239,59,45,0.4)] transition active:scale-[0.96] disabled:opacity-40"
-            aria-label="거절"
-          >
-            <PhoneOff size={38} strokeWidth={2.6} />
-          </button>
-          <span className="sam-text-section-title font-medium text-white/92">거절</span>
-        </div>
-        <div className="flex flex-col items-center gap-3">
-          <button
-            type="button"
-            disabled={accept?.disabled}
-            onClick={() => accept?.onClick()}
-            className="flex h-[90px] w-[90px] shrink-0 items-center justify-center rounded-full bg-[#6b3df1] text-white shadow-[0_14px_36px_rgba(107,61,241,0.42)] transition active:scale-[0.96] disabled:opacity-40"
-            aria-label="응답"
-          >
-            <Check size={42} strokeWidth={3.2} />
-          </button>
-          <span className="sam-text-section-title font-medium text-white/92">응답</span>
+        <div className="flex w-full max-w-[360px] shrink-0 items-center justify-center gap-[68px] pb-1 pt-6">
+          <div className="flex flex-col items-center gap-2.5">
+            <button
+              type="button"
+              disabled={decline?.disabled}
+              onClick={() => decline?.onClick()}
+              className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-[#FF3B30] text-white transition active:scale-[0.96] disabled:opacity-40"
+              aria-label="거절"
+            >
+              <X size={44} strokeWidth={2.8} />
+            </button>
+            <span className="sam-text-section-title font-medium text-white">거절</span>
+          </div>
+          <div className="flex flex-col items-center gap-2.5">
+            <button
+              type="button"
+              disabled={accept?.disabled}
+              onClick={() => accept?.onClick()}
+              className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full bg-[#007AFF] text-white transition active:scale-[0.96] disabled:opacity-40"
+              aria-label="응답"
+            >
+              <Check size={40} strokeWidth={3.2} />
+            </button>
+            <span className="sam-text-section-title font-medium text-white">응답</span>
+          </div>
         </div>
       </div>
     </div>

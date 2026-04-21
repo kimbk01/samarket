@@ -18,6 +18,7 @@ import {
   type ChatRoomsListSegment,
 } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { useIntegratedChatRoomListRealtime } from "@/lib/chats/use-integrated-chat-room-list-realtime";
+import { usePostsSellerListingRealtimeBatch } from "@/lib/chats/use-post-seller-listing-realtime";
 
 /** 목록은 Realtime 미구독 구간만 갱신 — Supabase 쿼리·API 한도 완화를 위해 길게 */
 const POLL_MS = 90_000;
@@ -125,10 +126,25 @@ export function ChatRoomList({
     () => (rooms ?? []).filter((r) => r.source === "chat_room").map((r) => r.id.trim()).filter(Boolean),
     [rooms]
   );
+  const tradePostIdsForListing = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of rooms ?? []) {
+      if (r.generalChat) continue;
+      const pid = String(r.product?.id ?? r.productId ?? "").trim();
+      if (pid) ids.add(pid);
+    }
+    return [...ids];
+  }, [rooms]);
   useIntegratedChatRoomListRealtime({
     userId: viewerId,
     integratedRoomIds,
     enabled: !sessionDenied && rooms !== null && Boolean(viewerId),
+    onListStale: load,
+  });
+  usePostsSellerListingRealtimeBatch({
+    userId: viewerId,
+    postIds: tradePostIdsForListing,
+    enabled: !sessionDenied && rooms !== null && Boolean(viewerId) && tradePostIdsForListing.length > 0,
     onListStale: load,
   });
 

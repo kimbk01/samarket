@@ -27,17 +27,25 @@ export type MessengerCallSoundConfig = {
 /** `undefined` = 아직 성공 응답 전, `null` = 행 없음/설정 없음(재시도 안 함) */
 let loadedConfig: MessengerCallSoundConfig | null | undefined;
 let inflight: Promise<MessengerCallSoundConfig | null> | null = null;
+/** `invalidate` 또는 진행 중인 구버전 fetch 완료 시 캐시에 쓰지 않도록 함 */
+let loadGeneration = 0;
 
 export function getMessengerCallSoundConfigCache(): MessengerCallSoundConfig | null {
   return loadedConfig !== undefined ? loadedConfig : null;
 }
 
-export async function fetchMessengerCallSoundConfig(): Promise<MessengerCallSoundConfig | null> {
+export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }): Promise<MessengerCallSoundConfig | null> {
   if (typeof window === "undefined") return null;
-  if (loadedConfig !== undefined) {
+  const force = opts?.force === true;
+
+  if (inflight) {
+    await inflight.catch(() => null);
+  }
+  if (!force && loadedConfig !== undefined) {
     return loadedConfig;
   }
-  if (inflight) return inflight;
+
+  const genAtStart = loadGeneration;
   inflight = (async () => {
     try {
       const res = await fetch("/api/app/messenger-call-sound-config", { credentials: "include", cache: "no-store" });
@@ -46,6 +54,9 @@ export async function fetchMessengerCallSoundConfig(): Promise<MessengerCallSoun
         config?: MessengerCallSoundConfig | null;
       };
       if (res.ok && j.ok) {
+        if (genAtStart !== loadGeneration) {
+          return loadedConfig !== undefined ? loadedConfig : null;
+        }
         loadedConfig = j.config ?? null;
         return loadedConfig;
       }
@@ -61,6 +72,7 @@ export async function fetchMessengerCallSoundConfig(): Promise<MessengerCallSoun
 
 export function invalidateMessengerCallSoundConfigCache(): void {
   loadedConfig = undefined;
+  loadGeneration++;
 }
 
 /** 관리자 커스텀 URL (없거나 비활성 시 null → 합성/기본으로 폴백) */

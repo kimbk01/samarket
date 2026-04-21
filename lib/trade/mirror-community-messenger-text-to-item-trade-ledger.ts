@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { touchProductChatAfterItemTradeMessage } from "@/lib/trade/touch-product-chat-from-item-trade-room";
+import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 const TRADE_ITEM_DIRECT_KEY_PREFIX = "trade_item:";
 
@@ -89,5 +90,12 @@ export async function mirrorCommunityMessengerTextToItemTradeLedger(
   const uidSet = new Set<string>([sender, ...recipientUserIds]);
   for (const uid of uidSet) {
     if (uid.trim()) invalidateUserChatUnreadCache(uid.trim());
+  }
+
+  const itemId = r.item_id?.trim() ?? "";
+  if (itemId) {
+    void syncPostInquiryNegotiatingFromItemTradeChats(sb, itemId).catch(() => {
+      /* 물품 단계 동기화 실패해도 원장 반영은 유지 */
+    });
   }
 }

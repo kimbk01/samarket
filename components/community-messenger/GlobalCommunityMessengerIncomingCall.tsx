@@ -5,8 +5,8 @@
  * 폴링·`runSingleFlight` 키: `docs/messenger-realtime-policy.md`
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   playCommunityMessengerCallSignalSound,
@@ -152,6 +152,7 @@ function shouldRunIncomingCallBackupHttpRequest(args: {
 export function GlobalCommunityMessengerIncomingCall() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
   const pathnameRef = useRef<string | null>(null);
   pathnameRef.current = pathname ?? null;
   /** `pathname` 전용 burst 보강 — 최초(userId 확정 직후)는 폴링 effect 가 burst 담당 */
@@ -196,7 +197,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingCallBrowserNotifiedIdsRef = useRef<Set<string>>(new Set());
   /** 직전 렌더에서 ringing 이었던 세션 — 링 종료 시 SW/로컬 수신 알림 정리 */
   const prevRingingIdsRef = useRef<Set<string>>(new Set());
-  const [soundPolicyEpoch, setSoundPolicyEpoch] = useState(0);
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
@@ -248,7 +248,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions]);
 
   useEffect(() => {
-    void fetchMessengerCallSoundConfig().then(() => setSoundPolicyEpoch((e) => e + 1));
+    void fetchMessengerCallSoundConfig();
   }, []);
 
   useEffect(() => {
@@ -622,8 +622,12 @@ export function GlobalCommunityMessengerIncomingCall() {
                   suppressMissedSoundRef.current.add(sid);
                   markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
                 }
+                /* 터미널 전이라도 링 종료면 즉시 벨·WebAudio 정지(취소 후 연결음 잔류 방지) */
+                stopCommunityMessengerCallFeedback();
               }
               const terminal = isTerminalCallSessionStatusValue(newRow?.status) || p.eventType === "DELETE";
+              const leftRinging =
+                p.eventType === "UPDATE" && nextStatus.length > 0 && nextStatus !== "ringing";
               if (terminal) {
                 const sid =
                   typeof newRow?.id === "string"
@@ -647,6 +651,13 @@ export function GlobalCommunityMessengerIncomingCall() {
                   realtimeDebounceTimerRef.current = null;
                 }
                 bumpIncomingListFastSync();
+              } else if (leftRinging) {
+                /* 수락→active 등: 디바운스 대기 없이 목록·오버레이를 즉시 서버와 맞춤 */
+                if (realtimeDebounceTimerRef.current != null) {
+                  window.clearTimeout(realtimeDebounceTimerRef.current);
+                  realtimeDebounceTimerRef.current = null;
+                }
+                void refreshRef.current(true);
               } else {
                 scheduleRealtimeIncomingRefresh();
               }
@@ -800,19 +811,42 @@ export function GlobalCommunityMessengerIncomingCall() {
     prevIncomingRingingIdsRef.current = current;
   }, [sessions, userId, incomingCallSoundEnabled]);
 
-  const visibleSession = incomingCallBannerEnabled ? sessions[0] ?? null : null;
+  /**
+   * 전용 통화 라우트(`/calls/*`)에서는 풀페이지 `CallClient` 만 쓴다.
+   * 전역 수신 오버레이를 겹쳐 띄우면 수락 직후 「벨 화면 + 통화 화면」이 동시에 보인다.
+   */
+  const hideGlobalIncomingOverlay =
+    typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
+  const visibleSession = hideGlobalIncomingOverlay
+    ? null
+    : incomingCallBannerEnabled
+      ? sessions[0] ?? null
+      : null;
   const visibleSessionId = visibleSession?.id ?? null;
   const visibleSessionStatus = visibleSession?.status ?? null;
   const visibleSessionCallKind = visibleSession?.callKind ?? null;
   const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
   const _bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
 
+  /** 배너 UI 끄기와 무관하게, 직통 수신 ringing 이면 벨은 울려야 함 */
+  const directRingingCalleeSession = useMemo(() => {
+    if (!userId) return null;
+    for (const s of sessions) {
+      if (s.status !== "ringing") continue;
+      if (s.isMineInitiator) continue;
+      if (!s.recipientUserId || !messengerUserIdsEqual(s.recipientUserId, userId)) continue;
+      return s;
+    }
+    return null;
+  }, [sessions, userId]);
+
   useEffect(() => {
-    if (visibleSessionStatus !== "ringing") return;
+    if (directRingingCalleeSession?.status !== "ringing") return;
+    if (!incomingCallSoundEnabled) return;
     let cancelled = false;
     let tone: { stop: () => void } | null = null;
     void startCommunityMessengerCallTone("incoming", {
-      callKind: visibleSessionCallKind ?? "voice",
+      callKind: directRingingCalleeSession.callKind === "video" ? "video" : "voice",
     }).then((t) => {
       if (cancelled) {
         t.stop();
@@ -824,7 +858,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       cancelled = true;
       tone?.stop();
     };
-  }, [visibleSessionId, visibleSessionStatus, visibleSessionCallKind]);
+  }, [directRingingCalleeSession?.id, directRingingCalleeSession?.status, directRingingCalleeSession?.callKind, incomingCallSoundEnabled]);
 
   useEffect(() => {
     syncCommunityMessengerNativeIncomingCall(visibleSession);
@@ -912,10 +946,10 @@ export function GlobalCommunityMessengerIncomingCall() {
             { variant: "error" }
           );
         }
-        window.location.assign(url);
+        router.push(url);
       }
     })();
-  }, []);
+  }, [router]);
 
   if (visibleSession && isMinimized) {
     return (
@@ -938,7 +972,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       messengerUserIdsEqual(visibleSession.roomId, messengerRoomIdFromPath ?? "");
     return (
       <CommunityMessengerIncomingCallOverlay
-        key={`${visibleSession.id}:${soundPolicyEpoch}`}
+        key={visibleSession.id}
         session={visibleSession}
         busyId={busyId}
         sessionActionError={sessionActionError}

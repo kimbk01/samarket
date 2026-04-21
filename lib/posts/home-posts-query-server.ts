@@ -20,9 +20,8 @@ export const HOME_POSTS_PAGE_SIZE = 50;
  * `category_id` / `author_id` / `author_nickname` / `comment_count` 등 스키마에 없는 컬럼은 넣지 않음.
  */
 export const HOME_POSTS_SELECT_TIERS = [
-  `${POST_TRADE_LIST_SELECT},seller_listing_state,sold_buyer_id,community_topic_id,is_deleted`,
-  `${POST_TRADE_LIST_SELECT},seller_listing_state,community_topic_id`,
-  `${POST_TRADE_LIST_SELECT},seller_listing_state`,
+  `${POST_TRADE_LIST_SELECT},community_topic_id,is_deleted`,
+  `${POST_TRADE_LIST_SELECT},community_topic_id`,
   POST_TRADE_LIST_SELECT,
   "id, user_id, type, trade_category_id, title, price, status, view_count, thumbnail_url, images, region, city, created_at, updated_at, meta, is_free_share, is_price_offer",
   "*",

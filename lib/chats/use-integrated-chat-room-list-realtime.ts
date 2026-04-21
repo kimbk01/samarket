@@ -19,8 +19,10 @@ function useStableCallback(callback: () => void) {
 }
 
 /**
- * 거래·매장 주문 등 **통합 `chat_rooms`** 방 목록: `chat_messages` 변경만으로도
- * `last_message` 가 rooms 행보다 먼저 반영되는 경우 목록이 따라가도록 한다.
+ * 거래·매장 주문 등 **통합 `chat_rooms`** 방 목록:
+ * - `chat_messages` — 미리보기가 rooms 행보다 먼저 반영되는 경우
+ * - `chat_rooms` UPDATE — `trade_status` 등(자동 문의중/판매중 동기화)으로 목록 배지가 바뀔 때
+ *
  * (참가자 RLS: `chat_messages_select_room_participant` — `20260331240000_…`)
  */
 export function useIntegratedChatRoomListRealtime(args: {
@@ -59,7 +61,7 @@ export function useIntegratedChatRoomListRealtime(args: {
         if (cancelled) break;
         const chunk = roomIds.slice(offset, offset + INTEGRATED_CHAT_LIST_IN_FILTER_MAX);
         const filter = `room_id=in.(${chunk.join(",")})`;
-        const ch = sb
+        const chMsg = sb
           .channel(`integrated-chat-list:msgs:${userId}:${offset}`)
           .on(
             "postgres_changes",
@@ -69,7 +71,20 @@ export function useIntegratedChatRoomListRealtime(args: {
             }
           )
           .subscribe();
-        mountedChannels.push(ch);
+        mountedChannels.push(chMsg);
+
+        const roomFilter = `id=in.(${chunk.join(",")})`;
+        const chRoom = sb
+          .channel(`integrated-chat-list:rooms:${userId}:${offset}`)
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "chat_rooms", filter: roomFilter },
+            () => {
+              if (!cancelled) scheduleStale();
+            }
+          )
+          .subscribe();
+        mountedChannels.push(chRoom);
       }
     })();
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
-import { publicListingBadge } from "@/lib/products/seller-listing-state";
+import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
 
@@ -98,18 +98,11 @@ export function TradeFlowBanner({
   };
 
   const productStatus = room.product?.status ?? "";
-  const listingPill = publicListingBadge(displayListing, productStatus);
-
-  const pillClass = "inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface/90 px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg";
 
   const base = `/api/trade/product-chat/${encodeURIComponent(effectiveProductChatId)}`;
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";
   const showSellerListingActions =
     sellerListingControlsEnabled && amSeller && room.product && postNotSold && flow === "chatting";
-
-  const inquiryActive = displayListing === "inquiry";
-  const negotiatingActive = displayListing === "negotiating";
-  const reservedActive = displayListing === "reserved";
 
   if (soldToOther) {
     return (
@@ -139,10 +132,7 @@ export function TradeFlowBanner({
   if (mode === "limited") {
     return (
       <div className="border-b border-sam-border bg-sam-app px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={pillClass}>상품 · {listingPill.label}</span>
-        </div>
-        <p className="mt-1.5 sam-text-xxs text-sam-fg">
+        <p className="sam-text-xxs text-sam-fg">
           일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
         </p>
         {canOpenReviewSheet && onOpenReview ? (
@@ -158,66 +148,16 @@ export function TradeFlowBanner({
     );
   }
 
-  const actionBtnBase =
-    "rounded-ui-rect border px-2 py-1 sam-text-xxs font-semibold transition disabled:opacity-50";
-  const actionBtnIdle = "border-sam-border bg-sam-surface text-sam-fg hover:bg-signature/10";
-  const actionBtnActive = "border-signature bg-signature text-white";
-
   return (
     <div className="border-b border-sam-border-soft bg-signature/10 px-3 py-2.5">
-      {room.product ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className={pillClass} title="상품(노출) 상태">
-            상품 · {listingPill.label}
-          </span>
-          {showSellerListingActions ? (
-            <>
-              <button
-                type="button"
-                disabled={!!loading || listingSaving}
-                onClick={() => onPersistListing("inquiry")}
-                className={`${actionBtnBase} ${inquiryActive ? actionBtnActive : actionBtnIdle}`}
-              >
-                판매중
-              </button>
-              <button
-                type="button"
-                disabled={!!loading || listingSaving}
-                onClick={() => onPersistListing("negotiating")}
-                className={`${actionBtnBase} ${negotiatingActive ? actionBtnActive : actionBtnIdle}`}
-              >
-                문의중
-              </button>
-              <button
-                type="button"
-                disabled={!!loading || listingSaving}
-                onClick={() => onPersistListing("reserved")}
-                className={`${actionBtnBase} ${reservedActive ? actionBtnActive : actionBtnIdle}`}
-              >
-                예약중
-              </button>
-              <button
-                type="button"
-                disabled={!!loading || listingSaving}
-                onClick={() => post(`${base}/seller-complete`, {})}
-                className={`${actionBtnBase} ${
-                  loading === `${base}/seller-complete`
-                    ? "border-signature bg-signature text-white"
-                    : "border-sam-border bg-signature text-white hover:bg-signature/90"
-                } disabled:opacity-50`}
-              >
-                {loading === `${base}/seller-complete` ? "처리 중…" : "거래완료"}
-              </button>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
-      {showSellerListingActions ? (
-        <p className="mt-1.5 sam-text-xxs leading-snug text-sam-fg/90">
-          판매중·문의중·예약중은 서로 바꿀 수 있어요. 「거래완료」는 이 구매자와 거래를 마무리하며{" "}
-          <span className="font-semibold">판매완료 후에는 되돌릴 수 없어요.</span>
-        </p>
+      {room.product && postNotSold && flow === "chatting" ? (
+        <TradeSellerListingStepDiagram
+          listing={displayListing}
+          interactive={showSellerListingActions}
+          disabled={!!loading || listingSaving}
+          onPickListing={(next) => void onPersistListing(next)}
+          onCompleteTrade={() => void post(`${base}/seller-complete`, {})}
+        />
       ) : null}
 
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (

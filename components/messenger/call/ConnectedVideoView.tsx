@@ -22,8 +22,17 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       ? ({ position: "absolute", left: pipPixel.left, top: pipPixel.top } as const)
       : undefined;
 
-  /** 발신 영상: 벨·연결·통화 중 로컬 프리뷰(전체 배경) 위에 상단만 상태 — 가운데 카드는 쓰지 않음 */
-  const outgoingSoloVideoLayout = vm.mode === "video" && vm.direction === "outgoing" && !vm.showRemoteVideo;
+  /**
+   * 원격 영상 전 풀블리드 로컬 레이어 위 상단 상태줄(텔레그램형).
+   * 수신은 `phase === "connecting"` 구간(수락 직후)까지 포함 — 가운데 `CallStatusText` 카드가 한 번 더 겹치지 않게 함.
+   * PiP(로컬 작은 타일)가 켜진 이원 레이아웃이면 솔로용 상단 브랜드줄을 쓰지 않음 — 원격 대기 중 이중 상단 문구 방지.
+   */
+  const outgoingSoloVideoLayout =
+    vm.mode === "video" &&
+    !vm.showRemoteVideo &&
+    !vm.showLocalVideo &&
+    (vm.direction === "outgoing" ||
+      (vm.direction === "incoming" && (vm.phase === "connecting" || vm.phase === "connected")));
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
   return (
@@ -47,7 +56,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {outgoingSoloVideoLayout ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
-              <div className="sam-text-page-title font-semibold tracking-tight text-white">{vm.peerLabel}</div>
+              {vm.hideOutgoingVideoBrandRow ? null : (
+                <div className="flex items-center justify-center gap-2 text-white/95">
+                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">사마켓 영상 통화…</span>
+                </div>
+              )}
+              <div
+                className={`sam-text-page-title font-semibold tracking-tight text-white ${vm.hideOutgoingVideoBrandRow ? "" : "mt-3"}`}
+              >
+                {vm.peerLabel}
+              </div>
               <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
                 <span
                   className={
@@ -117,7 +135,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
       </div>
 
-      <div className="relative z-[5] bg-gradient-to-t from-[#120a28]/82 via-[#241348]/42 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
+      <div className="relative z-[5] bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
         <CallActionBar actions={vm.primaryActions} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">

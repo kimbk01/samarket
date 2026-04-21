@@ -11,7 +11,6 @@ import {
   VideoCallIcon,
   VoiceCallIcon,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
@@ -23,6 +22,8 @@ import {
   tradeChatCallPolicyAllowsVoice,
 } from "@/lib/trade/trade-chat-call-policy";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 
 function formatPresenceLine(
   state: "online" | "away" | "offline",
@@ -112,11 +113,7 @@ export function CommunityMessengerRoomPhase2Header() {
             type="button"
             onClick={() => {
               markCommunityMessengerHomeReturn();
-              vm.router.replace(
-                vm.isGroupRoom
-                  ? "/community-messenger?section=chats&filter=private_group"
-                  : "/community-messenger?section=chats"
-              );
+              vm.router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
             }}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}
@@ -188,10 +185,7 @@ export function CommunityMessengerRoomPhase2Header() {
           onConfirm={() => {
             const kind = confirmKind;
             if (!kind) return;
-            void (async () => {
-              const ok = await vm.startManagedDirectCall(kind);
-              if (ok) setConfirmKind(null);
-            })();
+            if (vm.startManagedDirectCall(kind)) setConfirmKind(null);
           }}
         />
       ) : null}

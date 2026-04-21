@@ -41,7 +41,7 @@ export type MessengerCallDialingLayoutProps = {
   children?: ReactNode;
 };
 
-/** Outgoing ring UI shared with `/calls/outgoing` bootstrap shell */
+/** Outgoing ring UI — 발신 벨 단계 공통 레이아웃 */
 export function MessengerCallDialingLayout({
   peerLabel,
   kindLabel,

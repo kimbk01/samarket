@@ -30,6 +30,7 @@ import {
   recordRouteEntryFullRender,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -308,7 +309,7 @@ export function CommunityMessengerRoomClientPhase2() {
         <p className="sam-text-body-lg font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
         <button
           type="button"
-          onClick={() => room.router.replace("/community-messenger?section=chats")}
+          onClick={() => room.router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false })}
           className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >
           {room.t("nav_messenger_home")}

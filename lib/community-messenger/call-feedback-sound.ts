@@ -1,5 +1,5 @@
 import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
-import { startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
+import { primeWebAudioCallToneContextFromUserGesture, startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
   fetchMessengerCallSoundConfig,
@@ -28,6 +28,27 @@ export function stopCommunityMessengerCallFeedback(): void {
   activeToneStopper?.();
 }
 
+/**
+ * 통화 발신 직전(세션 POST·라우팅 `await` 전) **동기 제스처**에서 호출한다.
+ * 이후 통화 화면 effect 에서 `HTMLAudioElement.play()`·Web Audio 가 막히지 않게 한다.
+ */
+export function unlockCommunityMessengerCallPlaybackFromUserGesture(): void {
+  if (typeof window === "undefined") return;
+  primeWebAudioCallToneContextFromUserGesture();
+  try {
+    const a = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+    a.preload = "auto";
+    a.muted = true;
+    a.volume = 0;
+    void a.play().then(() => {
+      a.pause();
+      a.currentTime = 0;
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export type StartCallToneOptions = {
   /** 음성/영상에 따라 다른 주파수·간격(동종 메신저처럼 구분). 기본 `voice`. */
   callKind?: CommunityMessengerCallKind;
@@ -47,7 +68,9 @@ export async function startCommunityMessengerCallTone(
 
   activeToneStopper?.();
 
-  await fetchMessengerCallSoundConfig();
+  primeNotificationSoundAudio();
+  /** 수발신 벨 시작마다 최신 관리자 설정을 쓴다(다른 탭에서 저장한 뒤에도 동일 탭에서 반영). */
+  await fetchMessengerCallSoundConfig({ force: true });
 
   const cfg = getMessengerCallSoundConfigCache();
   const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";
@@ -66,21 +89,24 @@ export async function startCommunityMessengerCallTone(
       }
     };
     primeNotificationSoundAudio();
-    try {
-      const next = new Audio(adminUrl);
-      next.preload = "auto";
-      next.loop = true;
-      next.volume = mode === "incoming" ? vIn : vOut;
-      audio = next;
-      void next.play().catch(() => undefined);
-      const stop = () => {
+    for (const useCrossOrigin of [true, false] as const) {
+      try {
+        const next = new Audio(adminUrl);
+        if (useCrossOrigin) next.crossOrigin = "anonymous";
+        next.preload = "auto";
+        next.loop = true;
+        next.volume = mode === "incoming" ? vIn : vOut;
+        await next.play();
+        audio = next;
+        const stop = () => {
+          clear();
+          if (activeToneStopper === stop) activeToneStopper = null;
+        };
+        activeToneStopper = stop;
+        return { stop };
+      } catch {
         clear();
-        if (activeToneStopper === stop) activeToneStopper = null;
-      };
-      activeToneStopper = stop;
-      return { stop };
-    } catch {
-      clear();
+      }
     }
   }
 
@@ -206,7 +232,7 @@ export async function playCommunityMessengerCallSignalSound(
       }
     }
   }
-  await fetchMessengerCallSoundConfig();
+  await fetchMessengerCallSoundConfig({ force: true });
   const cfg = getMessengerCallSoundConfigCache();
   const url =
     kind === "missed" ? resolveMessengerCallMissedSoundUrl(cfg) : resolveMessengerCallEndSoundUrl(cfg);

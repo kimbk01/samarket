@@ -54,6 +54,8 @@ export type BottomNavItemConfig = {
   labelSizeClass?: string;
   /** 라벨 폰트 패밀리 (예: font-sans, font-serif) */
   labelFontFamilyClass?: string;
+  /** 활성 탭 플로팅 원 배지 — 배경·그림자·링만 (기본은 `BottomNav` 기본 오브) */
+  activeShellClass?: string;
 };
 
 const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
@@ -71,6 +73,7 @@ const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
   "labelActiveClass",
   "labelSizeClass",
   "labelFontFamilyClass",
+  "activeShellClass",
 ];
 
 /** 서버/캐시 재조회 후에도 탭 구성이 동일하면 `setState` 를 생략해 프리페치·레이아웃 effect 재실행을 막는다. */
@@ -90,42 +93,49 @@ export function areBottomNavItemConfigsEqual(
   return true;
 }
 
-/** 바 전체(배경·테두리·높이·safe area) */
+/** 바 전체 — 바깥 래퍼(고정·safe-area) + 안쪽 캡슐(진한 배경·하단만 라운드) */
 export const BOTTOM_NAV_SHELL = {
-  /** 흰 탭바 + 상단 경계선 — 전역 `--sam-*` */
-  navClassName:
-    "fixed bottom-0 left-0 right-0 z-30 box-border flex border-t border-sam-border bg-sam-surface",
-  /** 아이콘 줄 최소 4rem + 홈 인디케이터(safe-area) — `h-16`만 쓰면 iOS 등에서 CTA·탭 간 어긋남 */
-  heightClass:
-    "min-h-[calc(4rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)]",
+  /** 기기 좌우 끝까지 — 가로 패딩 없음 */
+  outerClassName:
+    "fixed bottom-0 left-0 right-0 z-30 w-full pb-[env(safe-area-inset-bottom,0px)] pt-0 pointer-events-none",
+  /** 진한 보라 바 — 상단 그림자는 약하게(본문과 경계만) */
+  innerBarClassName:
+    "pointer-events-auto flex w-full min-w-0 flex-col overflow-visible rounded-b-[1.875rem] border-t border-[#b8a6e8]/35 bg-gradient-to-b from-[#5d4a9e] to-[#45377a] text-[#faf8ff] antialiased shadow-[0_-6px_20px_rgba(62,48,110,0.22)]",
+  /** 탭 한 줄 최소 높이(본체만; 플로팅 원은 `overflow-visible` 로 상단 밖으로) — 하단 패딩·FAB·calc 는 3.5rem 기준 */
+  heightClass: "min-h-[3.5rem]",
 } as const;
 
+/** 하단 탭바 기준색(그라데이션 중간 톤) — 배지 링 등 */
+export const BOTTOM_NAV_DARK_BAR_HEX = "#514082";
+/** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
+export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-[#514082]";
+
 /**
- * 탭바가 차지하는 뷰포트 하단 높이와 동일한 `bottom` 오프셋(4rem + safe-area).
+ * 탭바가 차지하는 뷰포트 하단 높이와 동일한 `bottom` 오프셋(본체 높이 + safe-area).
  * 탭 셸(`BOTTOM_NAV_SHELL`)과 반드시 같은 식을 쓴다.
  */
 export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
-  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;
 
-/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(기존 pb-20 + safe-area) */
+/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(탭 본체 + 1rem + safe-area) */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]";
 
 /** 거래 플로팅 다이얼(`/home`·`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.
  * 채팅방 등 `pb-0` 본문 + `100dvh` 직접 쓰면 탭에 가려지므로 이 값으로 줄인다.
  */
 export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
-  "h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))]";
+  "h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]";
 
 /**
  * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
@@ -135,10 +145,10 @@ export const VIEWPORT_HEIGHT_FULL_CLASS = "h-[100dvh] max-h-[100dvh]";
 
 /**
  * 배달(스토어) 상세: 장바구니 띠 + 하단 탭 위까지 스크롤 여유
- * (4rem 탭 + safe-area + ~4.5rem 띠 — 기존 pb-[72px]에 탭 높이 반영)
+ * (3.5rem 탭 + safe-area + ~4.5rem 띠)
  */
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
-  "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(8rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 기본 테마 — 탭별 override 없을 때 사용.
@@ -146,17 +156,17 @@ export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
  */
 export const BOTTOM_NAV_THEME = {
   iconSizeClass: "h-6 w-6",
-  iconActiveClass: "text-signature",
-  iconInactiveClass: "text-muted",
-  labelActiveClass: "font-semibold text-signature",
-  labelInactiveClass: "text-muted",
+  iconActiveClass: "text-[#fdfcff]",
+  iconInactiveClass: "text-[#e8e2fc]/88",
+  labelActiveClass: "font-semibold tracking-wide text-[#ebe4ff]",
+  labelInactiveClass: "font-medium tracking-wide text-[#d4c8f8]/78",
   labelSizeClass: "sam-text-xxs",
 } as const;
 
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
-  /** 탭(4rem+safe) + 여유 — 원형·그림자가 탭과 겹치지 않게 약간 더 띄움 */
-  bottomOffsetClass: "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]",
+  /** 탭 본체 + safe + 여유 — 플로팅 원과 겹침 완화 */
+  bottomOffsetClass: "bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]",
   /** 퀵메뉴는 좌측(본문 컬럼 기준) */
   leftOffsetClass: "left-4",
   /** 우측 플로팅 퀵 레일에서 글쓰기 퀵메뉴 열 때 */
@@ -168,7 +178,7 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
-  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+10px)]";
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
@@ -183,10 +193,20 @@ export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
  * (`as const` 튜플은 선택 스타일 필드가 타입에 안 잡혀 BottomNavItemConfig[] 로 둡니다.)
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
-  { id: "home", href: "/home", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
   { id: "community", href: "/philife", label: "커뮤니티", labelKey: "nav_bottom_community", icon: "community" },
+  { id: "home", href: "/home", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
   { id: "stores", href: "/stores", label: "배달", labelKey: "nav_bottom_delivery", icon: "stores" },
-  { id: "chat", href: "/community-messenger", label: "메신저", labelKey: "nav_bottom_messenger", icon: "chat" },
+  {
+    id: "chat",
+    href: "/community-messenger?section=chats",
+    label: "메신저",
+    labelKey: "nav_bottom_messenger",
+    icon: "chat",
+    activeShellClass:
+      "bg-gradient-to-b from-[#9b8cf0] to-[#7360ce] shadow-[0_12px_32px_rgba(38,26,88,0.48)] ring-2 ring-[#f0e8ff]/30",
+    iconActiveClass: "text-[#fdfcff]",
+    labelActiveClass: "font-semibold tracking-wide text-[#ebe4ff]",
+  },
   { id: "my", href: "/mypage", label: "내정보", labelKey: "nav_bottom_my", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때
   // { id: "home", href: "/home", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },

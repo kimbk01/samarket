@@ -41,6 +41,8 @@ export type CallActionIcon =
   | "accept"
   | "decline"
   | "camera-switch"
+  /** 메인 영상 ↔ PiP 교체(텔레그램 PiP 탭과 동일 동작의 명시 버튼) */
+  | "pip-swap"
   | "camera"
   | "message"
   | "close"
@@ -86,4 +88,6 @@ export type CallScreenViewModel = {
   videoPipLayout?: VideoCallPipLayoutBindings | null;
   participantsSummary?: string | null;
   autoCloseMs?: number | null;
+  /** 영상 발신 솔로(상대 영상 전) — 상단 「사마켓 영상 통화」 브랜드 줄 숨김(텔레그램식). */
+  hideOutgoingVideoBrandRow?: boolean;
 };

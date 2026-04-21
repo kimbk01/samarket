@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   areBottomNavItemConfigsEqual,
+  BOTTOM_NAV_BADGE_RING_CLASS,
   BOTTOM_NAV_ITEMS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
@@ -38,6 +39,7 @@ import {
   shouldEnableNextLinkPrefetchOnMainNav,
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
+import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 
@@ -57,7 +59,8 @@ function findLongestMatchingBottomNavTabIndex(
   let bestIdx = 0;
   let bestLen = -1;
   for (let i = 0; i < tabs.length; i++) {
-    const h = tabs[i]?.href?.trim() ?? "";
+    const raw = tabs[i]?.href?.trim() ?? "";
+    const h = raw.split("?")[0] ?? "";
     if (!h) continue;
     const tradeAliasHome = h === "/home" && (p === "/market" || p.startsWith("/market/"));
     if (p === h || p.startsWith(`${h}/`) || tradeAliasHome) {
@@ -81,13 +84,13 @@ function pickMainBottomNavPrefetchHrefs(
   tabs: readonly BottomNavItemConfig[]
 ): string[] {
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
-  const messengerListHref = "/community-messenger";
+  const messengerListHref = "/community-messenger?section=chats";
   const homeHref = "/home";
   const mypageHref = "/mypage";
   const raw = pathname?.trim() ?? "";
   const p = raw.split("?")[0] ?? "";
   const pathNorm = (p.replace(/\/+$/, "") || "/") as string;
-  const onMessengerListOnly = pathNorm === messengerListHref;
+  const onMessengerListOnly = pathNorm === "/community-messenger";
   const onTradeFeedSurface = pathNorm === homeHref || pathNorm.startsWith("/market");
   const onMypageSurface = pathNorm === mypageHref || pathNorm.startsWith(`${mypageHref}/`);
 
@@ -137,8 +140,47 @@ function isBottomNavTabActive(pathname: string | null, tabHref: string): boolean
   return false;
 }
 
+/**
+ * 하단 탭 재탭 시 `preventDefault` 로 스크롤만 할지.
+ * - 경로가 링크와 **정확히 같을 때만** 쿼리까지 비교한다 (`/community-messenger` + section=friends → chats 링크는 네비게이션).
+ * - `/mypage/section/...` 처럼 탭 루트의 **접두 경로**에만 있을 때는 링크가 루트로 이동하도록 `false`.
+ */
+function shouldBottomNavTapScrollOnlyNoNavigate(
+  pathname: string | null,
+  currentSearchNoQuestion: string,
+  tabHref: string
+): boolean {
+  if (!isBottomNavTabActive(pathname, tabHref)) return false;
+  const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
+  const raw = tabHref.trim();
+  const qIdx = raw.indexOf("?");
+  const targetPath = (qIdx >= 0 ? raw.slice(0, qIdx) : raw).trim();
+  if (p !== targetPath) return false;
+  if (qIdx < 0) return true;
+  const targetParams = new URLSearchParams(raw.slice(qIdx + 1));
+  if ([...targetParams.keys()].length === 0) return true;
+  const cur = new URLSearchParams(currentSearchNoQuestion);
+  for (const key of targetParams.keys()) {
+    if (cur.get(key) !== targetParams.get(key)) return false;
+  }
+  return true;
+}
+
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
-  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,transform,background-color,opacity] duration-150 ease-out active:scale-[0.96]";
+  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,transform,background-color] duration-150 ease-out active:scale-[0.96]";
+
+/** 활성 탭 플로팅 원 — `activeShellClass` 로 탭별 덮어쓰기 */
+const BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS =
+  "bg-gradient-to-b from-[#9485eb] to-[#6b5ac6] shadow-[0_12px_32px_rgba(38,26,88,0.5)] ring-2 ring-white/20";
+
+const BOTTOM_NAV_ORB_HOVER_CLASS =
+  "transition-[box-shadow,filter] duration-200 ease-out group-hover:shadow-[0_14px_36px_rgba(30,18,82,0.52)] group-hover:brightness-[1.04]";
+
+/** 비활성 탭 링크 */
+const BOTTOM_NAV_LINK_INACTIVE_SURFACE = "rounded-2xl hover:bg-white/[0.08] active:bg-white/[0.11]";
+
+/** 선택 탭 아이콘 — 비활성(h-6 w-6)보다 한 단계 크게, 원 중심에 맞춤 */
+const BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS = "h-7 w-7";
 
 function triggerLightTapFeedback(): void {
   try {
@@ -153,7 +195,7 @@ function triggerLightTapFeedback(): void {
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className={OWNER_HUB_BADGE_DOT_CLASS}>
+    <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ${BOTTOM_NAV_BADGE_RING_CLASS}`}>
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -178,9 +220,13 @@ function scrollAppShellToTop(): void {
   }
 }
 
-function onBottomNavTabActivate(pathname: string | null, tabHref: string, e: MouseEvent<HTMLAnchorElement>): void {
-  triggerLightTapFeedback();
-  if (!isBottomNavTabActive(pathname, tabHref)) return;
+function onBottomNavTabActivate(
+  pathname: string | null,
+  currentSearchNoQuestion: string,
+  tabHref: string,
+  e: MouseEvent<HTMLAnchorElement>
+): void {
+  if (!shouldBottomNavTapScrollOnlyNoNavigate(pathname, currentSearchNoQuestion, tabHref)) return;
   e.preventDefault();
   scrollAppShellToTop();
 }
@@ -188,11 +234,13 @@ function onBottomNavTabActivate(pathname: string | null, tabHref: string, e: Mou
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
   tab,
   pathname,
+  navSearch,
   optimisticActive,
   onNavigationIntent,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
+  navSearch: string;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
 }) {
@@ -215,13 +263,15 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       .join(" ");
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
+  const activeOrbClass = tab.activeShellClass ?? BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS;
+  const activeIconClass = tab.iconSizeClass ? iconSize : BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS;
   const className = [
-    "relative flex flex-1 flex-col items-center justify-center",
-    "min-h-[44px] gap-0.5 rounded-sam-sm py-2",
+    "group relative flex min-h-0 flex-1 flex-col items-center justify-end",
+    "gap-0.5 px-0.5 pb-1 pt-0",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
-    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
-    hasOwnerStore && !isActive ? "opacity-80" : "",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddd6fe]/50 rounded-2xl",
+    isActive ? "z-[2]" : BOTTOM_NAV_LINK_INACTIVE_SURFACE,
+    hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -233,12 +283,41 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const inner = (
     <>
-      <span className={isActive ? iconActive : iconInactive}>
-        <span className="relative inline-flex">
-          <Icon className={iconSize} />
-          <BottomNavHubBadgeDot count={tabBadgeCount} />
-        </span>
-      </span>
+      {isActive ? (
+        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+          <div className="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center">
+            <span
+              className={[
+                "pointer-events-none absolute inset-0 rounded-full",
+                BOTTOM_NAV_ORB_HOVER_CLASS,
+                activeOrbClass,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-hidden
+            />
+            <span className={`relative z-[1] inline-flex items-center justify-center ${iconActive}`}>
+              <span className="relative inline-flex">
+                <Icon className={activeIconClass} />
+                <BottomNavHubBadgeDot count={tabBadgeCount} />
+              </span>
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <div className="relative flex h-8 w-full shrink-0 items-end justify-center">
+        {isActive ? (
+          <span className="pointer-events-none inline-flex opacity-0" aria-hidden>
+            <Icon className={activeIconClass} />
+            <BottomNavHubBadgeDot count={tabBadgeCount} />
+          </span>
+        ) : (
+          <span className={`relative inline-flex pb-0.5 ${iconInactive}`}>
+            <Icon className={iconSize} />
+            <BottomNavHubBadgeDot count={tabBadgeCount} />
+          </span>
+        )}
+      </div>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
     </>
   );
@@ -252,11 +331,17 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
-      onPointerDown={() => onNavigationIntent(tab.id)}
-      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
-        if (e.key === "Enter" || e.key === " ") onNavigationIntent(tab.id);
+      onPointerDown={() => {
+        triggerLightTapFeedback();
+        onNavigationIntent(tab.id);
       }}
-      onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
+      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
+        if (e.key === "Enter" || e.key === " ") {
+          triggerLightTapFeedback();
+          onNavigationIntent(tab.id);
+        }
+      }}
+      onClick={(e) => onBottomNavTabActivate(pathname, navSearch, tab.href, e)}
     >
       {inner}
     </Link>
@@ -266,11 +351,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 const BottomNavTabStores = memo(function BottomNavTabStores({
   tab,
   pathname,
+  navSearch,
   optimisticActive,
   onNavigationIntent,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
+  navSearch: string;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
 }) {
@@ -296,16 +383,18 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const storesTabOwnerLite = !!ownerStore;
 
+  const activeOrbClass = tab.activeShellClass ?? BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS;
+  const activeIconClass = tab.iconSizeClass ? iconSize : BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS;
+  const inactiveSurface =
+    isActive || !storesTabOwnerLite
+      ? ""
+      : "bg-white/[0.08] shadow-none ring-1 ring-[#ebe4ff]/14 hover:bg-white/[0.12] hover:ring-[#ebe4ff]/22 active:bg-white/[0.15]";
   const className = [
-    "relative flex flex-1 flex-col items-center justify-center",
-    "min-h-[44px] gap-0.5 rounded-sam-sm py-2",
-    storesTabOwnerLite && !isActive ? "rounded-sam-sm" : "",
+    "group relative flex min-h-0 flex-1 flex-col items-center justify-end",
+    "gap-0.5 px-0.5 pb-1 pt-0",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
-    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
-    storesTabOwnerLite && !isActive
-      ? "bg-sam-surface/70 shadow-sam-elevated ring-1 ring-sam-border/70"
-      : "",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddd6fe]/50 rounded-2xl",
+    isActive ? "z-[2]" : inactiveSurface ? inactiveSurface : BOTTOM_NAV_LINK_INACTIVE_SURFACE,
   ]
     .filter(Boolean)
     .join(" ");
@@ -319,12 +408,41 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const inner = (
     <>
-      <span className={isActive ? iconActive : iconInactive}>
-        <span className="relative inline-flex">
-          <Icon className={iconSize} />
-          <BottomNavHubBadgeDot count={tabBadgeCount} />
-        </span>
-      </span>
+      {isActive ? (
+        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
+          <div className="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center">
+            <span
+              className={[
+                "pointer-events-none absolute inset-0 rounded-full",
+                BOTTOM_NAV_ORB_HOVER_CLASS,
+                activeOrbClass,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-hidden
+            />
+            <span className={`relative z-[1] inline-flex items-center justify-center ${iconActive}`}>
+              <span className="relative inline-flex">
+                <Icon className={activeIconClass} />
+                <BottomNavHubBadgeDot count={tabBadgeCount} />
+              </span>
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <div className="relative flex h-8 w-full shrink-0 items-end justify-center">
+        {isActive ? (
+          <span className="pointer-events-none inline-flex opacity-0" aria-hidden>
+            <Icon className={activeIconClass} />
+            <BottomNavHubBadgeDot count={tabBadgeCount} />
+          </span>
+        ) : (
+          <span className={`relative inline-flex pb-0.5 ${iconInactive}`}>
+            <Icon className={iconSize} />
+            <BottomNavHubBadgeDot count={tabBadgeCount} />
+          </span>
+        )}
+      </div>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
     </>
   );
@@ -338,11 +456,17 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
-      onPointerDown={() => onNavigationIntent(tab.id)}
-      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
-        if (e.key === "Enter" || e.key === " ") onNavigationIntent(tab.id);
+      onPointerDown={() => {
+        triggerLightTapFeedback();
+        onNavigationIntent(tab.id);
       }}
-      onClick={(e) => onBottomNavTabActivate(pathname, tab.href, e)}
+      onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
+        if (e.key === "Enter" || e.key === " ") {
+          triggerLightTapFeedback();
+          onNavigationIntent(tab.id);
+        }
+      }}
+      onClick={(e) => onBottomNavTabActivate(pathname, navSearch, tab.href, e)}
     >
       {inner}
     </Link>
@@ -363,6 +487,8 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
   const { t } = useI18n();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const navSearch = searchParams.toString();
   const router = useRouter();
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() =>
     initialTabs && initialTabs.length > 0 ? initialTabs.map((tab) => ({ ...tab })) : [...BOTTOM_NAV_ITEMS]
@@ -526,21 +652,20 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
     };
   }, [pathname, router]);
 
-  if (isChatRoomDetail) return null;
+  if (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname)) return null;
 
   return (
     <>
-    <nav
-      className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
-      aria-label={t("nav_bottom_bar_aria")}
-    >
-      <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0 max-w-full`}>
+    <nav className={BOTTOM_NAV_SHELL.outerClassName} aria-label={t("nav_bottom_bar_aria")}>
+      <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center`}>
         {tabs.map((tab) =>
           tab.icon === "stores" ? (
             <BottomNavTabStores
               key={tab.id}
               tab={tab}
               pathname={pathname}
+              navSearch={navSearch}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
             />
@@ -549,11 +674,13 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
               key={tab.id}
               tab={tab}
               pathname={pathname}
+              navSearch={navSearch}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
             />
           )
         )}
+        </div>
       </div>
     </nav>
     </>

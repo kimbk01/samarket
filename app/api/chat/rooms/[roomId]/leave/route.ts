@@ -6,6 +6,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function POST(
   const now = new Date().toISOString();
   const { data: roomRow, error: roomErr } = await sbAny
     .from("chat_rooms")
-    .select("id, room_type")
+    .select("id, room_type, item_id")
     .eq("id", roomId)
     .maybeSingle();
   if (roomErr || !roomRow) {
@@ -57,6 +58,13 @@ export async function POST(
 
   if (upErr || !part) {
     return NextResponse.json({ ok: false, error: "참여 정보를 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  const itemId = (roomRow as { item_id?: string | null }).item_id?.trim() ?? "";
+  if (itemId) {
+    void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, itemId).catch(() => {
+      /* 물품 단계 재집계 실패해도 나가기는 완료 */
+    });
   }
 
   /* 활성 참가자가 더 없으면 방 잠금 — 유령 대화·뱃지용 미읽음 정리 */

@@ -3111,6 +3111,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
     const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
     const meta = buildMessengerContextMetaFromProductChatSnapshot({
       productChatId: pcid,
+      postId: pc.postId,
       productTitle: title || "거래",
       price: price != null && !Number.isNaN(price) ? price : null,
       currency,
@@ -5243,6 +5244,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
   const role: "seller" | "buyer" = userId === seller ? "seller" : "buyer";
   const meta = buildMessengerContextMetaFromProductChatSnapshot({
     productChatId: productChatId.trim(),
+    postId: postId || undefined,
     productTitle: title || "거래",
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,

@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
-import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   tradeChatCallPolicyAllowsVideo,
   tradeChatCallPolicyAllowsVoice,
@@ -54,9 +54,9 @@ export function TradeChatCallHeaderButtons(props: {
           );
           return;
         }
-        const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+        const result = await startOutgoingCallSessionAndOpen(
           { roomId: json.roomId.trim(), peerUserId: null, kind },
-          (href) => router.push(href)
+          router
         );
         if (!result.ok) {
           onErrorMessage(result.userMessage);

@@ -121,7 +121,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return {
       ...DEFAULT,
       backHref: "/community-messenger?section=chats",
-      preferHistoryBack: true,
+      /** 히스토리(back)에 따라 홈·글 상세 등으로 튀지 않고 항상 메신저 채팅 탭으로 */
+      preferHistoryBack: false,
       ariaLabel: "메신저로 돌아가기",
       titleText: "메신저 대화",
       subtitle: "1:1·그룹 채팅",

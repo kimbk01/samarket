@@ -73,7 +73,7 @@ export function ChatMobileAttachSheet({
         onClick={onClose}
       />
       <div
-        className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
+        className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
           instagram ? "border-t border-sam-border bg-sam-surface" : "border-t border-sam-border bg-sam-surface"
         }`}
         style={{

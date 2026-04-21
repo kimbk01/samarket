@@ -7,14 +7,11 @@ import {
 describe("resolveMainBottomNavDisplayItems", () => {
   it("빈 값이면 기본 5탭 노출", () => {
     const items = resolveMainBottomNavDisplayItems(null);
-    expect(items.map((i) => i.id)).toEqual([
-      "home",
-      "community",
-      "stores",
-      "chat",
-      "my",
-    ]);
-    expect(items[0]).toMatchObject({ id: "home", label: "거래", icon: "trade" });
+    expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
+    expect(items.find((i) => i.id === "home")).toMatchObject({ label: "거래", icon: "trade" });
+    expect(items.find((i) => i.id === "chat")).toMatchObject({
+      href: "/community-messenger?section=chats",
+    });
   });
 
   it("DB에 저장된 예전 6탭이면 orders를 제거하고 5축만 노출", () => {
@@ -35,6 +32,7 @@ describe("resolveMainBottomNavDisplayItems", () => {
       "chat",
       "my",
     ]);
+    expect(items.find((i) => i.id === "chat")?.href).toBe("/community-messenger?section=chats");
   });
 
   it("현재 5내장 저장본은 순서를 그대로 유지", () => {
@@ -54,6 +52,19 @@ describe("resolveMainBottomNavDisplayItems", () => {
       "community",
       "home",
     ]);
+  });
+
+  it("메신저 탭 href 가 친구·보관함 등이어도 하단 탭은 채팅 섹션으로 통일", () => {
+    const items = resolveMainBottomNavDisplayItems({
+      items: [
+        { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
+        { id: "home", visible: true, label: "거래", href: "/home", icon: "trade" },
+        { id: "stores", visible: true, label: "배달", href: "/stores", icon: "stores" },
+        { id: "chat", visible: true, label: "메신저", href: "/community-messenger?section=friends", icon: "chat" },
+        { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
+      ],
+    });
+    expect(items.find((i) => i.id === "chat")?.href).toBe("/community-messenger?section=chats");
   });
 
   it("거래 탭에 예전 icon=home 저장본이면 trade 아이콘으로 승격", () => {

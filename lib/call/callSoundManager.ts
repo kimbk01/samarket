@@ -1,5 +1,4 @@
 import {
-  fetchMessengerCallSoundConfig,
   getMessengerCallSoundConfigCache,
   resolveMessengerCallEndSoundUrl,
   resolveMessengerCallMissedSoundUrl,
@@ -22,7 +21,6 @@ let activeRing: CallToneController | null = null;
 export async function playIncomingRingtone(callKind: CommunityMessengerCallKind): Promise<void> {
   if (typeof window === "undefined") return;
   if (!isCommunityMessengerIncomingCallSoundEnabled()) return;
-  await fetchMessengerCallSoundConfig();
   stopAllCallSounds();
   activeRing = await startCommunityMessengerCallTone("incoming", { callKind });
 }
@@ -30,7 +28,6 @@ export async function playIncomingRingtone(callKind: CommunityMessengerCallKind)
 /** 발신 링백 */
 export async function playOutgoingRingback(callKind: CommunityMessengerCallKind): Promise<void> {
   if (typeof window === "undefined") return;
-  await fetchMessengerCallSoundConfig();
   stopAllCallSounds();
   activeRing = await startCommunityMessengerCallTone("outgoing", { callKind });
 }

@@ -32,14 +32,31 @@ function isIconKey(v: unknown): v is BottomNavIconKey {
   return typeof v === "string" && ICON_SET.has(v);
 }
 
-/** 내부 경로만 허용 (오픈 리다이렉트 방지) */
+/** 내부 경로만 허용 (오픈 리다이렉트 방지). `?section=chats` 등 안전한 쿼리만. */
 export function isSafeMainBottomNavHref(v: unknown): v is string {
   if (typeof v !== "string") return false;
   const t = v.trim();
-  if (t.length === 0 || t.length > 160) return false;
+  if (t.length === 0 || t.length > 200) return false;
   if (!t.startsWith("/")) return false;
   if (t.includes("//") || t.includes("..")) return false;
-  return /^\/[A-Za-z0-9/_-]*$/.test(t);
+  const q = t.indexOf("?");
+  const path = q >= 0 ? t.slice(0, q) : t;
+  const query = q >= 0 ? t.slice(q + 1) : "";
+  if (!/^\/[A-Za-z0-9/_-]*$/.test(path)) return false;
+  if (query.length > 0) {
+    if (query.length > 120) return false;
+    if (!/^[a-zA-Z0-9_.=&%-]+$/.test(query)) return false;
+    if (query.includes("..")) return false;
+  }
+  return true;
+}
+
+/** 하단 메신저 탭은 항상 `채팅` 섹션으로 진입(미읽음 뱃지·알림 확인). 허브 경로면 쿼리 무시하고 통일 */
+function normalizeBuiltinMessengerTabHref(tabId: string, href: string): string {
+  if (tabId !== "chat") return href;
+  const basePath = href.split("?")[0]?.trim() ?? "";
+  if (basePath !== "/community-messenger") return href;
+  return "/community-messenger?section=chats";
 }
 
 function trimLabel(v: unknown, fallback: string): string {
@@ -70,7 +87,8 @@ function isValidTabId(id: string): boolean {
 }
 
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
-  const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
+  const hrefRaw = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
+  const href = normalizeBuiltinMessengerTabHref(base.id, hrefRaw);
   const label = trimLabel(raw.label, base.label);
   let icon: BottomNavIconKey = isIconKey(raw.icon) ? raw.icon : base.icon;
   /* 예전 TRADE 탭이 라벨만 TRADE이고 icon=home(집)으로 저장된 경우 → trade 아이콘으로 통일 */
@@ -91,6 +109,7 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
     labelActiveClass: optTwClass(raw.labelActiveClass, base.labelActiveClass),
     labelSizeClass: optTwClass(raw.labelSizeClass, base.labelSizeClass),
     labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, base.labelFontFamilyClass),
+    activeShellClass: optTwClass(raw.activeShellClass, base.activeShellClass),
     visible: raw.visible !== false,
   };
 }
@@ -114,6 +133,7 @@ function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | n
     labelActiveClass: optTwClass(raw.labelActiveClass, undefined),
     labelSizeClass: optTwClass(raw.labelSizeClass, undefined),
     labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, undefined),
+    activeShellClass: optTwClass(raw.activeShellClass, undefined),
     visible: raw.visible !== false,
   };
 }
@@ -174,6 +194,7 @@ export function mainBottomNavAdminRowToStoredItem(merged: MainBottomNavAdminRow)
     labelActiveClass: merged.labelActiveClass,
     labelSizeClass: merged.labelSizeClass,
     labelFontFamilyClass: merged.labelFontFamilyClass,
+    activeShellClass: merged.activeShellClass,
   };
 }
 

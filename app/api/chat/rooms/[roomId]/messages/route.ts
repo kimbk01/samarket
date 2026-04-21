@@ -31,6 +31,7 @@ import {
 import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/load-chat-room-messages";
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 const TRADE_CHAT_GET_MESSAGES_ROUTE = "GET /api/chat/rooms/[roomId]/messages";
 const TRADE_CHAT_POST_MESSAGES_ROUTE = "POST /api/chat/rooms/[roomId]/messages";
@@ -375,6 +376,12 @@ export async function POST(
   })();
 
   await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise]);
+
+  if (roomAny.room_type === "item_trade" && roomAny.item_id) {
+    void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, String(roomAny.item_id)).catch(() => {
+      /* 물품 단계 동기화 실패해도 메시지 전송은 유지 */
+    });
+  }
 
   markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 200);
   return jsonOk({

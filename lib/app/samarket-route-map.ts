@@ -81,7 +81,7 @@ export const SAMARKET_ROUTES = {
     orderChats: "/my/store-orders",
   },
   chat: {
-    messengerHub: "/community-messenger",
+    messengerHub: "/community-messenger?section=chats",
     orderHub: "/my/store-orders",
     newChat: "/chats/new",
     /** 주문/거래 공통 — 방 단위 단일 URL (`source` 있으면 부트스트랩 힌트, `lib/chats/trade-chat-notification-href` 와 동일 의미) */

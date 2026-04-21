@@ -4,7 +4,7 @@ import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkele
  * 하단 고정 탭·safe-area 와 맞춘 패딩 — `BOTTOM_NAV_SHELL` 높이와 동일 식.
  */
 export const MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS =
-  "pb-[calc(4rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
 
 /** 피드형(거래·커뮤니티·필라이프 등) — 카드 행 골격 */
 export function MainFeedRouteLoading({ rows = 5 }: { rows?: number }) {

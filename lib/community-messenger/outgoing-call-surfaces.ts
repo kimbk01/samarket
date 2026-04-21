@@ -4,8 +4,8 @@
  *
  * - `friendsFavoriteQuickActions` — 친구 탭 즐겨찾기 그리드의 빠른 음성/영상 (`MessengerFriendsScreen`)
  * - `friendProfileSheet` — 친구 프로필 시트 (`MessengerFriendProfileSheet` → `CommunityMessengerHome.startDirectCall`)
- * - `roomManaged` — 열린 채팅방·멤버 시트 등 (`CommunityMessengerRoomClient` → `bootstrapCommunityMessengerOutgoingCallAndNavigate`:
- *   `POST .../rooms/:id/calls` 후 곧바로 `/community-messenger/calls/:sessionId`. `/calls/outgoing` 은 딥링크·호환용.)
+ * - `roomManaged` — 열린 채팅방·멤버 시트 등: `startOutgoingCallSessionAndOpen` 으로 `POST .../calls` 후 곧바로 `/community-messenger/calls/:sessionId`.
+ *   (`/calls/outgoing` 은 딥링크·외부 공유용; 앱 내 발신은 이 URL을 거치지 않는다.)
  *
  * - `friendRowQuickPopup` — 친구 행 **⋮** 앵커 팝업(`MessengerFriendRowQuickPopup` → `CommunityMessengerHome.startDirectCall`)
  *

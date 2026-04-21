@@ -226,6 +226,65 @@ button {
   will-change: opacity, transform;
 }
 
+/* 거래 채팅 상단 — 현재 단계 원형: 은은한 글로우 + 가독성 있는 깜빡임(스케일 변화 없음) */
+@keyframes sam-trade-step-soft-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 12px rgba(107, 90, 198, 0.42);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(107, 90, 198, 0.58);
+    opacity: 0.72;
+  }
+}
+.sam-trade-step-pulse {
+  animation: sam-trade-step-soft-pulse 1.6s ease-in-out infinite;
+  will-change: box-shadow, opacity;
+}
+
+/* 현재 단계 원 바깥으로 퍼지는 리플(이중 링, 교차 타이밍) */
+@keyframes sam-trade-step-ripple-expand {
+  0% {
+    transform: scale(1);
+    opacity: 0.48;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(2.45);
+    opacity: 0;
+  }
+}
+.sam-trade-step-ripple-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid rgba(107, 90, 198, 0.5);
+  pointer-events: none;
+  z-index: 0;
+  animation: sam-trade-step-ripple-expand 2.1s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+  will-change: transform, opacity;
+}
+.sam-trade-step-ripple-ring--delay {
+  animation-delay: 1.05s;
+  border-color: rgba(107, 90, 198, 0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sam-trade-step-ripple-ring,
+  .sam-trade-step-ripple-ring--delay {
+    animation: none;
+    opacity: 0;
+    transform: none;
+    display: none;
+  }
+  .sam-trade-step-pulse {
+    animation: none;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .store-order-stepper-current-circle {
     animation: none;

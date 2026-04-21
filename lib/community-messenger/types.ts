@@ -105,6 +105,8 @@ export type CommunityMessengerRoomContextMetaV1 = {
   itemStateLabel?: string;
   /** 중고 거래채팅(`product_chats`)과 연결된 경우 */
   productChatId?: string;
+  /** `posts.id` — 목록에서 `posts` Realtime으로 `itemStateLabel` 동기화용 */
+  postId?: string;
   /** Mirrors `product_chats.trade_flow_status` for list/header sync. */
   tradeFlowStatus?: string;
 };

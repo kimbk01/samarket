@@ -13,7 +13,7 @@ export type CommunityMessengerIncomingCallOverlayProps = {
   onMinimize: () => void;
   onReject: (sessionId: string) => void;
   onAccept: (session: CommunityMessengerCallSession) => void;
-  /** 같은 메신저 방 URL 에 있을 때 상단 도킹(전체 화면 대신) */
+  /** 레거시 API 호환용 — 수신 벨은 항상 전체 화면(텔레그램형)으로만 표시한다. */
   placement?: "global" | "in-room";
   /** 관리자 수신 타임아웃(초) — 남은 시간 표시 */
   ringTimeoutSeconds?: number | null;
@@ -29,7 +29,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     onMinimize,
     onReject,
     onAccept,
-    placement = "global",
+    placement: _placement = "global",
     ringTimeoutSeconds,
   } = props;
 
@@ -98,6 +98,5 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     ],
   };
 
-  const variant = placement === "in-room" ? "dock-top" : "overlay";
-  return <CallScreen vm={incomingVm} variant={variant} />;
+  return <CallScreen vm={incomingVm} variant="overlay" />;
 }

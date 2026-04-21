@@ -28,17 +28,30 @@ export function CallScreen({
     return () => window.clearTimeout(timer);
   }, [vm.autoCloseMs, vm.secondaryActions]);
 
+  const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing";
+  const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
+  /** 발신 영상 솔로(로컬 풀프리뷰) — 배경 레이어가 카메라를 가리지 않게 함 */
+  const isOutgoingVideoSolo =
+    vm.mode === "video" && vm.direction === "outgoing" && !vm.showRemoteVideo;
+  const telegramCallSurface = "bg-[#8B5E2E]";
+  const useTelegramSolidShell = isIncomingRinging;
+  /** 발신 음성 벨·권한 화면은 전용 그라데이션만 — 뒤쪽 보라 `CallBackground`가 비쳐 이전 화면처럼 보이지 않게 함 */
+  const hideCallBackground = useTelegramSolidShell || isOutgoingVoiceRinging || isOutgoingVideoSolo;
+
   return (
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
+      surfaceClassName={useTelegramSolidShell ? telegramCallSurface : undefined}
       className={variant === "dock-top" ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl" : "min-h-[100dvh] overflow-hidden"}
     >
-      <CallBackground
-        mode={vm.mode}
-        phase={vm.phase}
-        videoSlot={vm.mainVideoSlot}
-        showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
-      />
+      {hideCallBackground ? null : (
+        <CallBackground
+          mode={vm.mode}
+          phase={vm.phase}
+          videoSlot={vm.mainVideoSlot}
+          showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
+        />
+      )}
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
         {!(vm.direction === "incoming" && vm.phase === "ringing") ? (
           <CallHeader
@@ -62,7 +75,7 @@ function renderCallView(
     return <EndedCallView vm={vm} />;
   }
   if (vm.direction === "incoming" && vm.phase === "ringing") {
-    return <IncomingCallView vm={vm} dockTop={variant === "dock-top"} />;
+    return <IncomingCallView vm={vm} />;
   }
   /** 음성 발신 벨만 전용 패널 — 영상 발신은 아래와 동일 풀스크린으로 통일 */
   if (vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice") {

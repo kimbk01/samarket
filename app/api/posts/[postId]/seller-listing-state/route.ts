@@ -11,7 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
-import type { SellerListingState } from "@/lib/products/seller-listing-state";
+import { normalizeSellerListingState, type SellerListingState } from "@/lib/products/seller-listing-state";
+import { canSellerListingTransition } from "@/lib/trade/seller-listing-chat-transitions";
 import {
   buildListingSnapshotJson,
   deriveTradeLifecycleStatus,
@@ -20,6 +21,7 @@ import {
   resolveTradeKindFromCategory,
 } from "@/lib/trade/trade-lifecycle-policy";
 import { insertPostTradeStatusLog } from "@/lib/trade/post-trade-status-log";
+import { insertSellerListingChangeSystemMessagesServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
 
@@ -148,6 +150,18 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "판매자만 변경할 수 있습니다." }, { status: 403 });
   }
 
+  const prevListing = normalizeSellerListingState(
+    (post as { seller_listing_state?: unknown }).seller_listing_state,
+    (post as { status?: string }).status
+  );
+  const nextListing = nextState as SellerListingState;
+  if (!canSellerListingTransition(prevListing, nextListing)) {
+    return NextResponse.json(
+      { ok: false, error: "이전 단계에서 허용되지 않는 변경이에요." },
+      { status: 400 }
+    );
+  }
+
   if (nextState === "reserved") {
     if (!reservedBuyerRaw) {
       return NextResponse.json(
@@ -239,6 +253,11 @@ export async function POST(
         } catch {
           /* ignore */
         }
+        await insertSellerListingChangeSystemMessagesServer(sbAny, {
+          postId: postId.trim(),
+          sellerUserId: userId,
+          nextState: nextState as SellerListingState,
+        }).catch(() => {});
         return NextResponse.json({
           ok: true,
           sellerListingState: nextState,
@@ -271,6 +290,11 @@ export async function POST(
         } catch {
           /* ignore */
         }
+        await insertSellerListingChangeSystemMessagesServer(sbAny, {
+          postId: postId.trim(),
+          sellerUserId: userId,
+          nextState: nextState as SellerListingState,
+        }).catch(() => {});
         return NextResponse.json({
           ok: true,
           sellerListingState: nextState,
@@ -314,6 +338,12 @@ export async function POST(
   } catch {
     /* chat_rooms 없거나 컬럼 불일치 시 무시 */
   }
+
+  await insertSellerListingChangeSystemMessagesServer(sbAny, {
+    postId: postId.trim(),
+    sellerUserId: userId,
+    nextState: nextState as SellerListingState,
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: true,

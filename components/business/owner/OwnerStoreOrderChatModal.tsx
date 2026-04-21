@@ -6,7 +6,7 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { OrderChatRoomClient } from "@/components/order-chat/OrderChatRoomClient";
 
 const BOTTOM_OVER_NAV =
-  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]" as const;
+  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]" as const;
 
 /** `bottom` 클래스(4rem+safe) + 여백을 반영해, 아래쪽 카드여도 채팅 영역 최소 높이 확보 */
 function computeModalTopPx(anchorTopPx: number): number {

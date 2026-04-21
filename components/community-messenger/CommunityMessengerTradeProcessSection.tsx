@@ -13,6 +13,8 @@ import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
+import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
+import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 
 type Props = {
@@ -49,6 +51,7 @@ export function CommunityMessengerTradeProcessSection({
   const [listingNotice, setListingNotice] = useState<string | null>(null);
   const [pinnedListing, setPinnedListing] = useState<SellerListingState | null>(null);
   const [pinnedForProductId, setPinnedForProductId] = useState<string | null>(null);
+  const [listingFromPostRealtime, setListingFromPostRealtime] = useState<SellerListingState | null>(null);
 
   const reload = useCallback(async () => {
     const id = productChatId.trim();
@@ -115,8 +118,39 @@ export function CommunityMessengerTradeProcessSection({
   const postId = (room?.product?.id ?? room?.productId ?? "").trim();
   const propListing = normalizeSellerListingState(room?.product?.sellerListingState, room?.product?.status);
   const amISeller = room ? room.sellerId === viewerUserId : false;
+
+  usePostSellerListingRealtime({
+    postId: postId || null,
+    enabled: Boolean(postId) && Boolean(viewerUserId?.trim()),
+    onSellerListingState: (raw) => {
+      setListingFromPostRealtime(normalizeSellerListingState(raw, room?.product?.status));
+    },
+  });
+
+  useEffect(() => {
+    setListingFromPostRealtime(null);
+  }, [productChatId, postId]);
+
+  useEffect(() => {
+    if (listingFromPostRealtime == null) return;
+    if (listingFromPostRealtime === propListing) {
+      setListingFromPostRealtime(null);
+    }
+  }, [propListing, listingFromPostRealtime]);
+
+  useEffect(() => {
+    if (!amISeller || listingFromPostRealtime == null || !postId) return;
+    if (pinnedForProductId !== postId || pinnedListing == null) return;
+    if (pinnedListing !== listingFromPostRealtime) {
+      setPinnedListing(null);
+      setPinnedForProductId(null);
+    }
+  }, [amISeller, listingFromPostRealtime, postId, pinnedForProductId, pinnedListing]);
+
   const displayListing: SellerListingState =
-    amISeller && pinnedListing != null && pinnedForProductId === postId && postId ? pinnedListing : propListing;
+    amISeller && pinnedListing != null && pinnedForProductId === postId && postId
+      ? pinnedListing
+      : listingFromPostRealtime ?? propListing;
 
   const effectiveProductChatId = (room?.productChatRoomId || room?.id || productChatId).trim();
 
@@ -158,6 +192,7 @@ export function CommunityMessengerTradeProcessSection({
         setPinnedForProductId(postId);
         await reload();
         onTradeMetaChanged?.();
+        dispatchTradeChatUnreadUpdated({ source: "seller-listing-state", key: postId });
       } catch {
         setListingError("네트워크 오류로 저장하지 못했습니다.");
       } finally {
@@ -227,7 +262,12 @@ export function CommunityMessengerTradeProcessSection({
       />
       {room.product ? (
         <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">
-          <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
+          <ChatProductSummary
+            product={room.product}
+            hideFavorite={amISeller}
+            sellerUserId={room.sellerId}
+            sellerListingStateOverride={postId ? displayListing : undefined}
+          />
         </div>
       ) : null}
     </div>

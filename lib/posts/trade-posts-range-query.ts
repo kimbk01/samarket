@@ -31,7 +31,7 @@ export const PAGE_SIZE_TRADE_FEED = 20;
  */
 /** `author_id` 는 일부 Supabase `posts` 스키마에 없음 — 없으면 PostgREST 전체 select 실패. 앱에서는 `user_id`로 `author_id` 보강 */
 export const POST_TRADE_LIST_SELECT =
-  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, status, reserved_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, chat_count";
+  "id, user_id, type, title, price, is_price_offer, is_free_share, region, city, status, seller_listing_state, reserved_buyer_id, sold_buyer_id, view_count, thumbnail_url, images, meta, created_at, updated_at, trade_category_id, favorite_count, chat_count";
 
 export function looksLikeMissingColumnOrSchemaError(message: string | undefined | null): boolean {
   const m = String(message ?? "").toLowerCase();

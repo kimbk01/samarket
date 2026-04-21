@@ -4,6 +4,19 @@
  */
 import type { ChatMessage, ChatRoom } from "@/lib/types/chat";
 
+/** 시스템 안내 본문 — 변경 시각 + 단계 라벨 (채팅 타임라인에 그대로 표시) */
+export function formatSellerListingChangeNoticeBody(label: string): string {
+  const ts = new Date().toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `[${ts}] 제품의 상태가 ${label}으로 변경되었습니다.`;
+}
+
 export async function postSellerListingChangeSystemNotice(
   room: ChatRoom,
   userId: string,

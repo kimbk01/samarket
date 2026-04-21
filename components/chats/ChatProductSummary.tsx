@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import type { ChatProductSummary as ChatProductSummaryType } from "@/lib/types/chat";
+import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import { getAppSettings } from "@/lib/app-settings";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
+import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { trimPreviewForChatHeader } from "@/lib/chats/chat-list-preview-trim";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 
@@ -16,12 +18,15 @@ interface ChatProductSummaryProps {
   hideFavorite?: boolean;
   /** 글 작성자(판매자) — 본인 글 찜 방지용 */
   sellerUserId?: string;
+  /** 채팅방에서 즉시 반영되는 거래 단계(실시간·낙관적) — DB `product` 보다 우선 */
+  sellerListingStateOverride?: SellerListingState | string | null;
 }
 
 export function ChatProductSummary({
   product,
   hideFavorite = false,
   sellerUserId,
+  sellerListingStateOverride,
 }: ChatProductSummaryProps) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const detailHref = product.detailHref?.trim() || `/post/${product.id}`;
@@ -33,7 +38,7 @@ export function ChatProductSummary({
       : null;
 
   const listingPost = {
-    seller_listing_state: product.sellerListingState,
+    seller_listing_state: sellerListingStateOverride ?? product.sellerListingState,
     status: product.status,
     type: "trade" as const,
   };
@@ -97,7 +102,6 @@ export function ChatProductSummary({
                 <PostListPreviewColumn
                   listingPost={listingPost}
                   preview={headerPreview}
-                  omitListingBadge
                   matchThumbnailHeight
                 />
               </Link>
@@ -123,6 +127,9 @@ export function ChatProductSummary({
               className="block text-left transition active:bg-sam-app/0"
               aria-label={`${product.title || "상품"} 상세 보기`}
             >
+              {!isPhilifeCard ? (
+                <TradeListingStatusBadge post={listingPost} size="list" className="mb-1 block max-w-full shrink-0" />
+              ) : null}
               <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-sam-fg">
                 {product.title || "상품"}
               </p>

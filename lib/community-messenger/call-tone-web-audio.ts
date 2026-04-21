@@ -8,6 +8,22 @@ export type CallToneWebKind = "voice" | "video";
 
 export type WebAudioCallToneHandle = { stop: () => void };
 
+/**
+ * 발신 버튼 등 **동기 사용자 제스처** 안에서만 호출한다.
+ * `router` 이동·`await fetch` 뒤에는 자동재생이 막히므로, 그 전에 컨텍스트를 resume 해 둔다.
+ */
+let gesturePrimedToneContext: AudioContext | null = null;
+
+export function primeWebAudioCallToneContextFromUserGesture(): void {
+  if (typeof window === "undefined") return;
+  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!AC) return;
+  if (!gesturePrimedToneContext || gesturePrimedToneContext.state === "closed") {
+    gesturePrimedToneContext = new AC();
+  }
+  void gesturePrimedToneContext.resume();
+}
+
 function connectDualTone(
   ctx: AudioContext,
   destination: AudioNode,
@@ -37,7 +53,12 @@ export function startWebAudioCallTone(mode: CallToneWebMode, kind: CallToneWebKi
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
 
-  const ctx = new AC();
+  const primed = gesturePrimedToneContext;
+  const usePrimed = primed != null && primed.state !== "closed";
+  const ctx: AudioContext = usePrimed ? primed : new AC();
+  const ownsContext = !usePrimed;
+  if (usePrimed) void ctx.resume();
+
   const master = ctx.createGain();
   const vol = mode === "incoming" ? 0.2 : 0.12;
   master.gain.value = vol;
@@ -49,8 +70,10 @@ export function startWebAudioCallTone(mode: CallToneWebMode, kind: CallToneWebKi
   const resume = () => {
     if (ctx.state === "suspended") void ctx.resume();
   };
-  window.addEventListener("pointerdown", resume, { passive: true });
-  window.addEventListener("touchstart", resume, { passive: true });
+  if (ownsContext) {
+    window.addEventListener("pointerdown", resume, { passive: true });
+    window.addEventListener("touchstart", resume, { passive: true });
+  }
 
   const voiceInFreqs: [number, number] = [440, 480];
   const videoInFreqs: [number, number] = [523.25, 659.25];
@@ -87,12 +110,14 @@ export function startWebAudioCallTone(mode: CallToneWebMode, kind: CallToneWebKi
   const stop = () => {
     if (stopped) return;
     stopped = true;
-    window.removeEventListener("pointerdown", resume);
-    window.removeEventListener("touchstart", resume);
+    if (ownsContext) {
+      window.removeEventListener("pointerdown", resume);
+      window.removeEventListener("touchstart", resume);
+    }
     if (intervalId != null) window.clearInterval(intervalId);
     try {
       master.disconnect();
-      void ctx.close();
+      if (ownsContext) void ctx.close();
     } catch {
       /* ignore */
     }

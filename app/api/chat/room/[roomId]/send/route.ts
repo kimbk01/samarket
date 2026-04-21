@@ -18,6 +18,7 @@ import {
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
+import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,7 @@ export async function POST(
     sbAny
       .from("product_chats")
       .select(
-        "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode"
+        "id, post_id, seller_id, buyer_id, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode, seller_left_at, buyer_left_at"
       )
       .eq("id", roomId)
       .maybeSingle(),
@@ -84,6 +85,13 @@ export async function POST(
   }
   if (room.seller_id !== userId && room.buyer_id !== userId) {
     return NextResponse.json({ ok: false, error: "참여자만 메시지를 보낼 수 있습니다." }, { status: 403 });
+  }
+  const leftRow = room as { seller_left_at?: string | null; buyer_left_at?: string | null };
+  if (room.seller_id === userId && leftRow.seller_left_at) {
+    return NextResponse.json({ ok: false, error: "이미 나간 채팅방입니다." }, { status: 403 });
+  }
+  if (room.buyer_id === userId && leftRow.buyer_left_at) {
+    return NextResponse.json({ ok: false, error: "이미 나간 채팅방입니다." }, { status: 403 });
   }
 
   const postId = String((room as { post_id?: string }).post_id ?? "").trim();
@@ -167,6 +175,10 @@ export async function POST(
       }
     })(),
   ]);
+
+  if (postId) {
+    void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, postId).catch(() => {});
+  }
 
   return NextResponse.json({
     ok: true,

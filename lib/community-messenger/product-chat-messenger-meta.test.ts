@@ -16,10 +16,22 @@ describe("buildMessengerContextMetaFromProductChatSnapshot", () => {
     expect(m.v).toBe(1);
     expect(m.kind).toBe("trade");
     expect(m.productChatId).toBe("pc1");
+    expect(m.postId).toBeUndefined();
     expect(m.headline).toBe("테스트 상품");
     expect(m.priceLabel).toBeTruthy();
     expect(m.roleLabel).toBeTruthy();
     expect(m.itemStateLabel).toBeTruthy();
+  });
+
+  it("includes postId when provided", () => {
+    const m = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: "pcx",
+      postId: "post-uuid-1",
+      productTitle: "Y",
+      price: 1,
+      role: "buyer",
+    });
+    expect(m.postId).toBe("post-uuid-1");
   });
 
   it("includes tradeFlowStatus when provided", () => {

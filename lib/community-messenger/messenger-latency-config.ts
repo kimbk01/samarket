@@ -67,7 +67,7 @@ export const MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS = readPublic
 /** 수신 통화: postgres_changes 연속 시 GET 합류 방지 — 너무 길면 벨 지연 체감 */
 export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_RT_DEBOUNCE_MS",
-  55,
+  40,
   0,
   2000
 );
@@ -86,7 +86,7 @@ export const MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS = readPublicEnvMs(
 /** 수신 측에 ringing 이 떠 있는 동안 백업 GET 주기(실시간 구독 중) — 종료·동기화 체감 개선 */
 export const MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_RING_MS",
-  900,
+  600,
   400,
   5000
 );
@@ -123,8 +123,8 @@ export const MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS = readPublicEnvMs(
 
 export const MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_BURST_GAP_MS",
-  900,
-  300,
+  400,
+  250,
   15_000
 );
 
@@ -160,7 +160,7 @@ export function getIncomingCallPollIntervalMs(
 /** `/calls/:sessionId` 클라: 세션 row `postgres_changes` 묶음 — 연속 이벤트당 GET 1회 */
 export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_DEBOUNCE_MS",
-  95,
+  55,
   40,
   2000
 );
