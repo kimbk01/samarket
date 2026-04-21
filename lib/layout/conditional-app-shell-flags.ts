@@ -135,7 +135,9 @@ export function resolveConditionalAppShellFlags(
     !isChatRoomDetail &&
     !isPostDetail &&
     !isProductDetail &&
-    !isStoreProductDetail;
+    !isStoreProductDetail &&
+    /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
+    !isPersonalProductComposerPage;
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
   const showOwnerLiteStoreBar =
     showBottomNav &&

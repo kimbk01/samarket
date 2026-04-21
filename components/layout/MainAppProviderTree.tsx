@@ -19,6 +19,7 @@ import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
+import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -95,6 +96,7 @@ export function MainAppProviderTree({
       <MandatoryAddressGate />
       <FavoriteProvider>
         <NotificationSurfaceProvider>
+          <MainShellMessengerParticipantBridge regionBarInLayout={true} />
           <WriteCategoryProvider>
             <CategoryListHeaderProvider>
               <StoreCommerceCartMaybeProvider>

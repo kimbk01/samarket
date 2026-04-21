@@ -88,6 +88,16 @@ export function ChatButton({
             prepareIfCreate: true,
           });
         }}
+        onPointerDown={() => {
+          if (disabled) return;
+          prefetchTradeChatEntry(router, {
+            productId,
+            existingRoomId,
+            existingRoomSource,
+            existingMessengerRoomId,
+            prepareIfCreate: !hasExisting,
+          });
+        }}
         disabled={disabled}
         className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
       >

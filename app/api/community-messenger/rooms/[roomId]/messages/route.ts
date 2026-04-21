@@ -1,4 +1,4 @@
-import { NextRequest, after } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   enforceRateLimit,
@@ -168,14 +168,15 @@ export async function POST(
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
-    /** 응답 본문은 DB insert 직후 즉시 반환 — bump·캐시 무효화·브로드캐스트는 `after` 로 분리해 전송 RTT 에서 제외 */
-    after(async () => {
-      try {
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-      } catch {
-        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
-      }
-    });
+    /**
+     * `after()` 는 요청 라이프사이클 종료 뒤에 실행되어 수신측 bump·뱅지가 늦게 붙을 수 있음.
+     * INSERT 직후 동일 요청에서 bump 를 끝내면 상대 화면·Realtime 보강이 앞당겨진다(발신 RTT 소폭 증가).
+     */
+    try {
+      await publishMessengerRoomBumpAfterMutation(bumpArgs);
+    } catch {
+      /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+    }
   }
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",

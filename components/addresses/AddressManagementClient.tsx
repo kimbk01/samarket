@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -15,12 +15,16 @@ import {
 } from "@/lib/map/map-address-pick-storage";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
+import { readCachedMeAddressList, writeCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
-  const [list, setList] = useState<UserAddressDTO[]>([]);
+  const [list, setList] = useState<UserAddressDTO[]>(() => readCachedMeAddressList() ?? []);
+  const listRef = useRef<UserAddressDTO[]>([]);
+  listRef.current = list;
+  const [listBootstrapping, setListBootstrapping] = useState(() => (readCachedMeAddressList()?.length ?? 0) === 0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -87,6 +91,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   const load = useCallback(async () => {
     setLoadErr(null);
+    const showWait = listRef.current.length === 0;
+    if (showWait) setListBootstrapping(true);
     try {
       const a = await fetch("/api/me/addresses", { credentials: "include" });
       const aj = (await a.json()) as { ok?: boolean; addresses?: UserAddressDTO[]; error?: string };
@@ -94,12 +100,16 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         setLoadErr(typeof aj.error === "string" ? aj.error : tt("목록을 불러오지 못했어요."));
         return;
       }
-      setList(aj.addresses ?? []);
+      const rows = aj.addresses ?? [];
+      setList(rows);
+      if (rows.length > 0) writeCachedMeAddressList(rows);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
       }
     } catch {
       setLoadErr(tt("네트워크 오류가 났어요."));
+    } finally {
+      if (showWait) setListBootstrapping(false);
     }
   }, [tt]);
 
@@ -195,7 +205,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         ) : null}
 
         <div>
-          {list.length === 0 && !loadErr ? (
+          {list.length === 0 && !loadErr && listBootstrapping ? (
+            <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center text-[13px] text-sam-muted">
+              불러오는 중…
+            </p>
+          ) : list.length === 0 && !loadErr ? (
             <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center text-[13px] text-sam-muted">
               {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
             </p>

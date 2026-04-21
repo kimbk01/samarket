@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import {
+  communityMessengerRoomIsGloballyUsable,
+  type CommunityMessengerRoomContextMetaV1,
+} from "@/lib/community-messenger/types";
 import {
   BackIcon,
   MoreIcon,
@@ -14,6 +17,11 @@ import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import {
+  normalizeTradeChatCallPolicy,
+  tradeChatCallPolicyAllowsVideo,
+  tradeChatCallPolicyAllowsVoice,
+} from "@/lib/trade/trade-chat-call-policy";
 
 function formatPresenceLine(
   state: "online" | "away" | "offline",
@@ -65,6 +73,36 @@ export function CommunityMessengerRoomPhase2Header() {
     }
     return vm.roomHeaderStatus;
   }, [peerPresence, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
+
+  /** 거래(product_chats) 브리지 1:1 — 구매자만 판매자 글 `trade_chat_call_policy` 범위로 통화 버튼 표시 */
+  const tradeMessengerCallButtons = useMemo(() => {
+    if (vm.isGroupRoom || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)) {
+      return { showVoice: false, showVideo: false };
+    }
+    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+    const isTradeBridged =
+      ctx?.kind === "trade" && typeof ctx.productChatId === "string" && ctx.productChatId.trim().length > 0;
+    if (!isTradeBridged) {
+      return { showVoice: true, showVideo: true };
+    }
+    const detail = vm.snapshot.tradeChatRoomDetail;
+    const viewer = (vm.snapshot.viewerUserId ?? "").trim();
+    const buyer = (detail?.buyerId ?? "").trim();
+    if (!detail || !viewer || !buyer || viewer !== buyer) {
+      return { showVoice: false, showVideo: false };
+    }
+    const policy = normalizeTradeChatCallPolicy(detail.product?.tradeChatCallPolicy);
+    return {
+      showVoice: tradeChatCallPolicyAllowsVoice(policy),
+      showVideo: tradeChatCallPolicyAllowsVideo(policy),
+    };
+  }, [
+    vm.isGroupRoom,
+    vm.snapshot.room,
+    vm.snapshot.tradeChatRoomDetail,
+    vm.snapshot.viewerUserId,
+  ]);
+
   return (
     <>
       <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
@@ -106,27 +144,27 @@ export function CommunityMessengerRoomPhase2Header() {
             <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            {!vm.isGroupRoom && communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setConfirmKind("voice")}
-                  disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
-                  aria-label={vm.t("nav_voice_call_label")}
-                >
-                  <VoiceCallIcon className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmKind("video")}
-                  disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
-                  aria-label={vm.t("nav_video_call_label")}
-                >
-                  <VideoCallIcon className="h-5 w-5" />
-                </button>
-              </>
+            {tradeMessengerCallButtons.showVoice ? (
+              <button
+                type="button"
+                onClick={() => setConfirmKind("voice")}
+                disabled={vm.roomUnavailable || vm.outgoingDialLocked}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+                aria-label={vm.t("nav_voice_call_label")}
+              >
+                <VoiceCallIcon className="h-5 w-5" />
+              </button>
+            ) : null}
+            {tradeMessengerCallButtons.showVideo ? (
+              <button
+                type="button"
+                onClick={() => setConfirmKind("video")}
+                disabled={vm.roomUnavailable || vm.outgoingDialLocked}
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+                aria-label={vm.t("nav_video_call_label")}
+              >
+                <VideoCallIcon className="h-5 w-5" />
+              </button>
             ) : null}
             <button
               type="button"

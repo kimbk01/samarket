@@ -104,7 +104,7 @@ import {
 } from "@/lib/chats/use-trade-chat-room-typing";
 import { TradeChatPresenceHeaderRow } from "@/components/chats/TradeChatPresenceHeaderRow";
 import { TradeChatCallHeaderButtons } from "@/components/chats/TradeChatCallHeaderButtons";
-import { normalizeTradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
+import { normalizeTradeChatCallPolicy, tradeChatCallPolicyAllowsVoice } from "@/lib/trade/trade-chat-call-policy";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -424,14 +424,15 @@ export function ChatDetailView({
 
   const isChatRoom = room.source === "chat_room";
 
-  /** 거래 1:1 — 구매자만 헤더 통화(판매자 글 설정이 음성 이상일 때만 버튼 표시) */
+  /** 거래 1:1 — 구매자만, 글 `trade_chat_call_policy` 가 음성 이상일 때만 통화 UI 마운트 */
   const showTradeChatCallInHeader =
     isChatRoom &&
     !isStoreOrderChat &&
     room.chatDomain === "trade" &&
     !isGeneralPurposeChat &&
     !amISeller &&
-    Boolean(effectiveProductChatId);
+    Boolean(effectiveProductChatId) &&
+    tradeChatCallPolicyAllowsVoice(tradeChatCallPolicyNormalized);
 
   const [chatRealtimeConnState, setChatRealtimeConnState] =
     useState<ChatRoomRealtimeConnectionState>("disabled");

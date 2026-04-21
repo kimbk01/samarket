@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 
 const REAL_ESTATE_TYPES = [
@@ -124,7 +124,7 @@ import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-writ
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
-import type { TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
+import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -140,6 +140,16 @@ import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
+import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import {
+  buildTradeWriteFormSessionDraft,
+  clearTradeWriteFormSessionDraft,
+  draftImagesToUploadItems,
+  readTradeWriteFormSessionDraft,
+  tradeWriteSessionDraftLooksFilled,
+  writeTradeWriteFormSessionDraft,
+  type TradeWriteFormSessionDraftBuildArgs,
+} from "@/lib/posts/trade-write-form-session-draft";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -220,13 +230,14 @@ export function TradeWriteForm({
   const [exchangeRate, setExchangeRate] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
 
+  const prevWriteCategoryIdRef = useRef<string | null>(null);
   useEffect(() => {
+    const prev = prevWriteCategoryIdRef.current;
+    prevWriteCategoryIdRef.current = category.id;
+    if (prev === null) return;
+    if (prev === category.id) return;
     setTradeTopicChildId("");
-  }, [category.id]);
-
-  useEffect(() => {
-    if (editPostId) return;
-    setTradeChatCallPolicy("none");
+    if (!editPostId) setTradeChatCallPolicy("none");
   }, [category.id, editPostId]);
 
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
@@ -253,6 +264,277 @@ export function TradeWriteForm({
     setRegion(rid);
     setCity(cid);
   }, []);
+
+  const tradeDraftFlushRef = useRef<TradeWriteFormSessionDraftBuildArgs | null>(null);
+
+  /** 신규: 주소 관리에서 돌아올 때만 초안 복원. 그 외 `/write` 진입은 초안 삭제 → 항상 빈 폼 시작. */
+  useLayoutEffect(() => {
+    if (editPostId) return;
+    const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
+    if (shouldRestore) {
+      const d = readTradeWriteFormSessionDraft(category.id);
+      if (!d) return;
+      setTitle(d.title ?? "");
+      setDescription(d.description ?? "");
+      setPrice(d.price ?? "");
+      setRegion(d.region ?? "");
+      setCity(d.city ?? "");
+      setImages(draftImagesToUploadItems(d.imageUrls ?? []));
+      setIsFreeShare(d.isFreeShare === true);
+      setIsPriceOfferEnabled(d.isPriceOfferEnabled === true);
+      setIsDirectDeal(d.isDirectDeal !== false);
+      setTradeTopicChildId(d.tradeTopicChildId ?? "");
+      setNeighborhood(d.neighborhood ?? "");
+      setBuildingName(d.buildingName ?? "");
+      setEstateType(d.estateType ?? "");
+      setDealType(d.dealType === "판매" ? "판매" : "임대");
+      setDeposit(d.deposit ?? "");
+      setMonthly(d.monthly ?? "");
+      setManagementFee(d.managementFee ?? "");
+      setHasPremium(d.hasPremium === true);
+      setAreaSqm(d.areaSqm ?? "");
+      setRoomCount(d.roomCount ?? "");
+      setBathroomCount(d.bathroomCount ?? "");
+      setMoveInDate(d.moveInDate ?? "");
+      setCarModel(d.carModel ?? "");
+      setCarYear(d.carYear ?? "");
+      setMileage(d.mileage ?? "");
+      setUsedCarTrade(d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null);
+      setCarHasAccident(d.carHasAccident === true);
+      setSalary(d.salary ?? "");
+      setWorkPlace(d.workPlace ?? "");
+      setWorkType(d.workType ?? "");
+      setCurrency(d.currency ?? "");
+      setExchangeRate(d.exchangeRate ?? "");
+      setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
+      setDescriptionAppend(d.descriptionAppend ?? "");
+      return;
+    }
+    clearTradeWriteFormSessionDraft(category.id);
+  }, [editPostId, category.id]);
+
+  const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (editPostId) {
+      tradeDraftFlushRef.current = null;
+      return;
+    }
+    const flushPayload: TradeWriteFormSessionDraftBuildArgs = {
+      categoryId: category.id,
+      skinKey,
+      title,
+      description,
+      price,
+      region,
+      city,
+      images,
+      isFreeShare,
+      isPriceOfferEnabled,
+      isDirectDeal,
+      tradeTopicChildId,
+      neighborhood,
+      buildingName,
+      estateType,
+      dealType,
+      deposit,
+      monthly,
+      managementFee,
+      hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+    };
+    tradeDraftFlushRef.current = flushPayload;
+    if (!tradeWriteSessionDraftLooksFilled(flushPayload)) return;
+    if (sessionDraftTimerRef.current) clearTimeout(sessionDraftTimerRef.current);
+    sessionDraftTimerRef.current = setTimeout(() => {
+      sessionDraftTimerRef.current = null;
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(flushPayload));
+    }, 400);
+    return () => {
+      if (sessionDraftTimerRef.current) {
+        clearTimeout(sessionDraftTimerRef.current);
+        sessionDraftTimerRef.current = null;
+      }
+    };
+  }, [
+    editPostId,
+    category.id,
+    skinKey,
+    title,
+    description,
+    price,
+    region,
+    city,
+    images,
+    isFreeShare,
+    isPriceOfferEnabled,
+    isDirectDeal,
+    tradeTopicChildId,
+    neighborhood,
+    buildingName,
+    estateType,
+    dealType,
+    deposit,
+    monthly,
+    managementFee,
+    hasPremium,
+    areaSqm,
+    roomCount,
+    bathroomCount,
+    moveInDate,
+    carModel,
+    carYear,
+    mileage,
+    usedCarTrade,
+    carHasAccident,
+    salary,
+    workPlace,
+    workType,
+    currency,
+    exchangeRate,
+    tradeChatCallPolicy,
+    descriptionAppend,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (editPostId) return;
+      const snap = tradeDraftFlushRef.current;
+      if (!snap) return;
+      if (!tradeWriteSessionDraftLooksFilled(snap)) return;
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(snap));
+    };
+  }, [editPostId]);
+
+  /**
+   * 주소 관리로 이동 직전: 로컬 파일(미업로드)을 스토리지에 올려 URL로 바꾼 뒤 초안에 저장.
+   * sessionStorage 초안은 http(s) URL만 보존하므로, 이 단계 없이 나가면 뒤로가기 후 이미지가 비어 보임.
+   */
+  const handleBeforeNavigateToAddresses = useCallback(async () => {
+    if (editPostId) return;
+    setTradeWriteRestoreAfterAddressFlag(category.id);
+
+    const user = getCurrentUser();
+    let workingImages = [...images];
+    const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
+    if (files.length > 0) {
+      if (!user?.id) {
+        window.alert("로그인이 필요합니다. 로그인 후 주소 관리로 이동해 주세요.");
+        throw new Error("no-user");
+      }
+      const uploaded = await uploadPostImages(files, user.id);
+      if (uploaded.length !== files.length) {
+        window.alert(
+          `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+        );
+        throw new Error("partial-upload");
+      }
+      let idx = 0;
+      workingImages = workingImages.map((item) => {
+        if (item.file) {
+          const url = uploaded[idx++];
+          return url ? { url } : item;
+        }
+        return item;
+      });
+      setImages(workingImages);
+    }
+
+    const payload: TradeWriteFormSessionDraftBuildArgs = {
+      categoryId: category.id,
+      skinKey,
+      title,
+      description,
+      price,
+      region,
+      city,
+      images: workingImages,
+      isFreeShare,
+      isPriceOfferEnabled,
+      isDirectDeal,
+      tradeTopicChildId,
+      neighborhood,
+      buildingName,
+      estateType,
+      dealType,
+      deposit,
+      monthly,
+      managementFee,
+      hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+    };
+    tradeDraftFlushRef.current = payload;
+    if (tradeWriteSessionDraftLooksFilled(payload)) {
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
+    }
+  }, [
+    editPostId,
+    category.id,
+    skinKey,
+    title,
+    description,
+    price,
+    region,
+    city,
+    images,
+    isFreeShare,
+    isPriceOfferEnabled,
+    isDirectDeal,
+    tradeTopicChildId,
+    neighborhood,
+    buildingName,
+    estateType,
+    dealType,
+    deposit,
+    monthly,
+    managementFee,
+    hasPremium,
+    areaSqm,
+    roomCount,
+    bathroomCount,
+    moveInDate,
+    carModel,
+    carYear,
+    mileage,
+    usedCarTrade,
+    carHasAccident,
+    salary,
+    workPlace,
+    workType,
+    currency,
+    exchangeRate,
+    tradeChatCallPolicy,
+    descriptionAppend,
+  ]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -376,13 +658,14 @@ export function TradeWriteForm({
           .map((item) => item.url);
 
         let mergedImageUrls: string[];
+        let uploadedFileResults: string[] = [];
         /** 신규 등록: 스토리지 업로드 + userId + 전화 게이트 병렬 → `createPost` 에서 프로필 API 중복 호출 생략 */
         let createPreflight: { userId: string; phoneGatePassed: true } | undefined;
 
         if (editPostId) {
-          const uploaded =
+          uploadedFileResults =
             files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-          mergedImageUrls = [...existingUrls, ...uploaded];
+          mergedImageUrls = [...existingUrls, ...uploadedFileResults];
         } else {
           const uploadPromise =
             files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
@@ -391,6 +674,7 @@ export function TradeWriteForm({
             getCurrentUserIdForDb(),
             assertPhoneAllowsPostWrite(),
           ]);
+          uploadedFileResults = uploaded;
           if (!phoneGate.ok) {
             setErrors({ submit: phoneGate.error });
             return;
@@ -400,7 +684,13 @@ export function TradeWriteForm({
             return;
           }
           createPreflight = { userId: preflightUserId, phoneGatePassed: true };
-          mergedImageUrls = [...existingUrls, ...uploaded];
+          mergedImageUrls = [...existingUrls, ...uploadedFileResults];
+        }
+        if (files.length > 0 && uploadedFileResults.length !== files.length) {
+          setErrors({
+            submit: `이미지 ${files.length}장 중 ${uploadedFileResults.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`,
+          });
+          return;
         }
         /** 수정 시 빈 배열을 넘겨야 기존 이미지가 DB에서 제거됨(undefined면 update가 images를 건드리지 않음) */
         const imageUrlsForSave = editPostId
@@ -488,6 +778,7 @@ export function TradeWriteForm({
         } else {
           const res = await createPost(payload, createPreflight);
           if (res.ok) {
+            clearTradeWriteFormSessionDraft(category.id);
             onSuccess(res.id);
           } else {
             if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
@@ -587,6 +878,7 @@ export function TradeWriteForm({
                 onSyncRegionCity={syncTradeRegionCity}
                 error={errors.location}
                 readOnly={coreLocked}
+                onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
               />
             </div>
             <section
@@ -1236,6 +1528,7 @@ export function TradeWriteForm({
               onSyncRegionCity={syncTradeRegionCity}
               error={errors.location}
               readOnly={coreLocked}
+              onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
             />
           </div>
         )}

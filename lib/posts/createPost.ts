@@ -67,6 +67,10 @@ export async function createPost(
 
     if (payload.type === "trade" && "imageUrls" in payload && Array.isArray(payload.imageUrls) && payload.imageUrls.length > 0) {
       row.images = payload.imageUrls;
+      const firstThumb = payload.imageUrls.find(
+        (u): u is string => typeof u === "string" && u.trim().length > 0
+      );
+      if (firstThumb) row.thumbnail_url = firstThumb.trim();
     }
 
     if (payload.type === "trade" && "region" in payload && payload.region != null && String(payload.region).trim()) {

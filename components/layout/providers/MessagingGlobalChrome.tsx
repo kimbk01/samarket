@@ -23,13 +23,6 @@ const GlobalOrderChatUnreadSound = dynamic(
   () => import("@/components/notifications/GlobalOrderChatUnreadSound").then((mod) => mod.GlobalOrderChatUnreadSound),
   { ssr: false }
 );
-const GlobalCommunityMessengerUnreadSound = dynamic(
-  () =>
-    import("@/components/community-messenger/GlobalCommunityMessengerUnreadSound").then(
-      (mod) => mod.GlobalCommunityMessengerUnreadSound
-    ),
-  { ssr: false }
-);
 const MessengerInAppMessageBannerHost = dynamic(
   () =>
     import("@/components/community-messenger/MessengerInAppMessageBannerHost").then(
@@ -39,7 +32,8 @@ const MessengerInAppMessageBannerHost = dynamic(
 );
 
 /**
- * 알림 배지 Realtime·주문 허브 미읽음 사운드·메신저 participants 브리지·인앱 배너·사운드 프라임.
+ * 알림 배지 Realtime·주문 허브 미읽음 사운드·인앱 배너·사운드 프라임.
+ * 메신저 `community_messenger_participants` 구독은 `MainShellMessengerParticipantBridge`(전역 1개)가 담당.
  * 마운트 기준은 `resolveMessagingGlobalChromeFromPath` 단일 정책(셸 플래그 1회 계산).
  */
 export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout: boolean }) {
@@ -60,7 +54,6 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     !p.mountNotificationSoundPrime &&
     !p.mountNotificationsBadgeRealtimeBridge &&
     !p.mountGlobalOrderChatUnreadSound &&
-    !p.mountGlobalCommunityMessengerParticipantBridge &&
     !p.mountMessengerInAppBannerHost
   ) {
     return null;
@@ -71,9 +64,6 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
       {p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
       {p.mountGlobalOrderChatUnreadSound ? <GlobalOrderChatUnreadSound enabled /> : null}
-      {p.mountGlobalCommunityMessengerParticipantBridge ? (
-        <GlobalCommunityMessengerUnreadSound enabled playback={p.communityMessengerParticipantPlayback} />
-      ) : null}
       {p.mountMessengerInAppBannerHost ? <MessengerInAppMessageBannerHost /> : null}
     </>
   );

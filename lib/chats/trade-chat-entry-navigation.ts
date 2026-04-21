@@ -7,7 +7,10 @@ import {
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import { patchTradeChatEntryMark, startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
-import { setTradeChatEntryCreatingOverlayVisible } from "@/lib/chats/trade-chat-entry-overlay-events";
+import {
+  setTradeChatEntryCreatingOverlayState,
+  setTradeChatEntryCreatingOverlayVisible,
+} from "@/lib/chats/trade-chat-entry-overlay-events";
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -60,7 +63,8 @@ export function openCreateTradeChat(
   startTradeChatEntryMark({ mode: "create", productId });
   const composeHref = tradeHubChatComposeHref({ productId });
   void (async () => {
-    setTradeChatEntryCreatingOverlayVisible(true);
+    let successNavigatedToRoom = false;
+    setTradeChatEntryCreatingOverlayState({ visible: true, phase: "resolving" });
     try {
       const result = await createOrGetChatRoom(productId, {
         ...(input.forceNewThread ? { forceNewThread: true } : {}),
@@ -68,6 +72,7 @@ export function openCreateTradeChat(
       if (result.ok && result.roomId) {
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
         const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
+        setTradeChatEntryCreatingOverlayState({ visible: true, phase: "entering" });
         void router.prefetch(dest);
         const mark = patchTradeChatEntryMark({
           roomId: result.roomId,
@@ -91,6 +96,7 @@ export function openCreateTradeChat(
         const cmForList = result.messengerRoomId?.trim();
         if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
         router.replace(dest, { scroll: false });
+        successNavigatedToRoom = true;
         return;
       }
       const errMsg = !result.ok ? result.error : "채팅방을 열 수 없습니다.";
@@ -98,7 +104,9 @@ export function openCreateTradeChat(
       void router.prefetch(composeHref);
       router.push(composeHref);
     } finally {
-      setTradeChatEntryCreatingOverlayVisible(false);
+      if (!successNavigatedToRoom) {
+        setTradeChatEntryCreatingOverlayVisible(false);
+      }
     }
   })();
 }

@@ -1104,6 +1104,39 @@ export function PostDetailView({
     }
   }, []);
 
+  /** 탭 직전에 resolve 선행 — 호버 180ms 없이도 첫 탭 체감 지연 완화 */
+  const onTradeChatCtaPointerDown = useCallback(() => {
+    cancelTradeChatPrepare();
+    if (
+      showChat &&
+      !existingTradeRoomId &&
+      !chatBlockedByListingState &&
+      !chatBlockedByOtherReservation &&
+      (!isSold || allowChatAfterSold)
+    ) {
+      void prefetchTradeChatEntry(router, {
+        productId: post.id,
+        existingRoomId: null,
+        existingRoomSource: null,
+        existingMessengerRoomId: null,
+        prepareIfCreate: true,
+      });
+    } else {
+      prefetchTradeChatShell();
+    }
+  }, [
+    cancelTradeChatPrepare,
+    showChat,
+    existingTradeRoomId,
+    chatBlockedByListingState,
+    chatBlockedByOtherReservation,
+    isSold,
+    allowChatAfterSold,
+    router,
+    post.id,
+    prefetchTradeChatShell,
+  ]);
+
   /** 거래 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
   useEffect(() => {
     if (resolvedViewerId === undefined || resolvedViewerId === null) return;
@@ -1280,10 +1313,7 @@ export function PostDetailView({
                 onClick={handleChat}
                 onPointerEnter={scheduleTradeChatPrepare}
                 onPointerLeave={cancelTradeChatPrepare}
-                onPointerDown={() => {
-                  cancelTradeChatPrepare();
-                  prefetchTradeChatShell();
-                }}
+                onPointerDown={onTradeChatCtaPointerDown}
                 disabled={
                   !showChat ||
                   chatBlockedByListingState ||
@@ -1601,10 +1631,7 @@ export function PostDetailView({
               onClick={handleChat}
               onPointerEnter={scheduleTradeChatPrepare}
               onPointerLeave={cancelTradeChatPrepare}
-              onPointerDown={() => {
-                cancelTradeChatPrepare();
-                prefetchTradeChatShell();
-              }}
+              onPointerDown={onTradeChatCtaPointerDown}
               disabled={
                 !showChat ||
                 chatBlockedByListingState ||

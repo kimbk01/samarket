@@ -222,10 +222,8 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
     clearTimeout(messengerHubBadgeCoalesceTimer);
     messengerHubBadgeCoalesceTimer = null;
   }
-  messengerHubBadgeCoalesceTimer = setTimeout(() => {
-    messengerHubBadgeCoalesceTimer = null;
-    void fetchOwnerHubBadgeNow(true);
-  }, 80);
+  /** `runSingleFlight`+`MIN_FORCE_FETCH_GAP` 가 폭주를 막음 — 80ms coalesce 는 탭 배지 체감 지연만 만듦 */
+  void fetchOwnerHubBadgeNow(true);
 }
 
 function onOwnerHubRefresh(ev?: Event) {

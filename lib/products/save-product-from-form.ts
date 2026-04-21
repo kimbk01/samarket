@@ -21,6 +21,11 @@ export async function saveProductTradeFromForm(
     (x): x is string => typeof x === "string" && x.trim().length > 0
   );
   const uploaded = await uploadPostImages(files, userId);
+  if (files.length > 0 && uploaded.length !== files.length) {
+    throw new Error(
+      `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+    );
+  }
   const imageUrls = [...existingUrls, ...uploaded];
 
   const categoryId = payload.category?.trim() ?? "";

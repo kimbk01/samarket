@@ -1,4 +1,6 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { normalizePostImages } from "@/lib/posts/post-normalize";
+import { getLocationLabelIfValid } from "@/lib/products/form-options";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ export async function GET(_req: NextRequest) {
   const { data: rows, error } = await sbAny
     .from(POSTS_TABLE_READ)
     .select(
-      "id, title, content, price, status, seller_listing_state, images, view_count, created_at, updated_at, user_id"
+      "id, title, content, price, status, seller_listing_state, images, thumbnail_url, view_count, created_at, updated_at, user_id, region, city"
     )
     .eq("user_id", userId)
     .order("updated_at", { ascending: false });
@@ -33,25 +35,36 @@ export async function GET(_req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const posts = (rows ?? []).map((r: Record<string, unknown>) => ({
+  const posts = (rows ?? []).map((r: Record<string, unknown>) => {
+    const region = String(r.region ?? "").trim();
+    const city = String(r.city ?? "").trim();
+    const locLine = getLocationLabelIfValid(region, city)?.trim() ?? "";
+    const fromImages = normalizePostImages(r.images) ?? [];
+    const thumbCol =
+      typeof r.thumbnail_url === "string" && r.thumbnail_url.trim().length > 0
+        ? r.thumbnail_url.trim()
+        : "";
+    const thumbnail = thumbCol || fromImages[0] || "";
+    return {
     id: r.id,
     title: (r.title as string) ?? "",
     description: (r.content as string) ?? "",
     price: Number(r.price) ?? 0,
     status: (r.status as string) ?? "active",
     sellerListingState: (r.seller_listing_state as string) ?? undefined,
-    thumbnail: Array.isArray(r.images) && (r.images as string[]).length > 0 ? (r.images as string[])[0] : "",
-    images: (r.images as string[]) ?? [],
+    thumbnail,
+    images: fromImages,
     viewCount: Number(r.view_count) ?? 0,
     likesCount: 0,
     chatCount: 0,
     isBoosted: false,
-    location: "",
+    location: locLine,
     createdAt: (r.created_at as string) ?? "",
     updatedAt: (r.updated_at as string) ?? "",
     sellerId: r.user_id as string,
     seller: { id: r.user_id, nickname: "", avatar: "", location: "", mannerTemp: 36.5 },
-  }));
+  };
+  });
 
   return NextResponse.json({ posts });
 }

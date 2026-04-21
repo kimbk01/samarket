@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buildTradePublicLine,
@@ -12,6 +12,7 @@ import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
 
 const ADDRESSES_HREF = "/mypage/addresses";
 
@@ -40,6 +41,8 @@ type TradeDefaultLocationBlockProps = {
   error?: string;
   /** 정책상 본문 잠금 시 주소 관리 이동 숨김 */
   readOnly?: boolean;
+  /** 거래 글쓰기 신규: 주소 관리로 가기 직전(이미지 업로드·초안 저장 등). 완료 후 라우팅은 이 컴포넌트가 수행 */
+  onBeforeNavigateToAddresses?: () => void | Promise<void>;
 };
 
 /**
@@ -53,12 +56,16 @@ export function TradeDefaultLocationBlock({
   onSyncRegionCity,
   error,
   readOnly = false,
+  onBeforeNavigateToAddresses,
 }: TradeDefaultLocationBlockProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
+  const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathnameEffectFirstRef = useRef(true);
 
   const load = useCallback(async () => {
     try {
@@ -96,9 +103,24 @@ export function TradeDefaultLocationBlock({
     }
   }, []);
 
-  /** 신규·수정 공통: 마운트·경로·탭 복귀·뒤로 가기 시 최신 대표 주소 반영 */
+  /** 첫 경로는 즉시 로드, 이후 경로 변경만 짧게 디바운스(왕복 시 연속 fetch 완화) */
   useEffect(() => {
-    void load();
+    if (pathnameEffectFirstRef.current) {
+      pathnameEffectFirstRef.current = false;
+      void load();
+      return;
+    }
+    if (pathnameLoadTimerRef.current) clearTimeout(pathnameLoadTimerRef.current);
+    pathnameLoadTimerRef.current = setTimeout(() => {
+      pathnameLoadTimerRef.current = null;
+      void load();
+    }, 200);
+    return () => {
+      if (pathnameLoadTimerRef.current) {
+        clearTimeout(pathnameLoadTimerRef.current);
+        pathnameLoadTimerRef.current = null;
+      }
+    };
   }, [pathname, load]);
 
   useEffect(() => {
@@ -125,6 +147,12 @@ export function TradeDefaultLocationBlock({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
+  /** 거래 글쓰기에서 곧 주소 화면으로 갈 때 목록 API 선호출 → 주소 관리 첫 화면 즉시 표시 */
+  useEffect(() => {
+    if (!onBeforeNavigateToAddresses) return;
+    prefetchMeAddressListIntoCache();
+  }, [onBeforeNavigateToAddresses]);
+
   /** 수정 폼 스냅샷 라벨 — API 로딩 중 임시 표시·API 실패 시 폴백 */
   const snapshotLabel = editPostId && region && city ? getLocationLabel(region, city) : null;
 
@@ -141,12 +169,29 @@ export function TradeDefaultLocationBlock({
             "대표 주소가 없습니다. 아래 「주소 관리로 변경」에서 대표 주소를 설정해 주세요."}
       </p>
       {!readOnly ? (
-        <Link
-          href={ADDRESSES_HREF}
-          className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
-        >
-          주소 관리로 변경
-        </Link>
+        onBeforeNavigateToAddresses ? (
+          <button
+            type="button"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
+            onClick={async () => {
+              try {
+                await onBeforeNavigateToAddresses();
+              } catch {
+                return;
+              }
+              router.push(ADDRESSES_HREF);
+            }}
+          >
+            주소 관리로 변경
+          </button>
+        ) : (
+          <Link
+            href={ADDRESSES_HREF}
+            className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+          >
+            주소 관리로 변경
+          </Link>
+        )
       ) : null}
       {error ? <p className="mt-2 text-[13px] text-red-500">{error}</p> : null}
     </section>

@@ -171,6 +171,42 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     }
   }, []);
 
+  const onTradeChatPointerDown = useCallback(() => {
+    cancelTradeChatPrepare();
+    if (
+      showChat &&
+      !existingRoomId &&
+      !chatBlockedByOtherReservation &&
+      (!isSold || allowChatAfterSold)
+    ) {
+      void prefetchTradeChatEntry(router, {
+        productId: post.id,
+        existingRoomId,
+        existingRoomSource,
+        existingMessengerRoomId,
+        prepareIfCreate: true,
+      });
+    } else {
+      void prefetchTradeChatEntry(router, {
+        productId: post.id,
+        existingRoomId,
+        existingRoomSource,
+        existingMessengerRoomId,
+      });
+    }
+  }, [
+    cancelTradeChatPrepare,
+    showChat,
+    existingRoomId,
+    chatBlockedByOtherReservation,
+    isSold,
+    allowChatAfterSold,
+    router,
+    post.id,
+    existingRoomSource,
+    existingMessengerRoomId,
+  ]);
+
   const handleChat = useCallback(() => {
     setChatError("");
     const me = getCurrentUser();
@@ -226,7 +262,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
               });
             }}
             onPointerLeave={cancelTradeChatPrepare}
-            onPointerDown={cancelTradeChatPrepare}
+            onPointerDown={onTradeChatPointerDown}
             disabled={chatDisabled}
             title={
               chatBlockedByOtherReservation

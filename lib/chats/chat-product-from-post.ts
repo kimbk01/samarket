@@ -180,6 +180,7 @@ export function chatProductSummaryFromPostRow(
     exchangeRateSubLine: isEx ? rateLine : undefined,
     listPreview,
     isJobTradeChat: !isEx && isJobTradeChat ? true : undefined,
-    tradeChatCallPolicy: !isEx && !isJobTradeChat && tradeChatCallPolicy !== "none" ? tradeChatCallPolicy : undefined,
+    /** 명시 전달 — `none` 포함. 메신저/채팅 헤더가 `undefined`와 구분해 통화 버튼을 숨길 수 있음 */
+    tradeChatCallPolicy: !isEx && !isJobTradeChat ? tradeChatCallPolicy : undefined,
   };
 }
