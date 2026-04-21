@@ -2,11 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
-import { clearTestAuth, getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
@@ -30,33 +28,27 @@ function shouldRunSessionCheckAfterPathChange(prev: string | null, next: string)
   if (isAuthEntryPath(prev)) return true;
   return false;
 }
-/** 401 시 refresh 후에도 몇 번 더 재시도(뒤로가기·빠른 전환 시 오탐 로그아웃 방지) */
+/** 401 시 refresh 후에도 몇 번 더 재시도(뒤로가기·빠른 전환 시 일시 실패 완화) */
 const SESSION_UNAUTH_MAX_ATTEMPTS = 4;
 
-/** Supabase 세션이 없는데 (main) 셸이 남은 경우 → 로그인으로 강제 이동 (bfcache·클라 캐시 완화) */
 const SESSION_CHECK_FLIGHT = "client:auth-session-check";
 
+/** 커뮤니티 메신저 통화·발신 다이얼 — WebRTC·백그라운드 탭에서 세션 API 가 느리거나 실패하기 쉬움 */
+function isCommunityMessengerCallShellPath(path: string): boolean {
+  return path === "/community-messenger/calls" || path.startsWith("/community-messenger/calls/");
+}
+
+/**
+ * 로그인/가입/OAuth 직후 세션 정합만 가볍게 확인한다.
+ * - **자동 로그아웃·`/login` 강제 이동은 하지 않는다** — 의도적 로그아웃은 내정보 로그아웃만 사용.
+ * - 뒤로가기 bfcache·탭 복귀마다 `/api/auth/session` 을 때리지 않는다(오탐·통화 중 끊김 방지).
+ * - 실제 미인증은 `proxy.ts`·전체 네비게이션 시 서버가 처리.
+ */
 export function SessionLostRedirect() {
   const pathname = usePathname() ?? "";
-  /** pathname 을 check·handleSessionLost 의 의존성에 넣지 않아, 라우트 전환마다 interval/focus 리스너가 재생성되지 않게 함 */
   const pathnameRef = useRef(pathname);
   const prevPathForSessionRef = useRef<string | null>(null);
   const lastCheckAtRef = useRef(0);
-
-  const handleSessionLost = useCallback(async () => {
-    clearTestAuth();
-    setSupabaseProfileCache(null);
-    try {
-      const sb = getSupabaseClient();
-      await sb?.auth.signOut();
-    } catch {
-      /* ignore */
-    }
-    /** `?next=` 로 복귀하면 글쓰기 등 보호 경로로 바로 가며 세션·게이트와 어긋나 로그인 루프가 남 — 항상 `/login` 만 */
-    if (typeof window !== "undefined") {
-      window.location.replace("/login");
-    }
-  }, []);
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
@@ -64,6 +56,7 @@ export function SessionLostRedirect() {
     if (getTestAuth()) return;
     const path = pathnameRef.current;
     if (path === "/login" || path.startsWith("/login/")) return;
+    if (isCommunityMessengerCallShellPath(path)) return;
     const now = Date.now();
     if (!force && now - lastCheckAtRef.current < SESSION_CHECK_COOLDOWN_MS) return;
     lastCheckAtRef.current = now;
@@ -87,19 +80,15 @@ export function SessionLostRedirect() {
             await new Promise((r) => setTimeout(r, 280 + attempt * 120));
             continue;
           }
-          await handleSessionLost();
+          /** 여기까지 401이면 네트워크·레이스·부하 가능성이 큼 — `signOut`·로그인 강제 이동 금지 */
           return;
         }
       } catch {
-        /** 네트워크 끊김 등 — 자동 로그아웃 안 함 */
+        /** 네트워크 끊김 등 */
       }
     });
-  }, [handleSessionLost]);
+  }, []);
 
-  /**
-   * `/home` ↔ `/chats` 등 일반 이동마다 `/api/auth/session` 을 때리지 않음(프록시·RSC 가 이미 인증 처리).
-   * 로그인/가입/OAuth 직후에만 세션 정합 검사.
-   */
   useLayoutEffect(() => {
     pathnameRef.current = pathname;
     const prev = prevPathForSessionRef.current;
@@ -119,8 +108,6 @@ export function SessionLostRedirect() {
     }, PATHNAME_SESSION_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [pathname, check]);
-
-  useRefetchOnPageShowRestore(() => void check(true), { visibilityDebounceMs: 400 });
 
   useEffect(() => {
     const onAuth = () => void check(true);

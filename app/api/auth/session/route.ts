@@ -1,7 +1,7 @@
 /**
  * GET /api/auth/session — (main) 앱 셸·SessionLostRedirect 와 동일하게 Supabase 세션만 인정.
  * Route Handler 에서 `cookies()` 만 쓰면 토큰 갱신 시 Set-Cookie 가 누락되어
- * 주기적 세션 체크가 401 → 자동 로그아웃으로 이어질 수 있어,
+ * 주기적 세션 체크가 401 로 보일 수 있어,
  * Request + mutable NextResponse 패턴으로 갱신 쿠키를 응답에 실음 (@supabase/ssr 권장).
  */
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
