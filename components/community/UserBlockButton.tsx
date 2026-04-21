@@ -80,7 +80,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       <button
         type="button"
         onClick={() => router.push("/login")}
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-fg"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg"
       >
         차단
       </button>
@@ -92,7 +92,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       type="button"
       disabled={busy || blocked === null}
       onClick={() => void toggle()}
-      className={`rounded-ui-rect border px-3 py-1.5 text-[12px] disabled:opacity-50 ${
+      className={`rounded-ui-rect border px-3 py-1.5 sam-text-helper disabled:opacity-50 ${
         blocked === true
           ? "border-red-300 bg-red-50 text-red-900"
           : "border-sam-border bg-sam-surface text-sam-fg"

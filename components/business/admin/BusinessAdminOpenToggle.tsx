@@ -35,7 +35,7 @@ export function BusinessAdminOpenToggle({
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[12px] font-medium text-sam-muted">영업</span>
+      <span className="sam-text-helper font-medium text-sam-muted">영업</span>
       <button
         type="button"
         role="switch"
@@ -53,7 +53,7 @@ export function BusinessAdminOpenToggle({
           }`}
         />
       </button>
-      <span className={`text-[12px] font-semibold ${isOpen ? "text-emerald-800" : "text-sam-muted"}`}>
+      <span className={`sam-text-helper font-semibold ${isOpen ? "text-emerald-800" : "text-sam-muted"}`}>
         {isOpen ? "영업중" : "일시중지"}
       </span>
     </div>

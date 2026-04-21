@@ -33,13 +33,13 @@ export function CommunityComposeSheet({
       <button type="button" className="absolute inset-0 bg-black/40" aria-label="닫기" onClick={onClose} />
       <div className="relative rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-3 shadow-2xl">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-sam-border-soft" />
-        <p className="mb-3 text-center text-[13px] font-medium text-sam-muted">무엇을 할까요?</p>
+        <p className="mb-3 text-center sam-text-body-secondary font-medium text-sam-muted">무엇을 할까요?</p>
         <ul className="space-y-2">
           <li>
             <Link
               href={TRADE_CHAT_SURFACE.messengerListHref}
               onClick={onClose}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border-soft bg-sam-app py-3.5 text-[15px] font-medium text-sam-fg"
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border-soft bg-sam-app py-3.5 sam-text-body font-medium text-sam-fg"
             >
               동네봇에게 질문 남기기
             </Link>
@@ -48,7 +48,7 @@ export function CommunityComposeSheet({
             <Link
               href={writeHref}
               onClick={onClose}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 text-[15px] font-medium text-sam-fg"
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 sam-text-body font-medium text-sam-fg"
             >
               커뮤니티 글쓰기
             </Link>
@@ -57,7 +57,7 @@ export function CommunityComposeSheet({
             <Link
               href={writeMeetingHref}
               onClick={onClose}
-              className="flex items-center justify-center rounded-ui-rect bg-emerald-600 py-3.5 text-[15px] font-medium text-white"
+              className="flex items-center justify-center rounded-ui-rect bg-emerald-600 py-3.5 sam-text-body font-medium text-white"
             >
               모임 만들기
             </Link>
@@ -66,7 +66,7 @@ export function CommunityComposeSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full py-2 text-[14px] text-sam-muted"
+          className="mt-4 w-full py-2 sam-text-body text-sam-muted"
         >
           취소
         </button>

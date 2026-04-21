@@ -89,8 +89,8 @@ export function MeetingNoticesTab({
     <div className="space-y-3">
       {/* 공지 ↔ 피드 연동 상태 */}
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3.5 py-3 shadow-sm">
-        <p className="text-[12px] font-semibold text-sam-fg">연동 상태</p>
-        <ul className="mt-2 space-y-1.5 text-[12px] text-sam-muted">
+        <p className="sam-text-helper font-semibold text-sam-fg">연동 상태</p>
+        <ul className="mt-2 space-y-1.5 sam-text-helper text-sam-muted">
           <li className="flex justify-between gap-2">
             <span>모임 공지 (DB)</span>
             <span className="shrink-0 font-medium text-sam-fg">
@@ -114,7 +114,7 @@ export function MeetingNoticesTab({
             </span>
           </li>
         </ul>
-        <p className="mt-2 text-[11px] leading-relaxed text-sam-meta">
+        <p className="mt-2 sam-text-xxs leading-relaxed text-sam-meta">
           개설자 관리의 공지 등록과 피드의 &apos;공지&apos; 유형 글이 이 목록에 함께 표시됩니다.
         </p>
       </div>
@@ -123,17 +123,17 @@ export function MeetingNoticesTab({
       {isHost && (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 p-3">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-semibold text-emerald-800">📢 공지 작성</p>
+            <p className="sam-text-body-secondary font-semibold text-emerald-800">📢 공지 작성</p>
             <button
               type="button"
               onClick={() => setShowHint((v) => !v)}
-              className="text-[12px] text-emerald-600"
+              className="sam-text-helper text-emerald-600"
             >
               {showHint ? "닫기" : "방법"}
             </button>
           </div>
           {showHint && (
-            <p className="mt-1 text-[12px] leading-relaxed text-emerald-700">
+            <p className="mt-1 sam-text-helper leading-relaxed text-emerald-700">
               <strong>개설자 관리</strong>에서 &quot;공지 등록&quot;한 내용과,{" "}
               <strong>피드</strong> 탭에서 유형 <strong>공지</strong>로 올린 글이 모두 여기에
               모입니다. 멤버도 동일한 목록을 봅니다.
@@ -143,7 +143,7 @@ export function MeetingNoticesTab({
             <button
               type="button"
               onClick={onGoFeed}
-              className="mt-2 w-full rounded-ui-rect bg-emerald-600 py-2 text-[13px] font-semibold text-white hover:bg-emerald-700"
+              className="mt-2 w-full rounded-ui-rect bg-emerald-600 py-2 sam-text-body-secondary font-semibold text-white hover:bg-emerald-700"
             >
               피드에서 공지 작성하기 →
             </button>
@@ -153,10 +153,10 @@ export function MeetingNoticesTab({
 
       {unified.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-16 text-center">
-          <p className="text-[28px]">📢</p>
-          <p className="mt-3 text-[14px] text-sam-meta">아직 공지가 없어요.</p>
+          <p className="sam-text-hero">📢</p>
+          <p className="mt-3 sam-text-body text-sam-meta">아직 공지가 없어요.</p>
           {isHost && (
-            <p className="mt-1 text-[12px] text-sam-meta">
+            <p className="mt-1 sam-text-helper text-sam-meta">
               아래 개설자 관리의 공지 등록 또는 피드의 &apos;공지&apos; 유형 글이 여기에 표시됩니다.
             </p>
           )}
@@ -170,13 +170,13 @@ export function MeetingNoticesTab({
             }`}
           >
             <div className="flex items-start gap-2">
-              {notice.is_pinned && <span className="mt-0.5 shrink-0 text-[16px]">📌</span>}
+              {notice.is_pinned && <span className="mt-0.5 shrink-0 sam-text-body-lg">📌</span>}
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-sam-fg">{notice.title}</p>
-                <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-sam-fg">
+                <p className="sam-text-body font-semibold text-sam-fg">{notice.title}</p>
+                <p className="mt-1 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
                   {notice.body}
                 </p>
-                <p className="mt-2 text-[11px] text-sam-meta">{formatDate(notice.created_at)}</p>
+                <p className="mt-2 sam-text-xxs text-sam-meta">{formatDate(notice.created_at)}</p>
               </div>
             </div>
           </div>

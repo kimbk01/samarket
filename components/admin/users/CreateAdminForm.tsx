@@ -88,26 +88,26 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
         <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-5 py-4">
           <h2 className="text-lg font-semibold text-sam-fg">관리자 수동 생성</h2>
-          <p className="mt-1 text-[13px] text-sam-muted">
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">
             각 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">로그인 ID</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">로그인 ID</label>
               <input
                 type="text"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 maxLength={64}
                 autoComplete="username"
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="이메일 또는 아이디 (2~64자)"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">비밀번호</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
               <input
                 type="password"
                 value={password}
@@ -115,29 +115,29 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
                 minLength={4}
                 maxLength={128}
                 autoComplete="new-password"
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="4자 이상"
               />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">표시 이름</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">표시 이름</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={64}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="관리자 목록에 표시될 이름 (64자 이내)"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">역할</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">역할</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as AdminRole)}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {ROLE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -157,19 +157,19 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
             />
           </div>
 
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
+          {error && <p className="sam-text-body-secondary text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+              className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded bg-signature px-4 py-2 text-[14px] text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "생성 중…" : "생성"}
             </button>

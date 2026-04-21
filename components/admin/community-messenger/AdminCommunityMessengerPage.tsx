@@ -349,7 +349,7 @@ export function AdminCommunityMessengerPage() {
           <select
             value={forceEndReasonFilter}
             onChange={(e) => setForceEndReasonFilter(e.target.value)}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">모든 사유 코드</option>
             {COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => (
@@ -361,7 +361,7 @@ export function AdminCommunityMessengerPage() {
           <select
             value={forceEndAnalysisPeriodFilter}
             onChange={(e) => setForceEndAnalysisPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">전체 기간</option>
             <option value="24h">최근 24시간</option>
@@ -374,11 +374,11 @@ export function AdminCommunityMessengerPage() {
               setForceEndReasonFilter("");
               setForceEndAnalysisPeriodFilter("");
             }}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             필터 초기화
           </button>
-          <div className="flex items-center text-[12px] text-sam-muted">분석 대상 {filteredAnalyticsAudits.length}건</div>
+          <div className="flex items-center sam-text-helper text-sam-muted">분석 대상 {filteredAnalyticsAudits.length}건</div>
         </div>
       </AdminCard>
 
@@ -408,7 +408,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="관리자별 강제 종료 집계">
         <div className="space-y-2">
           {filteredForceEndAdminStats.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-sam-muted">강제 종료 집계가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">강제 종료 집계가 없습니다.</div>
           ) : (
             filteredForceEndAdminStats.map((item) => (
               <ForceEndAdminRow key={item.adminLabel} adminLabel={item.adminLabel} count={item.count} share={item.share} />
@@ -451,9 +451,9 @@ export function AdminCommunityMessengerPage() {
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-[13px] font-medium text-sam-fg">반복 발생 방 TOP</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">반복 발생 방 TOP</p>
             {filteredForceEndRecurrenceAnalysis.room.topItems.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center text-[13px] text-sam-muted">
+              <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center sam-text-body-secondary text-sam-muted">
                 반복 발생 방이 없습니다.
               </div>
             ) : (
@@ -469,9 +469,9 @@ export function AdminCommunityMessengerPage() {
             )}
           </div>
           <div className="space-y-2">
-            <p className="text-[13px] font-medium text-sam-fg">반복 발생 발신자 TOP</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">반복 발생 발신자 TOP</p>
             {filteredForceEndRecurrenceAnalysis.caller.topItems.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center text-[13px] text-sam-muted">
+              <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center sam-text-body-secondary text-sam-muted">
                 반복 발생 발신자가 없습니다.
               </div>
             ) : (
@@ -492,7 +492,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 재발 여부">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredForceEndReasonRecurrenceStats.length === 0 ? (
-            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center text-[13px] text-sam-muted md:col-span-2 xl:col-span-3">
+            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted md:col-span-2 xl:col-span-3">
               재발 분석 대상 사유 코드가 없습니다.
             </div>
           ) : (
@@ -517,7 +517,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="관리자별 재발 억제 효과">
         <div className="space-y-2">
           {filteredForceEndAdminEffectStats.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-sam-muted">재발 억제 효과를 계산할 데이터가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">재발 억제 효과를 계산할 데이터가 없습니다.</div>
           ) : (
             filteredForceEndAdminEffectStats.map((item) => (
               <ForceEndAdminEffectRow
@@ -559,7 +559,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 시간대 히트맵">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonHeatmapStats.length === 0 ? (
-            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center text-[13px] text-sam-muted xl:col-span-2">
+            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted xl:col-span-2">
               시간대 패턴을 표시할 사유 코드가 없습니다.
             </div>
           ) : (
@@ -583,7 +583,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="사유 코드 x 관리자">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonAdminStats.length === 0 ? (
-            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center text-[13px] text-sam-muted xl:col-span-2">
+            <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted xl:col-span-2">
               운영자 교차 분석 대상 사유 코드가 없습니다.
             </div>
           ) : (
@@ -607,12 +607,12 @@ export function AdminCommunityMessengerPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="방 제목, 참여자, 최근 메시지 검색"
-            className="min-w-[220px] rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <select
             value={roomStatusFilter}
             onChange={(e) => setRoomStatusFilter(e.target.value as CommunityMessengerRoomStatus | "")}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">모든 상태</option>
             <option value="active">active</option>
@@ -622,7 +622,7 @@ export function AdminCommunityMessengerPage() {
           <select
             value={roomTypeFilter}
             onChange={(e) => setRoomTypeFilter(e.target.value as "direct" | "private_group" | "open_group" | "")}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">모든 유형</option>
             <option value="direct">1:1</option>
@@ -632,19 +632,19 @@ export function AdminCommunityMessengerPage() {
           <button
             type="button"
             onClick={() => void refresh()}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             새로고침
           </button>
         </div>
 
         {loading ? (
-          <div className="py-10 text-center text-[14px] text-sam-muted">불러오는 중...</div>
+          <div className="py-10 text-center sam-text-body text-sam-muted">불러오는 중...</div>
         ) : filteredRooms.length === 0 ? (
-          <div className="py-10 text-center text-[14px] text-sam-muted">표시할 메신저 방이 없습니다.</div>
+          <div className="py-10 text-center sam-text-body text-sam-muted">표시할 메신저 방이 없습니다.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-[14px]">
+            <table className="w-full min-w-[960px] sam-text-body">
               <thead>
                 <tr className="border-b border-sam-border text-left text-sam-muted">
                   <th className="px-3 py-2">방</th>
@@ -674,12 +674,12 @@ export function AdminCommunityMessengerPage() {
               value={callQuery}
               onChange={(e) => setCallQuery(e.target.value)}
               placeholder="통화방, 시작자, 참여자 검색"
-              className="min-w-[220px] rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
             />
             <select
               value={callModeFilter}
               onChange={(e) => setCallModeFilter(e.target.value as "direct" | "group" | "")}
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">모든 통화 유형</option>
               <option value="direct">1:1</option>
@@ -688,7 +688,7 @@ export function AdminCommunityMessengerPage() {
             <select
               value={activeCallStatusFilter}
               onChange={(e) => setActiveCallStatusFilter(e.target.value as "ringing" | "active" | "")}
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">모든 활성 상태</option>
               <option value="ringing">ringing</option>
@@ -697,7 +697,7 @@ export function AdminCommunityMessengerPage() {
             <select
               value={callKindFilter}
               onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">모든 통화 종류</option>
               <option value="voice">voice</option>
@@ -706,7 +706,7 @@ export function AdminCommunityMessengerPage() {
           </div>
           <div className="space-y-2">
             {filteredActiveCalls.length === 0 ? (
-              <div className="py-8 text-center text-[14px] text-sam-muted">활성 통화 세션이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">활성 통화 세션이 없습니다.</div>
             ) : (
               filteredActiveCalls.map((call) => <ActiveCallRow key={call.id} call={call} />)
             )}
@@ -720,7 +720,7 @@ export function AdminCommunityMessengerPage() {
               onChange={(e) =>
                 setRequestStatusFilter(e.target.value as CommunityMessengerFriendRequestStatus | "")
               }
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">모든 요청 상태</option>
               <option value="pending">pending</option>
@@ -732,7 +732,7 @@ export function AdminCommunityMessengerPage() {
           </div>
           <div className="space-y-2">
             {filteredRequests.length === 0 ? (
-              <div className="py-8 text-center text-[14px] text-sam-muted">친구 요청이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">친구 요청이 없습니다.</div>
             ) : (
               filteredRequests.map((request) => (
                 <RequestRow
@@ -755,7 +755,7 @@ export function AdminCommunityMessengerPage() {
                   e.target.value as "missed" | "rejected" | "cancelled" | "ended" | "incoming" | "dialing" | ""
                 )
               }
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">모든 기록 상태</option>
               <option value="missed">missed</option>
@@ -768,7 +768,7 @@ export function AdminCommunityMessengerPage() {
           </div>
           <div className="space-y-2">
             {filteredCalls.length === 0 ? (
-              <div className="py-8 text-center text-[14px] text-sam-muted">통화 기록이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">통화 기록이 없습니다.</div>
             ) : (
               filteredCalls.map((call) => <CallRow key={call.id} call={call} />)
             )}
@@ -782,23 +782,23 @@ export function AdminCommunityMessengerPage() {
             value={auditQuery}
             onChange={(e) => setAuditQuery(e.target.value)}
             placeholder="방 제목, 관리자, 세션 ID, 메모 검색"
-            className="min-w-[220px] rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <select
             value={auditPeriodFilter}
             onChange={(e) => setAuditPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             <option value="">전체 기간</option>
             <option value="24h">최근 24시간</option>
             <option value="7d">최근 7일</option>
             <option value="30d">최근 30일</option>
           </select>
-          <div className="flex items-center text-[12px] text-sam-muted">결과 {filteredCallAudits.length}건</div>
+          <div className="flex items-center sam-text-helper text-sam-muted">결과 {filteredCallAudits.length}건</div>
         </div>
         <div className="space-y-2">
           {filteredCallAudits.length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-sam-muted">강제 종료 감사 로그가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">강제 종료 감사 로그가 없습니다.</div>
           ) : (
             filteredCallAudits.map((log) => <CallAuditRow key={log.id} log={log} />)
           )}
@@ -808,7 +808,7 @@ export function AdminCommunityMessengerPage() {
       <AdminCard title="최근 메신저 신고">
         <div className="space-y-2">
           {(data?.reports ?? []).length === 0 ? (
-            <div className="py-8 text-center text-[14px] text-sam-muted">메신저 신고가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">메신저 신고가 없습니다.</div>
           ) : (
             (data?.reports ?? []).map((report) => (
               <ReportRow key={report.id} report={report} busy={busy} onRefresh={refresh} />
@@ -823,9 +823,9 @@ export function AdminCommunityMessengerPage() {
 function StatCard({ label, value, helper }: { label: string; value: number; helper: string }) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <p className="text-[13px] text-sam-muted">{label}</p>
-      <p className="mt-2 text-[28px] font-semibold text-sam-fg">{value}</p>
-      <p className="mt-1 text-[12px] text-sam-meta">{helper}</p>
+      <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+      <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{value}</p>
+      <p className="mt-1 sam-text-helper text-sam-meta">{helper}</p>
     </div>
   );
 }
@@ -846,15 +846,15 @@ function ForceEndReasonKpiCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13px] text-sam-muted">{label}</p>
-          <p className="mt-1 font-mono text-[11px] text-sam-meta">{code}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+          <p className="mt-1 font-mono sam-text-xxs text-sam-meta">{code}</p>
         </div>
-        <p className="text-[24px] font-semibold text-sam-fg">{count}</p>
+        <p className="sam-text-hero font-semibold text-sam-fg">{count}</p>
       </div>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-red-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">전체 강제 종료 중 {percent}%</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
     </div>
   );
 }
@@ -885,12 +885,12 @@ function ForceEndTrendCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13px] text-sam-muted">{label}</p>
-          <p className="mt-2 text-[28px] font-semibold text-sam-fg">{currentCount}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+          <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{currentCount}</p>
         </div>
-        <span className={`rounded px-2 py-1 text-[12px] font-medium ${toneClass}`}>{deltaLabel}</span>
+        <span className={`rounded px-2 py-1 sam-text-helper font-medium ${toneClass}`}>{deltaLabel}</span>
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">이전 동일 기간 {previousCount}건 대비</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">이전 동일 기간 {previousCount}건 대비</p>
     </div>
   );
 }
@@ -909,12 +909,12 @@ function ForceEndAdminRow({
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-sam-fg">{adminLabel}</p>
-          <p className="mt-1 text-[12px] text-sam-muted">전체 강제 종료 중 {percent}%</p>
+          <p className="truncate sam-text-body font-medium text-sam-fg">{adminLabel}</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
         </div>
         <div className="text-right">
-          <p className="text-[22px] font-semibold text-sam-fg">{count}</p>
-          <p className="text-[11px] text-sam-meta">건수</p>
+          <p className="sam-text-hero font-semibold text-sam-fg">{count}</p>
+          <p className="sam-text-xxs text-sam-meta">건수</p>
         </div>
       </div>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
@@ -936,12 +936,12 @@ function ForceEndRoomTypeCard({
   const percent = Math.round(share * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <p className="text-[13px] text-sam-muted">{label}</p>
-      <p className="mt-2 text-[28px] font-semibold text-sam-fg">{count}</p>
+      <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+      <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{count}</p>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-violet-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">전체 강제 종료 중 {percent}%</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
     </div>
   );
 }
@@ -966,13 +966,13 @@ function ForceEndRecurrenceSummaryCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13px] text-sam-muted">{label}</p>
-          <p className="mt-2 text-[28px] font-semibold text-sam-fg">{subjectCount}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+          <p className="mt-2 sam-text-hero font-semibold text-sam-fg">{subjectCount}</p>
         </div>
-        <span className="rounded bg-amber-50 px-2 py-1 text-[12px] font-medium text-amber-700">{percent}%</span>
+        <span className="rounded bg-amber-50 px-2 py-1 sam-text-helper font-medium text-amber-700">{percent}%</span>
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">{helper}</p>
-      <p className="mt-1 text-[12px] text-sam-muted">재발 {repeatCount}건 · 분석 {analyzedCount}건</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">{helper}</p>
+      <p className="mt-1 sam-text-helper text-sam-muted">재발 {repeatCount}건 · 분석 {analyzedCount}건</p>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-amber-500" style={{ width: `${Math.max(percent, repeatCount > 0 ? 8 : 0)}%` }} />
       </div>
@@ -995,10 +995,10 @@ function ForceEndRecurrenceRow({
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-sam-fg">{label}</p>
-          <p className="mt-1 text-[12px] text-sam-muted">총 {totalCount}건 · 재발 {repeatCount}건</p>
+          <p className="truncate sam-text-body font-medium text-sam-fg">{label}</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">총 {totalCount}건 · 재발 {repeatCount}건</p>
         </div>
-        <div className="text-right text-[12px] text-sam-meta">{formatDateTime(latestAt)}</div>
+        <div className="text-right sam-text-helper text-sam-meta">{formatDateTime(latestAt)}</div>
       </div>
     </div>
   );
@@ -1031,34 +1031,34 @@ function ForceEndReasonRecurrenceCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[13px] text-sam-muted">{label}</p>
-          <p className="mt-1 font-mono text-[11px] text-sam-meta">{code}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{label}</p>
+          <p className="mt-1 font-mono sam-text-xxs text-sam-meta">{code}</p>
         </div>
         <div className="text-right">
-          <p className="text-[24px] font-semibold text-sam-fg">{totalCount}</p>
-          <p className="text-[11px] text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
+          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
         </div>
       </div>
       <div className="mt-4 space-y-3">
         <div>
-          <div className="flex items-center justify-between gap-3 text-[12px]">
+          <div className="flex items-center justify-between gap-3 sam-text-helper">
             <span className="text-sam-muted">방 재발</span>
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
             <div className="h-2 rounded-full bg-rose-500" style={{ width: `${Math.max(roomPercent, roomRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
-          <p className="mt-1 text-[12px] text-sam-muted">반복 방 {roomRepeatedSubjects}개 · 재발 {roomRepeatedEvents}건</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">반복 방 {roomRepeatedSubjects}개 · 재발 {roomRepeatedEvents}건</p>
         </div>
         <div>
-          <div className="flex items-center justify-between gap-3 text-[12px]">
+          <div className="flex items-center justify-between gap-3 sam-text-helper">
             <span className="text-sam-muted">발신자 재발</span>
             <span className="font-medium text-sam-fg">{callerPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
             <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(callerPercent, callerRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             반복 발신자 {callerRepeatedSubjects}명 · 재발 {callerRepeatedEvents}건
           </p>
         </div>
@@ -1090,17 +1090,17 @@ function ForceEndAdminEffectRow({
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-sam-fg">{adminLabel}</p>
-          <p className="mt-1 text-[12px] text-sam-muted">총 강제 종료 {totalCount}건</p>
+          <p className="truncate sam-text-body font-medium text-sam-fg">{adminLabel}</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">총 강제 종료 {totalCount}건</p>
         </div>
-        <div className="text-right text-[12px] text-sam-meta">
+        <div className="text-right sam-text-helper text-sam-meta">
           <div>방 후속 재발 {roomFollowupCount}건</div>
           <div className="mt-1">발신자 후속 재발 {callerFollowupCount}건</div>
         </div>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
-          <div className="flex items-center justify-between gap-3 text-[12px]">
+          <div className="flex items-center justify-between gap-3 sam-text-helper">
             <span className="text-sam-muted">방 기준 억제율</span>
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
@@ -1109,7 +1109,7 @@ function ForceEndAdminEffectRow({
           </div>
         </div>
         <div>
-          <div className="flex items-center justify-between gap-3 text-[12px]">
+          <div className="flex items-center justify-between gap-3 sam-text-helper">
             <span className="text-sam-muted">발신자 기준 억제율</span>
             <span className="font-medium text-sam-fg">{callerPercent}%</span>
           </div>
@@ -1119,7 +1119,7 @@ function ForceEndAdminEffectRow({
               style={{ width: `${Math.max(callerPercent, callerEvaluatedCount > 0 ? 8 : 0)}%` }}
             />
           </div>
-          <p className="mt-1 text-[11px] text-sam-meta">발신자 매핑 가능 {callerEvaluatedCount}건 기준</p>
+          <p className="mt-1 sam-text-xxs text-sam-meta">발신자 매핑 가능 {callerEvaluatedCount}건 기준</p>
         </div>
       </div>
     </div>
@@ -1143,15 +1143,15 @@ function ForceEndHeatmapCard({
 }) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <p className="text-[14px] font-medium text-sam-fg">{title}</p>
-      <p className="mt-1 text-[12px] text-sam-muted">{description}</p>
+      <p className="sam-text-body font-medium text-sam-fg">{title}</p>
+      <p className="mt-1 sam-text-helper text-sam-muted">{description}</p>
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-[760px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left text-[11px] font-medium text-sam-meta">요일</th>
+              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">요일</th>
               {FORCE_END_HEATMAP_HOURS.map((hourLabel) => (
-                <th key={hourLabel} className="px-1 py-1 text-center text-[10px] font-medium text-sam-meta">
+                <th key={hourLabel} className="px-1 py-1 text-center sam-text-xxs font-medium text-sam-meta">
                   {hourLabel.replace("시", "")}
                 </th>
               ))}
@@ -1160,12 +1160,12 @@ function ForceEndHeatmapCard({
           <tbody>
             {FORCE_END_HEATMAP_WEEKDAYS.map((weekday, dayIndex) => (
               <tr key={weekday}>
-                <th className="px-2 py-1 text-left text-[11px] font-medium text-sam-muted">{weekday}</th>
+                <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-muted">{weekday}</th>
                 {matrix[dayIndex].map((count, hour) => (
                   <td
                     key={`${weekday}-${hour}`}
                     title={`${weekday} ${String(hour).padStart(2, "0")}:00 · ${count}건`}
-                    className="h-8 min-w-8 rounded text-center text-[10px] font-medium text-sam-fg"
+                    className="h-8 min-w-8 rounded text-center sam-text-xxs font-medium text-sam-fg"
                     style={getHeatmapCellStyle(count, maxCount, tone)}
                   >
                     {count > 0 ? count : ""}
@@ -1176,19 +1176,19 @@ function ForceEndHeatmapCard({
           </tbody>
         </table>
       </div>
-      <div className="mt-3 flex items-center gap-2 text-[11px] text-sam-muted">
+      <div className="mt-3 flex items-center gap-2 sam-text-xxs text-sam-muted">
         <span className="inline-block h-2 w-8 rounded bg-sam-surface-muted" />
         <span>낮음</span>
         <span className={`inline-block h-2 w-8 rounded ${tone === "red" ? "bg-red-400" : "bg-amber-400"}`} />
         <span>높음</span>
       </div>
       <div className="mt-3 space-y-1">
-        <p className="text-[12px] font-medium text-sam-fg">집중 시간대</p>
+        <p className="sam-text-helper font-medium text-sam-fg">집중 시간대</p>
         {topSlots.length === 0 ? (
-          <p className="text-[12px] text-sam-muted">집계 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">집계 데이터가 없습니다.</p>
         ) : (
           topSlots.map((slot) => (
-            <p key={slot.label} className="text-[12px] text-sam-muted">
+            <p key={slot.label} className="sam-text-helper text-sam-muted">
               {slot.label} · {slot.count}건
             </p>
           ))
@@ -1222,24 +1222,24 @@ function ForceEndReasonHeatmapCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">{label}</p>
-          <p className="mt-1 font-mono text-[11px] text-sam-meta">{code}</p>
+          <p className="sam-text-body font-medium text-sam-fg">{label}</p>
+          <p className="mt-1 font-mono sam-text-xxs text-sam-meta">{code}</p>
         </div>
         <div className="text-right">
-          <p className="text-[22px] font-semibold text-sam-fg">{totalCount}</p>
-          <p className="text-[11px] text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
+          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
         </div>
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">
+      <p className="mt-2 sam-text-helper text-sam-muted">
         후속 재발 {recurrenceCount}건 · 재발 비중 {recurrencePercent}%
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-[760px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left text-[11px] font-medium text-sam-meta">요일</th>
+              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">요일</th>
               {FORCE_END_HEATMAP_HOURS.map((hourLabel) => (
-                <th key={hourLabel} className="px-1 py-1 text-center text-[10px] font-medium text-sam-meta">
+                <th key={hourLabel} className="px-1 py-1 text-center sam-text-xxs font-medium text-sam-meta">
                   {hourLabel.replace("시", "")}
                 </th>
               ))}
@@ -1248,12 +1248,12 @@ function ForceEndReasonHeatmapCard({
           <tbody>
             {FORCE_END_HEATMAP_WEEKDAYS.map((weekday, dayIndex) => (
               <tr key={`${code}:${weekday}`}>
-                <th className="px-2 py-1 text-left text-[11px] font-medium text-sam-muted">{weekday}</th>
+                <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-muted">{weekday}</th>
                 {matrix[dayIndex].map((count, hour) => (
                   <td
                     key={`${code}:${weekday}-${hour}`}
                     title={`${label} · ${weekday} ${String(hour).padStart(2, "0")}:00 · ${count}건`}
-                    className="h-8 min-w-8 rounded text-center text-[10px] font-medium text-sam-fg"
+                    className="h-8 min-w-8 rounded text-center sam-text-xxs font-medium text-sam-fg"
                     style={getHeatmapCellStyle(count, maxCount, "red")}
                   >
                     {count > 0 ? count : ""}
@@ -1265,12 +1265,12 @@ function ForceEndReasonHeatmapCard({
         </table>
       </div>
       <div className="mt-3 space-y-1">
-        <p className="text-[12px] font-medium text-sam-fg">집중 시간대</p>
+        <p className="sam-text-helper font-medium text-sam-fg">집중 시간대</p>
         {topSlots.length === 0 ? (
-          <p className="text-[12px] text-sam-muted">집계 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">집계 데이터가 없습니다.</p>
         ) : (
           topSlots.map((slot) => (
-            <p key={`${code}:${slot.label}`} className="text-[12px] text-sam-muted">
+            <p key={`${code}:${slot.label}`} className="sam-text-helper text-sam-muted">
               {slot.label} · {slot.count}건
             </p>
           ))
@@ -1297,18 +1297,18 @@ function ForceEndReasonAdminCard({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">{label}</p>
-          <p className="mt-1 font-mono text-[11px] text-sam-meta">{code}</p>
+          <p className="sam-text-body font-medium text-sam-fg">{label}</p>
+          <p className="mt-1 font-mono sam-text-xxs text-sam-meta">{code}</p>
         </div>
         <div className="text-right">
-          <p className="text-[22px] font-semibold text-sam-fg">{totalCount}</p>
-          <p className="text-[11px] text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
+          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
         </div>
       </div>
-      <p className="mt-2 text-[12px] text-sam-muted">처리 운영자 {uniqueAdminCount}명</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">처리 운영자 {uniqueAdminCount}명</p>
       <div className="mt-4 space-y-2">
         {topAdmins.length === 0 ? (
-          <p className="text-[12px] text-sam-muted">집계 가능한 운영자 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">집계 가능한 운영자 데이터가 없습니다.</p>
         ) : (
           topAdmins.map((item) => {
             const percent = Math.round(item.share * 100);
@@ -1316,12 +1316,12 @@ function ForceEndReasonAdminCard({
               <div key={`${code}:${item.adminLabel}`} className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium text-sam-fg">{item.adminLabel}</p>
-                    <p className="mt-1 text-[11px] text-sam-muted">이 사유 내 점유율 {percent}%</p>
+                    <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{item.adminLabel}</p>
+                    <p className="mt-1 sam-text-xxs text-sam-muted">이 사유 내 점유율 {percent}%</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[18px] font-semibold text-sam-fg">{item.count}</p>
-                    <p className="text-[11px] text-sam-meta">건수</p>
+                    <p className="sam-text-page-title font-semibold text-sam-fg">{item.count}</p>
+                    <p className="sam-text-xxs text-sam-meta">건수</p>
                   </div>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
@@ -1341,32 +1341,32 @@ function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
     <tr className="border-b border-sam-border-soft align-top">
       <td className="px-3 py-3">
         <div className="font-medium text-sam-fg">{room.title}</div>
-        <div className="mt-1 font-mono text-[12px] text-sam-meta">{room.id}</div>
-        {room.adminNote ? <div className="mt-1 text-[12px] text-amber-700">메모: {room.adminNote}</div> : null}
+        <div className="mt-1 font-mono sam-text-helper text-sam-meta">{room.id}</div>
+        {room.adminNote ? <div className="mt-1 sam-text-helper text-amber-700">메모: {room.adminNote}</div> : null}
       </td>
       <td className="px-3 py-3 text-sam-fg">
         {room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
       </td>
       <td className="px-3 py-3">
         <div className="flex flex-wrap gap-1">
-          <span className="rounded bg-sam-surface-muted px-2 py-1 text-[12px] text-sam-fg">{room.roomStatus}</span>
+          <span className="rounded bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-fg">{room.roomStatus}</span>
           {room.isReadonly ? (
-            <span className="rounded bg-amber-50 px-2 py-1 text-[12px] text-amber-700">readonly</span>
+            <span className="rounded bg-amber-50 px-2 py-1 sam-text-helper text-amber-700">readonly</span>
           ) : null}
           {room.roomType === "open_group" ? (
-            <span className="rounded bg-sky-50 px-2 py-1 text-[12px] text-sky-700">
+            <span className="rounded bg-sky-50 px-2 py-1 sam-text-helper text-sky-700">
               {room.isDiscoverable ? "discoverable" : "hidden"}
             </span>
           ) : null}
           {room.requiresPassword ? (
-            <span className="rounded bg-sam-surface-muted px-2 py-1 text-[12px] text-sam-fg">password</span>
+            <span className="rounded bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-fg">password</span>
           ) : null}
         </div>
       </td>
       <td className="px-3 py-3 text-sam-fg">{room.createdByLabel}</td>
       <td className="px-3 py-3 text-sam-fg">
         <div>{room.memberCount}명</div>
-        <div className="mt-1 text-[12px] text-sam-muted">{room.memberLabels.join(", ")}</div>
+        <div className="mt-1 sam-text-helper text-sam-muted">{room.memberLabels.join(", ")}</div>
       </td>
       <td className="px-3 py-3 text-sam-fg">{room.lastMessage}</td>
       <td className="px-3 py-3 whitespace-nowrap text-sam-muted">{formatDateTime(room.lastMessageAt)}</td>
@@ -1395,15 +1395,15 @@ function RequestRow({
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {request.requesterLabel} {"->"} {request.addresseeLabel}
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             상태 {request.status} · 생성 {formatDateTime(request.createdAt)}
           </p>
-          {request.note ? <p className="mt-1 text-[12px] text-sam-fg">요청 메모: {request.note}</p> : null}
+          {request.note ? <p className="mt-1 sam-text-helper text-sam-fg">요청 메모: {request.note}</p> : null}
           {request.adminNote ? (
-            <p className="mt-1 text-[12px] text-amber-700">관리 메모: {request.adminNote}</p>
+            <p className="mt-1 sam-text-helper text-amber-700">관리 메모: {request.adminNote}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -1411,7 +1411,7 @@ function RequestRow({
             type="button"
             disabled={busy === `request:${request.id}:accepted`}
             onClick={() => void onAction(request.id, "accepted")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[12px] text-emerald-700"
+            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
           >
             승인
           </button>
@@ -1419,7 +1419,7 @@ function RequestRow({
             type="button"
             disabled={busy === `request:${request.id}:rejected`}
             onClick={() => void onAction(request.id, "rejected")}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[12px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-helper text-sam-fg"
           >
             거절
           </button>
@@ -1427,7 +1427,7 @@ function RequestRow({
             type="button"
             disabled={busy === `request:${request.id}:blocked`}
             onClick={() => void onAction(request.id, "blocked")}
-            className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700"
+            className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
           >
             차단 처리
           </button>
@@ -1442,20 +1442,20 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {call.roomTitle}
-            <span className="ml-2 rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-fg">
+            <span className="ml-2 rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-fg">
               {call.sessionMode === "group" ? "그룹" : "1:1"}
             </span>
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             {call.callerLabel} {"->"} {call.peerLabel}
           </p>
-          <p className="mt-1 text-[12px] text-sam-fg">
+          <p className="mt-1 sam-text-helper text-sam-fg">
             {call.callKind} · {call.status} · {call.durationSeconds}초 · 참여 {call.participantCount}명
           </p>
         </div>
-        <div className="text-[12px] text-sam-meta">{formatDateTime(call.startedAt)}</div>
+        <div className="sam-text-helper text-sam-meta">{formatDateTime(call.startedAt)}</div>
       </div>
     </div>
   );
@@ -1466,23 +1466,23 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {call.roomTitle}
-            <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] text-sky-700">
+            <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 sam-text-xxs text-sky-700">
               {call.sessionMode === "group" ? "그룹" : "1:1"}
             </span>
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             시작자 {call.initiatorLabel} · {call.callKind} · {call.status}
           </p>
-          <p className="mt-1 text-[12px] text-sam-fg">
+          <p className="mt-1 sam-text-helper text-sam-fg">
             참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
           </p>
         </div>
-        <div className="text-right text-[12px] text-sam-meta">
+        <div className="text-right sam-text-helper text-sam-meta">
           <div>{formatDateTime(call.startedAt)}</div>
           <div className="mt-1">
             <Link
@@ -1503,22 +1503,22 @@ function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {log.roomTitle}
-            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[11px] text-red-700">강제 종료</span>
+            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">강제 종료</span>
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             관리자 {log.actorLabel} · {log.beforeStatus} {"->"} {log.afterStatus}
           </p>
           {log.reasonCode ? (
-            <p className="mt-1 text-[12px] text-sky-700">
+            <p className="mt-1 sam-text-helper text-sky-700">
               사유 코드: {log.reasonLabel} ({log.reasonCode})
             </p>
           ) : null}
-          <p className="mt-1 text-[12px] text-sam-fg font-mono">{log.sessionId}</p>
-          {log.note ? <p className="mt-1 text-[12px] text-amber-700">메모: {log.note}</p> : null}
+          <p className="mt-1 sam-text-helper text-sam-fg font-mono">{log.sessionId}</p>
+          {log.note ? <p className="mt-1 sam-text-helper text-amber-700">메모: {log.note}</p> : null}
         </div>
-        <div className="text-right text-[12px] text-sam-meta">
+        <div className="text-right sam-text-helper text-sam-meta">
           <div>{formatDateTime(log.createdAt)}</div>
           <div className="mt-1">
             <Link
@@ -1564,13 +1564,13 @@ function ReportRow({
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {report.reportType} · {report.roomTitle}
           </p>
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             신고자 {report.reporterLabel} · 대상 {report.reportedUserLabel} · 상태 {report.status}
           </p>
-          <p className="mt-1 text-[12px] text-sam-fg">
+          <p className="mt-1 sam-text-helper text-sam-fg">
             사유 {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
           </p>
         </div>
@@ -1579,7 +1579,7 @@ function ReportRow({
             type="button"
             disabled={busy === `report:${report.id}:reviewing`}
             onClick={() => void run("reviewing")}
-            className="rounded border border-sam-border px-2.5 py-1.5 text-[12px] text-sam-fg"
+            className="rounded border border-sam-border px-2.5 py-1.5 sam-text-helper text-sam-fg"
           >
             검토중
           </button>
@@ -1587,7 +1587,7 @@ function ReportRow({
             type="button"
             disabled={busy === `report:${report.id}:resolved`}
             onClick={() => void run("resolved")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[12px] text-emerald-700"
+            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
           >
             해결
           </button>
@@ -1596,7 +1596,7 @@ function ReportRow({
               type="button"
               disabled={busy === `report:${report.id}:sanction_message_hide`}
               onClick={() => void run("sanction_message_hide")}
-              className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-[12px] text-orange-700"
+              className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1.5 sam-text-helper text-orange-700"
             >
               메시지 숨김
             </button>
@@ -1606,7 +1606,7 @@ function ReportRow({
               type="button"
               disabled={busy === `report:${report.id}:sanction_room_block`}
               onClick={() => void run("sanction_room_block")}
-              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 text-[12px] text-red-700"
+              className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
             >
               방 차단
             </button>

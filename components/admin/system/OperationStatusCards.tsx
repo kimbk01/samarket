@@ -18,27 +18,27 @@ export function OperationStatusCards() {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">가동률</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">가동률</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.uptime}%
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">활성 사용자</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">활성 사용자</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.activeUsers}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">에러율</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">에러율</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.errorRate}%
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">운영 준비 상태</p>
+          <p className="sam-text-helper text-sam-muted">운영 준비 상태</p>
           <p
-            className={`text-[14px] font-semibold ${
+            className={`sam-text-body font-semibold ${
               readiness ? "text-emerald-600" : "text-amber-600"
             }`}
           >
@@ -48,15 +48,15 @@ export function OperationStatusCards() {
       </div>
       {readyForScale && (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 text-center">
-          <p className="text-[18px] font-semibold text-emerald-800">
+          <p className="sam-text-page-title font-semibold text-emerald-800">
             READY FOR SCALE
           </p>
-          <p className="mt-1 text-[13px] text-emerald-700">
+          <p className="mt-1 sam-text-body-secondary text-emerald-700">
             전체 시스템 정상·운영 종료 없이 지속 운영 구조
           </p>
         </div>
       )}
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         최종 갱신: {new Date(status.lastUpdatedAt).toLocaleString()}
       </p>
     </div>

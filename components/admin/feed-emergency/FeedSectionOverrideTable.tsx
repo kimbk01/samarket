@@ -45,13 +45,13 @@ export function FeedSectionOverrideTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">surface</label>
+        <label className="sam-text-body font-medium text-sam-fg">surface</label>
         <select
           value={surface}
           onChange={(e) =>
             setSurface(e.target.value as RecommendationSurface)
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -61,7 +61,7 @@ export function FeedSectionOverrideTable() {
         </select>
       </div>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="w-full min-w-[480px] border-collapse text-[14px]">
+        <table className="w-full min-w-[480px] border-collapse sam-text-body">
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -92,7 +92,7 @@ export function FeedSectionOverrideTable() {
                   </td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-block rounded px-2 py-0.5 text-[12px] ${
+                      className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                         disabled
                           ? "bg-amber-50 text-amber-800"
                           : "bg-sam-surface-muted text-sam-muted"
@@ -101,14 +101,14 @@ export function FeedSectionOverrideTable() {
                       {disabled ? "비활성" : "정상"}
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                  <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {ov?.reason ?? "-"}
                   </td>
                   <td className="px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() => void handleToggle(sectionKey, !disabled)}
-                      className={`rounded border px-2 py-1 text-[13px] ${
+                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
                         disabled
                           ? "border-sam-border bg-sam-app text-sam-fg"
                           : "border-amber-200 bg-amber-50 text-amber-800"
@@ -124,7 +124,7 @@ export function FeedSectionOverrideTable() {
         </table>
       </div>
       {overrides.length === 0 && (
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           현재 비활성 오버라이드가 없습니다. 위에서 섹션별 비활성화를 적용할 수 있습니다.
         </p>
       )}

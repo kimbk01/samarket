@@ -22,7 +22,7 @@ export function TradeChatPresenceHeaderRow(props: {
   const { peerSharesLive, peerLiveState, peerTyping, peerLastSeenLabel } = props;
 
   return (
-    <div className="mt-0.5 flex min-h-[18px] flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-sam-muted">
+    <div className="mt-0.5 flex min-h-[18px] flex-wrap items-center gap-x-2 gap-y-0.5 sam-text-helper text-sam-muted">
       {peerTyping ? (
         <span className="font-medium text-signature">입력 중…</span>
       ) : null}

@@ -38,8 +38,8 @@ export function AdminAuditSummaryCards({ summary }: AdminAuditSummaryCardsProps)
           key={label}
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-3"
         >
-          <p className="text-[12px] text-sam-muted">{label}</p>
-          <p className="mt-0.5 truncate text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">{label}</p>
+          <p className="mt-0.5 truncate sam-text-body font-medium text-sam-fg">
             {value}
           </p>
         </div>

@@ -19,7 +19,7 @@ export function CategoryTypeBadge({ type }: CategoryTypeBadgeProps) {
           : "bg-sam-surface-muted text-sam-fg";
 
   return (
-    <span className={`inline-flex rounded px-1.5 py-0.5 text-[12px] font-medium ${color}`}>
+    <span className={`inline-flex rounded px-1.5 py-0.5 sam-text-helper font-medium ${color}`}>
       {label}
     </span>
   );

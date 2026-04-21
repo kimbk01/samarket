@@ -35,7 +35,7 @@ export function AdminChatTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[760px] border-collapse text-[14px]">
+      <table className="w-full min-w-[760px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="w-10 px-2 py-2.5 text-center font-medium text-sam-fg">
@@ -74,7 +74,7 @@ export function AdminChatTable({
                   aria-label={t("admin_chat_select_row", { id: r.id.slice(0, 8) })}
                 />
               </td>
-              <td className="max-w-[100px] truncate px-3 py-2.5 font-mono text-[12px] text-sam-muted">
+              <td className="max-w-[100px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
                 {r.id.slice(0, 8)}…
               </td>
               <td className="max-w-[140px] truncate px-3 py-2.5 text-sam-fg">
@@ -89,10 +89,10 @@ export function AdminChatTable({
               <td className="max-w-[160px] truncate px-3 py-2.5 text-sam-muted">
                 {r.lastMessage || "-"}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(r.lastMessageAt).toLocaleString("ko-KR")}
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
                 {(r.unreadSeller ?? 0) + (r.unreadBuyer ?? 0) > 0
                   ? `판${r.unreadSeller ?? 0}/구${r.unreadBuyer ?? 0}`
                   : "-"}
@@ -100,14 +100,14 @@ export function AdminChatTable({
               <td className="px-3 py-2.5">
                 <AdminChatRoomStatusBadge status={r.roomStatus} />
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px]">
+              <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.reportCount > 0 ? (
                   <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">Y</span>
                 ) : (
                   <span className="text-sam-meta">N</span>
                 )}
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px]">
+              <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.roomStatus === "blocked" ? (
                   <span className="rounded bg-red-50 px-1.5 py-0.5 text-red-700">Y</span>
                 ) : (
@@ -117,7 +117,7 @@ export function AdminChatTable({
               <td className="px-3 py-2.5 text-right">
                 <Link
                   href={`/admin/chats/${r.id}`}
-                  className="text-[13px] font-medium text-signature hover:underline"
+                  className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
                   {t("admin_chat_detail_link")}
                 </Link>

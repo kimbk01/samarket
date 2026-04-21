@@ -21,7 +21,7 @@ export type ChatHubSecondaryTabItem = {
 export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem[] }) {
   const { t, tt } = useI18n();
   return (
-    <div className="border-b border-ig-border bg-sam-surface">
+    <div className="border-b border-sam-border bg-sam-surface">
       <div className={`mx-auto flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4`}>
         {items.map((item) => (
           <Link
@@ -31,7 +31,7 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
             scroll={item.scroll !== false}
             aria-current={item.active ? "page" : undefined}
             className={[
-              "flex-1 border-b-2 px-2 py-3 text-center text-[16px] transition-colors duration-200",
+              "flex-1 border-b-2 px-2 py-3 text-center sam-text-body-lg transition-colors duration-200",
               item.active
                 ? "border-signature font-semibold text-signature"
                 : "border-transparent font-medium text-muted hover:text-foreground",

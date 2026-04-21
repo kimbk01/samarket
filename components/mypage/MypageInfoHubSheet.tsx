@@ -51,17 +51,17 @@ export function MypageInfoHubSheet({ open, onClose }: Props) {
     >
       <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="닫기" />
       <div
-        className={`relative flex max-h-[min(92vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] border border-ig-border bg-[var(--sub-bg)] shadow-2xl transition-transform duration-300 ease-out sm:rounded-ui-rect ${
+        className={`relative flex max-h-[min(92vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] border border-sam-border bg-[var(--sub-bg)] shadow-2xl transition-transform duration-300 ease-out sm:rounded-ui-rect ${
           slideIn ? "translate-y-0 sm:scale-100" : "translate-y-full sm:translate-y-0 sm:scale-95"
         }`}
       >
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[var(--text-muted)]/30 sm:hidden" aria-hidden />
 
-        <div className="flex shrink-0 flex-col gap-0.5 border-b border-ig-border px-4 py-3">
-          <h2 id="mypage-info-hub-title" className="text-[16px] font-semibold text-foreground">
+        <div className="flex shrink-0 flex-col gap-0.5 border-b border-sam-border px-4 py-3">
+          <h2 id="mypage-info-hub-title" className="sam-text-body-lg font-semibold text-foreground">
             앱 · 서비스 설정
           </h2>
-          <p className="text-[12px] leading-snug text-[var(--text-muted)]">
+          <p className="sam-text-helper leading-snug text-[var(--text-muted)]">
             언어·국가·차단·캐시 등. 알림·포인트·계정 상세는 내정보 → 계정 탭에서 이동해요.
           </p>
         </div>

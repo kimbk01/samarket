@@ -179,7 +179,7 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
             {data.profileImageUrl ?
               <img src={data.profileImageUrl} alt="" className="h-full w-full object-cover" />
             : (
-              <div className="flex h-full w-full items-center justify-center bg-[#1877F2] text-[15px] font-bold text-white dark:bg-[#2374E1]">
+              <div className="flex h-full w-full items-center justify-center bg-[#1877F2] sam-text-body font-bold text-white dark:bg-[#2374E1]">
                 {data.coverEmoji ?? data.nameKo.slice(0, 1)}
               </div>
             )}

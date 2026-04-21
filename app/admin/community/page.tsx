@@ -11,7 +11,7 @@ export default function AdminCommunityEnginePage() {
           title="커뮤니티 엔진 — 글"
           description="커뮤니티 피드 글 상태·신고 플래그 관리"
         />
-        <nav className="flex flex-wrap gap-3 text-[14px] text-sky-700">
+        <nav className="flex flex-wrap gap-3 sam-text-body text-sky-700">
           <Link href="/admin/philife/reports" className="underline">
             피드 신고 (기존)
           </Link>

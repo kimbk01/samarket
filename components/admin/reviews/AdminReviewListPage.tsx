@@ -54,7 +54,7 @@ export function AdminReviewListPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="거래 후기 목록" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         마이페이지 「후기」(
         <code className="rounded bg-sam-surface-muted px-1">/mypage/trade/reviews</code>)와 동일하게{" "}
         <code className="rounded bg-sam-surface-muted px-1">transaction_reviews</code> 테이블을 사용합니다. (
@@ -63,7 +63,7 @@ export function AdminReviewListPage() {
         <code className="rounded bg-sam-surface-muted px-1">POST /api/admin/transaction-reviews</code>)
       </p>
       {loadError && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {loadError}
         </div>
       )}
@@ -74,11 +74,11 @@ export function AdminReviewListPage() {
         onSearchChange={setSearchQuery}
       />
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           조건에 맞는 리뷰가 없습니다.
         </div>
       ) : (

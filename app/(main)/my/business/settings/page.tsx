@@ -51,11 +51,11 @@ export default function MyBusinessSettingsPage() {
   }, [load]);
 
   if (phase.kind === "loading") {
-    return <p className="text-[14px] text-sam-muted">불러오는 중…</p>;
+    return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
   }
   if (phase.kind === "need_store_id") {
     return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} text-[14px] text-sam-muted`}>
+      <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
         <p>매장을 지정할 수 없습니다.</p>
         <Link href="/my/business" className="font-medium text-signature underline">
           대시보드로
@@ -65,7 +65,7 @@ export default function MyBusinessSettingsPage() {
   }
   if (phase.kind === "error") {
     return (
-      <p className="text-[14px] text-red-600">
+      <p className="sam-text-body text-red-600">
         설정을 불러오지 못했습니다. ({phase.message})
       </p>
     );
@@ -77,18 +77,18 @@ export default function MyBusinessSettingsPage() {
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">배달 신규 주문 알림음</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-sam-muted">
+        <h2 className="sam-text-body font-semibold text-sam-fg">배달 신규 주문 알림음</h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
           신규 배달 주문이 들어올 때 재생되는 소리는 <strong className="font-semibold text-sam-fg">모든 매장 공통</strong>
           으로, 서비스 관리자가{" "}
           <strong className="font-semibold text-sam-fg">관리자 → 매장 신청 설정</strong>
-          (<code className="rounded bg-sam-surface-muted px-1 text-[12px]">/admin/stores/application-settings</code>)의
+          (<code className="rounded bg-sam-surface-muted px-1 sam-text-helper">/admin/stores/application-settings</code>)의
           「매장 알림음 (배달 신규 주문)」에서 설정합니다. 매장별로 파일을 올리는 기능은 사용하지 않습니다.
         </p>
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           관리자가 파일을 등록하지 않은 경우 브라우저에서 짧은 비프음이 재생됩니다.
         </p>
-        <p className="mt-3 text-[13px] text-sam-muted">
+        <p className="mt-3 sam-text-body-secondary text-sam-muted">
           운영·심사 상태는{" "}
           <Link href={`/my/business/ops-status?${q}`} className="font-medium text-signature underline">
             운영 · 심사
@@ -97,7 +97,7 @@ export default function MyBusinessSettingsPage() {
         </p>
       </section>
 
-      <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-4 text-[13px] text-sam-muted">
+      <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-4 sam-text-body-secondary text-sam-muted">
         주문 자동 처리·직원 권한 등은 준비 중입니다. 매장 프로필·영업 시간은{" "}
         <Link href={`/my/business/profile?${q}`} className="font-medium text-signature underline">
           매장 프로필

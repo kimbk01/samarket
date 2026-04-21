@@ -10,20 +10,20 @@ import { FB } from "@/components/stores/store-facebook-feed-tokens";
 function statusBadge(status: BrowseStoreListItem["status"]) {
   if (status === "open") {
     return (
-      <span className="shrink-0 rounded-ui-rect bg-[#E7F7EC] px-2 py-0.5 text-[12px] font-semibold text-[#31A24C] dark:bg-[#1F3528] dark:text-[#5CD67C]">
+      <span className="shrink-0 rounded-ui-rect bg-[#E7F7EC] px-2 py-0.5 sam-text-helper font-semibold text-[#31A24C] dark:bg-[#1F3528] dark:text-[#5CD67C]">
         영업중
       </span>
     );
   }
   if (status === "preparing") {
     return (
-      <span className="shrink-0 rounded-ui-rect bg-[#FFF8E7] px-2 py-0.5 text-[12px] font-semibold text-[#B78100] dark:bg-[#3D3420] dark:text-[#F5C842]">
+      <span className="shrink-0 rounded-ui-rect bg-[#FFF8E7] px-2 py-0.5 sam-text-helper font-semibold text-[#B78100] dark:bg-[#3D3420] dark:text-[#F5C842]">
         준비중
       </span>
     );
   }
   return (
-    <span className="shrink-0 rounded-ui-rect bg-[#E4E6EB] px-2 py-0.5 text-[12px] font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]">
+    <span className="shrink-0 rounded-ui-rect bg-[#E4E6EB] px-2 py-0.5 sam-text-helper font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]">
       휴무
     </span>
   );
@@ -146,12 +146,12 @@ export function StoreVerticalDiscoveryCard({
           }
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {store.isFeatured ?
-              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 text-[11px] font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
+              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 sam-text-xxs font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
                 추천
               </span>
             : null}
             {adHint ?
-              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 text-[11px] font-semibold text-[#050505] shadow-sm dark:bg-[#242526]/95 dark:text-[#E4E6EB]">
+              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 sam-text-xxs font-semibold text-[#050505] shadow-sm dark:bg-[#242526]/95 dark:text-[#E4E6EB]">
                 {adHint}
               </span>
             : null}
@@ -195,7 +195,7 @@ export function StoreVerticalDiscoveryCard({
               {flags.map((f) => (
                 <span
                   key={f}
-                  className="rounded-ui-rect bg-[#F0F2F5] px-2 py-0.5 text-[11px] font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]"
+                  className="rounded-ui-rect bg-[#F0F2F5] px-2 py-0.5 sam-text-xxs font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]"
                 >
                   {f}
                 </span>
@@ -211,7 +211,7 @@ export function StoreVerticalDiscoveryCard({
             <li key={it.productId}>
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(it.productId)}`}
-                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 text-[13px] active:bg-[#F0F2F5] dark:active:bg-[#3A3B3C]`}
+                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary active:bg-[#F0F2F5] dark:active:bg-[#3A3B3C]`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <span className={`truncate ${FB.link}`}>{it.name}</span>

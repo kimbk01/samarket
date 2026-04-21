@@ -9,7 +9,7 @@ export default function AdminCommunityMeetingsEnginePage() {
     <AdminGuard>
       <div className="space-y-6 p-4">
         <AdminPageHeader title="커뮤니티 — 모임" description="모임 상태·정원·그룹채팅 연결 확인" />
-        <div className="flex flex-wrap gap-4 text-[14px]">
+        <div className="flex flex-wrap gap-4 sam-text-body">
           <HistoryBackTextLink fallbackHref="/admin/philife" className="text-sky-700 underline">
             ← 글 관리
           </HistoryBackTextLink>

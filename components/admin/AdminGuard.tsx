@@ -96,7 +96,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 
   if (checking) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-[14px] text-sam-muted">
+      <div className="flex min-h-[40vh] items-center justify-center sam-text-body text-sam-muted">
         확인 중…
       </div>
     );

@@ -54,7 +54,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
 
   if (loading && !review) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -62,7 +62,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
 
   if (loadError) {
     return (
-      <div className="py-8 text-center text-[14px] text-amber-800">
+      <div className="py-8 text-center sam-text-body text-amber-800">
         {loadError}
       </div>
     );
@@ -70,7 +70,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
 
   if (!review) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         리뷰를 찾을 수 없습니다.
       </div>
     );
@@ -81,7 +81,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
       <AdminPageHeader title="리뷰 상세" backHref="/admin/reviews" />
 
       <AdminCard title="리뷰 정보">
-        <div className="space-y-2 text-[14px]">
+        <div className="space-y-2 sam-text-body">
           <p className="font-semibold text-sam-fg">{review.productTitle}</p>
           <p className="text-sam-muted">거래 ID: {review.transactionId}</p>
           <AdminReviewStatusBadge status={review.reviewStatus} className="mt-1" />
@@ -90,7 +90,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
             {review.rating} · 역할 {ROLE_LABELS[review.role] ?? review.role}
           </p>
           {review.isAnonymousNegative ? (
-            <p className="text-[13px] text-sam-muted">익명 부정 후기: 예</p>
+            <p className="sam-text-body-secondary text-sam-muted">익명 부정 후기: 예</p>
           ) : null}
           {(review.positiveTagKeys?.length || review.negativeTagKeys?.length || review.privateTags?.length) && (
             <div className="space-y-1 text-sam-muted">
@@ -106,14 +106,14 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
             </div>
           )}
           {review.transactionId ? (
-            <p className="text-[13px] text-signature">
+            <p className="sam-text-body-secondary text-signature">
               <a href={tradeChatNotificationHref(review.transactionId, "product_chat")} target="_blank" rel="noreferrer" className="hover:underline">
                 채팅방 열기
               </a>
             </p>
           ) : null}
           <p className="whitespace-pre-wrap text-sam-fg">{review.comment || "—"}</p>
-          <p className="text-[13px] text-sam-muted">
+          <p className="sam-text-body-secondary text-sam-muted">
             작성일: {new Date(review.createdAt).toLocaleString("ko-KR")}
           </p>
           {review.reportCount > 0 && (
@@ -123,7 +123,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
       </AdminCard>
 
       <AdminCard title="작성자 / 대상자">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">작성자</dt>
             <dd>
@@ -145,7 +145,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
 
       <AdminCard title="조치 이력">
         <AdminReviewModerationLogList logs={[]} />
-        <p className="mt-2 text-[13px] text-sam-muted">조치 이력은 DB 연동 후 제공됩니다.</p>
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">조치 이력은 DB 연동 후 제공됩니다.</p>
       </AdminCard>
     </div>
   );

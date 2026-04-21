@@ -24,7 +24,7 @@ export function FeedFallbackStateCard() {
 
   if (states.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         상태가 없습니다.
       </div>
     );
@@ -58,7 +58,7 @@ export function FeedFallbackStateCard() {
                 {SURFACE_LABELS[s.surface]}
               </span>
               <span
-                className={`rounded px-2 py-0.5 text-[12px] font-medium ${
+                className={`rounded px-2 py-0.5 sam-text-helper font-medium ${
                   mode === "kill_switch"
                     ? "bg-amber-100 text-amber-800"
                     : mode === "fallback"
@@ -69,7 +69,7 @@ export function FeedFallbackStateCard() {
                 {MODE_LABELS[mode]}
               </span>
             </div>
-            <dl className="space-y-1 text-[13px]">
+            <dl className="space-y-1 sam-text-body-secondary">
               <div>
                 <dt className="text-sam-muted">활성 버전</dt>
                 <dd className="text-sam-fg">

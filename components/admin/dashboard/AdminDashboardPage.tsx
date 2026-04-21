@@ -72,7 +72,7 @@ export function AdminDashboardPage({
 
       {loadState === "error" && (
         <div
-          className="rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[13px] text-sam-fg"
+          className="rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
           role="alert"
         >
           <p className="font-medium text-amber-900 dark:text-amber-100">
@@ -85,7 +85,7 @@ export function AdminDashboardPage({
           <button
             type="button"
             onClick={() => load({ showLoading: true })}
-            className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg hover:bg-sam-app"
+            className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-app"
           >
             다시 불러오기
           </button>
@@ -93,12 +93,12 @@ export function AdminDashboardPage({
       )}
 
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">오늘 운영 현황</h2>
+        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">오늘 운영 현황</h2>
         <AdminKpiCards stats={payload.stats} loading={loading} />
       </section>
       <DashboardUrgentBlock />
       <section>
-        <h2 className="mb-3 text-[13px] font-medium text-sam-muted">영역별 바로가기</h2>
+        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">영역별 바로가기</h2>
         <DashboardQuickLinksBySection />
       </section>
       <AdminStatusSummaryPanels

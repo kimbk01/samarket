@@ -27,7 +27,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
           <img src={me.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
+            className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             {initial}
@@ -35,23 +35,23 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+        <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
           {me?.label ?? "내 프로필"}
         </p>
         {secondLine ? (
-          <p className="truncate text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="truncate sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {secondLine}
           </p>
         ) : null}
         {bioLine ? (
-          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="mt-0.5 line-clamp-2 sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {bioLine}
           </p>
         ) : null}
       </div>
       <Link
         href={MYPAGE_PROFILE_EDIT_HREF}
-        className="shrink-0 rounded-[var(--messenger-radius-sm)] px-2 py-1.5 text-[13px] font-semibold text-[color:var(--messenger-primary)] active:opacity-80"
+        className="shrink-0 rounded-[var(--messenger-radius-sm)] px-2 py-1.5 sam-text-body-secondary font-semibold text-[color:var(--messenger-primary)] active:opacity-80"
       >
         내 프로필 ›
       </Link>

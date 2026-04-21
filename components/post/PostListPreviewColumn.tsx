@@ -73,7 +73,7 @@ export function PostListPreviewColumn({
       {preview.showPipeAfterListingBadge &&
       !omitListingBadge &&
       preview.listingChips.length > 0 ? (
-        <span className="mx-1 text-[11px] font-medium text-sam-meta" aria-hidden>
+        <span className="mx-1 sam-text-xxs font-medium text-sam-meta" aria-hidden>
           |
         </span>
       ) : null}

@@ -50,7 +50,7 @@ function RowActionSheet({
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
-        <p className="px-1 pb-2 text-center text-[12px] font-medium text-ui-muted">{title}</p>
+        <p className="px-1 pb-2 text-center sam-text-helper font-medium text-ui-muted">{title}</p>
         <div className="flex flex-col gap-1">
           {actions.map((action) => (
             <button
@@ -61,7 +61,7 @@ function RowActionSheet({
                 onClose();
                 action.onClick();
               }}
-              className={`rounded-ui-rect py-2.5 text-[14px] font-medium ${
+              className={`rounded-ui-rect py-2.5 sam-text-body font-medium ${
                 action.destructive ? "text-red-600" : "text-ui-fg"
               } disabled:opacity-50`}
             >
@@ -69,7 +69,7 @@ function RowActionSheet({
             </button>
           ))}
         </div>
-        <button type="button" className="mt-1 w-full py-2 text-[13px] text-ui-muted" onClick={onClose}>
+        <button type="button" className="mt-1 w-full py-2 sam-text-body-secondary text-ui-muted" onClick={onClose}>
           취소
         </button>
       </div>
@@ -123,12 +123,12 @@ function RequestRow({
           }}
         >
           <div className="flex items-center gap-1.5">
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">
+            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
               {isIncoming ? "요청" : "보냄"}
             </span>
-            <p className="truncate text-[13px] font-medium text-ui-fg">{label}</p>
+            <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{label}</p>
           </div>
-          <p className="mt-0.5 truncate text-[11px] text-ui-muted">{isIncoming ? "친구 요청" : "보낸 요청"}</p>
+          <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">{isIncoming ? "친구 요청" : "보낸 요청"}</p>
         </div>
         <div className="flex shrink-0 gap-1">
           {isIncoming ? (
@@ -137,7 +137,7 @@ function RequestRow({
                 type="button"
                 onClick={() => void onAction(request.id, "reject")}
                 disabled={busyId === `request:${request.id}:reject`}
-                className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] text-ui-fg"
+                className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
               >
                 거절
               </button>
@@ -145,7 +145,7 @@ function RequestRow({
                 type="button"
                 onClick={() => void onAction(request.id, "accept")}
                 disabled={busyId === `request:${request.id}:accept`}
-                className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 text-[11px] font-semibold text-ui-surface"
+                className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 sam-text-xxs font-semibold text-ui-surface"
               >
                 수락
               </button>
@@ -155,7 +155,7 @@ function RequestRow({
               type="button"
               onClick={() => void onAction(request.id, "cancel")}
               disabled={busyId === `request:${request.id}:cancel`}
-              className="rounded-ui-rect border border-ui-border px-2 py-1 text-[11px] text-ui-fg"
+              className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
             >
               취소
             </button>
@@ -222,16 +222,16 @@ function MissedCallRow({
         >
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">
+              <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
                 부재
               </span>
-              <p className="truncate text-[13px] font-medium text-ui-fg">{call.peerLabel}</p>
+              <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{call.peerLabel}</p>
             </div>
-            <p className="mt-0.5 truncate text-[11px] text-ui-muted">
+            <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">
               {kindLabel} · {formatConversationTimestamp(call.startedAt)}
             </p>
           </div>
-          <span className="shrink-0 text-[10px] text-ui-muted">{call.roomId ? "열기" : "—"}</span>
+          <span className="shrink-0 sam-text-xxs text-ui-muted">{call.roomId ? "열기" : "—"}</span>
         </button>
       </div>
       {menu ? (
@@ -311,21 +311,21 @@ function ImportantRoomRow({
           className="flex min-w-0 flex-1 flex-col items-start text-left"
         >
           <div className="flex w-full items-center gap-1.5">
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">
+            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
               {highlightReasonLabel(item.highlightReason)}
             </span>
-            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 text-[9px] font-medium text-ui-muted">
+            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
               {badge}
             </span>
-            <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ui-fg">{room.title}</p>
+            <p className="min-w-0 flex-1 truncate sam-text-body-secondary font-medium text-ui-fg">{room.title}</p>
             {room.unreadCount > 0 ? (
-              <span className="shrink-0 rounded-full bg-ui-fg px-1.5 py-0.5 text-[10px] font-semibold text-ui-surface">
+              <span className="shrink-0 rounded-full bg-ui-fg px-1.5 py-0.5 sam-text-xxs font-semibold text-ui-surface">
                 {room.unreadCount > 99 ? "99+" : room.unreadCount}
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 line-clamp-2 w-full text-left text-[11px] text-ui-muted">{item.preview}</p>
-          <p className="mt-0.5 text-[10px] text-ui-muted">{formatConversationTimestamp(room.lastMessageAt)}</p>
+          <p className="mt-0.5 line-clamp-2 w-full text-left sam-text-xxs text-ui-muted">{item.preview}</p>
+          <p className="mt-0.5 sam-text-xxs text-ui-muted">{formatConversationTimestamp(room.lastMessageAt)}</p>
         </button>
       </div>
       {menu ? (
@@ -397,11 +397,11 @@ export function MessengerNotificationCenterSheet({
         aria-label="알림 센터"
         className="max-h-[min(78vh,calc(100dvh-2rem))] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
       >
-        <p className="text-center text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+        <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
           알림
         </p>
         {summaryLine ? (
-          <p className="mt-1 text-center text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="mt-1 text-center sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {summaryLine}
           </p>
         ) : null}
@@ -443,14 +443,14 @@ export function MessengerNotificationCenterSheet({
               )
             )
           ) : (
-            <p className="px-3 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
               새 알림이 없습니다.
             </p>
           )}
         </div>
         <button
           type="button"
-          className="mt-2 w-full py-2 text-[13px]"
+          className="mt-2 w-full py-2 sam-text-body-secondary"
           style={{ color: "var(--messenger-text-secondary)" }}
           onClick={onClose}
         >

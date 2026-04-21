@@ -229,7 +229,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         {t("admin_chat_loading_room")}
       </div>
     );
@@ -237,7 +237,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   if (!room) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         {t("admin_chat_room_not_found")}
       </div>
     );
@@ -267,18 +267,18 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-sam-fg">
+            <p className="sam-text-body font-semibold text-sam-fg">
               {room.productTitle}
             </p>
-            <p className="text-[13px] text-sam-muted">ID: {room.id}</p>
+            <p className="sam-text-body-secondary text-sam-muted">ID: {room.id}</p>
             {room.roomType ? (
-              <p className="text-[12px] text-signature">
+              <p className="sam-text-helper text-signature">
                 {t("admin_chat_type_label")}: {room.roomType}
                 {room.contextType ? ` · ${room.contextType}` : ""}
               </p>
             ) : null}
             {room.roomType === "meeting_open_chat" && room.meetingId ? (
-              <p className="mt-1 text-[13px]">
+              <p className="mt-1 sam-text-body-secondary">
                 <Link
                   href={`/philife/meetings/${room.meetingId}`}
                   className="font-medium text-signature hover:underline"
@@ -288,7 +288,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
               </p>
             ) : null}
             <AdminChatRoomStatusBadge status={room.roomStatus} className="mt-2" />
-            <p className="mt-2 text-[13px] text-sam-muted">
+            <p className="mt-2 sam-text-body-secondary text-sam-muted">
               {t("admin_chat_message_report_count", {
                 messageCount: room.messageCount,
                 reportCount: room.reportCount,
@@ -299,7 +299,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       </AdminCard>
 
       <AdminCard title={t("admin_chat_participants")}>
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">
               {room.roomType === "item_trade" || !room.roomType ? t("admin_chat_seller") : t("admin_chat_participant_a")}
@@ -325,7 +325,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_admin_memo")}>
         {hasMemo && (
-          <p className="mb-2 text-[13px] text-sam-fg">{hasMemo}</p>
+          <p className="mb-2 sam-text-body-secondary text-sam-fg">{hasMemo}</p>
         )}
         <div className="flex gap-2">
           <input
@@ -333,12 +333,12 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             placeholder={t("admin_chat_memo_placeholder")}
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
-            className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+            className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
           >
             {t("admin_chat_save_memo")}
           </button>
@@ -351,11 +351,11 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_related_reports")}>
         {roomReports.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_chat_no_reports")}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_no_reports")}</p>
         ) : (
           <ul className="space-y-2">
             {roomReports.map((rp) => (
-              <li key={rp.id} className="flex items-center justify-between gap-2 border-b border-sam-border-soft py-2 text-[13px]">
+              <li key={rp.id} className="flex items-center justify-between gap-2 border-b border-sam-border-soft py-2 sam-text-body-secondary">
                 <span className="min-w-0 flex-1 truncate text-sam-fg">{rp.reason_code}</span>
                 <span className="shrink-0 text-sam-muted">{rp.status}</span>
                 <Link
@@ -372,9 +372,9 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
       <AdminCard title={t("admin_chat_sanctions_history")}>
         {sanctions.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">{t("admin_chat_no_sanctions")}</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_no_sanctions")}</p>
         ) : (
-          <ul className="space-y-2 text-[13px]">
+          <ul className="space-y-2 sam-text-body-secondary">
             {sanctions.map((s) => (
               <li key={s.id} className="flex justify-between border-b border-sam-border-soft py-2">
                 <span className="text-sam-fg">{s.sanction_type}</span>

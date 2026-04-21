@@ -22,7 +22,7 @@ export function BusinessStatusBadge({
 }) {
   return (
     <span
-      className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${TONE_CLASS[tone]} ${className}`}
+      className={`inline-flex max-w-full items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${TONE_CLASS[tone]} ${className}`}
     >
       {children}
     </span>

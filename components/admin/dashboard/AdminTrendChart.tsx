@@ -31,19 +31,19 @@ export const AdminTrendChart = memo(function AdminTrendChart({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       {title && (
-        <h2 className="mb-3 text-[15px] font-medium text-sam-fg">{title}</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{title}</h2>
       )}
       <div className="space-y-2">
         {loading &&
           data.map((d) => (
-            <div key={`sk-${d.date}`} className="flex items-center gap-2 text-[13px]">
+            <div key={`sk-${d.date}`} className="flex items-center gap-2 sam-text-body-secondary">
               <span className="w-16 shrink-0 text-sam-muted">{formatDate(d.date)}</span>
               <div className="h-6 flex-1 animate-pulse rounded bg-sam-border" aria-hidden />
             </div>
           ))}
         {!loading &&
           data.map((d) => (
-          <div key={d.date} className="flex items-center gap-2 text-[13px]">
+          <div key={d.date} className="flex items-center gap-2 sam-text-body-secondary">
             <span className="w-16 shrink-0 text-sam-muted">
               {formatDate(d.date)}
             </span>
@@ -84,7 +84,7 @@ export const AdminTrendChart = memo(function AdminTrendChart({
           </div>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-sam-muted">
+      <div className="mt-2 flex flex-wrap gap-3 sam-text-xxs text-sam-muted">
         <span>■ 상품</span>
         <span>■ 회원</span>
         <span>■ 신고</span>

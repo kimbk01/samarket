@@ -88,7 +88,7 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
           <button
             type="button"
             onClick={onClose}
-            className="mt-4 rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg"
+            className="mt-4 rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg"
           >
             닫기
           </button>
@@ -102,39 +102,39 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
         <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-5 py-4">
           <h2 className="text-lg font-semibold text-sam-fg">관리자 수정</h2>
-          <p className="mt-1 text-[13px] text-sam-muted">
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">
             {staff.loginId} — 항목별로 클릭해 권한 부여 여부를 변경하세요.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">로그인 ID</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">로그인 ID</label>
               <input
                 type="text"
                 value={staff.loginId}
                 readOnly
-                className="w-full rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-muted"
+                className="w-full rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-muted"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">표시 이름</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">표시 이름</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={64}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="관리자 목록에 표시될 이름 (64자 이내)"
               />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-sam-fg">역할</label>
+            <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">역할</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as AdminRole)}
-              className="w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               {ROLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -153,19 +153,19 @@ export function EditAdminForm({ staffId, onClose, onSuccess }: EditAdminFormProp
             />
           </div>
 
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
+          {error && <p className="sam-text-body-secondary text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+              className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded bg-signature px-4 py-2 text-[14px] text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "저장"}
             </button>

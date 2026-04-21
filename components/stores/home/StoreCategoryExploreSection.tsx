@@ -63,7 +63,7 @@ export function StoreCategoryExploreSection({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPickedSlug(p.slug)}
-                className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-ui-rect px-3 py-2 text-[13px] font-semibold transition-colors ${
+                className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-ui-rect px-3 py-2 sam-text-body-secondary font-semibold transition-colors ${
                   on ?
                     "bg-[#1877F2] text-white dark:bg-[#2374E1]"
                   : "bg-[#F0F2F5] text-[#050505] active:bg-[#E4E6EB] dark:bg-[#3A3B3C] dark:text-[#E4E6EB] dark:active:bg-[#4E4F50]"
@@ -79,13 +79,13 @@ export function StoreCategoryExploreSection({
         </div>
 
         <div className={`flex items-center justify-between gap-2 px-3 py-2 ${FB.hairline} border-b border-[#E4E6EB] dark:border-[#3E4042]`}>
-          <p className={`truncate text-[13px] ${FB.meta}`}>
+          <p className={`truncate sam-text-body-secondary ${FB.meta}`}>
             <span className="font-semibold text-[#050505] dark:text-[#E4E6EB]">{activePrimary?.nameKo ?? "매장"}</span>
             <span className="text-[#65676B] dark:text-[#B0B3B8]"> · 세부 주제</span>
           </p>
           <Link
             href={storesBrowsePrimaryPath(activeSlug)}
-            className={`shrink-0 text-[13px] font-semibold ${FB.link}`}
+            className={`shrink-0 sam-text-body-secondary font-semibold ${FB.link}`}
           >
             전체 보기
           </Link>
@@ -96,8 +96,8 @@ export function StoreCategoryExploreSection({
             href={storesBrowsePrimaryPath(activeSlug)}
             className="flex min-h-[56px] flex-col items-center justify-center rounded-ui-rect bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
           >
-            <span className="text-[11px] font-semibold text-[#65676B] dark:text-[#B0B3B8]">모아보기</span>
-            <span className="mt-0.5 text-[13px] font-bold text-[#050505] dark:text-[#E4E6EB]">전체</span>
+            <span className="sam-text-xxs font-semibold text-[#65676B] dark:text-[#B0B3B8]">모아보기</span>
+            <span className="mt-0.5 sam-text-body-secondary font-bold text-[#050505] dark:text-[#E4E6EB]">전체</span>
           </Link>
           {subs.map((s) => (
             <Link
@@ -105,7 +105,7 @@ export function StoreCategoryExploreSection({
               href={storesBrowsePath(activeSlug, s.slug)}
               className="flex min-h-[56px] items-center justify-center rounded-ui-rect bg-[#F7F8FA] px-2 py-2 text-center active:bg-[#ECEFF3] dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
             >
-              <span className="text-center text-[13px] font-semibold leading-tight text-[#050505] dark:text-[#E4E6EB]">
+              <span className="text-center sam-text-body-secondary font-semibold leading-tight text-[#050505] dark:text-[#E4E6EB]">
                 {s.nameKo}
               </span>
             </Link>

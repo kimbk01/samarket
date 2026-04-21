@@ -10,7 +10,7 @@ interface PointLedgerListProps {
 export function PointLedgerList({ entries }: PointLedgerListProps) {
   if (entries.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         포인트 거래내역이 없습니다.
       </div>
     );
@@ -21,13 +21,13 @@ export function PointLedgerList({ entries }: PointLedgerListProps) {
       {entries.map((e) => (
         <li
           key={e.id}
-          className="flex items-center justify-between border-b border-sam-border-soft py-3 text-[14px]"
+          className="flex items-center justify-between border-b border-sam-border-soft py-3 sam-text-body"
         >
           <div>
             <p className="font-medium text-sam-fg">
               {POINT_LEDGER_ENTRY_LABELS[e.entryType]} {e.description}
             </p>
-            <p className="text-[12px] text-sam-muted">
+            <p className="sam-text-helper text-sam-muted">
               {new Date(e.createdAt).toLocaleString("ko-KR")}
             </p>
           </div>
@@ -40,7 +40,7 @@ export function PointLedgerList({ entries }: PointLedgerListProps) {
               {e.amount > 0 ? "+" : ""}
               {e.amount.toLocaleString()}P
             </p>
-            <p className="text-[12px] text-sam-muted">
+            <p className="sam-text-helper text-sam-muted">
               잔액 {e.balanceAfter.toLocaleString()}P
             </p>
           </div>

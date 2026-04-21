@@ -90,11 +90,11 @@ export function MessengerFriendProfileSheet({
               <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-ui-muted">{initial}</div>
             )}
           </div>
-          <h2 id="messenger-friend-sheet-title" className="mt-2 text-[16px] font-semibold text-ui-fg">
+          <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
             {profile.label}
           </h2>
-          {statusLine ? <p className="mt-0.5 line-clamp-2 text-[12px] text-ui-muted">{statusLine}</p> : null}
-          <p className="mt-1 font-mono text-[11px] text-ui-muted tabular-nums">ID {pid}</p>
+          {statusLine ? <p className="mt-0.5 line-clamp-2 sam-text-helper text-ui-muted">{statusLine}</p> : null}
+          <p className="mt-1 font-mono sam-text-xxs text-ui-muted tabular-nums">ID {pid}</p>
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
             {profile.isFriend ? <StatusChip label={MessengerFriendAddCtaLabels.friend} /> : null}
             {profile.isFavoriteFriend ? <StatusChip label="즐겨찾기" /> : null}
@@ -114,8 +114,8 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="text-[13px] font-semibold text-ui-fg">{MessengerFriendAddCtaLabels.message}</p>
-            {bChat ? <p className="mt-0.5 text-[10px] text-ui-muted">열기…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{MessengerFriendAddCtaLabels.message}</p>
+            {bChat ? <p className="mt-0.5 sam-text-xxs text-ui-muted">열기…</p> : null}
           </button>
           <button
             type="button"
@@ -123,8 +123,8 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="text-[13px] font-semibold text-ui-fg">음성</p>
-            {bVoice ? <p className="mt-0.5 text-[10px] text-ui-muted">연결…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">음성</p>
+            {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">연결…</p> : null}
           </button>
           <button
             type="button"
@@ -132,12 +132,12 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="text-[13px] font-semibold text-ui-fg">영상</p>
-            {bVideo ? <p className="mt-0.5 text-[10px] text-ui-muted">연결…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">영상</p>
+            {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">연결…</p> : null}
           </button>
         </div>
         {!canMessageAndCall && useFriendAddGate ? (
-          <p className="mt-2 text-center text-[11px] text-ui-muted">친구가 되면 메시지·음성·영상을 이용할 수 있습니다.</p>
+          <p className="mt-2 text-center sam-text-xxs text-ui-muted">친구가 되면 메시지·음성·영상을 이용할 수 있습니다.</p>
         ) : null}
 
         <div className="mt-3 divide-y divide-ui-border border-t border-ui-border">
@@ -176,7 +176,7 @@ export function MessengerFriendProfileSheet({
           {onReport ? <ActionRow label="신고" onClick={onReport} disabled={anyBusy} danger /> : null}
         </div>
 
-        <button type="button" onClick={onClose} className="mt-2 w-full py-2.5 text-[13px] font-medium text-ui-muted active:bg-ui-hover">
+        <button type="button" onClick={onClose} className="mt-2 w-full py-2.5 sam-text-body-secondary font-medium text-ui-muted active:bg-ui-hover">
           닫기
         </button>
       </div>
@@ -201,8 +201,8 @@ function renderFriendAddBlock(args: {
   if (cta.kind === "blocked") {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="text-[14px] font-semibold text-ui-muted">{MessengerFriendAddCtaLabels.unavailable}</p>
-        <p className="mt-1 text-[12px] leading-snug text-ui-muted">차단 상태에서는 친구 추가·대화를 할 수 없습니다.</p>
+        <p className="sam-text-body font-semibold text-ui-muted">{MessengerFriendAddCtaLabels.unavailable}</p>
+        <p className="mt-1 sam-text-helper leading-snug text-ui-muted">차단 상태에서는 친구 추가·대화를 할 수 없습니다.</p>
       </div>
     );
   }
@@ -214,7 +214,7 @@ function renderFriendAddBlock(args: {
           type="button"
           onClick={onFriendAdd}
           disabled={Boolean(busyId)}
-          className="w-full rounded-ui-rect bg-ui-fg py-3 text-[15px] font-semibold text-ui-surface disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-ui-fg py-3 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
         >
           {bFriendAdd ? "처리 중…" : MessengerFriendAddCtaLabels.add}
         </button>
@@ -228,7 +228,7 @@ function renderFriendAddBlock(args: {
     return (
       <div className="flex gap-2">
         <div
-          className="flex min-h-[var(--ui-tap-min,44px)] flex-1 items-center justify-center rounded-ui-rect border border-ui-border bg-ui-page text-[14px] font-medium text-ui-muted"
+          className="flex min-h-[var(--ui-tap-min,44px)] flex-1 items-center justify-center rounded-ui-rect border border-ui-border bg-ui-page sam-text-body font-medium text-ui-muted"
           aria-live="polite"
         >
           {MessengerFriendAddCtaLabels.pending}
@@ -237,7 +237,7 @@ function renderFriendAddBlock(args: {
           type="button"
           onClick={() => onFriendCancelOutgoing?.(rid)}
           disabled={Boolean(busyId)}
-          className="min-h-[var(--ui-tap-min,44px)] shrink-0 rounded-ui-rect border border-ui-border px-4 text-[14px] font-medium text-ui-fg disabled:opacity-50"
+          className="min-h-[var(--ui-tap-min,44px)] shrink-0 rounded-ui-rect border border-ui-border px-4 sam-text-body font-medium text-ui-fg disabled:opacity-50"
         >
           {bCancel ? "처리 중…" : MessengerFriendAddCtaLabels.cancel}
         </button>
@@ -249,13 +249,13 @@ function renderFriendAddBlock(args: {
     const rid = cta.requestId;
     return (
       <div className="space-y-2">
-        <p className="text-center text-[13px] text-ui-fg">이 사용자가 친구 요청을 보냈습니다.</p>
+        <p className="text-center sam-text-body-secondary text-ui-fg">이 사용자가 친구 요청을 보냈습니다.</p>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => onFriendRejectIncoming?.(rid)}
             disabled={Boolean(busyId)}
-            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect border border-ui-border py-2.5 text-[14px] font-medium text-ui-fg disabled:opacity-50"
+            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect border border-ui-border py-2.5 sam-text-body font-medium text-ui-fg disabled:opacity-50"
           >
             {busyId === `request:${rid}:reject` ? "처리 중…" : MessengerFriendAddCtaLabels.reject}
           </button>
@@ -263,7 +263,7 @@ function renderFriendAddBlock(args: {
             type="button"
             onClick={() => onFriendAcceptIncoming?.(rid)}
             disabled={Boolean(busyId)}
-            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect bg-ui-fg py-2.5 text-[14px] font-semibold text-ui-surface disabled:opacity-50"
+            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect bg-ui-fg py-2.5 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
           >
             {busyId === `request:${rid}:accept` ? "처리 중…" : MessengerFriendAddCtaLabels.accept}
           </button>
@@ -278,7 +278,7 @@ function renderFriendAddBlock(args: {
 function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "danger" }) {
   return (
     <span
-      className={`rounded-ui-rect border px-1.5 py-0.5 text-[10px] font-semibold ${
+      className={`rounded-ui-rect border px-1.5 py-0.5 sam-text-xxs font-semibold ${
         tone === "danger" ? "border-ui-border bg-ui-page text-[var(--ui-danger)]" : "border-ui-border bg-ui-page text-ui-muted"
       }`}
     >
@@ -303,12 +303,12 @@ function ActionRow({
       type="button"
       onClick={onClick}
       disabled={disabled || !onClick}
-      className={`flex min-h-[var(--ui-tap-min,44px)] w-full items-center justify-between px-0.5 text-left text-[14px] font-medium active:bg-ui-hover disabled:opacity-50 ${
+      className={`flex min-h-[var(--ui-tap-min,44px)] w-full items-center justify-between px-0.5 text-left sam-text-body font-medium active:bg-ui-hover disabled:opacity-50 ${
         danger ? "text-[var(--ui-danger)]" : "text-ui-fg"
       }`}
     >
       <span>{label}</span>
-      {!onClick ? <span className="text-[11px] text-ui-muted">준비 중</span> : null}
+      {!onClick ? <span className="sam-text-xxs text-ui-muted">준비 중</span> : null}
     </button>
   );
 }

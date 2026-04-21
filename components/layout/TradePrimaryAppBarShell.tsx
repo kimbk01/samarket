@@ -3,12 +3,11 @@
 import type { ReactNode } from "react";
 
 /**
- * **메인 1단**·거래/매장 상단 바 — 인스타그램 앱바 톤(흰 배경 + 얇은 구분선).
+ * **메인 1단**·거래/매장 상단 바 — 전역 토큰(얇은 보더·그림자 없음).
  */
-export const TRADE_PRIMARY_APP_BAR_SHELL_CLASS =
-  "border-b border-ig-border bg-sam-surface shadow-[0_1px_0_rgba(0,0,0,0.05)]";
+export const TRADE_PRIMARY_APP_BAR_SHELL_CLASS = "border-b border-sam-border bg-sam-surface";
 
-/** Philife·플랫 커뮤니티 — 그림자 없이 구분선만 */
+/** Philife·플랫 커뮤니티 — 동일 셸(호환 별칭). */
 export const TRADE_PRIMARY_APP_BAR_SHELL_FLAT_CLASS = "border-b border-sam-border bg-sam-surface";
 
 /** @deprecated 하위 호환 — tailwind 클래스로 통일 */

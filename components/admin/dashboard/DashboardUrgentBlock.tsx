@@ -13,7 +13,7 @@ const URGENT_LINKS: { href: string; label: string }[] = [
 export function DashboardUrgentBlock() {
   return (
     <div className="rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
-      <h2 className="mb-3 text-[13px] font-medium text-amber-800">
+      <h2 className="mb-3 sam-text-body-secondary font-medium text-amber-800">
         긴급 처리
       </h2>
       <ul className="flex flex-wrap gap-2">
@@ -21,7 +21,7 @@ export function DashboardUrgentBlock() {
           <li key={label + href}>
             <Link
               href={href}
-              className="inline-block rounded border border-amber-300 bg-sam-surface px-3 py-1.5 text-[13px] text-amber-800 hover:bg-amber-100"
+              className="inline-block rounded border border-amber-300 bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-amber-800 hover:bg-amber-100"
             >
               {label}
             </Link>

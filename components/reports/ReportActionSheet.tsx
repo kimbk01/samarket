@@ -86,11 +86,11 @@ export function ReportActionSheet({
   if (alreadyReported) {
     return (
       <div className="p-4">
-        <p className="text-[14px] text-sam-muted">이미 신고한 대상입니다.</p>
+        <p className="sam-text-body text-sam-muted">이미 신고한 대상입니다.</p>
         <button
           type="button"
           onClick={onClose}
-          className="mt-4 w-full rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
+          className="mt-4 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
         >
           닫기
         </button>
@@ -100,7 +100,7 @@ export function ReportActionSheet({
 
   return (
     <form onSubmit={handleSubmit} className="p-4">
-      <p className="mb-3 text-[14px] text-sam-muted">
+      <p className="mb-3 sam-text-body text-sam-muted">
         {targetLabel && <span>{targetLabel} </span>}
         신고 사유를 선택해 주세요.
       </p>
@@ -113,7 +113,7 @@ export function ReportActionSheet({
       />
       {reasonCode === "other" && (
         <div className="mt-3">
-          <label className="mb-1 block text-[13px] text-sam-muted">
+          <label className="mb-1 block sam-text-body-secondary text-sam-muted">
             기타 사유 (선택)
           </label>
           <input
@@ -121,24 +121,24 @@ export function ReportActionSheet({
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
             placeholder="구체적으로 적어 주세요"
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           />
         </div>
       )}
-      {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}
       <div className="mt-4 flex gap-2">
         <button
           type="button"
           onClick={onClose}
           disabled={submitting}
-          className="rounded-ui-rect border border-sam-border px-4 py-2.5 text-[14px] text-sam-muted disabled:opacity-50"
+          className="rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted disabled:opacity-50"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={!reasonCode || submitting}
-          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {submitting ? "접수 중…" : "신고하기"}
         </button>

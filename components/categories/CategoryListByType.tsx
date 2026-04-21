@@ -68,8 +68,8 @@ export function CategoryListByType({
               href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
               className="flex flex-col items-center rounded-ui-rect bg-sam-surface p-3 shadow-sm"
             >
-              <span className="text-[13px] font-medium text-sam-fg">{c.name}</span>
-              <span className="mt-0.5 text-[11px] text-sam-muted">
+              <span className="sam-text-body-secondary font-medium text-sam-fg">{c.name}</span>
+              <span className="mt-0.5 sam-text-xxs text-sam-muted">
                 {CATEGORY_TYPE_LABELS[c.type]}
               </span>
             </Link>
@@ -85,7 +85,7 @@ export function CategoryListByType({
         if (list.length === 0) return null;
         return (
           <div key={type}>
-            <h3 className="mb-2 text-[12px] font-medium uppercase text-sam-muted">
+            <h3 className="mb-2 sam-text-helper font-medium uppercase text-sam-muted">
               {CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS]}
             </h3>
             <ul className="space-y-1">
@@ -93,7 +93,7 @@ export function CategoryListByType({
                 <li key={c.id}>
                   <Link
                     href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-                    className="block rounded-ui-rect bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+                    className="block rounded-ui-rect bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
                   >
                     {c.name}
                   </Link>

@@ -93,19 +93,19 @@ export function AdminTradeCompletionPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title={t("admin_page_trade_completion")} />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_page_trade_completion_desc")}
       </p>
       {error ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {error}
         </div>
       ) : null}
       {loading ? (
-        <p className="text-[14px] text-sam-muted">{t("common_loading")}</p>
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-          <table className="w-full min-w-[960px] border-collapse text-[13px]">
+          <table className="w-full min-w-[960px] border-collapse sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
                 <th className="px-3 py-2 font-medium">{t("admin_trade_completion_status")}</th>
@@ -127,14 +127,14 @@ export function AdminTradeCompletionPage() {
                 >
                   <td className="px-3 py-2">
                     {r.buyerPending ? (
-                      <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[11px] font-semibold text-amber-950">
+                      <span className="rounded bg-amber-200 px-1.5 py-0.5 sam-text-xxs font-semibold text-amber-950">
                         {t("admin_trade_completion_pending_buyer")}
                       </span>
                     ) : (
                       <span className="text-sam-muted">{t("admin_trade_completion_done")}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 font-mono text-[12px]">
+                  <td className="px-3 py-2 font-mono sam-text-helper">
                     <Link href={tradeChatNotificationHref(r.roomId, "product_chat")} className="text-signature hover:underline" target="_blank">
                       {r.roomId.slice(0, 8)}…
                     </Link>
@@ -157,7 +157,7 @@ export function AdminTradeCompletionPage() {
                         type="button"
                         disabled={busyId === r.roomId}
                         onClick={() => void confirmBuyer(r.roomId)}
-                        className="rounded border border-sam-border bg-signature/5 px-2 py-1 text-[11px] font-medium text-sam-fg hover:bg-signature/10 disabled:opacity-50"
+                        className="rounded border border-sam-border bg-signature/5 px-2 py-1 sam-text-xxs font-medium text-sam-fg hover:bg-signature/10 disabled:opacity-50"
                       >
                         {busyId === r.roomId ? t("admin_chat_processing") : t("admin_trade_completion_admin_confirm")}
                       </button>
@@ -170,7 +170,7 @@ export function AdminTradeCompletionPage() {
             </tbody>
           </table>
           {items.length === 0 && (
-            <p className="px-4 py-10 text-center text-[14px] text-sam-muted">{t("admin_trade_completion_no_items")}</p>
+            <p className="px-4 py-10 text-center sam-text-body text-sam-muted">{t("admin_trade_completion_no_items")}</p>
           )}
         </div>
       )}

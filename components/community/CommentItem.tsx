@@ -19,12 +19,12 @@ export function CommentItem({
 
   return (
     <div className={depth > 0 ? "ml-4 border-l border-sam-border-soft pl-3" : ""}>
-      <p className="text-[12px] font-medium text-sam-muted">{node.author_name}</p>
-      <p className="mt-1 text-[14px] text-sam-fg">{node.content}</p>
+      <p className="sam-text-helper font-medium text-sam-muted">{node.author_name}</p>
+      <p className="mt-1 sam-text-body text-sam-fg">{node.content}</p>
       <div className="mt-1 flex flex-wrap items-center gap-2">
-        <p className="text-[11px] text-sam-meta">{time}</p>
+        <p className="sam-text-xxs text-sam-meta">{time}</p>
         {onReply ? (
-          <button type="button" className="text-[11px] font-medium text-sky-700 underline" onClick={() => onReply(node.id)}>
+          <button type="button" className="sam-text-xxs font-medium text-sky-700 underline" onClick={() => onReply(node.id)}>
             답글
           </button>
         ) : null}

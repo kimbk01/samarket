@@ -19,7 +19,7 @@ export function BusinessProductList({
 }: BusinessProductListProps) {
   if (products.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         {emptyMessage}
       </div>
     );
@@ -43,7 +43,7 @@ export function BusinessProductList({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[12px] text-sam-meta">
+              <div className="flex h-full items-center justify-center sam-text-helper text-sam-meta">
                 이미지 없음
               </div>
             )}
@@ -51,20 +51,20 @@ export function BusinessProductList({
           <div className="p-2">
             <div className="mb-0.5 flex flex-wrap gap-1">
               {p.isFeatured ? (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900">
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-semibold text-amber-900">
                   대표
                 </span>
               ) : null}
               {p.menuGroupName ? (
-                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[10px] text-sam-muted">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">
                   {p.menuGroupName}
                 </span>
               ) : null}
             </div>
-            <p className="truncate text-[13px] font-medium text-sam-fg">
+            <p className="truncate sam-text-body-secondary font-medium text-sam-fg">
               {p.title}
             </p>
-            <p className="text-[14px] font-semibold text-sam-fg">
+            <p className="sam-text-body font-semibold text-sam-fg">
               ₩{p.price.toLocaleString()}
             </p>
           </div>

@@ -48,10 +48,10 @@ export function OwnerOrderCard({
         <span className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${typeBadge.cls}`}>{typeBadge.text}</span>
         <span className="font-semibold text-sam-fg">{order.buyer_name}</span>
         {order.request_message ? (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">요청</span>
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">요청</span>
         ) : null}
         {order.buyer_cancel_request ? (
-          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-bold text-red-800">취소요청</span>
+          <span className="rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs font-bold text-red-800">취소요청</span>
         ) : null}
       </div>
 

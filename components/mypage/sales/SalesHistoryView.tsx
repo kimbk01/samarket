@@ -79,16 +79,16 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   );
 
   if (loading) {
-    return <p className="py-12 text-center text-[14px] text-sam-muted">불러오는 중...</p>;
+    return <p className="py-12 text-center sam-text-body text-sam-muted">불러오는 중...</p>;
   }
 
   if (loadError) {
-    return <p className="py-12 px-4 text-center text-[14px] text-red-600">{loadError}</p>;
+    return <p className="py-12 px-4 text-center sam-text-body text-red-600">{loadError}</p>;
   }
 
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center text-[14px] text-sam-muted">
+      <p className="py-12 text-center sam-text-body text-sam-muted">
         판매 중인 내 상품이 없어요. 상품을 올리면 여기에 표시돼요.
       </p>
     );
@@ -112,7 +112,7 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
         tabBaseClassName={APP_TOP_MENU_ROW1_BASE_RADIUS_4}
       />
       {filtered.length === 0 ? (
-        <p className="py-10 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>
+        <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
         <ul className="space-y-2">
           {filtered.map((row) => (

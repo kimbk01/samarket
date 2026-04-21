@@ -43,9 +43,9 @@ export function DeliveryCancellationsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="취소 주문" backHref="/admin/delivery-orders" />
-      <p className="mb-2 text-[13px] text-sam-muted">
+      <p className="mb-2 sam-text-body-secondary text-sam-muted">
         DB 스키마상 취소 단계는{" "}
-        <code className="rounded bg-sam-app px-1 text-[12px]">cancelled</code> 로 확정된 건만 조회합니다. 추가
+        <code className="rounded bg-sam-app px-1 sam-text-helper">cancelled</code> 로 확정된 건만 조회합니다. 추가
         처리는{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
           매장 주문(액션)
@@ -53,7 +53,7 @@ export function DeliveryCancellationsClient() {
         과 주문 상세에서 진행하세요.
       </p>
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           불러오지 못했습니다 ({error}).
         </p>
       ) : null}

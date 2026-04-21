@@ -46,19 +46,19 @@ export function AddressRowCard(props: {
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={ADDR_ROW_TITLE}>{title}</span>
           {row.isDefaultMaster ? (
-            <span className="rounded-full bg-signature px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">
+            <span className="rounded-full bg-signature px-2 py-0.5 sam-text-xxs font-bold text-white shadow-sm">
               대표
             </span>
           ) : (
-            <span className="text-[11px] font-medium text-sam-muted">탭하여 대표</span>
+            <span className="sam-text-xxs font-medium text-sam-muted">탭하여 대표</span>
           )}
         </div>
-        <p className={`mt-0.5 ${ADDR_BODY} text-[13px]`}>{sub || "—"}</p>
+        <p className={`mt-0.5 ${ADDR_BODY} sam-text-body-secondary`}>{sub || "—"}</p>
         {detailLine ? (
           <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
-            <span className="shrink-0 pb-0.5 text-[12px] font-semibold text-signature/90">상세주소</span>
+            <span className="shrink-0 pb-0.5 sam-text-helper font-semibold text-signature/90">상세주소</span>
             <span
-              className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[13px] text-sam-fg"
+              className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left sam-text-body-secondary text-sam-fg"
               translate="no"
             >
               {detailLine}

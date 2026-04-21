@@ -149,7 +149,7 @@ export function AdminCommunitySectionsPage({
     <div className="space-y-4">
       <AdminPageHeader title="피드 섹션 관리" backHref="/admin/boards" />
       <AdminCard title="동네 피드에 쓸 섹션 (필라이프·앱 연동)">
-        <p className="mb-3 text-[13px] text-sam-muted">
+        <p className="mb-3 sam-text-body-secondary text-sam-muted">
           커뮤니티 동네 피드 칩·글쓰기 주제·모임 만들기 주제는 이 slug의{" "}
           <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
             피드 주제
@@ -157,11 +157,11 @@ export function AdminCommunitySectionsPage({
           와 연동됩니다. 미설정 시 기본 <code className="rounded bg-sam-surface-muted px-1">dongnae</code>입니다. 저장 위치:{" "}
           <code className="rounded bg-sam-surface-muted px-1">admin_settings.philife_neighborhood_section</code>
         </p>
-        <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 text-[13px]">
+        <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 sam-text-body-secondary">
           <label className="flex flex-col gap-0.5">
             <span className="text-sam-muted">섹션 slug</span>
             <select
-              className="min-w-[200px] rounded border border-sam-border px-2 py-1.5 font-mono text-[12px]"
+              className="min-w-[200px] rounded border border-sam-border px-2 py-1.5 font-mono sam-text-helper"
               value={
                 sections.some(
                   (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
@@ -201,7 +201,7 @@ export function AdminCommunitySectionsPage({
         </form>
       </AdminCard>
       <AdminCard title="섹션 추가">
-        <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 text-[13px]">
+        <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 sam-text-body-secondary">
           <label className="flex flex-col gap-0.5">
             <span className="text-sam-muted">이름</span>
             <input
@@ -214,7 +214,7 @@ export function AdminCommunitySectionsPage({
           <label className="flex flex-col gap-0.5">
             <span className="text-sam-muted">slug (비우면 이름 기준)</span>
             <input
-              className="rounded border border-sam-border px-2 py-1.5 font-mono text-[12px]"
+              className="rounded border border-sam-border px-2 py-1.5 font-mono sam-text-helper"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               placeholder="dongnae"
@@ -244,13 +244,13 @@ export function AdminCommunitySectionsPage({
       </AdminCard>
       <AdminCard title="섹션 목록 (community_sections)">
         {sections.length === 0 ? (
-          <p className="text-[13px] text-amber-800">
+          <p className="sam-text-body-secondary text-amber-800">
             마이그레이션 <code className="rounded bg-sam-surface-muted px-1">20260321120000_community_feed_daangn.sql</code>을
             적용하세요.
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
+            <table className="w-full min-w-[640px] border-collapse text-left sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border text-sam-muted">
                   <th className="py-2 pr-2 font-medium">slug</th>
@@ -266,7 +266,7 @@ export function AdminCommunitySectionsPage({
                     <tr key={s.id} className="border-b border-sam-border-soft bg-amber-50/40">
                       <td className="py-2 pr-2">
                         <input
-                          className="w-full rounded border px-1.5 py-1 font-mono text-[12px]"
+                          className="w-full rounded border px-1.5 py-1 font-mono sam-text-helper"
                           value={edit.slug}
                           onChange={(e) => setEdit({ ...edit, slug: e.target.value })}
                         />
@@ -309,7 +309,7 @@ export function AdminCommunitySectionsPage({
                     </tr>
                   ) : (
                     <tr key={s.id} className="border-b border-sam-border-soft">
-                      <td className="py-2 pr-2 font-mono text-[12px]">{s.slug}</td>
+                      <td className="py-2 pr-2 font-mono sam-text-helper">{s.slug}</td>
                       <td className="py-2 pr-2 text-sam-fg">{s.name}</td>
                       <td className="py-2 pr-2">{s.sort_order}</td>
                       <td className="py-2 pr-2">{s.is_active ? "Y" : "N"}</td>
@@ -336,7 +336,7 @@ export function AdminCommunitySectionsPage({
             </table>
           </div>
         )}
-        <p className="mt-4 text-[13px]">
+        <p className="mt-4 sam-text-body-secondary">
           <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
             주제 관리 →
           </a>{" "}

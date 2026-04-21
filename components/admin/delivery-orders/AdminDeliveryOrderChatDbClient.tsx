@@ -107,7 +107,7 @@ export function AdminDeliveryOrderChatDbClient({ orderId }: Props) {
       <div className="p-6">
         <AdminPageHeader title="주문 채팅" backHref="/admin/order-chats" />
         <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
-        <p className="mt-2 text-[13px] text-sam-muted">
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">
           주문 UUID가 맞는지, <Link href="/admin/store-orders">매장 주문(액션)</Link>에서 확인하세요.
         </p>
       </div>
@@ -123,7 +123,7 @@ export function AdminDeliveryOrderChatDbClient({ orderId }: Props) {
         description="order_chat_* · 관리자 메모는 구매자·사장 미읽음에 반영됩니다."
         backHref="/admin/order-chats"
       />
-      <div className="flex flex-wrap gap-2 text-[13px]">
+      <div className="flex flex-wrap gap-2 sam-text-body-secondary">
         <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
           매장 주문(액션)에서 열기
         </Link>

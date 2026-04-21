@@ -29,11 +29,11 @@ export function DevSprintItemTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">스프린트</span>
+        <span className="sam-text-body-secondary text-sam-muted">스프린트</span>
         <select
           value={sprintId}
           onChange={(e) => setSprintId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           {sprints.map((s) => (
@@ -42,13 +42,13 @@ export function DevSprintItemTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as DevSprintItemStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="todo">할 일</option>
@@ -61,7 +61,7 @@ export function DevSprintItemTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건의 스프린트 작업이 없습니다.
         </div>
       ) : (
@@ -88,12 +88,12 @@ export function DevSprintItemTable() {
                 <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {i.title}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {sprint?.sprintName ?? i.sprintId}
                 </td>
                 <td className="px-3 py-2.5">
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[12px] ${
+                    className={`rounded px-1.5 py-0.5 sam-text-helper ${
                       i.status === "blocked"
                         ? "bg-red-100 text-red-800"
                         : i.status === "done"
@@ -104,16 +104,16 @@ export function DevSprintItemTable() {
                     {getSprintItemStatusLabel(i.status)}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {getSprintItemPriorityLabel(i.priority)}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {getSprintItemOwnerTypeLabel(i.ownerType)} {i.ownerName}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-red-600">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-red-600">
                   {i.blockerReason ?? "-"}
                 </td>
-                <td className="px-3 py-2.5 text-[13px]">
+                <td className="px-3 py-2.5 sam-text-body-secondary">
                   {i.linkedQaIssueId && (
                     <Link href="/admin/qa-board" className="text-signature hover:underline">
                       QA

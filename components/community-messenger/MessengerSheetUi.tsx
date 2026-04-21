@@ -6,7 +6,7 @@ export function MessengerSettingsBlock({ title, children }: { title: string; chi
   return (
     <section>
       <h3
-        className="mb-2 text-[11px] font-semibold uppercase tracking-wide"
+        className="mb-2 sam-text-xxs font-semibold uppercase tracking-wide"
         style={{ color: "var(--messenger-text-secondary)" }}
       >
         {title}
@@ -34,11 +34,11 @@ export function SettingsToggleRow({
   return (
     <label className={`flex cursor-pointer items-start justify-between gap-3 px-3 py-2 ${disabled ? "opacity-50" : ""}`}>
       <span className="min-w-0">
-        <span className="block text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
+        <span className="block sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
           {title}
         </span>
         {description ? (
-          <span className="mt-0.5 block text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="mt-0.5 block sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {description}
           </span>
         ) : null}
@@ -75,16 +75,16 @@ export function SettingsActionRow({
       className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left ${disabled ? "opacity-50" : ""}`}
     >
       <span className="min-w-0">
-        <span className="block text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
+        <span className="block sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
           {title}
         </span>
         {description ? (
-          <span className="mt-0.5 block text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="mt-0.5 block sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {description}
           </span>
         ) : null}
       </span>
-      <span className="shrink-0 text-[12px] font-medium text-[color:var(--messenger-primary)]">{actionLabel}</span>
+      <span className="shrink-0 sam-text-helper font-medium text-[color:var(--messenger-primary)]">{actionLabel}</span>
     </button>
   );
 }

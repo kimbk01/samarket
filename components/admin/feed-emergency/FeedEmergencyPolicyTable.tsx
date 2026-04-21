@@ -64,7 +64,7 @@ export function FeedEmergencyPolicyTable() {
 
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         정책이 없습니다.
       </div>
     );
@@ -72,7 +72,7 @@ export function FeedEmergencyPolicyTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -111,7 +111,7 @@ export function FeedEmergencyPolicyTable() {
                     <button
                       type="button"
                       onClick={() => void handleKillSwitch(p.surface, !p.killSwitchEnabled)}
-                      className={`rounded border px-2 py-1 text-[13px] ${
+                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
                         p.killSwitchEnabled
                           ? "border-amber-300 bg-amber-50 text-amber-800"
                           : "border-sam-border bg-sam-app text-sam-muted"
@@ -120,7 +120,7 @@ export function FeedEmergencyPolicyTable() {
                       {p.killSwitchEnabled ? "ON (해제)" : "OFF (활성화)"}
                     </button>
                     {mode === "kill_switch" && (
-                      <span className="text-[12px] text-amber-600">활성됨</span>
+                      <span className="sam-text-helper text-amber-600">활성됨</span>
                     )}
                   </div>
                 </td>
@@ -131,7 +131,7 @@ export function FeedEmergencyPolicyTable() {
                       onClick={() =>
                         void handleFallback(p.surface, mode !== "fallback")
                       }
-                      className={`rounded border px-2 py-1 text-[13px] ${
+                      className={`rounded border px-2 py-1 sam-text-body-secondary ${
                         mode === "fallback"
                           ? "border-emerald-300 bg-emerald-50 text-emerald-800"
                           : "border-sam-border bg-sam-app text-sam-muted"
@@ -147,7 +147,7 @@ export function FeedEmergencyPolicyTable() {
                     onChange={(e) =>
                       void handlePolicyChange(p.id, p.surface, "fallbackMode", e.target.value)
                     }
-                    className="rounded border border-sam-border px-2 py-1 text-[13px]"
+                    className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                   >
                     {(Object.keys(FALLBACK_MODE_LABELS) as FeedFallbackMode[]).map(
                       (m) => (
@@ -173,7 +173,7 @@ export function FeedEmergencyPolicyTable() {
                       }
                       className="rounded border-sam-border"
                     />
-                    <span className="text-[13px]">공지 표시</span>
+                    <span className="sam-text-body-secondary">공지 표시</span>
                   </label>
                   {p.emergencyNoticeEnabled && (
                     <input
@@ -188,11 +188,11 @@ export function FeedEmergencyPolicyTable() {
                         )
                       }
                       placeholder="공지 문구"
-                      className="mt-1 w-full rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="mt-1 w-full rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   )}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   <label className="flex items-center gap-1">
                     <input
                       type="checkbox"

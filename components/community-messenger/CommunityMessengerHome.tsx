@@ -2248,10 +2248,10 @@ export function CommunityMessengerHome({
           />
           <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
-              <p className="text-[17px] font-semibold text-sam-fg">오픈채팅 찾기</p>
+              <p className="sam-text-section-title font-semibold text-sam-fg">오픈채팅 찾기</p>
               <button
                 type="button"
-                className="rounded-ui-rect px-3 py-1.5 text-[15px] text-sam-muted"
+                className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted"
                 onClick={() => closeHomeOverlay("public-group-find")}
               >
                 닫기
@@ -2262,7 +2262,7 @@ export function CommunityMessengerHome({
                 value={openGroupSearch}
                 onChange={(e) => setOpenGroupSearch(e.target.value)}
                 placeholder="오픈채팅 검색"
-                className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
               />
               <div className="mt-3 space-y-2">
                 {filteredDiscoverableGroups.length ? (
@@ -2275,7 +2275,7 @@ export function CommunityMessengerHome({
                     />
                   ))
                 ) : (
-                  <div className="py-10 text-center text-[13px] text-sam-muted">검색 결과가 없습니다.</div>
+                  <div className="py-10 text-center sam-text-body-secondary text-sam-muted">검색 결과가 없습니다.</div>
                 )}
               </div>
             </div>
@@ -2288,17 +2288,17 @@ export function CommunityMessengerHome({
           <div className="w-full max-w-[520px] rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]">
             {groupCreateStep === "select" ? (
               <>
-                <p className="text-[13px] font-medium text-sam-fg">그룹 생성</p>
-                <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">어떤 그룹을 만들까요?</h2>
+                <p className="sam-text-body-secondary font-medium text-sam-fg">그룹 생성</p>
+                <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">어떤 그룹을 만들까요?</h2>
                 <div className="mt-4 grid gap-3">
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("private_group")}
                     className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
                   >
-                    <p className="text-[12px] text-sam-muted">친구 초대형</p>
-                    <p className="mt-1 text-[16px] font-semibold text-sam-fg">비공개 그룹</p>
-                    <p className="mt-1 text-[13px] text-sam-muted">친구를 선택해 바로 만드는 초대형 그룹입니다.</p>
+                    <p className="sam-text-helper text-sam-muted">친구 초대형</p>
+                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">비공개 그룹</p>
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">친구를 선택해 바로 만드는 초대형 그룹입니다.</p>
                   </button>
                 </div>
               </>
@@ -2308,13 +2308,13 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-sam-fg">비공개 그룹</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">친구 초대형 그룹 만들기</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">비공개 그룹</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">친구 초대형 그룹 만들기</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("closed")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
                   >
                     닫기
                   </button>
@@ -2323,22 +2323,22 @@ export function CommunityMessengerHome({
                   value={groupTitle}
                   onChange={(e) => setGroupTitle(e.target.value)}
                   placeholder="예: 사마켓 운영팀 (선택 입력)"
-                  className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                  className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                 />
-                <div className="mt-3 flex items-center justify-between gap-3 text-[12px] text-sam-muted">
+                <div className="mt-3 flex items-center justify-between gap-3 sam-text-helper text-sam-muted">
                   <span>선택된 친구 {groupMembers.length}명</span>
                   {groupMembers.length ? (
                     <button
                       type="button"
                       onClick={() => setGroupMembers([])}
-                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] font-medium text-sam-fg"
+                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
                     >
                       선택 해제
                     </button>
                   ) : null}
                 </div>
                 {groupTitlePreview ? (
-                  <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[12px] text-sam-muted">
+                  <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-helper text-sam-muted">
                     생성 예정 그룹명: <span className="font-semibold text-sam-fg">{groupTitlePreview}</span>
                   </div>
                 ) : null}
@@ -2352,8 +2352,8 @@ export function CommunityMessengerHome({
                     return (
                       <label key={friend.id} className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
                         <div>
-                          <p className="text-[14px] font-medium text-sam-fg">{friend.label}</p>
-                          <p className="text-[12px] text-sam-muted">{friendHelper}</p>
+                          <p className="sam-text-body font-medium text-sam-fg">{friend.label}</p>
+                          <p className="sam-text-helper text-sam-muted">{friendHelper}</p>
                         </div>
                         <input
                           type="checkbox"
@@ -2371,7 +2371,7 @@ export function CommunityMessengerHome({
                 </div>
                 {groupSelectableFriends.length === 0 ? (
                   <div className="mt-4 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-5 text-center">
-                    <p className="text-[14px] font-semibold text-sam-fg">초대할 친구가 아직 없습니다.</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">초대할 친구가 아직 없습니다.</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -2379,7 +2379,7 @@ export function CommunityMessengerHome({
                         setFriendManagerOpen(true);
                         requestAnimationFrame(() => friendSearchRef.current?.focus());
                       }}
-                      className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[13px] font-semibold text-sam-fg"
+                      className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-secondary font-semibold text-sam-fg"
                     >
                       친구 탭으로 이동
                     </button>
@@ -2392,13 +2392,13 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-medium text-[#111827]">오픈채팅</p>
-                    <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">방장 설정형 그룹 만들기</h2>
+                    <p className="sam-text-body-secondary font-medium text-[#111827]">오픈채팅</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">방장 설정형 그룹 만들기</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("select")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg"
+                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
                   >
                     이전
                   </button>
@@ -2408,23 +2408,23 @@ export function CommunityMessengerHome({
                     value={openGroupTitle}
                     onChange={(e) => setOpenGroupTitle(e.target.value)}
                     placeholder="오픈채팅 제목"
-                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <textarea
                     value={openGroupSummary}
                     onChange={(e) => setOpenGroupSummary(e.target.value)}
                     rows={3}
                     placeholder="방 소개를 입력하세요"
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-3 text-[14px] outline-none focus:border-sam-border"
+                    className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-                      <p className="text-[13px] font-semibold text-sam-fg">입장 방식</p>
+                      <p className="sam-text-body-secondary font-semibold text-sam-fg">입장 방식</p>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setOpenGroupJoinPolicy("password")}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "password" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupJoinPolicy === "password" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           비밀번호
                         </button>
@@ -2434,14 +2434,14 @@ export function CommunityMessengerHome({
                             setOpenGroupJoinPolicy("free");
                             setOpenGroupPassword("");
                           }}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupJoinPolicy === "free" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupJoinPolicy === "free" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           자유 입장
                         </button>
                       </div>
                     </label>
                     <label className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-                      <p className="text-[13px] font-semibold text-sam-fg">신원 정책</p>
+                      <p className="sam-text-body-secondary font-semibold text-sam-fg">신원 정책</p>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -2449,14 +2449,14 @@ export function CommunityMessengerHome({
                             setOpenGroupIdentityPolicy("real_name");
                             setOpenGroupCreatorIdentityMode("real_name");
                           }}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupIdentityPolicy === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           실명 기반
                         </button>
                         <button
                           type="button"
                           onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           별칭 허용
                         </button>
@@ -2469,10 +2469,10 @@ export function CommunityMessengerHome({
                         value={openGroupPassword}
                         onChange={(e) => setOpenGroupPassword(e.target.value)}
                         placeholder="입장 비밀번호"
-                        className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                        className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                       />
                     ) : (
-                      <div className="flex h-11 items-center rounded-ui-rect bg-sam-app px-3 text-[13px] text-sam-muted">
+                      <div className="flex h-11 items-center rounded-ui-rect bg-sam-app px-3 sam-text-body-secondary text-sam-muted">
                         자유 입장 선택됨
                       </div>
                     )}
@@ -2480,13 +2480,13 @@ export function CommunityMessengerHome({
                       value={openGroupMemberLimit}
                       onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
                       placeholder="최대 인원"
-                      className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                      className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                     />
                   </div>
                   <label className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
                     <div>
-                      <p className="text-[14px] font-medium text-sam-fg">목록에 공개</p>
-                      <p className="text-[12px] text-sam-muted">OFF면 내 목록에는 남지만 오픈채팅 찾기에는 노출되지 않습니다.</p>
+                      <p className="sam-text-body font-medium text-sam-fg">목록에 공개</p>
+                      <p className="sam-text-helper text-sam-muted">OFF면 내 목록에는 남지만 오픈채팅 찾기에는 노출되지 않습니다.</p>
                     </div>
                     <input
                       type="checkbox"
@@ -2501,14 +2501,14 @@ export function CommunityMessengerHome({
                         <button
                           type="button"
                           onClick={() => setOpenGroupCreatorIdentityMode("real_name")}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupCreatorIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupCreatorIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           방장도 실명 사용
                         </button>
                         <button
                           type="button"
                           onClick={() => setOpenGroupCreatorIdentityMode("alias")}
-                          className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${openGroupCreatorIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                          className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupCreatorIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
                           방장 별칭 사용
                         </button>
@@ -2519,20 +2519,20 @@ export function CommunityMessengerHome({
                             value={openGroupCreatorAliasName}
                             onChange={(e) => setOpenGroupCreatorAliasName(e.target.value)}
                             placeholder="방장 별칭 닉네임"
-                            className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                            className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <input
                             value={openGroupCreatorAliasAvatarUrl}
                             onChange={(e) => setOpenGroupCreatorAliasAvatarUrl(e.target.value)}
                             placeholder="아바타 URL (선택)"
-                            className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                            className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <textarea
                             value={openGroupCreatorAliasBio}
                             onChange={(e) => setOpenGroupCreatorAliasBio(e.target.value)}
                             rows={2}
                             placeholder="방장 소개 (선택)"
-                            className="w-full rounded-ui-rect border border-sam-border px-3 py-3 text-[14px] outline-none focus:border-sam-border"
+                            className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                         </div>
                       ) : null}
@@ -2546,7 +2546,7 @@ export function CommunityMessengerHome({
               <button
                 type="button"
                 onClick={() => setGroupCreateStep("closed")}
-                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 text-[14px] font-medium text-sam-fg"
+                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 sam-text-body font-medium text-sam-fg"
               >
                 닫기
               </button>
@@ -2555,7 +2555,7 @@ export function CommunityMessengerHome({
                   type="button"
                   onClick={() => void createPrivateGroup()}
                   disabled={busyId === "create-private-group" || groupMembers.length === 0}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-semibold text-sam-fg disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
                   {busyId === "create-private-group" ? "생성 중..." : "비공개 그룹 생성"}
                 </button>
@@ -2570,7 +2570,7 @@ export function CommunityMessengerHome({
                     (openGroupJoinPolicy === "password" && !openGroupPassword.trim()) ||
                     (openGroupCreatorIdentityMode === "alias" && !openGroupCreatorAliasName.trim())
                   }
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-semibold text-sam-fg disabled:opacity-40"
+                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
                   {busyId === "create-open-group" ? "생성 중..." : "오픈채팅 생성"}
                 </button>
@@ -2583,16 +2583,16 @@ export function CommunityMessengerHome({
       {joinTargetGroup ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 px-4 pb-6 pt-10">
           <div className="w-full max-w-[440px] rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]">
-            <p className="text-[13px] font-medium text-sam-fg">오픈채팅 입장</p>
-            <h2 className="mt-1 text-[20px] font-semibold text-sam-fg">{joinTargetGroup.title}</h2>
-            <p className="mt-2 text-[13px] leading-5 text-sam-muted">
+            <p className="sam-text-body-secondary font-medium text-sam-fg">오픈채팅 입장</p>
+            <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{joinTargetGroup.title}</h2>
+            <p className="mt-2 sam-text-body-secondary leading-5 text-sam-muted">
               {joinTargetGroup.summary || "입장 정보를 확인하세요."}
             </p>
-            <div className="mt-4 rounded-ui-rect bg-sam-app px-4 py-3 text-[12px] text-sam-muted">
+            <div className="mt-4 rounded-ui-rect bg-sam-app px-4 py-3 sam-text-helper text-sam-muted">
               방장 {joinTargetGroup.ownerLabel} · 현재 {joinTargetGroup.memberCount}명
               {joinTargetGroup.memberLimit ? ` / 최대 ${joinTargetGroup.memberLimit}명` : ""}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+            <div className="mt-3 flex flex-wrap gap-2 sam-text-xxs font-semibold">
               <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sam-muted">
                 {joinTargetGroup.joinPolicy === "password" ? "비밀번호 입장" : "자유 입장"}
               </span>
@@ -2605,16 +2605,16 @@ export function CommunityMessengerHome({
                 value={joinPassword}
                 onChange={(e) => setJoinPassword(e.target.value)}
                 placeholder="비밀번호 입력"
-                className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
               />
             ) : null}
             <div className="mt-4 rounded-ui-rect border border-sam-border-soft px-4 py-4">
-              <p className="text-[13px] font-semibold text-sam-fg">표시 이름 선택</p>
+              <p className="sam-text-body-secondary font-semibold text-sam-fg">표시 이름 선택</p>
               <div className="mt-2 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setJoinIdentityMode("real_name")}
-                  className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${joinIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                  className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${joinIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                 >
                   실명 프로필
                 </button>
@@ -2622,7 +2622,7 @@ export function CommunityMessengerHome({
                   <button
                     type="button"
                     onClick={() => setJoinIdentityMode("alias")}
-                    className={`rounded-ui-rect border px-3 py-2 text-[12px] font-semibold ${joinIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
+                    className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${joinIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                   >
                     방별 별칭
                   </button>
@@ -2634,20 +2634,20 @@ export function CommunityMessengerHome({
                     value={joinAliasName}
                     onChange={(e) => setJoinAliasName(e.target.value)}
                     placeholder="별칭 닉네임"
-                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <input
                     value={joinAliasAvatarUrl}
                     onChange={(e) => setJoinAliasAvatarUrl(e.target.value)}
                     placeholder="아바타 URL (선택)"
-                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 text-[14px] outline-none focus:border-sam-border"
+                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <textarea
                     value={joinAliasBio}
                     onChange={(e) => setJoinAliasBio(e.target.value)}
                     rows={2}
                     placeholder="소개 (선택)"
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-3 text-[14px] outline-none focus:border-sam-border"
+                    className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                   />
                 </div>
               ) : null}
@@ -2656,7 +2656,7 @@ export function CommunityMessengerHome({
               <button
                 type="button"
                 onClick={closeJoinOpenGroupModal}
-                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 text-[14px] font-medium text-sam-fg"
+                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 sam-text-body font-medium text-sam-fg"
               >
                 취소
               </button>
@@ -2668,7 +2668,7 @@ export function CommunityMessengerHome({
                   (joinTargetGroup.joinPolicy === "password" && !joinPassword.trim()) ||
                   (joinIdentityMode === "alias" && !joinAliasName.trim())
                 }
-                className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-[14px] font-semibold text-sam-fg disabled:opacity-40"
+                className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
               >
                 {busyId === `join-open-group:${joinTargetGroup.id}` ? "입장 중..." : "이 그룹에 입장"}
               </button>

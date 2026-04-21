@@ -29,10 +29,10 @@ export function AdminAppNoticesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold text-sam-fg">공지사항</h1>
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">공지사항</h1>
         <Link
           href="/admin/app/notices/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           추가
         </Link>
@@ -40,7 +40,7 @@ export function AdminAppNoticesPage() {
       {loading ? (
         <p className="text-sam-muted">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 text-[14px] text-sam-muted">
+        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           공지가 없습니다. Supabase app_notices 연동 후 목록이 표시됩니다.
         </p>
       ) : (
@@ -49,11 +49,11 @@ export function AdminAppNoticesPage() {
             <li key={n.id} className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3">
               <div>
                 <span className="font-medium">{n.title}</span>
-                <span className="ml-2 text-[13px] text-sam-muted">
+                <span className="ml-2 sam-text-body-secondary text-sam-muted">
                   {n.is_active ? "노출" : "숨김"}
                 </span>
               </div>
-              <Link href={`/admin/app/notices/${n.id}/edit`} className="text-[14px] text-signature">
+              <Link href={`/admin/app/notices/${n.id}/edit`} className="sam-text-body text-signature">
                 수정
               </Link>
             </li>

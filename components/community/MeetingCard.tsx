@@ -98,18 +98,18 @@ export function MeetingCard({
     return (
       <div className="rounded-ui-rect border-2 border-[#10a37f]/80 bg-sam-surface px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100/80 pb-2.5">
-          <div className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-[#0d8f6a]">
+          <div className="flex min-w-0 items-center gap-1.5 sam-text-body-secondary font-semibold text-[#0d8f6a]">
             <LockIcon className="h-4 w-4 shrink-0 text-[#10a37f]" />
             <span>{entryPolicyHeadline(meeting.entry_policy)}</span>
           </div>
           <Link
             href={philifeAppPaths.meeting(meeting.id)}
-            className="shrink-0 text-[12px] font-medium text-[#0d8f6a] underline underline-offset-2"
+            className="shrink-0 sam-text-helper font-medium text-[#0d8f6a] underline underline-offset-2"
           >
             자세히
           </Link>
         </div>
-        <dl className="mt-3 space-y-2 text-[12px] leading-snug text-sam-fg">
+        <dl className="mt-3 space-y-2 sam-text-helper leading-snug text-sam-fg">
           <div className="flex gap-2">
             <dt className="w-14 shrink-0 font-medium text-sam-muted">방장</dt>
             <dd className="min-w-0 break-all text-sam-fg">{hostLabel}</dd>
@@ -137,7 +137,7 @@ export function MeetingCard({
           </div>
         </dl>
         <div className="mt-4">{joinButton}</div>
-        <p className="mt-2 text-center text-[11px] text-sam-muted">※ 모임 참여 후 상세 정보를 볼 수 있습니다</p>
+        <p className="mt-2 text-center sam-text-xxs text-sam-muted">※ 모임 참여 후 상세 정보를 볼 수 있습니다</p>
       </div>
     );
   }
@@ -146,24 +146,24 @@ export function MeetingCard({
     <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/80 p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[13px] font-semibold text-emerald-900">모임</p>
-          <p className="mt-1 text-[15px] font-bold text-sam-fg">{meeting.title}</p>
+          <p className="sam-text-body-secondary font-semibold text-emerald-900">모임</p>
+          <p className="mt-1 sam-text-body font-bold text-sam-fg">{meeting.title}</p>
         </div>
         <Link
           href={philifeAppPaths.meeting(meeting.id)}
-          className="shrink-0 text-[12px] font-medium text-emerald-800 underline"
+          className="shrink-0 sam-text-helper font-medium text-emerald-800 underline"
         >
           자세히
         </Link>
       </div>
-      <p className="mt-2 text-[13px] text-emerald-900/90">
+      <p className="mt-2 sam-text-body-secondary text-emerald-900/90">
         <span className="font-medium">일시</span> {when}
       </p>
-      <p className="mt-2 text-[12px] text-emerald-800/80">
+      <p className="mt-2 sam-text-helper text-emerald-800/80">
         참여 {joined}/{meeting.max_members}명{pendingNote}
         {closedNote}
       </p>
-      <p className="mt-1 text-[12px] text-emerald-900/80">
+      <p className="mt-1 sam-text-helper text-emerald-900/80">
         참여 방식{" "}
         {meeting.entry_policy === "approve"
           ? "승인제"

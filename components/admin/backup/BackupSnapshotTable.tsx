@@ -37,13 +37,13 @@ export function BackupSnapshotTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as BackupSnapshotStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="pending">대기</option>
@@ -51,13 +51,13 @@ export function BackupSnapshotTable() {
           <option value="completed">완료</option>
           <option value="failed">실패</option>
         </select>
-        <span className="text-[13px] text-sam-muted">유형</span>
+        <span className="sam-text-body-secondary text-sam-muted">유형</span>
         <select
           value={typeFilter}
           onChange={(e) =>
             setTypeFilter((e.target.value || "") as BackupSnapshotType | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="manual">수동</option>
@@ -68,7 +68,7 @@ export function BackupSnapshotTable() {
       </div>
 
       {snapshots.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건의 백업이 없습니다.
         </div>
       ) : (
@@ -89,12 +89,12 @@ export function BackupSnapshotTable() {
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {s.snapshotName}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {getSnapshotTypeLabel(s.snapshotType)}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     s.status === "completed"
                       ? "bg-emerald-50 text-emerald-700"
                       : s.status === "failed"
@@ -107,20 +107,20 @@ export function BackupSnapshotTable() {
                   {getSnapshotStatusLabel(s.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 <ClientDate value={s.startedAt} />
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {s.completedAt ? (
                   <ClientDate value={s.completedAt} />
                 ) : (
                   "-"
                 )}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {s.size}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {s.createdByAdminId ?? "시스템"}
               </td>
               <td className="px-3 py-2.5">

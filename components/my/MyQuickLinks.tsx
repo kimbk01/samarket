@@ -16,49 +16,49 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Link
         href={MYPAGE_TRADE_FAVORITES_HREF}
-        className="relative flex flex-col items-center rounded-ui-rect border border-ig-border bg-sam-surface py-4 active:bg-ig-highlight"
+        className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         {favoriteCount != null && favoriteCount > 0 && (
-          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-sam-surface">
+          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {favoriteCount > 99 ? "99+" : favoriteCount}
           </span>
         )}
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <HeartOutlineIcon />
         </span>
-        <span className="text-[13px] font-medium text-foreground">관심목록</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">관심목록</span>
       </Link>
       <Link
         href="/my/recent-viewed"
-        className="flex flex-col items-center rounded-ui-rect border border-ig-border bg-sam-surface py-4 active:bg-ig-highlight"
+        className="flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <ClockOutlineIcon />
         </span>
-        <span className="text-[13px] font-medium text-foreground">최근 본 글</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">최근 본 글</span>
       </Link>
       <Link
         href="/my/benefits"
-        className="flex flex-col items-center rounded-ui-rect border border-ig-border bg-sam-surface py-4 active:bg-ig-highlight"
+        className="flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <GiftOutlineIcon />
         </span>
-        <span className="text-[13px] font-medium text-foreground">혜택</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">혜택</span>
       </Link>
       <Link
         href="/mypage/notifications"
-        className="relative flex flex-col items-center rounded-ui-rect border border-ig-border bg-sam-surface py-4 active:bg-ig-highlight"
+        className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         {notificationUnreadCount != null && notificationUnreadCount > 0 && (
-          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-sam-surface">
+          <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
           </span>
         )}
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <BellOutlineIcon />
         </span>
-        <span className="text-[13px] font-medium text-foreground">알림</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">알림</span>
       </Link>
     </div>
   );

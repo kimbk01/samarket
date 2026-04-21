@@ -22,7 +22,7 @@ export function CallAvatar({
     placeholderTone === "orange"
       ? "bg-[#ea580c] shadow-[0_18px_44px_rgba(0,0,0,0.45)] ring-1 ring-white/10"
       : "bg-white shadow-[0_18px_44px_rgba(0,0,0,0.22)] ring-1 ring-white/12";
-  const initialCls = placeholderTone === "orange" ? "text-[52px] font-semibold text-white" : "text-[48px] font-semibold text-[#5b48d6]";
+  const initialCls = placeholderTone === "orange" ? "sam-text-hero font-semibold text-white" : "sam-text-hero font-semibold text-[#5b48d6]";
   return (
     <div className="relative flex h-36 w-36 items-center justify-center">
       {pulse ? (

@@ -91,18 +91,18 @@ export function LanguageSettingsContent() {
             <button
               type="button"
               disabled={busy}
-              className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg disabled:opacity-60"
+              className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg disabled:opacity-60"
               onClick={() => void select(c.code as AppLanguageCode)}
             >
               <span>{c.name}</span>
               {current === c.code && (
-                <span className="text-[13px] font-medium text-signature">{t("common_selected")}</span>
+                <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
               )}
             </button>
           </li>
         ))}
       </ul>
-      {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+      {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
     </div>
   );
 }

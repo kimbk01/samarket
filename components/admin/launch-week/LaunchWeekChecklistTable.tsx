@@ -28,13 +28,13 @@ export function LaunchWeekChecklistTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">Day</span>
+        <span className="sam-text-body-secondary text-sam-muted">Day</span>
         <select
           value={dayNumber}
           onChange={(e) =>
             setDayNumber((e.target.value || "") as LaunchWeekDayNumber | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
@@ -43,13 +43,13 @@ export function LaunchWeekChecklistTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={status}
           onChange={(e) =>
             setStatus((e.target.value || "") as LaunchWeekChecklistStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="todo">할 일</option>
@@ -60,7 +60,7 @@ export function LaunchWeekChecklistTable() {
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건 체크리스트가 없습니다.
         </div>
       ) : (
@@ -83,10 +83,10 @@ export function LaunchWeekChecklistTable() {
                 i.status === "blocked" ? "bg-red-50/30" : ""
               }`}
             >
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 Day {i.dayNumber}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {getAreaLabel(i.area)}
               </td>
               <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -94,7 +94,7 @@ export function LaunchWeekChecklistTable() {
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     i.status === "done"
                       ? "bg-emerald-100 text-emerald-800"
                       : i.status === "blocked"
@@ -105,16 +105,16 @@ export function LaunchWeekChecklistTable() {
                   {getChecklistStatusLabel(i.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {getPriorityLabel(i.priority)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {i.ownerAdminNickname ?? "-"}
               </td>
-              <td className="max-w-[160px] px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[160px] px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {i.blockerReason || i.note || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {i.checkedAt
                   ? new Date(i.checkedAt).toLocaleString()
                   : "-"}

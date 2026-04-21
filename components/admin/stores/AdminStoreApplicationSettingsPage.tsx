@@ -198,8 +198,8 @@ export function AdminStoreApplicationSettingsPage() {
       />
 
       <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">연동 여부</h2>
-        <ul className="mt-3 space-y-2 text-[13px] text-sam-fg">
+        <h2 className="sam-text-body font-semibold text-sam-fg">연동 여부</h2>
+        <ul className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
           <li className="flex flex-wrap items-center gap-2">
             <span className="text-green-600">✓</span>
             <span>매장 신청</span>
@@ -231,21 +231,21 @@ export function AdminStoreApplicationSettingsPage() {
             <span className="text-sam-muted">— 별도 DB 흐름; 이 화면의 목록과 자동 동기화되지 않음</span>
           </li>
         </ul>
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           저장 키: <code className="rounded bg-sam-surface-muted px-1">kasama-browse-industry-overrides-v1</code>
         </p>
       </section>
 
       {msg && (
-        <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 text-[13px] text-green-800">
+        <p className="mt-4 rounded-ui-rect border border-green-200 bg-green-50 px-3 py-2 sam-text-body-secondary text-green-800">
           {msg}
         </p>
       )}
 
       <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">기본 1차 업종 (코드)</h2>
-        <p className="mt-1 text-[12px] text-sam-muted">배포 시 포함된 목록입니다. 여기서는 읽기만 됩니다.</p>
-        <ul className="mt-3 divide-y divide-sam-border-soft text-[13px]">
+        <h2 className="sam-text-body font-semibold text-sam-fg">기본 1차 업종 (코드)</h2>
+        <p className="mt-1 sam-text-helper text-sam-muted">배포 시 포함된 목록입니다. 여기서는 읽기만 됩니다.</p>
+        <ul className="mt-3 divide-y divide-sam-border-soft sam-text-body-secondary">
           {BROWSE_PRIMARY_INDUSTRIES.sort((a, b) => a.sortOrder - b.sortOrder).map((p) => (
             <li key={p.id} className="flex flex-wrap gap-2 py-2">
               <span aria-hidden>{p.symbol}</span>
@@ -257,47 +257,47 @@ export function AdminStoreApplicationSettingsPage() {
       </section>
 
       <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">추가 1차 업종</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">추가 1차 업종</h2>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="flex min-w-[140px] flex-1 flex-col text-[12px] text-sam-muted">
+          <label className="flex min-w-[140px] flex-1 flex-col sam-text-helper text-sam-muted">
             이름
             <input
               value={primaryName}
               onChange={(e) => setPrimaryName(e.target.value)}
-              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 text-[14px] text-sam-fg"
+              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
               placeholder="예: 약국"
             />
           </label>
-          <label className="flex w-24 flex-col text-[12px] text-sam-muted">
+          <label className="flex w-24 flex-col sam-text-helper text-sam-muted">
             심볼
             <input
               value={primarySymbol}
               onChange={(e) => setPrimarySymbol(e.target.value)}
-              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 text-[14px]"
+              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 sam-text-body"
               placeholder="📦"
             />
           </label>
-          <label className="flex min-w-[160px] flex-1 flex-col text-[12px] text-sam-muted">
+          <label className="flex min-w-[160px] flex-1 flex-col sam-text-helper text-sam-muted">
             슬러그 (선택, 영문·숫자)
             <input
               value={primarySlugInput}
               onChange={(e) => setPrimarySlugInput(e.target.value)}
-              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 text-[14px] text-sam-fg"
+              className="mt-0.5 rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
               placeholder="비우면 자동"
             />
           </label>
           <button
             type="button"
             onClick={addPrimary}
-            className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white"
+            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-medium text-white"
           >
             추가
           </button>
         </div>
         {payload.addedPrimaries.length === 0 ? (
-          <p className="mt-3 text-[13px] text-sam-muted">추가된 1차 업종이 없습니다.</p>
+          <p className="mt-3 sam-text-body-secondary text-sam-muted">추가된 1차 업종이 없습니다.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-sam-border-soft text-[13px]">
+          <ul className="mt-3 divide-y divide-sam-border-soft sam-text-body-secondary">
             {payload.addedPrimaries.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
@@ -307,7 +307,7 @@ export function AdminStoreApplicationSettingsPage() {
                 <button
                   type="button"
                   onClick={() => removeAddedPrimary(p.id)}
-                  className="text-[12px] text-red-600 underline"
+                  className="sam-text-helper text-red-600 underline"
                 >
                   삭제
                 </button>
@@ -318,16 +318,16 @@ export function AdminStoreApplicationSettingsPage() {
       </section>
 
       <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-[15px] font-semibold text-sam-fg">2차 업종</h2>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <h2 className="sam-text-body font-semibold text-sam-fg">2차 업종</h2>
+        <p className="mt-1 sam-text-helper text-sam-muted">
           1차 슬러그를 고른 뒤 하위 업종을 추가합니다. 기본 하위는 코드에 고정입니다.
         </p>
-        <label className="mt-3 block text-[12px] text-sam-muted">
+        <label className="mt-3 block sam-text-helper text-sam-muted">
           1차 (병합 목록)
           <select
             value={subPrimarySlug}
             onChange={(e) => setSubPrimarySlug(e.target.value)}
-            className="mt-0.5 w-full max-w-md rounded border border-sam-border px-2 py-1.5 text-[14px] text-sam-fg"
+            className="mt-0.5 w-full max-w-md rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
           >
             {mergedPrimaries.map((p) => (
               <option key={p.id} value={p.slug}>
@@ -338,8 +338,8 @@ export function AdminStoreApplicationSettingsPage() {
         </label>
         {subPrimarySlug ? (
           <>
-            <p className="mt-3 text-[13px] font-medium text-sam-fg">기본 하위 (코드)</p>
-            <ul className="mt-1 space-y-1 text-[12px] text-sam-muted">
+            <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">기본 하위 (코드)</p>
+            <ul className="mt-1 space-y-1 sam-text-helper text-sam-muted">
               {BROWSE_SUB_INDUSTRIES.filter((s) => s.primarySlug === subPrimarySlug)
                 .sort((a, b) => a.sortOrder - b.sortOrder)
                 .map((s) => (
@@ -349,37 +349,37 @@ export function AdminStoreApplicationSettingsPage() {
                 ))}
             </ul>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-              <label className="flex min-w-[140px] flex-1 flex-col text-[12px] text-sam-muted">
+              <label className="flex min-w-[140px] flex-1 flex-col sam-text-helper text-sam-muted">
                 추가 하위 이름
                 <input
                   value={subName}
                   onChange={(e) => setSubName(e.target.value)}
-                  className="mt-0.5 rounded border border-sam-border px-2 py-1.5 text-[14px] text-sam-fg"
+                  className="mt-0.5 rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
                   placeholder="예: 한의원"
                 />
               </label>
-              <label className="flex min-w-[160px] flex-1 flex-col text-[12px] text-sam-muted">
+              <label className="flex min-w-[160px] flex-1 flex-col sam-text-helper text-sam-muted">
                 슬러그 (선택)
                 <input
                   value={subSlugInput}
                   onChange={(e) => setSubSlugInput(e.target.value)}
-                  className="mt-0.5 rounded border border-sam-border px-2 py-1.5 text-[14px] text-sam-fg"
+                  className="mt-0.5 rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
                   placeholder="비우면 자동"
                 />
               </label>
               <button
                 type="button"
                 onClick={addSub}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-[13px] font-medium text-white"
+                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-medium text-white"
               >
                 하위 추가
               </button>
             </div>
-            <p className="mt-3 text-[13px] font-medium text-sam-fg">추가된 하위만</p>
+            <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">추가된 하위만</p>
             {payload.addedSubs.filter((s) => s.primarySlug === subPrimarySlug).length === 0 ? (
-              <p className="text-[12px] text-sam-muted">없음</p>
+              <p className="sam-text-helper text-sam-muted">없음</p>
             ) : (
-              <ul className="mt-1 divide-y divide-sam-border-soft text-[13px]">
+              <ul className="mt-1 divide-y divide-sam-border-soft sam-text-body-secondary">
                 {payload.addedSubs
                   .filter((s) => s.primarySlug === subPrimarySlug)
                   .map((s) => (
@@ -390,7 +390,7 @@ export function AdminStoreApplicationSettingsPage() {
                       <button
                         type="button"
                         onClick={() => removeAddedSub(s.id)}
-                        className="text-[12px] text-red-600 underline"
+                        className="sam-text-helper text-red-600 underline"
                       >
                         삭제
                       </button>
@@ -403,14 +403,14 @@ export function AdminStoreApplicationSettingsPage() {
       </section>
 
       <section className="mt-6 rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
-        <h2 className="text-[14px] font-semibold text-sam-fg">초기화</h2>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <h2 className="sam-text-body font-semibold text-sam-fg">초기화</h2>
+        <p className="mt-1 sam-text-helper text-sam-muted">
           추가 1·2차 업종만 삭제합니다. 코드에 있는 기본 업종은 그대로입니다.
         </p>
         <button
           type="button"
           onClick={resetOverrides}
-          className="mt-3 rounded-ui-rect border border-amber-300 bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg"
+          className="mt-3 rounded-ui-rect border border-amber-300 bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           추가 업종 전부 제거
         </button>

@@ -58,7 +58,7 @@ export function AdminNotificationBell() {
   return (
     <Link
       href="/admin/order-notifications"
-      className="relative inline-flex h-9 items-center gap-1.5 rounded-ui-rect border border-ig-border bg-sam-surface px-2.5 text-[12px] font-medium text-foreground"
+      className="relative inline-flex h-9 items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 sam-text-helper font-medium text-foreground"
     >
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
         <path
@@ -69,7 +69,7 @@ export function AdminNotificationBell() {
       </svg>
       알림
       {count > 0 ? (
-        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
           {count > 99 ? "99+" : count}
         </span>
       ) : null}

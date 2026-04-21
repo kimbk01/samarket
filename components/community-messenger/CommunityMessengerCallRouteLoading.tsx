@@ -22,8 +22,8 @@ export function CommunityMessengerCallRouteLoading() {
                   className="mx-auto h-10 max-w-[220px] animate-pulse rounded-xl bg-white/22 sm:h-11"
                   aria-hidden
                 />
-                <p className="mt-3 text-[16px] font-medium text-white/76 sm:text-[17px]">통화 화면을 불러오는 중</p>
-                <p className="mt-2 text-[13px] leading-snug text-white/60 sm:text-[14px]">
+                <p className="mt-3 sam-text-body-lg font-medium text-white/76 sm:sam-text-section-title">통화 화면을 불러오는 중</p>
+                <p className="mt-2 sam-text-body-secondary leading-snug text-white/60 sm:sam-text-body">
                   연결 준비가 끝나면 바로 표시됩니다
                 </p>
               </div>

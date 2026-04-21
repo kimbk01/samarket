@@ -82,15 +82,15 @@ export function StoreOwnerOpsSection({
           <div className="flex min-w-0 items-center gap-2">
             {!embedded ?
               <>
-                <h2 className="truncate text-[15px] font-bold text-violet-950">매장 운영</h2>
-                <span className="shrink-0 rounded-full bg-violet-600 px-2 py-0.5 text-[9px] font-bold text-white">
+                <h2 className="truncate sam-text-body font-bold text-violet-950">매장 운영</h2>
+                <span className="shrink-0 rounded-full bg-violet-600 px-2 py-0.5 sam-text-xxs font-bold text-white">
                   OWNER
                 </span>
               </>
-            : <h2 className="truncate text-[13px] font-bold text-violet-950">매장주 바로가기</h2>}
+            : <h2 className="truncate sam-text-body-secondary font-bold text-violet-950">매장주 바로가기</h2>}
           </div>
           {String(ownerStore.approval_status) !== "approved" || !ownerStore.is_visible ?
-            <p className="truncate text-[11px] font-medium text-amber-900/90">
+            <p className="truncate sam-text-xxs font-medium text-amber-900/90">
               심사·노출:{" "}
               {String(ownerStore.approval_status) === "approved" && !ownerStore.is_visible ?
                 "승인됨 · 고객 목록 비노출"
@@ -101,7 +101,7 @@ export function StoreOwnerOpsSection({
         <div className="flex shrink-0 items-center gap-1.5">
           {hubAttentionSlot}
           {ownerStoreTabAttention > 0 ?
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white">
               {ownerStoreTabAttention > 99 ? "99+" : ownerStoreTabAttention}
             </span>
           : null}
@@ -120,9 +120,9 @@ export function StoreOwnerOpsSection({
             }}
             className="flex w-[104px] shrink-0 flex-col items-center justify-center rounded-ui-rect border border-violet-100 bg-sam-surface px-2 py-3 text-center shadow-sm"
           >
-            <span className="line-clamp-2 text-[11px] font-bold leading-tight text-violet-950">{item.label}</span>
+            <span className="line-clamp-2 sam-text-xxs font-bold leading-tight text-violet-950">{item.label}</span>
             {typeof item.badge === "number" && item.badge > 0 ?
-              <span className="mt-1 text-[9px] font-bold text-red-600">{item.badge}</span>
+              <span className="mt-1 sam-text-xxs font-bold text-red-600">{item.badge}</span>
             : null}
           </Link>
         ))}
@@ -134,14 +134,14 @@ export function StoreOwnerOpsSection({
           onClick={() =>
             goBusinessHubOrModal(`/my/business?storeId=${encodeURIComponent(ownerStore.id)}`)
           }
-          className="shrink-0 rounded-full border border-violet-200 bg-violet-600/10 px-4 py-2 text-[11px] font-bold text-violet-950"
+          className="shrink-0 rounded-full border border-violet-200 bg-violet-600/10 px-4 py-2 sam-text-xxs font-bold text-violet-950"
         >
           전체 메뉴
         </button>
         {ownerStore.slug ?
           <Link
             href={`/stores/${encodeURIComponent(ownerStore.slug)}`}
-            className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-4 py-2 text-[11px] font-semibold text-sam-fg"
+            className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-4 py-2 sam-text-xxs font-semibold text-sam-fg"
           >
             내 매장
           </Link>

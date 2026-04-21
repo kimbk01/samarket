@@ -32,10 +32,10 @@ export function MessengerArchiveScreen({
   return (
     <section className="space-y-2 pt-0">
       <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
-        <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
+        <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
           보관함
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+        <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
           숨김·차단·알림 끔·보관을 구분해 관리합니다. 행을 밀면 복원할 수 있습니다.
         </p>
       </div>
@@ -96,10 +96,10 @@ function ArchiveSectionCard({
           : "border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       }`}
     >
-      <p className="text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+      <p className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
         {title}
       </p>
-      <p className="mt-1 text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+      <p className="mt-1 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
         상세 관리로 이동
       </p>
     </button>

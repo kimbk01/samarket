@@ -26,7 +26,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
 
   if (!scenario) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
         시나리오를 찾을 수 없습니다.
       </div>
     );
@@ -35,7 +35,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
   return (
     <div className="space-y-6">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+        <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
           <span>{getScenarioTypeLabel(scenario.scenarioType)}</span>
           <span
             className={`rounded px-1.5 py-0.5 ${
@@ -47,18 +47,18 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
             {getDrSeverityLabel(scenario.severity)}
           </span>
         </div>
-        <h2 className="mt-2 text-[18px] font-semibold text-sam-fg">
+        <h2 className="mt-2 sam-text-page-title font-semibold text-sam-fg">
           {scenario.title}
         </h2>
-        <p className="mt-2 text-[14px] text-sam-fg">{scenario.description}</p>
+        <p className="mt-2 sam-text-body text-sam-fg">{scenario.description}</p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="text-[15px] font-medium text-sam-fg">대응 단계 체크리스트</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">대응 단계 체크리스트</h3>
         {steps.length === 0 ? (
-          <p className="mt-2 text-[13px] text-sam-muted">단계 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">단계 없음</p>
         ) : (
-          <ol className="mt-2 list-decimal space-y-2 pl-5 text-[14px] text-sam-fg">
+          <ol className="mt-2 list-decimal space-y-2 pl-5 sam-text-body text-sam-fg">
             {steps.map((step) => (
               <li key={step.id}>
                 <span className="font-medium">{step.stepTitle}</span>
@@ -70,18 +70,18 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="text-[15px] font-medium text-sam-fg">실행 로그 타임라인</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">실행 로그 타임라인</h3>
         {executions.length === 0 ? (
-          <p className="mt-2 text-[13px] text-sam-muted">실행 이력 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">실행 이력 없음</p>
         ) : (
           <ul className="mt-2 space-y-3">
             {executions.map((e) => (
               <li
                 key={e.id}
-                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px] last:border-0 last:pb-0"
+                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary last:border-0 last:pb-0"
               >
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     e.executionStatus === "completed"
                       ? "bg-emerald-50 text-emerald-700"
                       : e.executionStatus === "failed"
@@ -99,7 +99,7 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
             ))}
           </ul>
         )}
-        <p className="mt-3 text-[12px] text-sam-muted">
+        <p className="mt-3 sam-text-helper text-sam-muted">
           리허설 실행 버튼은 mock. 실제 실행 시 워크플로우 기록됩니다.
         </p>
       </div>

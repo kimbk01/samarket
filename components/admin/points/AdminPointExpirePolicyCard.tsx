@@ -12,10 +12,10 @@ export function AdminPointExpirePolicyCard({
 }: AdminPointExpirePolicyCardProps) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h3 className="text-[15px] font-medium text-sam-fg">
+      <h3 className="sam-text-body font-medium text-sam-fg">
         {policy.policyName}
       </h3>
-      <dl className="mt-2 grid grid-cols-2 gap-2 text-[14px] sm:grid-cols-3">
+      <dl className="mt-2 grid grid-cols-2 gap-2 sam-text-body sm:grid-cols-3">
         <div>
           <dt className="text-sam-muted">만료 일수</dt>
           <dd>{policy.expireAfterDays}일</dd>
@@ -38,7 +38,7 @@ export function AdminPointExpirePolicyCard({
         </div>
       </dl>
       {policy.adminMemo && (
-        <p className="mt-2 text-[13px] text-sam-muted">{policy.adminMemo}</p>
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">{policy.adminMemo}</p>
       )}
     </div>
   );

@@ -19,7 +19,7 @@ interface HomeCategoryChipProps {
   /** 지정 시 경로 비교 대신 이 값으로 활성 스타일 */
   isActive?: boolean;
   /** 마켓 리스트: 메타 텍스트 톤·무박스 */
-  /** `feed-chip`: 필라이프 피드 주제 칩과 동일 (px-3 py-1.5 text-[12px]) */
+  /** `feed-chip`: 필라이프 피드 주제 칩과 동일 (px-3 py-1.5 sam-text-helper) */
   appearance?: "pill" | "inline-text" | "orders-tab" | "feed-chip";
 }
 
@@ -58,12 +58,12 @@ export function HomeCategoryChip({
   const pillCls = `${APP_TOP_MENU_ROW1_BASE} ${isActive ? APP_TOP_MENU_ROW1_ACTIVE : APP_TOP_MENU_ROW1_INACTIVE}`;
   const textCls = `${APP_MARKET_MENU_TEXT_BASE} ${isActive ? APP_MARKET_MENU_TEXT_ACTIVE : APP_MARKET_MENU_TEXT_INACTIVE}`;
   const ordersTabCls = [
-    "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px]",
+    "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center sam-text-body leading-snug transition-colors duration-200 sm:px-1.5 sm:sam-text-body",
     isActive ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
   ].join(" ");
 
   const feedChipCls = [
-    "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors",
+    "shrink-0 rounded-full px-3 py-1.5 sam-text-helper font-semibold transition-colors",
     isActive ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted",
   ].join(" ");
 

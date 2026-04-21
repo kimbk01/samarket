@@ -49,7 +49,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
     return (
       <>
         <AdminPageHeader title="문서 없음" backHref="/admin/ops-docs" />
-        <p className="text-[14px] text-sam-muted">해당 문서를 찾을 수 없습니다.</p>
+        <p className="sam-text-body text-sam-muted">해당 문서를 찾을 수 없습니다.</p>
       </>
     );
   }
@@ -76,14 +76,14 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href={`/admin/ops-docs/${documentId}/edit`}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
         >
           수정
         </Link>
         <button
           type="button"
           onClick={handleDuplicate}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
         >
           복제
         </button>
@@ -91,7 +91,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
           <button
             type="button"
             onClick={() => handleStatusChange("archived")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
           >
             보관
           </button>
@@ -100,7 +100,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
           <button
             type="button"
             onClick={() => handleStatusChange("active")}
-            className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+            className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
           >
             활성화
           </button>
@@ -112,7 +112,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
@@ -125,7 +125,7 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
       {activeTab === "detail" && (
         <AdminCard>
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-2 text-[13px]">
+            <div className="flex flex-wrap gap-2 sam-text-body-secondary">
               <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
                 {DOC_TYPE_LABELS[doc.docType]}
               </span>
@@ -147,16 +147,16 @@ export function OpsDocumentDetailPage({ documentId }: { documentId: string }) {
                 <span className="text-sam-muted">v{doc.versionLabel}</span>
               )}
             </div>
-            <p className="text-[14px] text-sam-fg">{doc.summary}</p>
-            <div className="rounded border border-sam-border-soft bg-sam-app p-4 font-mono text-[13px] text-sam-fg whitespace-pre-wrap">
+            <p className="sam-text-body text-sam-fg">{doc.summary}</p>
+            <div className="rounded border border-sam-border-soft bg-sam-app p-4 font-mono sam-text-body-secondary text-sam-fg whitespace-pre-wrap">
               {doc.content}
             </div>
             {doc.tags.length > 0 && (
-              <p className="text-[13px] text-sam-muted">
+              <p className="sam-text-body-secondary text-sam-muted">
                 태그: {doc.tags.join(", ")}
               </p>
             )}
-            <div className="border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
+            <div className="border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
               작성: {doc.createdByAdminNickname} · 최근 수정{" "}
               {new Date(doc.updatedAt).toLocaleString("ko-KR")}
               {doc.approvedByAdminNickname && (

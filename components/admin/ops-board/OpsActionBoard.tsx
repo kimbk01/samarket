@@ -37,7 +37,7 @@ export function OpsActionBoard() {
           onChange={(e) =>
             setStatusFilter(e.target.value === "" ? "" : (e.target.value as OpsActionStatus))
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="">전체 상태</option>
           <option value="open">미해결</option>
@@ -47,13 +47,13 @@ export function OpsActionBoard() {
           <option value="archived">보관</option>
         </select>
         {overdueItems.length > 0 && (
-          <span className="rounded bg-red-100 px-2 py-1 text-[13px] font-medium text-red-800">
+          <span className="rounded bg-red-100 px-2 py-1 sam-text-body-secondary font-medium text-red-800">
             기한 초과 {overdueItems.length}건
           </span>
         )}
       </div>
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           액션아이템이 없습니다.
         </div>
       ) : (

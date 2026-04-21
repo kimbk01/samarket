@@ -107,7 +107,7 @@ export function StoreDetailStickyTopRow({
   }, [storeName]);
 
   const segBase =
-    "min-w-0 flex-1 rounded-full px-2 py-1.5 text-[11px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+    "min-w-0 flex-1 rounded-full px-2 py-1.5 sam-text-xxs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
   const segOn = "bg-sam-surface text-sam-fg shadow-sm";
   const segOff = "text-sam-muted active:bg-sam-border-soft/60";
 
@@ -121,7 +121,7 @@ export function StoreDetailStickyTopRow({
           <img src={profileImageUrl.trim()} alt="" className="h-full w-full object-cover" />
         ) : (
           <div
-            className="flex h-full w-full items-center justify-center text-[12px] font-semibold text-sam-meta"
+            className="flex h-full w-full items-center justify-center sam-text-helper font-semibold text-sam-meta"
             aria-hidden
           >
             {initialGlyph}
@@ -129,8 +129,8 @@ export function StoreDetailStickyTopRow({
         )}
       </div>
       <div className="min-w-0 flex-1 py-0.5">
-        <h1 className="truncate text-[15px] font-bold leading-tight text-sam-fg">{storeName}</h1>
-        <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-sam-muted">
+        <h1 className="truncate sam-text-body font-bold leading-tight text-sam-fg">{storeName}</h1>
+        <p className="mt-0.5 truncate sam-text-xxs font-medium leading-tight text-sam-muted">
           <span className="text-sam-fg">★ {ratingLabel}</span>
           <span className="mx-1 text-sam-meta" aria-hidden>
             ·
@@ -210,32 +210,32 @@ export function StoreDetailStickyTopRow({
             <span className="text-lg font-bold leading-none text-sam-muted">⋯</span>
           </summary>
           <div
-            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
+            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
             role="menu"
           >
             {telHref ? (
               <a
                 href={telHref}
-                className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+                className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
                 role="menuitem"
               >
                 전화
               </a>
             ) : (
-              <span className="block px-3 py-2.5 text-[13px] text-sam-meta" role="menuitem">
+              <span className="block px-3 py-2.5 sam-text-body-secondary text-sam-meta" role="menuitem">
                 전화 없음
               </span>
             )}
             <Link
               href="/chat"
-              className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+              className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
               채팅 문의
             </Link>
             <Link
               href={infoHref}
-              className="block px-3 py-2.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+              className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
               가게 정보
@@ -248,14 +248,14 @@ export function StoreDetailStickyTopRow({
       {orderChrome ? (
         <div className="flex w-full min-w-0 items-center gap-2 border-t border-sam-border/80 pt-1">
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            className={`shrink-0 rounded-full px-2 py-0.5 sam-text-xxs font-bold ${
               orderChrome.isOpenForOrder ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
             }`}
           >
             {orderChrome.isOpenForOrder ? "주문 가능" : "준비 중"}
           </span>
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            className={`shrink-0 rounded-full px-2 py-0.5 sam-text-xxs font-bold ${
               orderChrome.deliveryAvailable ? "bg-sky-50 text-sky-900" : "bg-sam-surface-muted text-sam-muted"
             }`}
           >

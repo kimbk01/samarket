@@ -13,12 +13,12 @@ export function ProfileCard({ profile }: ProfileCardProps) {
   if (!profile) {
     return (
       <Link href="/mypage/account" className="block">
-        <div className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="flex items-center gap-3">
-            <div className="h-14 w-14 shrink-0 rounded-full bg-ig-highlight" />
+            <div className="h-14 w-14 shrink-0 rounded-full bg-sam-primary-soft" />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-medium text-muted">로그인해 주세요</p>
-              <p className="text-[12px] text-muted">프로필 보기</p>
+              <p className="sam-text-body font-medium text-muted">로그인해 주세요</p>
+              <p className="sam-text-helper text-muted">프로필 보기</p>
             </div>
             <ChevronRight />
           </div>
@@ -29,9 +29,9 @@ export function ProfileCard({ profile }: ProfileCardProps) {
 
   return (
     <Link href="/mypage/account" className="block">
-      <div className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="flex items-center gap-3">
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-ig-highlight">
+          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-sam-primary-soft">
             {profile.avatar_url ? (
               <Image
                 src={profile.avatar_url}
@@ -48,7 +48,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[15px] font-medium text-foreground">{profile.nickname}</p>
+              <p className="sam-text-body font-medium text-foreground">{profile.nickname}</p>
             </div>
             <div className="mt-1">
               <MannerBatteryInline raw={profile.temperature} size="sm" />

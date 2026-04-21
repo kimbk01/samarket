@@ -13,7 +13,7 @@ interface ChatPolicyFormProps {
 export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         채팅 정책 (6단계 연동 placeholder)
       </p>
       <div className="flex items-center gap-2">
@@ -24,7 +24,7 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           onChange={(e) => onChange("chatEnabled", e.target.checked)}
           className="rounded border-sam-border"
         />
-        <label htmlFor="chatEnabled" className="text-[14px] text-sam-fg">
+        <label htmlFor="chatEnabled" className="sam-text-body text-sam-fg">
           채팅 사용
         </label>
       </div>
@@ -36,12 +36,12 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           onChange={(e) => onChange("allowChatAfterSold", e.target.checked)}
           className="rounded border-sam-border"
         />
-        <label htmlFor="allowChatAfterSold" className="text-[14px] text-sam-fg">
+        <label htmlFor="allowChatAfterSold" className="sam-text-body text-sam-fg">
           판매 완료 후 채팅 허용
         </label>
       </div>
       <div>
-        <label className="block text-[13px] font-medium text-sam-fg">
+        <label className="block sam-text-body-secondary font-medium text-sam-fg">
           최대 메시지 길이
         </label>
         <input
@@ -51,7 +51,7 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           onChange={(e) =>
             onChange("maxMessageLength", Number(e.target.value) || 0)
           }
-          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
       </div>
     </div>

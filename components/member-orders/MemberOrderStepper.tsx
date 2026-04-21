@@ -60,7 +60,7 @@ export function MemberOrderStepper({ order }: { order: MemberOrder }) {
               >
                 {i + 1}
               </div>
-              <span className="hidden text-center text-[9px] font-medium text-sam-muted sm:block">
+              <span className="hidden text-center sam-text-xxs font-medium text-sam-muted sm:block">
                 {MEMBER_STATUS_USER_MESSAGE[key as keyof typeof MEMBER_STATUS_USER_MESSAGE]}
               </span>
             </div>

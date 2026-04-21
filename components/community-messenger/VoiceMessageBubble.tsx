@@ -306,7 +306,7 @@ export function VoiceMessageBubble({
             })}
           </div>
           <div
-            className={`flex items-baseline justify-between gap-2 text-[11px] leading-tight ${
+            className={`flex items-baseline justify-between gap-2 sam-text-xxs leading-tight ${
               isMine ? (mineLight ? "text-white/85" : "text-white/90") : "text-sam-muted"
             }`}
           >
@@ -316,7 +316,7 @@ export function VoiceMessageBubble({
                 <button
                   type="button"
                   onClick={cyclePlaybackRate}
-                  className={`shrink-0 rounded px-1 py-0 text-[10px] font-semibold uppercase tracking-wide ${
+                  className={`shrink-0 rounded px-1 py-0 sam-text-xxs font-semibold uppercase tracking-wide ${
                     isMine
                       ? mineLight
                         ? "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
@@ -351,12 +351,12 @@ export function VoiceMessageBubble({
         </audio>
       ) : null}
       {loadError || playbackBlocked ? (
-        <span className={`text-[11px] ${isMine ? (mineLight ? "text-red-600" : "text-white/85") : "text-red-600"}`}>
+        <span className={`sam-text-xxs ${isMine ? (mineLight ? "text-red-600" : "text-white/85") : "text-red-600"}`}>
           {t("nav_messenger_voice_upload_failed")}
         </span>
       ) : null}
       {pending ? (
-        <span className={`text-[11px] ${isMine ? (mineLight ? "text-sam-muted" : "text-white/80") : "text-sam-muted"}`}>
+        <span className={`sam-text-xxs ${isMine ? (mineLight ? "text-sam-muted" : "text-white/80") : "text-sam-muted"}`}>
           {t("common_sending")}
         </span>
       ) : null}

@@ -295,7 +295,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 주문" />
-      <nav className="flex flex-wrap gap-2 text-[12px]">
+      <nav className="flex flex-wrap gap-2 sam-text-helper">
         <Link
           href="/admin/delivery-orders"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
@@ -321,29 +321,29 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           운영 알림
         </Link>
       </nav>
-      <p className="text-[13px] leading-relaxed text-sam-fg">
+      <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
         이 화면과{" "}
         <Link href="/admin/delivery-orders" className="font-medium text-signature underline">
           배달·포장 주문(표)
         </Link>
         는 <strong>같은 Supabase 테이블</strong>(
-        <code className="rounded bg-sam-surface-muted px-1 text-[12px]">store_orders</code>)을 봅니다.{" "}
+        <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">store_orders</code>)을 봅니다.{" "}
         <strong>한쪽에서 DB 삭제</strong>하면 서버 데이터는 바로 없어지고, 다른 쪽 화면도{" "}
         <strong>이 탭으로 돌아오거나(자동 새로고침) 최대 약 30초 안에</strong> 같은 목록으로 맞춰집니다. 배달 표의
         &quot;목록에서만 제거&quot;는 이 브라우저에서만 숨김이라 DB와 무관합니다.
       </p>
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         사마켓 매장 주문은 앱 내 결제 없이 진행됩니다. 구매자가 &quot;환불 요청&quot;하면 주문 상태가{" "}
         <strong>환불요청</strong>으로 바뀌며, 아래 <strong>환불 승인</strong>으로 DB·재고·정산을 맞출 수 있습니다.
         대기만 보려면 주문 상태에서 &quot;환불요청&quot;을 고르거나 URL에{" "}
         <code className="rounded bg-sam-surface-muted px-1">?order_status=refund_requested</code> 를 붙이면 됩니다.
       </p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary">
         <label className="flex flex-col gap-0.5">
           <span className="text-sam-muted">order_id (UUID)</span>
           <input
-            className="min-w-[220px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono text-[12px]"
+            className="min-w-[220px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono sam-text-helper"
             value={draft.orderId}
             onChange={(ev) => setDraft((d) => ({ ...d, orderId: ev.target.value }))}
             placeholder="UUID"
@@ -390,7 +390,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         </button>
         <CsvExportLink filters={applied} />
       </div>
-      <p className="text-[11px] text-sam-muted">
+      <p className="sam-text-xxs text-sam-muted">
         CSV는 위에서 <strong>조회</strong>에 적용된 필터와 동일합니다. 기본 최대 500건이며, URL에{" "}
         <code className="rounded bg-sam-surface-muted px-1">limit=2000</code> 까지 지정할 수 있습니다. (UTF-8 BOM)
       </p>
@@ -399,13 +399,13 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
       ) : null}
       {actionMessage ? (
-        <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-fg">
+        <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">
           {actionMessage}
         </p>
       ) : null}
 
       {!loading && rows.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
+        <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
             선택 <strong className="text-sam-fg">{selectedIds.size}</strong>건
           </span>
@@ -442,7 +442,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         <p className="text-sm text-sam-muted">주문이 없습니다.</p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="min-w-full text-left text-[13px]">
+          <table className="min-w-full text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
               <tr>
                 <th className="w-10 px-2 py-2 text-center">
@@ -475,9 +475,9 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                       aria-label={`주문 ${r.order_no} 선택`}
                     />
                   </td>
-                  <td className="max-w-[200px] px-3 py-2 font-mono text-[12px] text-sam-fg">
+                  <td className="max-w-[200px] px-3 py-2 font-mono sam-text-helper text-sam-fg">
                     <div>{r.order_no}</div>
-                    <div className="break-all text-[11px] font-normal text-sam-meta" title={r.id}>
+                    <div className="break-all sam-text-xxs font-normal text-sam-meta" title={r.id}>
                       {r.id}
                     </div>
                   </td>
@@ -490,7 +490,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                     {new Date(r.created_at).toLocaleString("ko-KR")}
                   </td>
                   <td className="space-y-1 px-3 py-2 align-top">
-                    <div className="flex flex-col gap-1 text-[12px]">
+                    <div className="flex flex-col gap-1 sam-text-helper">
                       <Link
                         href={`/admin/delivery-orders/${encodeURIComponent(r.id)}/chat`}
                         className="font-medium text-signature underline"
@@ -515,7 +515,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         type="button"
                         disabled={busyId !== null}
                         onClick={() => void approveRefund(r.id)}
-                        className="mt-2 block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 text-[12px] font-medium text-red-800 disabled:opacity-50"
+                        className="mt-2 block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
                       >
                         {busyId === r.id ? "…" : "환불 승인"}
                       </button>

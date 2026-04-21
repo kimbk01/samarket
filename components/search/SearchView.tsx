@@ -91,7 +91,7 @@ export function SearchView() {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       stickyBelow: (
-        <div className="border-b border-ig-border bg-[var(--sub-bg)]">
+        <div className="border-b border-sam-border bg-[var(--sub-bg)]">
           <div className="flex h-12 items-center gap-2 px-4 py-1.5">
             <div className="min-w-0 flex-1">
               <SearchInputBar
@@ -103,7 +103,7 @@ export function SearchView() {
               />
             </div>
             {showResults ? (
-              <span className="shrink-0 text-[13px] font-medium text-[var(--text-muted)]" aria-hidden>
+              <span className="shrink-0 sam-text-body-secondary font-medium text-[var(--text-muted)]" aria-hidden>
                 필터
               </span>
             ) : null}
@@ -130,7 +130,7 @@ export function SearchView() {
           <RecentSearches onSelectKeyword={handleSelectRecent} />
           {showPopular && (
             <section className="px-4 py-3">
-              <p className="text-[13px] font-medium text-sam-fg">
+              <p className="sam-text-body-secondary font-medium text-sam-fg">
                 인기 검색어
               </p>
               <ul className="mt-2 flex flex-wrap gap-2">
@@ -139,7 +139,7 @@ export function SearchView() {
                     <button
                       type="button"
                       onClick={() => handleSelectRecent(word)}
-                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
+                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
                     >
                       {word}
                     </button>

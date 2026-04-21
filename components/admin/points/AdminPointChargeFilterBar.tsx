@@ -23,7 +23,7 @@ export function AdminPointChargeFilterBar({
               .value as AdminPointChargeFilters["requestStatus"],
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {POINT_CHARGE_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

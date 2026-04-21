@@ -15,14 +15,14 @@ interface MyInterestSectionProps {
 
 export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-      <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 관심</h2>
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 관심</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
             <Link
               href={item.href}
-              className="flex items-center gap-3 py-3 text-[14px] text-foreground"
+              className="flex items-center gap-3 py-3 sam-text-body text-foreground"
             >
               <span className="flex h-8 w-8 items-center justify-center text-foreground">
                 {item.icon}
@@ -32,19 +32,19 @@ export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
                 {item.countKey === "favorites" &&
                   favoriteCount != null &&
                   favoriteCount > 0 && (
-                    <span className="ml-2 text-[12px] font-normal text-sam-muted">
+                    <span className="ml-2 sam-text-helper font-normal text-sam-muted">
                       {favoriteCount}개
                     </span>
                   )}
               </span>
               <ChevronRight />
             </Link>
-            {i < ITEMS.length - 1 && <hr className="border-ig-border" />}
+            {i < ITEMS.length - 1 && <hr className="border-sam-border" />}
           </li>
         ))}
       </ul>
       {favoriteCount != null && favoriteCount === 0 && (
-        <p className="-mt-1 pb-1 text-[12px] text-muted">
+        <p className="-mt-1 pb-1 sam-text-helper text-muted">
           찜한 상품이 없으면 홈에서 하트를 눌러 담을 수 있어요.
         </p>
       )}

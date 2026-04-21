@@ -385,13 +385,13 @@ export function MypageInstagramView({
     VIDEO_AUTOPLAY_LABELS[String(userSettings.video_autoplay_mode ?? "wifi_only")] ?? "Wi-Fi에서만";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-ig-border bg-[var(--sub-bg)]">
-      <div className="shrink-0 border-b border-ig-border bg-[var(--sub-bg)] px-4 pt-3 pb-4">
-        <div className="rounded-ui-rect border border-ig-border bg-background p-4 shadow-sm">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-sam-border bg-[var(--sub-bg)]">
+      <div className="shrink-0 border-b border-sam-border bg-[var(--sub-bg)] px-4 pt-3 pb-4">
+        <div className="rounded-ui-rect border border-sam-border bg-background p-4 shadow-sm">
           <div className="flex items-start gap-4">
             <Link
               href={editHref}
-              className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border border-ig-border bg-ig-highlight"
+              className="relative h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full border border-sam-border bg-sam-primary-soft"
               aria-label="프로필 편집"
             >
               {profile.avatar_url ? (
@@ -404,17 +404,17 @@ export function MypageInstagramView({
             </Link>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[18px] font-semibold text-foreground">{displayName}</span>
+                <span className="sam-text-page-title font-semibold text-foreground">{displayName}</span>
               </div>
               <p
-                className={`mt-1 whitespace-pre-line text-[13px] ${
+                className={`mt-1 whitespace-pre-line sam-text-body-secondary ${
                   !hasRegion ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"
                 }`}
               >
                 {regionLine}
               </p>
-              <p className="mt-2 text-[12px] text-[var(--text-muted)]">{statusPills.join(" · ")}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--text-muted)]">
+              <p className="mt-2 sam-text-helper text-[var(--text-muted)]">{statusPills.join(" · ")}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 sam-text-helper text-[var(--text-muted)]">
                 <span className="flex items-center gap-1.5">
                   <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1" />
                 </span>
@@ -440,7 +440,7 @@ export function MypageInstagramView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--sub-bg)] [scrollbar-gutter:stable]">
-        <div className="sticky top-0 z-10 border-b border-ig-border bg-[var(--sub-bg)]/95 px-4 py-3 backdrop-blur">
+        <div className="sticky top-0 z-10 border-b border-sam-border bg-[var(--sub-bg)]/95 px-4 py-3 backdrop-blur">
           <nav className="overflow-x-auto">
             <div className="flex min-w-max gap-2">
               {orderedSectionIds.map((sectionId) => {
@@ -451,16 +451,16 @@ export function MypageInstagramView({
                     key={section.id}
                     type="button"
                     onClick={() => persistSection(section.id)}
-                    className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-[13px] font-semibold transition-colors ${
+                    className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 sam-text-body-secondary font-semibold transition-colors ${
                       selected
                         ? "border-foreground bg-foreground text-background"
-                        : "border-ig-border bg-background text-foreground hover:bg-ig-highlight"
+                        : "border-sam-border bg-background text-foreground hover:bg-sam-primary-soft"
                     }`}
                   >
                     <span>{section.label}</span>
                     {section.count ? (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] ${
+                        className={`rounded-full px-2 py-0.5 sam-text-xxs ${
                           selected ? "bg-background/15 text-background" : "bg-signature/10 text-signature"
                         }`}
                       >
@@ -589,27 +589,27 @@ function TradeSection({
             onRetry={onReload}
             hasItems={preview.purchases.length > 0}
           >
-            <div className="divide-y divide-ig-border">
+            <div className="divide-y divide-sam-border">
               {preview.purchases.map((item) => (
                 <Link
                   key={item.chatId}
                   href={`/mypage/purchases/${encodeURIComponent(item.chatId)}`}
-                  className="block px-4 py-3 hover:bg-ig-highlight/70"
+                  className="block px-4 py-3 hover:bg-sam-primary-soft/70"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-foreground">
+                      <p className="truncate sam-text-body font-semibold text-foreground">
                         {item.title || "상품"}
                       </p>
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                      <p className="mt-1 sam-text-helper text-[var(--text-muted)]">
                         {item.sellerNickname || "판매자"} · {tradeFlowLabel(item.tradeFlowStatus)}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[13px] font-semibold text-foreground">
+                      <p className="sam-text-body-secondary font-semibold text-foreground">
                         {formatMoneyPhp(item.price)}
                       </p>
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      <p className="mt-1 sam-text-xxs text-[var(--text-muted)]">
                         {formatRelativeDate(item.lastMessageAt)}
                       </p>
                     </div>
@@ -631,27 +631,27 @@ function TradeSection({
             onRetry={onReload}
             hasItems={preview.sales.length > 0}
           >
-            <div className="divide-y divide-ig-border">
+            <div className="divide-y divide-sam-border">
               {preview.sales.map((item) => (
                 <Link
                   key={`${item.chatId}:${item.postId}`}
                   href={item.noActiveChat ? `/post/${encodeURIComponent(item.postId)}` : "/mypage/trade/sales"}
-                  className="block px-4 py-3 hover:bg-ig-highlight/70"
+                  className="block px-4 py-3 hover:bg-sam-primary-soft/70"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-[14px] font-semibold text-foreground">
+                      <p className="truncate sam-text-body font-semibold text-foreground">
                         {item.title || "상품"}
                       </p>
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                      <p className="mt-1 sam-text-helper text-[var(--text-muted)]">
                         {item.noActiveChat ? "문의 없음" : `구매자 ${item.buyerNickname || "대기"}`}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[13px] font-semibold text-foreground">
+                      <p className="sam-text-body-secondary font-semibold text-foreground">
                         {formatMoneyPhp(item.price)}
                       </p>
-                      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                      <p className="mt-1 sam-text-xxs text-[var(--text-muted)]">
                         {formatRelativeDate(item.lastMessageAt)}
                       </p>
                     </div>
@@ -697,21 +697,21 @@ function BoardSection({
           onRetry={onReload}
           hasItems={preview.posts.length > 0}
         >
-          <div className="divide-y divide-ig-border">
+          <div className="divide-y divide-sam-border">
             {preview.posts.map((post) => (
               <Link
                 key={post.id}
                 href={philifeAppPaths.post(post.id)}
-                className="block px-4 py-3 hover:bg-ig-highlight/70"
+                className="block px-4 py-3 hover:bg-sam-primary-soft/70"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-foreground">{post.title}</p>
-                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                    <p className="truncate sam-text-body font-semibold text-foreground">{post.title}</p>
+                    <p className="mt-1 sam-text-helper text-[var(--text-muted)]">
                       {post.topic_name || "커뮤니티"} · {post.region_label || "지역 없음"}
                     </p>
                   </div>
-                  <p className="shrink-0 text-[11px] text-[var(--text-muted)]">
+                  <p className="shrink-0 sam-text-xxs text-[var(--text-muted)]">
                     {formatRelativeDate(post.created_at)}
                   </p>
                 </div>
@@ -782,28 +782,28 @@ function StoreSection({
           onRetry={onReload}
           hasItems={preview.orders.length > 0}
         >
-          <div className="divide-y divide-ig-border">
+          <div className="divide-y divide-sam-border">
             {preview.orders.map((order) => (
               <Link
                 key={order.id}
                 href={`/mypage/store-orders/${encodeURIComponent(order.id)}`}
-                className="block px-4 py-3 hover:bg-ig-highlight/70"
+                className="block px-4 py-3 hover:bg-sam-primary-soft/70"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-[14px] font-semibold text-foreground">
+                    <p className="truncate sam-text-body font-semibold text-foreground">
                       {order.store_name || "매장"}
                     </p>
-                    <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                    <p className="mt-1 sam-text-helper text-[var(--text-muted)]">
                       {BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status}
                       {order.order_chat_unread_count ? ` · 채팅 ${order.order_chat_unread_count}` : ""}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-[13px] font-semibold text-foreground">
+                    <p className="sam-text-body-secondary font-semibold text-foreground">
                       {formatMoneyPhp(order.payment_amount)}
                     </p>
-                    <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                    <p className="mt-1 sam-text-xxs text-[var(--text-muted)]">
                       {formatRelativeDate(order.created_at)}
                     </p>
                   </div>
@@ -857,7 +857,7 @@ function AccountSection({
     <>
       {alerts.length > 0 ? (
         <SectionCard title="확인 필요">
-          <div className="divide-y divide-ig-border">
+          <div className="divide-y divide-sam-border">
             {alerts.map((item) => (
               <ActionRow key={item.label} href={item.href} label={item.label} value="설정 필요" />
             ))}
@@ -866,7 +866,7 @@ function AccountSection({
       ) : null}
 
       <SectionCard title="생활 메뉴">
-        <div className="divide-y divide-ig-border">
+        <div className="divide-y divide-sam-border">
           <ActionRow href="/mypage/settings/notice" label="공지사항" />
           <ActionRow href="/mypage/benefits" label="회원 혜택" />
           <ActionRow href="/mypage/recent-viewed" label="최근 본 글" />
@@ -876,7 +876,7 @@ function AccountSection({
       </SectionCard>
 
       <SectionCard title="주문·관심">
-        <div className="divide-y divide-ig-border">
+        <div className="divide-y divide-sam-border">
           <ActionRow href={addressesHref} label="주소 관리" />
           <ActionRow href="/mypage/store-orders" label="주문 내역" />
           <ActionRow href="/mypage/order-notifications" label="주문 알림" />
@@ -886,7 +886,7 @@ function AccountSection({
       </SectionCard>
 
       <SectionCard title="환경 설정">
-        <div className="divide-y divide-ig-border">
+        <div className="divide-y divide-sam-border">
           <ActionRow
             label="알림 설정"
             value={notificationBadge ? `${notificationBadge} 확인` : "바로 조정"}
@@ -903,7 +903,7 @@ function AccountSection({
       </SectionCard>
 
       <SectionCard title="계정·보안">
-        <div className="divide-y divide-ig-border">
+        <div className="divide-y divide-sam-border">
           <ActionRow href={accountHref} label="계정 상세" />
           <ActionRow href={editHref} label="프로필 수정" />
           <ActionRow href="/mypage/settings/hidden-users" label="숨김 사용자" />
@@ -914,7 +914,7 @@ function AccountSection({
       </SectionCard>
 
       <SectionCard title="파트너">
-        <div className="divide-y divide-ig-border">
+        <div className="divide-y divide-sam-border">
           <ActionRow
             href={hasOwnerStore ? businessHubHref : businessApplyHref}
             label={hasOwnerStore ? "내 상점 운영" : "내 상점 등록하기"}
@@ -945,11 +945,11 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-ui-rect border border-ig-border bg-background shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-ig-border px-4 py-3.5">
-        <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+    <section className="overflow-hidden rounded-ui-rect border border-sam-border bg-background shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-sam-border px-4 py-3.5">
+        <h2 className="sam-text-body font-semibold text-foreground">{title}</h2>
         {actionHref ? (
-          <Link href={actionHref} className="text-[12px] font-medium text-signature">
+          <Link href={actionHref} className="sam-text-helper font-medium text-signature">
             전체 보기
           </Link>
         ) : null}
@@ -991,20 +991,20 @@ function QuickActionTile({
   };
 }) {
   const cls =
-    "flex min-h-[86px] flex-col justify-between rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-3 py-3 text-left";
+    "flex min-h-[86px] flex-col justify-between rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-3 py-3 text-left";
   if (item.href && item.suppressNav && item.onSuppressedNav) {
     return (
       <button type="button" onClick={item.onSuppressedNav} className={cls}>
-        <span className="text-[13px] font-semibold text-foreground">{item.label}</span>
-        <span className="text-[12px] text-[var(--text-muted)]">{item.value ?? "열기"}</span>
+        <span className="sam-text-body-secondary font-semibold text-foreground">{item.label}</span>
+        <span className="sam-text-helper text-[var(--text-muted)]">{item.value ?? "열기"}</span>
       </button>
     );
   }
   if (item.href) {
     return (
       <Link href={item.href} className={cls}>
-        <span className="text-[13px] font-semibold text-foreground">{item.label}</span>
-        <span className="text-[12px] text-[var(--text-muted)]">{item.value ?? "열기"}</span>
+        <span className="sam-text-body-secondary font-semibold text-foreground">{item.label}</span>
+        <span className="sam-text-helper text-[var(--text-muted)]">{item.value ?? "열기"}</span>
       </Link>
     );
   }
@@ -1027,20 +1027,20 @@ function PreviewStateBlock({
   children: ReactNode;
 }) {
   if (status === "idle" || status === "loading") {
-    return <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">불러오는 중…</div>;
+    return <div className="px-4 py-8 text-center sam-text-body-secondary text-[var(--text-muted)]">불러오는 중…</div>;
   }
   if (status === "error") {
     return (
-      <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">
+      <div className="px-4 py-8 text-center sam-text-body-secondary text-[var(--text-muted)]">
         <p>{errorLabel}</p>
-        <button type="button" onClick={onRetry} className="mt-3 text-[12px] font-semibold text-signature">
+        <button type="button" onClick={onRetry} className="mt-3 sam-text-helper font-semibold text-signature">
           다시 시도
         </button>
       </div>
     );
   }
   if (!hasItems) {
-    return <div className="px-4 py-8 text-center text-[13px] text-[var(--text-muted)]">{emptyLabel}</div>;
+    return <div className="px-4 py-8 text-center sam-text-body-secondary text-[var(--text-muted)]">{emptyLabel}</div>;
   }
   return <>{children}</>;
 }
@@ -1061,13 +1061,13 @@ function ActionRow({
   onClick?: () => void;
 }) {
   const cls =
-    "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-ig-highlight/70";
+    "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-sam-primary-soft/70";
   if (href && suppressNav && onSuppressedNav) {
     return (
       <button type="button" className={cls} onClick={onSuppressedNav}>
-        <span className="text-[15px] font-medium text-foreground">{label}</span>
+        <span className="sam-text-body font-medium text-foreground">{label}</span>
         <span className="flex items-center gap-2">
-          {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
+          {value ? <span className="sam-text-body-secondary text-[var(--text-muted)]">{value}</span> : null}
           <Chevron />
         </span>
       </button>
@@ -1076,9 +1076,9 @@ function ActionRow({
   if (href) {
     return (
       <Link href={href} className={cls}>
-        <span className="text-[15px] font-medium text-foreground">{label}</span>
+        <span className="sam-text-body font-medium text-foreground">{label}</span>
         <span className="flex items-center gap-2">
-          {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
+          {value ? <span className="sam-text-body-secondary text-[var(--text-muted)]">{value}</span> : null}
           <Chevron />
         </span>
       </Link>
@@ -1086,9 +1086,9 @@ function ActionRow({
   }
   return (
     <button type="button" className={cls} onClick={onClick}>
-      <span className="text-[15px] font-medium text-foreground">{label}</span>
+      <span className="sam-text-body font-medium text-foreground">{label}</span>
       <span className="flex items-center gap-2">
-        {value ? <span className="text-[13px] text-[var(--text-muted)]">{value}</span> : null}
+        {value ? <span className="sam-text-body-secondary text-[var(--text-muted)]">{value}</span> : null}
         <Chevron />
       </span>
     </button>
@@ -1122,16 +1122,16 @@ function BottomSheet({
         className="max-h-[82vh] w-full overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-background shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-ig-border px-4 py-3">
-          <div className="mx-auto h-1.5 w-12 rounded-full bg-ig-border" />
+        <div className="flex items-center justify-between border-b border-sam-border px-4 py-3">
+          <div className="mx-auto h-1.5 w-12 rounded-full bg-sam-border" />
         </div>
-        <div className="border-b border-ig-border px-4 py-3">
+        <div className="border-b border-sam-border px-4 py-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-[16px] font-semibold text-foreground">{title}</h3>
+            <h3 className="sam-text-body-lg font-semibold text-foreground">{title}</h3>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-ig-border px-3 py-1 text-[12px] font-medium text-[var(--text-muted)]"
+              className="rounded-full border border-sam-border px-3 py-1 sam-text-helper font-medium text-[var(--text-muted)]"
             >
               닫기
             </button>
@@ -1146,15 +1146,15 @@ function BottomSheet({
 function SupportSheetContent() {
   return (
     <div className="space-y-4 pb-4">
-      <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
-        <p className="text-[15px] font-semibold text-foreground">문의 전 확인</p>
-        <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
+      <div className="rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-4">
+        <p className="sam-text-body font-semibold text-foreground">문의 전 확인</p>
+        <p className="mt-2 sam-text-body-secondary leading-6 text-[var(--text-muted)]">
           주문 문제는 주문 내역에서, 거래 문제는 거래 채팅과 후기 화면에서 먼저 확인해 주세요.
           해결되지 않으면 운영 문의로 접수하는 흐름이 가장 빠릅니다.
         </p>
       </div>
-      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-background">
-        <div className="divide-y divide-ig-border">
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-background">
+        <div className="divide-y divide-sam-border">
           <InfoRow label="운영 문의" value="공지사항 및 관리자 공지 확인 후 진행" />
           <InfoRow label="주문 이슈" value="주문 내역 > 상세 화면에서 상태 확인" />
           <InfoRow label="매장 문의" value="내 상점 운영 또는 사장님 주문 관리에서 처리" />
@@ -1167,14 +1167,14 @@ function SupportSheetContent() {
 function TermsSheetContent() {
   return (
     <div className="space-y-4 pb-4">
-      <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4">
-        <p className="text-[15px] font-semibold text-foreground">이용 원칙</p>
-        <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
+      <div className="rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-4">
+        <p className="sam-text-body font-semibold text-foreground">이용 원칙</p>
+        <p className="mt-2 sam-text-body-secondary leading-6 text-[var(--text-muted)]">
           거래, 커뮤니티, 주문, 매장 운영은 모두 계정 상태와 지역 정보에 따라 노출 범위와 사용 기능이 달라질 수 있습니다.
         </p>
       </div>
-      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-background">
-        <div className="divide-y divide-ig-border">
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-background">
+        <div className="divide-y divide-sam-border">
           <InfoRow label="계정" value="정확한 프로필과 연락처 정보를 유지해야 합니다." />
           <InfoRow label="거래" value="거래 상태와 후기 이력은 서비스 신뢰도에 반영됩니다." />
           <InfoRow label="주문·매장" value="주문 취소·환불·정산은 각 주문 상태 기준을 따릅니다." />
@@ -1187,8 +1187,8 @@ function TermsSheetContent() {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-4 py-3.5">
-      <p className="text-[14px] font-medium text-foreground">{label}</p>
-      <p className="mt-1 text-[13px] leading-6 text-[var(--text-muted)]">{value}</p>
+      <p className="sam-text-body font-medium text-foreground">{label}</p>
+      <p className="mt-1 sam-text-body-secondary leading-6 text-[var(--text-muted)]">{value}</p>
     </div>
   );
 }
@@ -1203,10 +1203,10 @@ function SummaryCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-3 py-3">
-      <p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p>
-      <p className="mt-1 text-[18px] font-semibold text-foreground">{value}</p>
-      <p className="mt-1 text-[11px] text-[var(--text-muted)]">{detail}</p>
+    <div className="rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-3 py-3">
+      <p className="sam-text-xxs font-medium text-[var(--text-muted)]">{label}</p>
+      <p className="mt-1 sam-text-page-title font-semibold text-foreground">{value}</p>
+      <p className="mt-1 sam-text-xxs text-[var(--text-muted)]">{detail}</p>
     </div>
   );
 }
@@ -1220,7 +1220,7 @@ function InlineBadge({
 }) {
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+      className={`rounded-full px-2 py-0.5 sam-text-xxs font-medium ${
         tone === "soft"
           ? "bg-[var(--sub-bg)] text-[var(--text-muted)]"
           : "bg-signature/10 text-signature"

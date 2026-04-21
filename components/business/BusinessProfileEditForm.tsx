@@ -72,7 +72,7 @@ export function BusinessProfileEditForm({
   return (
     <form onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           상점 이름 *
         </label>
         <input
@@ -86,7 +86,7 @@ export function BusinessProfileEditForm({
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           상점 소개
         </label>
         <textarea
@@ -99,7 +99,7 @@ export function BusinessProfileEditForm({
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           연락처
         </label>
         <input
@@ -113,7 +113,7 @@ export function BusinessProfileEditForm({
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           카카오톡 ID (placeholder)
         </label>
         <input
@@ -157,7 +157,7 @@ export function BusinessProfileEditForm({
         showRequired={false}
       />
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           카테고리
         </label>
         <select
@@ -175,7 +175,7 @@ export function BusinessProfileEditForm({
       </div>
       <button
         type="submit"
-        className="w-full rounded-ui-rect bg-signature py-3 text-[15px] font-medium text-white"
+        className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white"
       >
         {submitLabel}
       </button>

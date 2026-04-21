@@ -195,8 +195,8 @@ export function DeliveryOrdersDashboardClient() {
         description="Supabase store_orders 원장만 표시합니다. 결제·환불 등 처리는 «매장 주문(액션)»에서 진행하세요."
       />
       <AdminCard title="데이터 원장">
-        <p className="text-[13px] leading-relaxed text-sam-fg">
-          이 화면 목록은 <code className="rounded bg-sam-surface-muted px-1 text-[11px]">store_orders</code> 와 품목 스냅샷을
+        <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
+          이 화면 목록은 <code className="rounded bg-sam-surface-muted px-1 sam-text-xxs">store_orders</code> 와 품목 스냅샷을
           API로 불러온 결과입니다.{" "}
           <Link href="/admin/store-orders" className="font-medium text-signature underline">
             매장 주문(액션)
@@ -204,11 +204,11 @@ export function DeliveryOrdersDashboardClient() {
           과 <strong>같은 DB</strong>입니다. 한쪽에서 <strong>DB에서 삭제</strong>하면 서버에는 바로 반영되고, 다른
           탭으로 돌아오면 자동으로 목록을 다시 불러오며(탭 복귀 시), 보이는 동안 약 30초마다도 갱신됩니다.
         </p>
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           <strong className="text-sam-fg">목록에서만 제거</strong>는 이 브라우저 세션에서 표시만 숨깁니다.{" "}
           <strong className="text-red-800">DB에서 삭제</strong>는 원장에서 영구 삭제합니다.
         </p>
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           <Link href="/admin/store-orders" className="text-signature underline">
             매장 주문(액션)으로 이동
           </Link>
@@ -237,7 +237,7 @@ export function DeliveryOrdersDashboardClient() {
       </div>
 
       {dbError ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           주문 목록을 불러오지 못했습니다 ({dbError}). Supabase 설정·관리자 로그인을 확인하세요.
         </p>
       ) : null}
@@ -256,13 +256,13 @@ export function DeliveryOrdersDashboardClient() {
 
       <div className="mt-4">
         <h2 className="mb-2 text-sm font-semibold text-sam-fg">주문 목록</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
+        <p className="mb-2 sam-text-helper text-sam-muted">
           전체 <strong>{dbOrders.length}</strong>건 · 필터 일치 <strong>{filteredRows.length}</strong>건 · 표시{" "}
           <strong>{visibleRows.length}</strong>건
           {dbLoading ? " · 갱신 중…" : ""}
         </p>
         {!dbLoading && (filteredRows.length > 0 || dbOrders.length > 0) ? (
-          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px]">
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
             <span className="text-sam-muted">
               선택 <strong className="text-sam-fg">{selectedIds.size}</strong>건
             </span>
@@ -302,7 +302,7 @@ export function DeliveryOrdersDashboardClient() {
           </div>
         ) : null}
         {actionMessage ? (
-          <p className="mb-3 rounded border border-sam-border bg-sam-app px-3 py-2 text-[13px] text-sam-fg">
+          <p className="mb-3 rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">
             {actionMessage}
           </p>
         ) : null}

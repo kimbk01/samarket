@@ -15,7 +15,7 @@ export function PointEventPolicyTable({
 }: PointEventPolicyTableProps) {
   if (policies.length === 0) {
     return (
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         등록된 이벤트 포인트 정책이 없습니다.
       </p>
     );
@@ -23,7 +23,7 @@ export function PointEventPolicyTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[560px] border-collapse text-[14px]">
+      <table className="w-full min-w-[560px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -57,19 +57,19 @@ export function PointEventPolicyTable({
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {p.title}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.startAt).toLocaleDateString("ko-KR")} ~{" "}
                 {new Date(p.endAt).toLocaleDateString("ko-KR")}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {p.writeMultiplier}x / {p.commentMultiplier}x
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {p.targetBoards.join(", ") || "-"}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
                       ? "bg-emerald-50 text-emerald-800"
                       : "bg-sam-border-soft text-sam-muted"
@@ -84,7 +84,7 @@ export function PointEventPolicyTable({
                     <button
                       type="button"
                       onClick={() => onEdit(p)}
-                      className="mr-1 text-[13px] text-signature hover:underline"
+                      className="mr-1 sam-text-body-secondary text-signature hover:underline"
                     >
                       편집
                     </button>
@@ -93,7 +93,7 @@ export function PointEventPolicyTable({
                     <button
                       type="button"
                       onClick={() => onToggleActive(p.id, !p.isActive)}
-                      className="text-[13px] text-sam-muted hover:underline"
+                      className="sam-text-body-secondary text-sam-muted hover:underline"
                     >
                       {p.isActive ? "비활성" : "활성"}
                     </button>

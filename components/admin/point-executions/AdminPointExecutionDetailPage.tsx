@@ -34,7 +34,7 @@ export function AdminPointExecutionDetailPage({
     return (
       <div className="space-y-4">
         <AdminPageHeader title="포인트 실행 상세" backHref="/admin/point-executions" />
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           해당 실행을 찾을 수 없습니다.
         </div>
       </div>
@@ -56,14 +56,14 @@ export function AdminPointExecutionDetailPage({
       />
 
       <AdminCard title="실행 정보">
-        <dl className="grid grid-cols-1 gap-2 text-[14px] sm:grid-cols-2">
+        <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">
           <div>
             <dt className="text-sam-muted">ID</dt>
             <dd className="font-medium text-sam-fg">{execution.id}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">실행 키</dt>
-            <dd className="truncate font-mono text-[13px] text-sam-fg">
+            <dd className="truncate font-mono sam-text-body-secondary text-sam-fg">
               {execution.executionKey}
             </dd>
           </div>
@@ -103,7 +103,7 @@ export function AdminPointExecutionDetailPage({
             <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${statusClass}`}
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${statusClass}`}
               >
                 {POINT_EXECUTION_STATUS_LABELS[execution.status]}
               </span>

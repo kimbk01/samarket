@@ -21,7 +21,7 @@ export function ExposureResultTable({
 
   if (results.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         시뮬레이션 결과가 없습니다. 후보 상품이 없거나 정책을 선택하세요.
       </div>
     );
@@ -31,11 +31,11 @@ export function ExposureResultTable({
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         {policyName} · {results.length}건 (점수순 정렬)
       </p>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="w-full min-w-[640px] border-collapse text-[14px]">
+        <table className="w-full min-w-[640px] border-collapse sam-text-body">
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -70,13 +70,13 @@ export function ExposureResultTable({
                 <td className="max-w-[180px] truncate px-3 py-2.5 text-sam-fg">
                   {candidate.title}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {candidate.sellerNickname} ({MEMBER_TYPE_LABELS[candidate.memberType]})
                 </td>
                 <td className="px-3 py-2.5 font-semibold text-sam-fg">
                   {result.finalScore}
                 </td>
-                <td className="max-w-[160px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="max-w-[160px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {result.appliedReasons.join(", ") || "-"}
                 </td>
                 <td className="px-3 py-2.5">
@@ -85,7 +85,7 @@ export function ExposureResultTable({
                     onClick={() =>
                       setSelectedId(selectedId === candidate.id ? null : candidate.id)
                     }
-                    className="text-[13px] text-signature hover:underline"
+                    className="sam-text-body-secondary text-signature hover:underline"
                   >
                     {selectedId === candidate.id ? "접기" : "상세"}
                   </button>

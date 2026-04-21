@@ -89,7 +89,7 @@ export function AdApplyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           광고 대상
         </label>
         <select
@@ -99,7 +99,7 @@ export function AdApplyForm({
             setTargetId("");
             setPlanId("");
           }}
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
           <option value="product">{AD_TARGET_LABELS.product}</option>
           <option value="shop">{AD_TARGET_LABELS.shop}</option>
@@ -109,13 +109,13 @@ export function AdApplyForm({
 
       {targetType === "product" && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             상품 선택
           </label>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
             <option value="">선택</option>
             {productOptions.map((p) => (
@@ -129,13 +129,13 @@ export function AdApplyForm({
 
       {targetType === "shop" && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             상점 선택
           </label>
           <select
             value={targetId}
             onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
             <option value="">선택</option>
             {shopOptions.map((s) => (
@@ -148,7 +148,7 @@ export function AdApplyForm({
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           노출 위치
         </label>
         <select
@@ -157,7 +157,7 @@ export function AdApplyForm({
             setPlacement(e.target.value as AdPlacement);
             setPlanId("");
           }}
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
           {PLACEMENTS.map((p) => (
             <option key={p} value={p}>
@@ -168,13 +168,13 @@ export function AdApplyForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           플랜 선택
         </label>
         <select
           value={planId || (plans[0]?.id ?? "")}
           onChange={(e) => setPlanId(e.target.value)}
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
           {plans.map((p) => (
             <option key={p.id} value={p.id}>
@@ -186,18 +186,18 @@ export function AdApplyForm({
 
       {selectedPlan && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-          <p className="text-[13px] text-sam-muted">예상 금액</p>
-          <p className="mt-1 text-[18px] font-semibold text-sam-fg">
+          <p className="sam-text-body-secondary text-sam-muted">예상 금액</p>
+          <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">
             ₩{selectedPlan.price.toLocaleString()}
           </p>
-          <p className="mt-0.5 text-[12px] text-sam-muted">
+          <p className="mt-0.5 sam-text-helper text-sam-muted">
             {selectedPlan.durationDays}일 노출
           </p>
         </div>
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           결제 방식 (placeholder)
         </label>
         <select
@@ -205,7 +205,7 @@ export function AdApplyForm({
           onChange={(e) =>
             setPaymentMethod(e.target.value as AdPaymentMethod)
           }
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
           <option value="bank_transfer">
             {AD_PAYMENT_METHOD_LABELS.bank_transfer}
@@ -218,21 +218,21 @@ export function AdApplyForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           메모 (선택)
         </label>
         <textarea
           value={applicantMemo}
           onChange={(e) => setApplicantMemo(e.target.value)}
           rows={2}
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           placeholder="입금 참고용 메모"
         />
       </div>
 
       <button
         type="submit"
-        className="w-full rounded-ui-rect bg-signature py-3 text-[15px] font-medium text-white"
+        className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white"
       >
         {submitLabel}
       </button>

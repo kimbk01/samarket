@@ -353,24 +353,24 @@ export function ExchangeWriteForm({
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
       >
         {tradePolicy?.hint ? (
-          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
             {tradePolicy.hint}
           </div>
         ) : null}
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
         {/* 환율 상황판 (자동 조회) */}
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <h3 className="mb-3 text-[15px] font-bold text-sam-fg">환율 상황판</h3>
+          <h3 className="mb-3 sam-text-body font-bold text-sam-fg">환율 상황판</h3>
           {ratesLoading ? (
-            <p className="rounded-ui-rect border border-sam-border bg-sam-app/50 p-4 text-center text-[14px] text-sam-muted">환율 불러오는 중…</p>
+            <p className="rounded-ui-rect border border-sam-border bg-sam-app/50 p-4 text-center sam-text-body text-sam-muted">환율 불러오는 중…</p>
           ) : (
             <>
-              <p className="mb-2 text-[12px] text-sam-muted">
+              <p className="mb-2 sam-text-helper text-sam-muted">
                 {ratesFetchedAt ? `${ratesFetchedAt} 기준 환율` : "기준: 페소 1 (기본값)"}
               </p>
               <ul className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app/50 p-3">
                 {EXCHANGE_CURRENCIES.map((code) => (
-                  <li key={code} className="flex items-center justify-between text-[14px]">
+                  <li key={code} className="flex items-center justify-between sam-text-body">
                     <span className="font-medium text-sam-fg">{code}</span>
                     <span className="text-sam-muted">{CURRENCY_SYMBOLS[code]} {code === fromCurrency ? "1" : (ratesForBoard[code as keyof typeof ratesForBoard] ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                   </li>
@@ -395,7 +395,7 @@ export function ExchangeWriteForm({
                 type="button"
                 disabled={coreLocked}
                 onClick={() => setDirection(opt.value as "sell" | "buy")}
-                className={`flex-1 rounded-ui-rect border py-2.5 text-[14px] font-medium ${
+                className={`flex-1 rounded-ui-rect border py-2.5 sam-text-body font-medium ${
                   direction === opt.value ? "border-sam-border bg-sam-surface-dark text-white" : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
@@ -422,9 +422,9 @@ export function ExchangeWriteForm({
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
           <div className="grid grid-cols-2 gap-2">
             <div className="min-w-0">
-              <label className="mb-1 block text-[11px] font-medium leading-snug text-sam-fg sm:text-[12px]">
+              <label className="mb-1 block sam-text-xxs font-medium leading-snug text-sam-fg sm:sam-text-helper">
                 기준 환율
-                <span className="block font-normal text-[10px] text-sam-muted sm:inline sm:ml-0.5 sm:text-[11px]">
+                <span className="block font-normal sam-text-xxs text-sam-muted sm:inline sm:ml-0.5 sm:sam-text-xxs">
                   (1 PHP = ? KRW)
                 </span>
               </label>
@@ -435,59 +435,59 @@ export function ExchangeWriteForm({
                   value={rate}
                   onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
                   placeholder="24.99"
-                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 text-[14px] text-sam-fg outline-none sm:text-[15px] ${errors.rate ? "text-red-600" : ""}`}
+                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none sm:sam-text-body ${errors.rate ? "text-red-600" : ""}`}
                   aria-label="기준 환율 1 PHP당 KRW"
                 />
-                <span className="shrink-0 text-[12px] text-sam-muted sm:text-[14px]">KRW</span>
+                <span className="shrink-0 sam-text-helper text-sam-muted sm:sam-text-body">KRW</span>
               </div>
             </div>
             <div className="min-w-0">
-              <label className="mb-1 block text-[11px] font-medium text-sam-fg sm:text-[12px]">
+              <label className="mb-1 block sam-text-xxs font-medium text-sam-fg sm:sam-text-helper">
                 기준 환율 + (가산)
               </label>
               <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
-                <span className="shrink-0 text-[14px] text-sam-muted sm:text-[15px]">+</span>
+                <span className="shrink-0 sam-text-body text-sam-muted sm:sam-text-body">+</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={ratePlus}
                   onChange={(e) => setRatePlus(e.target.value.replace(/[^0-9.-]/g, ""))}
                   placeholder="0"
-                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-[14px] font-semibold text-sam-fg outline-none sm:text-[15px]"
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body font-semibold text-sam-fg outline-none sm:sam-text-body"
                   aria-label="기준 환율 가산"
                 />
               </div>
             </div>
           </div>
           {baseRateValue > 0 && (
-            <p className="mt-2 text-[12px] text-sam-muted sm:text-[13px]">
+            <p className="mt-2 sam-text-helper text-sam-muted sm:sam-text-body-secondary">
               <strong className="text-sam-fg">1 PHP = {baseRateValue.toFixed(2)} KRW</strong>
               {ratePlusValue !== 0 && <span className="ml-1.5 font-semibold text-sam-fg">+{ratePlusValue}</span>}
             </p>
           )}
-          {errors.rate && <p className="mt-1 text-[13px] text-red-500">{errors.rate}</p>}
+          {errors.rate && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.rate}</p>}
 
-          <p className="mt-4 mb-2 text-[14px] font-medium text-sam-fg">금액 (페소)</p>
+          <p className="mt-4 mb-2 sam-text-body font-medium text-sam-fg">금액 (페소)</p>
           <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5">
-            <span className="text-[14px] text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
+            <span className="sam-text-body text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
             <input
               type="text"
               inputMode="numeric"
               value={amount}
               onChange={(e) => setAmount(formatPriceInput(e.target.value))}
               placeholder="0"
-              className={`min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] text-sam-fg outline-none ${errors.amount ? "text-red-600" : ""}`}
+              className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none ${errors.amount ? "text-red-600" : ""}`}
             />
           </div>
-          {errors.amount && <p className="mt-1 text-[13px] text-red-500">{errors.amount}</p>}
+          {errors.amount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.amount}</p>}
         </section>
 
         {/* 페소 팝니다: 구매자 준비물만 / 페소 삽니다: 판매자+구매자 */}
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
           {direction === "buy" && (
             <>
-              <p className="mb-2 text-[14px] font-medium text-sam-fg">판매자 준비물</p>
-              <p className="mb-2 text-[12px] leading-relaxed text-sam-muted">
+              <p className="mb-2 sam-text-body font-medium text-sam-fg">판매자 준비물</p>
+              <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
                 페소를 파는 분이 갖춰야 할 항목을 선택해 주세요.
               </p>
               <div className="mb-4 flex flex-wrap gap-2">
@@ -505,15 +505,15 @@ export function ExchangeWriteForm({
                         onChange={() => togglePrep(setSellerPrep, opt.value)}
                         className="rounded border-sam-border"
                       />
-                      <span className={`text-[13px] ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
+                      <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
                     </label>
                   );
                 })}
               </div>
             </>
           )}
-          <p className="mb-2 text-[14px] font-medium text-sam-fg">구매자 준비물</p>
-          <p className="mb-2 text-[12px] leading-relaxed text-sam-muted">
+          <p className="mb-2 sam-text-body font-medium text-sam-fg">구매자 준비물</p>
+          <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
             {direction === "sell"
               ? "페소를 사는 분이 준비할 항목을 선택해 주세요."
               : "내가(페소 구매자) 준비할 항목을 선택해 주세요."}
@@ -533,41 +533,41 @@ export function ExchangeWriteForm({
                     onChange={() => togglePrep(setBuyerPrep, opt.value)}
                     className="rounded border-sam-border"
                   />
-                  <span className={`text-[13px] ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
+                  <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
                 </label>
               );
             })}
           </div>
-          {errors.prep && <p className="mt-2 text-[13px] text-red-500">{errors.prep}</p>}
+          {errors.prep && <p className="mt-2 sam-text-body-secondary text-red-500">{errors.prep}</p>}
         </section>
         </div>
 
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <p className="mb-2 text-[14px] font-medium text-sam-fg">추가 안내 (선택)</p>
+          <p className="mb-2 sam-text-body font-medium text-sam-fg">추가 안내 (선택)</p>
           <textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
             placeholder="매너와 속도가 중요해요. 거래 시 유의사항을 적어주세요."
             rows={3}
-            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           />
-          <p className="mt-1 text-[12px] text-sam-muted">매너와 속도가 중요해요.</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">매너와 속도가 중요해요.</p>
           {showDescriptionAppend ? (
             <div className="mt-3">
-              <label className="mb-1 block text-[13px] text-sam-fg">추가 안내 덧붙이기</label>
+              <label className="mb-1 block sam-text-body-secondary text-sam-fg">추가 안내 덧붙이기</label>
               <textarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="협의·진행 중 안내할 내용만 입력해 주세요."
                 rows={2}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[14px] text-sam-fg"
+                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
               />
             </div>
           ) : null}
         </section>
 
-        {errors.submit && <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>}
+        {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
 
         <SubmitButton
           label={editPostId ? "수정 완료" : "등록하기"}

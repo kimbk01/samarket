@@ -41,7 +41,7 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
           onChange={(e) =>
             setTypeFilter(e.target.value === "" ? "" : (e.target.value as ReportType))
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="">전체 유형</option>
           <option value="daily">일간</option>
@@ -50,12 +50,12 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
         </select>
       </div>
       {reports.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           보고서가 없습니다. 기간을 선택한 뒤 생성 버튼을 눌러 주세요.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[560px] border-collapse text-[14px]">
+          <table className="w-full min-w-[560px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -98,7 +98,7 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
                   <td className="px-3 py-2.5 text-sam-muted">
                     {r.dateFrom} ~ {r.dateTo}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+                  <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {new Date(r.generatedAt).toLocaleString("ko-KR", { hour12: false })}
                   </td>
                 </tr>

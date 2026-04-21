@@ -154,20 +154,20 @@ export function AdminTradeFlowPage() {
     <div className="space-y-6">
       <AdminPageHeader title="거래 흐름 · 온도 로그" />
       {error && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {error}
         </div>
       )}
       {loading ? (
-        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
       ) : (
         <>
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-            <h2 className="border-b border-sam-border-soft px-4 py-3 text-[15px] font-semibold text-sam-fg">
+            <h2 className="border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
               product_chats 거래 상태 (최대 200건)
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] border-collapse text-[13px]">
+              <table className="w-full min-w-[800px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
                     <th className="px-3 py-2 font-medium">채팅방</th>
@@ -185,7 +185,7 @@ export function AdminTradeFlowPage() {
                 <tbody>
                   {sessions.map((s) => (
                     <tr key={s.id} className="border-b border-sam-border-soft hover:bg-sam-app/80">
-                      <td className="px-3 py-2 font-mono text-[12px]">
+                      <td className="px-3 py-2 font-mono sam-text-helper">
                         <Link href={tradeChatNotificationHref(s.id, "product_chat")} className="text-signature hover:underline" target="_blank">
                           {s.id.slice(0, 8)}…
                         </Link>
@@ -216,7 +216,7 @@ export function AdminTradeFlowPage() {
                             type="button"
                             disabled={revertingId === s.id}
                             onClick={() => void revertTrade(s.id)}
-                            className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                            className="rounded border border-amber-300 bg-amber-50 px-2 py-1 sam-text-xxs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                           >
                             {revertingId === s.id ? "처리 중…" : "거래 되돌리기"}
                           </button>
@@ -229,20 +229,20 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {sessions.length === 0 && (
-                <p className="px-4 py-8 text-center text-[14px] text-sam-muted">데이터가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">데이터가 없습니다.</p>
               )}
             </div>
           </section>
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-            <h2 className="flex flex-wrap items-baseline gap-x-2 border-b border-sam-border-soft px-4 py-3 text-[15px] font-semibold text-sam-fg">
+            <h2 className="flex flex-wrap items-baseline gap-x-2 border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
               거래 후기 (최근 60건)
-              <Link href="/admin/reviews" className="text-[13px] font-normal text-signature hover:underline">
+              <Link href="/admin/reviews" className="sam-text-body-secondary font-normal text-signature hover:underline">
                 전체 목록 (최대 500건) →
               </Link>
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] border-collapse text-[13px]">
+              <table className="w-full min-w-[960px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
                     <th className="px-3 py-2 font-medium">시각</th>
@@ -278,7 +278,7 @@ export function AdminTradeFlowPage() {
                       <td className="max-w-[180px] truncate px-3 py-2 text-sam-muted" title={rv.review_comment ?? ""}>
                         {rv.review_comment ?? "—"}
                       </td>
-                      <td className="px-3 py-2 text-[12px] text-sam-fg">
+                      <td className="px-3 py-2 sam-text-helper text-sam-fg">
                         <span className="block max-w-[140px] truncate font-medium text-sam-fg" title={rv.product_title ?? rv.product_id}>
                           {rv.product_title ?? rv.product_id.slice(0, 8) + "…"}
                         </span>
@@ -300,17 +300,17 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {reviews.length === 0 && (
-                <p className="px-4 py-8 text-center text-[14px] text-sam-muted">후기가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">후기가 없습니다.</p>
               )}
             </div>
           </section>
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-            <h2 className="border-b border-sam-border-soft px-4 py-3 text-[15px] font-semibold text-sam-fg">
+            <h2 className="border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
               reputation_logs (최근 80건)
             </h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-[13px]">
+              <table className="w-full min-w-[640px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
                     <th className="px-3 py-2 font-medium">시각</th>
@@ -327,7 +327,7 @@ export function AdminTradeFlowPage() {
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
                         {new Date(l.created_at).toLocaleString("ko-KR")}
                       </td>
-                      <td className="px-3 py-2 font-mono text-[11px]">{l.user_id.slice(0, 8)}…</td>
+                      <td className="px-3 py-2 font-mono sam-text-xxs">{l.user_id.slice(0, 8)}…</td>
                       <td className="px-3 py-2">{l.source_type}</td>
                       <td className="px-3 py-2">{l.delta}</td>
                       <td className="px-3 py-2">{l.status}</td>
@@ -339,7 +339,7 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {logs.length === 0 && (
-                <p className="px-4 py-8 text-center text-[14px] text-sam-muted">로그가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">로그가 없습니다.</p>
               )}
             </div>
           </section>

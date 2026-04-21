@@ -17,9 +17,9 @@ export function SettingsRow({ href, icon, label, subtitle, right }: SettingsRowP
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] text-sam-fg">{label}</span>
+        <span className="block sam-text-body text-sam-fg">{label}</span>
         {subtitle && (
-          <span className="block text-[12px] text-sam-muted">{subtitle}</span>
+          <span className="block sam-text-helper text-sam-muted">{subtitle}</span>
         )}
       </span>
       {right ?? <ChevronRight />}

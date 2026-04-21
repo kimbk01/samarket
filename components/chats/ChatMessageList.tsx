@@ -218,11 +218,11 @@ export function ChatMessageList({
         items.push(
           <li key={`date-${block.dateKey}`} className={`flex justify-center ${ig ? "py-5" : "py-4"}`}>
             {ig ? (
-              <span className="rounded-full bg-black/[0.05] px-3.5 py-1.5 text-[12px] font-medium leading-none text-muted">
+              <span className="rounded-full bg-black/[0.05] px-3.5 py-1.5 sam-text-helper font-medium leading-none text-muted">
                 {block.label}
               </span>
             ) : (
-              <span className="text-[12px] font-medium leading-[16px] text-[#999999]">
+              <span className="sam-text-helper font-medium leading-[16px] text-[#999999]">
                 ——— {block.label} ———
               </span>
             )}
@@ -242,7 +242,7 @@ export function ChatMessageList({
                     {partnerAvatar ? (
                       <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-foreground">
+                      <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-foreground">
                         {(partnerNickname || "?").charAt(0)}
                       </div>
                     )}
@@ -258,7 +258,7 @@ export function ChatMessageList({
                     </p>
                   </div>
                   <div className="mt-0.5 flex justify-start">
-                    <span className="text-[11px] font-normal tabular-nums leading-4 text-muted">
+                    <span className="sam-text-xxs font-normal tabular-nums leading-4 text-muted">
                       {formatBubbleTime(block.msg.createdAt)}
                     </span>
                   </div>
@@ -269,7 +269,7 @@ export function ChatMessageList({
         } else {
           items.push(
             <li key={block.msg.id} className={`flex justify-center px-3 py-1.5 ${gapFromPrev}`}>
-              <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center text-[12px] font-medium leading-[16px] text-[#999999]">
+              <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center sam-text-helper font-medium leading-[16px] text-[#999999]">
                 {body}
               </p>
             </li>
@@ -283,7 +283,7 @@ export function ChatMessageList({
         const opponentBubbleShell = ig ? "bg-[#F0F0F0] shadow-none" : "bg-[#FFFFFF] shadow-sm";
         const opponentText = ig
           ? `${IG_DM_BODY_TEXT} text-left text-foreground`
-          : "text-[14px] font-normal leading-[20px] text-[#111111]";
+          : "sam-text-body font-normal leading-[20px] text-[#111111]";
         const bubblePadIg = IG_DM_BUBBLE_PAD;
         items.push(
           <li key={`opponent-${msgs[0].id}`} className={`flex justify-start ${gapFromPrev}`}>
@@ -296,7 +296,7 @@ export function ChatMessageList({
                     <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div
-                      className={`flex h-full w-full items-center justify-center ${ig ? "text-[13px] font-semibold text-foreground" : "text-[14px] font-medium text-sam-muted"}`}
+                      className={`flex h-full w-full items-center justify-center ${ig ? "sam-text-body-secondary font-semibold text-foreground" : "sam-text-body font-medium text-sam-muted"}`}
                     >
                       {(partnerNickname || "?").charAt(0)}
                     </div>
@@ -305,7 +305,7 @@ export function ChatMessageList({
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <p
-                  className={`truncate pl-0.5 ${ig ? "mb-1 text-[12px] font-semibold leading-none text-muted" : "mb-0.5 text-[13px] font-medium text-[#111111]"}`}
+                  className={`truncate pl-0.5 ${ig ? "mb-1 sam-text-helper font-semibold leading-none text-muted" : "mb-0.5 sam-text-body-secondary font-medium text-[#111111]"}`}
                 >
                   {partnerNickname || t("common_partner")}
                 </p>
@@ -336,7 +336,7 @@ export function ChatMessageList({
                         >
                           {hasReply && (
                             <div
-                              className={`mb-1 border-l-2 pl-2 ${ig ? "border-sam-fg/12 text-left text-[12px] font-normal leading-[1.35] text-muted" : "text-[12px] border-sam-border text-[#999999]"}`}
+                              className={`mb-1 border-l-2 pl-2 ${ig ? "border-sam-fg/12 text-left sam-text-helper font-normal leading-[1.35] text-muted" : "sam-text-helper border-sam-border text-[#999999]"}`}
                             >
                               {msg.replyTo!.text.slice(0, 50)}
                               {msg.replyTo!.text.length > 50 ? "…" : ""}
@@ -359,7 +359,7 @@ export function ChatMessageList({
                       {showTime && (
                         <div className={`flex justify-end ${ig ? "mt-0.5" : "mt-1"}`}>
                           <span
-                            className={`text-[11px] font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
+                            className={`sam-text-xxs font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
                           >
                             {formatBubbleTime(msg.createdAt)}
                           </span>
@@ -380,10 +380,10 @@ export function ChatMessageList({
         const mineBubbleShell = ig ? "bg-signature shadow-none" : "bg-[#FEE500] shadow-sm";
         const mineText = ig
           ? `${IG_DM_BODY_TEXT} text-left text-white`
-          : "text-[14px] font-normal leading-[20px] text-[#111111]";
+          : "sam-text-body font-normal leading-[20px] text-[#111111]";
         const mineReply = ig
-          ? "border-sam-surface/40 text-[12px] font-normal leading-[1.35] text-white/80"
-          : "border-sam-border/50 text-[12px] text-[#999999]";
+          ? "border-sam-surface/40 sam-text-helper font-normal leading-[1.35] text-white/80"
+          : "border-sam-border/50 sam-text-helper text-[#999999]";
         const bubblePadIgMine = IG_DM_BUBBLE_PAD;
         items.push(
           <li key={`mine-${msgs[0].id}`} className={`flex justify-end ${gapFromPrev}`}>
@@ -437,13 +437,13 @@ export function ChatMessageList({
                       <div className={`flex items-center justify-start gap-1 ${ig ? "mt-0.5" : "mt-1"}`}>
                         {msg.isRead && (
                           <span
-                            className={`text-[11px] font-normal ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
+                            className={`sam-text-xxs font-normal ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
                           >
                             읽음
                           </span>
                         )}
                         <span
-                          className={`text-[11px] font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
+                          className={`sam-text-xxs font-normal tabular-nums ${ig ? "leading-4 text-muted" : "leading-[14px] text-[#999999]"}`}
                         >
                           {formatBubbleTime(msg.createdAt)}
                         </span>
@@ -474,7 +474,7 @@ export function ChatMessageList({
     return (
       <div className="flex min-h-[200px] items-center justify-center px-4 py-10">
         <p
-          className={`text-center font-normal ${ig ? `max-w-[22.2rem] ${IG_DM_BODY_TEXT} text-muted` : "text-[14px] text-[#999999]"}`}
+          className={`text-center font-normal ${ig ? `max-w-[22.2rem] ${IG_DM_BODY_TEXT} text-muted` : "sam-text-body text-[#999999]"}`}
         >
           {t("common_start_conversation_message")}
         </p>

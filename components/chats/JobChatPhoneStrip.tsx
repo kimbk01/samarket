@@ -44,7 +44,7 @@ export function JobChatPhoneStrip({ roomId, active }: { roomId: string; active: 
   const tel = phone.replace(/\s/g, "");
 
   return (
-    <div className="border-b border-emerald-100 bg-emerald-50/90 px-3 py-2.5 text-[13px] text-emerald-950">
+    <div className="border-b border-emerald-100 bg-emerald-50/90 px-3 py-2.5 sam-text-body-secondary text-emerald-950">
       <span className="font-medium">작성자 연락처</span>
       <span className="mx-1.5 text-emerald-700/80">·</span>
       <span className="text-emerald-800">이 채팅방에서만 표시됩니다</span>

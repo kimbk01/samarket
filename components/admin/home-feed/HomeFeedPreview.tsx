@@ -37,7 +37,7 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
   const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
   if (totalItems === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         미리보기 결과가 없습니다. 정책을 활성화하거나 후보 데이터를 확인하세요.
       </div>
     );
@@ -45,16 +45,16 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         지역: {MOCK_PREVIEW_REGION_LABEL} · 총 {totalItems}건
       </p>
       <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         {sections.map((sec) => (
           <div key={sec.sectionKey} className="border-b border-sam-border-soft pb-4 last:border-0">
-            <h3 className="mb-2 text-[14px] font-semibold text-sam-fg">
+            <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">
               {SECTION_LABELS[sec.sectionKey]} ({sec.items.length}건)
             </h3>
-            <ul className="space-y-1 text-[13px] text-sam-fg">
+            <ul className="space-y-1 sam-text-body-secondary text-sam-fg">
               {sec.items.slice(0, 5).map((item) => (
                 <li key={item.id}>
                   {item.title} · {item.reasonLabel} (점수: {item.score})

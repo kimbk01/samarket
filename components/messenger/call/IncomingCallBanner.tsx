@@ -36,11 +36,11 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           aria-label="통화 화면 열기"
         >
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/90 text-[#6b3df1]">
-            <span className="text-[20px] font-semibold">{peerInitial(peerLabel)}</span>
+            <span className="sam-text-page-title font-semibold">{peerInitial(peerLabel)}</span>
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium text-white/70">{kindLine}</p>
-            <p className="truncate text-[16px] font-semibold text-white">{peerLabel}</p>
+            <p className="truncate sam-text-helper font-medium text-white/70">{kindLine}</p>
+            <p className="truncate sam-text-body-lg font-semibold text-white">{peerLabel}</p>
           </div>
         </button>
         <button

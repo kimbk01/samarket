@@ -70,23 +70,23 @@ export function CommunityMessengerDeviceSettingsSection({
     <>
       {!embedded ? (
         <>
-          <p className="mb-2 text-[13px] font-semibold text-sam-muted">통화 장치</p>
-          <p className="mb-3 text-[12px] leading-snug text-sam-muted">
+          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-muted">통화 장치</p>
+          <p className="mb-3 sam-text-helper leading-snug text-sam-muted">
             메신저에 처음 들어올 때 한 번만 권한을 묻고, 이후에는 여기서 고른 마이크·카메라로 바로 연결합니다.
           </p>
         </>
       ) : (
-        <p className="mb-2 text-[12px] leading-snug text-sam-muted">
+        <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
           마이크·카메라 기본 장치와 테스트입니다.
         </p>
       )}
       <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2.5">
         <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-sam-fg">마이크</span>
+          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">마이크</span>
           <select
             value={audioId}
             onChange={(e) => setAudioId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             {audioList.map((d) => (
               <option key={d.deviceId || d.label} value={d.deviceId}>
@@ -96,11 +96,11 @@ export function CommunityMessengerDeviceSettingsSection({
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block text-[12px] font-medium text-sam-fg">카메라</span>
+          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">카메라</span>
           <select
             value={videoId}
             onChange={(e) => setVideoId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             {videoList.map((d) => (
               <option key={d.deviceId || d.label} value={d.deviceId}>
@@ -113,7 +113,7 @@ export function CommunityMessengerDeviceSettingsSection({
           <button
             type="button"
             onClick={() => save()}
-            className="rounded-ui-rect bg-sam-ink px-4 py-2 text-[13px] font-semibold text-white"
+            className="rounded-ui-rect bg-sam-ink px-4 py-2 sam-text-body-secondary font-semibold text-white"
           >
             장치 저장
           </button>
@@ -121,12 +121,12 @@ export function CommunityMessengerDeviceSettingsSection({
             type="button"
             disabled={busy}
             onClick={() => void test()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
           >
             테스트 통화(미디어)
           </button>
         </div>
-        {hint ? <p className="text-[12px] text-sam-muted">{hint}</p> : null}
+        {hint ? <p className="sam-text-helper text-sam-muted">{hint}</p> : null}
       </div>
     </>
   );

@@ -327,7 +327,7 @@ export function BusinessApplyForm({
       <button
         type="submit"
         disabled={disabled}
-        className="w-full rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50"
       >
         {submitLabel}
       </button>

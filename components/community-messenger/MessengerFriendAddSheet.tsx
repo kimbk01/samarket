@@ -90,7 +90,7 @@ export function MessengerFriendAddSheet({
         className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
-          <p className="text-[16px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+          <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
             친구 추가
           </p>
           <button
@@ -121,7 +121,7 @@ export function MessengerFriendAddSheet({
                     requestAnimationFrame(() => friendSearchRef.current?.focus());
                   }
                 }}
-                className={`relative min-w-0 flex-1 px-1 py-2.5 text-[12px] font-medium ${
+                className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-helper font-medium ${
                   disabled ? "opacity-40" : ""
                 } ${active ? "font-semibold" : ""}`}
                 style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
@@ -141,7 +141,7 @@ export function MessengerFriendAddSheet({
         <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
           {friendAddTab === "contacts" ? (
             <div className="space-y-2">
-              <p className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
                 연락처 동기화는 모바일 앱·지원 브라우저에서 사용할 수 있습니다.
               </p>
               <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
@@ -159,7 +159,7 @@ export function MessengerFriendAddSheet({
                 />
               </div>
               <p
-                className="rounded-[var(--messenger-radius-md)] border border-dashed border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-3 text-center text-[12px]"
+                className="rounded-[var(--messenger-radius-md)] border border-dashed border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 py-3 text-center sam-text-helper"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
                 웹에서는 ID 검색 탭으로 바로 추가할 수 있습니다.
@@ -170,7 +170,7 @@ export function MessengerFriendAddSheet({
           {friendAddTab === "id" ? (
             <div className="space-y-3">
               <div>
-                <div className="flex justify-end text-[11px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+                <div className="flex justify-end sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
                   {searchKeyword.length}/20
                 </div>
                 <input
@@ -188,24 +188,24 @@ export function MessengerFriendAddSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full rounded-[var(--messenger-radius-sm)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[15px] outline-none transition-[border,box-shadow] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+                  className="w-full rounded-[var(--messenger-radius-sm)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 sam-text-body outline-none transition-[border,box-shadow] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
                   style={{ color: "var(--messenger-text)" }}
                 />
-                <p className="mt-1.5 text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                <p className="mt-1.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
                   검색 허용 사용자만 표시됩니다.
                 </p>
                 <button
                   type="button"
                   onClick={() => void onSearchUsers()}
                   disabled={busyId === "user-search"}
-                  className="mt-3 w-full rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] py-2.5 text-[14px] font-semibold text-white disabled:opacity-50 active:opacity-90"
+                  className="mt-3 w-full rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] py-2.5 sam-text-body font-semibold text-white disabled:opacity-50 active:opacity-90"
                 >
                   {busyId === "user-search" ? "검색 중…" : "검색"}
                 </button>
               </div>
               <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
                 {searchResults.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                  <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
                     {!friendUserSearchAttempted ? "검색어를 입력한 뒤 검색을 눌러 주세요." : "검색 결과가 없습니다."}
                   </p>
                 ) : (
@@ -230,21 +230,21 @@ export function MessengerFriendAddSheet({
 
           {friendAddTab === "invite" ? (
             <div className="space-y-3">
-              <p className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
                 이 링크를 공유하면 상대가 메신저에서 나를 찾을 수 있습니다. QR 스캔은 동일 링크를 사용합니다.
               </p>
               <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] px-3 py-2.5">
-                <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+                <p className="sam-text-xxs font-medium uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
                   초대 URL
                 </p>
-                <p className="mt-1 break-all text-[12px] leading-snug" style={{ color: "var(--messenger-text)" }}>
+                <p className="mt-1 break-all sam-text-helper leading-snug" style={{ color: "var(--messenger-text)" }}>
                   {inviteUrl}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => void copyInvite()}
-                className="w-full rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] py-2.5 text-[14px] font-semibold active:opacity-90"
+                className="w-full rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] py-2.5 sam-text-body font-semibold active:opacity-90"
                 style={{ color: "var(--messenger-primary)" }}
               >
                 {copied ? "복사됨" : "링크 복사"}
@@ -305,7 +305,7 @@ function SearchResultRow({
             <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
           ) : (
             <div
-              className="flex h-full w-full items-center justify-center text-[13px] font-semibold"
+              className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
               {initial}
@@ -313,27 +313,27 @@ function SearchResultRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium" style={{ color: "var(--messenger-text)" }}>
+          <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
             {user.label}
           </p>
-          <p className="truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
             {user.subtitle ?? "SAMarket"}
           </p>
         </div>
       </button>
       <div className="flex shrink-0 items-center justify-end gap-1">
         {cta.kind === "friend" || user.isFriend ? (
-          <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
             {MessengerFriendAddCtaLabels.friend}
           </span>
         ) : cta.kind === "blocked" ? (
-          <span className="max-w-[5.5rem] text-right text-[11px] leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="max-w-[5.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
             {MessengerFriendAddCtaLabels.unavailable}
           </span>
         ) : cta.kind === "pending_outgoing" ? (
           <>
             <span
-              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium"
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
               {MessengerFriendAddCtaLabels.pending}
@@ -345,7 +345,7 @@ function SearchResultRow({
                 onCancelOutgoingFriendRequest(cta.requestId);
               }}
               disabled={Boolean(busyId)}
-              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium disabled:opacity-40"
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
               {busyId === `request:${cta.requestId}:cancel` ? "…" : MessengerFriendAddCtaLabels.cancel}
@@ -360,7 +360,7 @@ function SearchResultRow({
                 onRespondIncomingFriendRequest(cta.requestId, "reject");
               }}
               disabled={Boolean(busyId)}
-              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 text-[11px] font-medium disabled:opacity-40"
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
               {MessengerFriendAddCtaLabels.reject}
@@ -372,7 +372,7 @@ function SearchResultRow({
                 onRespondIncomingFriendRequest(cta.requestId, "accept");
               }}
               disabled={Boolean(busyId)}
-              className="rounded-full bg-[color:var(--messenger-primary)] px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
+              className="rounded-full bg-[color:var(--messenger-primary)] px-2.5 py-1 sam-text-xxs font-semibold text-white disabled:opacity-40"
             >
               {MessengerFriendAddCtaLabels.accept}
             </button>
@@ -385,7 +385,7 @@ function SearchResultRow({
               void onRequestFriend(user.id);
             }}
             disabled={Boolean(busyId) || bAdd}
-            className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40 active:opacity-90"
+            className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40 active:opacity-90"
           >
             {bAdd ? "…" : MessengerFriendAddCtaLabels.add}
           </button>

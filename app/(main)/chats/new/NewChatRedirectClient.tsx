@@ -22,7 +22,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-center text-[14px] text-sam-muted">채팅방으로 이동 중...</p>
+      <p className="text-center sam-text-body text-sam-muted">채팅방으로 이동 중...</p>
     </div>
   );
 }

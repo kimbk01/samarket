@@ -117,7 +117,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
               </Link>
             ) : null}
             {!showReviewCta && o.order_status !== "completed" ? (
-              <p className="mt-4 rounded-ui-rect bg-sam-app px-3 py-2 text-center text-[11px] leading-relaxed text-sam-muted">
+              <p className="mt-4 rounded-ui-rect bg-sam-app px-3 py-2 text-center sam-text-xxs leading-relaxed text-sam-muted">
                 진행 상황은 주문 상세에서 확인하고, 매장과 조율이 필요할 때만 채팅을 이용할 수 있어요. 주문이
                 모두 완료되면 리뷰를 작성할 수 있습니다.
               </p>

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
-import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
+import { AppTopHeader } from "@/components/app-shell";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import {
@@ -87,7 +87,7 @@ export function OrdersHubContent() {
 
   return (
     <div className="flex min-h-screen flex-col bg-sam-app">
-      <TradePrimaryColumnStickyAppBar
+      <AppTopHeader
         hidePrimaryRow={false}
         hideBackButton
         title={tt("주문")}

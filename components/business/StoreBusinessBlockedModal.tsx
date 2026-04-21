@@ -69,12 +69,12 @@ export function StoreBusinessBlockedModal({
         <h2 id="store-business-blocked-title" className="text-lg font-semibold text-sam-fg">
           {title}
         </h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-sam-muted">{body}</p>
+        <p className="mt-2 sam-text-body leading-relaxed text-sam-muted">{body}</p>
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect bg-sam-ink py-3 text-center text-[14px] font-medium text-white active:opacity-90"
+            className="rounded-ui-rect bg-sam-ink py-3 text-center sam-text-body font-medium text-white active:opacity-90"
           >
             {primaryCloseLabel}
           </button>
@@ -82,7 +82,7 @@ export function StoreBusinessBlockedModal({
             <Link
               href={`/my/business/profile?storeId=${encodeURIComponent(firstStoreId)}`}
               onClick={onClose}
-              className="rounded-ui-rect border border-signature/40 bg-signature/5 py-3 text-center text-[14px] font-medium text-signature active:opacity-90"
+              className="rounded-ui-rect border border-signature/40 bg-signature/5 py-3 text-center sam-text-body font-medium text-signature active:opacity-90"
             >
               매장 설정 (공개 페이지 미리보기용)
             </Link>
@@ -91,7 +91,7 @@ export function StoreBusinessBlockedModal({
             <Link
               href="/my/business/apply"
               onClick={onClose}
-              className="rounded-ui-rect border border-sam-border py-3 text-center text-[14px] font-medium text-sam-fg active:bg-sam-app"
+              className="rounded-ui-rect border border-sam-border py-3 text-center sam-text-body font-medium text-sam-fg active:bg-sam-app"
             >
               매장 등록 신청
             </Link>

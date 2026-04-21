@@ -58,7 +58,7 @@ export function HomeProductList({
   const [toast, setToast] = useState<string | null>(null);
   const lastLoadedAtRef = useRef(0);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const listMeasureRef = useRef<HTMLUListElement | null>(null);
   const initialVisibleExpansionDoneRef = useRef(false);
   const [visibleCount, setVisibleCount] = useState(() => {
     const initialCount = cachedInitial?.posts.length ?? 0;
@@ -256,7 +256,9 @@ export function HomeProductList({
   const showEmpty = listState === "empty" || posts.length === 0;
   const showError = listState === "error";
   const showLoading = listState === "loading";
-  const rootClass = "min-w-0 w-full max-w-full space-y-2.5";
+  const rootClass = "min-w-0 w-full max-w-full";
+  const listClass =
+    "m-0 min-w-0 w-full max-w-full list-none divide-y divide-sam-border p-0";
   const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
 
   if (!showLoading && !showError && !showEmpty) {
@@ -267,7 +269,7 @@ export function HomeProductList({
   useLayoutEffect(() => {
     if (showLoading || showError || showEmpty) return;
     recordTradeListMetricOnce("trade_list_product_list_render_end_ms");
-    const root = rootRef.current;
+    const root = listMeasureRef.current;
     if (!root) return;
     const links = Array.from(root.querySelectorAll('a[href^="/post/"]')).filter(
       (node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement
@@ -284,7 +286,7 @@ export function HomeProductList({
 
   if (showLoading) {
     return (
-      <div ref={rootRef} className={rootClass}>
+      <div className={rootClass}>
         <LoadingState />
       </div>
     );
@@ -292,7 +294,7 @@ export function HomeProductList({
 
   if (showError) {
     return (
-      <div ref={rootRef} className={rootClass}>
+      <div className={rootClass}>
         <ErrorState onRetry={handleRetry} />
       </div>
     );
@@ -300,37 +302,37 @@ export function HomeProductList({
 
   if (showEmpty) {
     return (
-      <div ref={rootRef} className={rootClass}>
+      <div className={rootClass}>
         <EmptyState />
       </div>
     );
   }
 
   return (
-    <div ref={rootRef} className={rootClass}>
-      {visiblePosts.map((post, index) =>
-        notInterestedPostIds.has(post.id) ? (
-          <NotInterestedCard
-            key={post.id}
-            onUndo={() => handleUndoNotInterested(post.id)}
-          />
-        ) : hiddenPostIds.has(post.id) ? (
-          <HiddenPostCard
-            key={post.id}
-            postId={post.id}
-            onUndo={() => handleUndoHide(post.id)}
-          />
-        ) : (
-          <PostCard
-            key={post.id}
-            post={post}
-            isFirstCard={index === 0}
-            isFavorite={favoriteMap[post.id]}
-            onFavoriteChange={handleFavoriteChange}
-            onMenuAction={handleMenuAction}
-          />
-        )
-      )}
+    <>
+      <ul ref={listMeasureRef} className={`${rootClass} ${listClass}`}>
+        {visiblePosts.map((post, index) =>
+          notInterestedPostIds.has(post.id) ? (
+            <li key={post.id} className="min-w-0">
+              <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
+            </li>
+          ) : hiddenPostIds.has(post.id) ? (
+            <li key={post.id} className="min-w-0">
+              <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
+            </li>
+          ) : (
+            <li key={post.id} className="min-w-0">
+              <PostCard
+                post={post}
+                isFirstCard={index === 0}
+                isFavorite={favoriteMap[post.id]}
+                onFavoriteChange={handleFavoriteChange}
+                onMenuAction={handleMenuAction}
+              />
+            </li>
+          )
+        )}
+      </ul>
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
@@ -345,7 +347,7 @@ export function HomeProductList({
           onClose={() => setReportPostId(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 

@@ -43,18 +43,18 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
             : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
         <span>{DOMAIN_LABELS[item.domain]}</span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{PRIORITY_LABELS[item.priority]}</span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{STATUS_LABELS[item.status]}</span>
       </div>
       <h3 className="mt-2 font-medium text-sam-fg">{item.title}</h3>
-      <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">{item.description}</p>
+      <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.description}</p>
       {item.milestone && (
-        <p className="mt-2 text-[12px] text-sam-muted">마일스톤: {item.milestone}</p>
+        <p className="mt-2 sam-text-helper text-sam-muted">마일스톤: {item.milestone}</p>
       )}
       {item.sourceId && (
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           출처: {item.sourceType} ·{" "}
           {item.sourceType === "learning_pattern" && (
             <Link href="/admin/ops-learning" className="text-signature hover:underline">
@@ -70,7 +70,7 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
         </p>
       )}
       {(item.ownerAdminNickname || item.dueDate) && (
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           {item.ownerAdminNickname && `담당 ${item.ownerAdminNickname}`}
           {item.dueDate && ` · 기한 ${item.dueDate}`}
         </p>

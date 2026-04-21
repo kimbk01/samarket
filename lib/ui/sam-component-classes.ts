@@ -8,11 +8,16 @@
 export const Sam = {
   page: "sam-page",
   text: {
+    hero: "sam-text-hero",
     pageTitle: "sam-text-page-title",
     sectionTitle: "sam-text-section-title",
     cardTitle: "sam-text-card-title",
+    bodyLg: "sam-text-body-lg",
+    body: "sam-text-body",
     bodySecondary: "sam-text-body-secondary",
     helper: "sam-text-helper",
+    xxs: "sam-text-xxs",
+    appHeaderTitle: "sam-app-header-title",
   },
   card: {
     base: "sam-card",
@@ -45,8 +50,12 @@ export const Sam = {
   },
   tabs: {
     bar: "sam-tabs",
+    barScroll: "sam-tabs sam-tabs--scroll",
     tab: "sam-tab",
     tabActive: "sam-tab sam-tab--active",
+  },
+  media: {
+    thumb11: "sam-thumb-1-1",
   },
   chip: {
     base: "sam-chip",

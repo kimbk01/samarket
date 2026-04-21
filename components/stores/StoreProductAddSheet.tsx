@@ -381,13 +381,13 @@ export function StoreProductAddSheet({
       >
         <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-2xl ring-1 ring-sam-border/10">
         <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border/80 bg-sam-surface px-10 py-3">
-          <h2 className="line-clamp-2 text-center text-[16px] font-bold leading-snug tracking-tight text-sam-fg">
+          <h2 className="line-clamp-2 text-center sam-text-body-lg font-bold leading-snug tracking-tight text-sam-fg">
             {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
+            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ✕
@@ -411,7 +411,7 @@ export function StoreProductAddSheet({
           ) : (
             <div className="pb-3 pt-1">
               {orderBlocked ? (
-                <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] font-medium leading-snug text-amber-950">
+                <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
                   {commerceBlocked && commerceBlockedHint?.trim()
                     ? commerceBlockedHint.trim()
                     : sheetCommerce?.inBreak
@@ -435,33 +435,33 @@ export function StoreProductAddSheet({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
+                    <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
                       이미지 없음
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-[15px] font-semibold leading-snug text-sam-fg">{product.title}</h3>
-                    <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 text-[11px] font-medium text-sam-muted">
+                    <h3 className="sam-text-body font-semibold leading-snug text-sam-fg">{product.title}</h3>
+                    <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
                       찜 {favCount.toLocaleString("en-PH")}
                     </span>
                   </div>
                   <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
                     {Math.floor(product.price) !== Math.floor(baseUnit) ? (
-                      <span className="text-[13px] text-sam-meta line-through">
+                      <span className="sam-text-body-secondary text-sam-meta line-through">
                         {formatMoneyPhp(Math.floor(product.price))}
                       </span>
                     ) : null}
-                    <span className="text-[18px] font-bold text-sam-fg">
+                    <span className="sam-text-page-title font-bold text-sam-fg">
                       {formatMoneyPhp(Math.floor(baseUnit))}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 text-[11px] font-medium text-sam-fg">
+                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                       ★ {ratingLabel ?? "—"} · 리뷰 {reviewCountDisp.toLocaleString("en-PH")}
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 text-[11px] font-medium text-sam-fg">
+                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                       주문 {orderCountDisp.toLocaleString("en-PH")}+
                     </span>
                   </div>
@@ -469,14 +469,14 @@ export function StoreProductAddSheet({
               </div>
 
               <div className="mx-3 mt-3 space-y-1.5 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
-                <div className="flex items-center justify-between text-[13px] text-sam-fg">
+                <div className="flex items-center justify-between sam-text-body-secondary text-sam-fg">
                   <span>기본 단가</span>
                   <span className="font-semibold tabular-nums text-sam-fg">
                     {formatMoneyPhp(Math.floor(baseUnit))}
                   </span>
                 </div>
                 {optionValidation.ok && optionValidation.unitDelta !== 0 ? (
-                  <div className="flex items-center justify-between text-[13px] text-sam-muted">
+                  <div className="flex items-center justify-between sam-text-body-secondary text-sam-muted">
                     <span>옵션 추가</span>
                     <span className="font-semibold tabular-nums">
                       {optionValidation.unitDelta > 0 ? "+" : ""}
@@ -484,15 +484,15 @@ export function StoreProductAddSheet({
                     </span>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between border-t border-sam-border-soft pt-2 text-[13px] font-semibold text-sam-fg">
+                <div className="flex items-center justify-between border-t border-sam-border-soft pt-2 sam-text-body-secondary font-semibold text-sam-fg">
                   <span>1개당</span>
                   <span className="tabular-nums">{formatMoneyPhp(unitWithOptions)}</span>
                 </div>
-                <div className="flex items-center justify-between text-[13px] text-sam-muted">
+                <div className="flex items-center justify-between sam-text-body-secondary text-sam-muted">
                   <span>수량</span>
                   <span className="font-medium tabular-nums">× {qty}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-sam-border pt-2 text-[16px] font-bold text-sam-fg">
+                <div className="flex items-center justify-between border-t border-sam-border pt-2 sam-text-body-lg font-bold text-sam-fg">
                   <span>이 라인 합계</span>
                   <span className="tabular-nums text-[#1877F2]">{formatMoneyPhp(lineTotal)}</span>
                 </div>
@@ -516,7 +516,7 @@ export function StoreProductAddSheet({
 
               {reviewSnippets.length > 0 ? (
                 <details className="mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
-                  <summary className="cursor-pointer px-3 py-2.5 text-[13px] font-semibold text-sam-fg">
+                  <summary className="cursor-pointer px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg">
                     리뷰 미리보기 ({reviewSnippets.length})
                   </summary>
                   <div className="grid grid-cols-1 gap-2 border-t border-sam-border-soft px-3 pb-3 pt-2 sm:grid-cols-2">
@@ -525,11 +525,11 @@ export function StoreProductAddSheet({
                         key={`${r.created_at}-${r.content.slice(0, 12)}`}
                         className="rounded-ui-rect bg-sam-app p-2.5 ring-1 ring-sam-border/60"
                       >
-                        <p className="line-clamp-3 text-[12px] leading-snug text-sam-fg">
+                        <p className="line-clamp-3 sam-text-helper leading-snug text-sam-fg">
                           {r.rating != null && r.rating >= 4 ? "★ " : ""}
                           {r.content}
                         </p>
-                        <p className="mt-1.5 text-[10px] text-sam-muted">{r.created_at}</p>
+                        <p className="mt-1.5 sam-text-xxs text-sam-muted">{r.created_at}</p>
                       </div>
                     ))}
                   </div>
@@ -537,15 +537,15 @@ export function StoreProductAddSheet({
               ) : null}
 
               {product.summary ? (
-                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-surface px-3 py-2.5 text-[13px] leading-relaxed text-sam-muted shadow-sm ring-1 ring-sam-border/70">
+                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-surface px-3 py-2.5 sam-text-body-secondary leading-relaxed text-sam-muted shadow-sm ring-1 ring-sam-border/70">
                   {product.summary}
                 </p>
               ) : null}
 
               {optionGroups.length > 0 ? (
                 <div className="mt-4 px-3">
-                  <p className="mb-1 px-0.5 text-[12px] font-bold text-sam-fg">옵션 선택</p>
-                  <p className="mb-2 px-0.5 text-[12px] text-sam-muted">
+                  <p className="mb-1 px-0.5 sam-text-helper font-bold text-sam-fg">옵션 선택</p>
+                  <p className="mb-2 px-0.5 sam-text-helper text-sam-muted">
                     필수 항목을 고르면 위 금액이 바로 바뀌어요.
                   </p>
                   <StoreModifierPicker
@@ -559,7 +559,7 @@ export function StoreProductAddSheet({
               ) : null}
 
               <div className="mx-3 mt-3">
-                <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-semibold text-sam-fg">
+                <label htmlFor="store-add-sheet-line-note" className="sam-text-helper font-semibold text-sam-fg">
                   요청사항 (선택)
                 </label>
                 <textarea
@@ -569,14 +569,14 @@ export function StoreProductAddSheet({
                   onChange={(e) => setLineNote(e.target.value)}
                   disabled={soldOut || orderBlocked}
                   placeholder="예: 덜 맵게, 양파 빼주세요"
-                  className="mt-1 w-full resize-none rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg placeholder:text-sam-meta focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-sam-surface-muted"
+                  className="mt-1 w-full resize-none rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg placeholder:text-sam-meta focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-sam-surface-muted"
                 />
               </div>
 
               <p className="mt-3 px-3 pb-1">
                 <Link
                   href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                  className="text-[12px] font-semibold text-[#1877F2] hover:underline"
+                  className="sam-text-helper font-semibold text-[#1877F2] hover:underline"
                   onClick={onClose}
                 >
                   전체 화면에서 보기
@@ -608,7 +608,7 @@ export function StoreProductAddSheet({
                 >
                   −
                 </button>
-                <span className="min-w-[1.75rem] text-center text-[16px] font-bold text-sam-fg">{qty}</span>
+                <span className="min-w-[1.75rem] text-center sam-text-body-lg font-bold text-sam-fg">{qty}</span>
                 <button
                   type="button"
                   disabled={qty >= capQty || soldOut || orderBlocked}
@@ -628,11 +628,11 @@ export function StoreProductAddSheet({
                   capQty < minQ
                 }
                 onClick={addToCart}
-                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center text-[15px] font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-sam-surface-muted"
+                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center sam-text-body font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-sam-surface-muted"
                 style={{ backgroundColor: SHEET_PRIMARY }}
               >
                 <span className="block">{formatMoneyPhp(lineTotal)} 담기</span>
-                <span className="mt-0.5 block text-[12px] font-semibold text-white/90">장바구니에 추가</span>
+                <span className="mt-0.5 block sam-text-helper font-semibold text-white/90">장바구니에 추가</span>
               </button>
             </div>
           </div>

@@ -20,7 +20,7 @@ export function MessengerRoomNewMessagesBelowChip({
       <button
         type="button"
         onClick={onJumpToLatest}
-        className="pointer-events-auto rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5 text-[12px] font-semibold text-[color:var(--cm-room-text)] shadow-md active:opacity-90"
+        className="pointer-events-auto rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5 sam-text-helper font-semibold text-[color:var(--cm-room-text)] shadow-md active:opacity-90"
       >
         새 메시지 {count}개
       </button>

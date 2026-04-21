@@ -168,9 +168,9 @@ export function MyBusinessNavList({ groups, className = "", onNavigate }: Props)
       {groups.map((group, gi) => (
         <div
           key={group.title}
-          className="h-full rounded-ui-rect border border-ig-border bg-sam-surface p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
+          className="h-full rounded-ui-rect border border-sam-border bg-sam-surface p-2 shadow-[0_6px_24px_rgba(15,23,42,0.05)]"
         >
-          <h2 className={`px-3 text-[13px] font-medium text-sam-muted ${gi === 0 ? "pt-2" : "pt-2"}`}>
+          <h2 className={`px-3 sam-text-body-secondary font-medium text-sam-muted ${gi === 0 ? "pt-2" : "pt-2"}`}>
             {group.title}
           </h2>
           <ul className="mt-2 space-y-1">
@@ -205,11 +205,11 @@ function NavRow({
 
   const textBlock = (
     <span className="min-w-0 flex-1">
-      <span className={`block text-[14px] font-medium ${isMuted ? "text-sam-meta" : "text-sam-fg"}`}>
+      <span className={`block sam-text-body font-medium ${isMuted ? "text-sam-meta" : "text-sam-fg"}`}>
         {item.label}
       </span>
       {item.hint ? (
-        <span className="mt-0.5 block text-[12px] leading-relaxed text-sam-muted">{item.hint}</span>
+        <span className="mt-0.5 block sam-text-helper leading-relaxed text-sam-muted">{item.hint}</span>
       ) : null}
     </span>
   );
@@ -217,7 +217,7 @@ function NavRow({
   const trail = (
     <span className="flex shrink-0 items-center gap-2">
       {item.badge != null && item.badge > 0 ? (
-        <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[12px] font-bold text-white">
+        <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 sam-text-helper font-bold text-white">
           {item.badge > 99 ? "99+" : item.badge}
         </span>
       ) : null}

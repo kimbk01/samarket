@@ -43,7 +43,7 @@ export function ProductActionBar({
   return (
     <div data-product-detail-action-bar="true" className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-10`}>
       <span
-        className={`shrink-0 rounded px-2 py-1 text-[11px] font-medium ${
+        className={`shrink-0 rounded px-2 py-1 sam-text-xxs font-medium ${
           product.status === "sold"
             ? "bg-sam-border-soft text-sam-muted"
             : product.status === "reserved"

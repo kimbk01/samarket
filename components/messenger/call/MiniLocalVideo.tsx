@@ -54,7 +54,7 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
       <div className="pointer-events-none absolute inset-0">{children}</div>
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,transparent_70%,rgba(0,0,0,0.58)_100%)]" />
       {label ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1.5 text-center text-[11px] font-medium text-white/92">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1.5 text-center sam-text-xxs font-medium text-white/92">
           {label}
         </div>
       ) : null}

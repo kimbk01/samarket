@@ -28,7 +28,7 @@ export function ProductStatusBadge({ status, className = "" }: ProductStatusBadg
   const label = STATUS_LABEL[status] ?? status;
   const cls = STATUS_CLASS[status] ?? "bg-sam-surface-muted text-sam-fg";
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${cls} ${className}`}>
+    <span className={`inline-block rounded px-1.5 py-0.5 sam-text-xxs font-medium ${cls} ${className}`}>
       {label}
     </span>
   );

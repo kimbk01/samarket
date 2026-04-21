@@ -43,29 +43,29 @@ export const POST_LIST_CHIP_BLUE = `${POST_LIST_ROW1_CHIP_BASE} bg-blue-50 text-
 
 /** 피드 카드 본문 타이포 — 알바·환전·부동산 등(제목 강조) */
 export const POST_LIST_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 text-[16px] font-bold leading-snug tracking-tight text-gray-900";
+  "mt-0.5 line-clamp-2 sam-text-body-lg font-bold leading-snug tracking-tight text-gray-900";
 /**
  * 일반 중고 2단(제목)·부동산 3단(스펙)·환전 환율(`POST_LIST_SUBLINE_CLASS`) 등
  * 본문 보조 줄 공통 — 13~14px Regular(400) #4E4E4E; 단 사이는 `mt-0.5`(리스트 밀도)
  */
 export const POST_LIST_TRADE_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
+  "mt-0.5 line-clamp-2 sam-text-body font-normal leading-snug text-[#4E4E4E]";
 /**
  * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일 타이포(마진 없음)
  */
 export const POST_LIST_EXCHANGE_HEADLINE_CLASS =
-  "line-clamp-2 shrink-0 text-[14px] font-normal leading-snug text-[#4E4E4E]";
+  "line-clamp-2 shrink-0 sam-text-body font-normal leading-snug text-[#4E4E4E]";
 /**
  * 중고차 리스트 2단(차량명·연식) — 일반 중고와 동일 `mt-0.5` 간격
  */
 export const POST_LIST_USED_CAR_SPEC_CLASS =
-  "mt-0.5 line-clamp-2 text-[14px] font-normal leading-snug text-[#4E4E4E]";
+  "mt-0.5 line-clamp-2 sam-text-body font-normal leading-snug text-[#4E4E4E]";
 /**
  * 리스트 3단 금액 본문(마진 없음) — 15~16px Bold(700) `#1A1A1A`.
  * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
  */
 export const POST_LIST_PRICE_TEXT_CLASS =
-  "text-[16px] font-bold leading-tight text-[#1A1A1A]";
+  "sam-text-body-lg font-bold leading-tight text-[#1A1A1A]";
 
 /** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
@@ -78,7 +78,7 @@ export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
  * 알바(근무지|시간)·부동산(위치|시간)·환전(위치|시간)·중고 푸터 `ul` 등 공통.
  */
 export const POST_LIST_META_LINE_CLASS =
-  "text-[12px] font-normal leading-snug text-[#9E9E9E]";
+  "sam-text-helper font-normal leading-snug text-[#9E9E9E]";
 
 /** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;

@@ -39,13 +39,13 @@ function Bubble({
         }`}
       >
         {!mine && (
-          <p className="mb-0.5 text-[10px] font-bold opacity-80">{m.sender_name}</p>
+          <p className="mb-0.5 sam-text-xxs font-bold opacity-80">{m.sender_name}</p>
         )}
         {m.image_url ? (
           <p className="text-xs opacity-70">[이미지] {m.image_url}</p>
         ) : null}
         <p className="whitespace-pre-wrap">{m.content}</p>
-        <p className="mt-1 text-[10px] opacity-60">
+        <p className="mt-1 sam-text-xxs opacity-60">
           {new Date(m.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
         </p>
       </div>

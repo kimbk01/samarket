@@ -28,11 +28,11 @@ export function MyAccountContent() {
   }, [load]);
 
   if (loading) {
-    return <p className="py-4 text-center text-[14px] text-sam-muted">{t("common_loading")}</p>;
+    return <p className="py-4 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
   }
   if (!profile) {
     return (
-      <div className="space-y-3 py-4 text-center text-[14px] text-sam-muted">
+      <div className="space-y-3 py-4 text-center sam-text-body text-sam-muted">
         <p>{t("common_login_required")}</p>
         <p>
           <Link href="/login" className="font-medium text-signature underline">
@@ -75,13 +75,13 @@ export function MyAccountContent() {
               sizes="64px"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[26px] text-sam-meta">👤</div>
+            <div className="flex h-full w-full items-center justify-center sam-text-hero text-sam-meta">👤</div>
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[17px] font-semibold text-sam-fg">{displayNickname}</p>
-          <p className="mt-0.5 truncate text-[13px] text-sam-muted">{t("account_nickname_note")}</p>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block text-[14px] font-medium text-signature">
+          <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
+          <p className="mt-0.5 truncate sam-text-body-secondary text-sam-muted">{t("account_nickname_note")}</p>
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-medium text-signature">
             {t("account_edit_profile")}
           </Link>
         </div>
@@ -89,12 +89,12 @@ export function MyAccountContent() {
 
       <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-sam-fg">{t("account_info_title")}</h2>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="text-[14px] font-medium text-signature">
+          <h2 className="sam-text-body font-semibold text-sam-fg">{t("account_info_title")}</h2>
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="sam-text-body font-medium text-signature">
             {t("account_edit")}
           </Link>
         </div>
-        <dl className="space-y-3 text-[14px]">
+        <dl className="space-y-3 sam-text-body">
           <div>
             <dt className="text-sam-muted">{t("account_nickname")}</dt>
             <dd className="mt-0.5 text-sam-fg">{displayNickname}</dd>
@@ -127,7 +127,7 @@ export function MyAccountContent() {
         {!contactFormal ? (
           <Link
             href="/my/account/phone-verification"
-            className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center text-[14px] font-semibold text-signature"
+            className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center sam-text-body font-semibold text-signature"
           >
             {t("account_phone_cta")}
           </Link>
@@ -135,7 +135,7 @@ export function MyAccountContent() {
       </div>
       <Link
         href={buildMypageInfoHubHref()}
-        className="block rounded-ui-rect bg-sam-surface px-4 py-3 text-center text-[14px] font-medium text-sam-fg shadow-sm"
+        className="block rounded-ui-rect bg-sam-surface px-4 py-3 text-center sam-text-body font-medium text-sam-fg shadow-sm"
       >
         {t("account_to_settings")}
       </Link>

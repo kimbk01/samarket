@@ -12,7 +12,7 @@ export default function AdminPhilifeMeetingEventsPage() {
           title="커뮤니티 — 모임 운영 로그"
           description="전체 모임의 가입·승인·차단·공지 등 감사 로그를 조회합니다. CSV로 내려받을 수 있습니다."
         />
-        <div className="flex flex-wrap gap-3 text-[14px]">
+        <div className="flex flex-wrap gap-3 sam-text-body">
           <HistoryBackTextLink
             fallbackHref="/admin/philife/meetings"
             className="text-sky-700 underline"

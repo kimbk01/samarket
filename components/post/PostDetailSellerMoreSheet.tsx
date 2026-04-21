@@ -43,7 +43,7 @@ export function PostDetailSellerMoreSheet({
         }`}
       >
         <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-3 px-1 text-[16px] font-semibold text-sam-fg">내 물품</h2>
+        <h2 className="mb-3 px-1 sam-text-body-lg font-semibold text-sam-fg">내 물품</h2>
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
           <button
             type="button"
@@ -52,14 +52,14 @@ export function PostDetailSellerMoreSheet({
               if (!window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) return;
               onCancelSale();
             }}
-            className="flex w-full items-center justify-center rounded-ui-rect bg-red-600 px-3 py-3 text-[15px] font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+            className="flex w-full items-center justify-center rounded-ui-rect bg-red-600 px-3 py-3 sam-text-body font-semibold text-white hover:bg-red-700 disabled:opacity-50"
           >
             {busy ? "처리 중…" : "물품 판매 취소"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+            className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
             닫기
           </button>

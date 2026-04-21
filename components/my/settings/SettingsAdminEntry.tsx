@@ -16,8 +16,8 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
   return (
     <section className="mt-6 rounded-ui-rect bg-sam-surface px-4 py-4 shadow-sm">
       <div className="mb-3">
-        <h2 className="text-[13px] font-medium text-sam-muted">보조 바로가기</h2>
-        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
+        <h2 className="sam-text-body-secondary font-medium text-sam-muted">보조 바로가기</h2>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           운영 기능이 필요할 때만 여는 보조 진입입니다. 주문과 매장 운영 흐름은 매장 메뉴에서 이어집니다.
         </p>
       </div>
@@ -25,7 +25,7 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
         {showAdmin ? (
           <Link
             href="/admin"
-            className="flex items-center justify-between px-4 py-3 text-[15px] font-medium text-signature"
+            className="flex items-center justify-between px-4 py-3 sam-text-body font-medium text-signature"
           >
             <span>관리자 접속</span>
             <ChevronRight />
@@ -35,7 +35,7 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
           <button
             type="button"
             onClick={() => goBusinessHubOrModal("/my/business")}
-            className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px] font-medium text-sam-fg"
+            className="flex w-full items-center justify-between px-4 py-3 text-left sam-text-body font-medium text-sam-fg"
           >
             <span>매장 관리자 접속</span>
             <ChevronRight className="text-sam-meta" />

@@ -36,9 +36,9 @@ export function AdminCommentsPageContent() {
     <div className="space-y-4">
       <AdminPageHeader title="댓글 관리" />
       {loading ? (
-        <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중…</div>
+        <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중…</div>
       ) : comments.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           댓글이 없습니다.
         </div>
       ) : (
@@ -49,13 +49,13 @@ export function AdminCommentsPageContent() {
               className="flex items-start justify-between gap-4 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-[14px] text-sam-fg">{c.content}</p>
-                <p className="mt-1 text-[12px] text-sam-muted">
+                <p className="sam-text-body text-sam-fg">{c.content}</p>
+                <p className="mt-1 sam-text-helper text-sam-muted">
                   post: {c.post_id} · user: {c.user_id} · {formatTimeAgo(c.created_at)}
                 </p>
                 <Link
                   href={`/post/${c.post_id}`}
-                  className="mt-1 inline-block text-[12px] text-signature hover:underline"
+                  className="mt-1 inline-block sam-text-helper text-signature hover:underline"
                 >
                   게시글 보기
                 </Link>
@@ -63,7 +63,7 @@ export function AdminCommentsPageContent() {
               <button
                 type="button"
                 onClick={() => handleDelete(c.id)}
-                className="shrink-0 text-[13px] text-red-600 hover:underline"
+                className="shrink-0 sam-text-body-secondary text-red-600 hover:underline"
               >
                 삭제
               </button>

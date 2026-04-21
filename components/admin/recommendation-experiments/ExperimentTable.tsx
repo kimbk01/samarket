@@ -22,7 +22,7 @@ export function ExperimentTable({
 }: ExperimentTableProps) {
   if (experiments.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         등록된 실험이 없습니다.
       </div>
     );
@@ -30,7 +30,7 @@ export function ExperimentTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -59,18 +59,18 @@ export function ExperimentTable({
               <td className="px-3 py-2.5">
                 <span className="font-medium text-sam-fg">{e.experimentName}</span>
                 {e.description && (
-                  <p className="text-[12px] text-sam-muted">{e.description}</p>
+                  <p className="sam-text-helper text-sam-muted">{e.description}</p>
                 )}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {SURFACE_LABELS[e.targetSurface]}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {TRAFFIC_ALLOCATION_LABELS[e.trafficAllocationType]} · 대조 {e.controlPercentage}% / 실험 {e.variantPercentages.join(",")}%
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     e.status === "running"
                       ? "bg-emerald-50 text-emerald-800"
                       : e.status === "draft"
@@ -89,7 +89,7 @@ export function ExperimentTable({
                     <button
                       type="button"
                       onClick={() => onEdit(e)}
-                      className="text-[13px] text-signature hover:underline"
+                      className="sam-text-body-secondary text-signature hover:underline"
                     >
                       편집
                     </button>
@@ -98,7 +98,7 @@ export function ExperimentTable({
                     <button
                       type="button"
                       onClick={() => onStatusChange(e, "running")}
-                      className="text-[13px] text-emerald-600 hover:underline"
+                      className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
                       시작
                     </button>
@@ -108,14 +108,14 @@ export function ExperimentTable({
                       <button
                         type="button"
                         onClick={() => onStatusChange(e, "paused")}
-                        className="text-[13px] text-amber-600 hover:underline"
+                        className="sam-text-body-secondary text-amber-600 hover:underline"
                       >
                         일시중지
                       </button>
                       <button
                         type="button"
                         onClick={() => onStatusChange(e, "ended")}
-                        className="text-[13px] text-sam-muted hover:underline"
+                        className="sam-text-body-secondary text-sam-muted hover:underline"
                       >
                         종료
                       </button>
@@ -125,7 +125,7 @@ export function ExperimentTable({
                     <button
                       type="button"
                       onClick={() => onStatusChange(e, "running")}
-                      className="text-[13px] text-emerald-600 hover:underline"
+                      className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
                       재개
                     </button>
@@ -134,7 +134,7 @@ export function ExperimentTable({
                     <button
                       type="button"
                       onClick={() => onChooseWinner(e)}
-                      className="text-[13px] text-signature hover:underline"
+                      className="sam-text-body-secondary text-signature hover:underline"
                     >
                       승자 선택
                     </button>

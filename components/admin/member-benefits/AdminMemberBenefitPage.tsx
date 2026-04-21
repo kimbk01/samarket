@@ -49,7 +49,7 @@ export function AdminMemberBenefitPage() {
       <AdminPageHeader title="회원 혜택 정책" />
 
       <AdminCard title="혜택 요약">
-        <div className="flex flex-wrap gap-4 text-[14px]">
+        <div className="flex flex-wrap gap-4 sam-text-body">
           {summaries.map((s) => (
             <div
               key={s.memberType}
@@ -71,7 +71,7 @@ export function AdminMemberBenefitPage() {
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
           >
             정책 추가
           </button>

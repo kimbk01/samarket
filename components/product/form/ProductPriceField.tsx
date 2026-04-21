@@ -22,7 +22,7 @@ export function ProductPriceField({
   const unit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <label className="mb-2 block text-[14px] font-medium text-sam-fg">
+      <label className="mb-2 block sam-text-body font-medium text-sam-fg">
         가격 <span className="text-red-500">*</span>
       </label>
       <div className="flex items-center gap-2">
@@ -32,12 +32,12 @@ export function ProductPriceField({
           value={value}
           onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
           placeholder="0"
-          className="flex-1 rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
+          className="flex-1 rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           aria-invalid={!!error}
         />
-        <span className="text-[15px] text-sam-muted">{unit}</span>
+        <span className="sam-text-body text-sam-muted">{unit}</span>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-[14px] text-sam-muted">
+      <label className="mt-3 flex items-center gap-2 sam-text-body text-sam-muted">
         <input
           type="checkbox"
           checked={isPriceOfferEnabled}
@@ -46,7 +46,7 @@ export function ProductPriceField({
         />
         가격 제안 가능
       </label>
-      {error && <p className="mt-1 text-[13px] text-red-500">{error}</p>}
+      {error && <p className="mt-1 sam-text-body-secondary text-red-500">{error}</p>}
     </section>
   );
 }

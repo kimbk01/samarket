@@ -66,7 +66,7 @@ export function TestLoginBar({ redirectTo }: TestLoginBarProps) {
   if (!isTestUsersSurfaceEnabled()) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[13px]">
+    <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary">
       {auth ? (
         <>
           <span className="font-medium text-sam-fg">

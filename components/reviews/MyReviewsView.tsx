@@ -41,7 +41,7 @@ export function MyReviewsView() {
   if (writingItem) {
     return (
       <div className="mx-auto max-w-lg px-4 py-4">
-        <h2 className="mb-4 text-[16px] font-semibold text-sam-fg">
+        <h2 className="mb-4 sam-text-body-lg font-semibold text-sam-fg">
           후기 작성
         </h2>
         <ReviewWriteForm
@@ -62,7 +62,7 @@ export function MyReviewsView() {
       <TrustSummaryCard summary={summary} variant="full" />
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">
           받은 후기
         </h2>
         <ReviewList reviews={reviews} />
@@ -70,7 +70,7 @@ export function MyReviewsView() {
 
       {reviewableItems.length > 0 && (
         <section>
-          <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">
+          <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">
             작성 가능한 후기
           </h2>
           <ul className="space-y-2">
@@ -82,10 +82,10 @@ export function MyReviewsView() {
                 <li key={`${item.transaction.id}-${item.role}`}>
                   <div className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3">
                     <div>
-                      <p className="text-[14px] font-medium text-sam-fg">
+                      <p className="sam-text-body font-medium text-sam-fg">
                         {title}
                       </p>
-                      <p className="text-[12px] text-sam-muted">
+                      <p className="sam-text-helper text-sam-muted">
                         {item.role === "buyer_to_seller"
                           ? "판매자에게 후기 쓰기"
                           : "구매자에게 후기 쓰기"}
@@ -102,7 +102,7 @@ export function MyReviewsView() {
                           productTitle: title,
                         })
                       }
-                      className="rounded-ui-rect bg-signature px-3 py-1.5 text-[13px] font-medium text-white"
+                      className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white"
                     >
                       후기 쓰기
                     </button>

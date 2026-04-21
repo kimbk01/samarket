@@ -13,8 +13,8 @@ export function MySafeTradeCard() {
       className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-4 shadow-sm"
     >
       <div>
-        <p className="text-[15px] font-semibold text-sam-fg">안전한 거래</p>
-        <p className="mt-0.5 text-[13px] text-sam-muted">
+        <p className="sam-text-body font-semibold text-sam-fg">안전한 거래</p>
+        <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
           포인트 충전 및 결제
         </p>
       </div>

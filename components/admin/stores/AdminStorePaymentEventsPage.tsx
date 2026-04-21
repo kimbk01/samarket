@@ -66,16 +66,16 @@ export function AdminStorePaymentEventsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 결제 이벤트" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         웹훅·관리자 스텁으로 기록된 결제 관련 이력입니다. 민감 정보는 payload에 포함될 수 있으니 접근을
         제한하세요.
       </p>
 
-      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-[13px]">
+      <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary">
         <label className="flex flex-col gap-0.5">
           <span className="text-sam-muted">order_id</span>
           <input
-            className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono text-[12px]"
+            className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-2 py-1 font-mono sam-text-helper"
             value={draft.orderId}
             onChange={(ev) => setDraft((d) => ({ ...d, orderId: ev.target.value }))}
             placeholder="UUID"
@@ -115,7 +115,7 @@ export function AdminStorePaymentEventsPage() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-sam-muted">기록이 없습니다.</p>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface text-[12px]">
+        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface sam-text-helper">
           <table className="min-w-full text-left">
             <thead className="border-b border-sam-border bg-sam-app text-sam-muted">
               <tr>
@@ -137,7 +137,7 @@ export function AdminStorePaymentEventsPage() {
                   <td className="max-w-[180px] break-words px-2 py-2" title={r.event_type}>
                     {r.event_type}
                   </td>
-                  <td className="max-w-[140px] px-2 py-2 font-mono text-[11px] break-all">
+                  <td className="max-w-[140px] px-2 py-2 font-mono sam-text-xxs break-all">
                     {r.order_id ? (
                       <Link
                         href={`/admin/store-orders?order_id=${encodeURIComponent(r.order_id)}`}
@@ -154,14 +154,14 @@ export function AdminStorePaymentEventsPage() {
                   <td className="px-2 py-2">
                     <details className="text-left">
                       <summary className="cursor-pointer select-none text-blue-700 hover:underline">펼침</summary>
-                      <div className="mt-2 max-w-[min(100vw-2rem,42rem)] space-y-1 text-[11px] text-sam-muted">
+                      <div className="mt-2 max-w-[min(100vw-2rem,42rem)] space-y-1 sam-text-xxs text-sam-muted">
                         {r.transmission_id ? (
                           <p>
                             <span className="font-medium text-sam-fg">transmission_id</span>{" "}
                             <span className="font-mono break-all">{r.transmission_id}</span>
                           </p>
                         ) : null}
-                        <pre className="max-h-64 overflow-auto rounded border border-sam-border bg-sam-app p-2 font-mono text-[11px] leading-relaxed">
+                        <pre className="max-h-64 overflow-auto rounded border border-sam-border bg-sam-app p-2 font-mono sam-text-xxs leading-relaxed">
                           {JSON.stringify(r.payload ?? {}, null, 2)}
                         </pre>
                       </div>

@@ -18,7 +18,7 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
 
   if (retros.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         운영 회고가 없습니다. 새 회고를 작성해 주세요.
       </div>
     );
@@ -34,15 +34,15 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
           <div className="flex items-start justify-between gap-2">
             <div>
               <h3 className="font-medium text-sam-fg">{r.title}</h3>
-              <p className="mt-1 text-[13px] text-sam-muted">
+              <p className="mt-1 sam-text-body-secondary text-sam-muted">
                 {r.retrospectiveDate} · {SURFACE_LABELS[r.relatedSurface]}
                 {r.relatedReportId && ` · 보고서 ${r.relatedReportId}`}
               </p>
-              <p className="mt-2 text-[13px] text-sam-fg line-clamp-2">
+              <p className="mt-2 sam-text-body-secondary text-sam-fg line-clamp-2">
                 {r.summary}
               </p>
             </div>
-            <span className="text-[12px] text-sam-muted">
+            <span className="sam-text-helper text-sam-muted">
               {r.createdByAdminNickname}
             </span>
           </div>

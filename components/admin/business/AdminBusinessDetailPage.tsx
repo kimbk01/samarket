@@ -26,7 +26,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
 
   if (!profile) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         상점을 찾을 수 없습니다.
       </div>
     );
@@ -43,7 +43,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
       <AdminPageHeader title="상점 상세" backHref="/admin/business" />
       <AdminBusinessActionPanel profile={profile} onActionSuccess={refreshDetail} />
       <AdminCard title="상점 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">ID</dt>
             <dd className="font-medium text-sam-fg">{profile.id}</dd>
@@ -66,7 +66,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                   profile.status === "pending"
                     ? "bg-amber-100 text-amber-800"
                     : profile.status === "active"
@@ -103,16 +103,16 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
               (profile.addressDetail ?? "").trim() ? (
                 <>
                   {(profile.addressStreetLine ?? "").trim() ? (
-                    <div className="text-[13px]">{(profile.addressStreetLine ?? "").trim()}</div>
+                    <div className="sam-text-body-secondary">{(profile.addressStreetLine ?? "").trim()}</div>
                   ) : null}
                   {(profile.addressDetail ?? "").trim() ? (
-                    <div className="text-[13px] text-sam-muted">
+                    <div className="sam-text-body-secondary text-sam-muted">
                       {(profile.addressDetail ?? "").trim()}
                     </div>
                   ) : null}
                 </>
               ) : (profile.addressLabel ?? "").trim() ? (
-                <div className="text-[13px]">{(profile.addressLabel ?? "").trim()}</div>
+                <div className="sam-text-body-secondary">{(profile.addressLabel ?? "").trim()}</div>
               ) : null}
             </dd>
           </div>
@@ -125,7 +125,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           </div>
           <div>
             <dt className="text-sam-muted">신청일 / 승인일</dt>
-            <dd className="text-[13px] text-sam-muted">
+            <dd className="sam-text-body-secondary text-sam-muted">
               {new Date(profile.createdAt).toLocaleString("ko-KR")}
               {profile.approvedAt &&
                 ` / ${new Date(profile.approvedAt).toLocaleString("ko-KR")}`}
@@ -140,18 +140,18 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
             placeholder="메모 입력"
-            className="flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-surface-muted"
+            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
           >
             저장
           </button>
         </div>
         {profile.adminMemo && (
-          <p className="mt-2 text-[13px] text-sam-muted">{profile.adminMemo}</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{profile.adminMemo}</p>
         )}
       </AdminCard>
       <AdminCard title="변경 이력">

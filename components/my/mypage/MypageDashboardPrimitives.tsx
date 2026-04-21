@@ -58,26 +58,26 @@ export function ActionSection({
           onClick={onToggle}
           aria-expanded={isExpanded}
           aria-controls={contentId}
-          className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-ig-border bg-sam-surface px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-ig-highlight"
+          className="flex w-full items-start justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left shadow-[0_6px_24px_rgba(15,23,42,0.05)] active:bg-sam-primary-soft"
         >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-[16px] font-semibold text-foreground md:text-[17px]">{title}</h2>
+              <h2 className="sam-text-body-lg font-semibold text-foreground md:sam-text-section-title">{title}</h2>
               {itemCount != null ? (
-                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-medium text-[#4B5563]">
+                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 sam-text-xxs font-medium text-[#4B5563]">
                   {itemCount}
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
-            <p className="mt-2 text-[12px] font-medium text-signature">{isExpanded ? "접기" : "펼쳐서 보기"}</p>
+            <p className="mt-1 sam-text-helper leading-relaxed text-muted">{description}</p>
+            <p className="mt-2 sam-text-helper font-medium text-signature">{isExpanded ? "접기" : "펼쳐서 보기"}</p>
           </div>
           <ExpandChevronIcon expanded={isExpanded} />
         </button>
       ) : (
         <div className="px-1">
-          <h2 className="text-[16px] font-semibold text-foreground md:text-[17px]">{title}</h2>
-          <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
+          <h2 className="sam-text-body-lg font-semibold text-foreground md:sam-text-section-title">{title}</h2>
+          <p className="mt-1 sam-text-helper leading-relaxed text-muted">{description}</p>
         </div>
       )}
       {(!collapsible || isExpanded) && (
@@ -121,7 +121,7 @@ function ActionTile({
       ? "border-signature/20 bg-signature/5"
       : action.tone === "dark"
         ? "border-[#111827] bg-[#111827] text-white"
-        : "border-ig-border bg-sam-surface";
+        : "border-sam-border bg-sam-surface";
   const titleClass = action.tone === "dark" ? "text-white" : "text-foreground";
   const descClass = action.tone === "dark" ? "text-white/70" : "text-muted";
   const badgeClass =
@@ -135,14 +135,14 @@ function ActionTile({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className={`text-[15px] font-semibold ${titleClass}`}>{action.title}</p>
+          <p className={`sam-text-body font-semibold ${titleClass}`}>{action.title}</p>
           {action.badge ? (
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeClass}`}>
+            <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${badgeClass}`}>
               {action.badge}
             </span>
           ) : null}
         </div>
-        <p className={`mt-1 text-[12px] leading-relaxed ${descClass}`}>{action.description}</p>
+        <p className={`mt-1 sam-text-helper leading-relaxed ${descClass}`}>{action.description}</p>
       </div>
       <ChevronIcon className={action.tone === "dark" ? "text-white/70" : "text-muted"} />
     </Link>
@@ -160,11 +160,11 @@ export function HighlightLink({
 }) {
   return (
     <Link href={href} className="flex flex-col items-center gap-1 text-center">
-      <span className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-ig-border bg-[linear-gradient(180deg,#ffffff_0%,#f6f7f9_100%)] text-[14px] font-semibold text-foreground shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:h-[72px] md:w-[72px]">
+      <span className="flex h-[64px] w-[64px] items-center justify-center rounded-full border border-sam-border bg-[linear-gradient(180deg,#ffffff_0%,#f6f7f9_100%)] sam-text-body font-semibold text-foreground shadow-[0_4px_12px_rgba(15,23,42,0.06)] md:h-[72px] md:w-[72px]">
         {label.slice(0, 2)}
       </span>
-      <span className="text-[12px] font-medium text-foreground">{label}</span>
-      <span className="text-[10px] text-muted">{sublabel}</span>
+      <span className="sam-text-helper font-medium text-foreground">{label}</span>
+      <span className="sam-text-xxs text-muted">{sublabel}</span>
     </Link>
   );
 }
@@ -181,11 +181,11 @@ export function InfoShortcutCard({
   return (
     <Link
       href={href}
-      className="flex items-center justify-between rounded-ui-rect border border-ig-border bg-sam-surface px-4 py-3.5 active:bg-ig-highlight"
+      className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3.5 active:bg-sam-primary-soft"
     >
       <div className="min-w-0 flex-1 pr-3">
-        <p className="text-[15px] font-medium text-foreground">{title}</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>
+        <p className="sam-text-body font-medium text-foreground">{title}</p>
+        <p className="mt-1 sam-text-helper leading-relaxed text-muted">{description}</p>
       </div>
       <ChevronIcon className="text-muted" />
     </Link>

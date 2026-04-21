@@ -21,7 +21,7 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
         isBlocked ? "border-red-200 bg-red-50/50" : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-1.5 sam-text-helper text-sam-muted">
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {getSprintItemPriorityLabel(item.priority)}
         </span>
@@ -32,11 +32,11 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
       </div>
       <p className="mt-2 font-medium text-sam-fg">{item.title}</p>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
+        <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">
           {item.description}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px]">
+      <div className="mt-2 flex flex-wrap items-center gap-2 sam-text-helper">
         <span
           className={`rounded px-1.5 py-0.5 ${
             isBlocked
@@ -53,11 +53,11 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
         {item.ownerName && <span className="text-sam-muted">{item.ownerName}</span>}
       </div>
       {item.blockerReason && (
-        <p className="mt-2 text-[12px] font-medium text-red-700">
+        <p className="mt-2 sam-text-helper font-medium text-red-700">
           블로커: {item.blockerReason}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap gap-1 text-[12px]">
+      <div className="mt-2 flex flex-wrap gap-1 sam-text-helper">
         {item.linkedQaIssueId && (
           <Link href="/admin/qa-board" className="text-signature hover:underline">
             QA

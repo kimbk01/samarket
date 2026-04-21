@@ -99,13 +99,13 @@ export function AdminChatActionPanel({
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-[12px] font-medium text-sam-muted">{t("admin_chat_action_note")}</label>
+        <label className="mb-1 block sam-text-helper font-medium text-sam-muted">{t("admin_chat_action_note")}</label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
           placeholder={t("admin_chat_action_note_placeholder")}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[13px] text-sam-fg placeholder:text-sam-meta"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body-secondary text-sam-fg placeholder:text-sam-meta"
         />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -113,7 +113,7 @@ export function AdminChatActionPanel({
           type="button"
           disabled={loading !== null}
           onClick={() => run("warn")}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
           {loading === "warn" ? t("admin_chat_processing") : t("admin_chat_warn_log")}
         </button>
@@ -122,7 +122,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("block_room")}
-            className="rounded border border-red-100 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+            className="rounded border border-red-100 bg-red-50 px-3 py-2 sam-text-body-secondary font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
           >
             {loading === "block_room" ? t("admin_chat_processing") : t("admin_chat_close_ops")}
           </button>
@@ -131,7 +131,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("unblock_room")}
-            className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 sam-text-body-secondary font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
           >
             {loading === "unblock_room" ? t("admin_chat_processing") : t("admin_chat_reopen_ops")}
           </button>
@@ -141,7 +141,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("archive_room")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "archive_room" ? t("admin_chat_processing") : t("admin_chat_archive")}
           </button>
@@ -150,7 +150,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("unarchive_room")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "unarchive_room" ? t("admin_chat_processing") : t("admin_chat_unarchive")}
           </button>
@@ -160,7 +160,7 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("readonly_on")}
-            className="rounded border border-amber-100 bg-amber-50 px-3 py-2 text-[13px] font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+            className="rounded border border-amber-100 bg-amber-50 px-3 py-2 sam-text-body-secondary font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
           >
             {loading === "readonly_on" ? t("admin_chat_processing") : t("admin_chat_readonly")}
           </button>
@@ -169,19 +169,19 @@ export function AdminChatActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => run("readonly_off")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "readonly_off" ? t("admin_chat_processing") : t("admin_chat_readonly_off")}
           </button>
         )}
       </div>
       <div className="flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
-        <span className="w-full text-[12px] font-medium text-sam-muted">{t("admin_chat_bulk_actions")}</span>
+        <span className="w-full sam-text-helper font-medium text-sam-muted">{t("admin_chat_bulk_actions")}</span>
         <button
           type="button"
           disabled={loading !== null}
           onClick={() => runBulkMessages("bulk_hide")}
-          className="rounded border border-orange-100 bg-orange-50 px-3 py-2 text-[13px] font-medium text-orange-900 hover:bg-orange-100 disabled:opacity-50"
+          className="rounded border border-orange-100 bg-orange-50 px-3 py-2 sam-text-body-secondary font-medium text-orange-900 hover:bg-orange-100 disabled:opacity-50"
         >
           {loading === "bulk_hide" ? t("admin_chat_processing") : t("admin_chat_bulk_hide")}
         </button>
@@ -189,7 +189,7 @@ export function AdminChatActionPanel({
           type="button"
           disabled={loading !== null}
           onClick={() => runBulkMessages("bulk_unhide")}
-          className="rounded border border-lime-200 bg-lime-50 px-3 py-2 text-[13px] font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
+          className="rounded border border-lime-200 bg-lime-50 px-3 py-2 sam-text-body-secondary font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
         >
           {loading === "bulk_unhide" ? t("admin_chat_processing") : t("admin_chat_bulk_unhide")}
         </button>
@@ -197,7 +197,7 @@ export function AdminChatActionPanel({
       <div className="flex flex-wrap gap-2">
         <a
           href={`/admin/reports?targetType=chat&targetId=${encodeURIComponent(room.id)}`}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
         >
           {t("admin_chat_go_reports")}
         </a>

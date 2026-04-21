@@ -53,7 +53,7 @@ export function CommunityForm({
             value={boardCategoryId}
             onChange={(e) => setBoardCategoryId(e.target.value)}
             required
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             disabled={isSubmitting}
           >
             {boardCategories.map((c) => (
@@ -74,7 +74,7 @@ export function CommunityForm({
             value={topicId}
             onChange={(e) => setTopicId(e.target.value)}
             required
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             disabled={isSubmitting}
           >
             {communityTopics.map((t) => (

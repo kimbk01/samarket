@@ -5,9 +5,9 @@ import type {
 
 /** 채팅 목록 본문 — 부동산 1·2단과 동일 타이포 (중고·차·환전·알바 공통) */
 export const CHAT_LIST_ROW_LINE_PRIMARY =
-  "mt-0 line-clamp-1 text-[12px] font-semibold leading-tight text-gray-900";
+  "mt-0 line-clamp-1 sam-text-helper font-semibold leading-tight text-gray-900";
 export const CHAT_LIST_ROW_LINE_SECONDARY =
-  "mt-0 line-clamp-1 text-[11px] leading-tight text-gray-500";
+  "mt-0 line-clamp-1 sam-text-xxs leading-tight text-gray-500";
 
 /**
  * 채팅 상단 카드(`ChatProductSummary`): 피드와 동일 본문이되,

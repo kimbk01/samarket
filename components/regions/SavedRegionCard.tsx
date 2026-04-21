@@ -21,11 +21,11 @@ export function SavedRegionCard({
   return (
     <div className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
       <div>
-        <p className="text-[15px] font-medium text-sam-fg">{region.label}</p>
+        <p className="sam-text-body font-medium text-sam-fg">{region.label}</p>
         <div className="mt-1 flex items-center gap-2">
           {region.isPrimary && <PrimaryRegionBadge />}
           {isCurrent && (
-            <span className="text-[12px] text-sam-muted">현재 보는 동네</span>
+            <span className="sam-text-helper text-sam-muted">현재 보는 동네</span>
           )}
         </div>
       </div>
@@ -37,7 +37,7 @@ export function SavedRegionCard({
               e.stopPropagation();
               onSetPrimary(region.id);
             }}
-            className="text-[13px] text-signature"
+            className="sam-text-body-secondary text-signature"
           >
             대표로
           </button>
@@ -49,7 +49,7 @@ export function SavedRegionCard({
               e.stopPropagation();
               onRemove(region.id);
             }}
-            className="text-[13px] text-sam-muted"
+            className="sam-text-body-secondary text-sam-muted"
           >
             삭제
           </button>

@@ -174,7 +174,7 @@ export function AdminNotificationList() {
                   !r.is_read ? "border-amber-200 bg-amber-50/50" : "border-sam-border-soft bg-sam-surface"
                 }`}
               >
-                <div className="flex flex-wrap justify-between gap-1 text-[11px] text-sam-muted">
+                <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-muted">
                   <span>
                     {kindLabel ?? typeLabel}
                     {kindLabel ? <span className="text-sam-muted"> · {typeLabel}</span> : null}
@@ -182,7 +182,7 @@ export function AdminNotificationList() {
                   <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
                 </div>
                 <p className="mt-1 text-sm font-bold text-sam-fg">{r.title}</p>
-                {r.body ? <p className="mt-0.5 text-[13px] text-sam-fg">{r.body}</p> : null}
+                {r.body ? <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link
                     href={href}

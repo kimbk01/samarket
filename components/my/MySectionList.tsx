@@ -34,15 +34,15 @@ export function MySectionList({ sections, interestFavoriteCount }: MySectionList
           <Link
             key={sec.section_key}
             href={href}
-            className="flex items-center justify-between rounded-ui-rect border border-ig-border bg-sam-surface px-4 py-3 active:bg-ig-highlight"
+            className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 active:bg-sam-primary-soft"
           >
             <span className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center text-foreground">
               <SectionGlyph sectionKey={sec.section_key} />
             </span>
-            <span className="flex-1 text-[15px] font-medium text-foreground">
+            <span className="flex-1 sam-text-body font-medium text-foreground">
               {sec.title}
               {showInterestCount && (
-                <span className="ml-2 text-[13px] font-normal text-muted">
+                <span className="ml-2 sam-text-body-secondary font-normal text-muted">
                   관심 {interestFavoriteCount}개
                 </span>
               )}

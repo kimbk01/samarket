@@ -12,7 +12,7 @@ interface AdminBannerTableProps {
 export function AdminBannerTable({ banners }: AdminBannerTableProps) {
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
@@ -48,10 +48,10 @@ export function AdminBannerTable({ banners }: AdminBannerTableProps) {
                   <AdminBannerStatusBadge status={b.status} />
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">{b.priority}</td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {period}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {b.clickCount} / {b.impressionCount}
                 </td>
               </tr>

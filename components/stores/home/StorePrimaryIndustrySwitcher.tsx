@@ -49,7 +49,7 @@ export function StorePrimaryIndustrySwitcher({
           업종
         </p>
         {!showHomeChip ?
-          <Link href="/stores" className={`shrink-0 text-[12px] ${FB.link}`}>
+          <Link href="/stores" className={`shrink-0 sam-text-helper ${FB.link}`}>
             매장 홈
           </Link>
         : null}

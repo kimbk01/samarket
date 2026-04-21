@@ -56,15 +56,15 @@ export function DeliveryReportsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="신고·분쟁" backHref="/admin/delivery-orders" />
-      <p className="mb-3 text-[13px] leading-relaxed text-sam-muted">
-        <code className="rounded bg-sam-app px-1 text-[12px]">store_reports</code> 실데이터입니다. 상태 변경·메모·기각은{" "}
+      <p className="mb-3 sam-text-body-secondary leading-relaxed text-sam-muted">
+        <code className="rounded bg-sam-app px-1 sam-text-helper">store_reports</code> 실데이터입니다. 상태 변경·메모·기각은{" "}
         <Link href="/admin/store-reports" className="font-medium text-signature underline">
           매장·상품 신고
         </Link>{" "}
         콘솔에서 처리하세요.
       </p>
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           불러오지 못했습니다 ({error}).
         </p>
       ) : null}
@@ -85,7 +85,7 @@ export function DeliveryReportsClient() {
           <p className="text-sm text-sam-muted">신고가 없습니다.</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+            <table className="w-full min-w-[900px] border-collapse sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
                   <th className="px-2 py-2">신고 ID</th>
@@ -99,7 +99,7 @@ export function DeliveryReportsClient() {
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border-soft">
-                    <td className="px-2 py-2 font-mono text-[12px]">{r.id}</td>
+                    <td className="px-2 py-2 font-mono sam-text-helper">{r.id}</td>
                     <td className="max-w-[160px] truncate px-2 py-2">{r.store_name || r.store_id}</td>
                     <td className="px-2 py-2 text-xs">
                       {r.target_type}

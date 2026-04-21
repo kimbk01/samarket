@@ -59,7 +59,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
         {avatarUrl ? (
           <Image src={avatarUrl} alt="프로필" fill className="object-cover" sizes="80px" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[28px] text-sam-meta">👤</div>
+          <div className="flex h-full w-full items-center justify-center sam-text-hero text-sam-meta">👤</div>
         )}
       </button>
       <input
@@ -69,7 +69,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
         className="hidden"
         onChange={(ev) => void onFile(ev)}
       />
-      <p className="text-center text-[13px] font-medium text-signature">
+      <p className="text-center sam-text-body-secondary font-medium text-signature">
         <button type="button" onClick={pickFile} disabled={uploading} className="underline disabled:opacity-60">
           {uploading ? "업로드 중…" : "사진에서 선택"}
         </button>
@@ -87,7 +87,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
           </>
         ) : null}
       </p>
-      {uploadError ? <p className="text-center text-[13px] text-red-600">{uploadError}</p> : null}
+      {uploadError ? <p className="text-center sam-text-body-secondary text-red-600">{uploadError}</p> : null}
     </div>
   );
 }

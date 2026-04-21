@@ -186,9 +186,9 @@ function JobsMetaBlock({
 
   return (
     <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="text-[15px] font-semibold text-sam-fg">알바 정보</h3>
-      <p className="mb-3 mt-1 text-[12px] text-sam-muted">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
-      <dl className="space-y-2.5 text-[14px]">
+      <h3 className="sam-text-body font-semibold text-sam-fg">알바 정보</h3>
+      <p className="mb-3 mt-1 sam-text-helper text-sam-muted">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
+      <dl className="space-y-2.5 sam-text-body">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3">
             <dt className="shrink-0 text-sam-muted">{label}</dt>
@@ -258,8 +258,8 @@ function ExchangeMetaBlock({
 
   return (
     <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">환전 정보</h3>
-      <dl className="space-y-2.5 text-[14px]">
+      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">환전 정보</h3>
+      <dl className="space-y-2.5 sam-text-body">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3 items-center">
             <dt className="shrink-0 text-sam-muted">{label}</dt>
@@ -314,8 +314,8 @@ function UsedCarMetaBlock({
   if (rows.length === 0) return null;
   return (
     <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">차량 정보</h3>
-      <dl className="space-y-2.5 text-[14px]">
+      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">차량 정보</h3>
+      <dl className="space-y-2.5 sam-text-body">
         {rows.map(({ label, value }) => (
           <div key={label} className="flex justify-between gap-3">
             <dt className="shrink-0 text-sam-muted">{label}</dt>
@@ -396,8 +396,8 @@ function RealEstateMetaBlock({
 
   return (
     <div className={`rounded-ui-rect border border-sam-border bg-sam-app/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
-      <h3 className="mb-3 text-[15px] font-semibold text-sam-fg">부동산 정보</h3>
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0 gap-y-4 text-[14px] items-stretch">
+      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">부동산 정보</h3>
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0 gap-y-4 sam-text-body items-stretch">
         <dl className="space-y-4 pr-6">
           {leftRows.map(({ label, value }) => (
             <div key={label} className="flex justify-between gap-4">
@@ -450,10 +450,10 @@ function TradeMetaBlock({
   if (entries.length === 0) return null;
   return (
     <div className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-      <span className="text-[11px] font-medium text-sam-muted">
+      <span className="sam-text-xxs font-medium text-sam-muted">
         {TRADE_SKIN_LABELS[skinKey] ?? skinKey}
       </span>
-      <ul className="mt-2 space-y-1 text-[13px] text-sam-fg">
+      <ul className="mt-2 space-y-1 sam-text-body-secondary text-sam-fg">
         {entries.map(([key, label, value]) => (
           <li key={key}>
             <span className="text-sam-muted">{label}</span> {value}
@@ -496,7 +496,7 @@ function PostDetailSellerProfileRow({
   return (
     <div className="flex items-center justify-between gap-3 min-w-0">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sam-border-soft text-[15px] font-semibold text-sam-muted">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sam-border-soft sam-text-body font-semibold text-sam-muted">
           {author?.avatar_url ? (
             <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -504,7 +504,7 @@ function PostDetailSellerProfileRow({
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-sam-fg truncate">{author?.nickname ?? "사용자"}</p>
+          <p className="sam-text-body font-semibold text-sam-fg truncate">{author?.nickname ?? "사용자"}</p>
           {regionLine}
         </div>
       </div>
@@ -739,7 +739,7 @@ export function PostDetailView({
             <AppBackButton preferHistoryBack backHref={backHref} ariaLabel="이전 화면" />
             <Link
               href="/home"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
               aria-label="홈"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -759,7 +759,7 @@ export function PostDetailView({
               <button
                 type="button"
                 onClick={() => setDetailMoreOpen(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
                 aria-label="더보기"
               >
                 <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -772,7 +772,7 @@ export function PostDetailView({
               <button
                 type="button"
                 onClick={() => setSellerMoreOpen(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
                 aria-label="더보기"
               >
                 <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -1235,12 +1235,12 @@ export function PostDetailView({
               data-post-detail-seller="true"
               className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
             >
-              <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
+              <p className="mb-2 sam-text-helper font-medium text-sam-muted">판매자</p>
               <PostDetailSellerProfileRow
                 author={author}
                 regionLine={
                   listingLocationLine ? (
-                    <p className="text-[12px] text-sam-muted truncate">{listingLocationLine}</p>
+                    <p className="sam-text-helper text-sam-muted truncate">{listingLocationLine}</p>
                   ) : null
                 }
               />
@@ -1251,11 +1251,11 @@ export function PostDetailView({
           <div className="mb-2 px-4">
             <TradeListingStatusBadge post={post} size="detail" />
           </div>
-          <h2 className="mb-2 text-[16px] font-bold text-sam-fg px-4">{post.title}</h2>
+          <h2 className="mb-2 sam-text-body-lg font-bold text-sam-fg px-4">{post.title}</h2>
           {post.content && (
             <div className="mt-2 mb-0 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-              <h3 className="mb-2 text-[15px] font-semibold text-sam-fg">매물 설명</h3>
-              <p className="text-[14px] text-sam-fg whitespace-pre-wrap">{post.content}</p>
+              <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">매물 설명</h3>
+              <p className="sam-text-body text-sam-fg whitespace-pre-wrap">{post.content}</p>
             </div>
           )}
           <RealEstateMetaBlock
@@ -1266,7 +1266,7 @@ export function PostDetailView({
             cityId={post.city}
             compactTop
           />
-          <ul className="mt-2 space-y-1 border-t border-sam-border-soft px-4 py-3 text-[13px] text-sam-muted">
+          <ul className="mt-2 space-y-1 border-t border-sam-border-soft px-4 py-3 sam-text-body-secondary text-sam-muted">
             {(() => {
               const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");
               return s ? <li>{s}</li> : null;
@@ -1297,13 +1297,13 @@ export function PostDetailView({
               aria-label={isFavorite ? "관심 해제" : "관심"}
             >
               <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-              <span className="text-[11px]">관심</span>
+              <span className="sam-text-xxs">관심</span>
             </button>
           )}
           {reFooterPrice && (
             <div className="flex min-w-0 max-w-[38%] shrink flex-col justify-center px-2 py-1">
-              <p className="truncate text-[13px] font-bold text-sam-fg">{reDealType === "판매" ? `판매가 ${reFooterPrice}` : reFooterPrice}</p>
-              <p className="text-[10px] text-sam-muted">예상 중개수수료</p>
+              <p className="truncate sam-text-body-secondary font-bold text-sam-fg">{reDealType === "판매" ? `판매가 ${reFooterPrice}` : reFooterPrice}</p>
+              <p className="sam-text-xxs text-sam-muted">예상 중개수수료</p>
             </div>
           )}
           {!isOwnPost && (
@@ -1343,7 +1343,7 @@ export function PostDetailView({
                 <button
                   type="button"
                   onClick={() => setTradeAdSheetOpen(true)}
-                  className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                  className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
                 >
                   유료 광고 신청
                 </button>
@@ -1360,7 +1360,7 @@ export function PostDetailView({
         </div>
         {chatError && (
           <p
-            className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+            className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center sam-text-body-secondary text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
           >
             {chatError}
           </p>
@@ -1394,20 +1394,20 @@ export function PostDetailView({
             <div
               className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
             >
-              <h2 className="text-[16px] font-semibold text-sam-fg">신고하기</h2>
+              <h2 className="sam-text-body-lg font-semibold text-sam-fg">신고하기</h2>
               <input
                 type="text"
                 value={reportReason}
                 onChange={(e) => setReportReason(e.target.value)}
                 placeholder="신고 사유"
-                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
               />
               {reportError ? (
-                <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
+                <p className="mt-2 sam-text-body-secondary text-red-600">{reportError}</p>
               ) : null}
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-sam-border py-2 text-[14px] text-sam-fg">취소</button>
-                <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-ui-rect bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50">신고</button>
+                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg">취소</button>
+                <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-ui-rect bg-red-600 py-2 sam-text-body font-medium text-white disabled:opacity-50">신고</button>
               </div>
             </div>
           </div>
@@ -1462,12 +1462,12 @@ export function PostDetailView({
             data-post-detail-seller="true"
             className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
           >
-        <p className="mb-2 text-[12px] font-medium text-sam-muted">판매자</p>
+        <p className="mb-2 sam-text-helper font-medium text-sam-muted">판매자</p>
         <PostDetailSellerProfileRow
           author={author}
           regionLine={
             listingLocationLine ? (
-              <p className="text-[12px] text-sam-muted truncate">{listingLocationLine}</p>
+              <p className="sam-text-helper text-sam-muted truncate">{listingLocationLine}</p>
             ) : null
           }
         />
@@ -1485,24 +1485,24 @@ export function PostDetailView({
               if (!lab) return null;
               return (
                 <>
-                  <span className="text-[12px] font-medium text-sam-meta" aria-hidden>
+                  <span className="sam-text-helper font-medium text-sam-meta" aria-hidden>
                     |
                   </span>
-                  <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] font-semibold text-sam-fg">
+                  <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-semibold text-sam-fg">
                     {lab}
                   </span>
                 </>
               );
             })()}
         </div>
-        <h2 className={`mt-2 text-[20px] font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>{post.title}</h2>
+        <h2 className={`mt-2 sam-text-page-title font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>{post.title}</h2>
         {showPrice && (() => {
           const isRealEstate = category?.icon_key === "real-estate";
           const meta = post.meta as Record<string, unknown> | undefined;
           const dealType = meta?.deal_type as string | undefined;
           if (isRealEstate && dealType === "임대") return null;
           return (
-            <p className="mt-1 text-[22px] font-bold text-sam-fg">
+            <p className="mt-1 sam-text-hero font-bold text-sam-fg">
               {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
             </p>
           );
@@ -1510,14 +1510,14 @@ export function PostDetailView({
         {(post.is_free_share || (post.meta as Record<string, unknown> | undefined)?.direct_deal === true) && (
           <div className="mt-1 flex flex-wrap gap-1.5">
             {post.is_free_share && (
-              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] font-medium text-sam-fg">나눔</span>
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-medium text-sam-fg">나눔</span>
             )}
             {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
-              <span className="rounded bg-blue-50 px-2 py-0.5 text-[12px] font-medium text-blue-700">직거래</span>
+              <span className="rounded bg-blue-50 px-2 py-0.5 sam-text-helper font-medium text-blue-700">직거래</span>
             )}
           </div>
         )}
-        <ul className="mt-3 space-y-1 text-[13px] text-sam-muted">
+        <ul className="mt-3 space-y-1 sam-text-body-secondary text-sam-muted">
           {showLocation && listingLocationLine ? <li>지역 · {listingLocationLine}</li> : null}
           <li>등록 · {formatTimeAgo(post.created_at)}</li>
           {(() => {
@@ -1584,10 +1584,10 @@ export function PostDetailView({
         <div className="px-4">
           <div className="-mx-4 mt-0">
             <div className="rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-              <h3 className="mb-2 text-[15px] font-semibold text-sam-fg">
+              <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">
                 {(category?.icon_key === "jobs" || category?.icon_key === "job") ? "상세 설명" : "내용"}
               </h3>
-              <p className="text-[14px] text-sam-fg whitespace-pre-wrap">{post.content}</p>
+              <p className="sam-text-body text-sam-fg whitespace-pre-wrap">{post.content}</p>
             </div>
           </div>
         </div>
@@ -1621,7 +1621,7 @@ export function PostDetailView({
             aria-label={isFavorite ? "관심 해제" : "관심"}
           >
             <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-            <span className="text-[11px]">관심</span>
+            <span className="sam-text-xxs">관심</span>
           </button>
         )}
         {!isOwnPost && (
@@ -1661,7 +1661,7 @@ export function PostDetailView({
               <button
                 type="button"
                 onClick={() => setTradeAdSheetOpen(true)}
-                className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg"
+                className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
               >
                 유료 광고 신청
               </button>
@@ -1678,7 +1678,7 @@ export function PostDetailView({
       </div>
       {chatError && (
         <p
-          className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center text-[13px] text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+          className={`fixed bottom-[52px] left-1/2 z-20 w-full -translate-x-1/2 bg-red-50 px-4 py-2 text-center sam-text-body-secondary text-red-600 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
         >
           {chatError}
         </p>
@@ -1712,22 +1712,22 @@ export function PostDetailView({
           <div
             className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
           >
-            <h2 className="text-[16px] font-semibold text-sam-fg">신고하기</h2>
+            <h2 className="sam-text-body-lg font-semibold text-sam-fg">신고하기</h2>
             <input
               type="text"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
               placeholder="신고 사유"
-              className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             />
             {reportError ? (
-              <p className="mt-2 text-[13px] text-red-600">{reportError}</p>
+              <p className="mt-2 sam-text-body-secondary text-red-600">{reportError}</p>
             ) : null}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => setReportOpen(false)}
-                className="flex-1 rounded-ui-rect border border-sam-border py-2 text-[14px] text-sam-fg"
+                className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg"
               >
                 취소
               </button>
@@ -1735,7 +1735,7 @@ export function PostDetailView({
                 type="button"
                 onClick={handleReport}
                 disabled={!reportReason.trim() || reportSubmitting}
-                className="flex-1 rounded-ui-rect bg-red-600 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+                className="flex-1 rounded-ui-rect bg-red-600 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
                 신고
               </button>

@@ -59,7 +59,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[1240px] border-collapse text-[13px]">
+      <table className="w-full min-w-[1240px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             {selection ? (
@@ -110,16 +110,16 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                     />
                   </td>
                 ) : null}
-                <td className="px-2 py-2 font-mono text-[12px] whitespace-nowrap">{o.orderNo}</td>
+                <td className="px-2 py-2 font-mono sam-text-helper whitespace-nowrap">{o.orderNo}</td>
                 <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
                   {formatKstDatetimeLong(o.createdAt)}
                 </td>
                 <td className="px-2 py-2 text-sam-fg">
                   <div className="font-medium">{o.buyerName || "—"}</div>
-                  <div className="text-[12px] text-sam-muted" title={o.buyerPhone}>
+                  <div className="sam-text-helper text-sam-muted" title={o.buyerPhone}>
                     {o.buyerPhone?.trim() ? o.buyerPhone : "전화 없음"}
                   </div>
-                  <div className="font-mono text-[11px] text-sam-muted" title={o.buyerUserId}>
+                  <div className="font-mono sam-text-xxs text-sam-muted" title={o.buyerUserId}>
                     회원 {shortId(o.buyerUserId, 12)}
                   </div>
                 </td>
@@ -127,33 +127,33 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                   <div className="max-w-[200px] truncate font-medium" title={o.storeName}>
                     {o.storeName}
                   </div>
-                  <div className="text-[12px] text-sam-muted">
+                  <div className="sam-text-helper text-sam-muted">
                     {o.storeSlug ? (
                       <span title={o.storeSlug}>/{o.storeSlug}</span>
                     ) : (
                       <span className="text-sam-meta">슬러그 없음</span>
                     )}
                   </div>
-                  <div className="text-[11px] text-sam-muted">
+                  <div className="sam-text-xxs text-sam-muted">
                     사장님 {o.storeOwnerName || "—"}{" "}
                     <span className="font-mono text-sam-meta" title={o.storeOwnerUserId}>
                       · {shortId(o.storeOwnerUserId)}
                     </span>
                   </div>
-                  <div className="font-mono text-[11px] text-sam-meta" title={o.storeId}>
+                  <div className="font-mono sam-text-xxs text-sam-meta" title={o.storeId}>
                     매장 {shortId(o.storeId, 12)}
                   </div>
                 </td>
                 <td className="px-2 py-2 text-sam-fg">
-                  <div className="text-[12px] leading-snug" title={itemsLineSummary(o)}>
+                  <div className="sam-text-helper leading-snug" title={itemsLineSummary(o)}>
                     {itemsLineSummary(o)}
                   </div>
-                  <div className="mt-1 text-[11px] leading-snug text-sam-muted" title={fulfillmentSummary(o)}>
+                  <div className="mt-1 sam-text-xxs leading-snug text-sam-muted" title={fulfillmentSummary(o)}>
                     {fulfillmentSummary(o)}
                   </div>
                   {o.requestNote?.trim() ? (
                     <div
-                      className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 text-[11px] text-sam-fg"
+                      className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 sam-text-xxs text-sam-fg"
                       title={o.requestNote}
                     >
                       요청: {o.requestNote.length > 80 ? `${o.requestNote.slice(0, 80)}…` : o.requestNote}

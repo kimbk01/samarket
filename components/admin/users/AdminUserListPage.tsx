@@ -123,14 +123,14 @@ export function AdminUserListPage() {
           <button
             type="button"
             onClick={() => setTab("members")}
-            className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium transition ${tab === "members" ? "bg-signature text-white" : "text-sam-muted hover:bg-sam-surface-muted"}`}
+            className={`rounded-ui-rect px-4 py-2 sam-text-body font-medium transition ${tab === "members" ? "bg-signature text-white" : "text-sam-muted hover:bg-sam-surface-muted"}`}
           >
             회원
           </button>
           <button
             type="button"
             onClick={() => setTab("staff")}
-            className={`rounded-ui-rect px-4 py-2 text-[14px] font-medium transition ${tab === "staff" ? "bg-signature text-white" : "text-sam-muted hover:bg-sam-surface-muted"}`}
+            className={`rounded-ui-rect px-4 py-2 sam-text-body font-medium transition ${tab === "staff" ? "bg-signature text-white" : "text-sam-muted hover:bg-sam-surface-muted"}`}
           >
             관리자
           </button>
@@ -141,7 +141,7 @@ export function AdminUserListPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
-                className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
               >
                 수동 입력
               </button>
@@ -150,7 +150,7 @@ export function AdminUserListPage() {
                   type="button"
                   onClick={handleCleanup}
                   disabled={cleanupLoading}
-                  className="rounded-ui-rect border border-amber-600 bg-amber-50 px-4 py-2 text-[14px] font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  className="rounded-ui-rect border border-amber-600 bg-amber-50 px-4 py-2 sam-text-body font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {cleanupLoading ? "처리 중…" : "테스트 회원 정리 (aaaa만 유지)"}
                 </button>
@@ -161,7 +161,7 @@ export function AdminUserListPage() {
             <button
               type="button"
               onClick={() => setShowCreateAdmin(true)}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
             >
               관리자 수동 생성
             </button>
@@ -171,7 +171,7 @@ export function AdminUserListPage() {
 
       {tab === "members" && (
         <>
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 text-[12px] leading-relaxed text-sam-fg">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-4 py-3 sam-text-helper leading-relaxed text-sam-fg">
             <p className="font-medium text-amber-950">회원 목록</p>
             <p className="mt-1">
               로그인 아이디 또는{" "}
@@ -195,7 +195,7 @@ export function AdminUserListPage() {
             onShowMemberUuidChange={setShowMemberUuid}
           />
           {filtered.length === 0 ? (
-            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
             </div>
           ) : (
@@ -207,7 +207,7 @@ export function AdminUserListPage() {
       {tab === "staff" && (
         <>
           {staffList.length === 0 ? (
-            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
               등록된 관리자가 없습니다.
               {isMaster && " 상단의 ‘관리자 수동 생성’으로 추가하세요."}
             </div>

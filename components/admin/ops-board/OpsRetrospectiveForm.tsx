@@ -54,60 +54,60 @@ export function OpsRetrospectiveForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h3 className="text-[14px] font-medium text-sam-fg">새 운영 회고</h3>
+      <h3 className="sam-text-body font-medium text-sam-fg">새 운영 회고</h3>
       <div>
-        <label className="mb-1 block text-[12px] text-sam-muted">제목</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">제목</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="회고 제목"
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] text-sam-muted">요약</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">요약</label>
         <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] text-sam-muted">잘된 점</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">잘된 점</label>
         <textarea
           value={wins}
           onChange={(e) => setWins(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] text-sam-muted">이슈</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">이슈</label>
         <textarea
           value={issues}
           onChange={(e) => setIssues(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[12px] text-sam-muted">다음 액션 (액션아이템 생성 placeholder)</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">다음 액션 (액션아이템 생성 placeholder)</label>
         <textarea
           value={nextActions}
           onChange={(e) => setNextActions(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div className="flex flex-wrap gap-3">
         <div>
-          <label className="mb-1 block text-[12px] text-sam-muted">관련 surface</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">관련 surface</label>
           <select
             value={relatedSurface}
             onChange={(e) => setRelatedSurface(e.target.value as OpsSurface)}
-            className="rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             {SURFACE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -117,19 +117,19 @@ export function OpsRetrospectiveForm({
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-[12px] text-sam-muted">관련 보고서 ID</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">관련 보고서 ID</label>
           <input
             type="text"
             value={relatedReportId}
             onChange={(e) => setRelatedReportId(e.target.value)}
             placeholder="rr-1"
-            className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
       </div>
       <button
         type="submit"
-        className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+        className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
       >
         회고 저장
       </button>

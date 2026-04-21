@@ -20,7 +20,7 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
 
   if (summary.reviewCount === 0 && variant === "compact") {
     return (
-      <span className="flex items-center justify-end gap-1.5 text-[12px] text-sam-muted">
+      <span className="flex items-center justify-end gap-1.5 sam-text-helper text-sam-muted">
         <MannerBatteryIcon tier={tier} percent={percent} size="sm" />
         <span className={`font-semibold tabular-nums ${accent}`}>{percent}%</span>
       </span>
@@ -32,9 +32,9 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
       <div className="shrink-0 text-right">
         <div className="flex items-center justify-end gap-1.5">
           <MannerBatteryIcon tier={tier} percent={percent} size="sm" />
-          <p className={`text-[12px] font-semibold tabular-nums ${accent}`}>{percent}%</p>
+          <p className={`sam-text-helper font-semibold tabular-nums ${accent}`}>{percent}%</p>
         </div>
-        <p className="text-[11px] text-sam-muted">후기 {summary.reviewCount}</p>
+        <p className="sam-text-xxs text-sam-muted">후기 {summary.reviewCount}</p>
       </div>
     );
   }
@@ -42,13 +42,13 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
   return (
     <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-sam-fg">{batteryLabel}</span>
+        <span className="sam-text-body-secondary font-medium text-sam-fg">{batteryLabel}</span>
         <div className="flex items-center gap-2">
           <MannerBatteryIcon tier={tier} percent={percent} size="md" />
-          <span className={`text-[18px] font-semibold tabular-nums ${accent}`}>{percent}%</span>
+          <span className={`sam-text-page-title font-semibold tabular-nums ${accent}`}>{percent}%</span>
         </div>
       </div>
-      <div className="mt-2 flex gap-4 text-[12px] text-sam-muted">
+      <div className="mt-2 flex gap-4 sam-text-helper text-sam-muted">
         <span>후기 {summary.reviewCount}개</span>
         {summary.reviewCount > 0 && (
           <>
@@ -62,7 +62,7 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
           {summary.summaryTags.slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-fg"
+              className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-fg"
             >
               {tag}
             </span>

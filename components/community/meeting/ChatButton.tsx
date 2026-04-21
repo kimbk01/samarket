@@ -18,15 +18,15 @@ export function ChatButton({
 }) {
   const mid = String(meetingId ?? "").trim();
   if (!mid) {
-    return <p className="text-[13px] text-sam-muted">채팅방이 아직 연결되지 않았어요.</p>;
+    return <p className="sam-text-body-secondary text-sam-muted">채팅방이 아직 연결되지 않았어요.</p>;
   }
   if (disabled) {
-    return reason ? <p className="text-[13px] text-sam-muted">{reason}</p> : null;
+    return reason ? <p className="sam-text-body-secondary text-sam-muted">{reason}</p> : null;
   }
   return (
     <Link
       href={philifeAppPaths.meeting(mid)}
-      className="inline-flex min-h-[52px] w-full items-center justify-center rounded-ui-rect bg-signature px-4 text-[16px] font-semibold text-white shadow-md active:opacity-90"
+      className="inline-flex min-h-[52px] w-full items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body-lg font-semibold text-white shadow-md active:opacity-90"
     >
       {children ?? "모임 보기"}
     </Link>

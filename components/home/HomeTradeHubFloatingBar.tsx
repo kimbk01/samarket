@@ -44,7 +44,7 @@ function slugFromPath(pathname: string): string | null {
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
-  "max-w-[11rem] truncate rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-center text-[13px] font-semibold leading-tight text-sam-fg shadow-sm";
+  "max-w-[11rem] truncate rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg shadow-sm";
 
 const SLIDE_MS = 320;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
@@ -245,7 +245,7 @@ export function HomeTradeHubFloatingBar() {
             <div className="flex shrink-0 flex-col border-b border-sam-border pt-2 pb-1">
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
               <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} flex items-center justify-between pb-3 pt-0`}>
-                <h2 id="home-trade-history-sheet-title" className="text-[17px] font-semibold text-sam-fg">
+                <h2 id="home-trade-history-sheet-title" className="sam-text-section-title font-semibold text-sam-fg">
                   {t("nav_trade_history_title")}
                 </h2>
                 <HubSheetCloseButton
@@ -385,12 +385,12 @@ function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; aria
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground transition-[transform,background-color] active:scale-95 hover:bg-black/[0.06] md:h-10 md:min-w-[44px] md:rounded-lg md:px-2 md:text-signature"
     >
       <span
-        className="flex h-[26px] w-[26px] items-center justify-center text-[22px] font-light leading-none md:hidden"
+        className="flex h-[26px] w-[26px] items-center justify-center sam-text-hero font-light leading-none md:hidden"
         aria-hidden
       >
         ✕
       </span>
-      <span className="hidden text-[14px] font-medium md:inline">{t("nav_close")}</span>
+      <span className="hidden sam-text-body font-medium md:inline">{t("nav_close")}</span>
     </button>
   );
 }

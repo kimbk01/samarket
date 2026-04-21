@@ -40,11 +40,11 @@ export function AccountTab({
         <MyPageSectionHeader description="닉네임, 프로필 사진, 기본 소개와 지역 정보를 확인하고 수정합니다." />
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="space-y-2">
-            <p className="text-[14px] font-semibold text-sam-fg">
+            <p className="sam-text-body font-semibold text-sam-fg">
               {profile.nickname?.trim() || "닉네임 없음"}
             </p>
-            <p className="text-[12px] text-sam-muted">{profile.email ?? "이메일 정보 없음"}</p>
-            <p className="text-[12px] text-sam-muted">
+            <p className="sam-text-helper text-sam-muted">{profile.email ?? "이메일 정보 없음"}</p>
+            <p className="sam-text-helper text-sam-muted">
               연락처 {profile.phone?.trim() || "미등록"} · {contactFormal ? "인증 완료" : "인증 필요"}
             </p>
             <div className="pt-1">
@@ -129,13 +129,13 @@ export function AccountTab({
       <MyPageSectionHeader description="내 계정 상태와 주요 활동을 한눈에 확인합니다." />
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="space-y-2">
-          <p className="text-[15px] font-bold text-sam-fg">
+          <p className="sam-text-body font-bold text-sam-fg">
             {profile.nickname?.trim() || "닉네임 없음"}
           </p>
-          <p className="text-[12px] text-sam-muted">
+          <p className="sam-text-helper text-sam-muted">
             {profile.email ?? "이메일 없음"}
           </p>
-          <p className="text-[12px] text-sam-muted">
+          <p className="sam-text-helper text-sam-muted">
             연락처 {profile.phone?.trim() || "미등록"} ·{" "}
             {contactFormal ? "인증 완료" : "인증 필요"}
           </p>
@@ -170,8 +170,8 @@ export function AccountTab({
 function SummaryBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5">
-      <p className="text-[12px] text-sam-muted">{label}</p>
-      <p className="mt-1 text-[15px] font-semibold tabular-nums text-sam-fg">{value}</p>
+      <p className="sam-text-helper text-sam-muted">{label}</p>
+      <p className="mt-1 sam-text-body font-semibold tabular-nums text-sam-fg">{value}</p>
     </div>
   );
 }

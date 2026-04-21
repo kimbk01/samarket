@@ -44,15 +44,15 @@ export function AdProductTable({ products }: AdProductTableProps) {
   };
 
   if (products.length === 0) {
-    return <p className="py-8 text-center text-[13px] text-sam-muted">광고 상품이 없습니다.</p>;
+    return <p className="py-8 text-center sam-text-body-secondary text-sam-muted">광고 상품이 없습니다.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
       {err ? (
-        <p className="mb-2 rounded bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
+        <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{err}</p>
       ) : null}
-      <table className="w-full min-w-[700px] border-collapse text-[13px]">
+      <table className="w-full min-w-[700px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             {["상품명", "게시판", "유형", "기간", "포인트", "기본 순위", "활성", "관리"].map((h) => (
@@ -73,7 +73,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       type="text"
                       value={form.name ?? ""}
                       onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                      className="w-40 rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="w-40 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   ) : (
                     <span className="font-medium text-sam-fg">{p.name}</span>
@@ -90,7 +90,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, durationDays: Number(e.target.value) }))
                       }
-                      className="w-16 rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="w-16 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   ) : (
                     `${p.durationDays}일`
@@ -105,7 +105,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, pointCost: Number(e.target.value) }))
                       }
-                      className="w-20 rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="w-20 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   ) : (
                     `${p.pointCost.toLocaleString()}P`
@@ -119,7 +119,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onChange={(e) =>
                         setForm((f) => ({ ...f, priorityDefault: Number(e.target.value) }))
                       }
-                      className="w-16 rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="w-16 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   ) : (
                     p.priorityDefault
@@ -134,7 +134,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                     />
                   ) : (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${
                         p.isActive ? "bg-emerald-100 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
@@ -149,14 +149,14 @@ export function AdProductTable({ products }: AdProductTableProps) {
                         type="button"
                         disabled={busy}
                         onClick={() => void save()}
-                        className="rounded bg-sky-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                        className="rounded bg-sky-600 px-2 py-1 sam-text-xxs font-semibold text-white disabled:opacity-50"
                       >
                         저장
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditing(null)}
-                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted"
+                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted"
                       >
                         취소
                       </button>
@@ -165,7 +165,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                     <button
                       type="button"
                       onClick={() => startEdit(p)}
-                      className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-fg hover:bg-sam-app"
+                      className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
                     >
                       수정
                     </button>

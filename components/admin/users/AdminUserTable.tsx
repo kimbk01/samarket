@@ -43,11 +43,11 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   return (
     <tr className="border-b border-sam-border-soft hover:bg-sam-app">
       <td className="px-3 py-2.5">
-        <span className="font-mono text-[13px] font-semibold text-sam-fg">{u.loginUsername ?? "—"}</span>
+        <span className="font-mono sam-text-body-secondary font-semibold text-sam-fg">{u.loginUsername ?? "—"}</span>
         {u.loginUsername ?
           <button
             type="button"
-            className="ml-2 align-baseline text-[12px] font-medium text-signature hover:underline"
+            className="ml-2 align-baseline sam-text-helper font-medium text-signature hover:underline"
             onClick={handleCopyLogin}
           >
             복사
@@ -56,7 +56,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         {!showMemberUuid ?
           <Link
             href={`/admin/users/${u.id}`}
-            className="ml-2 align-baseline text-[12px] font-medium text-signature hover:underline"
+            className="ml-2 align-baseline sam-text-helper font-medium text-signature hover:underline"
           >
             상세
           </Link>
@@ -64,17 +64,17 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       {showMemberUuid ?
         <td className="max-w-[240px] px-3 py-2.5 align-top">
-          <p className="break-all font-mono text-[11px] leading-snug text-sam-fg">{u.id}</p>
+          <p className="break-all font-mono sam-text-xxs leading-snug text-sam-fg">{u.id}</p>
           <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
             <Link
               href={`/admin/users/${u.id}`}
-              className="text-[12px] font-medium text-signature hover:underline"
+              className="sam-text-helper font-medium text-signature hover:underline"
             >
               상세
             </Link>
             <button
               type="button"
-              className="text-[12px] font-medium text-signature hover:underline"
+              className="sam-text-helper font-medium text-signature hover:underline"
               onClick={handleCopyUuid}
             >
               UUID 복사
@@ -84,7 +84,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       : null}
       <td className="px-3 py-2.5 text-sam-fg">{u.nickname}</td>
       <td className="px-3 py-2.5 text-sam-fg">{MEMBER_TYPE_LABELS[u.memberType]}</td>
-      <td className="px-3 py-2.5 text-[12px]">
+      <td className="px-3 py-2.5 sam-text-helper">
         <span
           className={`rounded-full px-2 py-0.5 font-medium ${
             u.phoneVerified ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"
@@ -103,7 +103,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         <p className="font-semibold text-sky-700">{(u.pointBalance ?? 0).toLocaleString()}P</p>
         <Link
           href={`/admin/users/${u.id}?tab=points`}
-          className="text-[11px] text-sam-meta hover:text-sky-600 hover:underline"
+          className="sam-text-xxs text-sam-meta hover:text-sky-600 hover:underline"
         >
           내역
         </Link>
@@ -115,13 +115,13 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="whitespace-nowrap px-3 py-2.5 align-top">
         <button
           type="button"
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 text-[12px] font-semibold text-signature shadow-sm hover:bg-sam-app"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-semibold text-signature shadow-sm hover:bg-sam-app"
           onClick={handleEdit}
         >
           수정
         </button>
       </td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+      <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
         {new Date(u.joinedAt).toLocaleDateString("ko-KR")}
       </td>
     </tr>
@@ -134,7 +134,7 @@ export function AdminUserTable({ users, onEditMember, showMemberUuid = false }: 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table
-        className={`w-full border-collapse text-[14px] ${showMemberUuid ? "min-w-[980px]" : "min-w-[720px]"}`}
+        className={`w-full border-collapse sam-text-body ${showMemberUuid ? "min-w-[980px]" : "min-w-[720px]"}`}
       >
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">

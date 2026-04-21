@@ -25,7 +25,7 @@ interface AdminUserModerationLogListProps {
 export function AdminUserModerationLogList({ logs }: AdminUserModerationLogListProps) {
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-sam-muted">제재 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">제재 이력이 없습니다.</p>
     );
   }
   const sorted = [...logs].sort(
@@ -36,7 +36,7 @@ export function AdminUserModerationLogList({ logs }: AdminUserModerationLogListP
       {sorted.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
         >
           <span className="text-sam-muted">
             {STATUS_LABELS[log.fromStatus] ?? log.fromStatus} →{" "}

@@ -26,7 +26,7 @@ export function OwnerChatInput({
             key={q}
             type="button"
             disabled={disabled}
-            className="rounded-full bg-sam-surface-muted px-2 py-1 text-[11px] text-sam-fg"
+            className="rounded-full bg-sam-surface-muted px-2 py-1 sam-text-xxs text-sam-fg"
             onClick={() => onSend(q)}
           >
             {q}
@@ -37,7 +37,7 @@ export function OwnerChatInput({
         <button
           type="button"
           disabled
-          className="shrink-0 rounded-ui-rect border border-dashed border-sam-border px-2 text-[11px] text-sam-meta"
+          className="shrink-0 rounded-ui-rect border border-dashed border-sam-border px-2 sam-text-xxs text-sam-meta"
         >
           사진
         </button>

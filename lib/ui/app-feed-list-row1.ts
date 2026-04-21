@@ -12,10 +12,10 @@ export const APP_FEED_LIST_ROW1_LAYOUT =
   "inline-flex items-center justify-center rounded-ui-rect px-2.5 py-1 font-bold leading-none";
 
 /** 카드 리스트(그리드) 행 */
-export const APP_FEED_LIST_ROW1_TEXT_LIST = "text-[12px]";
+export const APP_FEED_LIST_ROW1_TEXT_LIST = "sam-text-helper";
 
 /** 상세·헤더 등 조금 큰 맥락 */
-export const APP_FEED_LIST_ROW1_TEXT_DETAIL = "text-[13px]";
+export const APP_FEED_LIST_ROW1_TEXT_DETAIL = "sam-text-body-secondary";
 
 /** 리스트 1단 pill 베이스 — 배지·칩 공통(12px) */
 export const APP_FEED_LIST_ROW1_PILL_LIST = `${APP_FEED_LIST_ROW1_LAYOUT} ${APP_FEED_LIST_ROW1_TEXT_LIST}`;

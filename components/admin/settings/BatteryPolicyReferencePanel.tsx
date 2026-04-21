@@ -41,41 +41,41 @@ export function BatteryPolicyReferencePanel() {
   return (
     <div className="mt-8 space-y-6 rounded-ui-rect border border-sam-border bg-sam-app/80 p-5">
       <div>
-        <h3 className="text-[15px] font-semibold text-sam-fg">신뢰 점수·배터리(6단) 기준</h3>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <h3 className="sam-text-body font-semibold text-sam-fg">신뢰 점수·배터리(6단) 기준</h3>
+        <p className="mt-1 sam-text-helper text-sam-muted">
           원본은 <strong className="text-sam-fg">profiles.trust_score</strong>(0~100, 기본 50)이며, 화면의{" "}
           <strong className="text-sam-fg">% 숫자</strong>와 <strong className="text-sam-fg">6단계 배터리</strong>는
           아래 규칙으로만 결정됩니다. 당근 매너온도(°C)는 참고용입니다. 구현:{" "}
-          <code className="rounded bg-sam-surface px-1 text-[11px]">web/lib/trust/trust-score-core.ts</code> (
-          <code className="text-[11px]">trustScoreToUiPercent</code>, <code className="text-[11px]">trustScoreToBatteryLevel</code>
+          <code className="rounded bg-sam-surface px-1 sam-text-xxs">web/lib/trust/trust-score-core.ts</code> (
+          <code className="sam-text-xxs">trustScoreToUiPercent</code>, <code className="sam-text-xxs">trustScoreToBatteryLevel</code>
           ).
         </p>
       </div>
 
       <section className="rounded-ui-rect border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-emerald-900">0) 배터리 %(UI 표기) 산출</h4>
-        <ul className="mt-2 space-y-1.5 text-[13px] text-sam-fg">
+        <h4 className="sam-text-body-secondary font-semibold text-emerald-900">0) 배터리 %(UI 표기) 산출</h4>
+        <ul className="mt-2 space-y-1.5 sam-text-body-secondary text-sam-fg">
           <li>
-            <strong>표시 %</strong> = 내부 신뢰 점수 <code className="text-[12px]">s</code>에 대해 소수 둘째 자리까지
+            <strong>표시 %</strong> = 내부 신뢰 점수 <code className="sam-text-helper">s</code>에 대해 소수 둘째 자리까지
             반올림 후 0~100으로 자른 값을, 다시 <strong>정수 %로 반올림</strong>한 것과 동일합니다. (코드:{" "}
-            <code className="rounded bg-sam-surface px-1 text-[12px]">clampTrustScore</code> →{" "}
-            <code className="rounded bg-sam-surface px-1 text-[12px]">trustScoreToUiPercent</code>)
+            <code className="rounded bg-sam-surface px-1 sam-text-helper">clampTrustScore</code> →{" "}
+            <code className="rounded bg-sam-surface px-1 sam-text-helper">trustScoreToUiPercent</code>)
           </li>
           <li>
-            <strong>6칸 채움·단계</strong>는 표시 %가 아니라 같은 내부 점수 <code className="text-[12px]">s</code>를
-            구간으로 나눈 <code className="text-[12px]">trustScoreToBatteryLevel(s)</code> 결과입니다. (아래 3) 표)
+            <strong>6칸 채움·단계</strong>는 표시 %가 아니라 같은 내부 점수 <code className="sam-text-helper">s</code>를
+            구간으로 나눈 <code className="sam-text-helper">trustScoreToBatteryLevel(s)</code> 결과입니다. (아래 3) 표)
           </li>
           <li>
-            <code className="text-[12px]">trust_score</code>가 없을 때만 레거시 필드로 점수를 만든 뒤 위와 동일하게 %
+            <code className="sam-text-helper">trust_score</code>가 없을 때만 레거시 필드로 점수를 만든 뒤 위와 동일하게 %
             · 단계를 냅니다. (아래 2))
           </li>
         </ul>
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-sam-fg">1) 당근 매너 온도 (참고)</h4>
-        <p className="mt-2 text-[13px] leading-relaxed text-sam-fg">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
-        <ul className="mt-2 list-inside list-disc text-[12px] text-sam-muted">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">1) 당근 매너 온도 (참고)</h4>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">{DAANGN_MANNER_TEMP_REFERENCE.citationNote}</p>
+        <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-muted">
           <li>
             중립으로 자주 인용되는 예:{" "}
             <strong className="text-sam-fg">{DAANGN_MANNER_TEMP_REFERENCE.neutralExampleC}°C</strong>
@@ -88,16 +88,16 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-amber-900">2) 레거시 °C → 점수 (manner_temperature)</h4>
-        <p className="mt-2 text-[13px] text-sam-fg">
-          <code className="text-[12px]">trust_score</code>가 없고{" "}
-          <code className="text-[12px]">manner_temperature</code>만 있을 때만 아래 식으로 0~100 점으로 환산합니다.{" "}
-          <code className="text-[12px]">manner_score</code> 단독은 같은 점수로 간주(추가 °C 환산 없음)합니다.
+        <h4 className="sam-text-body-secondary font-semibold text-amber-900">2) 레거시 °C → 점수 (manner_temperature)</h4>
+        <p className="mt-2 sam-text-body-secondary text-sam-fg">
+          <code className="sam-text-helper">trust_score</code>가 없고{" "}
+          <code className="sam-text-helper">manner_temperature</code>만 있을 때만 아래 식으로 0~100 점으로 환산합니다.{" "}
+          <code className="sam-text-helper">manner_score</code> 단독은 같은 점수로 간주(추가 °C 환산 없음)합니다.
         </p>
-        <ul className="mt-2 space-y-1.5 text-[13px] text-sam-fg">
+        <ul className="mt-2 space-y-1.5 sam-text-body-secondary text-sam-fg">
           <li>
             소수이고 0 초과 ~ {KASAMA_LEGACY_TEMP_INPUT_MAX} 이하 →{" "}
-            <code className="rounded bg-amber-50 px-1.5 py-0.5 text-[12px]">
+            <code className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-helper">
               round(clamp((°C ÷ {KASAMA_LEGACY_TEMP_NEUTRAL}) × {KASAMA_NEUTRAL_BATTERY_PERCENT}, 0, 100))
             </code>
           </li>
@@ -106,15 +106,15 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-sky-900">3) 배터리 단계 — 점수 구간 고정 매핑</h4>
-        <p className="mt-2 text-[13px] text-sam-fg">
+        <h4 className="sam-text-body-secondary font-semibold text-sky-900">3) 배터리 단계 — 점수 구간 고정 매핑</h4>
+        <p className="mt-2 sam-text-body-secondary text-sam-fg">
           내부 점수 s(0~100)를 <strong>6등분 ceil이 아니라</strong> 아래 고정 구간으로 단계를 정합니다. 단계 k는 채워지는 칸
           수와 같습니다.
         </p>
-        <p className="mt-2 font-mono text-[12px] text-sam-fg">{KASAMA_PERCENT_TO_TIER_FORMULA}</p>
+        <p className="mt-2 font-mono sam-text-helper text-sam-fg">{KASAMA_PERCENT_TO_TIER_FORMULA}</p>
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[320px] border-collapse text-left text-[12px]">
+          <table className="w-full min-w-[320px] border-collapse text-left sam-text-helper">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-sam-muted">
                 <th className="py-2 pr-3 font-medium">단계</th>
@@ -134,15 +134,15 @@ export function BatteryPolicyReferencePanel() {
           </table>
         </div>
 
-        <p className="mt-3 text-[11px] text-sam-muted">
+        <p className="mt-3 sam-text-xxs text-sam-muted">
           예: 점수 <strong>50</strong> → <strong>3단계(3칸)</strong> · 점수 <strong>75</strong> →{" "}
           <strong>5단계(5칸)</strong>
         </p>
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-sam-fg">4) 이벤트·가중·일일 상한 (서버 반영)</h4>
-        <ul className="mt-2 list-inside list-disc text-[12px] text-sam-fg">
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">4) 이벤트·가중·일일 상한 (서버 반영)</h4>
+        <ul className="mt-2 list-inside list-disc sam-text-helper text-sam-fg">
           <li>
             가산 이벤트는 최근 30일이면 <strong>×{TRUST_POLICY_CHEATSHEET.recentPositiveMultiplier}</strong>, 감산은 배율
             없음
@@ -152,7 +152,7 @@ export function BatteryPolicyReferencePanel() {
             관리자 조정·감산은 별도)
           </li>
         </ul>
-        <div className="mt-3 overflow-x-auto rounded border border-sam-border-soft bg-sam-app/80 p-2 text-[11px] text-sam-fg">
+        <div className="mt-3 overflow-x-auto rounded border border-sam-border-soft bg-sam-app/80 p-2 sam-text-xxs text-sam-fg">
           <table className="w-full min-w-[280px] border-collapse text-left">
             <tbody>
               {(Object.entries(deltas) as [keyof typeof deltas, number][]).map(([k, v]) => (
@@ -167,21 +167,21 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-sam-fg">5) 산출 흐름 도식</h4>
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">5) 산출 흐름 도식</h4>
         <div className="mt-3 rounded-ui-rect bg-sam-app p-3">
           <BatteryPolicyFlowDiagram />
         </div>
       </section>
 
       <section className="rounded-ui-rect border border-sam-surface bg-sam-surface p-4 shadow-sm">
-        <h4 className="text-[13px] font-semibold text-sam-fg">6) 단계별 아이콘 예시 (1~6칸)</h4>
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">6) 단계별 아이콘 예시 (1~6칸)</h4>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           {([1, 2, 3, 4, 5, 6] as const).map((t) => {
             const p = TIER_SAMPLE_SCORES[t];
             return (
               <div key={t} className="flex flex-col items-center gap-1">
                 <MannerBatteryIcon tier={t as MannerBatteryTier} percent={p} size="sm" />
-                <span className="text-[10px] text-sam-muted">{t}단계</span>
+                <span className="sam-text-xxs text-sam-muted">{t}단계</span>
               </div>
             );
           })}
@@ -189,19 +189,19 @@ export function BatteryPolicyReferencePanel() {
       </section>
 
       <section className="rounded-ui-rect border border-dashed border-sam-border bg-signature/5 p-4">
-        <h4 className="text-[13px] font-semibold text-sam-fg">미리보기</h4>
+        <h4 className="sam-text-body-secondary font-semibold text-sam-fg">미리보기</h4>
         <div className="mt-2 flex flex-wrap items-end gap-3">
-          <label className="block text-[12px] text-sam-muted">
+          <label className="block sam-text-helper text-sam-muted">
             입력값
             <input
               type="text"
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
-              className="ml-2 mt-1 w-28 rounded border border-sam-border px-2 py-1.5 text-[13px]"
+              className="ml-2 mt-1 w-28 rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               placeholder="50"
             />
           </label>
-          <fieldset className="flex flex-wrap gap-3 text-[12px] text-sam-fg">
+          <fieldset className="flex flex-wrap gap-3 sam-text-helper text-sam-fg">
             <label className="flex cursor-pointer items-center gap-1.5">
               <input
                 type="radio"
@@ -223,18 +223,18 @@ export function BatteryPolicyReferencePanel() {
           </fieldset>
           {preview ? (
             <div className="flex items-center gap-3">
-              <div className="text-[13px] text-sam-fg">
+              <div className="sam-text-body-secondary text-sam-fg">
                 → <strong className="tabular-nums">{preview.percent}%</strong> · <strong>{preview.tier}단계</strong>
               </div>
               <MannerBatteryIcon tier={preview.tier} percent={preview.percent} size="md" />
             </div>
           ) : (
-            <p className="text-[12px] text-red-600">숫자를 입력해 주세요.</p>
+            <p className="sam-text-helper text-red-600">숫자를 입력해 주세요.</p>
           )}
         </div>
       </section>
 
-      <p className="text-[11px] text-sam-meta">배터리 시각 단계 수: {BATTERY_SEGMENT_COUNT}</p>
+      <p className="sam-text-xxs text-sam-meta">배터리 시각 단계 수: {BATTERY_SEGMENT_COUNT}</p>
     </div>
   );
 }

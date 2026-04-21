@@ -51,14 +51,14 @@ export function AdminCommunityEnginePostsClient() {
       <button
         type="button"
         onClick={() => void load()}
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px]"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
       >
         새로고침
       </button>
-      {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="min-w-full text-left text-[12px] text-sam-fg">
-          <thead className="bg-sam-app text-[11px] uppercase text-sam-muted">
+        <table className="min-w-full text-left sam-text-helper text-sam-fg">
+          <thead className="bg-sam-app sam-text-xxs uppercase text-sam-muted">
             <tr>
               <th className="px-2 py-2">제목</th>
               <th className="px-2 py-2">카테고리</th>
@@ -76,7 +76,7 @@ export function AdminCommunityEnginePostsClient() {
                 <tr key={id} className="border-t border-sam-border-soft">
                   <td className="max-w-[200px] truncate px-2 py-2">
                     {title}
-                    {isSample ? <span className="ml-1 rounded bg-signature/10 px-1 py-0.5 text-[10px] text-sam-fg">샘플</span> : null}
+                    {isSample ? <span className="ml-1 rounded bg-signature/10 px-1 py-0.5 sam-text-xxs text-sam-fg">샘플</span> : null}
                   </td>
                   <td className="px-2 py-2">{String(r.category ?? "")}</td>
                   <td className="px-2 py-2">{String(r.status ?? "")}</td>

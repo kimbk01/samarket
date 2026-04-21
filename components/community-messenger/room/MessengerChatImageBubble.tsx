@@ -42,7 +42,7 @@ export function MessengerChatImageBubble(props: {
         <AlbumLayout urls={album} pending={pending} onOpenCell={openFrom} />
         {pending ? (
           <p
-            className={`mt-1 text-center text-[11px] ${item.isMine ? "text-white/85" : "text-sam-muted"}`}
+            className={`mt-1 text-center sam-text-xxs ${item.isMine ? "text-white/85" : "text-sam-muted"}`}
           >
             전송 중…
           </p>
@@ -134,7 +134,7 @@ function AlbumLayout({
             loading="lazy"
             decoding="async"
           />
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[17px] font-bold text-white">
+          <span className="absolute inset-0 flex items-center justify-center bg-black/45 sam-text-section-title font-bold text-white">
             +{restCount}
           </span>
         </button>
@@ -193,7 +193,7 @@ function SingleChatImage({
         </div>
       </button>
       {pending ? (
-        <p className={`mt-1 text-center text-[11px] ${isMine ? "text-white/85" : "text-sam-muted"}`}>전송 중…</p>
+        <p className={`mt-1 text-center sam-text-xxs ${isMine ? "text-white/85" : "text-sam-muted"}`}>전송 중…</p>
       ) : null}
     </div>
   );

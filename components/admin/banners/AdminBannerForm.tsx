@@ -58,19 +58,19 @@ export function AdminBannerForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           제목
         </label>
         <input
           type="text"
           value={values.title}
           onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="배너 제목"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           설명
         </label>
         <textarea
@@ -79,24 +79,24 @@ export function AdminBannerForm({
             setValues((v) => ({ ...v, description: e.target.value }))
           }
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="내부용 설명"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           이미지 URL (데스크톱)
         </label>
         <input
           type="text"
           value={values.imageUrl}
           onChange={(e) => setValues((v) => ({ ...v, imageUrl: e.target.value }))}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="이미지 URL 또는 업로드 예정"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           이미지 URL (모바일)
         </label>
         <input
@@ -105,24 +105,24 @@ export function AdminBannerForm({
           onChange={(e) =>
             setValues((v) => ({ ...v, mobileImageUrl: e.target.value }))
           }
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="모바일 이미지 URL 또는 업로드 예정"
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           클릭 URL
         </label>
         <input
           type="text"
           value={values.targetUrl}
           onChange={(e) => setValues((v) => ({ ...v, targetUrl: e.target.value }))}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="https://..."
         />
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           노출 위치
         </label>
         <select
@@ -133,7 +133,7 @@ export function AdminBannerForm({
               placement: e.target.value as BannerPlacement,
             }))
           }
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         >
           {placements.map((p) => (
             <option key={p.key} value={p.key}>
@@ -143,7 +143,7 @@ export function AdminBannerForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           우선순위 (숫자 작을수록 먼저)
         </label>
         <input
@@ -153,12 +153,12 @@ export function AdminBannerForm({
           onChange={(e) =>
             setValues((v) => ({ ...v, priority: parseInt(e.target.value, 10) || 0 }))
           }
-          className="w-24 rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             노출 시작일
           </label>
           <input
@@ -170,11 +170,11 @@ export function AdminBannerForm({
                 startAt: e.target.value ? new Date(e.target.value).toISOString() : "",
               }))
             }
-            className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+            className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           />
         </div>
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             노출 종료일
           </label>
           <input
@@ -186,12 +186,12 @@ export function AdminBannerForm({
                 endAt: e.target.value ? new Date(e.target.value).toISOString() : "",
               }))
             }
-            className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+            className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
@@ -200,13 +200,13 @@ export function AdminBannerForm({
             setValues((v) => ({ ...v, adminMemo: e.target.value }))
           }
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           placeholder="내부 메모"
         />
       </div>
       {initial && "status" in initial && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             상태
           </label>
           <select
@@ -214,7 +214,7 @@ export function AdminBannerForm({
             onChange={(e) =>
               setValues((v) => ({ ...v, status: e.target.value as BannerStatus }))
             }
-            className="rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           >
             <option value="draft">초안</option>
             <option value="active">활성</option>
@@ -226,7 +226,7 @@ export function AdminBannerForm({
       <div className="flex gap-2">
         <button
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
         >
           {submitLabel}
         </button>

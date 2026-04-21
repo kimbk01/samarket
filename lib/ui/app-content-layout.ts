@@ -19,9 +19,11 @@ export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-3 sm:-mx-4 md:-mx-5";
 /** 내정보 하위 페이지 기본 본문 폭 — 피드·1단과 동일 `max-w` 체인(가로 태블릿까지) */
 export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
-/** 설정·알림 등 폼형 하위 페이지 — 태블릿에서만 약간 넓혀 주고 과도한 가로 확장은 막음 */
-export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS =
-  "mx-auto w-full min-w-0 max-w-lg px-3 sm:max-w-xl sm:px-4 md:max-w-xl md:px-5";
+/**
+ * 설정·알림 등 폼형 하위 페이지 — **메인 본문과 동일** max-w·거터(좌우 여밉 통일).
+ * 과도한 가로 확장은 메인 컬럼 체인으로만 제한.
+ */
+export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS = APP_MYPAGE_SUBPAGE_BODY_CLASS;
 
 /**
  * 본문이 `APP_MAIN_COLUMN_CLASS`(좁은 컬럼) 안에 있을 때, 1단 바 배경만 뷰포트 전폭으로 맞출 때 사용.

@@ -43,12 +43,12 @@ export function ProfileBasicFields({
   errors = {},
 }: ProfileBasicFieldsProps) {
   const controlClass =
-    "mt-1 w-full rounded border border-sam-border px-2.5 py-1.5 text-[13px] leading-snug";
+    "mt-1 w-full rounded border border-sam-border px-2.5 py-1.5 sam-text-body-secondary leading-snug";
 
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">닉네임 *</label>
+        <label className="sam-text-body-secondary font-medium text-sam-fg">닉네임 *</label>
         <input
           type="text"
           value={nickname}
@@ -57,11 +57,11 @@ export function ProfileBasicFields({
           className={controlClass}
         />
         {errors.nickname && (
-          <p className="mt-0.5 text-[11px] text-red-600">{errors.nickname}</p>
+          <p className="mt-0.5 sam-text-xxs text-red-600">{errors.nickname}</p>
         )}
       </div>
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">나의 상태</label>
+        <label className="sam-text-body-secondary font-medium text-sam-fg">나의 상태</label>
         <textarea
           value={bio}
           onChange={(e) => onBioChange(e.target.value)}
@@ -71,7 +71,7 @@ export function ProfileBasicFields({
         />
       </div>
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">연락처</label>
+        <label className="sam-text-body-secondary font-medium text-sam-fg">연락처</label>
         <input
           type="tel"
           inputMode="numeric"
@@ -82,10 +82,10 @@ export function ProfileBasicFields({
           placeholder={PH_MOBILE_PLACEHOLDER}
           className={controlClass}
         />
-        {errors.phone ? <p className="mt-0.5 text-[11px] text-red-600">{errors.phone}</p> : null}
+        {errors.phone ? <p className="mt-0.5 sam-text-xxs text-red-600">{errors.phone}</p> : null}
       </div>
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">선호 언어</label>
+        <label className="sam-text-body-secondary font-medium text-sam-fg">선호 언어</label>
         <select
           value={preferredLanguage}
           onChange={(e) => onPreferredLanguageChange(e.target.value)}
@@ -99,7 +99,7 @@ export function ProfileBasicFields({
         </select>
       </div>
       <div>
-        <label className="text-[13px] font-medium text-sam-fg">선호 국가</label>
+        <label className="sam-text-body-secondary font-medium text-sam-fg">선호 국가</label>
         <select
           value={preferredCountry}
           onChange={(e) => onPreferredCountryChange(e.target.value)}

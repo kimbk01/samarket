@@ -24,7 +24,7 @@ async function PurchaseDetailPageBody({ params }: PageProps) {
   if (!chatId) {
     return (
       <div className="min-h-screen bg-background px-4 py-8">
-        <p className="text-center text-[14px] text-sam-muted">잘못된 경로입니다.</p>
+        <p className="text-center sam-text-body text-sam-muted">잘못된 경로입니다.</p>
       </div>
     );
   }

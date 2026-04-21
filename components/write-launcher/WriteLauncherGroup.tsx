@@ -22,7 +22,7 @@ export function WriteLauncherGroup({
   return (
     <div className="px-1">
       {title ? (
-        <h3 className="px-4 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-wide text-sam-muted">{title}</h3>
+        <h3 className="px-4 pb-1 pt-2 sam-text-helper font-semibold uppercase tracking-wide text-sam-muted">{title}</h3>
       ) : null}
       {categories.map((c) => (
         <WriteLauncherItem key={c.id} category={c} onNavigate={onItemClick} />

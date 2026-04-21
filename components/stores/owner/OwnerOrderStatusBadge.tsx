@@ -34,7 +34,7 @@ const CLS: Record<OwnerOrderStatus, string> = {
 export function OwnerOrderStatusBadge({ status }: { status: OwnerOrderStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ring-inset ${CLS[status]}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 sam-text-xxs font-bold ring-1 ring-inset ${CLS[status]}`}
     >
       {LABEL[status]}
     </span>

@@ -202,7 +202,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       >
         <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
-            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 text-[12px] leading-snug text-[color:var(--cm-room-text)]">
+            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.roomStatus === "blocked"
                 ? vm.t("nav_messenger_room_blocked_notice")
                 : vm.snapshot.room.roomStatus === "archived"
@@ -212,11 +212,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : null}
           {(vm.managedDirectCallError || (vm.call.errorMessage && !vm.call.panel) || vm.groupCallAutoAcceptNotice) ? (
-            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2.5 text-[12px] text-[color:var(--cm-room-text)]">
+            <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2.5 sam-text-helper text-[color:var(--cm-room-text)]">
               {vm.managedDirectCallError ?? vm.call.errorMessage ?? vm.groupCallAutoAcceptNotice}
             </div>
           ) : null}
-          <p className="mx-auto max-w-[min(100%,22rem)] rounded-full bg-[color:var(--cm-room-primary-soft)] px-3 py-1 text-center text-[10px] leading-snug text-[color:var(--cm-room-text-muted)]">
+          <p className="mx-auto max-w-[min(100%,22rem)] rounded-full bg-[color:var(--cm-room-primary-soft)] px-3 py-1 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)]">
             {vm.roomTypeLabel}
             {vm.roomJoinLabel ? ` · ${vm.roomJoinLabel}` : ""}
             {vm.roomIdentityLabel ? ` · ${vm.roomIdentityLabel}` : ""}
@@ -235,12 +235,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               className="flex w-full items-center justify-between gap-2 rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 text-left active:bg-[color:var(--cm-room-primary-soft)]"
             >
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]">공지</p>
-                <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-[color:var(--cm-room-text)]">
+                <p className="sam-text-xxs font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]">공지</p>
+                <p className="mt-0.5 line-clamp-2 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
                   {vm.snapshot.room.summary.trim()}
                 </p>
               </div>
-              <span className="shrink-0 text-[14px] text-[color:var(--cm-room-text-muted)]">›</span>
+              <span className="shrink-0 sam-text-body text-[color:var(--cm-room-text-muted)]">›</span>
             </button>
           ) : null}
           {vm.hasMoreOlderMessages && vm.roomMessages.length > 0 ? (
@@ -249,9 +249,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               className="flex min-h-[24px] flex-col items-center justify-center gap-1 py-2"
             >
               {vm.loadingOlderMessages ? (
-                <span className="text-[12px] text-ui-muted">이전 대화를 불러오는 중…</span>
+                <span className="sam-text-helper text-ui-muted">이전 대화를 불러오는 중…</span>
               ) : (
-                <span className="text-[11px] text-ui-muted">맨 위로 스크롤하면 이전 대화를 불러옵니다</span>
+                <span className="sam-text-xxs text-ui-muted">맨 위로 스크롤하면 이전 대화를 불러옵니다</span>
               )}
             </div>
           ) : null}
@@ -358,7 +358,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                       };
 
               const systemBubbleClass =
-                "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center text-[11px] leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
+                "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
 
               const viberInnerBody: ReactNode = (() => {
                 const mineLight = item.isMine;
@@ -385,7 +385,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
                       />
                       {item.pending ? (
-                        <span className={`mt-1 text-[11px] ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
+                        <span className={`mt-1 sam-text-xxs ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
                       ) : null}
                     </div>
                   );
@@ -427,7 +427,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                             {item.fileName?.trim() || "첨부 파일"}
                           </p>
                           <p
-                            className={`mt-1 text-[12px] ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}
+                            className={`mt-1 sam-text-helper ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}
                           >
                             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
                           </p>
@@ -435,7 +435,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                       </div>
                       <div className="mt-3">
                         {item.pending ? (
-                          <span className={`text-[12px] ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>
+                          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>
                             업로드 중…
                           </span>
                         ) : item.content.trim() ? (
@@ -448,7 +448,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                                 ? item.fileName?.trim() || "community-messenger-file"
                                 : undefined
                             }
-                            className={`inline-flex rounded-[10px] border px-3 py-2 text-[12px] font-semibold ${
+                            className={`inline-flex rounded-[10px] border px-3 py-2 sam-text-helper font-semibold ${
                               item.isMine
                                 ? "border-sam-surface/40 bg-sam-surface/15 text-white"
                                 : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
@@ -491,14 +491,14 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
                           <span
-                            className={`text-[14px] font-semibold leading-snug ${
+                            className={`sam-text-body font-semibold leading-snug ${
                               item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"
                             }`}
                           >
                             {item.callKind === "video" ? vm.t("nav_video_call_label") : vm.t("nav_voice_call_label")}
                           </span>
                           <span
-                            className={`text-[11px] font-medium leading-snug ${
+                            className={`sam-text-xxs font-medium leading-snug ${
                               item.isMine ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"
                             }`}
                           >
@@ -513,7 +513,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   <div className="flex w-max max-w-full flex-col gap-2">
                     <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
                       <p
-                        className={`inline-block w-fit max-w-full text-[14px] leading-snug break-keep [overflow-wrap:break-word] ${
+                        className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
                           mineLight ? "text-white" : "text-[color:var(--cm-room-text)]"
                         }`}
                       >
@@ -521,7 +521,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                       </p>
                       {item.pending ? (
                         <span
-                          className={`shrink-0 text-[11px] ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
+                          className={`shrink-0 sam-text-xxs ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
                         >
                           {vm.t("common_sending")}
                         </span>
@@ -537,7 +537,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                               href={url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 text-[11px] ${
+                              className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
                                 mineLight
                                   ? "border-sam-surface/35 bg-sam-surface/15 text-white"
                                   : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
@@ -568,7 +568,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   {item.messageType === "system" ? (
                     <div className="max-w-[92%] px-2">
                       <div className={systemBubbleClass}>
-                        <p className="text-center text-[12px] leading-5">{item.content}</p>
+                        <p className="text-center sam-text-helper leading-5">{item.content}</p>
                       </div>
                     </div>
                   ) : (
@@ -588,7 +588,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                                 className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center text-[14px] font-semibold leading-none text-sam-muted shadow-sm">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
                                 {peerAvatar?.initials?.slice(0, 1) ?? "?"}
                               </div>
                             )
@@ -602,7 +602,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         className={`flex min-h-0 min-w-0 flex-1 flex-col ${item.isMine ? "items-end" : "items-start"}`}
                       >
                         {vm.isGroupRoom && !item.isMine && showPeerAvatar ? (
-                          <p className="mb-0.5 max-w-full pl-0.5 text-[12px] font-semibold text-[color:var(--cm-room-primary)]">
+                          <p className="mb-0.5 max-w-full pl-0.5 sam-text-helper font-semibold text-[color:var(--cm-room-primary)]">
                             {vm.tt(item.senderLabel)}
                           </p>
                         ) : null}
@@ -614,11 +614,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         >
                           {item.isMine ? (
                             <>
-                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                              <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
                               {latestReadableMineMessageId === item.id ? (
-                                <span className="shrink-0 self-end pb-1 text-[10px] leading-none text-[color:var(--cm-room-text-muted)]">
+                                <span className="shrink-0 self-end pb-1 sam-text-xxs leading-none text-[color:var(--cm-room-text-muted)]">
                                   {peerHasReadMyLatestMessage ? "읽음" : "안읽음"}
                                 </span>
                               ) : null}
@@ -649,7 +649,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                                   )}
                                 </ViberChatBubble>
                               </div>
-                              <span className="shrink-0 self-end pb-1 text-[10px] tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
+                              <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
                             </>
@@ -668,7 +668,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                                 className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
                               />
                             ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center text-[14px] font-semibold leading-none text-sam-muted shadow-sm">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
                                 {myAvatar?.initials?.slice(0, 1) ?? "나"}
                               </div>
                             )
@@ -684,10 +684,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             })}
             </div>
           ) : (
-            <div className="px-4 py-12 text-center text-[13px] text-[color:var(--cm-room-text-muted)]">
+            <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
               아직 메시지가 없습니다.
               <br />
-              <span className="mt-1 inline-block text-[12px]">첫 인사를 남겨보세요.</span>
+              <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
             </div>
           )}
           <div ref={vm.messageEndRef} />

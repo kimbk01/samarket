@@ -18,12 +18,12 @@ export function AdminBannerPreview({ banner }: AdminBannerPreviewProps) {
             className="h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-[13px] text-sam-meta">
+          <div className="flex h-full items-center justify-center sam-text-body-secondary text-sam-meta">
             이미지 없음
           </div>
         )}
       </div>
-      <div className="border-t border-sam-border px-3 py-2 text-[13px] text-sam-muted">
+      <div className="border-t border-sam-border px-3 py-2 sam-text-body-secondary text-sam-muted">
         {banner.title || "(제목 없음)"}
       </div>
     </div>

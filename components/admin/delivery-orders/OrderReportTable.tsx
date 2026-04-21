@@ -27,7 +27,7 @@ export function OrderReportTable({
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[920px] border-collapse text-[13px]">
+      <table className="w-full min-w-[920px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             <th className="px-2 py-2">신고번호</th>
@@ -49,8 +49,8 @@ export function OrderReportTable({
                 className={`cursor-pointer border-b border-sam-border-soft ${active ? "bg-amber-50/80" : "hover:bg-sam-app/80"}`}
                 onClick={() => onSelect(r.id)}
               >
-                <td className="px-2 py-2 font-mono text-[12px]">{r.id}</td>
-                <td className="px-2 py-2 font-mono text-[12px]">{orderNoById[r.orderId] ?? r.orderId}</td>
+                <td className="px-2 py-2 font-mono sam-text-helper">{r.id}</td>
+                <td className="px-2 py-2 font-mono sam-text-helper">{orderNoById[r.orderId] ?? r.orderId}</td>
                 <td className="px-2 py-2">{r.reporterName}</td>
                 <td className="px-2 py-2 max-w-[140px] truncate">{storeNameByOrderId[r.orderId] ?? "—"}</td>
                 <td className="px-2 py-2">{r.reportType}</td>

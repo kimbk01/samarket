@@ -35,7 +35,7 @@ export function MemberOrderStatusBadge({ status }: { status: MemberOrderStatus }
   const { tt } = useI18n();
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${CLS[status]}`}
+      className={`inline-flex rounded-full px-2.5 py-0.5 sam-text-xxs font-bold ${CLS[status]}`}
     >
       {tt(LABEL[status])}
     </span>

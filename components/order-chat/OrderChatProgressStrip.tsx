@@ -31,7 +31,7 @@ export function OrderChatProgressStrip({
 
   return (
     <div className="border-b border-sam-border-soft bg-sam-surface px-2 py-2">
-      <p className="mb-1.5 text-center text-[10px] font-medium text-sam-meta">주문 진행</p>
+      <p className="mb-1.5 text-center sam-text-xxs font-medium text-sam-meta">주문 진행</p>
       <ol className="mx-auto flex max-w-md items-start justify-between gap-0.5">
         {labels.map((label, i) => {
           const done = !isTerminal && (allDone || i < cur);
@@ -39,7 +39,7 @@ export function OrderChatProgressStrip({
           return (
             <li key={label} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
               <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full sam-text-xxs font-bold ${
                   isTerminal
                     ? "bg-sam-surface-muted text-sam-meta"
                     : on
@@ -52,7 +52,7 @@ export function OrderChatProgressStrip({
                 {isTerminal ? "—" : done ? "✓" : i + 1}
               </span>
               <span
-                className={`text-center text-[9px] font-medium leading-tight sm:text-[10px] ${
+                className={`text-center sam-text-xxs font-medium leading-tight sm:sam-text-xxs ${
                   isTerminal ? "text-sam-meta" : on ? "text-sam-fg" : done ? "text-sam-fg" : "text-sam-meta"
                 }`}
               >
@@ -63,7 +63,7 @@ export function OrderChatProgressStrip({
         })}
       </ol>
       {isTerminal ? (
-        <p className="mt-1 text-center text-[10px] text-sam-muted">취소·환불 등 처리 단계입니다.</p>
+        <p className="mt-1 text-center sam-text-xxs text-sam-muted">취소·환불 등 처리 단계입니다.</p>
       ) : null}
     </div>
   );

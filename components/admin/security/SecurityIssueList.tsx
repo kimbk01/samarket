@@ -23,13 +23,13 @@ export function SecurityIssueList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">이슈 상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">이슈 상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as SecurityIssueStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="open">미해결</option>
@@ -38,7 +38,7 @@ export function SecurityIssueList() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건의 보안 이슈가 없습니다.
         </div>
       ) : (
@@ -54,7 +54,7 @@ export function SecurityIssueList() {
                     : "border-sam-border bg-sam-surface"
                 }`}
               >
-                <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+                <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
                   <span>
                     {check ? getCheckTypeLabel(check.checkType) : i.checkId}
                   </span>
@@ -81,7 +81,7 @@ export function SecurityIssueList() {
                 </div>
                 <p className="mt-2 font-medium text-sam-fg">{i.issueTitle}</p>
                 {i.note && (
-                  <p className="mt-1 text-[13px] text-sam-muted">{i.note}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-muted">{i.note}</p>
                 )}
               </li>
             );

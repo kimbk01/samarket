@@ -105,7 +105,7 @@ export function StoreCommerceOrderTimeline({
             const segCls = connectorClass(segKind, terminal);
 
             const circleBase =
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] transition-colors";
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border sam-text-xxs transition-colors";
             let circleCls = circleBase;
             if (terminal) {
               circleCls += " border-sam-border bg-sam-app text-sam-meta";
@@ -132,7 +132,7 @@ export function StoreCommerceOrderTimeline({
                     {terminal ? "—" : isNaRow ? "—" : done ? "✓" : i + 1}
                   </span>
                   <span
-                    className={`mt-1.5 block max-w-full text-center text-[10px] font-medium leading-tight break-keep sm:text-[11px] ${
+                    className={`mt-1.5 block max-w-full text-center sam-text-xxs font-medium leading-tight break-keep sm:sam-text-xxs ${
                       terminal || isNaRow
                         ? isNaRow && !terminal
                           ? "text-sam-meta"
@@ -156,12 +156,12 @@ export function StoreCommerceOrderTimeline({
               />
               <div className="flex w-[3.35rem] shrink-0 flex-col items-center sm:w-[3.65rem]">
                 <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] ${terminalSuffix.circleClass}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border sam-text-xxs ${terminalSuffix.circleClass}`}
                 >
                   ✓
                 </span>
                 <span
-                  className={`mt-1.5 block max-w-full text-center text-[10px] leading-tight break-keep sm:text-[11px] ${terminalSuffix.labelClass}`}
+                  className={`mt-1.5 block max-w-full text-center sam-text-xxs leading-tight break-keep sm:sam-text-xxs ${terminalSuffix.labelClass}`}
                 >
                   {terminalSuffix.label}
                 </span>
@@ -188,7 +188,7 @@ export function StoreCommerceOrderTimeline({
           const connectorBeforeFilled = !terminal && i > 0 && (allDone || i - 1 < cur);
 
           const circleBase =
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] transition-colors";
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border sam-text-xxs transition-colors";
           let circleCls = circleBase;
           if (terminal) {
             circleCls += " border-sam-border bg-sam-app text-sam-meta";
@@ -211,7 +211,7 @@ export function StoreCommerceOrderTimeline({
               <div className="flex w-[3.35rem] shrink-0 flex-col items-center sm:w-[3.65rem]">
                 <span className={circleCls}>{terminal ? "—" : stepDone ? "✓" : i + 1}</span>
                 <span
-                  className={`mt-1.5 block max-w-full text-center text-[10px] font-medium leading-tight break-keep sm:text-[11px] ${
+                  className={`mt-1.5 block max-w-full text-center sam-text-xxs font-medium leading-tight break-keep sm:sam-text-xxs ${
                     terminal ? "text-sam-meta" : stepDone || on ? "text-signature" : "text-sam-meta"
                   }`}
                 >
@@ -229,12 +229,12 @@ export function StoreCommerceOrderTimeline({
             />
             <div className="flex w-[3.35rem] shrink-0 flex-col items-center sm:w-[3.65rem]">
               <span
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[11px] ${terminalSuffix.circleClass}`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border sam-text-xxs ${terminalSuffix.circleClass}`}
               >
                 ✓
               </span>
               <span
-                className={`mt-1.5 block max-w-full text-center text-[10px] leading-tight break-keep sm:text-[11px] ${terminalSuffix.labelClass}`}
+                className={`mt-1.5 block max-w-full text-center sam-text-xxs leading-tight break-keep sm:sam-text-xxs ${terminalSuffix.labelClass}`}
               >
                 {terminalSuffix.label}
               </span>

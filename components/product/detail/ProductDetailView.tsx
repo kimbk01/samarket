@@ -196,12 +196,12 @@ export function ProductDetailView({
           {/* 상품 정보 */}
           <section className="border-t border-sam-border-soft px-4 py-4 md:border-t-0">
             {product.isBoosted && (
-              <span className="mb-2 inline-block rounded bg-signature px-1.5 py-0.5 text-[11px] font-medium text-white">
+              <span className="mb-2 inline-block rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
                 끌올
               </span>
             )}
             <span
-              className={`inline-block rounded border-2 border-current px-1.5 py-0.5 text-[11px] font-medium ${
+              className={`inline-block rounded border-2 border-current px-1.5 py-0.5 sam-text-xxs font-medium ${
                 isSold
                   ? "bg-sam-surface-muted text-sam-muted"
                   : product.status === "reserved"
@@ -213,13 +213,13 @@ export function ProductDetailView({
             >
               {STATUS_LABEL[product.status]}
             </span>
-            <h1 className={`mt-2 text-[20px] font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>
+            <h1 className={`mt-2 sam-text-page-title font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>
               {product.title}
             </h1>
-            <p className="mt-1 text-[22px] font-bold text-sam-fg">
+            <p className="mt-1 sam-text-hero font-bold text-sam-fg">
               {formatPrice(product.price, currency)}
             </p>
-            <ul className="mt-3 space-y-1 text-[13px] text-sam-muted">
+            <ul className="mt-3 space-y-1 sam-text-body-secondary text-sam-muted">
               {product.category && <li>카테고리 · {product.category}</li>}
               <li>지역 · {product.location}</li>
               <li>등록 · {formatTimeAgo(product.createdAt)}</li>
@@ -254,7 +254,7 @@ export function ProductDetailView({
       {/* 상품 설명 — 전체 폭 */}
       {product.description && (
         <section className="border-t border-sam-border-soft px-4 py-4">
-          <p className="text-[15px] leading-6 text-sam-fg whitespace-pre-wrap">
+          <p className="sam-text-body leading-6 text-sam-fg whitespace-pre-wrap">
             {product.description}
           </p>
         </section>
@@ -273,11 +273,11 @@ export function ProductDetailView({
             className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface`}
           >
             <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="text-[16px] font-semibold text-sam-fg">신고</h2>
+              <h2 className="sam-text-body-lg font-semibold text-sam-fg">신고</h2>
               <button
                 type="button"
                 onClick={() => setReportSheet(null)}
-                className="text-[14px] text-sam-muted"
+                className="sam-text-body text-sam-muted"
               >
                 닫기
               </button>

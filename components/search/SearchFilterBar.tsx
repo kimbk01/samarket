@@ -64,7 +64,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, regionId: e.target.value })
           }
-          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg"
+          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           <option value="">{t("common_all_region")}</option>
           {getRegionOptions().map((r) => (
@@ -78,7 +78,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, category: e.target.value })
           }
-          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg"
+          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           <option value="">{t("common_all_category")}</option>
           {categories.map((c) => (
@@ -92,7 +92,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, status: e.target.value })
           }
-          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg"
+          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -105,7 +105,7 @@ export function SearchFilterBar({
           onChange={(e) =>
             onChange({ ...filters, sortKey: e.target.value as SearchSortKey })
           }
-          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg"
+          className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
           {SEARCH_SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -118,7 +118,7 @@ export function SearchFilterBar({
         <button
           type="button"
           onClick={onReset}
-          className="shrink-0 text-[12px] text-[#999999] underline"
+          className="shrink-0 sam-text-helper text-[#999999] underline"
         >
           {t("common_reset_filters")}
         </button>

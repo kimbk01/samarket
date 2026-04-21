@@ -143,7 +143,7 @@ export function MyPageHomeDashboard({
         <div className="flex items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <Link
             href={MYPAGE_PROFILE_EDIT_HREF}
-            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-ig-highlight"
+            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
             aria-label="프로필 이미지"
           >
             {profile.avatar_url ? (
@@ -155,14 +155,14 @@ export function MyPageHomeDashboard({
             )}
           </Link>
           <div className="min-w-0 flex-1">
-            <p className="text-[18px] font-bold leading-tight text-sam-fg">{displayName}</p>
-            <p className="mt-1 text-[12px] text-sam-muted">{regionLine}</p>
+            <p className="sam-text-page-title font-bold leading-tight text-sam-fg">{displayName}</p>
+            <p className="mt-1 sam-text-helper text-sam-muted">{regionLine}</p>
             <div className="mt-2">
               <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
             </div>
             <Link
               href={MYPAGE_PROFILE_EDIT_HREF}
-              className="mt-3 inline-flex h-9 items-center justify-center rounded-ui-rect border border-sam-border px-3 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+              className="mt-3 inline-flex h-9 items-center justify-center rounded-ui-rect border border-sam-border px-3 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
             >
               프로필 수정
             </Link>
@@ -171,13 +171,13 @@ export function MyPageHomeDashboard({
       </section>
 
       <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-5`}>
-        <h2 className="mb-2 text-[14px] font-semibold text-sam-muted">상태 요약</h2>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-muted">상태 요약</h2>
         <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
           {statRows.map((row) => (
             <Link
               key={row.label}
               href={row.href}
-              className="flex min-h-[48px] items-center justify-between border-b border-sam-border-soft px-4 py-3 text-[14px] last:border-b-0 active:bg-sam-app"
+              className="flex min-h-[48px] items-center justify-between border-b border-sam-border-soft px-4 py-3 sam-text-body last:border-b-0 active:bg-sam-app"
             >
               <span className="font-medium text-sam-fg">{row.label}</span>
               <span className="tabular-nums text-sam-muted">{row.value}</span>
@@ -187,7 +187,7 @@ export function MyPageHomeDashboard({
       </section>
 
       <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-6 pb-6`}>
-        <h2 className="mb-2 text-[14px] font-semibold text-sam-muted">메뉴</h2>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-muted">메뉴</h2>
         <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
           {MYPAGE_MOBILE_NAV.map((sec) => (
             <MyPageMobileMenuRow key={sec.id} href={buildMypageSectionHref(sec.id)} title={sec.label} />

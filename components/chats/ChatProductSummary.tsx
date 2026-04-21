@@ -61,7 +61,7 @@ export function ChatProductSummary({
         */}
         <Link
           href={detailHref}
-          className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
+          className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
           {product.thumbnail ? (
@@ -77,11 +77,11 @@ export function ChatProductSummary({
               aria-hidden
             >
               <span>{CURRENCY_SYMBOLS.PHP}</span>
-              <span className="text-[10px] text-sam-muted">↔</span>
+              <span className="sam-text-xxs text-sam-muted">↔</span>
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>
+            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta" aria-hidden>
               이미지
             </div>
           )}
@@ -102,7 +102,7 @@ export function ChatProductSummary({
                 />
               </Link>
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted">
+                <div className="mt-1 flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 sam-text-xxs text-muted">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>
@@ -123,18 +123,18 @@ export function ChatProductSummary({
               className="block text-left transition active:bg-sam-app/0"
               aria-label={`${product.title || "상품"} 상세 보기`}
             >
-              <p className="line-clamp-2 text-[13px] font-medium leading-snug text-sam-fg">
+              <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-sam-fg">
                 {product.title || "상품"}
               </p>
               {!isPhilifeCard ? (
-                <p className="mt-0.5 text-[15px] font-bold text-sam-fg">
+                <p className="mt-0.5 sam-text-body font-bold text-sam-fg">
                   {isExchange ? (
                     exchangePhp != null ? (
                       <>
                         {CURRENCY_SYMBOLS.PHP} {exchangePhp.toLocaleString()}
                       </>
                     ) : (
-                      <span className="text-[14px] font-semibold text-sam-muted">금액 문의</span>
+                      <span className="sam-text-body font-semibold text-sam-muted">금액 문의</span>
                     )
                   ) : (
                     formatPrice(product.price, currency)
@@ -142,7 +142,7 @@ export function ChatProductSummary({
                 </p>
               ) : null}
               {!isPhilifeCard && isExchange ? (
-                <p className="mt-0.5 text-[12px] font-medium text-sam-fg">
+                <p className="mt-0.5 sam-text-helper font-medium text-sam-fg">
                   {exchangeRateLine ? (
                     <>환율 {exchangeRateLine}</>
                   ) : (
@@ -151,7 +151,7 @@ export function ChatProductSummary({
                 </p>
               ) : null}
               {(product.regionLabel || rel) && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-muted">
+                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 sam-text-xxs text-muted">
                   {product.regionLabel ? (
                     <>
                       <span className="shrink-0">{product.regionLabel}</span>

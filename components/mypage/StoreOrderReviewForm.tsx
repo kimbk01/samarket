@@ -207,7 +207,7 @@ export function StoreOrderReviewForm({
 
   const shell = (body: React.ReactNode) => {
     if (layout === "inline") {
-      return <div className="text-[15px] text-sam-fg">{body}</div>;
+      return <div className="sam-text-body text-sam-fg">{body}</div>;
     }
     return (
       <div className="min-h-screen bg-sam-surface">
@@ -219,7 +219,7 @@ export function StoreOrderReviewForm({
           >
             <CloseIcon />
           </Link>
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-sam-fg">
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-semibold text-sam-fg">
             {loading ? "…" : headerTitle}
           </h1>
           <span className="w-11 shrink-0" />
@@ -250,7 +250,7 @@ export function StoreOrderReviewForm({
           주문 상세로
         </Link>
         <div>
-          <Link href={listHref} className="text-[13px] text-sam-muted underline">
+          <Link href={listHref} className="sam-text-body-secondary text-sam-muted underline">
             주문 목록
           </Link>
         </div>
@@ -269,7 +269,7 @@ export function StoreOrderReviewForm({
             className="p-1 transition-transform active:scale-95"
             aria-label={`별점 ${n}점`}
           >
-            <span className={`text-[36px] leading-none ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}>
+            <span className={`sam-text-hero leading-none ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}>
               ★
             </span>
           </button>
@@ -283,7 +283,7 @@ export function StoreOrderReviewForm({
           rows={6}
           maxLength={2000}
           placeholder="리뷰는 솔직하게 작성해주세요"
-          className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app/80 px-4 py-3 text-[15px] leading-relaxed text-sam-fg placeholder:text-sam-meta"
+          className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app/80 px-4 py-3 sam-text-body leading-relaxed text-sam-fg placeholder:text-sam-meta"
         />
       </div>
 
@@ -319,7 +319,7 @@ export function StoreOrderReviewForm({
               className="flex h-20 w-20 flex-col items-center justify-center rounded-ui-rect border-2 border-dashed border-sam-border bg-sam-app text-sam-muted disabled:opacity-50"
             >
               <CameraIcon />
-              <span className="mt-1 text-[10px] font-medium">사진</span>
+              <span className="mt-1 sam-text-xxs font-medium">사진</span>
             </button>
           ) : null}
         </div>
@@ -332,15 +332,15 @@ export function StoreOrderReviewForm({
           onChange={(e) => setOwnerOnly(e.target.checked)}
           className="mt-0.5 h-4 w-4 rounded border-sam-border"
         />
-        <span className="text-[14px] leading-snug text-sam-fg">사장님에게만 보이게</span>
+        <span className="sam-text-body leading-snug text-sam-fg">사장님에게만 보이게</span>
       </label>
-      <p className="-mt-4 text-[11px] leading-snug text-sam-muted">
+      <p className="-mt-4 sam-text-xxs leading-snug text-sam-muted">
         체크 시 다른 고객이 보는 매장 리뷰 목록에는 표시되지 않을 수 있어요. 매장·운영 검수 목적에 활용됩니다.
       </p>
 
       {items.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-[15px] font-semibold text-sam-fg">메뉴는 괜찮았나요?</p>
+          <p className="sam-text-body font-semibold text-sam-fg">메뉴는 괜찮았나요?</p>
           <ul className="space-y-3">
             {items.map((it) => {
               const v = itemVote[it.id];
@@ -349,10 +349,10 @@ export function StoreOrderReviewForm({
                   key={it.id}
                   className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 shadow-sm"
                 >
-                  <span className="min-w-0 flex-1 text-[14px] font-medium text-sam-fg">
+                  <span className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">
                     {it.product_title_snapshot}
                     {it.qty && it.qty > 1 ? (
-                      <span className="ml-1 text-[12px] font-normal text-sam-muted">×{it.qty}</span>
+                      <span className="ml-1 sam-text-helper font-normal text-sam-muted">×{it.qty}</span>
                     ) : null}
                   </span>
                   <div className="flex shrink-0 gap-1">
@@ -384,7 +384,7 @@ export function StoreOrderReviewForm({
         </div>
       ) : null}
 
-      <div className="rounded-ui-rect bg-sam-surface-muted px-3 py-3 text-[11px] leading-relaxed text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface-muted px-3 py-3 sam-text-xxs leading-relaxed text-sam-muted">
         솔직한 리뷰는 다른 이용자에게 큰 도움이 됩니다. 허위·비방·불법적인 내용은 제재 대상이 될 수 있어요.
       </div>
 
@@ -395,7 +395,7 @@ export function StoreOrderReviewForm({
           <button
             type="submit"
             disabled={busy || content.trim().length < 5}
-            className="w-full rounded-ui-rect bg-sam-ink py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
+            className="w-full rounded-ui-rect bg-sam-ink py-3.5 sam-text-body-lg font-semibold text-white disabled:opacity-40"
           >
             {busy ? "등록 중…" : "리뷰 작성 완료"}
           </button>

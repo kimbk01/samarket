@@ -42,7 +42,7 @@ export function HomeFeedSection({ section, surface = "home", onRecommendationCli
 
   return (
     <section className="space-y-2">
-      <h2 className="text-[15px] font-semibold text-sam-fg">{label}</h2>
+      <h2 className="sam-text-body font-semibold text-sam-fg">{label}</h2>
       <ul className="space-y-2">
         {items.map((item) => (
           <li

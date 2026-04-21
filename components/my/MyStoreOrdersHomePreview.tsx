@@ -107,11 +107,11 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "idle" || state.kind === "loading") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4" aria-busy="true">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4" aria-busy="true">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
+          <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
         </div>
-        <p className="text-[13px] text-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-muted">불러오는 중…</p>
       </section>
     );
   }
@@ -122,22 +122,22 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
 
   if (state.kind === "unavailable") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-        <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
-        <p className="mt-2 text-[13px] text-muted">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
+        <p className="mt-2 sam-text-body-secondary text-muted">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
       </section>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
+          <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
           <button
             type="button"
             onClick={() => retry()}
-            className="text-[13px] font-medium text-signature"
+            className="sam-text-body-secondary font-medium text-signature"
           >
             다시 시도
           </button>
@@ -147,20 +147,20 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
   }
 
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-foreground">배달 주문</h2>
-        <Link href="/my/store-orders" className="shrink-0 text-[13px] font-medium text-signature">
+        <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
+        <Link href="/my/store-orders" className="shrink-0 sam-text-body-secondary font-medium text-signature">
           전체 보기
         </Link>
       </div>
 
       {state.kind === "empty" ? (
         <div className="space-y-3">
-          <p className="text-[13px] leading-relaxed text-muted">아직 배달 주문이 없습니다.</p>
+          <p className="sam-text-body-secondary leading-relaxed text-muted">아직 배달 주문이 없습니다.</p>
           <Link
             href="/stores"
-            className="inline-block text-[13px] font-medium text-signature underline underline-offset-2"
+            className="inline-block sam-text-body-secondary font-medium text-signature underline underline-offset-2"
           >
             매장 둘러보기
           </Link>
@@ -170,21 +170,21 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
           {state.orders.map((o) => (
             <li
               key={o.id}
-              className="rounded-ui-rect border border-ig-border bg-sam-surface p-4"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
             >
               <Link
                 href={`/my/store-orders/${encodeURIComponent(o.id)}`}
                 className="block transition-colors active:opacity-90"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[15px] font-semibold text-foreground">
+                  <p className="sam-text-body font-semibold text-foreground">
                     {o.store_name?.trim() || "매장"}
                   </p>
                   <span className="text-xs text-muted">{o.order_no}</span>
                 </div>
                 <p className="mt-2 text-lg font-bold text-foreground">{formatMoneyPhp(o.payment_amount)}</p>
                 {o.items && o.items.length > 0 ? (
-                  <p className="mt-1 text-[12px] leading-snug text-muted">
+                  <p className="mt-1 sam-text-helper leading-snug text-muted">
                     {o.items.map((it) => `${it.product_title_snapshot}×${it.qty}`).join(", ")}
                   </p>
                 ) : null}
@@ -197,7 +197,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
                   o.order_status === "delivering" ||
                   o.order_status === "arrived") &&
                 o.auto_complete_at ? (
-                  <p className="mt-2 text-[11px] leading-snug text-muted">
+                  <p className="mt-2 sam-text-xxs leading-snug text-muted">
                     자동 완료 예정:{" "}
                     <span className="font-medium text-foreground">
                       {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
@@ -207,7 +207,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
                 {o.buyer_note ? (
                   <p className="mt-2 text-xs text-muted">요청: {o.buyer_note}</p>
                 ) : null}
-                <p className="mt-2 text-[11px] text-muted">
+                <p className="mt-2 sam-text-xxs text-muted">
                   {new Date(o.created_at).toLocaleString("ko-KR")}
                 </p>
                 <p className="mt-2 text-right text-xs text-signature">상세 보기 →</p>

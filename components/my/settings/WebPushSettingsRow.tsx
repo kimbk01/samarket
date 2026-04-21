@@ -153,30 +153,30 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     <div className="border-b border-sam-border-soft px-4 py-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <span className="text-[15px] text-sam-fg">브라우저 푸시 (PWA)</span>
-          <p className="mt-0.5 text-[12px] leading-snug text-sam-muted">
+          <span className="sam-text-body text-sam-fg">브라우저 푸시 (PWA)</span>
+          <p className="mt-0.5 sam-text-helper leading-snug text-sam-muted">
             앱을 닫아도 브라우저 알림으로 인앱 알림을 받습니다. HTTPS 또는 localhost에서 동작합니다. 상단 &quot;전체
             알림&quot;을 끄면 등록이 해제됩니다.
           </p>
           {!supported ? (
-            <p className="mt-1 text-[12px] text-amber-800">이 환경에서는 Web Push API를 사용할 수 없습니다.</p>
+            <p className="mt-1 sam-text-helper text-amber-800">이 환경에서는 Web Push API를 사용할 수 없습니다.</p>
           ) : null}
           {status?.table_missing ? (
-            <p className="mt-1 text-[12px] text-amber-800">
+            <p className="mt-1 sam-text-helper text-amber-800">
               DB에 web_push_subscriptions 테이블이 없습니다. Supabase 마이그레이션을 적용해 주세요.
             </p>
           ) : null}
           {!status?.vapid_configured ? (
-            <p className="mt-1 text-[12px] text-sam-muted">
+            <p className="mt-1 sam-text-helper text-sam-muted">
               서버에 `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` 가 없으면 발송·등록이 되지 않습니다.
             </p>
           ) : null}
           {status?.vapid_configured && !status?.web_push_enabled ? (
-            <p className="mt-1 text-[12px] text-sam-muted">서버에서 `WEB_PUSH_ENABLED=1` 이면 실제 푸시가 발송됩니다.</p>
+            <p className="mt-1 sam-text-helper text-sam-muted">서버에서 `WEB_PUSH_ENABLED=1` 이면 실제 푸시가 발송됩니다.</p>
           ) : null}
-          {hint ? <p className="mt-1 text-[12px] text-red-600">{hint}</p> : null}
+          {hint ? <p className="mt-1 sam-text-helper text-red-600">{hint}</p> : null}
           {supported && canRegister ? (
-            <p className="mt-1 text-[12px] text-sam-muted">
+            <p className="mt-1 sam-text-helper text-sam-muted">
               등록된 기기: {count} / 최대 10
               {Notification.permission === "granted" ? " · 알림 권한: 허용" : ""}
               {Notification.permission === "denied" ? " · 알림 권한: 거부 (브라우저 설정에서 허용해 주세요)" : ""}
@@ -188,7 +188,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             type="button"
             disabled={busy || !pushEnabled || !supported || !canRegister}
             onClick={() => void registerPush()}
-            className="rounded-ui-rect bg-signature px-3 py-2 text-[13px] font-medium text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-40"
           >
             {busy ? "처리 중…" : "알림 허용·등록"}
           </button>
@@ -196,7 +196,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             type="button"
             disabled={busy || count < 1}
             onClick={() => void unregisterPush()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg disabled:opacity-40"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg disabled:opacity-40"
           >
             등록 해제
           </button>

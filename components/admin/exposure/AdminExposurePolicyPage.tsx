@@ -51,7 +51,7 @@ export function AdminExposurePolicyPage() {
             key={t.id}
             type="button"
             onClick={() => setActiveTab(t.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === t.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"

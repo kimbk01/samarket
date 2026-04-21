@@ -34,7 +34,7 @@ export function ChatImageBundleDownload({ urls }: { urls: string[] }) {
   return (
     <div className="relative flex size-10 shrink-0 items-center justify-center self-center rounded-full">
       {hint ? (
-        <span className="pointer-events-none absolute -top-6 left-1/2 z-10 max-w-[5.5rem] -translate-x-1/2 whitespace-nowrap text-center text-[9px] font-medium leading-tight text-muted">
+        <span className="pointer-events-none absolute -top-6 left-1/2 z-10 max-w-[5.5rem] -translate-x-1/2 whitespace-nowrap text-center sam-text-xxs font-medium leading-tight text-muted">
           {hint}
         </span>
       ) : null}

@@ -27,14 +27,14 @@ export function AdminBannerListPage() {
         <AdminPageHeader title="배너 목록" />
         <Link
           href="/admin/banners/create"
-          className="rounded border border-signature bg-sam-surface px-3 py-2 text-[14px] font-medium text-signature hover:bg-signature/5"
+          className="rounded border border-signature bg-sam-surface px-3 py-2 sam-text-body font-medium text-signature hover:bg-signature/5"
         >
           배너 등록
         </Link>
       </div>
       <AdminBannerFilterBar filters={filters} onChange={setFilters} />
       {filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           조건에 맞는 배너가 없습니다.
         </div>
       ) : (

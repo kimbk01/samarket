@@ -30,7 +30,7 @@ function Card({
 }) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 text-[13px] font-medium text-sam-fg">
+      <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-fg">
         {title}
       </h2>
       <ul className="flex flex-wrap gap-2">
@@ -38,7 +38,7 @@ function Card({
           <li key={href}>
             <Link
               href={href}
-              className="inline-block rounded border border-sam-border bg-sam-app px-3 py-1.5 text-[13px] text-sam-fg hover:border-signature hover:bg-signature/5 hover:text-signature whitespace-nowrap"
+              className="inline-block rounded border border-sam-border bg-sam-app px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:border-signature hover:bg-signature/5 hover:text-signature whitespace-nowrap"
             >
               {label}
             </Link>

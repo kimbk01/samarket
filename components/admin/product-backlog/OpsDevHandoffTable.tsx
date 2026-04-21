@@ -21,13 +21,13 @@ export function OpsDevHandoffTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">handoff 상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">handoff 상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as OpsDevHandoffStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="pending">대기</option>
@@ -37,12 +37,12 @@ export function OpsDevHandoffTable() {
           <option value="returned">반려</option>
         </select>
       </div>
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         운영→개발 handoff note. acceptanceCriteria·assignedDevName은 placeholder 확장 가능.
       </p>
 
       {items.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           handoff 항목이 없습니다.
         </div>
       ) : (
@@ -65,7 +65,7 @@ export function OpsDevHandoffTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   <span
-                    className={`rounded px-1.5 py-0.5 text-[12px] ${
+                    className={`rounded px-1.5 py-0.5 sam-text-helper ${
                       h.handoffStatus === "shipped"
                         ? "bg-emerald-50 text-emerald-700"
                         : h.handoffStatus === "in_progress" || h.handoffStatus === "accepted"
@@ -78,16 +78,16 @@ export function OpsDevHandoffTable() {
                     {getHandoffStatusLabel(h.handoffStatus)}
                   </span>
                 </td>
-                <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
+                <td className="max-w-[200px] px-3 py-2.5 sam-text-body-secondary text-sam-muted line-clamp-2">
                   {h.opsSummary}
                 </td>
-                <td className="max-w-[200px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
+                <td className="max-w-[200px] px-3 py-2.5 sam-text-body-secondary text-sam-muted line-clamp-2">
                   {h.devNote || "-"}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {h.requestedByAdminNickname ?? "-"}
                 </td>
-                <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+                <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {h.assignedDevName || "-"}
                 </td>
               </tr>

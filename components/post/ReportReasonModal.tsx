@@ -56,17 +56,17 @@ export function ReportReasonModal({
     <div className="fixed inset-0 z-40 flex flex-col bg-sam-surface">
       <header className="flex shrink-0 items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
         <AppBackButton onBack={onClose} ariaLabel="닫기" />
-        <span className="text-[16px] font-medium text-sam-fg">신고</span>
+        <span className="sam-text-body-lg font-medium text-sam-fg">신고</span>
         <span className="w-11 shrink-0" />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <h2 className="text-[18px] font-bold text-sam-fg">
+        <h2 className="sam-text-page-title font-bold text-sam-fg">
           게시글을 신고하는 이유를 선택해주세요.
         </h2>
 
         {error && (
-          <p className="mt-2 text-[14px] text-red-600">{error}</p>
+          <p className="mt-2 sam-text-body text-red-600">{error}</p>
         )}
 
         <ul className="mt-4 divide-y divide-sam-border-soft">
@@ -81,9 +81,9 @@ export function ReportReasonModal({
                 }`}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-medium">{r.label}</p>
+                  <p className="sam-text-body font-medium">{r.label}</p>
                   {r.subLabel && (
-                    <p className="mt-0.5 text-[13px] text-sam-muted">{r.subLabel}</p>
+                    <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{r.subLabel}</p>
                   )}
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-sam-meta" />

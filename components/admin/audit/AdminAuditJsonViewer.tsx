@@ -28,13 +28,13 @@ export function AdminAuditJsonViewer({ label, data }: AdminAuditJsonViewerProps)
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] font-medium text-sam-fg hover:bg-sam-surface-muted"
+        className="flex w-full items-center justify-between px-3 py-2 text-left sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-surface-muted"
       >
         {label}
         <span className="text-sam-muted">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <pre className="max-h-48 overflow-auto border-t border-sam-border-soft px-3 py-2 text-[12px] text-sam-muted whitespace-pre-wrap break-all">
+        <pre className="max-h-48 overflow-auto border-t border-sam-border-soft px-3 py-2 sam-text-helper text-sam-muted whitespace-pre-wrap break-all">
           {text}
         </pre>
       )}

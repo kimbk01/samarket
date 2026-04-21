@@ -32,7 +32,7 @@ export function MessengerFriendsPrivacySheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="flex max-h-[min(78vh,600px)] w-full flex-col overflow-hidden rounded-t-[12px] border border-ui-border bg-ui-surface shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="flex shrink-0 items-center justify-between border-b border-ui-border px-3 py-2.5">
-          <p className="text-[16px] font-semibold text-ui-fg">숨김 · 차단 · 알림</p>
+          <p className="sam-text-body-lg font-semibold text-ui-fg">숨김 · 차단 · 알림</p>
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-ui-muted active:bg-ui-hover"
@@ -56,7 +56,7 @@ export function MessengerFriendsPrivacySheet({
               key={seg.id}
               type="button"
               onClick={() => setTab(seg.id)}
-              className={`relative min-w-0 flex-1 px-1 py-2.5 text-[13px] font-medium ${
+              className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-body-secondary font-medium ${
                 tab === seg.id ? "text-ui-fg" : "text-ui-muted"
               }`}
             >
@@ -69,7 +69,7 @@ export function MessengerFriendsPrivacySheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {list.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-ui-muted">목록이 비어 있습니다.</p>
+            <p className="px-4 py-8 text-center sam-text-body-secondary text-ui-muted">목록이 비어 있습니다.</p>
           ) : (
             <ul className="divide-y divide-ui-border">
               {list.map((entry) => {
@@ -82,14 +82,14 @@ export function MessengerFriendsPrivacySheet({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={p.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ui-muted">
+                        <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-ui-muted">
                           {initial}
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-medium text-ui-fg">{p.label}</p>
-                      {p.subtitle ? <p className="truncate text-[11px] text-ui-muted">{p.subtitle}</p> : null}
+                      <p className="truncate sam-text-body font-medium text-ui-fg">{p.label}</p>
+                      {p.subtitle ? <p className="truncate sam-text-xxs text-ui-muted">{p.subtitle}</p> : null}
                     </div>
                     <div className="shrink-0">
                       {tab === "hidden" ? (
@@ -97,7 +97,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onToggleHidden(p.id)}
                           disabled={busyId === `hidden:${p.id}`}
-                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 text-[12px] font-medium text-ui-fg disabled:opacity-50"
+                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
                           {busyId === `hidden:${p.id}` ? "…" : "해제"}
                         </button>
@@ -107,7 +107,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onToggleBlock(p.id)}
                           disabled={busyId === `block:${p.id}`}
-                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 text-[12px] font-medium text-ui-fg disabled:opacity-50"
+                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
                           {busyId === `block:${p.id}` ? "…" : "해제"}
                         </button>
@@ -117,7 +117,7 @@ export function MessengerFriendsPrivacySheet({
                           type="button"
                           onClick={() => onOpenChat(p.id)}
                           disabled={busyId === `room:${p.id}`}
-                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 text-[12px] font-medium text-ui-fg disabled:opacity-50"
+                          className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
                           대화
                         </button>

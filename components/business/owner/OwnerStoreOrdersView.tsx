@@ -26,12 +26,12 @@ import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 
 /** 주문 카드 본문 — 매장 관리 폼과 동일 계열(14px 라벨/본문) */
-const OC_LBL = "text-[14px] font-medium leading-snug text-sam-muted";
+const OC_LBL = "sam-text-body font-medium leading-snug text-sam-muted";
 const OC_TX =
-  "text-[14px] font-normal leading-normal text-sam-fg [overflow-wrap:anywhere] [word-break:break-word]";
+  "sam-text-body font-normal leading-normal text-sam-fg [overflow-wrap:anywhere] [word-break:break-word]";
 const OC_TX_MUTED =
-  "text-[14px] font-normal leading-normal text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
-const OC_TX_SM = "text-[13px] font-normal leading-snug text-sam-muted [overflow-wrap:anywhere]";
+  "sam-text-body font-normal leading-normal text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
+const OC_TX_SM = "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere]";
 type ItemRow = {
   id: string;
   product_id: string;
@@ -115,7 +115,7 @@ const FULFILL_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
 const CHAT_LINK_CLASS =
-  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-sam-surface px-3 py-3 text-center text-[14px] font-semibold leading-snug text-sam-fg shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
+  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-sam-surface px-3 py-3 text-center sam-text-body font-semibold leading-snug text-sam-fg shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
 
 function OwnerOrderCard({
   storeId,
@@ -174,7 +174,7 @@ function OwnerOrderCard({
         </div>
       </div>
 
-      <p className={`mt-3 text-[18px] font-bold leading-tight text-sam-fg`}>
+      <p className={`mt-3 sam-text-page-title font-bold leading-tight text-sam-fg`}>
         {formatMoneyPhp(order.payment_amount)}
       </p>
       <p className={`mt-1.5 ${OC_TX_SM}`}>
@@ -186,7 +186,7 @@ function OwnerOrderCard({
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {order.order_status === "refund_requested" ? (
-          <span className="rounded bg-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-950">
+          <span className="rounded bg-amber-200 px-2 py-0.5 sam-text-xxs font-semibold text-amber-950">
             환불 요청
           </span>
         ) : null}
@@ -215,7 +215,7 @@ function OwnerOrderCard({
       ) : null}
       {order.buyer_note?.trim() ? (
         <div className="mt-2 w-full min-w-0 rounded-ui-rect border border-signature/30 bg-signature/5 px-3 py-2.5">
-          <p className="text-[14px] font-medium text-signature">고객 요청 사항</p>
+          <p className="sam-text-body font-medium text-signature">고객 요청 사항</p>
           <p className={`mt-1 whitespace-pre-wrap ${OC_TX}`}>{order.buyer_note.trim()}</p>
         </div>
       ) : null}
@@ -525,17 +525,17 @@ export function OwnerStoreOrdersView() {
           <p className="text-sm text-sam-muted">{state.storeName}</p>
           <div className="flex flex-wrap items-center gap-2">
             {state.pendingDeliveryCount > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-950">
+              <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-rose-950">
                 배달 대기 {state.pendingDeliveryCount}
               </span>
             ) : null}
             {state.pendingAcceptCount > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-[11px] font-semibold text-violet-950">
+              <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-violet-950">
                 접수 대기 {state.pendingAcceptCount}
               </span>
             ) : null}
             {state.refundRequestedCount > 0 ? (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-950">
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-amber-950">
                 환불 요청 {state.refundRequestedCount}건
               </span>
             ) : null}
@@ -543,7 +543,7 @@ export function OwnerStoreOrdersView() {
         </div>
         {state.pendingDeliveryCount > 0 ? (
           <div
-            className="rounded-ui-rect border border-rose-200 bg-rose-50/95 px-3 py-2.5 text-[12px] leading-relaxed text-rose-950"
+            className="rounded-ui-rect border border-rose-200 bg-rose-50/95 px-3 py-2.5 sam-text-helper leading-relaxed text-rose-950"
             role="status"
             aria-live="polite"
           >
@@ -551,12 +551,12 @@ export function OwnerStoreOrdersView() {
           </div>
         ) : null}
         {state.pendingAcceptCount > 0 && state.pendingDeliveryCount === 0 ? (
-          <div className="rounded-ui-rect border border-violet-200 bg-violet-50/90 px-3 py-2 text-[12px] text-violet-950">
+          <div className="rounded-ui-rect border border-violet-200 bg-violet-50/90 px-3 py-2 sam-text-helper text-violet-950">
             접수 대기 중인 주문이 {state.pendingAcceptCount}건 있습니다.
           </div>
         ) : null}
       {state.refundRequestedCount > 0 ? (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 text-[12px] text-amber-950">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 sam-text-helper text-amber-950">
           구매자 환불 요청이 접수된 주문이 있습니다. 관리자에서 승인 시 상태가 갱신됩니다.
         </div>
       ) : null}

@@ -25,7 +25,7 @@ export function AdminPointChargeTable({
 }: AdminPointChargeTableProps) {
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -63,17 +63,17 @@ export function AdminPointChargeTable({
                 {r.planName} / ₩{r.paymentAmount.toLocaleString()} →{" "}
                 {r.pointAmount}P
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[r.requestStatus]}`}
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
                 >
                   {POINT_CHARGE_STATUS_LABELS[r.requestStatus]}
                 </span>
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(r.requestedAt).toLocaleDateString("ko-KR")}
               </td>
             </tr>

@@ -2,6 +2,12 @@
 
 import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { messengerSectionLabel } from "@/lib/community-messenger/messenger-ia";
+import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
+import {
+  APP_MAIN_GUTTER_NEG_X_CLASS,
+  APP_MAIN_HEADER_INNER_CLASS,
+} from "@/lib/ui/app-content-layout";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 const SECTIONS: MessengerMainSection[] = ["friends", "chats", "open_chat", "archive"];
 
@@ -10,36 +16,36 @@ export type MessengerTabsProps = {
   onChange: (next: MessengerMainSection) => void;
 };
 
-/** 메신저 1차 탭 — 연회색 트랙 + 흰/볼드 활성 (그림자 없음). */
+/** 메신저 1차 탭 — `TradePrimaryTabs` embed 와 동일 셸·`sam-tab` 밑줄 활성. */
 export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
   return (
     <div
       data-cm-primary-nav
-      className="rounded-[8px] bg-[color:var(--messenger-surface-muted)] p-0.5"
-      style={{ color: "var(--messenger-text)" }}
+      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface-muted`}
     >
-      <div className="grid grid-cols-4 gap-0.5">
-        {SECTIONS.map((id) => {
-          const active = value === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(id)}
-              className={`min-h-[36px] rounded-[6px] px-0.5 py-1 text-[13px] transition-colors ${
-                active
-                  ? "bg-[color:var(--messenger-surface)] font-bold text-[color:var(--messenger-text)]"
-                  : "bg-transparent font-medium text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-surface)]"
-              }`}
-            >
-              <span className="flex items-center justify-center">
-                <span className="truncate">{messengerSectionLabel(id)}</span>
-              </span>
-            </button>
-          );
-        })}
+      <div className={APP_MAIN_HEADER_INNER_CLASS}>
+        <HorizontalDragScroll
+          className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+          style={{ WebkitOverflowScrolling: "touch" }}
+          role="tablist"
+          aria-label="메신저 구역"
+        >
+          {SECTIONS.map((id) => {
+            const active = value === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onChange(id)}
+                className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
+              >
+                {messengerSectionLabel(id)}
+              </button>
+            );
+          })}
+        </HorizontalDragScroll>
       </div>
     </div>
   );

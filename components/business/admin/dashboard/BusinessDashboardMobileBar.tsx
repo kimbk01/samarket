@@ -21,22 +21,22 @@ export function BusinessDashboardMobileBar({
       <div className="mx-auto flex max-w-lg gap-2">
         <Link
           href={storeOrdersHref}
-          className="relative flex flex-1 items-center justify-center rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white"
+          className="relative flex flex-1 items-center justify-center rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white"
         >
           주문 보기
           {orderBadge > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
               {orderBadge > 99 ? "99+" : orderBadge}
             </span>
           ) : null}
         </Link>
         <Link
           href={inquiriesHref}
-          className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[14px] font-semibold text-sam-fg"
+          className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg"
         >
           문의
           {inquiryOpenCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-bold text-white">
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 sam-text-xxs font-bold text-white">
               {inquiryOpenCount > 99 ? "99+" : inquiryOpenCount}
             </span>
           ) : null}

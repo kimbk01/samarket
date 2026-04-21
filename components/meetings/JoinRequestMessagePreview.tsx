@@ -6,7 +6,7 @@ export function JoinRequestMessagePreview({ text }: { text: string }) {
   const parsed = parseMeetingJoinRequestMessage(text);
   if (!parsed) {
     return (
-      <p className="mt-2 whitespace-pre-wrap rounded-ui-rect bg-amber-50/90 px-2.5 py-2 text-[12px] leading-relaxed text-sam-fg">
+      <p className="mt-2 whitespace-pre-wrap rounded-ui-rect bg-amber-50/90 px-2.5 py-2 sam-text-helper leading-relaxed text-sam-fg">
         {text || "내용 없음"}
       </p>
     );
@@ -18,7 +18,7 @@ export function JoinRequestMessagePreview({ text }: { text: string }) {
     { k: "메모", v: parsed.note },
   ];
   return (
-    <dl className="mt-2 space-y-2 rounded-ui-rect border border-amber-100 bg-amber-50/60 px-2.5 py-2 text-[12px]">
+    <dl className="mt-2 space-y-2 rounded-ui-rect border border-amber-100 bg-amber-50/60 px-2.5 py-2 sam-text-helper">
       {rows.map(({ k, v }) => (
         <div key={k}>
           <dt className="font-semibold text-amber-900/90">{k}</dt>

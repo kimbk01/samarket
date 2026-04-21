@@ -93,7 +93,7 @@ export const CallActionButton = memo(function CallActionButton({ item }: { item:
       <span className={`call-btn__disk ${disk}`.trim()}>
         <CallActionGlyph item={item} />
       </span>
-      <span className="text-[12px] font-medium leading-tight text-white/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]">
+      <span className="sam-text-helper font-medium leading-tight text-white/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]">
         {item.label}
       </span>
     </button>

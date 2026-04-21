@@ -13,7 +13,7 @@ type Card = {
 export function BusinessDashboardPriorityCards({ cards }: { cards: Card[] }) {
   return (
     <section className="space-y-2">
-      <h2 className="px-0.5 text-[15px] font-semibold text-sam-fg">지금 바로 처리</h2>
+      <h2 className="px-0.5 sam-text-body font-semibold text-sam-fg">지금 바로 처리</h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {cards.map((c) => {
           const toneClass =
@@ -32,12 +32,12 @@ export function BusinessDashboardPriorityCards({ cards }: { cards: Card[] }) {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-[15px] font-semibold text-sam-fg">{c.title}</p>
+                  <p className="sam-text-body font-semibold text-sam-fg">{c.title}</p>
                   {c.badge ? (
-                    <span className="rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-bold text-white">{c.badge}</span>
+                    <span className="rounded-full bg-red-600 px-2 py-0.5 sam-text-xxs font-bold text-white">{c.badge}</span>
                   ) : null}
                 </div>
-                <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">{c.description}</p>
+                <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{c.description}</p>
               </div>
               <span className="shrink-0 text-sam-meta" aria-hidden>
                 →

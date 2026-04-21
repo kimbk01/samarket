@@ -36,13 +36,13 @@ export function QaPilotCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">분류</span>
+        <span className="sam-text-body-secondary text-sam-muted">분류</span>
         <select
           value={category}
           onChange={(e) =>
             setCategory((e.target.value || "") as QaPilotCategory | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
@@ -52,12 +52,12 @@ export function QaPilotCheckTable() {
         </select>
       </div>
 
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         파일럿 사용자 피드백 목록은 별도 placeholder로 확장 가능합니다.
       </p>
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           파일럿 체크 항목이 없습니다.
         </div>
       ) : (
@@ -74,12 +74,12 @@ export function QaPilotCheckTable() {
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {c.title}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {getPilotCategoryLabel(c.category)}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "done"
                       ? "bg-emerald-100 text-emerald-800"
                       : c.status === "blocked"
@@ -90,10 +90,10 @@ export function QaPilotCheckTable() {
                   {getPilotStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {c.assignedAdminNickname ?? "-"}
               </td>
-              <td className="max-w-[200px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.note || "-"}
               </td>
             </tr>

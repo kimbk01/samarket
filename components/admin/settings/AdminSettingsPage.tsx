@@ -90,12 +90,12 @@ export function AdminSettingsPage() {
       <AdminPageHeader title="운영설정" />
 
       <AdminCard title="알림·알림음 (도메인)">
-        <p className="text-[14px] text-sam-fg">
+        <p className="sam-text-body text-sam-fg">
           거래 채팅·커뮤니티·주문·매장 알림을 분리해 알림음·쿨다운·반복을 설정합니다.
         </p>
         <Link
           href="/admin/settings/notifications"
-          className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           도메인별 알림 설정 열기
         </Link>
@@ -127,12 +127,12 @@ export function AdminSettingsPage() {
         )}
         {activeSection === "categories" && (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-            <p className="text-[14px] text-sam-fg">
+            <p className="sam-text-body text-sam-fg">
               카테고리(거래/서비스/커뮤니티/기능) 및 기능 토글은 전용 페이지에서 관리합니다.
             </p>
             <Link
               href="/admin/categories"
-              className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white"
+              className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
             >
               카테고리 관리로 이동
             </Link>
@@ -142,20 +142,20 @@ export function AdminSettingsPage() {
         {activeSection !== "categories" && (
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-sam-border-soft pt-4">
           {isDirty && (
-            <span className="text-[13px] text-amber-600">저장하지 않은 변경이 있습니다</span>
+            <span className="sam-text-body-secondary text-amber-600">저장하지 않은 변경이 있습니다</span>
           )}
           <button
             type="button"
             onClick={handleSave}
             disabled={!isDirty}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50 disabled:cursor-not-allowed"
           >
             저장
           </button>
           <button
             type="button"
             onClick={handleReset}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
             초기화
           </button>

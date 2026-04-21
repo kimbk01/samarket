@@ -16,7 +16,7 @@ interface AdminReviewModerationLogListProps {
 export function AdminReviewModerationLogList({ logs }: AdminReviewModerationLogListProps) {
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-sam-muted">조치 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">조치 이력이 없습니다.</p>
     );
   }
   const sorted = [...logs].sort(
@@ -27,7 +27,7 @@ export function AdminReviewModerationLogList({ logs }: AdminReviewModerationLogL
       {sorted.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
         >
           <span className="font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType] ?? log.actionType}

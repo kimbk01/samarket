@@ -96,7 +96,7 @@ export function AdminStoreProductsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 상품 검수" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         차단(blocked)·숨김·판매중 복구. 공개 목록은 <code className="rounded bg-sam-surface-muted px-1">active</code> 만
         노출됩니다.
       </p>
@@ -107,7 +107,7 @@ export function AdminStoreProductsPage() {
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value)}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${
+            className={`rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
               filter === f.value
                 ? "bg-sam-ink text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
@@ -119,21 +119,21 @@ export function AdminStoreProductsPage() {
       </div>
 
       {error ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           상품이 없습니다.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="min-w-[900px] w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
+          <table className="min-w-[900px] w-full border-collapse text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">상품</th>
                 <th className="px-3 py-2 font-medium">매장</th>
@@ -157,25 +157,25 @@ export function AdminStoreProductsPage() {
                         </div>
                         <div>
                           <div className="font-medium text-sam-fg">{r.title}</div>
-                          <div className="text-[12px] text-sam-muted">
+                          <div className="sam-text-helper text-sam-muted">
                             {typeof r.price === "number" ? formatMoneyPhp(r.price) : r.price}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-2 align-top text-[12px] text-sam-fg">
+                    <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">
                       {r.store?.store_name ?? "-"}
-                      <div className="text-[11px] text-sam-meta">/{r.store?.slug}</div>
+                      <div className="sam-text-xxs text-sam-meta">/{r.store?.slug}</div>
                     </td>
                     <td className="px-3 py-2 align-top">{r.product_status}</td>
-                    <td className="px-3 py-2 align-top text-[12px]">{r.admin_review_status}</td>
+                    <td className="px-3 py-2 align-top sam-text-helper">{r.admin_review_status}</td>
                     <td className="px-3 py-2 align-top">
                       <div className="flex flex-col gap-1">
                         {r.product_status !== "blocked" && (
                           <button
                             type="button"
                             disabled={dis}
-                            className="rounded border border-red-200 bg-red-50 px-2 py-1 text-left text-[12px] text-red-900 disabled:opacity-50"
+                            className="rounded border border-red-200 bg-red-50 px-2 py-1 text-left sam-text-helper text-red-900 disabled:opacity-50"
                             onClick={() => void run(r.id, "block")}
                           >
                             차단
@@ -185,7 +185,7 @@ export function AdminStoreProductsPage() {
                           <button
                             type="button"
                             disabled={dis}
-                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left text-[12px] disabled:opacity-50"
+                            className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
                             onClick={() => void run(r.id, "hide")}
                           >
                             숨김
@@ -195,7 +195,7 @@ export function AdminStoreProductsPage() {
                           <button
                             type="button"
                             disabled={dis}
-                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-left text-[12px] text-green-900 disabled:opacity-50"
+                            className="rounded border border-green-200 bg-green-50 px-2 py-1 text-left sam-text-helper text-green-900 disabled:opacity-50"
                             onClick={() => void run(r.id, "activate")}
                           >
                             판매중(복구)

@@ -106,7 +106,7 @@ export function ChatSettingsContent() {
   return (
     <div className="space-y-0">
       <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-        <span className="text-[15px] text-sam-fg">채팅 알림</span>
+        <span className="sam-text-body text-sam-fg">채팅 알림</span>
         <button
           type="button"
           role="switch"
@@ -124,7 +124,7 @@ export function ChatSettingsContent() {
         </button>
       </div>
       <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-        <span className="text-[15px] text-sam-fg">미리보기 표시</span>
+        <span className="sam-text-body text-sam-fg">미리보기 표시</span>
         <button
           type="button"
           role="switch"
@@ -143,15 +143,15 @@ export function ChatSettingsContent() {
       </div>
 
       <div className="border-b border-sam-border-soft py-3">
-        <p className="text-[14px] font-semibold text-sam-fg">거래 채팅 표시</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
+        <p className="sam-text-body font-semibold text-sam-fg">거래 채팅 표시</p>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           온라인·자리비움은 연결과 최근 활동으로만 표시됩니다. 마지막 접속은 앱을 닫거나 오래 비활성일 때 갱신됩니다.
         </p>
-        {tradePresenceErr ? <p className="mt-2 text-[12px] text-red-600">{tradePresenceErr}</p> : null}
+        {tradePresenceErr ? <p className="mt-2 sam-text-helper text-red-600">{tradePresenceErr}</p> : null}
         {tradePresence ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[14px] text-sam-fg">온라인 표시</span>
+              <span className="sam-text-body text-sam-fg">온라인 표시</span>
               <button
                 type="button"
                 role="switch"
@@ -170,7 +170,7 @@ export function ChatSettingsContent() {
               </button>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[14px] text-sam-fg">마지막 접속 숨기기</span>
+              <span className="sam-text-body text-sam-fg">마지막 접속 숨기기</span>
               <button
                 type="button"
                 role="switch"
@@ -189,12 +189,12 @@ export function ChatSettingsContent() {
               </button>
             </div>
             <div>
-              <span className="text-[14px] text-sam-fg">상태 공개 범위</span>
-              <p className="mt-0.5 text-[11px] text-sam-muted">
+              <span className="sam-text-body text-sam-fg">상태 공개 범위</span>
+              <p className="mt-0.5 sam-text-xxs text-sam-muted">
                 「거래 상대만」은 같은 거래 채팅방에서만 온라인 표시가 공유됩니다.
               </p>
               <select
-                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
                 disabled={tradePresenceSaving}
                 value={tradePresence.audience}
                 onChange={(e) => {
@@ -211,7 +211,7 @@ export function ChatSettingsContent() {
             </div>
           </div>
         ) : tradePresenceErr ? null : (
-          <p className="mt-2 text-[12px] text-sam-muted">설정을 불러오는 중…</p>
+          <p className="mt-2 sam-text-helper text-sam-muted">설정을 불러오는 중…</p>
         )}
       </div>
     </div>

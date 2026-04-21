@@ -72,30 +72,30 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
             {it.thumbnail ? (
               <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
+              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">이미지</div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">{it.title || "상품"}</p>
-            <p className="mt-0.5 text-[15px] font-bold text-sam-fg">{formatPrice(it.price, currency)}</p>
-            <p className="mt-0.5 truncate text-[12px] text-sam-muted">
+            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{it.title || "상품"}</p>
+            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(it.price, currency)}</p>
+            <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
               {counterpartyLabel} {it.revieweeNickname}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {PUBLIC_LABELS[it.publicReviewType] ?? it.publicReviewType}
               </span>
               {it.isAnonymousNegative ? (
-                <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] text-sam-muted">익명 표시</span>
+                <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">익명 표시</span>
               ) : null}
             </div>
             {tags ? (
-              <p className="mt-1.5 line-clamp-2 text-[12px] leading-snug text-sam-muted">{tags}</p>
+              <p className="mt-1.5 line-clamp-2 sam-text-helper leading-snug text-sam-muted">{tags}</p>
             ) : null}
             {it.comment ? (
-              <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-[12px] text-sam-fg">{it.comment}</p>
+              <p className="mt-1 line-clamp-2 whitespace-pre-wrap sam-text-helper text-sam-fg">{it.comment}</p>
             ) : null}
-            <p className="mt-1.5 text-[11px] text-sam-meta">
+            <p className="mt-1.5 sam-text-xxs text-sam-meta">
               작성 {new Date(it.createdAt).toLocaleString("ko-KR")}
             </p>
           </div>
@@ -105,12 +105,12 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
         {it.roomId ? (
           <Link
             href={tradeHubChatRoomHref(it.roomId, "product_chat")}
-            className="text-[13px] font-medium text-signature hover:underline"
+            className="sam-text-body-secondary font-medium text-signature hover:underline"
           >
             채팅방
           </Link>
         ) : null}
-        <Link href={detailHref} className="text-[13px] font-medium text-signature hover:underline">
+        <Link href={detailHref} className="sam-text-body-secondary font-medium text-signature hover:underline">
           {detailLabel}
         </Link>
       </div>
@@ -170,15 +170,15 @@ export function MyWrittenReviewsView({
   const pyClass = variant === "tradeHub" || variant === "tabPanel" ? "py-6" : "py-12";
 
   if (loading) {
-    return <p className={`${pyClass} text-center text-[14px] text-sam-muted`}>불러오는 중…</p>;
+    return <p className={`${pyClass} text-center sam-text-body text-sam-muted`}>불러오는 중…</p>;
   }
 
   if (variant === "tabPanel") {
     if (items.length === 0) {
       return (
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-6 text-center">
-          <p className="text-[14px] text-sam-muted">작성한 거래 후기가 없어요.</p>
-          <p className="mt-1 text-[12px] text-sam-muted">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
+          <p className="sam-text-body text-sam-muted">작성한 거래 후기가 없어요.</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
         </div>
       );
     }
@@ -198,8 +198,8 @@ export function MyWrittenReviewsView({
     if (items.length === 0) {
       return (
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-6 text-center">
-          <p className="text-[14px] text-sam-muted">아직 작성한 거래 후기가 없어요.</p>
-          <p className="mt-1 text-[13px] text-sam-muted">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
+          <p className="sam-text-body text-sam-muted">아직 작성한 거래 후기가 없어요.</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">거래 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
         </div>
       );
     }
@@ -207,10 +207,10 @@ export function MyWrittenReviewsView({
     return (
       <div className="space-y-8">
         <div>
-          <h4 className="text-[15px] font-semibold text-sam-fg">구매 후기</h4>
-          <p className="mt-0.5 text-[12px] text-sam-muted">내가 구매한 거래에서 판매자에게 남긴 후기예요.</p>
+          <h4 className="sam-text-body font-semibold text-sam-fg">구매 후기</h4>
+          <p className="mt-0.5 sam-text-helper text-sam-muted">내가 구매한 거래에서 판매자에게 남긴 후기예요.</p>
           {buyerItems.length === 0 ? (
-            <p className="mt-3 text-center text-[13px] text-sam-muted">구매 후기가 없어요.</p>
+            <p className="mt-3 text-center sam-text-body-secondary text-sam-muted">구매 후기가 없어요.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {buyerItems.map((it) => (
@@ -220,10 +220,10 @@ export function MyWrittenReviewsView({
           )}
         </div>
         <div className="border-t border-sam-border-soft pt-6">
-          <h4 className="text-[15px] font-semibold text-sam-fg">판매 후기</h4>
-          <p className="mt-0.5 text-[12px] text-sam-muted">내가 판매한 거래에서 구매자에게 남긴 후기예요.</p>
+          <h4 className="sam-text-body font-semibold text-sam-fg">판매 후기</h4>
+          <p className="mt-0.5 sam-text-helper text-sam-muted">내가 판매한 거래에서 구매자에게 남긴 후기예요.</p>
           {sellerItems.length === 0 ? (
-            <p className="mt-3 text-center text-[13px] text-sam-muted">판매 후기가 없어요.</p>
+            <p className="mt-3 text-center sam-text-body-secondary text-sam-muted">판매 후기가 없어요.</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {sellerItems.map((it) => (
@@ -239,11 +239,11 @@ export function MyWrittenReviewsView({
   if (items.length === 0) {
     return (
       <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-8 text-center">
-        <p className="text-[14px] text-sam-muted">아직 작성한 거래 후기가 없어요.</p>
-        <p className="text-[13px] text-sam-muted">거래완료 확인 후 구매내역에서 평가·후기를 남길 수 있어요.</p>
+        <p className="sam-text-body text-sam-muted">아직 작성한 거래 후기가 없어요.</p>
+        <p className="sam-text-body-secondary text-sam-muted">거래완료 확인 후 구매내역에서 평가·후기를 남길 수 있어요.</p>
         <Link
           href={hubPurchasesPath}
-          className="inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white"
+          className="inline-block rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
         >
           구매내역 보기
         </Link>

@@ -37,7 +37,7 @@ export function ExperimentWinnerTable() {
 
   if (experiments.length === 0 && summaries.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         종료된 실험이나 승자 요약이 없습니다.
       </div>
     );
@@ -46,13 +46,13 @@ export function ExperimentWinnerTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">
+        <label className="sam-text-body font-medium text-sam-fg">
           승자 선택 기준
         </label>
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value as WinningMetric)}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {(Object.keys(WINNING_METRIC_LABELS) as WinningMetric[]).map((m) => (
             <option key={m} value={m}>
@@ -62,7 +62,7 @@ export function ExperimentWinnerTable() {
         </select>
       </div>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="w-full min-w-[560px] border-collapse text-[14px]">
+        <table className="w-full min-w-[560px] border-collapse sam-text-body">
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -108,7 +108,7 @@ export function ExperimentWinnerTable() {
                   </td>
                   <td className="px-3 py-2.5">
                     {s.autoDeployRecommended ? (
-                      <span className="text-[13px] text-emerald-600">추천</span>
+                      <span className="sam-text-body-secondary text-emerald-600">추천</span>
                     ) : (
                       "-"
                     )}
@@ -136,7 +136,7 @@ export function ExperimentWinnerTable() {
                       type="button"
                       onClick={() => handleChooseWinner(e.id)}
                       disabled={!!choosingId}
-                      className="text-[13px] text-signature hover:underline disabled:opacity-50"
+                      className="sam-text-body-secondary text-signature hover:underline disabled:opacity-50"
                     >
                       승자 선택
                     </button>

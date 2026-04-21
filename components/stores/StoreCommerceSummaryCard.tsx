@@ -6,13 +6,13 @@ import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } fr
 function statusBadge(isOpen: boolean) {
   if (isOpen) {
     return (
-      <span className="rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+      <span className="rounded bg-emerald-50 px-2 py-0.5 sam-text-xxs font-semibold text-emerald-800">
         영업중
       </span>
     );
   }
   return (
-    <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+    <span className="rounded bg-amber-50 px-2 py-0.5 sam-text-xxs font-semibold text-amber-800">
       준비중
     </span>
   );
@@ -62,7 +62,7 @@ export function StoreCommerceSummaryCard({
         <h2 className="text-base font-bold text-sam-fg">{storeName}</h2>
         {statusBadge(isOpen)}
       </div>
-      <div className="flex flex-wrap gap-2 text-[11px]">
+      <div className="flex flex-wrap gap-2 sam-text-xxs">
         {deliveryAvailable ? (
           <span className="rounded border border-orange-200 bg-orange-50 px-2 py-0.5 font-medium text-orange-900">
             배달 가능
@@ -82,7 +82,7 @@ export function StoreCommerceSummaryCard({
           </span>
         )}
       </div>
-      <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-[12px] text-sam-fg">
+      <dl className="grid grid-cols-2 gap-x-2 gap-y-1 sam-text-helper text-sam-fg">
         <dt className="text-sam-muted">최소주문</dt>
         <dd className="text-right font-medium">{minOrderDd}</dd>
         <dt className="text-sam-muted">배달비</dt>
@@ -110,9 +110,9 @@ export function StoreCommerceSummaryCard({
         ) : null}
       </dl>
       {intro ? (
-        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">{intro}</p>
+        <p className="whitespace-pre-wrap sam-text-body-secondary leading-relaxed text-sam-fg">{intro}</p>
       ) : null}
-      <p className="text-[11px] leading-relaxed text-sam-muted">{disclaimer}</p>
+      <p className="sam-text-xxs leading-relaxed text-sam-muted">{disclaimer}</p>
     </div>
   );
 }

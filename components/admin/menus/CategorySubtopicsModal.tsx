@@ -21,7 +21,7 @@ export function CategorySubtopicsModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="relative z-[101] max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-lg"
+        className="relative z-[101] max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
         onClick={(e) => e.stopPropagation()}
       >
         <TradeSubtopicsPanel

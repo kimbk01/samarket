@@ -30,7 +30,7 @@ export function StoreCommerceCartEntryFallback({
 
   return (
     <div className="min-h-[50vh] bg-[#F7F7F7] px-4 py-10">
-      <p className="text-center text-[15px] font-semibold text-sam-fg">{title}</p>
+      <p className="text-center sam-text-body font-semibold text-sam-fg">{title}</p>
       <p className="mt-2 text-center text-sm text-sam-muted">{sub}</p>
       {hint === "network" && onRetry ? (
         <div className="mt-4 flex justify-center">
@@ -44,7 +44,7 @@ export function StoreCommerceCartEntryFallback({
         </div>
       ) : null}
       {buckets.length > 0 ? (
-        <div className="mx-auto mt-8 max-w-md rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-950">
+        <div className="mx-auto mt-8 max-w-md rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-950">
           <p className="font-medium">담아 둔 장바구니가 있으면 아래에서 열 수 있어요.</p>
           <ul className="mt-3 space-y-2">
             {buckets.map((b) => (

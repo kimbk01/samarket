@@ -57,7 +57,7 @@ export default function MyAdsPageClient() {
       />
       <div className="mx-auto max-w-lg px-4 py-4">
         {authHint ? (
-          <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
             {authHint}{" "}
             <Link href="/login" className="font-semibold text-signature underline">
               로그인
@@ -65,9 +65,9 @@ export default function MyAdsPageClient() {
           </p>
         ) : null}
 
-        <div className="mb-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-[12px] text-sam-muted">
+        <div className="mb-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-helper text-sam-muted">
           <p className="font-semibold text-sam-fg">무엇이 여기에 보이나요?</p>
-          <ul className="list-inside list-disc space-y-1 text-[11px] leading-relaxed">
+          <ul className="list-inside list-disc space-y-1 sam-text-xxs leading-relaxed">
             <li>
               <strong className="text-sam-fg">커뮤니티·동네 피드 게시글 광고</strong> — 글 단위로 신청한 내역(
               <code className="rounded bg-sam-surface-muted px-1">post_ads</code>)이 표시됩니다. 신청은 글 작성·수정 흐름의
@@ -93,20 +93,20 @@ export default function MyAdsPageClient() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <Link
             href="/philife"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-center text-[14px] font-medium text-sam-fg"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-center sam-text-body font-medium text-sam-fg"
           >
             커뮤니티에서 글 쓰기
           </Link>
           <Link
             href="/my/ads/apply"
-            className="rounded-ui-rect bg-sam-surface-muted px-4 py-2 text-center text-[14px] font-medium text-sam-fg"
+            className="rounded-ui-rect bg-sam-surface-muted px-4 py-2 text-center sam-text-body font-medium text-sam-fg"
           >
             홈 노출 신청(베타)
           </Link>
         </div>
 
         {loading ? (
-          <p className="py-10 text-center text-[14px] text-sam-muted">불러오는 중…</p>
+          <p className="py-10 text-center sam-text-body text-sam-muted">불러오는 중…</p>
         ) : (
           <MyPostAdList ads={ads} metaSource={meta?.source} onRefresh={() => void load()} />
         )}

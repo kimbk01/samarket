@@ -342,11 +342,11 @@ export function MyProductsView() {
       <MyProductFilter value={filter} onChange={handleFilterChange} />
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-[14px] text-sam-muted">불러오는 중...</p>
+          <p className="sam-text-body text-sam-muted">불러오는 중...</p>
         </div>
       ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-[14px] text-sam-muted">
+          <p className="sam-text-body text-sam-muted">
             {filter === "all"
               ? "등록한 상품이 없어요"
               : "이 상태의 상품이 없어요"}

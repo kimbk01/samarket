@@ -65,12 +65,12 @@ export function CountrySettingsContent() {
         <li key={c.code}>
           <button
             type="button"
-            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg"
+            className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg"
             onClick={() => select(c.code)}
           >
             <span>{c.name}</span>
             {current === c.code && (
-              <span className="text-[13px] font-medium text-signature">선택됨</span>
+              <span className="sam-text-body-secondary font-medium text-signature">선택됨</span>
             )}
           </button>
         </li>

@@ -30,9 +30,9 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[14px] font-medium text-sam-fg">{banner.title}</p>
+        <p className="sam-text-body font-medium text-sam-fg">{banner.title}</p>
         {banner.description && (
-          <p className="mt-0.5 text-[12px] text-sam-muted">{banner.description}</p>
+          <p className="mt-0.5 sam-text-helper text-sam-muted">{banner.description}</p>
         )}
       </div>
       {banner.dismissible && (
@@ -42,7 +42,7 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
           className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
           aria-label="닫기"
         >
-          <span className="text-[18px] leading-none">×</span>
+          <span className="sam-text-page-title leading-none">×</span>
         </button>
       )}
     </div>

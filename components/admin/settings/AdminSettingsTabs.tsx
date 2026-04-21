@@ -16,7 +16,7 @@ export function AdminSettingsTabs({ active, onChange }: AdminSettingsTabsProps) 
           key={key}
           type="button"
           onClick={() => onChange(key)}
-          className={`rounded-t px-4 py-2.5 text-[14px] font-medium ${
+          className={`rounded-t px-4 py-2.5 sam-text-body font-medium ${
             active === key
               ? "border border-b-0 border-sam-border bg-sam-surface text-sam-fg"
               : "text-sam-muted hover:bg-sam-surface-muted hover:text-sam-fg"

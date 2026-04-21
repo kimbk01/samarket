@@ -16,7 +16,7 @@
  * - `content-shell.ts` — 본문 기준선 래퍼
  * - `secondary-tabs-surface.ts` — 2단 카테고리 앱바 표면
  * - `trade-primary-tabs-classes.ts` — TRADE 메뉴 탭 행 Tailwind
- * - `market-topic-scroll.ts` — 마켓 주제 칩 가로 스크롤 행
+ * - 마켓 주제 2행 — `MarketCategoryFeed` + `Sam.tabs.barScroll` / `TradeTopicChipsRow`
  * - `tabs/use-trade-tabs.ts` — 탭 데이터·캐시
  */
 

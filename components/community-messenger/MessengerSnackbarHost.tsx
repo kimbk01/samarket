@@ -22,13 +22,13 @@ export function MessengerSnackbarHost() {
       <div
         role="status"
         aria-live="polite"
-        className={`pointer-events-auto flex max-w-[min(100%,24rem)] items-start gap-3 rounded-ui-rect border px-3.5 py-2.5 text-[13px] leading-snug shadow-lg backdrop-blur-sm ${surface}`}
+        className={`pointer-events-auto flex max-w-[min(100%,24rem)] items-start gap-3 rounded-ui-rect border px-3.5 py-2.5 sam-text-body-secondary leading-snug shadow-sam-elevated backdrop-blur-sm ${surface}`}
       >
         <p className="min-w-0 flex-1">{current.message}</p>
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 rounded-ui-rect px-1.5 py-0.5 text-[12px] font-semibold text-white/85 underline-offset-2 hover:text-white"
+          className="shrink-0 rounded-ui-rect px-1.5 py-0.5 sam-text-helper font-semibold text-white/85 underline-offset-2 hover:text-white"
         >
           닫기
         </button>

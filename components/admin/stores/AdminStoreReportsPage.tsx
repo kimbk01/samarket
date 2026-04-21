@@ -80,7 +80,7 @@ export function AdminStoreReportsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장·상품 신고" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         열린 건만 기각·조치할 수 있습니다. 메모는 내부 기록용입니다.
       </p>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}

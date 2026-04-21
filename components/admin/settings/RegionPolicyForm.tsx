@@ -13,7 +13,7 @@ interface RegionPolicyFormProps {
 export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         지역·노출 정책 (8·9단계 연동 placeholder)
       </p>
       <div className="flex items-center gap-2">
@@ -28,13 +28,13 @@ export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
         />
         <label
           htmlFor="regionMultiSelectEnabled"
-          className="text-[14px] text-sam-fg"
+          className="sam-text-body text-sam-fg"
         >
           동네 여러 개 선택 허용
         </label>
       </div>
       <div>
-        <label className="block text-[13px] font-medium text-sam-fg">
+        <label className="block sam-text-body-secondary font-medium text-sam-fg">
           최대 저장 동네 수
         </label>
         <input
@@ -44,11 +44,11 @@ export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
           onChange={(e) =>
             onChange("maxSavedRegions", Number(e.target.value) || 0)
           }
-          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
       </div>
       <div>
-        <label className="block text-[13px] font-medium text-sam-fg">
+        <label className="block sam-text-body-secondary font-medium text-sam-fg">
           홈 노출 반경 (km)
         </label>
         <input
@@ -59,7 +59,7 @@ export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
           onChange={(e) =>
             onChange("homeRadiusKm", Number(e.target.value) || 0)
           }
-          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg"
+          className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
       </div>
     </div>

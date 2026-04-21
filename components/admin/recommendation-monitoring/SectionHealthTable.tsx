@@ -25,7 +25,7 @@ export function SectionHealthTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">surface</label>
+        <label className="sam-text-body font-medium text-sam-fg">surface</label>
         <select
           value={surfaceFilter}
           onChange={(e) =>
@@ -35,7 +35,7 @@ export function SectionHealthTable() {
                 : (e.target.value as RecommendationSurface)
             )
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="">전체</option>
           <option value="home">홈</option>
@@ -44,12 +44,12 @@ export function SectionHealthTable() {
         </select>
       </div>
       {sections.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           섹션 헬스 데이터가 없습니다.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[560px] border-collapse text-[14px]">
+          <table className="w-full min-w-[560px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -90,7 +90,7 @@ export function SectionHealthTable() {
                   <td className="px-3 py-2.5 text-sam-fg">{s.sectionKey}</td>
                   <td className="px-3 py-2.5">
                     <span
-                      className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                      className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                         s.status === "healthy"
                           ? "bg-emerald-50 text-emerald-800"
                           : s.status === "warning"
@@ -113,7 +113,7 @@ export function SectionHealthTable() {
                   <td className="px-3 py-2.5 text-sam-fg">
                     {(s.emptyRate * 100).toFixed(2)}%
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+                  <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {new Date(s.updatedAt).toLocaleString("ko-KR")}
                   </td>
                 </tr>

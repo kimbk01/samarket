@@ -90,7 +90,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
           </svg>
         </button>
         <div className="min-w-0 flex-1 text-center">
-          <span className="text-[15px] font-semibold">최근 항목</span>
+          <span className="sam-text-body font-semibold">최근 항목</span>
           <span className="ml-1 text-white/50" aria-hidden>
             ▾
           </span>
@@ -98,7 +98,7 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
         <button
           type="button"
           disabled={selectedCount === 0}
-          className="shrink-0 rounded-ui-rect px-3 py-2 text-[15px] font-semibold text-signature disabled:text-white/25"
+          className="shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-semibold text-signature disabled:text-white/25"
           onClick={confirm}
         >
           전송
@@ -145,8 +145,8 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
             ✓
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold leading-tight">사진 묶어보내기</p>
-            <p className="text-[11px] text-white/55">
+            <p className="sam-text-body font-semibold leading-tight">사진 묶어보내기</p>
+            <p className="sam-text-xxs text-white/55">
               선택 {selectedCount}장 · 최대 {MAX_CHAT_IMAGE_ATTACH}장
             </p>
           </div>

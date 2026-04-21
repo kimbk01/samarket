@@ -109,7 +109,7 @@ export function PostDetailMoreBottomSheet({
           <button
             type="button"
             onClick={handleHideAuthor}
-            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left text-[15px] text-sam-fg hover:bg-sam-surface"
+            className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
           >
             <IconEyeSlash className="h-5 w-5 shrink-0 text-sam-muted" />
             이 사용자의 글 보지 않기
@@ -118,7 +118,7 @@ export function PostDetailMoreBottomSheet({
             <button
               type="button"
               onClick={handleReport}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left text-[15px] font-medium text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-3 text-left sam-text-body font-medium text-red-600 hover:bg-red-50"
             >
               <IconReportAlert className="h-5 w-5 shrink-0 text-red-500" />
               신고하기
@@ -129,7 +129,7 @@ export function PostDetailMoreBottomSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 w-full rounded-ui-rect bg-sam-surface-muted py-3.5 text-[15px] font-medium text-sam-fg hover:bg-sam-border-soft"
+          className="mt-3 w-full rounded-ui-rect bg-sam-surface-muted py-3.5 sam-text-body font-medium text-sam-fg hover:bg-sam-border-soft"
         >
           닫기
         </button>

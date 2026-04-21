@@ -5,6 +5,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
 import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Review = {
   id: string;
@@ -127,7 +128,7 @@ export function StoreReviewsSection({
     return wrap(
       <>
         <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
-        <p className="text-[13px] font-normal text-sam-meta">리뷰 불러오는 중…</p>
+        <p className={Sam.text.bodySecondary}>리뷰 불러오는 중…</p>
       </>
     );
   }
@@ -138,14 +139,10 @@ export function StoreReviewsSection({
         <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
         {variant === "plain" ? (
           <div className={`${STORE_DETAIL_CARD} p-4`}>
-            <p className="text-[14px] font-normal leading-relaxed text-sam-muted">
-              아직 등록된 리뷰가 없습니다.
-            </p>
+            <p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>
           </div>
         ) : (
-          <p className="text-[14px] font-normal leading-relaxed text-sam-muted">
-            아직 등록된 리뷰가 없습니다.
-          </p>
+          <p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>
         )}
       </>
     );
@@ -157,11 +154,11 @@ export function StoreReviewsSection({
         <div className="flex items-end justify-between gap-2">
           <div>
             <StoreDetailSectionTitle level="h2">리뷰 {count.toLocaleString("ko-KR")}</StoreDetailSectionTitle>
-            <p className="mt-0.5 text-[13px] text-sam-muted">사장님 댓글 {ownerReplyCount.toLocaleString("ko-KR")}</p>
+            <p className={`mt-0.5 ${Sam.text.bodySecondary}`}>사장님 댓글 {ownerReplyCount.toLocaleString("ko-KR")}</p>
           </div>
           <div className="text-right">
-            <p className="text-[34px] font-bold leading-none text-sam-fg">{avg != null ? avg.toFixed(2) : "—"}</p>
-            <p className="mt-1 text-[14px] text-amber-500">★★★★★</p>
+            <p className={`${Sam.text.hero} leading-none text-sam-fg`}>{avg != null ? avg.toFixed(2) : "—"}</p>
+            <p className={`mt-1 ${Sam.text.body} text-amber-500`}>★★★★★</p>
           </div>
         </div>
         <div className="mt-3 space-y-1.5">
@@ -170,11 +167,11 @@ export function StoreReviewsSection({
             const pct = count > 0 ? Math.round((n / count) * 1000) / 10 : 0;
             return (
               <div key={star} className="flex items-center gap-2">
-                <span className="w-5 text-[12px] font-semibold text-sam-fg">{star}점</span>
+                <span className={`w-5 font-semibold text-sam-fg ${Sam.text.helper}`}>{star}점</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-sam-border-soft">
                   <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
                 </div>
-                <span className="w-10 text-right text-[12px] text-sam-muted">{n.toLocaleString("ko-KR")}</span>
+                <span className={`w-10 text-right text-sam-muted ${Sam.text.helper}`}>{n.toLocaleString("ko-KR")}</span>
               </div>
             );
           })}
@@ -182,7 +179,7 @@ export function StoreReviewsSection({
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <label className="inline-flex items-center gap-2 text-[13px] font-medium text-sam-fg">
+        <label className={`inline-flex items-center gap-2 font-medium text-sam-fg ${Sam.text.bodySecondary}`}>
           <input
             type="checkbox"
             className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature"
@@ -194,7 +191,7 @@ export function StoreReviewsSection({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg"
+          className={`rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg ${Sam.text.bodySecondary}`}
         >
           <option value="recommended">추천순</option>
           <option value="latest">최신순</option>
@@ -205,7 +202,7 @@ export function StoreReviewsSection({
 
       {filteredReviews.length === 0 ? (
         <div className={`${STORE_DETAIL_CARD} p-4`}>
-          <p className="text-[14px] text-sam-muted">조건에 맞는 리뷰가 없습니다.</p>
+          <p className={`${Sam.text.body} text-sam-muted`}>조건에 맞는 리뷰가 없습니다.</p>
         </div>
       ) : null}
 
@@ -213,14 +210,14 @@ export function StoreReviewsSection({
         {filteredReviews.map((r) => (
           <li key={r.id} className={`${STORE_DETAIL_CARD} p-3`}>
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-[13px] font-semibold text-sam-fg">
+              <p className={`truncate font-semibold text-sam-fg ${Sam.text.bodySecondary}`}>
                 {r.buyer_public_label || "사마켓 회원"}
               </p>
-              <p className="text-[12px] font-normal text-sam-meta">
+              <p className={`${Sam.text.helper}`}>
                 {new Date(r.created_at).toLocaleDateString("ko-KR")}
               </p>
             </div>
-            <p className="mt-1 text-[14px] text-amber-600">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
+            <p className={`mt-1 text-amber-600 ${Sam.text.body}`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
             {r.image_urls && r.image_urls.length > 0 ? (
               <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
                 {r.image_urls.slice(0, 5).map((src) => (
@@ -234,17 +231,17 @@ export function StoreReviewsSection({
                 ))}
               </div>
             ) : null}
-            <p className="mt-1.5 whitespace-pre-wrap text-[15px] font-normal leading-relaxed text-sam-fg">
+            <p className={`mt-1.5 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>
               {r.content}
             </p>
             {r.owner_reply_content?.trim() ? (
               <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2">
-                <p className="text-[12px] font-semibold text-sam-fg">사장님 댓글</p>
-                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed text-sam-fg">
+                <p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>사장님 댓글</p>
+                <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.bodySecondary}`}>
                   {r.owner_reply_content.trim()}
                 </p>
                 {r.owner_reply_created_at ? (
-                  <p className="mt-1 text-right text-[11px] text-sam-meta">
+                  <p className={`mt-1 text-right text-sam-meta ${Sam.text.xxs}`}>
                     {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
                   </p>
                 ) : null}

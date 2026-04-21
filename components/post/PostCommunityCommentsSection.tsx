@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityCommentReport } from "@/lib/reports/createCommunityCommentReport";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type CommentRow = {
   id: string;
@@ -145,12 +146,12 @@ export function PostCommunityCommentsSection({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-sam-fg">
+            <p className={`font-medium text-sam-fg ${Sam.text.bodySecondary}`}>
               {label}
-              {opts.isChild ? <span className="ml-1 text-[11px] font-normal text-sky-700">답글</span> : null}
+              {opts.isChild ? <span className={`ml-1 font-normal text-sky-700 ${Sam.text.xxs}`}>답글</span> : null}
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-[14px] text-sam-fg">{c.content}</p>
-            <p className="mt-1 text-[11px] text-sam-meta">{formatTimeAgo(c.created_at)}</p>
+            <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>{c.content}</p>
+            <p className={`mt-1 text-sam-meta ${Sam.text.xxs}`}>{formatTimeAgo(c.created_at)}</p>
           </div>
           <div className="flex shrink-0 flex-col gap-1">
             {showReportBtn && (
@@ -158,7 +159,7 @@ export function PostCommunityCommentsSection({
                 type="button"
                 disabled={reportBusyId === c.id}
                 onClick={() => void onReportComment(c.id)}
-                className="rounded-ui-rect border border-red-100 bg-sam-surface px-2 py-1 text-[11px] font-medium text-red-700 disabled:opacity-50"
+                className={`rounded-ui-rect border border-red-100 bg-sam-surface px-2 py-1 font-medium text-red-700 disabled:opacity-50 ${Sam.text.xxs}`}
               >
                 {reportBusyId === c.id ? "…" : "신고"}
               </button>
@@ -167,7 +168,7 @@ export function PostCommunityCommentsSection({
               <button
                 type="button"
                 onClick={() => setReplyParentId(c.id)}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] font-medium text-sam-fg"
+                className={`rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 font-medium text-sam-fg ${Sam.text.xxs}`}
               >
                 답글
               </button>
@@ -180,11 +181,11 @@ export function PostCommunityCommentsSection({
 
   return (
     <div id="community-post-comments" className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-      <h3 className="text-[15px] font-semibold text-sam-fg">댓글</h3>
+      <h3 className={`font-semibold text-sam-fg ${Sam.text.body}`}>댓글</h3>
       {loading ? (
-        <p className="mt-3 text-[13px] text-sam-muted">불러오는 중...</p>
+        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>불러오는 중...</p>
       ) : roots.length === 0 ? (
-        <p className="mt-3 text-[13px] text-sam-muted">첫 댓글을 남겨 보세요.</p>
+        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>첫 댓글을 남겨 보세요.</p>
       ) : (
         <ul className="mt-3 space-y-3">
           {roots.map((root) => (
@@ -200,7 +201,9 @@ export function PostCommunityCommentsSection({
 
       <div className="mt-4">
         {replyParentId ? (
-          <div className="mb-2 flex items-center justify-between gap-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
+          <div
+            className={`mb-2 flex items-center justify-between gap-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-sky-900 ${Sam.text.bodySecondary}`}
+          >
             <span>이 댓글에 답글 작성 중</span>
             <button
               type="button"
@@ -223,13 +226,13 @@ export function PostCommunityCommentsSection({
           }
           disabled={!currentUserId || submitting}
           rows={3}
-          className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta disabled:bg-sam-app"
+          className={`${Sam.input.textarea} disabled:bg-sam-app`}
         />
         <button
           type="button"
           onClick={() => (currentUserId ? void onSubmitComment() : router.push(LOGIN_REDIRECT))}
           disabled={!!currentUserId && (submitting || !draft.trim())}
-          className="mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className={`mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 font-medium text-white disabled:opacity-50 ${Sam.text.body}`}
         >
           {currentUserId
             ? submitting
@@ -239,7 +242,7 @@ export function PostCommunityCommentsSection({
                 : "댓글 등록"
             : "로그인하고 댓글 쓰기"}
         </button>
-        {error ? <p className="mt-2 text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className={`mt-2 text-red-600 ${Sam.text.bodySecondary}`}>{error}</p> : null}
       </div>
     </div>
   );

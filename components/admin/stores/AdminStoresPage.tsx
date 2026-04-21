@@ -56,14 +56,14 @@ function previewText(text: string | null | undefined, max = 56): string {
 function ActionGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-sam-muted">{title}</p>
+      <p className="mb-1.5 sam-text-xxs font-bold uppercase tracking-wide text-sam-muted">{title}</p>
       <div className="flex flex-col gap-1.5">{children}</div>
     </div>
   );
 }
 
 const ctaBase =
-  "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-ui-rect px-3 py-2 text-center text-[12px] font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
+  "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-ui-rect px-3 py-2 text-center sam-text-helper font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
 
 const ctaPrimary = `${ctaBase} bg-signature text-white shadow-sm hover:bg-signature/90 active:bg-signature/95`;
 const ctaSecondary = `${ctaBase} border border-sam-border bg-sam-surface text-sam-fg shadow-sm hover:bg-sam-app active:bg-sam-surface-muted`;
@@ -156,7 +156,7 @@ export function AdminStoresPage() {
         />
       ) : null}
       <AdminPageHeader title="매장 심사 (커머스)" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         DB <code className="rounded bg-sam-surface-muted px-1">stores</code> ·{" "}
         <code className="rounded bg-sam-surface-muted px-1">store_sales_permissions</code> 연동. 매장 승인 후
         판매 권한을 별도로 승인할 수 있습니다.
@@ -168,7 +168,7 @@ export function AdminStoresPage() {
             key={f.value}
             type="button"
             onClick={() => setFilter(f.value)}
-            className={`rounded-full px-3 py-1.5 text-[13px] font-medium ${
+            className={`rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
               filter === f.value
                 ? "bg-sam-ink text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
@@ -180,21 +180,21 @@ export function AdminStoresPage() {
       </div>
 
       {error ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
           {error}
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           매장이 없습니다.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="min-w-[1420px] w-full border-collapse text-left text-[13px]">
-            <thead className="border-b border-sam-border bg-sam-app text-[12px] text-sam-muted">
+          <table className="min-w-[1420px] w-full border-collapse text-left sam-text-body-secondary">
+            <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
               <tr>
                 <th className="min-w-[180px] px-3 py-2 font-medium">매장</th>
                 <th className="min-w-[100px] max-w-[140px] px-3 py-2 font-medium">신청자</th>
@@ -202,7 +202,7 @@ export function AdminStoresPage() {
                 <th className="min-w-[140px] px-3 py-2 font-medium">연락</th>
                 <th className="min-w-[168px] px-3 py-2 font-medium">업종 (DB)</th>
                 <th
-                  className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] whitespace-normal px-1 py-2 text-center align-bottom text-[11px] font-medium leading-tight"
+                  className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] whitespace-normal px-1 py-2 text-center align-bottom sam-text-xxs font-medium leading-tight"
                   title="오너 기본 정보에서 매장명·업종·세부 주제 수정 허용 여부"
                 >
                   식별
@@ -238,47 +238,47 @@ export function AdminStoresPage() {
                         href={`/stores/${encodeURIComponent(r.slug)}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-0.5 inline-block text-[12px] text-signature underline"
+                        className="mt-0.5 inline-block sam-text-helper text-signature underline"
                       >
                         공개 페이지 열기 →
                       </a>
                       <button
                         type="button"
-                        className="mt-1 block text-[12px] font-medium text-signature hover:underline"
+                        className="mt-1 block sam-text-helper font-medium text-signature hover:underline"
                         onClick={() => setSheetStore(r)}
                       >
                         신청 정보 시트
                       </button>
                       {r.revision_note ? (
-                        <div className="mt-1 text-[11px] text-amber-800">보완: {r.revision_note}</div>
+                        <div className="mt-1 sam-text-xxs text-amber-800">보완: {r.revision_note}</div>
                       ) : null}
                       {r.rejected_reason ? (
-                        <div className="mt-1 text-[11px] text-red-700">반려: {r.rejected_reason}</div>
+                        <div className="mt-1 sam-text-xxs text-red-700">반려: {r.rejected_reason}</div>
                       ) : null}
                     </td>
-                    <td className="max-w-[140px] px-3 py-2 align-top text-[12px] text-sam-fg">
+                    <td className="max-w-[140px] px-3 py-2 align-top sam-text-helper text-sam-fg">
                       {r.applicant_nickname?.trim() || (
                         <span className="text-sam-meta">—</span>
                       )}
                     </td>
                     <td className="max-w-[200px] px-3 py-2 align-top">
-                      <p className="break-all font-mono text-[12px] leading-snug text-sam-fg">
+                      <p className="break-all font-mono sam-text-helper leading-snug text-sam-fg">
                         {r.slug}
                       </p>
                       <button
                         type="button"
-                        className="mt-1 text-[11px] font-medium text-signature hover:underline"
+                        className="mt-1 sam-text-xxs font-medium text-signature hover:underline"
                         onClick={() => {
                           void navigator.clipboard.writeText(r.slug).catch(() => {});
                         }}
                       >
                         등록 ID 복사
                       </button>
-                      <p className="mt-1 text-[10px] leading-snug text-sam-meta">
+                      <p className="mt-1 sam-text-xxs leading-snug text-sam-meta">
                         신청 시 정한 URL용 식별자(slug). 매장 전용 로그인 ID는 추후 정리 예정.
                       </p>
                     </td>
-                    <td className="max-w-[160px] px-3 py-2 align-top text-[12px] leading-snug text-sam-fg">
+                    <td className="max-w-[160px] px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg">
                       <div>
                         <span className="text-sam-muted">전화</span>{" "}
                         {r.phone?.trim() ? (
@@ -296,28 +296,28 @@ export function AdminStoresPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 align-top text-[12px] leading-snug text-sam-fg break-words">
+                    <td className="px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg break-words">
                       {adminDbTaxonomyLine(r)}
                     </td>
-                    <td className="px-2 py-2 align-middle text-center text-[12px] text-sam-fg">
+                    <td className="px-2 py-2 align-middle text-center sam-text-helper text-sam-fg">
                       {r.owner_can_edit_store_identity ? (
                         <span className="font-medium text-green-800">허용</span>
                       ) : (
                         <span className="text-sam-muted">—</span>
                       )}
                     </td>
-                    <td className="max-w-[240px] px-3 py-2 align-top text-[12px] leading-snug text-sam-fg">
+                    <td className="max-w-[240px] px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg">
                       {addressLine}
                     </td>
-                    <td className="max-w-[180px] px-3 py-2 align-top text-[12px] text-sam-muted">
+                    <td className="max-w-[180px] px-3 py-2 align-top sam-text-helper text-sam-muted">
                       {previewText(introForList)}
                     </td>
                     <td className="px-3 py-2 align-top text-sam-fg">
                       {ADMIN_STORE_APPROVAL_LABEL[r.approval_status] ?? r.approval_status}
                     </td>
                     <td className="px-3 py-2 align-top">{r.is_visible ? "Y" : "N"}</td>
-                    <td className="px-3 py-2 align-top text-[12px] text-sam-fg">{salesLabel}</td>
-                    <td className="px-3 py-2 align-top font-mono text-[11px] text-sam-muted">
+                    <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">{salesLabel}</td>
+                    <td className="px-3 py-2 align-top font-mono sam-text-xxs text-sam-muted">
                       {r.owner_user_id.slice(0, 8)}…
                     </td>
                     <td className="px-3 py-2 align-top">

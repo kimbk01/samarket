@@ -25,25 +25,25 @@ export function AdPostCard({ ad, href }: AdPostCardProps) {
       <Link href={linkHref} className="block active:bg-sam-app/80">
         <div className="flex items-center gap-2.5 px-3 py-2.5">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[10px] font-bold uppercase text-sam-muted"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted sam-text-xxs font-bold uppercase text-sam-muted"
             aria-hidden
           >
             AD
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-semibold text-sam-fg">{ad.advertiserName}</p>
-            <p className="text-[12px] text-sam-muted">
+            <p className="truncate sam-text-body font-semibold text-sam-fg">{ad.advertiserName}</p>
+            <p className="sam-text-helper text-sam-muted">
               스폰서 · {ad.locationLabel ? `${ad.locationLabel} · ` : ""}
               {daysLeft(ad.endAt)}
             </p>
           </div>
         </div>
         <div className="space-y-1.5 px-3 pb-3">
-          <p className="text-[15px] font-semibold leading-snug text-sam-fg">{ad.postTitle}</p>
+          <p className="sam-text-body font-semibold leading-snug text-sam-fg">{ad.postTitle}</p>
           {ad.postSummary ? (
-            <p className="line-clamp-2 text-[14px] leading-relaxed text-sam-fg">{ad.postSummary}</p>
+            <p className="line-clamp-2 sam-text-body leading-relaxed text-sam-fg">{ad.postSummary}</p>
           ) : null}
-          <p className="text-[12px] text-signature">자세히 보기</p>
+          <p className="sam-text-helper text-signature">자세히 보기</p>
         </div>
       </Link>
     </article>

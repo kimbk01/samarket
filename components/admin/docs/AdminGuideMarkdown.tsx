@@ -19,13 +19,13 @@ const components: Components = {
     <h3 className="mt-4 text-lg font-medium text-sam-fg">{children}</h3>
   ),
   p: ({ children }) => (
-    <p className="mb-3 text-[14px] leading-relaxed text-sam-fg">{children}</p>
+    <p className="mb-3 sam-text-body leading-relaxed text-sam-fg">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-3 list-disc space-y-1 pl-5 text-[14px] text-sam-fg">{children}</ul>
+    <ul className="mb-3 list-disc space-y-1 pl-5 sam-text-body text-sam-fg">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-3 list-decimal space-y-1 pl-5 text-[14px] text-sam-fg">{children}</ol>
+    <ol className="mb-3 list-decimal space-y-1 pl-5 sam-text-body text-sam-fg">{children}</ol>
   ),
   li: ({ children }) => <li className="[&_p]:mb-1">{children}</li>,
   strong: ({ children }) => <strong className="font-semibold text-sam-fg">{children}</strong>,
@@ -44,13 +44,13 @@ const components: Components = {
   },
   hr: () => <hr className="my-8 border-sam-border" />,
   blockquote: ({ children }) => (
-    <blockquote className="mb-3 border-l-4 border-sam-border bg-sam-app py-2 pl-4 text-[13px] text-sam-muted">
+    <blockquote className="mb-3 border-l-4 border-sam-border bg-sam-app py-2 pl-4 sam-text-body-secondary text-sam-muted">
       {children}
     </blockquote>
   ),
   table: ({ children }) => (
     <div className="my-4 overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-      <table className="w-full min-w-[520px] border-collapse text-left text-[13px]">{children}</table>
+      <table className="w-full min-w-[520px] border-collapse text-left sam-text-body-secondary">{children}</table>
     </div>
   ),
   thead: ({ children }) => <thead className="bg-sam-app text-sam-fg">{children}</thead>,
@@ -66,7 +66,7 @@ const components: Components = {
     if (isBlock) {
       return (
         <code
-          className={`block overflow-x-auto rounded-ui-rect bg-sam-ink p-3 font-mono text-[13px] text-sam-meta ${className ?? ""}`}
+          className={`block overflow-x-auto rounded-ui-rect bg-sam-ink p-3 font-mono sam-text-body-secondary text-sam-meta ${className ?? ""}`}
           {...props}
         >
           {children}
@@ -75,7 +75,7 @@ const components: Components = {
     }
     return (
       <code
-        className="rounded bg-sam-surface-muted px-1 py-0.5 font-mono text-[13px] text-rose-800"
+        className="rounded bg-sam-surface-muted px-1 py-0.5 font-mono sam-text-body-secondary text-rose-800"
         {...props}
       >
         {children}

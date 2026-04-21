@@ -43,11 +43,11 @@ export function PostReleaseCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">버전</span>
+        <span className="sam-text-body-secondary text-sam-muted">버전</span>
         <select
           value={versionFilter}
           onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           {versions.map((v) => (
@@ -56,13 +56,13 @@ export function PostReleaseCheckTable() {
             </option>
           ))}
         </select>
-        <span className="text-[13px] text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">단계</span>
         <select
           value={phaseFilter}
           onChange={(e) =>
             setPhaseFilter((e.target.value || "") as PostReleaseCheckPhase | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="before_release">배포 전</option>
@@ -70,13 +70,13 @@ export function PostReleaseCheckTable() {
           <option value="after_24h">24시간 후</option>
           <option value="after_72h">72시간 후</option>
         </select>
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as PostReleaseCheckStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="todo">할 일</option>
@@ -87,13 +87,13 @@ export function PostReleaseCheckTable() {
       </div>
 
       {criticalBlocked.length > 0 && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50/50 p-3 sam-text-body-secondary text-red-800">
           critical 배포 후 검증이 블로킹된 항목이 {criticalBlocked.length}건 있습니다.
         </div>
       )}
 
       {checks.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건의 배포 후 검증 항목이 없습니다.
         </div>
       ) : (
@@ -121,15 +121,15 @@ export function PostReleaseCheckTable() {
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {c.releaseVersion}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {getPostReleasePhaseLabel(c.phase)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {c.title}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     c.status === "blocked"
                       ? "bg-red-100 text-red-800"
                       : c.status === "done"
@@ -140,18 +140,18 @@ export function PostReleaseCheckTable() {
                   {getPostReleaseStatusLabel(c.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {getPostReleasePriorityLabel(c.priority)}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.ownerAdminNickname ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.checkedAt
                   ? new Date(c.checkedAt).toLocaleString()
                   : "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px]">
+              <td className="px-3 py-2.5 sam-text-body-secondary">
                 {c.linkedType === "deployment" && (
                   <Link href="/admin/recommendation-deployments" className="text-signature hover:underline">
                     배포

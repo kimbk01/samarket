@@ -24,8 +24,8 @@ function CommerceMetricVSeparator() {
 function CommerceMetricCell({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0 px-1.5 py-0 text-center">
-      <span className="text-[11px] font-medium leading-none text-sam-muted">{label}</span>
-      <div className="w-full min-w-0 text-[13px] font-semibold leading-tight text-sam-fg">{value}</div>
+      <span className="sam-text-xxs font-medium leading-none text-sam-muted">{label}</span>
+      <div className="w-full min-w-0 sam-text-body-secondary font-semibold leading-tight text-sam-fg">{value}</div>
     </div>
   );
 }
@@ -98,10 +98,10 @@ export function StoreDetailCommerceMetrics({
         </div>
       </div>
       {freeLine ? (
-        <p className="mt-2.5 text-[12px] font-medium text-emerald-800">{freeLine}</p>
+        <p className="mt-2.5 sam-text-helper font-medium text-emerald-800">{freeLine}</p>
       ) : null}
       {courier ? (
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           <span className="font-medium text-sam-fg">배달 안내</span> · {courier}
         </p>
       ) : null}
@@ -136,7 +136,7 @@ export function StoreDetailCommerceStrip({
           deliveryAvailable={deliveryAvailable}
         />
       </div>
-      <p className="mt-3 text-[12px] leading-snug text-sam-muted">
+      <p className="mt-3 sam-text-helper leading-snug text-sam-muted">
         상세 주소·전단지는{" "}
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}/info`}
@@ -154,9 +154,9 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
   const href =
     telHrefFromLoosePhPhone(phone) ?? (phone?.replace(/\s/g, "") ? `tel:${phone.replace(/\s/g, "")}` : "");
   const btn =
-    "flex flex-1 items-center justify-center rounded-ui-rect border border-ig-border bg-background py-2.5 text-center text-[14px] font-semibold text-foreground shadow-sm active:bg-ig-highlight";
+    "flex flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-background py-2.5 text-center sam-text-body font-semibold text-foreground shadow-sm active:bg-sam-primary-soft";
   const disabled =
-    "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-center text-[14px] text-sam-meta";
+    "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-center sam-text-body text-sam-meta";
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}>
       <StoreDetailSectionTitle level="h2">문의</StoreDetailSectionTitle>
@@ -192,10 +192,10 @@ export function StoreDetailPromoBanner({
       : "");
   if (!line) return null;
   const boxClass =
-    "flex items-start gap-2.5 rounded-ui-rect border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] font-normal leading-snug text-amber-950 shadow-sm";
+    "flex items-start gap-2.5 rounded-ui-rect border border-amber-200 bg-amber-50 px-3.5 py-3 sam-text-body-secondary font-normal leading-snug text-amber-950 shadow-sm";
   return (
     <div className={embedded ? `mt-3 ${boxClass}` : `${STORE_DETAIL_GUTTER} mt-3 ${boxClass}`}>
-      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-ui-rect bg-amber-200/80 text-[11px] font-bold text-amber-900">
+      <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-ui-rect bg-amber-200/80 sam-text-xxs font-bold text-amber-900">
         i
       </span>
       <p>{line}</p>

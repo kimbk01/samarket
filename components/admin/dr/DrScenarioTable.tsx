@@ -23,13 +23,13 @@ export function DrScenarioTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">시나리오 유형</span>
+        <span className="sam-text-body-secondary text-sam-muted">시나리오 유형</span>
         <select
           value={typeFilter}
           onChange={(e) =>
             setTypeFilter((e.target.value || "") as DrScenarioType | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="db_down">DB 장애</option>
@@ -39,13 +39,13 @@ export function DrScenarioTable() {
           <option value="chat_failure">채팅 장애</option>
           <option value="payment_failure">결제 장애</option>
         </select>
-        <span className="text-[13px] text-sam-muted">심각도</span>
+        <span className="sam-text-body-secondary text-sam-muted">심각도</span>
         <select
           value={severityFilter}
           onChange={(e) =>
             setSeverityFilter((e.target.value || "") as DrSeverity | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="low">낮음</option>
@@ -56,7 +56,7 @@ export function DrScenarioTable() {
       </div>
 
       {scenarios.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 조건의 시나리오가 없습니다.
         </div>
       ) : (
@@ -66,12 +66,12 @@ export function DrScenarioTable() {
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {s.title}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {getScenarioTypeLabel(s.scenarioType)}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     s.severity === "critical"
                       ? "bg-red-100 text-red-800"
                       : s.severity === "high"
@@ -82,7 +82,7 @@ export function DrScenarioTable() {
                   {getDrSeverityLabel(s.severity)}
                 </span>
               </td>
-              <td className="max-w-[300px] px-3 py-2.5 text-[13px] text-sam-muted line-clamp-2">
+              <td className="max-w-[300px] px-3 py-2.5 sam-text-body-secondary text-sam-muted line-clamp-2">
                 {s.description}
               </td>
               <td className="px-3 py-2.5">

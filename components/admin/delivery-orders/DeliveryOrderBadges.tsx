@@ -8,7 +8,7 @@ import {
   SETTLEMENT_LABEL,
 } from "@/lib/admin/delivery-orders-admin/labels";
 
-const base = "inline-block rounded px-2 py-0.5 text-[11px] font-semibold";
+const base = "inline-block rounded px-2 py-0.5 sam-text-xxs font-semibold";
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
   const cls =
@@ -47,7 +47,7 @@ export function SettlementStatusBadge({ status }: { status: SettlementStatus }) 
 }
 
 export function AdminActionStatusBadge({ status }: { status: AdminActionStatus }) {
-  if (status === "none") return <span className="text-[11px] text-sam-meta">—</span>;
+  if (status === "none") return <span className="sam-text-xxs text-sam-meta">—</span>;
   const cls =
     status === "dispute_reviewing" || status === "manual_hold"
       ? "bg-orange-50 text-orange-900"

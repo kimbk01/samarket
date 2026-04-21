@@ -105,21 +105,21 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
     <div className="space-y-4">
       <AdminPageHeader title="로그 상세" backHref="/admin/audit-logs" />
       {loading ? (
-        <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>
+        <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>
       ) : null}
       {!loading && error ? (
-        <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-5 text-[14px] text-red-700">
+        <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-5 sam-text-body text-red-700">
           로그를 불러오지 못했습니다.
         </div>
       ) : null}
       {!loading && !error && !log ? (
-        <div className="py-8 text-center text-[14px] text-sam-muted">로그를 찾을 수 없습니다.</div>
+        <div className="py-8 text-center sam-text-body text-sam-muted">로그를 찾을 수 없습니다.</div>
       ) : null}
       {log ? (
         <>
 
       <AdminCard title="기본 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">ID</dt>
             <dd className="font-medium text-sam-fg">{log.id}</dd>
@@ -170,7 +170,7 @@ export function AdminAuditDetailPage({ logId }: AdminAuditDetailPageProps) {
         <AdminCard title="관련 화면">
           <Link
             href={relatedHref}
-            className="text-[14px] font-medium text-signature hover:underline"
+            className="sam-text-body font-medium text-signature hover:underline"
           >
             관련 관리 화면으로 이동
           </Link>

@@ -83,16 +83,16 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   };
 
   if (loading) {
-    return <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중입니다.</div>;
+    return <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중입니다.</div>;
   }
 
   if (error) {
-    return <div className="py-12 text-center text-[14px] text-red-600">{error}</div>;
+    return <div className="py-12 text-center sam-text-body text-red-600">{error}</div>;
   }
 
   if (items.length === 0) {
     return (
-      <div className="py-12 text-center text-[14px] text-sam-muted">
+      <div className="py-12 text-center sam-text-body text-sam-muted">
         {emptyMessage}
       </div>
     );
@@ -103,17 +103,17 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       {items.map((item) => (
         <li key={item.id} className="flex items-center justify-between py-3">
           <div className="min-w-0 pr-3">
-            <p className="truncate text-[15px] font-medium text-sam-fg">
+            <p className="truncate sam-text-body font-medium text-sam-fg">
               {item.nickname?.trim() || item.targetId}
             </p>
-            <p className="mt-1 text-[12px] text-sam-muted">
+            <p className="mt-1 sam-text-helper text-sam-muted">
               {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
             </p>
           </div>
           <button
             type="button"
             disabled={busyId === item.id}
-            className="text-[13px] text-red-600"
+            className="sam-text-body-secondary text-red-600"
             onClick={() => void handleDelete(item.id)}
           >
             {busyId === item.id ? "삭제 중" : "삭제"}

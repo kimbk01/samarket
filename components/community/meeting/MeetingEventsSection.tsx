@@ -74,11 +74,11 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
   return (
     <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-[15px] font-semibold text-sam-fg">운영 로그</h2>
-        <label className="flex items-center gap-2 text-[12px] text-sam-muted">
+        <h2 className="sam-text-body font-semibold text-sam-fg">운영 로그</h2>
+        <label className="flex items-center gap-2 sam-text-helper text-sam-muted">
           <span className="shrink-0">유형</span>
           <select
-            className="min-w-[8rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg"
+            className="min-w-[8rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary text-sam-fg"
             value={filter}
             disabled={loading}
             onChange={(e) => onFilterChange(e.target.value)}
@@ -92,9 +92,9 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
           </select>
         </label>
       </div>
-      {error ? <p className="mt-2 text-[13px] text-red-600">{error}</p> : null}
+      {error ? <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p> : null}
       {events.length === 0 && !loading ? (
-        <p className="mt-3 text-[13px] text-sam-muted">표시할 기록이 없습니다.</p>
+        <p className="mt-3 sam-text-body-secondary text-sam-muted">표시할 기록이 없습니다.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {events.map((event) => {
@@ -105,8 +105,8 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
             const text = formatMeetingEventDescription(event);
             return (
               <li key={event.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
-                <p className="text-[13px] text-sam-fg">{text}</p>
-                {eventTime ? <p className="mt-1 text-[11px] text-sam-muted">{eventTime}</p> : null}
+                <p className="sam-text-body-secondary text-sam-fg">{text}</p>
+                {eventTime ? <p className="mt-1 sam-text-xxs text-sam-muted">{eventTime}</p> : null}
               </li>
             );
           })}
@@ -115,7 +115,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
       {hasMore ? (
         <button
           type="button"
-          className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+          className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
           disabled={loading}
           onClick={onLoadMore}
         >

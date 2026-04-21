@@ -9,12 +9,9 @@ import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/a
 import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
-  PHILIFE_TOPIC_TAB_OFF_CLASS,
-  PHILIFE_TOPIC_TAB_ON_CLASS,
-  PHILIFE_TOPIC_TAB_STRIP_CLASS,
   philifeFabComposeClass,
 } from "@/lib/philife/philife-flat-ui-classes";
-import { TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS } from "@/lib/trade/ui/trade-primary-tabs-classes";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { CommunityCard } from "./CommunityCard";
 import { HorizontalDragScroll } from "./HorizontalDragScroll";
 import { AdPostCard } from "@/components/ads/AdPostCard";
@@ -464,34 +461,35 @@ export function CommunityFeed() {
         hideCtaStrip
         stickyBelow={
           <>
-            <div className={PHILIFE_TOPIC_TAB_STRIP_CLASS}>
+            <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface-muted">
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
-                  className={TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS}
+                  className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
                   style={{ WebkitOverflowScrolling: "touch" }}
+                  role="tablist"
                   aria-label="피드 주제"
                 >
-                  <div className="flex min-w-0 w-max items-stretch gap-0">
-                    {chips.map((c) => {
-                      const on = category === c.slug || (c.slug === "" && category === "");
-                      return (
-                        <button
-                          key={c.slug || "all"}
-                          type="button"
-                          onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
-                          className={on ? PHILIFE_TOPIC_TAB_ON_CLASS : PHILIFE_TOPIC_TAB_OFF_CLASS}
-                        >
-                          {c.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {chips.map((c) => {
+                    const on = category === c.slug || (c.slug === "" && category === "");
+                    return (
+                      <button
+                        key={c.slug || "all"}
+                        type="button"
+                        role="tab"
+                        aria-selected={on}
+                        onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
+                        className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
                 </HorizontalDragScroll>
               </div>
             </div>
             <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
-              <div className={`min-w-0 space-y-1.5 ${APP_MAIN_HEADER_INNER_CLASS}`}>
-                <label className="flex cursor-pointer items-center gap-2 px-0 text-[12px] text-sam-muted">
+              <div className={`min-w-0 space-y-1 ${APP_MAIN_HEADER_INNER_CLASS}`}>
+                <label className="sam-text-helper flex cursor-pointer items-center gap-2 px-0 text-sam-muted">
                   <input
                     type="checkbox"
                     checked={neighborOnly}
@@ -500,7 +498,7 @@ export function CommunityFeed() {
                   />
                   관심이웃 글만 보기
                 </label>
-                <p className="text-[11px] leading-snug text-sam-meta">
+                <p className="sam-text-xxs leading-snug text-sam-meta">
                   글은 지역과 무관하게 모두 보이며, 상단 주제 탭으로 나눠 볼 수 있어요.
                 </p>
               </div>
@@ -521,13 +519,15 @@ export function CommunityFeed() {
 
         {err ? (
           <div className="px-3 py-3 sm:px-4">
-            <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[14px] text-amber-900">{err}</div>
+            <div className={`rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 sam-text-body`}>
+              {err}
+            </div>
           </div>
         ) : null}
         {loading && postsForList.length === 0 ? (
           <CommunityFeedSkeleton />
         ) : !err && postsForList.length === 0 ? (
-          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
+          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-sam-muted sam-text-body`}>
             아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               <Link
@@ -550,9 +550,9 @@ export function CommunityFeed() {
               ))}
             </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
-            {loadingMore ? <p className="py-4 text-center text-[13px] text-sam-meta">더 불러오는 중…</p> : null}
+            {loadingMore ? <p className="py-4 text-center sam-text-body-secondary text-sam-meta">더 불러오는 중…</p> : null}
             {!hasMore && postsForList.length > 0 ? (
-              <p className="pb-8 pt-2 text-center text-[12px] text-sam-meta">모든 글을 불러왔어요</p>
+              <p className="pb-8 pt-2 text-center sam-text-helper text-sam-meta">모든 글을 불러왔어요</p>
             ) : null}
           </>
         )}
@@ -563,7 +563,9 @@ export function CommunityFeed() {
         className={philifeFabComposeClass()}
         aria-label={category === "meetup" ? "모임 글쓰기" : "커뮤니티 글쓰기"}
       >
-        글쓰기
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
       </Link>
     </div>
   );

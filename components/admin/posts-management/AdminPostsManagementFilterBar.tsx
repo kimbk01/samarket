@@ -54,7 +54,7 @@ export function AdminPostsManagementFilterBar({
                 jobListingKind: e.target.value as "" | "hire" | "work",
               })
             }
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
             <option value="">구인·구직 전체</option>
             <option value="hire">사람 구해요</option>
@@ -69,7 +69,7 @@ export function AdminPostsManagementFilterBar({
               dealType: e.target.value as "all" | "sale" | "free",
             })
           }
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {DEAL_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -85,7 +85,7 @@ export function AdminPostsManagementFilterBar({
               status: e.target.value as ProductStatus | "",
             })
           }
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {STATUS_OPTIONS_POSTS.map((o) => (
             <option key={o.value || "all"} value={o.value}>
@@ -93,7 +93,7 @@ export function AdminPostsManagementFilterBar({
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-[14px] text-sam-fg">
+        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={filters.hasReport}
@@ -104,7 +104,7 @@ export function AdminPostsManagementFilterBar({
           />
           신고 있음
         </label>
-        <label className="flex items-center gap-1.5 text-[14px] text-sam-fg">
+        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={filters.hiddenOnly}
@@ -115,7 +115,7 @@ export function AdminPostsManagementFilterBar({
           />
           숨김 상품
         </label>
-        <label className="flex items-center gap-1.5 text-[14px] text-sam-fg">
+        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={filters.bannedSuspect}
@@ -126,7 +126,7 @@ export function AdminPostsManagementFilterBar({
           />
           금지의심 상품
         </label>
-        <label className="flex items-center gap-1.5 text-[14px] text-sam-fg">
+        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={filters.webVisibleOnly}
@@ -137,7 +137,7 @@ export function AdminPostsManagementFilterBar({
           />
           웹 노출만
         </label>
-        <label className="flex items-center gap-1.5 text-[14px] text-sam-fg">
+        <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
             type="checkbox"
             checked={showProductIdColumn}
@@ -154,7 +154,7 @@ export function AdminPostsManagementFilterBar({
               sortKey: e.target.value as PostsManagementSortKey,
             })
           }
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {SORT_OPTIONS_POSTS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -171,19 +171,19 @@ export function AdminPostsManagementFilterBar({
           placeholder="상품 ID 검색 (일부 UUID)"
           value={productIdSearch}
           onChange={(e) => onProductIdSearchChange(e.target.value)}
-          className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 font-mono text-[13px] text-sam-fg placeholder:text-sam-meta"
+          className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 font-mono sam-text-body-secondary text-sam-fg placeholder:text-sam-meta"
         />
         <input
           type="text"
           placeholder="특정 판매자 검색"
           value={sellerSearch}
           onChange={(e) => onSellerSearchChange(e.target.value)}
-          className="min-w-[160px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+          className="min-w-[160px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
         />
         <select
           value={categorySearch}
           onChange={(e) => onCategorySearchChange(e.target.value)}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           <option value="">특정 카테고리 전체</option>
           {categories.map((c) => (

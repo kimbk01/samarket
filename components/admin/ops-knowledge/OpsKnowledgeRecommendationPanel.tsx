@@ -51,17 +51,17 @@ export function OpsKnowledgeRecommendationPanel({
   if (rec.items.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-        <h3 className="text-[13px] font-medium text-sam-fg">
+        <h3 className="sam-text-body-secondary font-medium text-sam-fg">
           {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
         </h3>
-        <p className="mt-2 text-[12px] text-sam-muted">추천 문서가 없습니다.</p>
+        <p className="mt-2 sam-text-helper text-sam-muted">추천 문서가 없습니다.</p>
       </div>
     );
   }
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-      <h3 className="text-[13px] font-medium text-sam-fg">
+      <h3 className="sam-text-body-secondary font-medium text-sam-fg">
         {title ?? `${SOURCE_LABELS[sourceType]} 관련 문서`}
       </h3>
       <ul className={`mt-2 space-y-1 ${compact ? "" : "space-y-2"}`}>
@@ -69,13 +69,13 @@ export function OpsKnowledgeRecommendationPanel({
           <li key={item.documentId}>
             <Link
               href={`/admin/ops-docs/${item.documentId}`}
-              className="block text-[13px] text-signature hover:underline"
+              className="block sam-text-body-secondary text-signature hover:underline"
               onClick={() => handleClick(item.documentId)}
             >
               {item.title}
             </Link>
             {!compact && (
-              <p className="mt-0.5 text-[11px] text-sam-muted">
+              <p className="mt-0.5 sam-text-xxs text-sam-muted">
                 {item.reasonLabel} · {(item.score * 100).toFixed(0)}%
               </p>
             )}

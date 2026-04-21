@@ -313,14 +313,14 @@ export function AddressSelectClient() {
         <>
           <div className={ADDR_SETTINGS_BODY}>
             {mapsError ? (
-              <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">{mapsError}</p>
+              <p className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{mapsError}</p>
             ) : null}
             <AddressSearch onPlaceResolved={onPlaceResolved} />
             <button
               type="button"
               onClick={() => void onCurrentLocation()}
               disabled={locating || Boolean(mapsError)}
-              className="flex w-full items-center justify-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 text-[14px] font-medium text-sam-muted disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface py-3.5 sam-text-body font-medium text-sam-muted disabled:opacity-50"
             >
               <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
@@ -333,13 +333,13 @@ export function AddressSelectClient() {
               </svg>
               {locating ? "위치 확인 중…" : "현재 위치로 찾기"}
             </button>
-            {geoHint ? <p className="text-[13px] leading-snug text-red-700">{geoHint}</p> : null}
+            {geoHint ? <p className="sam-text-body-secondary leading-snug text-red-700">{geoHint}</p> : null}
 
             <div>
               <p className={ADDR_SECTION_LABEL}>최근 주소</p>
               <ul className="space-y-1">
                 {recentMerged.length === 0 ? (
-                  <li className={`text-[13px] ${ADDR_BODY}`}>최근 검색 기록이 없습니다.</li>
+                  <li className={`sam-text-body-secondary ${ADDR_BODY}`}>최근 검색 기록이 없습니다.</li>
                 ) : (
                   recentMerged.map((r) => (
                     <li key={mapAddressRecentRowKey(r)} className="flex items-stretch gap-1">
@@ -353,7 +353,7 @@ export function AddressSelectClient() {
                       <button
                         type="button"
                         onClick={() => removeRecentRow(r)}
-                        className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 text-[13px] text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
+                        className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 sam-text-body-secondary text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
                         aria-label="최근 주소 목록에서 삭제"
                       >
                         삭제
@@ -368,7 +368,7 @@ export function AddressSelectClient() {
               type="button"
               onClick={() => goToMap(marker)}
               disabled={Boolean(mapsError)}
-              className="w-full rounded-ui-rect border border-dashed border-sam-primary-border/70 bg-sam-surface py-3 text-[14px] font-medium text-signature disabled:opacity-40"
+              className="w-full rounded-ui-rect border border-dashed border-sam-primary-border/70 bg-sam-surface py-3 sam-text-body font-medium text-signature disabled:opacity-40"
             >
               지도에서 직접 선택
             </button>
@@ -413,12 +413,12 @@ export function AddressSelectClient() {
 
           <div className={ADDR_BOTTOM_BAR}>
             <div className={ADDR_BOTTOM_INNER}>
-              {geoHint ? <p className="text-[12px] text-red-700">{geoHint}</p> : null}
+              {geoHint ? <p className="sam-text-helper text-red-700">{geoHint}</p> : null}
               {mapPhase === "pin" ? (
                 <>
-                  <p className="text-[12px] font-medium text-sam-muted">선택한 위치</p>
+                  <p className="sam-text-helper font-medium text-sam-muted">선택한 위치</p>
                   <div className="flex items-start gap-2 rounded-ui-rect bg-sam-app px-3 py-2.5">
-                    <p className={`min-h-[44px] flex-1 text-[14px] ${ADDR_BODY} text-sam-fg`}>
+                    <p className={`min-h-[44px] flex-1 sam-text-body ${ADDR_BODY} text-sam-fg`}>
                       {geocodeBusy && !manualAddress
                         ? "주소를 불러오는 중…"
                         : shownAddressPin || "지도를 움직여 주소를 지정하세요."}
@@ -451,18 +451,18 @@ export function AddressSelectClient() {
                 </>
               ) : (
                 <>
-                  <p className="text-[12px] font-medium text-sam-muted">선택한 위치</p>
-                  <div className={`rounded-ui-rect bg-sam-app px-3 py-2.5 text-[14px] ${ADDR_BODY} text-sam-fg`}>
+                  <p className="sam-text-helper font-medium text-sam-muted">선택한 위치</p>
+                  <div className={`rounded-ui-rect bg-sam-app px-3 py-2.5 sam-text-body ${ADDR_BODY} text-sam-fg`}>
                     {pinSnapshot?.baseAddress ?? ""}
                   </div>
                   <label className="block">
-                    <span className="mb-1 block text-[12px] font-medium text-sam-muted">상세주소</span>
+                    <span className="mb-1 block sam-text-helper font-medium text-sam-muted">상세주소</span>
                     <textarea
                       value={detailLine}
                       onChange={(e) => setDetailLine(e.target.value)}
                       rows={2}
                       placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
-                      className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 text-[14px] text-sam-fg placeholder:text-sam-muted"
+                      className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body text-sam-fg placeholder:text-sam-muted"
                       autoComplete="street-address"
                     />
                   </label>

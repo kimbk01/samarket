@@ -15,7 +15,7 @@ const STATUS_STYLES: Record<AdApplyStatus, string> = {
 export function AdStatusBadge({ status }: { status: AdApplyStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_STYLES[status]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STATUS_STYLES[status]}`}
     >
       {AD_APPLY_STATUS_LABELS[status]}
     </span>

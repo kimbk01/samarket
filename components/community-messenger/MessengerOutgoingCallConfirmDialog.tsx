@@ -48,18 +48,18 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-6 pb-5 text-center">
-          <h2 id="outgoing-call-confirm-title" className="text-[17px] font-semibold tracking-tight text-[#2d1d55]">
+          <h2 id="outgoing-call-confirm-title" className="sam-text-section-title font-semibold tracking-tight text-[#2d1d55]">
             {title}
           </h2>
-          <p className="mt-1 text-[13px] font-medium text-[#2d1d55]/85">{peer}</p>
-          <p className="mt-2 text-[15px] leading-snug text-[#2d1d55]">통화를 시작하시겠습니까?</p>
+          <p className="mt-1 sam-text-body-secondary font-medium text-[#2d1d55]/85">{peer}</p>
+          <p className="mt-2 sam-text-body leading-snug text-[#2d1d55]">통화를 시작하시겠습니까?</p>
         </div>
         <div className="flex border-t border-[#2d1d55]/10">
           <button
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="min-h-[48px] flex-1 bg-transparent text-[16px] font-medium text-[#2d1d55] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
+            className="min-h-[48px] flex-1 bg-transparent sam-text-body-lg font-medium text-[#2d1d55] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
           >
             취소
           </button>
@@ -68,7 +68,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="min-h-[48px] flex-1 bg-transparent text-[16px] font-semibold text-[#6b3df1] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
+            className="min-h-[48px] flex-1 bg-transparent sam-text-body-lg font-semibold text-[#6b3df1] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
           >
             통화
           </button>

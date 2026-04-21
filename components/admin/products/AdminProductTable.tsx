@@ -12,7 +12,7 @@ interface AdminProductTableProps {
 export function AdminProductTable({ products }: AdminProductTableProps) {
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">ID</th>
@@ -54,7 +54,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
               <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-muted">
                 {p.likesCount ?? 0} / {p.chatCount ?? 0}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.createdAt).toLocaleDateString("ko-KR")}
               </td>
             </tr>

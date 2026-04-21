@@ -61,7 +61,7 @@ export function OpsRunbookStepWorkflow({
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
         실행 단계가 없습니다.
       </div>
     );
@@ -70,12 +70,12 @@ export function OpsRunbookStepWorkflow({
   return (
     <div className="space-y-4">
       {hasBlocked && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 text-[14px] font-medium text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body font-medium text-red-800">
           차단(blocked) 단계가 있습니다. 원인 해소 후 진행해 주세요.
         </div>
       )}
       {pendingOrBlocked.length > 0 && executionStatus === "in_progress" && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 text-[14px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 sam-text-body text-amber-800">
           미완료 단계 {pendingOrBlocked.length}건
         </div>
       )}
@@ -90,14 +90,14 @@ export function OpsRunbookStepWorkflow({
             }`}
           >
             <div className="flex flex-wrap items-start gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[14px] font-medium text-sam-fg">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted sam-text-body font-medium text-sam-fg">
                 {s.stepOrder}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-sam-fg">{s.title}</span>
                   <span
-                    className={`rounded px-2 py-0.5 text-[12px] ${
+                    className={`rounded px-2 py-0.5 sam-text-helper ${
                       s.status === "done"
                         ? "bg-emerald-50 text-emerald-800"
                         : s.status === "in_progress"
@@ -110,19 +110,19 @@ export function OpsRunbookStepWorkflow({
                     {STATUS_LABELS[s.status]}
                   </span>
                 </div>
-                <p className="mt-1 text-[13px] text-sam-muted">{s.description}</p>
+                <p className="mt-1 sam-text-body-secondary text-sam-muted">{s.description}</p>
                 {(s.assignedAdminNickname || s.startedAt || s.completedAt) && (
-                  <p className="mt-2 text-[12px] text-sam-muted">
+                  <p className="mt-2 sam-text-helper text-sam-muted">
                     {s.assignedAdminNickname && `담당 ${s.assignedAdminNickname}`}
                     {s.startedAt && ` · 시작 ${new Date(s.startedAt).toLocaleString("ko-KR")}`}
                     {s.completedAt && ` · 완료 ${new Date(s.completedAt).toLocaleString("ko-KR")}`}
                   </p>
                 )}
                 {s.note && (
-                  <p className="mt-1 text-[13px] text-sam-fg">메모: {s.note}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-fg">메모: {s.note}</p>
                 )}
                 {s.linkedType && (
-                  <p className="mt-2 text-[12px]">
+                  <p className="mt-2 sam-text-helper">
                     <Link
                       href={s.linkedId ? LINKED_HREF[s.linkedType](s.linkedId) : "#"}
                       className="text-signature hover:underline"
@@ -140,7 +140,7 @@ export function OpsRunbookStepWorkflow({
                     <button
                       type="button"
                       onClick={() => handleStatus(s.id, "in_progress")}
-                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-800"
+                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
                     >
                       시작
                     </button>
@@ -149,7 +149,7 @@ export function OpsRunbookStepWorkflow({
                     <button
                       type="button"
                       onClick={() => handleStatus(s.id, "done")}
-                      className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[12px] text-emerald-800"
+                      className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
                     >
                       완료
                     </button>
@@ -159,14 +159,14 @@ export function OpsRunbookStepWorkflow({
                       <button
                         type="button"
                         onClick={() => handleStatus(s.id, "skipped")}
-                        className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 text-[12px] text-sam-muted"
+                        className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-muted"
                       >
                         스킵
                       </button>
                       <button
                         type="button"
                         onClick={() => handleStatus(s.id, "blocked")}
-                        className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[12px] text-red-800"
+                        className="rounded border border-red-200 bg-red-50 px-2 py-1 sam-text-helper text-red-800"
                       >
                         차단
                       </button>
@@ -176,7 +176,7 @@ export function OpsRunbookStepWorkflow({
                     <button
                       type="button"
                       onClick={() => handleStatus(s.id, "in_progress")}
-                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-800"
+                      className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
                     >
                       재개
                     </button>

@@ -53,8 +53,8 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-medium text-sam-fg">{seller.nickname}</p>
-            <p className="text-[12px] text-sam-muted">{seller.location}</p>
+            <p className="sam-text-body font-medium text-sam-fg">{seller.nickname}</p>
+            <p className="sam-text-helper text-sam-muted">{seller.location}</p>
           </div>
           {displaySummary && (
             <div className="shrink-0">
@@ -78,7 +78,7 @@ export function ProductSellerCard({ seller, trustSummary, onReportUser }: Produc
                 <button
                   type="button"
                   onClick={() => { onReportUser(); setMenuOpen(false); }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg"
+                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg"
                 >
                   신고
                 </button>

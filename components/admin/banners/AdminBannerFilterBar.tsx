@@ -19,7 +19,7 @@ export function AdminBannerFilterBar({ filters, onChange }: AdminBannerFilterBar
         onChange={(e) =>
           onChange({ ...filters, status: e.target.value as AdminBannerFilters["status"] })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {BANNER_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -32,7 +32,7 @@ export function AdminBannerFilterBar({ filters, onChange }: AdminBannerFilterBar
         onChange={(e) =>
           onChange({ ...filters, placement: e.target.value as AdminBannerFilters["placement"] })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {BANNER_PLACEMENT_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

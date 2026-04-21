@@ -62,15 +62,15 @@ export function BlockActionSheet({
 
   return (
     <div className="p-4">
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         {targetLabel}님을 차단하면 서로의 메시지 전송이 불가하며, 기존 대화는 보관됩니다.
       </p>
-      {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}
       <div className="mt-4 flex gap-2">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
         >
           취소
         </button>
@@ -78,7 +78,7 @@ export function BlockActionSheet({
           type="button"
           onClick={handleBlock}
           disabled={loading}
-          className="flex-1 rounded-ui-rect bg-red-600 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-red-600 py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {loading ? "처리 중..." : "차단하기"}
         </button>

@@ -245,17 +245,17 @@ export function CommunityMessengerRoomPhase2Composer() {
                         : "보관된 방입니다"
                     : "메시지"
                 }
-                className="max-h-28 min-h-[40px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 py-2 text-[15px] leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
+                className="max-h-28 min-h-[40px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
               />
             ) : vm.voiceHandsFree ? (
               <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-sam-fg sm:text-[14px]">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums sam-text-body-secondary font-semibold leading-none text-sam-fg sm:sam-text-body">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center text-[12px] font-medium text-sam-fg">잠금 녹음 중</span>
+                  <span className="shrink-0 text-center sam-text-helper font-medium text-sam-fg">잠금 녹음 중</span>
                 </div>
                 <button
                   type="button"
@@ -276,13 +276,13 @@ export function CommunityMessengerRoomPhase2Composer() {
               </div>
             ) : (
               <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums text-[13px] font-semibold leading-none text-sam-fg sm:text-[14px]">
+                <span className="flex shrink-0 items-center gap-1.5 tabular-nums sam-text-body-secondary font-semibold leading-none text-sam-fg sm:sam-text-body">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
                 </span>
                 <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
                 <span
-                  className={`min-w-0 shrink-0 text-center text-[13px] ${
+                  className={`min-w-0 shrink-0 text-center sam-text-body-secondary ${
                     vm.voiceCancelHint ? "font-semibold text-red-600" : "text-sam-muted"
                   }`}
                 >
@@ -367,7 +367,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-sticker" ||
                 vm.busy === "delete-message"
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] text-[13px] font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] sam-text-body-secondary font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
               aria-label="전송"
             >
               <SendPlaneIcon className="h-5 w-5 text-white" />

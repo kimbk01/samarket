@@ -114,7 +114,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
 
 export function PostDetailConfigError() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 text-center text-[14px] text-sam-muted">
+    <div className="flex min-h-screen items-center justify-center px-4 text-center sam-text-body text-sam-muted">
       서버 설정이 필요합니다.
     </div>
   );

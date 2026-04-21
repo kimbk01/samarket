@@ -169,33 +169,33 @@ export function SalesHistoryCard({
                 onError={() => setThumbFailed(true)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
+              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">이미지</div>
             )}
           </div>
           <div className="min-w-0 flex-1 pr-1">
-            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">{row.title || "상품"}</p>
-            <p className="mt-0.5 text-[15px] font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
-            <p className="mt-0.5 truncate text-[12px] text-sam-muted">
+            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || "상품"}</p>
+            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
+            <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
               {hasChat ? `구매자 ${row.buyerNickname}` : "아직 문의·채팅이 없어요"}
             </p>
-            <p className="mt-0.5 text-[11px] text-sam-meta">거래 {formatTradeListDatetime(tradeAt)}</p>
-            <p className="mt-0.5 text-[11px] text-sam-fg">{tradeLine}</p>
+            <p className="mt-0.5 sam-text-xxs text-sam-meta">거래 {formatTradeListDatetime(tradeAt)}</p>
+            <p className="mt-0.5 sam-text-xxs text-sam-fg">{tradeLine}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
-              <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+              <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">
                 상품 · {productBadge}
               </span>
-              <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+              <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 진행 · {tradeBadge}
               </span>
               <span
-                className={`rounded-ui-rect px-1.5 py-0.5 text-[10px] font-medium ${
+                className={`rounded-ui-rect px-1.5 py-0.5 sam-text-xxs font-medium ${
                   row.hasBuyerReview ? "bg-emerald-50 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
                 {row.hasBuyerReview ? "구매자 후기 도착" : "구매자 후기 없음"}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+            <div className="mt-2 flex flex-wrap gap-2 sam-text-helper">
               {hasChat ? (
                 <span className="rounded-full border border-sam-border bg-signature/5 px-2.5 py-1 font-medium text-sam-fg">
                   이 거래는 채팅으로 다시 이어서 조율할 수 있어요
@@ -220,17 +220,17 @@ export function SalesHistoryCard({
             </svg>
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg">
+            <div className="absolute right-0 top-9 z-[60] min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
               {hasChat ? (
                 <Link
                   href={tradeHubChatRoomHref(row.chatId, "product_chat")}
                   onClick={() => setMenuOpen(false)}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
                   채팅 보기
                 </Link>
               ) : (
-                <span className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-meta">
+                <span className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-meta">
                   채팅 없음 (상품에서 문의를 받으면 표시돼요)
                 </span>
               )}
@@ -240,7 +240,7 @@ export function SalesHistoryCard({
                     type="button"
                     disabled={!!actionBusy}
                     onClick={() => void persistListing("inquiry")}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
                     {actionBusy === "listing" ? "저장 중…" : "판매중으로 변경"}
                   </button>
@@ -248,7 +248,7 @@ export function SalesHistoryCard({
                     type="button"
                     disabled={!!actionBusy}
                     onClick={() => void persistListing("negotiating")}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
                     문의중으로 변경
                   </button>
@@ -256,7 +256,7 @@ export function SalesHistoryCard({
                     type="button"
                     disabled={!!actionBusy}
                     onClick={() => void persistListing("reserved")}
-                    className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                    className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
                     예약중으로 변경
                   </button>
@@ -267,7 +267,7 @@ export function SalesHistoryCard({
                   type="button"
                   disabled={!!actionBusy}
                   onClick={() => void runSellerComplete()}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                 >
                   {actionBusy === "complete" ? "처리 중…" : "거래완료 (되돌리기 불가)"}
                 </button>
@@ -277,7 +277,7 @@ export function SalesHistoryCard({
                   type="button"
                   disabled={!!actionBusy}
                   onClick={() => void runCancelSale()}
-                  className="block w-full border-t border-sam-border-soft px-4 py-2.5 text-left text-[14px] text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  className="block w-full border-t border-sam-border-soft px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
                   {actionBusy === "cancel" ? "처리 중…" : "물품 판매 취소"}
                 </button>
@@ -289,7 +289,7 @@ export function SalesHistoryCard({
                     setReadBuyerReview(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
                   구매자 후기 보기
                 </button>
@@ -297,7 +297,7 @@ export function SalesHistoryCard({
               <Link
                 href={`/post/${row.postId}`}
                 onClick={() => setMenuOpen(false)}
-                className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+                className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
               >
                 게시글 보기
               </Link>
@@ -308,7 +308,7 @@ export function SalesHistoryCard({
                     setReportOpen(true);
                     setMenuOpen(false);
                   }}
-                  className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+                  className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
                   신고·차단
                 </button>
@@ -322,7 +322,7 @@ export function SalesHistoryCard({
         <div className="border-t border-sam-border-soft px-3 pb-3 pt-2">
           <Link
             href={tradeHubChatRoomHref(row.chatId, "product_chat")}
-            className="block w-full rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center text-[13px] font-semibold text-sam-fg"
+            className="block w-full rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
           >
             관련 채팅으로 돌아가기
           </Link>

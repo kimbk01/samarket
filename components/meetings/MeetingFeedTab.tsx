@@ -190,8 +190,8 @@ export function MeetingFeedTab({
   return (
     <div className="space-y-3">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3.5 py-3 shadow-sm">
-        <p className="text-[12px] font-semibold text-sam-fg">연동 상태</p>
-        <ul className="mt-2 space-y-1 text-[12px] text-sam-muted">
+        <p className="sam-text-helper font-semibold text-sam-fg">연동 상태</p>
+        <ul className="mt-2 space-y-1 sam-text-helper text-sam-muted">
           <li className="flex justify-between gap-2">
             <span>피드 글 (표시)</span>
             <span className="font-medium text-sam-fg">{sorted.length}건</span>
@@ -204,7 +204,7 @@ export function MeetingFeedTab({
           </li>
         </ul>
         {!canWrite ? (
-          <p className="mt-2 rounded-ui-rect bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed text-amber-900">
+          <p className="mt-2 rounded-ui-rect bg-amber-50 px-2.5 py-2 sam-text-xxs leading-relaxed text-amber-900">
             모임 설정에서 피드 글 작성이 꺼져 있어 일반 멤버는 글을 쓸 수 없습니다. 글 목록은 모두 볼 수
             있습니다.
           </p>
@@ -231,7 +231,7 @@ export function MeetingFeedTab({
                 key={t.value}
                 type="button"
                 onClick={() => setPostType(t.value)}
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
+                className={`rounded-full px-3 py-1 sam-text-xxs font-semibold transition-colors ${
                   postType === t.value
                     ? "bg-emerald-500 text-white"
                     : "bg-sam-app text-sam-muted hover:bg-sam-surface-muted"
@@ -249,26 +249,26 @@ export function MeetingFeedTab({
             maxLength={2000}
             autoFocus
             placeholder="모임 멤버들에게 전하고 싶은 이야기를 남겨보세요."
-            className="w-full resize-none px-4 py-3 text-[14px] leading-relaxed text-sam-fg placeholder-sam-meta outline-none"
+            className="w-full resize-none px-4 py-3 sam-text-body leading-relaxed text-sam-fg placeholder-sam-meta outline-none"
           />
 
           <div className="flex items-center justify-between border-t border-sam-border-soft px-4 py-2.5">
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-sam-meta">{content.length}/2000</span>
-              {err && <span className="text-[11px] text-red-500">{err}</span>}
+              <span className="sam-text-xxs text-sam-meta">{content.length}/2000</span>
+              {err && <span className="sam-text-xxs text-red-500">{err}</span>}
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setContent(""); setErr(""); }}
-                className="rounded-ui-rect px-3 py-1.5 text-[12px] font-medium text-sam-muted hover:bg-sam-surface-muted"
+                className="rounded-ui-rect px-3 py-1.5 sam-text-helper font-medium text-sam-muted hover:bg-sam-surface-muted"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
-                className="rounded-ui-rect bg-emerald-500 px-4 py-1.5 text-[13px] font-semibold text-white disabled:opacity-40"
+                className="rounded-ui-rect bg-emerald-500 px-4 py-1.5 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
               >
                 {submitting ? "게시 중…" : "게시"}
               </button>
@@ -282,19 +282,19 @@ export function MeetingFeedTab({
           onClick={() => setShowForm(true)}
           className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3.5 text-left shadow-sm hover:border-emerald-300"
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[14px] font-semibold text-sam-muted">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted sam-text-body font-semibold text-sam-muted">
             +
           </div>
-          <span className="flex-1 text-[14px] text-sam-meta">모임 멤버들에게 글을 남겨보세요…</span>
+          <span className="flex-1 sam-text-body text-sam-meta">모임 멤버들에게 글을 남겨보세요…</span>
         </button>
       ) : null}
 
       {/* 피드 목록 */}
       {sorted.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-14 text-center">
-          <p className="text-[32px]">📝</p>
-          <p className="mt-2 text-[14px] text-sam-meta">아직 피드 글이 없어요.</p>
-          <p className="mt-1 text-[12px] text-sam-meta">첫 글을 남겨보세요.</p>
+          <p className="sam-text-hero">📝</p>
+          <p className="mt-2 sam-text-body text-sam-meta">아직 피드 글이 없어요.</p>
+          <p className="mt-1 sam-text-helper text-sam-meta">첫 글을 남겨보세요.</p>
         </div>
       ) : (
         sorted.map((post) => {
@@ -311,12 +311,12 @@ export function MeetingFeedTab({
               {(post.is_pinned || typeLabel) && (
                 <div className="mb-2 flex flex-wrap gap-1.5">
                   {post.is_pinned && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 sam-text-xxs font-semibold text-amber-800">
                       📌 고정
                     </span>
                   )}
                   {typeLabel && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 sam-text-xxs font-semibold text-emerald-800">
                       {typeLabel}
                     </span>
                   )}
@@ -324,22 +324,22 @@ export function MeetingFeedTab({
               )}
 
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-[12px] font-semibold text-sam-muted">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted sam-text-helper font-semibold text-sam-muted">
                   {(post.author_name || "?").charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[13px] font-medium text-sam-fg">
+                    <span className="sam-text-body-secondary font-medium text-sam-fg">
                       {post.author_name || "알 수 없음"}
                     </span>
                     {isMine && (
-                      <span className="rounded-full bg-sky-50 px-1.5 py-0 text-[10px] text-sky-600">나</span>
+                      <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">나</span>
                     )}
                     {authorIsHost && (
-                      <span className="rounded-full bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700">모임장</span>
+                      <span className="rounded-full bg-amber-50 px-1.5 py-0 sam-text-xxs text-amber-700">모임장</span>
                     )}
                   </div>
-                  <p className="text-[11px] text-sam-meta">{formatTime(post.created_at)}</p>
+                  <p className="sam-text-xxs text-sam-meta">{formatTime(post.created_at)}</p>
                 </div>
                 {/* 액션 버튼 */}
                 <div className="flex shrink-0 items-center gap-1">
@@ -348,7 +348,7 @@ export function MeetingFeedTab({
                       type="button"
                       disabled={deletingId === post.id}
                       onClick={() => void handleDelete(post.id)}
-                      className="rounded-full p-1.5 text-[12px] text-sam-meta hover:bg-red-50 hover:text-red-500"
+                      className="rounded-full p-1.5 sam-text-helper text-sam-meta hover:bg-red-50 hover:text-red-500"
                       title="삭제"
                     >
                       🗑
@@ -359,7 +359,7 @@ export function MeetingFeedTab({
                       type="button"
                       disabled={deletingId === post.id}
                       onClick={() => void handleDelete(post.id)}
-                      className="rounded-full p-1.5 text-[12px] text-sam-meta hover:bg-red-50 hover:text-red-500"
+                      className="rounded-full p-1.5 sam-text-helper text-sam-meta hover:bg-red-50 hover:text-red-500"
                       title="삭제 (모임장)"
                     >
                       🗑
@@ -369,7 +369,7 @@ export function MeetingFeedTab({
                     <button
                       type="button"
                       onClick={() => setReportTarget({ id: post.id })}
-                      className="rounded-full p-1.5 text-[14px] text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
+                      className="rounded-full p-1.5 sam-text-body text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
                       title="신고"
                     >
                       ···
@@ -378,7 +378,7 @@ export function MeetingFeedTab({
                 </div>
               </div>
 
-              <p className="mt-2.5 whitespace-pre-wrap text-[14px] leading-relaxed text-sam-fg">
+              <p className="mt-2.5 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
                 {post.content}
               </p>
             </div>
@@ -387,7 +387,7 @@ export function MeetingFeedTab({
       )}
 
       {isPending && (
-        <p className="text-center text-[12px] text-sam-meta">새로고침 중…</p>
+        <p className="text-center sam-text-helper text-sam-meta">새로고침 중…</p>
       )}
     </div>
   );

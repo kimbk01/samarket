@@ -66,8 +66,8 @@ export function DeliveryAuditLogsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="주문 감사 로그" backHref="/admin/delivery-orders" />
-      <p className="mb-3 text-[13px] text-sam-muted">
-        <code className="rounded bg-sam-app px-1 text-[12px]">target_type = store_order</code> 감사 기록입니다. 전체
+      <p className="mb-3 sam-text-body-secondary text-sam-muted">
+        <code className="rounded bg-sam-app px-1 sam-text-helper">target_type = store_order</code> 감사 기록입니다. 전체
         감사는{" "}
         <Link href="/admin/audit-logs" className="text-signature underline">
           감사 로그
@@ -75,7 +75,7 @@ export function DeliveryAuditLogsClient() {
         메뉴를 이용하세요.
       </p>
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           불러오지 못했습니다 ({error}).
         </p>
       ) : null}
@@ -96,7 +96,7 @@ export function DeliveryAuditLogsClient() {
           <p className="text-sm text-sam-muted">기록이 없습니다.</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-            <table className="w-full min-w-[960px] border-collapse text-[12px]">
+            <table className="w-full min-w-[960px] border-collapse sam-text-helper">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
                   <th className="px-2 py-2">시각</th>
@@ -124,7 +124,7 @@ export function DeliveryAuditLogsClient() {
                     <td className="px-2 py-2">
                       {r.actor_type}
                       <span className="text-sam-meta"> · </span>
-                      <span className="font-mono text-[11px]">{r.actor_id}</span>
+                      <span className="font-mono sam-text-xxs">{r.actor_id}</span>
                     </td>
                     <td className="px-2 py-2 font-medium">{r.action}</td>
                     <td className="max-w-[220px] truncate px-2 py-2 text-sam-muted" title={jsonBrief(r.before_json)}>

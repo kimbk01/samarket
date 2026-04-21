@@ -43,7 +43,7 @@ export default function MyTrustPage() {
       />
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center shadow-sm">
-          <p className="text-[13px] text-sam-muted">
+          <p className="sam-text-body-secondary text-sam-muted">
             {getAppSettings().speedDisplayLabel ?? "배터리"} (프로필 기준)
           </p>
           {mannerPercent != null && mannerTier != null ? (
@@ -52,7 +52,7 @@ export default function MyTrustPage() {
                 <MannerBatteryIcon tier={mannerTier} percent={mannerPercent} size="lg" />
               </div>
               <p
-                className={`mt-2 text-[36px] font-bold tabular-nums ${mannerBatteryAccentClass(
+                className={`mt-2 sam-text-hero font-bold tabular-nums ${mannerBatteryAccentClass(
                   mannerTier
                 )}`}
               >
@@ -60,16 +60,16 @@ export default function MyTrustPage() {
               </p>
             </>
           ) : (
-            <p className="mt-2 text-[36px] font-bold text-sam-meta">—</p>
+            <p className="mt-2 sam-text-hero font-bold text-sam-meta">—</p>
           )}
-          <p className="mt-4 text-[13px] leading-relaxed text-sam-muted">
+          <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted">
             거래 후기·매너 평가는 보통 <strong className="text-sam-fg">7~10일 후</strong>에 배터리에
             반영되는 경우가 많아요. 분쟁 처리 중에는 일시 보류될 수 있습니다.
           </p>
         </div>
         <Link
           href={MYPAGE_PROFILE_EDIT_HREF}
-          className="mt-6 block text-center text-[14px] font-medium text-signature underline-offset-2 hover:underline"
+          className="mt-6 block text-center sam-text-body font-medium text-signature underline-offset-2 hover:underline"
         >
           프로필 수정에서 닉네임·지역 수정
         </Link>

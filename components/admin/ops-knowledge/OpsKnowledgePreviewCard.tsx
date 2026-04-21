@@ -28,7 +28,7 @@ interface OpsKnowledgePreviewCardProps {
 export function OpsKnowledgePreviewCard({ item, onView }: OpsKnowledgePreviewCardProps) {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
         <span>{DOC_TYPE_LABELS[item.docType]}</span>
         <span>{CATEGORY_LABELS[item.category]}</span>
         {item.isPinned && <span>📌 고정</span>}
@@ -42,13 +42,13 @@ export function OpsKnowledgePreviewCard({ item, onView }: OpsKnowledgePreviewCar
           {item.title}
         </Link>
       </h3>
-      <p className="mt-2 line-clamp-3 text-[13px] text-sam-muted">{item.summary}</p>
+      <p className="mt-2 line-clamp-3 sam-text-body-secondary text-sam-muted">{item.summary}</p>
       {item.tags.length > 0 && (
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           {item.tags.join(", ")}
         </p>
       )}
-      <p className="mt-2 text-[12px] text-sam-meta">
+      <p className="mt-2 sam-text-helper text-sam-meta">
         수정 {new Date(item.updatedAt).toLocaleDateString("ko-KR")}
       </p>
     </div>

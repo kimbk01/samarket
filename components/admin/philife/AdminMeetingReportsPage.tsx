@@ -63,28 +63,28 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge.className}`}>
+            <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${statusBadge.className}`}>
               {statusBadge.label}
             </span>
-            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] text-sam-muted">
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
               {TARGET_LABEL[report.target_type] ?? report.target_type}
             </span>
-            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] text-sam-muted">
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
               {REASON_LABEL[report.reason_type] ?? report.reason_type}
             </span>
           </div>
-          <p className="mt-1.5 truncate text-[13px] font-medium text-sam-fg">
+          <p className="mt-1.5 truncate sam-text-body-secondary font-medium text-sam-fg">
             {report.meeting_title
               ? `[${report.meeting_title}] `
               : ""}
             신고자: {report.reporter_name}
           </p>
-          <p className="text-[11px] text-sam-meta">{formatDate(report.created_at)}</p>
+          <p className="sam-text-xxs text-sam-meta">{formatDate(report.created_at)}</p>
         </div>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] text-sam-muted hover:bg-sam-app"
+          className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-muted hover:bg-sam-app"
         >
           {expanded ? "닫기" : "상세"}
         </button>
@@ -92,18 +92,18 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
 
       {expanded && (
         <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
-          <div className="text-[12px] text-sam-muted">
+          <div className="sam-text-helper text-sam-muted">
             <span className="font-medium">대상 ID: </span>
-            <span className="font-mono text-[11px]">{report.target_id}</span>
+            <span className="font-mono sam-text-xxs">{report.target_id}</span>
           </div>
           {report.reason_detail && (
-            <div className="rounded-ui-rect bg-sam-app p-2.5 text-[12px] text-sam-fg">
+            <div className="rounded-ui-rect bg-sam-app p-2.5 sam-text-helper text-sam-fg">
               <p className="font-medium">신고 상세:</p>
               <p className="mt-1 whitespace-pre-wrap">{report.reason_detail}</p>
             </div>
           )}
           {report.action_result && (
-            <div className="text-[12px] text-sam-muted">
+            <div className="sam-text-helper text-sam-muted">
               <span className="font-medium">조치 내용: </span>
               {report.action_result}
             </div>
@@ -114,7 +114,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
             onChange={(e) => setNote(e.target.value)}
             rows={2}
             placeholder="조치 메모 (선택)"
-            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
+            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
           />
 
           <div className="flex flex-wrap gap-2">
@@ -123,7 +123,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => void handle("reviewing")}
-                className="rounded-ui-rect bg-sky-100 px-3 py-1.5 text-[12px] font-semibold text-sky-800 disabled:opacity-50 hover:bg-sky-200"
+                className="rounded-ui-rect bg-sky-100 px-3 py-1.5 sam-text-helper font-semibold text-sky-800 disabled:opacity-50 hover:bg-sky-200"
               >
                 검토 시작
               </button>
@@ -133,7 +133,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => void handle("resolved")}
-                className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 text-[12px] font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
+                className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 sam-text-helper font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
               >
                 처리 완료
               </button>
@@ -143,7 +143,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => void handle("rejected")}
-                className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 text-[12px] font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
+                className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
               >
                 반려
               </button>
@@ -153,7 +153,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 type="button"
                 disabled={busy}
                 onClick={() => void handle("pending")}
-                className="rounded-ui-rect bg-amber-100 px-3 py-1.5 text-[12px] font-semibold text-amber-800 disabled:opacity-50"
+                className="rounded-ui-rect bg-amber-100 px-3 py-1.5 sam-text-helper font-semibold text-amber-800 disabled:opacity-50"
               >
                 대기 복원
               </button>
@@ -212,7 +212,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
   return (
     <div className="space-y-4">
       {/* 요약 뱃지 */}
-      <div className="flex flex-wrap gap-2 text-[12px]">
+      <div className="flex flex-wrap gap-2 sam-text-helper">
         {pendingCount > 0 && (
           <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">
             대기 {pendingCount}건
@@ -235,7 +235,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
             key={t.id}
             type="button"
             onClick={() => setFilter(t.id)}
-            className={`rounded-full px-3 py-1 text-[12px] font-medium transition-colors ${
+            className={`rounded-full px-3 py-1 sam-text-helper font-medium transition-colors ${
               filter === t.id
                 ? "bg-sam-ink text-white"
                 : "bg-sam-surface-muted text-sam-muted hover:bg-sam-border-soft"
@@ -249,7 +249,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
       {/* 신고 목록 */}
       {filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center">
-          <p className="text-[14px] text-sam-meta">
+          <p className="sam-text-body text-sam-meta">
             {filter === "all" ? "접수된 신고가 없습니다." : `'${FILTER_TABS.find((t) => t.id === filter)?.label}' 상태 신고 없음`}
           </p>
         </div>

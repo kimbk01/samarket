@@ -93,16 +93,16 @@ export function AdminPostAdManagePage() {
             key={label}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
-            <p className={`text-[24px] font-bold ${color}`}>{value}</p>
-            <p className="text-[11px] text-sam-muted">{label}</p>
+            <p className={`sam-text-hero font-bold ${color}`}>{value}</p>
+            <p className="sam-text-xxs text-sam-muted">{label}</p>
           </div>
         ))}
       </div>
 
       {/* 승인 대기 강조 배너 */}
       {counts.pending > 0 && (
-        <div className="flex items-center gap-2 rounded-ui-rect border border-blue-300 bg-blue-50 px-4 py-3 text-[13px] text-blue-900">
-          <span className="text-[16px]">⏳</span>
+        <div className="flex items-center gap-2 rounded-ui-rect border border-blue-300 bg-blue-50 px-4 py-3 sam-text-body-secondary text-blue-900">
+          <span className="sam-text-body-lg">⏳</span>
           <span>
             관리자 승인 대기 중인 광고 신청 <strong>{counts.pending}건</strong>이 있습니다.
           </span>
@@ -116,7 +116,7 @@ export function AdminPostAdManagePage() {
             key={opt.value}
             type="button"
             onClick={() => setStatusFilter(opt.value)}
-            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+            className={`rounded-full px-3 py-1.5 sam-text-helper font-medium transition-colors ${
               statusFilter === opt.value
                 ? "bg-sam-ink text-white"
                 : "border border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
@@ -128,29 +128,29 @@ export function AdminPostAdManagePage() {
         <button
           type="button"
           onClick={() => void load()}
-          className="ml-auto rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-muted hover:bg-sam-app"
+          className="ml-auto rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-muted hover:bg-sam-app"
         >
           새로고침
         </button>
       </div>
 
       {err ? (
-        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-helper text-red-700">{err}</p>
       ) : null}
 
       {/* 목록 */}
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
         <div className="border-b border-sam-border-soft px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-sam-fg">
+          <h2 className="sam-text-body font-semibold text-sam-fg">
             광고 신청 목록{" "}
-            <span className="text-[13px] font-normal text-sam-meta">({filtered.length}건)</span>
+            <span className="sam-text-body-secondary font-normal text-sam-meta">({filtered.length}건)</span>
           </h2>
         </div>
 
         {loading ? (
-          <p className="py-12 text-center text-[13px] text-sam-meta">불러오는 중…</p>
+          <p className="py-12 text-center sam-text-body-secondary text-sam-meta">불러오는 중…</p>
         ) : filtered.length === 0 ? (
-          <p className="py-12 text-center text-[13px] text-sam-meta">
+          <p className="py-12 text-center sam-text-body-secondary text-sam-meta">
             {statusFilter ? "해당 상태의 광고 신청이 없습니다." : "광고 신청 내역이 없습니다."}
           </p>
         ) : (
@@ -175,11 +175,11 @@ export function AdminPostAdManagePage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <AdStatusBadge status={row.applyStatus} />
-                        <span className="truncate text-[14px] font-semibold text-sam-fg">
+                        <span className="truncate sam-text-body font-semibold text-sam-fg">
                           {row.postTitle}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-sam-muted">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 sam-text-helper text-sam-muted">
                         <span>광고주: <strong className="text-sam-fg">{row.userNickname}</strong></span>
                         <span>게시판: {row.boardKey}</span>
                         <span>{AD_TYPE_LABELS[row.adType]}</span>
@@ -194,7 +194,7 @@ export function AdminPostAdManagePage() {
                           신청: {new Date(row.createdAt).toLocaleString("ko-KR")}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[12px] text-sam-muted">
+                      <p className="mt-0.5 sam-text-helper text-sam-muted">
                         상품: {row.adProductName}
                       </p>
                     </div>
@@ -209,7 +209,7 @@ export function AdminPostAdManagePage() {
                         setNoteInputs((prev) => ({ ...prev, [row.id]: e.target.value }))
                       }
                       placeholder="관리자 메모 (선택)"
-                      className="w-48 rounded-ui-rect border border-sam-border px-2.5 py-1.5 text-[12px] outline-none focus:border-sky-300"
+                      className="w-48 rounded-ui-rect border border-sam-border px-2.5 py-1.5 sam-text-helper outline-none focus:border-sky-300"
                     />
 
                     {canApprove && (
@@ -218,7 +218,7 @@ export function AdminPostAdManagePage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "approve", note)}
-                          className="rounded-ui-rect bg-emerald-600 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                          className="rounded-ui-rect bg-emerald-600 px-3 py-1.5 sam-text-helper font-bold text-white disabled:opacity-50"
                         >
                           {busy ? "처리중…" : "승인"}
                         </button>
@@ -226,7 +226,7 @@ export function AdminPostAdManagePage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "reject", note)}
-                          className="rounded-ui-rect bg-red-500 px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-50"
+                          className="rounded-ui-rect bg-red-500 px-3 py-1.5 sam-text-helper font-bold text-white disabled:opacity-50"
                         >
                           반려
                         </button>
@@ -237,7 +237,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "expire", note)}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-fg disabled:opacity-50"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg disabled:opacity-50"
                       >
                         강제 종료
                       </button>
@@ -247,7 +247,7 @@ export function AdminPostAdManagePage() {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "cancel", note)}
-                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-muted disabled:opacity-50"
+                        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-muted disabled:opacity-50"
                       >
                         취소
                       </button>
@@ -256,7 +256,7 @@ export function AdminPostAdManagePage() {
                     {/* 광고주 포인트 내역 바로가기 */}
                     <Link
                       href={`/admin/users/${row.userId}?tab=points`}
-                      className="ml-auto rounded-ui-rect border border-sam-border px-2.5 py-1.5 text-[11px] text-sam-muted hover:text-sky-700"
+                      className="ml-auto rounded-ui-rect border border-sam-border px-2.5 py-1.5 sam-text-xxs text-sam-muted hover:text-sky-700"
                     >
                       광고주 포인트 조회
                     </Link>
@@ -264,7 +264,7 @@ export function AdminPostAdManagePage() {
 
                   {/* 반려 메모 표시 */}
                   {row.adminNote && row.applyStatus === "rejected" && (
-                    <p className="mt-2 rounded-ui-rect bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+                    <p className="mt-2 rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-xxs text-red-700">
                       반려 사유: {row.adminNote}
                     </p>
                   )}

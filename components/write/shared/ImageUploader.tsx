@@ -52,7 +52,7 @@ export function ImageUploader({
 
   return (
     <section className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${disabled ? "opacity-60" : ""}`}>
-      <p className="mb-3 text-[14px] font-medium text-sam-fg">{label}</p>
+      <p className="mb-3 sam-text-body font-medium text-sam-fg">{label}</p>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
           <div

@@ -30,7 +30,7 @@ export function AdminStatusBadge({ status, className = "" }: AdminStatusBadgePro
   const { tt } = useI18n();
   return (
     <span
-      className={`inline-flex min-w-[84px] items-center justify-center whitespace-nowrap rounded px-2 py-0.5 text-[12px] font-medium ${CLASSES[status]} ${className}`}
+      className={`inline-flex min-w-[84px] items-center justify-center whitespace-nowrap rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
       {tt(LABELS[status])}
     </span>

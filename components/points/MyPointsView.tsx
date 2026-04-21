@@ -70,21 +70,21 @@ export function MyPointsView() {
     <div className="min-h-screen bg-[#f3f4f6] pb-28">
       {/* 잔액 헤더 카드 */}
       <div className="bg-gradient-to-br from-sky-600 to-sky-700 px-5 pb-8 pt-6">
-        <p className="text-[13px] font-medium text-sky-200">내 포인트 잔액</p>
+        <p className="sam-text-body-secondary font-medium text-sky-200">내 포인트 잔액</p>
         {loading ? (
-          <p className="mt-2 text-[32px] font-bold text-white">…</p>
+          <p className="mt-2 sam-text-hero font-bold text-white">…</p>
         ) : (
-          <p className="mt-1 text-[36px] font-bold text-white">{balance.toLocaleString()}P</p>
+          <p className="mt-1 sam-text-hero font-bold text-white">{balance.toLocaleString()}P</p>
         )}
         <button
           type="button"
           onClick={() => setShowChargeForm(true)}
-          className="mt-4 rounded-ui-rect border border-sam-surface/40 bg-sam-surface/20 px-4 py-2 text-[14px] font-semibold text-white backdrop-blur hover:bg-sam-surface/30"
+          className="mt-4 rounded-ui-rect border border-sam-surface/40 bg-sam-surface/20 px-4 py-2 sam-text-body font-semibold text-white backdrop-blur hover:bg-sam-surface/30"
         >
           + 포인트 충전 신청
         </button>
         {pendingCharges > 0 && (
-          <p className="mt-2 text-[12px] text-sky-200">
+          <p className="mt-2 sam-text-helper text-sky-200">
             처리 대기 중인 충전 신청 {pendingCharges}건
           </p>
         )}
@@ -103,7 +103,7 @@ export function MyPointsView() {
             key={id}
             type="button"
             onClick={() => setActiveTab(id)}
-            className={`flex-1 py-3 text-[13px] font-semibold transition-colors ${
+            className={`flex-1 py-3 sam-text-body-secondary font-semibold transition-colors ${
               activeTab === id
                 ? "border-b-2 border-sky-600 text-sky-700"
                 : "text-sam-muted hover:text-sam-fg"
@@ -139,8 +139,8 @@ export function MyPointsView() {
                 },
               ].map(({ label, value, color }) => (
                 <div key={label} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-3 text-center shadow-sm">
-                  <p className={`text-[18px] font-bold ${color}`}>{value}</p>
-                  <p className="mt-1 text-[11px] text-sam-muted">{label}</p>
+                  <p className={`sam-text-page-title font-bold ${color}`}>{value}</p>
+                  <p className="mt-1 sam-text-xxs text-sam-muted">{label}</p>
                 </div>
               ))}
             </div>
@@ -148,28 +148,28 @@ export function MyPointsView() {
             {/* 최근 원장 5건 */}
             <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
               <div className="border-b border-sam-border-soft px-4 py-3">
-                <h3 className="text-[14px] font-semibold text-sam-fg">최근 포인트 내역</h3>
+                <h3 className="sam-text-body font-semibold text-sam-fg">최근 포인트 내역</h3>
               </div>
               {ledger.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-sam-meta">내역이 없습니다.</p>
+                <p className="py-8 text-center sam-text-body-secondary text-sam-meta">내역이 없습니다.</p>
               ) : (
                 <ul className="divide-y divide-sam-border-soft">
                   {ledger.slice(0, 5).map((l) => (
                     <li key={l.id} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-[13px] font-medium text-sam-fg">
+                        <p className="sam-text-body-secondary font-medium text-sam-fg">
                           {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                         </p>
-                        <p className="text-[11px] text-sam-muted">{l.description}</p>
-                        <p className="text-[10px] text-sam-meta">
+                        <p className="sam-text-xxs text-sam-muted">{l.description}</p>
+                        <p className="sam-text-xxs text-sam-meta">
                           {new Date(l.createdAt).toLocaleString("ko-KR")}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className={`text-[15px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                        <p className={`sam-text-body font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                           {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                         </p>
-                        <p className="text-[11px] text-sam-meta">잔액 {l.balanceAfter.toLocaleString()}P</p>
+                        <p className="sam-text-xxs text-sam-meta">잔액 {l.balanceAfter.toLocaleString()}P</p>
                       </div>
                     </li>
                   ))}
@@ -180,7 +180,7 @@ export function MyPointsView() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("ledger")}
-                    className="text-[12px] text-sky-700 underline"
+                    className="sam-text-helper text-sky-700 underline"
                   >
                     전체 내역 보기
                   </button>
@@ -192,19 +192,19 @@ export function MyPointsView() {
             {charges.length > 0 && (
               <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
                 <div className="border-b border-sam-border-soft px-4 py-3">
-                  <h3 className="text-[14px] font-semibold text-sam-fg">충전 신청 현황</h3>
+                  <h3 className="sam-text-body font-semibold text-sam-fg">충전 신청 현황</h3>
                 </div>
                 <ul className="divide-y divide-sam-border-soft">
                   {charges.slice(0, 3).map((c) => (
                     <li key={c.id} className="flex items-center justify-between px-4 py-3">
                       <div>
-                        <p className="text-[13px] font-medium text-sam-fg">{c.planName}</p>
-                        <p className="text-[11px] text-sam-meta">
+                        <p className="sam-text-body-secondary font-medium text-sam-fg">{c.planName}</p>
+                        <p className="sam-text-xxs text-sam-meta">
                           {new Date(c.requestedAt).toLocaleDateString("ko-KR")}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <p className="text-[14px] font-bold text-sky-700">+{c.pointAmount.toLocaleString()}P</p>
+                        <p className="sam-text-body font-bold text-sky-700">+{c.pointAmount.toLocaleString()}P</p>
                         <PointChargeBadge status={c.requestStatus} />
                       </div>
                     </li>
@@ -219,7 +219,7 @@ export function MyPointsView() {
         {activeTab === "ledger" && (
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
             {ledger.length === 0 ? (
-              <p className="py-10 text-center text-[13px] text-sam-meta">포인트 내역이 없습니다.</p>
+              <p className="py-10 text-center sam-text-body-secondary text-sam-meta">포인트 내역이 없습니다.</p>
             ) : (
               <ul className="divide-y divide-sam-border-soft">
                 {ledger.map((l) => (
@@ -227,7 +227,7 @@ export function MyPointsView() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          className={`shrink-0 rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${
                             l.amount >= 0
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-red-100 text-red-700"
@@ -235,17 +235,17 @@ export function MyPointsView() {
                         >
                           {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                         </span>
-                        <p className="truncate text-[13px] font-medium text-sam-fg">{l.description}</p>
+                        <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{l.description}</p>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-sam-meta">
+                      <p className="mt-0.5 sam-text-xxs text-sam-meta">
                         {new Date(l.createdAt).toLocaleString("ko-KR")}
                       </p>
                     </div>
                     <div className="ml-3 shrink-0 text-right">
-                      <p className={`text-[14px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                      <p className={`sam-text-body font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                         {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                       </p>
-                      <p className="text-[11px] text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
+                      <p className="sam-text-xxs text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
                     </div>
                   </li>
                 ))}
@@ -260,13 +260,13 @@ export function MyPointsView() {
             <button
               type="button"
               onClick={() => setShowChargeForm(true)}
-              className="w-full rounded-ui-rect bg-sky-600 py-3.5 text-[15px] font-bold text-white shadow-md"
+              className="w-full rounded-ui-rect bg-sky-600 py-3.5 sam-text-body font-bold text-white shadow-md"
             >
               + 포인트 충전 신청하기
             </button>
 
             {charges.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center text-[13px] text-sam-meta">
+              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center sam-text-body-secondary text-sam-meta">
                 충전 신청 내역이 없습니다.
               </div>
             ) : (
@@ -276,8 +276,8 @@ export function MyPointsView() {
                     <li key={c.id} className="px-4 py-4">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[14px] font-semibold text-sam-fg">{c.planName}</p>
-                          <dl className="mt-1 space-y-0.5 text-[12px] text-sam-muted">
+                          <p className="sam-text-body font-semibold text-sam-fg">{c.planName}</p>
+                          <dl className="mt-1 space-y-0.5 sam-text-helper text-sam-muted">
                             <div className="flex gap-2">
                               <dt className="w-16 shrink-0">결제 방식</dt>
                               <dd>{c.paymentMethod === "manual_confirm" ? "계좌 입금" : "이체"}</dd>
@@ -301,14 +301,14 @@ export function MyPointsView() {
                           </dl>
                         </div>
                         <div className="flex flex-col items-end gap-2 shrink-0">
-                          <p className="text-[16px] font-bold text-sky-700">+{c.pointAmount.toLocaleString()}P</p>
+                          <p className="sam-text-body-lg font-bold text-sky-700">+{c.pointAmount.toLocaleString()}P</p>
                           <PointChargeBadge status={c.requestStatus} />
                           {(c.requestStatus === "pending" || c.requestStatus === "waiting_confirm") && (
                             <button
                               type="button"
                               disabled={cancelling === c.id}
                               onClick={() => void cancelCharge(c.id)}
-                              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
+                              className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                             >
                               {cancelling === c.id ? "취소중…" : "신청 취소"}
                             </button>

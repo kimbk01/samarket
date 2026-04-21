@@ -147,13 +147,13 @@ export default function BusinessApplyRoute() {
     <div className="min-h-screen min-w-0 max-w-[100vw] overflow-x-hidden bg-background">
       <MySubpageHeader title="매장 신청" backHref="/my/business" section="store" />
       <div className={`mx-auto max-w-4xl px-4 py-4 ${OWNER_STORE_STACK_Y_CLASS}`}>
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[13px] leading-relaxed text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary leading-relaxed text-sam-muted">
           제출 후 <strong className="text-sam-fg">관리자 매장 심사</strong>를 거칩니다. 승인되면{" "}
           <strong className="text-sam-fg">판매 권한</strong>이 별도로 열릴 수 있어요. 진행 상태는{" "}
           <strong className="text-sam-fg">내 상점</strong>에서 확인할 수 있습니다.
         </div>
         {submitError ? (
-          <div className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-800">{submitError}</div>
+          <div className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{submitError}</div>
         ) : null}
         <BusinessApplyForm
           profileSeed={profileSeed}

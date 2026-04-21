@@ -35,7 +35,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <span className={`text-[10px] font-semibold ${FB.metaSm}`}>검색</span>
+        <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>검색</span>
       </Link>
       <Link href={cartHref} className={itemClass} aria-label="장바구니">
         <span className="relative flex h-[22px] w-[22px] items-center justify-center">
@@ -46,7 +46,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
             </span>
           ) : null}
         </span>
-        <span className={`text-[10px] font-semibold ${FB.metaSm}`}>장바구니</span>
+        <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>장바구니</span>
       </Link>
       <Link
         href="/my/store-orders"
@@ -71,7 +71,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
             </span>
           ) : null}
         </span>
-        <span className={`text-[10px] font-semibold ${FB.metaSm}`}>내 주문</span>
+        <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>내 주문</span>
       </Link>
       <Link href={myBusinessHref} className={itemClass} aria-label="내 매장 운영">
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -81,7 +81,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
           />
         </svg>
-        <span className={`text-[10px] font-semibold ${FB.metaSm}`}>내 매장</span>
+        <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>내 매장</span>
       </Link>
     </div>
   );

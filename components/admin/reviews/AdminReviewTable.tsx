@@ -18,7 +18,7 @@ interface AdminReviewTableProps {
 export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상품명</th>
@@ -51,16 +51,16 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
               <td className="px-3 py-2.5 text-sam-muted">
                 {PUBLIC_LABELS[r.publicReviewType ?? "normal"] ?? r.publicReviewType ?? "—"}
               </td>
-              <td className="max-w-[200px] truncate px-3 py-2.5 text-[13px] text-sam-muted" title={formatAdminReviewSelectedTags(r)}>
+              <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted" title={formatAdminReviewSelectedTags(r)}>
                 {formatAdminReviewSelectedTags(r)}
               </td>
-              <td className="max-w-[160px] truncate px-3 py-2.5 text-[13px] text-sam-muted" title={r.comment || ""}>
+              <td className="max-w-[160px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted" title={r.comment || ""}>
                 {r.comment?.trim() ? r.comment : "—"}
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px]">
+              <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.isAnonymousNegative ? "Y" : "N"}
               </td>
-              <td className="px-3 py-2.5 text-center text-[13px]">
+              <td className="px-3 py-2.5 text-center sam-text-body-secondary">
                 {r.transactionId ? (
                   <Link href={tradeChatNotificationHref(r.transactionId, "product_chat")} className="text-signature hover:underline" target="_blank">
                     열기
@@ -69,7 +69,7 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
                   "—"
                 )}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(r.createdAt).toLocaleString("ko-KR")}
               </td>
             </tr>

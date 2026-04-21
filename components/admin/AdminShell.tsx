@@ -22,7 +22,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       {sidebarExpanded && <AdminSidebar />}
       <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
         <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-sam-border bg-sam-surface px-3 py-2 md:px-4">
-          <h1 className="min-w-0 flex-1 truncate text-[18px] font-semibold text-sam-fg">
+          <h1 className="min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg">
             {t("admin_brand")}
           </h1>
           <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l border-sam-border pl-3 sm:gap-2 sm:pl-4">
@@ -34,7 +34,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminTestSwitcher />
             <Link
               href="/home"
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-medium text-sam-fg hover:bg-sam-app hover:border-sam-border"
+              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app hover:border-sam-border"
             >
               {t("common_homepage")}
             </Link>

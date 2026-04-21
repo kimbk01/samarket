@@ -305,11 +305,11 @@ export function CommunityMessengerRoomClientPhase2() {
   if (!room.snapshot) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-[16px] font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
+        <p className="sam-text-body-lg font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
         <button
           type="button"
           onClick={() => room.router.replace("/community-messenger?section=chats")}
-          className="rounded-ui-rect bg-ui-fg px-4 py-3 text-[14px] font-semibold text-ui-surface"
+          className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >
           {room.t("nav_messenger_home")}
         </button>

@@ -39,30 +39,30 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
               sizes="64px"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[20px] text-sam-meta">
+            <div className="flex h-full w-full items-center justify-center sam-text-page-title text-sam-meta">
               👤
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[16px] font-semibold text-sam-fg">
+            <span className="sam-text-body-lg font-semibold text-sam-fg">
               {profile.nickname || "닉네임 없음"}
             </span>
-            <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-muted">
+            <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">
               {memberLabel}
             </span>
             {isBusinessMember && (
-              <span className="rounded bg-signature/10 px-1.5 py-0.5 text-[11px] font-medium text-signature">
+              <span className="rounded bg-signature/10 px-1.5 py-0.5 sam-text-xxs font-medium text-signature">
                 비즈
               </span>
             )}
           </div>
-          <p className="mt-0.5 whitespace-pre-line text-[13px] text-sam-muted">{regionDisplay}</p>
+          <p className="mt-0.5 whitespace-pre-line sam-text-body-secondary text-sam-muted">{regionDisplay}</p>
           {extraStat && (
             <Link
               href="/my/reviews"
-              className="mt-1 inline-block text-[12px] text-sam-muted underline-offset-1 hover:underline"
+              className="mt-1 inline-block sam-text-helper text-sam-muted underline-offset-1 hover:underline"
             >
               {extraStat.label} {extraStat.value}
             </Link>
@@ -79,7 +79,7 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
       </div>
 
       {profile.bio && (
-        <p className="mt-3 border-t border-sam-border-soft pt-3 text-[13px] text-sam-muted">
+        <p className="mt-3 border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
           {profile.bio}
         </p>
       )}

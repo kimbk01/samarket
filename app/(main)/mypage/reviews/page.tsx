@@ -13,7 +13,7 @@ export default function MypageReviewsHubPage() {
         hideCtaStrip
       />
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-6`}>
-        <p className="text-[14px] leading-relaxed text-sam-muted">
+        <p className="sam-text-body leading-relaxed text-sam-muted">
           <strong className="text-sam-fg">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
           <Link href="/mypage/purchases" className="font-medium text-signature underline">
             구매내역
@@ -22,12 +22,12 @@ export default function MypageReviewsHubPage() {
         </p>
         <MyWrittenReviewsView />
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-          <p className="mb-2 text-[13px] font-medium text-sam-fg">바로가기</p>
+          <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">바로가기</p>
           <ul className="space-y-2">
             <li>
               <Link
                 href="/mypage/purchases"
-                className="block rounded-ui-rect border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
+                className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 구매내역
               </Link>
@@ -35,7 +35,7 @@ export default function MypageReviewsHubPage() {
             <li>
               <Link
                 href="/mypage/sales"
-                className="block rounded-ui-rect border border-ig-border bg-ig-highlight px-3 py-2.5 text-[14px] font-medium text-foreground"
+                className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 판매내역
               </Link>

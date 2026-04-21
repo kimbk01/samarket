@@ -37,7 +37,7 @@ export function AdminOpsLearningPage() {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
@@ -56,7 +56,7 @@ export function AdminOpsLearningPage() {
               <select
                 value={historyStatusFilter}
                 onChange={(e) => setHistoryStatusFilter(e.target.value as OpsLearningStatus | "")}
-                className="rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 <option value="">전체 상태</option>
                 <option value="detected">탐지</option>
@@ -80,7 +80,7 @@ export function AdminOpsLearningPage() {
                 <select
                   value={patternStatusFilter}
                   onChange={(e) => setPatternStatusFilter(e.target.value as OpsLearningStatus | "")}
-                  className="rounded border border-sam-border px-3 py-2 text-[14px]"
+                  className="rounded border border-sam-border px-3 py-2 sam-text-body"
                 >
                   <option value="">전체 상태</option>
                   <option value="detected">탐지</option>
@@ -127,7 +127,7 @@ export function AdminOpsLearningPage() {
             {selectedPatternId ? (
               <OpsPatternLogList patternId={selectedPatternId} />
             ) : (
-              <p className="text-[14px] text-sam-muted">패턴을 선택하면 로그가 표시됩니다.</p>
+              <p className="sam-text-body text-sam-muted">패턴을 선택하면 로그가 표시됩니다.</p>
             )}
           </AdminCard>
         </div>

@@ -27,14 +27,14 @@ export function AdminOpsDocsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/ops-docs/create"
-          className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           문서 생성
         </Link>
         <button
           type="button"
           onClick={() => setActiveTab(activeTab === "list" ? "summary" : "list")}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {activeTab === "list" ? "요약 보기" : "목록 보기"}
         </button>

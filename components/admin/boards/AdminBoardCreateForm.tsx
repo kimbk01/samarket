@@ -152,20 +152,20 @@ export function AdminBoardCreateForm({
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 id="admin-board-create-title" className="text-[16px] font-semibold text-sam-fg">
+          <h2 id="admin-board-create-title" className="sam-text-body-lg font-semibold text-sam-fg">
             게시판 추가
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect px-2 py-1 text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
+            className="rounded-ui-rect px-2 py-1 sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4 text-[14px]">
+        <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4 sam-text-body">
           {loadingSvc ? (
             <p className="text-sam-muted">서비스 목록 불러오는 중…</p>
           ) : services.length === 0 ? (
@@ -173,7 +173,7 @@ export function AdminBoardCreateForm({
           ) : null}
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">서비스</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">서비스</span>
             <select
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
@@ -189,7 +189,7 @@ export function AdminBoardCreateForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">게시판 이름</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">게시판 이름</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -201,20 +201,20 @@ export function AdminBoardCreateForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">slug (URL)</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">slug (URL)</span>
             <input
               value={slug}
               onChange={(e) => setSlug(normalizeBoardSlug(e.target.value))}
               required
               maxLength={64}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono text-[13px]"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono sam-text-body-secondary"
               placeholder="예: food"
             />
-            <span className="mt-0.5 block text-[12px] text-sam-muted">사용자 피드: /community (게시판 slug 미노출)</span>
+            <span className="mt-0.5 block sam-text-helper text-sam-muted">사용자 피드: /community (게시판 slug 미노출)</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">설명 (선택)</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">설명 (선택)</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -226,8 +226,8 @@ export function AdminBoardCreateForm({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-[13px] font-medium text-sam-fg">스킨</span>
-              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 text-[13px]">
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">스킨</span>
+              <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body-secondary">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -236,8 +236,8 @@ export function AdminBoardCreateForm({
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-[13px] font-medium text-sam-fg">폼</span>
-              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 text-[13px]">
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">폼</span>
+              <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body-secondary">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -248,11 +248,11 @@ export function AdminBoardCreateForm({
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">카테고리 모드</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">카테고리 모드</span>
             <select
               value={categoryMode}
               onChange={(e) => setCategoryMode(e.target.value)}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body-secondary"
             >
               {ADMIN_BOARD_CATEGORY_MODES.map((m) => (
                 <option key={m} value={m}>
@@ -264,11 +264,11 @@ export function AdminBoardCreateForm({
 
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-            <span className="text-[13px] text-sam-fg">노출(활성)</span>
+            <span className="sam-text-body-secondary text-sam-fg">노출(활성)</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-[13px] font-medium text-sam-fg">정렬 순서</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">정렬 순서</span>
             <input
               type="number"
               min={0}
@@ -279,20 +279,20 @@ export function AdminBoardCreateForm({
             />
           </label>
 
-          {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-[13px] text-red-800">{error}</p> : null}
+          {error ? <p className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{error}</p> : null}
 
           <div className="flex justify-end gap-2 border-t border-sam-border-soft pt-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+              className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting || loadingSvc || services.length === 0}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "추가"}
             </button>

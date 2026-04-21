@@ -47,8 +47,8 @@ export function MemberOrderCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[15px] font-bold text-sam-fg">{order.store_name}</p>
-          <p className="font-mono text-[11px] text-sam-meta">{order.order_no}</p>
+          <p className="sam-text-body font-bold text-sam-fg">{order.store_name}</p>
+          <p className="font-mono sam-text-xxs text-sam-meta">{order.order_no}</p>
           <p className="mt-1 text-xs text-sam-meta">
             {new Date(order.created_at).toLocaleString("ko-KR")}
           </p>
@@ -58,14 +58,14 @@ export function MemberOrderCard({
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
+          className={`rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
             order.order_type === "delivery" ? "bg-signature/5 text-sam-fg" : "bg-teal-50 text-teal-900"
           }`}
         >
           {order.order_type === "delivery" ? t("member_order_delivery_short") : t("member_order_pickup_short")}
         </span>
         {order.request_message ? (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">
             {t("member_order_has_request")}
           </span>
         ) : null}

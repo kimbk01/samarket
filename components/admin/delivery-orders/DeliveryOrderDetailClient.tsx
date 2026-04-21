@@ -57,7 +57,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       <div className="p-6">
         <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
         <p className="text-sm text-sam-muted">주문을 찾을 수 없습니다.</p>
-        <p className="mt-2 text-[13px] text-sam-muted">
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">
           <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
             매장 주문(액션)에서 order_id로 검색
           </Link>
@@ -91,8 +91,8 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <AdminPageHeader title={`주문 ${order.orderNo}`} backHref="/admin/delivery-orders" />
-      <p className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-[13px] text-emerald-950">
-        Supabase <code className="rounded bg-white/80 px-1 text-[12px]">store_orders</code> 원장 · 품목 스냅샷
+      <p className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 px-3 py-2 sam-text-body-secondary text-emerald-950">
+        Supabase <code className="rounded bg-white/80 px-1 sam-text-helper">store_orders</code> 원장 · 품목 스냅샷
       </p>
 
       <div className="flex flex-wrap gap-2 text-sm">
@@ -230,7 +230,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       )}
 
       <AdminCard title="운영 액션">
-        <p className="text-[13px] text-sam-fg">
+        <p className="sam-text-body-secondary text-sam-fg">
           환불 승인·상태 변경은 <strong>매장 주문(액션)</strong> 화면에서 동일 원장으로 진행합니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -250,8 +250,8 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
       </AdminCard>
 
       <AdminCard title="상태 로그">
-        <p className="text-[13px] text-sam-muted">
-          상세 타임라인은 DB <code className="rounded bg-sam-app px-1 text-[12px]">order_status_logs</code> 등과 연동 시
+        <p className="sam-text-body-secondary text-sam-muted">
+          상세 타임라인은 DB <code className="rounded bg-sam-app px-1 sam-text-helper">order_status_logs</code> 등과 연동 시
           표시합니다. 현재는 원장 필드만 반영합니다.
         </p>
         <AdminOrderTimeline logs={logs} />

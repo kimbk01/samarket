@@ -49,7 +49,7 @@ export function DeliveryOrdersProgressPanel({
           : "border-sam-border bg-sam-surface text-sam-fg hover:border-sam-border"
       }`}
     >
-      <span className="text-[11px] font-semibold sm:text-xs">{label}</span>
+      <span className="sam-text-xxs font-semibold sm:text-xs">{label}</span>
       <span className="font-mono text-sm font-bold tabular-nums">{count}</span>
     </button>
   );
@@ -64,7 +64,7 @@ export function DeliveryOrdersProgressPanel({
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-sam-fg">배달·포장 진행 현황</h2>
-        <p className="text-[11px] text-sam-muted">불러온 실주문 기준 · 칩을 누르면 아래 목록 필터가 맞춰집니다</p>
+        <p className="sam-text-xxs text-sam-muted">불러온 실주문 기준 · 칩을 누르면 아래 목록 필터가 맞춰집니다</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {chip(

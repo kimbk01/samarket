@@ -223,8 +223,8 @@ function MyStoreOrderCard({
 
   const storeImg = o.store_profile_image_url?.trim() || "";
   const relTime = formatFeedRelativeTime(o.created_at);
-  const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[13px] font-semibold transition-colors sm:text-sm ${FB_BODY} ${FB_HOVER_ROW}`;
-  const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center text-[13px] font-semibold transition-colors sm:text-sm text-signature ${FB_HOVER_ROW}`;
+  const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm ${FB_BODY} ${FB_HOVER_ROW}`;
+  const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm text-signature ${FB_HOVER_ROW}`;
 
   return (
     <article
@@ -242,7 +242,7 @@ function MyStoreOrderCard({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className={`flex h-full w-full items-center justify-center text-[11px] font-semibold ${FB_MUTED}`}>
+              <div className={`flex h-full w-full items-center justify-center sam-text-xxs font-semibold ${FB_MUTED}`}>
                 매장
               </div>
             )}
@@ -250,18 +250,18 @@ function MyStoreOrderCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className={`truncate text-[15px] font-semibold leading-snug ${FB_BODY}`}>
+                <p className={`truncate sam-text-body font-semibold leading-snug ${FB_BODY}`}>
                   {o.store_name || "매장"}
                 </p>
-                <p className={`mt-0.5 text-[13px] leading-snug ${FB_MUTED}`}>
+                <p className={`mt-0.5 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
                   <span>{relTime}</span>
                   <span className="mx-1 text-[#CED0D4] dark:text-[#5F6164]" aria-hidden>
                     ·
                   </span>
-                  <span className="font-mono text-[12px]">{o.order_no}</span>
+                  <span className="font-mono sam-text-helper">{o.order_no}</span>
                 </p>
                 {o.buyer_note?.trim() ? (
-                  <p className={`mt-1.5 text-[13px] font-medium text-amber-800 dark:text-amber-200`}>
+                  <p className={`mt-1.5 sam-text-body-secondary font-medium text-amber-800 dark:text-amber-200`}>
                     요청 사항 있음
                   </p>
                 ) : null}
@@ -270,13 +270,13 @@ function MyStoreOrderCard({
                 {isMemberOrderStatus(o.order_status) ? (
                   <MemberOrderStatusBadge status={o.order_status} />
                 ) : (
-                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 text-[11px] font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
+                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
                     {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                   </span>
                 )}
                 <span className="relative inline-flex shrink-0 overflow-visible">
                   <span
-                    className={`rounded-ui-rect px-2 py-0.5 text-[11px] font-bold ${
+                    className={`rounded-ui-rect px-2 py-0.5 sam-text-xxs font-bold ${
                       delivery
                         ? "bg-[#E7F3FF] text-[#1877F2] dark:bg-signature/15 dark:text-signature"
                         : "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-200"
@@ -286,7 +286,7 @@ function MyStoreOrderCard({
                   </span>
                   {orderChatUnread > 0 ? (
                     <span
-                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-sam-surface dark:ring-[#242526]"
+                      className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 sam-text-xxs font-bold leading-none text-white ring-2 ring-sam-surface dark:ring-[#242526]"
                       aria-label={`주문 채팅 읽지 않은 메시지 ${orderChatUnread > 99 ? "99+" : orderChatUnread}건`}
                     >
                       {orderChatUnread > 99 ? "99+" : orderChatUnread}
@@ -298,7 +298,7 @@ function MyStoreOrderCard({
                     type="button"
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold leading-none text-[#65676B] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
                     aria-label="주문 내역 삭제"
                     title="내역에서 삭제"
                   >
@@ -310,19 +310,19 @@ function MyStoreOrderCard({
 
             <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
               <div className="flex items-center justify-between gap-2">
-                <span className={`text-[13px] font-medium sm:text-sm ${FB_MUTED}`}>결제 금액</span>
-                <span className={`text-[15px] font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
+                <span className={`sam-text-body-secondary font-medium sm:text-sm ${FB_MUTED}`}>결제 금액</span>
+                <span className={`sam-text-body font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
                   {formatMoneyPhp(o.payment_amount)}
                 </span>
               </div>
-              <p className={`mt-2 text-[13px] leading-snug sm:text-sm ${FB_MUTED}`}>
+              <p className={`mt-2 sam-text-body-secondary leading-snug sm:text-sm ${FB_MUTED}`}>
                 {statusUserLine(o.order_status)}
               </p>
               {(o.order_status === "ready_for_pickup" ||
                 o.order_status === "delivering" ||
                 o.order_status === "arrived") &&
               o.auto_complete_at ? (
-                <p className={`mt-2 text-[13px] leading-snug ${FB_MUTED}`}>
+                <p className={`mt-2 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
                   자동 완료 예정{" "}
                   <span className={`font-semibold ${FB_BODY}`}>
                     {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
@@ -340,7 +340,7 @@ function MyStoreOrderCard({
         </Link>
         {chatDisabled ? (
           <span
-            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center text-[13px] font-medium text-[#BCC0C4] dark:text-[#6F7175] sm:text-sm`}
+            className={`flex min-h-[44px] min-w-0 flex-1 cursor-not-allowed items-center justify-center px-1 text-center sam-text-body-secondary font-medium text-[#BCC0C4] dark:text-[#6F7175] sm:text-sm`}
           >
             주문 채팅
           </span>
@@ -370,7 +370,7 @@ function MyStoreOrderCard({
               firstLineProductTitle: o.items?.[0]?.product_title_snapshot ?? null,
               thumbnailUrl: o.store_profile_image_url ?? null,
             })}
-            className={`flex min-h-[40px] w-full items-center justify-center px-3 text-[13px] font-semibold text-signature ${FB_HOVER_ROW}`}
+            className={`flex min-h-[40px] w-full items-center justify-center px-3 sam-text-body-secondary font-semibold text-signature ${FB_HOVER_ROW}`}
           />
         </div>
       ) : null}
@@ -403,7 +403,7 @@ function MyStoreOrderCard({
           type="button"
           disabled={cancelBusy}
           onClick={() => onCancelPending(o.id)}
-          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center text-[15px] font-semibold text-[#F02849] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
+          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center sam-text-body font-semibold text-[#F02849] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
         >
           {cancelBusy ? "처리 중…" : "주문 취소"}
         </button>
@@ -575,7 +575,7 @@ export function MyStoreOrdersView({
         }
       >
         {toast ? (
-          <p className="mb-3 rounded-ui-rect bg-[#050505] px-3 py-2.5 text-center text-[13px] text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
+          <p className="mb-3 rounded-ui-rect bg-[#050505] px-3 py-2.5 text-center sam-text-body-secondary text-white shadow-md dark:bg-[#E4E6EB] dark:text-[#050505]">
             {toast}
           </p>
         ) : null}
@@ -590,12 +590,12 @@ export function MyStoreOrdersView({
 
         {state.kind === "unauth" ? (
           <div
-            className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center text-[15px] text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
+            className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center sam-text-body text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
             <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
             <Link
               href={loginHref}
-              className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 text-[15px] font-semibold text-white"
+              className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-semibold text-white"
             >
               로그인하고 주문 보기
             </Link>
@@ -607,15 +607,15 @@ export function MyStoreOrdersView({
             className={`space-y-2 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 dark:bg-[#242526]`}
           >
             {state.message === "supabase_unconfigured" ? (
-              <p className={`text-[15px] text-amber-800 dark:text-amber-200`}>
+              <p className={`sam-text-body text-amber-800 dark:text-amber-200`}>
                 서버에 Supabase(매장 주문) 설정이 없어 목록을 불러올 수 없습니다.
               </p>
             ) : null}
-            <p className={`text-[15px] text-[#F02849]`}>불러오지 못했습니다. ({state.message})</p>
+            <p className={`sam-text-body text-[#F02849]`}>불러오지 못했습니다. ({state.message})</p>
             <button
               type="button"
               onClick={() => void load()}
-              className="text-[15px] font-semibold text-signature hover:underline"
+              className="sam-text-body font-semibold text-signature hover:underline"
             >
               다시 시도
             </button>

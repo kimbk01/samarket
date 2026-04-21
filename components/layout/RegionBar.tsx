@@ -16,12 +16,7 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
-import {
-  BOTTOM_NAV_PHILIFE_TAB_LABEL,
-  BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
-  BOTTOM_NAV_TRADE_TAB_LABEL,
-  BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
-} from "@/lib/main-menu/bottom-nav-config";
+import { BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY, BOTTOM_NAV_TRADE_TAB_LABEL_KEY } from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
@@ -43,7 +38,7 @@ function StoresRootTier1Right() {
     <div className="flex shrink-0 items-center gap-0.5">
       <Link
         href="/search"
-        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
         aria-label={t("nav_search_aria")}
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -56,7 +51,7 @@ function StoresRootTier1Right() {
       </Link>
       <Link
         href={cartHref}
-        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
         aria-label={cartLineKindCount > 0 ? t("nav_cart_aria") : t("common_delivery")}
       >
         <StoreCommerceCartStrokeIcon className="h-5 w-5" />
@@ -79,17 +74,17 @@ function UnifiedTier1Shell({
 }) {
   return (
     <header
-      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-[var(--sub-bg)] ${embedded ? "" : "border-b border-ig-border"}`}
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface ${embedded ? "" : "border-b border-sam-border"}`}
     >
       {children}
     </header>
   );
 }
 
-/** 메인 1단 UI — 단일 구현체. `Tier1ExplorationTitleRow`·서브페이지·매장 루트를 한 스타일(h-12)로 맞춘다. */
+/** Main tier-1 chrome: one implementation; trade and Philife use `Tier1ExplorationTitleRow` in a fixed h-12 row. */
 export function RegionBar({
   embedded,
-  /** `AppStickyHeader` 등 상위에서 이미 `getMobileTopTier1RuleSet` 을 계산한 경우 전달 — 중복 호출 방지 */
+  /** When `AppStickyHeader` already computed rules, pass to avoid duplicate `getMobileTopTier1RuleSet` calls. */
   tier1RuleSet: tier1RuleSetProp,
 }: {
   embedded?: boolean;
@@ -110,7 +105,7 @@ export function RegionBar({
     return null;
   }
 
-  /** 거래 홈·마켓 / 필라이프 피드 — 동일 1단(좌 여백 · 탭라벨·동네 · 알림·설정), 하단 탭으로 화면 전환 */
+  /** Trade home/market and Philife feed share the same tier-1 layout (title, region line, search, settings). */
   const isUnifiedExplorationTier1 =
     (isTradeFloatingMenuSurface(pathNoQuery) &&
       ruleSet.showRegionPicker &&
@@ -146,7 +141,7 @@ export function RegionBar({
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
             <h1 className="overflow-hidden text-foreground">
-              <span className="block truncate text-[17px] font-semibold">{t("common_delivery")}</span>
+              <span className="block truncate sam-text-section-title font-semibold">{t("common_delivery")}</span>
             </h1>
           </div>
           <StoresRootTier1Right />
@@ -182,9 +177,9 @@ export function RegionBar({
     centerFromExtras != null && typeof centerFromExtras !== "string" ? (
       centerFromExtras
     ) : stringTitle ? (
-      <span className="truncate text-[17px] font-semibold">{stringTitle}</span>
+      <span className="truncate sam-text-section-title font-semibold">{stringTitle}</span>
     ) : (
-      <span className="truncate text-[17px] font-semibold">SAMarket</span>
+      <span className="truncate sam-text-section-title font-semibold">SAMarket</span>
     );
 
   const right =
@@ -225,12 +220,12 @@ export function RegionBar({
               subtitleHref ? (
                 <Link
                   href={subtitleHref}
-                  className="mt-0.5 block truncate text-[11px] leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
+                  className="mt-0.5 block truncate sam-text-xxs leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
                 >
                   {subtitle}
                 </Link>
               ) : (
-                <p className="truncate text-[11px] leading-tight text-[var(--text-muted)]">{subtitle}</p>
+                <p className="truncate sam-text-xxs leading-tight text-[var(--text-muted)]">{subtitle}</p>
               )
             ) : null}
           </h1>

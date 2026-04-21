@@ -399,7 +399,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
             <button
               type="button"
               onClick={() => setActiveTab("menu")}
-              className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
+              className={`rounded-ui-rect px-3 py-2 sam-text-body font-semibold ${
                 activeTab === "menu" ? "bg-signature text-white" : "text-sam-fg"
               }`}
             >
@@ -408,7 +408,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
             <button
               type="button"
               onClick={() => setActiveTab("review")}
-              className={`rounded-ui-rect px-3 py-2 text-[14px] font-semibold ${
+              className={`rounded-ui-rect px-3 py-2 sam-text-body font-semibold ${
                 activeTab === "review" ? "bg-signature text-white" : "text-sam-fg"
               }`}
             >
@@ -427,7 +427,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
                 placeholder="메뉴 검색"
                 value={menuQuery}
                 onChange={(e) => setMenuQuery(e.target.value)}
-                className="mb-2 w-full rounded-full border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] text-sam-fg shadow-sm outline-none ring-signature/20 placeholder:text-sam-meta focus:ring-2"
+                className="mb-2 w-full rounded-full border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body text-sam-fg shadow-sm outline-none ring-signature/20 placeholder:text-sam-meta focus:ring-2"
               />
               <StoreMenuCategoryChips
                 sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
@@ -462,7 +462,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
       <div className={`${STORE_DETAIL_GUTTER} mt-6 text-center`}>
         <Link
           href={`/stores/${encodeURIComponent(store.slug)}/report`}
-          className="text-[12px] font-normal text-sam-meta underline decoration-sam-meta underline-offset-2"
+          className="sam-text-helper font-normal text-sam-meta underline decoration-sam-meta underline-offset-2"
         >
           매장 신고
         </Link>
@@ -494,7 +494,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
 
       {toastMsg ? (
         <div
-          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-sam-ink/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg"
+          className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-sam-ink/92 px-4 py-2.5 text-center sam-text-body-secondary font-semibold text-white shadow-sam-elevated"
           style={{ bottom: "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))" }}
           role="status"
         >

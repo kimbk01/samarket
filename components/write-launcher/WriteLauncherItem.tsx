@@ -37,7 +37,7 @@ export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemPro
       >
         <CategoryIcon iconKey={category.icon_key} className="size-[22px] text-current" />
       </span>
-      <span className="min-w-0 flex-1 text-[15px] font-medium text-sam-fg">{category.name}</span>
+      <span className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">{category.name}</span>
     </button>
   );
 }

@@ -31,8 +31,8 @@ function Row({
     <div className="border-b border-sam-border-soft px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[15px] text-sam-fg">{label}</span>
-          {description ? <p className="mt-0.5 text-[12px] text-sam-muted">{description}</p> : null}
+          <span className="sam-text-body text-sam-fg">{label}</span>
+          {description ? <p className="mt-0.5 sam-text-helper text-sam-muted">{description}</p> : null}
         </div>
         <button
           type="button"
@@ -147,7 +147,7 @@ export function AdminNotificationSettings() {
     <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="border-b border-sam-border-soft px-4 py-3">
         <h2 className="text-sm font-bold text-sam-fg">인앱 알림 (계정)</h2>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           `user_notification_settings` 에 저장됩니다.{" "}
           <Link href="/my/settings/notifications" className="font-medium text-signature underline">
             마이페이지 알림 설정

@@ -122,7 +122,7 @@ export function SlideToAccept({
       aria-label={label}
     >
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-        <span className="select-none text-[14px] font-semibold tracking-tight text-white/85">{label}</span>
+        <span className="select-none sam-text-body font-semibold tracking-tight text-white/85">{label}</span>
       </div>
       <button
         ref={knobRef}
@@ -136,7 +136,7 @@ export function SlideToAccept({
         style={{ transform: "translateX(0px)" }}
         aria-label="accept"
       >
-        <span className="text-[20px] font-black leading-none">{">"}</span>
+        <span className="sam-text-page-title font-black leading-none">{">"}</span>
       </button>
     </div>
   );

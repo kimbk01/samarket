@@ -500,7 +500,7 @@ export function OwnerStoreProfileForm({
     <>
       {error ? (
         <div
-          className="mb-2 max-h-24 overflow-y-auto rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 text-[12px] leading-snug text-red-800"
+          className="mb-2 max-h-24 overflow-y-auto rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 sam-text-helper leading-snug text-red-800"
           role="alert"
         >
           {error}
@@ -510,7 +510,7 @@ export function OwnerStoreProfileForm({
         <button
           type="button"
           onClick={onCancel}
-          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[15px] font-medium text-sam-fg shadow-sm"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body font-medium text-sam-fg shadow-sm"
         >
           취소
         </button>
@@ -518,7 +518,7 @@ export function OwnerStoreProfileForm({
           type="submit"
           form="owner-store-profile-form"
           disabled={submitting}
-          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 text-[15px] font-medium text-white shadow-sm disabled:opacity-50"
+          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 sam-text-body font-medium text-white shadow-sm disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "저장"}
         </button>
@@ -537,7 +537,7 @@ export function OwnerStoreProfileForm({
       }}
       className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]`}
     >
-      <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2.5 text-[12px] leading-relaxed text-sam-muted">
+      <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper leading-relaxed text-sam-muted">
         로고·매장명·연락처·위치·상세 주소·업종·세부 주제는{" "}
         <Link
           href={`/my/business/basic-info?storeId=${encodeURIComponent(storeId)}`}
@@ -549,11 +549,11 @@ export function OwnerStoreProfileForm({
       </p>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="text-[14px] font-semibold text-sam-fg">서비스 형태</h3>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <h3 className="sam-text-body font-semibold text-sam-fg">서비스 형태</h3>
+        <p className="mt-1 sam-text-helper text-sam-muted">
           매장 상세 화면 상단의 배달·포장·픽업 안내 뱃지와 동일하게 반영됩니다.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-sam-fg">
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               id="svc-delivery"
@@ -578,23 +578,23 @@ export function OwnerStoreProfileForm({
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
-        <h3 className="text-[14px] font-semibold text-sam-fg">신규 주문 알림음 (배달)</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
+        <h3 className="sam-text-body font-semibold text-sam-fg">신규 주문 알림음 (배달)</h3>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           모든 매장에 동일하게 적용됩니다. 소리 파일은 관리자{" "}
-          <span className="font-medium text-sam-fg">매장 신청 설정</span>(<code className="rounded bg-sam-surface px-1 text-[11px]">/admin/stores/application-settings</code>
+          <span className="font-medium text-sam-fg">매장 신청 설정</span>(<code className="rounded bg-sam-surface px-1 sam-text-xxs">/admin/stores/application-settings</code>
           )의「매장 알림음 (배달 신규 주문)」에서 설정합니다. 미설정 시 짧은 비프음이 재생됩니다.
         </p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="text-[14px] font-semibold text-sam-fg">매장 창 영업시간 (현지 시각)</h3>
-        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
+        <h3 className="sam-text-body font-semibold text-sam-fg">매장 창 영업시간 (현지 시각)</h3>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           매장 목록·상세·가게정보에 &quot;매일 시작–종료 (타임존)&quot; 안내가 올라가고, 현지 시각이 그
           구간 안이면 영업중·밖이면 준비중으로 바뀝니다.
         </p>
         <div className="mt-3 space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
           <div>
-            <label className="mb-1 block text-[13px] font-medium text-sam-fg">현지 타임존</label>
+            <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">현지 타임존</label>
             <select
               value={values.autoHoursTz}
               onChange={(e) => setValues((v) => ({ ...v, autoHoursTz: e.target.value }))}
@@ -609,7 +609,7 @@ export function OwnerStoreProfileForm({
           </div>
           <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
             <div className="min-w-0">
-              <span className="mb-1 block text-[13px] font-medium text-sam-fg">시작</span>
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">시작</span>
               <button
                 type="button"
                 onClick={() => setTimePickerTarget("open")}
@@ -619,7 +619,7 @@ export function OwnerStoreProfileForm({
               </button>
             </div>
             <div className="min-w-0">
-              <span className="mb-1 block text-[13px] font-medium text-sam-fg">종료</span>
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">종료</span>
               <button
                 type="button"
                 onClick={() => setTimePickerTarget("close")}
@@ -629,7 +629,7 @@ export function OwnerStoreProfileForm({
               </button>
             </div>
           </div>
-          <p className="text-[11px] leading-relaxed text-sam-muted">
+          <p className="sam-text-xxs leading-relaxed text-sam-muted">
             종료가 시작보다 이르면(예: 22:00–06:00) 밤부터 다음 날 아침까지 한 번에 영업으로 봅니다.
           </p>
           <div className="mt-4 border-t border-sam-border/90 pt-4">
@@ -651,8 +651,8 @@ export function OwnerStoreProfileForm({
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
               />
               <span>
-                <span className="text-[13px] font-medium text-sam-fg">쉬는 시간 사용</span>
-                <span className="mt-0.5 block text-[11px] font-normal leading-relaxed text-sam-muted">
+                <span className="sam-text-body-secondary font-medium text-sam-fg">쉬는 시간 사용</span>
+                <span className="mt-0.5 block sam-text-xxs font-normal leading-relaxed text-sam-muted">
                   켜면 매장 창에 Break time이 표시되고, 해당 시간대에는 메뉴를 담을 수 없습니다.
                 </span>
               </span>
@@ -661,7 +661,7 @@ export function OwnerStoreProfileForm({
               <>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
                   <div className="min-w-0">
-                    <span className="mb-1 block text-[13px] font-medium text-sam-fg">시작</span>
+                    <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">시작</span>
                     <button
                       type="button"
                       onClick={() => setTimePickerTarget("breakOpen")}
@@ -671,7 +671,7 @@ export function OwnerStoreProfileForm({
                     </button>
                   </div>
                   <div className="min-w-0">
-                    <span className="mb-1 block text-[13px] font-medium text-sam-fg">종료</span>
+                    <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">종료</span>
                     <button
                       type="button"
                       onClick={() => setTimePickerTarget("breakClose")}
@@ -693,14 +693,14 @@ export function OwnerStoreProfileForm({
             onChange={(e) => setValues((v) => ({ ...v, isOpen: !e.target.checked }))}
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
           />
-          <label htmlFor="temp-closed" className="text-[13px] leading-snug text-sam-fg">
+          <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
             <span className="font-medium">임시 휴무 (매장 창에 항상 준비중)</span>
-            <span className="mt-0.5 block text-[12px] font-normal text-sam-muted">
+            <span className="mt-0.5 block sam-text-helper font-normal text-sam-muted">
               켜 두면 위 영업 시간 안이어도 고객 화면에는 준비중으로만 보입니다.
             </span>
           </label>
         </div>
-        <label className="mb-1 mt-3 block text-[13px] font-medium text-sam-fg">안내 메모 (선택)</label>
+        <label className="mb-1 mt-3 block sam-text-body-secondary font-medium text-sam-fg">안내 메모 (선택)</label>
         <input
           type="text"
           value={values.hoursNote}
@@ -725,8 +725,8 @@ export function OwnerStoreProfileForm({
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
           />
           <span className="min-w-0">
-            <span className="text-[14px] font-semibold text-sam-fg">공개 페이지 — 배달·결제·안내</span>
-            <span className="mt-0.5 block text-[12px] font-normal leading-relaxed text-sam-muted">
+            <span className="sam-text-body font-semibold text-sam-fg">공개 페이지 — 배달·결제·안내</span>
+            <span className="mt-0.5 block sam-text-helper font-normal leading-relaxed text-sam-muted">
               최소주문·결제수단·배달비·프로모 문구 등 고객 매장 화면에 쓰입니다. 체크하면 입력란이 열립니다.
             </span>
           </span>
@@ -734,8 +734,8 @@ export function OwnerStoreProfileForm({
         {publicCommerceDetailOpen ? (
           <div className="mt-3 space-y-3 border-t border-amber-200/60 pt-3">
             <div>
-              <span className="mb-2 block text-[13px] font-medium text-sam-fg">결제 방법 안내</span>
-              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[14px] text-sam-fg">
+              <span className="mb-2 block sam-text-body-secondary font-medium text-sam-fg">결제 방법 안내</span>
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -782,18 +782,18 @@ export function OwnerStoreProfileForm({
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
                     placeholder="기타 입력"
-                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-[13px] text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
+                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-body-secondary text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
                   />
                 </div>
               </div>
-              <p className="mt-1.5 text-[11px] leading-snug text-sam-muted">
+              <p className="mt-1.5 sam-text-xxs leading-snug text-sam-muted">
                 체크한 수단만 장바구니 주문 화면에 표시됩니다. 기타는 입력한 문구가 그대로 고객에게 보이고, 주문에도
                 저장됩니다.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-sam-fg">최소 주문 (₱, 숫자)</label>
+                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">최소 주문 (₱, 숫자)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -804,7 +804,7 @@ export function OwnerStoreProfileForm({
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-sam-fg">예상 배달비 (₱, 숫자)</label>
+                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 배달비 (₱, 숫자)</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -816,7 +816,7 @@ export function OwnerStoreProfileForm({
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 배달 업체·수단 (안내 전용, 결제 금액에 포함되지 않음)
               </label>
               <input
@@ -828,7 +828,7 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 무료배달 기준 (₱, 숫자)
               </label>
               <input
@@ -841,13 +841,13 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">매장 창 공지 (선택)</label>
-              <p className="mb-2 text-[11px] leading-relaxed text-sam-muted">
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">매장 창 공지 (선택)</label>
+              <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
                 고객 매장 화면에 위에서 아래 순으로 &quot;공지&quot; 라벨과 함께 표시됩니다. 공지가 없으면 아래 무료배달 기준만
                 amber 안내에 자동 표시됩니다.
               </p>
               {values.publicNotices.length === 0 ? (
-                <p className="mb-2 text-[12px] text-sam-meta">등록된 공지가 없습니다.</p>
+                <p className="mb-2 sam-text-helper text-sam-meta">등록된 공지가 없습니다.</p>
               ) : (
                 <ul className="mb-2 space-y-2">
                   {values.publicNotices.map((line, i) => (
@@ -873,7 +873,7 @@ export function OwnerStoreProfileForm({
                             publicNotices: v.publicNotices.filter((_, j) => j !== i),
                           }))
                         }
-                        className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 text-[12px] font-medium text-sam-fg active:bg-sam-app"
+                        className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 sam-text-helper font-medium text-sam-fg active:bg-sam-app"
                       >
                         삭제
                       </button>
@@ -884,13 +884,13 @@ export function OwnerStoreProfileForm({
               <button
                 type="button"
                 onClick={() => setValues((v) => ({ ...v, publicNotices: [...v.publicNotices, ""] }))}
-                className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg active:bg-sam-app"
+                className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg active:bg-sam-app"
               >
                 공지 추가
               </button>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">배달비·지역 상세 (메뉴 탭 접기 안내)</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">배달비·지역 상세 (메뉴 탭 접기 안내)</label>
               <textarea
                 value={values.deliveryNotice}
                 onChange={(e) => setValues((v) => ({ ...v, deliveryNotice: e.target.value }))}
@@ -900,7 +900,7 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">예상 배달 소요</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 배달 소요</label>
               <input
                 type="text"
                 value={values.avgDeliveryTime}
@@ -910,7 +910,7 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">평균 채팅 응답 (가게정보)</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">평균 채팅 응답 (가게정보)</label>
               <input
                 type="text"
                 value={values.avgChatResponse}
@@ -920,7 +920,7 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">예상 준비 시간 라벨 (내부 안내용)</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 준비 시간 라벨 (내부 안내용)</label>
               <input
                 type="text"
                 value={values.estPrepLabel}
@@ -934,13 +934,13 @@ export function OwnerStoreProfileForm({
       </div>
 
       <div className="max-w-full min-w-0 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="text-[14px] font-semibold text-sam-fg">갤러리 이미지 (전단지·소개 사진)</h3>
-        <p className="mt-1 break-words text-[12px] leading-relaxed text-sam-muted">
+        <h3 className="sam-text-body font-semibold text-sam-fg">갤러리 이미지 (전단지·소개 사진)</h3>
+        <p className="mt-1 break-words sam-text-helper leading-relaxed text-sam-muted">
           매장 <strong>메인 상단에는 표시되지 않습니다</strong>. 고객은 「가게정보」→「전단지·소개」에서 봅니다.
           사진은 파일 업로드로만 추가합니다(최대 {GALLERY_MAX}장). Storage에 올라간 뒤 저장 시 함께 반영됩니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
+          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -954,13 +954,13 @@ export function OwnerStoreProfileForm({
             />
             {uploading === "gallery" ? "업로드 중…" : "파일에서 추가"}
           </label>
-          <span className="flex min-w-0 items-center text-[12px] text-sam-meta">
+          <span className="flex min-w-0 items-center sam-text-helper text-sam-meta">
             {values.galleryUrls.filter((u) => u.trim()).length}/{GALLERY_MAX}장
           </span>
         </div>
         <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {values.galleryUrls.filter((u) => u.trim()).length === 0 ? (
-            <li className="col-span-full text-[13px] text-sam-meta">
+            <li className="col-span-full sam-text-body-secondary text-sam-meta">
               등록된 이미지가 없습니다. 위에서 파일을 선택해 추가하세요.
             </li>
           ) : (
@@ -987,7 +987,7 @@ export function OwnerStoreProfileForm({
                         galleryUrls: v.galleryUrls.filter((_, j) => j !== i),
                       }))
                     }
-                    className="absolute right-1 top-1 rounded-ui-rect bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
+                    className="absolute right-1 top-1 rounded-ui-rect bg-black/55 px-2 py-1 sam-text-xxs font-semibold text-white backdrop-blur-sm"
                   >
                     삭제
                   </button>

@@ -24,7 +24,7 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
     >
       <div className="flex items-center gap-2">
         <span
-          className={`rounded px-2 py-0.5 text-[12px] font-medium ${
+          className={`rounded px-2 py-0.5 sam-text-helper font-medium ${
             isPremium
               ? "bg-amber-100 text-amber-800"
               : isAdmin
@@ -35,18 +35,18 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
           {MEMBER_TYPE_LABELS[policy.memberType]}
         </span>
         {!policy.isActive && (
-          <span className="rounded bg-sam-border-soft px-2 py-0.5 text-[11px] text-sam-muted">
+          <span className="rounded bg-sam-border-soft px-2 py-0.5 sam-text-xxs text-sam-muted">
             비활성
           </span>
         )}
       </div>
-      <h3 className="mt-2 text-[15px] font-semibold text-sam-fg">
+      <h3 className="mt-2 sam-text-body font-semibold text-sam-fg">
         {policy.title}
       </h3>
       {policy.description && (
-        <p className="mt-1 text-[13px] text-sam-muted">{policy.description}</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">{policy.description}</p>
       )}
-      <ul className="mt-3 space-y-1 text-[13px] text-sam-fg">
+      <ul className="mt-3 space-y-1 sam-text-body-secondary text-sam-fg">
         {policy.badgeLabel && (
           <li>· 프로필 배지: {policy.badgeLabel}</li>
         )}

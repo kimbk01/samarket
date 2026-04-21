@@ -96,7 +96,7 @@ function StoresBrowseCartAction() {
     <div className="flex shrink-0 items-center gap-0.5">
       <Link
         href="/search"
-        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
         aria-label="검색"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -109,7 +109,7 @@ function StoresBrowseCartAction() {
       </Link>
       <Link
         href={cartHref}
-        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
         aria-label={cartLineKindCount > 0 ? "장바구니" : "매장"}
       >
         <StoreCommerceCartStrokeIcon className="h-5 w-5" />
@@ -340,17 +340,17 @@ export function StoresBrowsePrimaryView({
 
   const browseStickyBelow: ReactNode = useMemo(
     () => (
-      <div className="border-b border-ig-border bg-[var(--sub-bg)]">
+      <div className="border-b border-sam-border bg-[var(--sub-bg)]">
         <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2 pt-1`}>
           <StorePrimaryIndustrySwitcher embeddedPrimarySlug={primarySlug} showHomeChip={false} />
         </div>
         <p
-          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 text-[11px] leading-snug text-[var(--text-muted)]`}
+          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 sam-text-xxs leading-snug text-[var(--text-muted)]`}
         >
           다른 업종은 위 칩에서 바로 바꿀 수 있어요. 아래 정렬로 배달·거리·평점을 맞춰 보세요.
         </p>
         <p
-          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 pt-0 text-[11px] leading-snug text-[var(--text-muted)]`}
+          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 pt-0 sam-text-xxs leading-snug text-[var(--text-muted)]`}
         >
           {browseSubtitle}
         </p>
@@ -464,13 +464,13 @@ export function StoresBrowsePrimaryView({
             </p>
             {otherPrimaries.length > 0 ?
               <div className="mt-5">
-                <p className="mb-2 text-[11px] font-semibold text-sam-muted dark:text-sam-meta">다른 업종 둘러보기</p>
+                <p className="mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta">다른 업종 둘러보기</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {otherPrimaries.map((p) => (
                     <Link
                       key={p.id}
                       href={storesBrowsePrimaryPath(p.slug)}
-                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-[#F7F7F7] px-3 py-1.5 text-[12px] font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
+                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-[#F7F7F7] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
                     >
                       <span aria-hidden>{p.symbol}</span>
                       {p.nameKo}
@@ -479,7 +479,7 @@ export function StoresBrowsePrimaryView({
                 </div>
                 <Link
                   href="/stores#store-industry-explore"
-                  className="mt-4 inline-block text-[13px] font-semibold text-signature"
+                  className="mt-4 inline-block sam-text-body-secondary font-semibold text-signature"
                 >
                   매장 홈 업종 지도로
                 </Link>

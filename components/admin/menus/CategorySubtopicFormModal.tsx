@@ -136,28 +136,28 @@ export function CategorySubtopicFormModal({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
         onClick={(ev) => ev.stopPropagation()}
       >
-        <h2 className="mb-1 text-[17px] font-semibold text-sam-fg">
+        <h2 className="mb-1 sam-text-section-title font-semibold text-sam-fg">
           {category ? "주제 수정" : "주제 추가"}
         </h2>
-        <p className="mb-4 text-[13px] text-sam-muted">
+        <p className="mb-4 sam-text-body-secondary text-sam-muted">
           상위 메뉴: <span className="font-medium text-sam-fg">{parent.name}</span> — 홈·마켓 2행 칩에만 노출됩니다.
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">주제명 *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">주제명 *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">slug * (영문 소문자, 숫자, 하이픈)</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">slug * (영문 소문자, 숫자, 하이픈)</label>
             <input
               type="text"
               value={slug}
@@ -165,22 +165,22 @@ export function CategorySubtopicFormModal({
                 setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
                 setSlugError(null);
               }}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
-            {slugError && <p className="mt-1 text-[12px] text-red-600">{slugError}</p>}
+            {slugError && <p className="mt-1 sam-text-helper text-red-600">{slugError}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">순서</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">순서</label>
               <input
                 type="number"
                 value={sort_order}
                 onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
-                className="mt-1 w-24 rounded border border-sam-border px-2 py-1.5 text-[14px]"
+                className="mt-1 w-24 rounded border border-sam-border px-2 py-1.5 sam-text-body"
               />
             </div>
-            <label className="mt-6 flex cursor-pointer items-center gap-2 text-[14px] text-sam-fg">
+            <label className="mt-6 flex cursor-pointer items-center gap-2 sam-text-body text-sam-fg">
               <input
                 type="checkbox"
                 checked={is_active}
@@ -194,14 +194,14 @@ export function CategorySubtopicFormModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+              className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
               취소
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "저장"}
             </button>

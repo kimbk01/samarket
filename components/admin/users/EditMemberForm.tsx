@@ -110,18 +110,18 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-sam-fg">회원 수정</h2>
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">
           {user.nickname}
           {showMemberUuid ? (
-            <span className="ml-2 font-mono text-[12px] text-sam-meta">{user.loginUsername ?? user.id}</span>
+            <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername ?? user.id}</span>
           ) : user.loginUsername ? (
-            <span className="ml-2 font-mono text-[12px] text-sam-meta">{user.loginUsername}</span>
+            <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername}</span>
           ) : (
             <>
-              <span className="ml-2 text-[12px] text-sam-muted">(내부 ID 숨김)</span>
+              <span className="ml-2 sam-text-helper text-sam-muted">(내부 ID 숨김)</span>
               <button
                 type="button"
-                className="ml-2 text-[12px] font-medium text-signature hover:underline"
+                className="ml-2 sam-text-helper font-medium text-signature hover:underline"
                 onClick={() => setShowMemberUuid(true)}
               >
                 UUID 표시
@@ -129,11 +129,11 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             </>
           )}
         </p>
-        <p className="mt-2 text-[12px] text-amber-800">
+        <p className="mt-2 sam-text-helper text-amber-800">
           구분·전화 인증은 <strong>profiles</strong>(및 개발용 <strong>test_users.role</strong>)에 반영됩니다.
         </p>
         {user.hasProfile === false ? (
-          <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-950">
+          <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper text-sky-950">
             수동(test_users)만 연결된 계정입니다. <strong>저장 시</strong> 같은 UUID로 Supabase Auth와 profiles가
             없으면 <strong>자동으로 만들어</strong> 정식 회원과 동일하게 맞춥니다.
           </p>
@@ -141,12 +141,12 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="text-[13px] font-medium text-sam-fg">회원 구분</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">회원 구분</span>
             <select
               value={memberType}
               onChange={(e) => setMemberType(e.target.value as MemberType)}
               disabled={memberLocked}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px] disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
             >
               {memberOptions.map((v) => (
                 <option key={v} value={v}>
@@ -155,22 +155,22 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               ))}
             </select>
             {user.profileRole === "master" ? (
-              <span className="mt-1 block text-[11px] text-amber-700">
+              <span className="mt-1 block sam-text-xxs text-amber-700">
                 최고 관리자 계정은 DB role이 유지됩니다. 전화 인증만 바꿀 수 있습니다.
               </span>
             ) : !isMasterUi ? (
-              <span className="mt-1 block text-[11px] text-sam-muted">
+              <span className="mt-1 block sam-text-xxs text-sam-muted">
                 일반·특별 ↔ 관리자 변경은 최고 관리자만 할 수 있습니다.
               </span>
             ) : null}
           </label>
 
           <label className="block">
-            <span className="text-[13px] font-medium text-sam-fg">전화 인증 상태</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">전화 인증 상태</span>
             <select
               value={phoneStatus}
               onChange={(e) => setPhoneStatus(e.target.value)}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             >
               {PHONE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -181,20 +181,20 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           </label>
         </div>
 
-        {error ? <p className="mt-4 text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p> : null}
 
         <div className="mt-6 flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+            className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90 disabled:opacity-50"
+            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
           >
             {submitting ? "저장 중…" : "저장"}
           </button>

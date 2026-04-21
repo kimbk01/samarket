@@ -18,29 +18,65 @@
     padding-right: var(--sam-screen-padding-x);
   }
 
+  .sam-text-hero {
+    font-size: var(--sam-text-hero-size);
+    font-weight: var(--sam-text-hero-weight);
+    @apply leading-tight text-sam-fg;
+  }
+
   .sam-text-page-title {
     font-size: var(--sam-text-page-title-size);
-    @apply font-bold leading-tight text-sam-fg;
+    font-weight: var(--sam-text-page-title-weight);
+    @apply leading-tight text-sam-fg;
   }
 
   .sam-text-section-title {
     font-size: var(--sam-text-section-title-size);
-    @apply font-bold leading-snug text-sam-fg;
+    font-weight: var(--sam-text-section-title-weight);
+    @apply leading-snug text-sam-fg;
   }
 
   .sam-text-card-title {
     font-size: var(--sam-text-card-title-size);
-    @apply font-semibold leading-snug text-sam-fg;
+    font-weight: var(--sam-text-card-title-weight);
+    @apply leading-snug text-sam-fg;
+  }
+
+  .sam-text-body-lg {
+    font-size: var(--sam-text-body-lg-size);
+    font-weight: var(--sam-text-body-lg-weight);
+    @apply leading-[var(--sam-font-body-line)] text-sam-fg;
+  }
+
+  .sam-text-body {
+    font-size: var(--sam-text-body-size);
+    font-weight: var(--sam-text-body-weight);
+    @apply leading-[var(--sam-font-body-line)] text-sam-fg;
   }
 
   .sam-text-body-secondary {
     font-size: var(--sam-text-body-secondary-size);
-    @apply font-normal leading-[var(--sam-font-body-line)] text-sam-muted;
+    font-weight: var(--sam-text-body-secondary-weight);
+    @apply leading-[var(--sam-font-body-line)] text-sam-muted;
   }
 
   .sam-text-helper {
     font-size: var(--sam-text-helper-size);
-    @apply font-normal leading-tight text-sam-meta;
+    font-weight: var(--sam-text-helper-weight);
+    @apply leading-tight text-sam-meta;
+  }
+
+  .sam-text-xxs {
+    font-size: var(--sam-text-xxs-size);
+    font-weight: var(--sam-text-xxs-weight);
+    @apply leading-tight text-sam-meta;
+  }
+
+  /** 1단 앱바 중앙 제목 — 전 페이지 동일 */
+  .sam-app-header-title {
+    font-size: var(--sam-text-body-lg-size);
+    font-weight: var(--sam-fw-semi);
+    @apply min-w-0 truncate text-left leading-tight text-sam-fg;
   }
 
   /* -------------------------------------------------------------------------- */
@@ -48,26 +84,29 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-card {
-    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface shadow-sam-card;
+    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    box-shadow: var(--sam-shadow-none);
   }
 
   .sam-card--elevated {
-    @apply rounded-sam-lg border border-sam-border-soft bg-sam-surface shadow-sam-soft;
+    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    box-shadow: var(--sam-shadow-elevated);
   }
 
   .sam-card--flat {
-    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface;
-    box-shadow: none;
+    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    box-shadow: var(--sam-shadow-none);
   }
 
   .sam-card--muted {
-    @apply rounded-sam-md border border-sam-border-soft bg-sam-surface-muted;
-    box-shadow: none;
+    @apply rounded-sam-md border border-sam-border bg-sam-surface-muted;
+    box-shadow: var(--sam-shadow-none);
   }
 
-  /* 레거시 별칭 (= sam-card--elevated) */
+  /* 레거시 별칭 */
   .sam-card-elevated {
-    @apply rounded-sam-lg border border-sam-border-soft bg-sam-surface shadow-sam-soft;
+    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    box-shadow: var(--sam-shadow-elevated);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -124,7 +163,11 @@
   }
 
   .sam-btn--sm {
-    @apply min-h-10 px-3 text-[13px];
+    min-height: var(--sam-header-action-min);
+    padding-left: var(--sam-space-3);
+    padding-right: var(--sam-space-3);
+    font-size: var(--sam-text-body-secondary-size);
+    @apply font-medium;
   }
 
   .sam-btn--block {
@@ -181,7 +224,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-input {
-    @apply w-full rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    @apply box-border min-h-[length:var(--sam-input-min-height)] w-full rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
     font-size: var(--sam-text-body-size);
     line-height: var(--sam-font-body-line);
   }
@@ -250,26 +293,70 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-tabs {
-    @apply flex w-full border-b border-sam-border-soft bg-sam-surface;
+    @apply flex w-full border-b border-sam-border bg-sam-surface-muted;
   }
 
   .sam-tab {
-    @apply relative min-w-0 flex-1 px-1 py-2.5 text-center text-[13px] font-medium text-sam-muted transition-colors;
+    position: relative;
+    min-width: 0;
+    flex: 1 1 0%;
+    min-height: var(--sam-segment-tab-height);
+    padding-left: var(--sam-space-1);
+    padding-right: var(--sam-space-1);
+    padding-top: var(--sam-space-2);
+    padding-bottom: var(--sam-space-2);
+    text-align: center;
+    font-size: var(--sam-text-body-secondary-size);
+    font-weight: var(--sam-fw-medium);
+    color: var(--sam-text-secondary);
+    transition: color 150ms;
   }
 
   .sam-tab[aria-selected="true"],
   .sam-tab--active {
-    @apply font-semibold text-sam-fg;
+    font-weight: var(--sam-fw-semi);
+    color: var(--sam-text-primary);
   }
 
   .sam-tab[aria-selected="true"]::after,
   .sam-tab--active::after {
     content: "";
-    @apply absolute bottom-0 left-3 right-3 h-0.5 rounded-full bg-sam-primary;
+    position: absolute;
+    bottom: 0;
+    left: var(--sam-space-3);
+    right: var(--sam-space-3);
+    height: 2px;
+    border-radius: var(--sam-radius-sm);
+    background-color: var(--sam-primary);
   }
 
   .sam-tab:disabled {
     @apply opacity-40;
+  }
+
+  /** 가로 스크롤 2단 탭 — 시각은 `.sam-tab` 과 동일(밑줄 활성), 폭만 내용 기준 */
+  .sam-tabs--scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sam-tabs--scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sam-tabs--scroll .sam-tab {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding-left: var(--sam-space-3);
+    padding-right: var(--sam-space-3);
+  }
+
+  /** 리스트·거래 카드 썸네일 공통 비율 */
+  .sam-thumb-1-1 {
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
   }
 
   /* -------------------------------------------------------------------------- */
@@ -308,7 +395,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-list-row {
-    @apply border-b border-sam-border-soft bg-sam-surface;
+    @apply border-b border-sam-border bg-sam-surface;
   }
 
   .sam-list-row--interactive:active {
@@ -328,7 +415,8 @@
   }
 
   .sam-sheet-panel {
-    @apply z-50 w-full max-w-[100vw] rounded-t-sam-lg border border-sam-border-soft border-b-0 bg-sam-surface shadow-sam-soft;
+    @apply z-50 w-full max-w-[100vw] rounded-t-sam-lg border border-sam-border border-b-0 bg-sam-surface;
+    box-shadow: var(--sam-shadow-elevated);
   }
 
   .sam-sheet-handle {
@@ -352,7 +440,8 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-badge {
-    @apply inline-flex max-w-full items-center rounded-sam-pill px-2 py-0.5 text-[11px] font-semibold leading-tight;
+    font-size: var(--sam-text-xxs-size);
+    @apply inline-flex max-w-full items-center rounded-sam-pill px-2 py-0.5 font-semibold leading-tight;
   }
 
   .sam-badge--neutral {
@@ -384,18 +473,83 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-bubble {
-    @apply relative inline-block w-max max-w-full overflow-visible rounded-sam-lg;
-    box-shadow: 0 1px 3px color-mix(in srgb, var(--sam-primary) 12%, transparent);
+    @apply relative inline-block w-max max-w-full overflow-visible rounded-sam-md;
+    box-shadow: var(--sam-shadow-none);
   }
 
   [data-cm-room] .sam-bubble--outgoing {
     background-color: var(--cm-room-bubble-outgoing);
-    color: var(--sam-text-on-primary);
+    color: var(--sam-text-primary);
+    border: 1px solid color-mix(in srgb, var(--sam-primary) 35%, transparent);
   }
 
   [data-cm-room] .sam-bubble--incoming {
     background-color: var(--cm-room-bubble-incoming);
     color: var(--sam-text-primary);
+    border: 1px solid var(--sam-border-default);
+  }
+
+  [data-cm-messenger-home-root] {
+    background-color: var(--sam-bg-app);
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: 2px;
+  }
+
+  [data-cm-messenger-main] .cm-messenger-section-desc {
+    display: none;
+  }
+
+  [data-cm-messenger-main] .cm-messenger-section-title {
+    font-size: var(--sam-text-hero-size);
+    line-height: 1.2;
+    font-weight: var(--sam-text-hero-weight);
+    color: var(--sam-text-primary);
+  }
+
+  [data-cm-room] footer[data-cm-line-composer-footer] {
+    background-color: var(--sam-bg-surface) !important;
+    box-shadow: none !important;
+    border-top-color: var(--sam-border-default) !important;
+  }
+
+  [data-cm-room] footer[data-cm-line-composer-footer] textarea {
+    background-color: var(--sam-bg-surface-muted) !important;
+    box-shadow: none !important;
+    border-radius: var(--sam-radius-sm) !important;
+    font-size: var(--sam-text-body-size) !important;
+  }
+
+  [data-cm-room] footer[data-cm-line-composer-footer] textarea:focus {
+    outline: 1px solid color-mix(in srgb, var(--sam-primary) 45%, transparent);
+    outline-offset: 0;
+  }
+
+  [data-cm-room] [data-cm-line-plus-btn] {
+    background-color: transparent !important;
+    color: var(--sam-primary) !important;
+  }
+
+  [data-cm-room] [data-cm-line-timeline] {
+    background-image: none !important;
+    background-color: var(--cm-room-chat-bg) !important;
+  }
+
+  [data-messenger-friend-row="true"] [role="button"]:active {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+  }
+
+  [data-cm-trade-dock] {
+    box-shadow: none !important;
+  }
+
+  [data-cm-trade-dock] .rounded-ui-rect {
+    border-radius: var(--sam-radius-sm) !important;
+  }
+
+  [data-messenger-shell] input[type="search"],
+  [data-messenger-shell] input[type="text"] {
+    background-color: var(--sam-bg-surface-muted);
   }
 
   /* 음성 녹음 마이크 — 버튼(h-10 w-10)과 동일 중심·지름에서 퍼지는 동심 원 (실제 노드로 겹침) */
@@ -445,7 +599,8 @@
   }
 
   .sam-bubble--system {
-    @apply rounded-sam-md bg-sam-primary-soft px-3 py-2 text-center text-[12px] text-sam-muted;
+    font-size: var(--sam-text-helper-size);
+    @apply rounded-sam-md bg-sam-primary-soft px-3 py-2 text-center text-sam-muted;
     box-shadow: none;
   }
 
@@ -454,15 +609,20 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-settings-section-title {
-    @apply px-4 pb-2 text-[13px] font-medium text-sam-muted;
+    padding-left: var(--sam-space-4);
+    padding-right: var(--sam-space-4);
+    padding-bottom: var(--sam-space-2);
+    font-size: var(--sam-text-body-secondary-size);
+    font-weight: var(--sam-fw-medium);
+    color: var(--sam-text-secondary);
   }
 
   .sam-settings-group {
-    @apply overflow-hidden rounded-sam-md border border-sam-border-soft bg-sam-surface;
+    @apply overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface;
   }
 
   .sam-divider {
-    @apply h-px w-full bg-sam-border-soft;
+    @apply h-px w-full bg-sam-border;
   }
 
   /* -------------------------------------------------------------------------- */

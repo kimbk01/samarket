@@ -167,10 +167,10 @@ export function CommunityMessengerOutgoingDialPageClient() {
   if (error) {
     return (
       <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[linear-gradient(180deg,#7b63ef_0%,#4a56d4_58%,#3a72d4_100%)] px-6 text-center">
-        <p className="text-[15px] text-white/95">{error}</p>
+        <p className="sam-text-body text-white/95">{error}</p>
         <button
           type="button"
-          className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 text-[14px] font-medium text-white"
+          className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 sam-text-body font-medium text-white"
           onClick={() => router.back()}
         >
           {"돌아가기"}

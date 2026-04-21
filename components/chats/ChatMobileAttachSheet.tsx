@@ -48,10 +48,10 @@ export function ChatMobileAttachSheet({
 
   if (!open || typeof document === "undefined") return null;
 
-  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-ui-rect px-4 py-3.5 text-left text-[15px] font-medium transition active:scale-[0.99] disabled:opacity-45 ${
+  const rowClass = `flex w-full shrink-0 items-center gap-3 rounded-ui-rect px-4 py-3.5 text-left sam-text-body font-medium transition active:scale-[0.99] disabled:opacity-45 ${
     instagram
       ? "text-foreground hover:bg-black/[0.04] active:bg-black/[0.06]"
-      : "text-foreground hover:bg-ig-highlight active:bg-ig-highlight"
+      : "text-foreground hover:bg-sam-primary-soft active:bg-sam-primary-soft"
   }`;
 
   const runThenPick = (pick: () => void) => {
@@ -74,14 +74,14 @@ export function ChatMobileAttachSheet({
       />
       <div
         className={`relative mx-auto max-h-[min(85dvh,calc(100dvh-4rem-env(safe-area-inset-bottom,0px)))] w-full max-w-lg overflow-y-auto rounded-t-[length:var(--ui-radius-rect)] shadow-[0_-8px_32px_rgba(0,0,0,0.12)] ${
-          instagram ? "border-t border-ig-border bg-sam-surface" : "border-t border-sam-border bg-sam-surface"
+          instagram ? "border-t border-sam-border bg-sam-surface" : "border-t border-sam-border bg-sam-surface"
         }`}
         style={{
           paddingBottom: "max(1.25rem, calc(12px + env(safe-area-inset-bottom, 0px)))",
         }}
       >
         <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-sam-fg/[0.06] bg-sam-surface px-3 py-3">
-          <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 text-[16px] font-semibold text-sam-fg">
+          <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 sam-text-body-lg font-semibold text-sam-fg">
             사진 보내기
           </h2>
           <button

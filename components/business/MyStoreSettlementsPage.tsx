@@ -96,7 +96,7 @@ export function MyStoreSettlementsPage() {
         ) : (
           <ul className="space-y-2">
             {storeIdFilter ? (
-              <li className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
+              <li className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
                 이 매장 정산만 표시 중입니다.{" "}
                 <Link href="/my/business/settlements" className="font-medium text-signature underline">
                   전체 매장 보기
@@ -117,7 +117,7 @@ export function MyStoreSettlementsPage() {
                 <p className="mt-2 text-lg font-semibold text-sam-fg">
                   {fmt(Number(r.settlement_amount) || 0)}
                 </p>
-                <p className="text-[11px] text-sam-meta">
+                <p className="sam-text-xxs text-sam-meta">
                   매출 {fmt(Number(r.gross_amount) || 0)} · 수수료 {fmt(Number(r.fee_amount) || 0)}
                 </p>
                 {r.hold_reason ? (

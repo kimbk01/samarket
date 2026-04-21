@@ -44,11 +44,11 @@ export function FavoriteFilterBar({
         ))}
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-[12px] text-sam-muted">{t("common_sort")}</span>
+        <span className="sam-text-helper text-sam-muted">{t("common_sort")}</span>
         <select
           value={sortKey}
           onChange={(e) => onSortKeyChange(e.target.value as FavoriteSortKey)}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[13px] font-semibold text-sam-fg"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-body-secondary font-semibold text-sam-fg"
         >
           {FAVORITE_SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

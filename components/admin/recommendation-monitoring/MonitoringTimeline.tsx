@@ -50,7 +50,7 @@ export function MonitoringTimeline() {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         최근 이벤트가 없습니다.
       </div>
     );
@@ -64,7 +64,7 @@ export function MonitoringTimeline() {
           className="flex items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3"
         >
           <span
-            className={`shrink-0 rounded px-2 py-0.5 text-[11px] font-medium ${
+            className={`shrink-0 rounded px-2 py-0.5 sam-text-xxs font-medium ${
               item.type === "incident"
                 ? "bg-amber-50 text-amber-800"
                 : item.type === "deployment"
@@ -79,16 +79,16 @@ export function MonitoringTimeline() {
                 : "알림"}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[14px] font-medium text-sam-fg">
+            <p className="truncate sam-text-body font-medium text-sam-fg">
               {item.title}
             </p>
-            <p className="text-[12px] text-sam-muted">
+            <p className="sam-text-helper text-sam-muted">
               {item.surface}
               {"status" in item && ` · ${item.status}`}
               {"severity" in item && ` · ${item.severity}`}
             </p>
           </div>
-          <span className="shrink-0 text-[12px] text-sam-muted">
+          <span className="shrink-0 sam-text-helper text-sam-muted">
             {new Date(item.at).toLocaleString("ko-KR")}
           </span>
         </div>

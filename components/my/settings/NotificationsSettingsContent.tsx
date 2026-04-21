@@ -139,7 +139,7 @@ export function NotificationsSettingsContent() {
       <SettingsSection title={t("common_notifications")}>
         <div className="border-b border-sam-border-soft px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-sam-fg">{t("notifications_all")}</span>
+            <span className="sam-text-body text-sam-fg">{t("notifications_all")}</span>
             <button
               type="button"
               role="switch"
@@ -159,7 +159,7 @@ export function NotificationsSettingsContent() {
         </div>
         <div className="border-b border-sam-border-soft px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-sam-fg">{t("notifications_chat")}</span>
+            <span className="sam-text-body text-sam-fg">{t("notifications_chat")}</span>
             <button
               type="button"
               role="switch"
@@ -179,7 +179,7 @@ export function NotificationsSettingsContent() {
         </div>
         <div className="border-b border-sam-border-soft px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-sam-fg">{t("notifications_marketing")}</span>
+            <span className="sam-text-body text-sam-fg">{t("notifications_marketing")}</span>
             <button
               type="button"
               role="switch"
@@ -213,8 +213,8 @@ export function NotificationsSettingsContent() {
           <div className="border-b border-sam-border-soft px-4 py-3">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <span className="text-[15px] text-sam-fg">{t("notifications_commerce_email")}</span>
-                <p className="mt-0.5 text-[12px] leading-snug text-sam-muted">
+                <span className="sam-text-body text-sam-fg">{t("notifications_commerce_email")}</span>
+                <p className="mt-0.5 sam-text-helper leading-snug text-sam-muted">
                   {t("notifications_commerce_email_desc")}
                   {commerceEmailColumnMissing ? (
                     <span className="mt-1 block text-amber-700">
@@ -282,11 +282,11 @@ export function NotificationsSettingsContent() {
         {domainLoaded ? (
           <>
             <div className="border-b border-sam-border-soft px-4 py-3">
-              <p className="mb-2 text-[12px] leading-snug text-sam-muted">
+              <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
                 인앱 알림 (거래/커뮤니티/주문/매장) — 채팅방을 보고 있을 때는 같은 방 알림음이 울리지 않습니다.
               </p>
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">인앱 알림음</span>
+                <span className="sam-text-body text-sam-fg">인앱 알림음</span>
                 <button
                   type="button"
                   role="switch"
@@ -310,7 +310,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">거래 채팅 알림</span>
+                <span className="sam-text-body text-sam-fg">거래 채팅 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -334,7 +334,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">커뮤니티·모임 채팅</span>
+                <span className="sam-text-body text-sam-fg">커뮤니티·모임 채팅</span>
                 <button
                   type="button"
                   role="switch"
@@ -358,7 +358,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">주문·배달 알림</span>
+                <span className="sam-text-body text-sam-fg">주문·배달 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -382,7 +382,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">매장·상점 알림</span>
+                <span className="sam-text-body text-sam-fg">매장·상점 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -406,7 +406,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-4 py-3">
               <div className="flex items-center justify-between">
-                <span className="text-[15px] text-sam-fg">진동 (지원 기기)</span>
+                <span className="sam-text-body text-sam-fg">진동 (지원 기기)</span>
                 <button
                   type="button"
                   role="switch"
@@ -434,7 +434,7 @@ export function NotificationsSettingsContent() {
       <SettingsSection title={t("notifications_dnd")}>
         <div className="space-y-3 px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-[15px] text-sam-fg">{t("notifications_use")}</span>
+            <span className="sam-text-body text-sam-fg">{t("notifications_use")}</span>
             <button
               type="button"
               role="switch"
@@ -457,14 +457,14 @@ export function NotificationsSettingsContent() {
                 type="time"
                 value={settings.do_not_disturb_start ?? "22:00"}
                 onChange={(e) => update({ do_not_disturb_start: e.target.value })}
-                className="rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="rounded border border-sam-border px-3 py-2 sam-text-body"
               />
               <span className="text-sam-muted">~</span>
               <input
                 type="time"
                 value={settings.do_not_disturb_end ?? "08:00"}
                 onChange={(e) => update({ do_not_disturb_end: e.target.value })}
-                className="rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="rounded border border-sam-border px-3 py-2 sam-text-body"
               />
             </div>
           )}

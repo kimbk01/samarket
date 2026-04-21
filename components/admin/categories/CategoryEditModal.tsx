@@ -63,48 +63,48 @@ export function CategoryEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-[17px] font-semibold text-sam-fg">
+        <h2 className="mb-4 sam-text-section-title font-semibold text-sam-fg">
           {isCreate ? "카테고리 추가" : "카테고리 수정"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">이름 *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">이름 *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">slug *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">slug *</label>
             <input
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">아이콘 키</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">아이콘 키</label>
             <input
               type="text"
               value={icon_key}
               onChange={(e) => setIconKey(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">타입</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">타입</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as CategoryType)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               {(Object.keys(CATEGORY_TYPE_LABELS) as CategoryType[]).map((t) => (
                 <option key={t} value={t}>
@@ -114,27 +114,27 @@ export function CategoryEditModal({
             </select>
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">설명</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">설명</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div className="border-t border-sam-border-soft pt-4">
-            <p className="mb-2 text-[13px] font-medium text-sam-fg">기능 토글</p>
+            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">기능 토글</p>
             <div className="space-y-2">
               <LabelCheck checked={can_write} onChange={setCanWrite} label="글쓰기 가능 (can_write)" />
               <LabelCheck checked={has_price} onChange={setHasPrice} label="가격 (has_price)" />
               <LabelCheck checked={has_chat} onChange={setHasChat} label="채팅 (has_chat)" />
               <LabelCheck checked={has_location} onChange={setHasLocation} label="위치 (has_location)" />
               <div>
-                <label className="block text-[12px] text-sam-muted">post_type</label>
+                <label className="block sam-text-helper text-sam-muted">post_type</label>
                 <select
                   value={post_type}
                   onChange={(e) => setPostType(e.target.value)}
-                  className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                  className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 >
                   {POST_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -146,14 +146,14 @@ export function CategoryEditModal({
             </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-4">
-            <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white">
+            <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white">
               저장
             </button>
-            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg">
+            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg">
               취소
             </button>
             {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
+              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body text-red-700">
                 삭제
               </button>
             )}
@@ -176,7 +176,7 @@ function LabelCheck({
   return (
     <label className="flex items-center gap-2">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="rounded" />
-      <span className="text-[13px] text-sam-fg">{label}</span>
+      <span className="sam-text-body-secondary text-sam-fg">{label}</span>
     </label>
   );
 }

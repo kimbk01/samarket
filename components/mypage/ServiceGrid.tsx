@@ -15,7 +15,7 @@ const SERVICES: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function ServiceGrid() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
         {SERVICES.map(({ label, href, icon }) => (
           <Link
@@ -23,10 +23,10 @@ export function ServiceGrid() {
             href={href}
             className="flex flex-col items-center gap-1.5 py-2 text-foreground"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ig-highlight text-foreground">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-sam-primary-soft text-foreground">
               {icon}
             </span>
-            <span className="text-[12px]">{label}</span>
+            <span className="sam-text-helper">{label}</span>
           </Link>
         ))}
       </div>

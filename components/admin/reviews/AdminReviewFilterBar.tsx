@@ -28,7 +28,7 @@ export function AdminReviewFilterBar({
         placeholder="상품명·작성자·대상자·거래 ID 검색"
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.reviewStatus}
@@ -38,7 +38,7 @@ export function AdminReviewFilterBar({
             reviewStatus: e.target.value as ReviewStatus | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {REVIEW_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -54,7 +54,7 @@ export function AdminReviewFilterBar({
             rating: e.target.value === "" ? "" : Number(e.target.value),
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {RATING_FILTER_OPTIONS.map((o) => (
           <option key={o.value ?? "all"} value={o.value ?? ""}>
@@ -70,7 +70,7 @@ export function AdminReviewFilterBar({
             role: e.target.value as ReviewRole | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {ROLE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>

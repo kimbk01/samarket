@@ -36,7 +36,7 @@ export function AdminTradeFeedTopicsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="거래 피드 주제" backHref="/admin/menus/trade" />
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         커뮤니티의{" "}
         <Link href="/admin/philife/topics" className="font-medium text-signature hover:underline">
           피드 주제
@@ -50,18 +50,18 @@ export function AdminTradeFeedTopicsPage() {
       </p>
 
       {supabaseAvailable === false && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
-          Supabase가 연결되지 않았습니다. <code className="text-[12px]">categories.parent_id</code> 마이그레이션 적용
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
+          Supabase가 연결되지 않았습니다. <code className="sam-text-helper">categories.parent_id</code> 마이그레이션 적용
           후 주제를 저장할 수 있습니다.
         </div>
       )}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       ) : parents.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">
           거래 메뉴가 없습니다.{" "}
           <Link href="/admin/menus/trade" className="text-signature hover:underline">
             메뉴 (거래)
@@ -71,10 +71,10 @@ export function AdminTradeFeedTopicsPage() {
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <label className="flex flex-col gap-1 text-[13px]">
+            <label className="flex flex-col gap-1 sam-text-body-secondary">
               <span className="font-medium text-sam-fg">상위 메뉴 (1행 칩)</span>
               <select
-                className="min-w-[240px] rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+                className="min-w-[240px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
               >

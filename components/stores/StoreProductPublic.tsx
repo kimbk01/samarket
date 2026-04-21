@@ -585,10 +585,10 @@ export function StoreProductPublic({
   return (
     <div className="min-h-screen bg-[#F7F7F7] pb-28">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
-        <h1 className="truncate text-center text-[15px] font-semibold text-sam-fg">{product.title}</h1>
+        <h1 className="truncate text-center sam-text-body font-semibold text-sam-fg">{product.title}</h1>
       </header>
 
-      <nav className="border-b border-sam-border-soft bg-sam-surface px-4 py-2 text-[12px] text-sam-muted" aria-label={t("common_location")}>
+      <nav className="border-b border-sam-border-soft bg-sam-surface px-4 py-2 sam-text-helper text-sam-muted" aria-label={t("common_location")}>
         <Link href={`/stores/${encodeURIComponent(store.slug)}`} className="text-signature">
           {store.store_name}
         </Link>
@@ -615,7 +615,7 @@ export function StoreProductPublic({
               <img
                 src={profileUrl}
                 alt=""
-                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-lg ring-4 ring-sam-surface/80"
+                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-sam-elevated ring-4 ring-sam-surface/80"
               />
             </div>
           ) : (
@@ -624,7 +624,7 @@ export function StoreProductPublic({
             </div>
           )}
           {product.is_featured ? (
-            <span className="absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-amber-200">
+            <span className="absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 sam-text-xxs font-semibold text-amber-200">
               {t("common_representative")}
             </span>
           ) : null}
@@ -687,29 +687,29 @@ export function StoreProductPublic({
         <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
           <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
           <div
-            className="mt-2 max-w-none text-[14px] leading-relaxed text-sam-fg [&_img]:max-w-full [&_p]:my-2"
+            className="mt-2 max-w-none sam-text-body leading-relaxed text-sam-fg [&_img]:max-w-full [&_p]:my-2"
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
         </div>
       ) : product.summary?.trim() ? (
         <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
           <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
-          <p className="mt-2 text-[14px] leading-relaxed text-sam-fg">{product.summary.trim()}</p>
+          <p className="mt-2 sam-text-body leading-relaxed text-sam-fg">{product.summary.trim()}</p>
         </div>
       ) : null}
 
       <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         {commerce.breakConfigured ? (
-          <p className="text-[12px] font-medium text-sam-fg">
+          <p className="sam-text-helper font-medium text-sam-fg">
             Break time: {commerce.breakRangeLabel}
           </p>
         ) : null}
         {commerce.inBreak ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })}
           </p>
         ) : !commerce.isOpenForCommerce ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {t("common_preparing_order_cart_blocked")}
           </p>
         ) : null}
@@ -758,7 +758,7 @@ export function StoreProductPublic({
                   disabled={orderBusy || orderBlocked}
                 />
                 {optionValidation.ok && optionValidation.snapshot.summary ? (
-                  <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2 text-[12px] text-sam-fg">
+                  <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2 sam-text-helper text-sam-fg">
                     <p className="font-semibold text-sam-fg">선택한 옵션</p>
                     <p className="mt-1 leading-relaxed">{optionValidation.snapshot.summary}</p>
                   </div>
@@ -796,7 +796,7 @@ export function StoreProductPublic({
                 >
                   −
                 </button>
-                <span className="min-w-[2rem] text-center text-[15px] font-medium">{qty}</span>
+                <span className="min-w-[2rem] text-center sam-text-body font-medium">{qty}</span>
                 <button
                   type="button"
                   disabled={qty >= capQty || orderBusy || orderBlocked}
@@ -806,7 +806,7 @@ export function StoreProductPublic({
                   +
                 </button>
               </div>
-              <p className="mt-1 text-[11px] text-sam-meta">
+              <p className="mt-1 sam-text-xxs text-sam-meta">
                 최소 {minQ}개 · 최대 {maxQ}개
                 {trackInv ? ` (재고 ${product.stock_qty}개)` : ""}
               </p>
@@ -821,7 +821,7 @@ export function StoreProductPublic({
                     type="button"
                     disabled={orderBusy || orderBlocked}
                     onClick={() => setFulfillment(o.value)}
-                    className={`rounded-full px-3 py-1.5 text-[13px] ${
+                    className={`rounded-full px-3 py-1.5 sam-text-body-secondary ${
                       fulfillment === o.value
                         ? "bg-signature text-white"
                         : "border border-sam-border bg-sam-surface text-sam-fg"
@@ -889,22 +889,22 @@ export function StoreProductPublic({
               storeExtras.freeDeliveryOverPhp != null &&
               storeExtras.freeDeliveryOverPhp > 0 &&
               lineSubtotalPhp >= storeExtras.freeDeliveryOverPhp ? (
-                <p className="text-[11px] text-emerald-800">
+                <p className="sam-text-xxs text-emerald-800">
                   무료배달 기준({formatMoneyPhp(storeExtras.freeDeliveryOverPhp)} 이상) 충족으로 배달비 면제
                 </p>
               ) : null}
               {fulfillment === "local_delivery" && storeExtras.deliveryCourierLabel?.trim() ? (
-                <p className="text-[11px] leading-snug text-sam-muted">
+                <p className="sam-text-xxs leading-snug text-sam-muted">
                   배달 업체(안내): {storeExtras.deliveryCourierLabel.trim()} · 청구 금액에 포함되지 않음
                 </p>
               ) : null}
-              <div className="flex justify-between border-t border-sam-border pt-1.5 text-[15px] font-bold text-sam-fg">
+              <div className="flex justify-between border-t border-sam-border pt-1.5 sam-text-body font-bold text-sam-fg">
                 <span>주문 예정 금액</span>
                 <span>{formatMoneyPhp(orderGrandDisplayPhp)}</span>
               </div>
             </div>
             {belowStoreMinOrder && !orderBlocked ? (
-              <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[12px] font-medium leading-snug text-amber-950">
+              <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-center sam-text-helper font-medium leading-snug text-amber-950">
                 최소 주문 {formatMoneyPhp(minOrderStorePhp)} 이상부터 주문할 수 있습니다. (부족{" "}
                 {formatMoneyPhp(minOrderStorePhp - lineSubtotalPhp)}) · 장바구니에 더 담거나 수량을
                 늘려 주세요.
@@ -947,7 +947,7 @@ export function StoreProductPublic({
                   type="button"
                   disabled={orderBusy || !optionValidation.ok || orderBlocked}
                   onClick={() => addToCart()}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
                 >
                   장바구니 담기
                 </button>
@@ -958,14 +958,14 @@ export function StoreProductPublic({
                   orderBusy || !optionValidation.ok || orderBlocked || belowStoreMinOrder
                 }
                 onClick={() => void submitOrder()}
-                className={`rounded-ui-rect bg-signature py-3 text-[15px] font-semibold text-white disabled:opacity-50 ${
+                className={`rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50 ${
                   commerceCart ? "flex-1" : "w-full"
                 }`}
               >
                 {orderBusy ? t("common_processing") : t("common_order_now")}
               </button>
             </div>
-            <p className="text-center text-[11px] text-sam-meta">
+            <p className="text-center sam-text-xxs text-sam-meta">
               주문 접수와 상태 확인은 주문 상세에서 이어지고, 매장과 조율이 필요할 때만 배달채팅을 이용하면
               됩니다. 금액 정산은 매장과 직접 하시면 됩니다.
             </p>

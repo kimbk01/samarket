@@ -39,7 +39,7 @@ export function AdminPointExpirePage() {
         </AdminCard>
       ) : (
         <AdminCard title="적용 정책">
-          <p className="text-[14px] text-sam-muted">
+          <p className="sam-text-body text-sam-muted">
             활성화된 만료 정책이 없습니다.
           </p>
         </AdminCard>
@@ -51,7 +51,7 @@ export function AdminPointExpirePage() {
 
       {executions.length > 0 && (
         <AdminCard title="실행 결과 요약">
-          <div className="flex flex-wrap gap-4 text-[14px]">
+          <div className="flex flex-wrap gap-4 sam-text-body">
             <div>
               <span className="text-sam-muted">실행 건수</span>
               <span className="ml-2 font-medium text-sam-fg">

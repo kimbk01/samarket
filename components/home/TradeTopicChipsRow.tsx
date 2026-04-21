@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { APP_TOP_MENU_ROW2_BASE, APP_TOP_MENU_ROW2_INACTIVE_SKY } from "@/lib/ui/app-top-menu";
-
-/** 동네생활 주제 칩 기본 강조색과 동일 */
-const TOPIC_ACTIVE_BG = "#0284c7";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 interface TradeTopicChipsRowProps {
   /** 예: /market/ukay */
@@ -18,7 +15,7 @@ interface TradeTopicChipsRowProps {
 }
 
 /**
- * 마켓 2행 주제 칩 — 동네생활 2단과 동일 필 스타일. 「전체」칩은 두지 않고, topic 미지정이 곧 전체 조회.
+ * 마켓 2행 주제 — 커뮤니티 피드 주제 탭과 동일 `sam-tab` / 밑줄 활성.
  */
 export function TradeTopicChipsRow({
   marketBasePath,
@@ -47,8 +44,11 @@ export function TradeTopicChipsRow({
           <Link
             key={t.id}
             href={href}
-            className={`${APP_TOP_MENU_ROW2_BASE} ${on ? "text-white" : APP_TOP_MENU_ROW2_INACTIVE_SKY}`}
-            style={on ? { backgroundColor: TOPIC_ACTIVE_BG } : undefined}
+            scroll={false}
+            role="tab"
+            aria-selected={on}
+            prefetch={false}
+            className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             {t.name}
           </Link>

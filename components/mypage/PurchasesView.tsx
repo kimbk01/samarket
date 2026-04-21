@@ -82,12 +82,12 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
   }, [initialTab]);
 
   if (loading) {
-    return <p className="py-12 text-center text-[14px] text-sam-muted">불러오는 중...</p>;
+    return <p className="py-12 text-center sam-text-body text-sam-muted">불러오는 중...</p>;
   }
 
   if (items.length === 0) {
     return (
-      <p className="py-12 text-center text-[14px] text-sam-muted">
+      <p className="py-12 text-center sam-text-body text-sam-muted">
         구매·문의한 채팅이 없어요. 상품에서 채팅하기로 문의해 보세요.
       </p>
     );
@@ -112,7 +112,7 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
       />
       </div>
       {filtered.length === 0 ? (
-        <p className="py-10 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>
+        <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
         <ul className="space-y-2">
           {filtered.map((row) => (

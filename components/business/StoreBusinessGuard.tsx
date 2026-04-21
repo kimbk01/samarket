@@ -99,8 +99,8 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="text-[14px] text-sam-fg">로그인이 필요합니다.</p>
-          <Link href="/mypage" className="mt-4 inline-block text-[14px] font-medium text-signature">
+          <p className="sam-text-body text-sam-fg">로그인이 필요합니다.</p>
+          <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
             내 정보로
           </Link>
         </div>
@@ -112,8 +112,8 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="text-[14px] text-sam-fg">매장 서비스 설정이 완료되지 않았습니다.</p>
-          <Link href="/mypage" className="mt-4 inline-block text-[14px] font-medium text-signature">
+          <p className="sam-text-body text-sam-fg">매장 서비스 설정이 완료되지 않았습니다.</p>
+          <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
             내 정보로
           </Link>
         </div>
@@ -125,16 +125,16 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="text-[14px] text-red-700">불러오지 못했습니다. ({phase.message})</p>
+          <p className="sam-text-body text-red-700">불러오지 못했습니다. ({phase.message})</p>
           <button
             type="button"
             onClick={() => retry()}
-            className="mt-4 text-[14px] font-medium text-signature"
+            className="mt-4 sam-text-body font-medium text-signature"
           >
             다시 시도
           </button>
           <div className="mt-4">
-            <Link href="/mypage" className="text-[14px] text-sam-muted underline">
+            <Link href="/mypage" className="sam-text-body text-sam-muted underline">
               내 정보로
             </Link>
           </div>

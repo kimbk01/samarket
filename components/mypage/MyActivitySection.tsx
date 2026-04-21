@@ -4,11 +4,11 @@ import Link from "next/link";
 
 export function MyActivitySection() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-      <h2 className="mb-3 text-[13px] font-semibold text-muted">나의 활동</h2>
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 활동</h2>
       <Link
         href="/my/community-posts"
-        className="flex items-center gap-3 py-3 text-[14px] text-foreground"
+        className="flex items-center gap-3 py-3 sam-text-body text-foreground"
       >
         <span className="flex h-8 w-8 items-center justify-center text-foreground">
           <PencilIcon />

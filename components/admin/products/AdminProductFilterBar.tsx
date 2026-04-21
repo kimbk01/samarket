@@ -43,7 +43,7 @@ export function AdminProductFilterBar({
           <select
             value={tradeMenuRootId}
             onChange={(e) => onTradeMenuRootIdChange(e.target.value)}
-            className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+            className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
             aria-label="거래 메뉴(홈 탭)"
           >
             <option value="">거래 메뉴 전체</option>
@@ -59,7 +59,7 @@ export function AdminProductFilterBar({
           placeholder={t("admin_search_product")}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="min-w-[180px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+          className="min-w-[180px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
         />
         <select
           value={filters.status}
@@ -69,7 +69,7 @@ export function AdminProductFilterBar({
               status: e.target.value as ProductStatus | "",
             })
           }
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {STATUS_OPTIONS.map((o) => (
             <option key={o.value || "all"} value={o.value}>
@@ -80,7 +80,7 @@ export function AdminProductFilterBar({
         <select
           value={filters.category}
           onChange={(e) => onFiltersChange({ ...filters, category: e.target.value })}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           <option value="">{t("admin_category_all")}</option>
           {categories.map((c) => (
@@ -94,7 +94,7 @@ export function AdminProductFilterBar({
           placeholder={t("common_region")}
           value={filters.location}
           onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-          className="min-w-[100px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+          className="min-w-[100px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
         />
         <select
           value={filters.sortKey}
@@ -104,7 +104,7 @@ export function AdminProductFilterBar({
               sortKey: e.target.value as AdminProductSortKey,
             })
           }
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

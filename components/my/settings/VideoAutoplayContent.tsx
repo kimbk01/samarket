@@ -44,12 +44,12 @@ export function VideoAutoplayContent() {
         <li key={opt.value}>
           <button
             type="button"
-            className="flex w-full items-center justify-between py-3 text-left text-[15px] text-sam-fg"
+            className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg"
             onClick={() => select(opt.value)}
           >
             <span>{opt.label}</span>
             {mode === opt.value && (
-              <span className="text-[13px] font-medium text-signature">선택됨</span>
+              <span className="sam-text-body-secondary font-medium text-signature">선택됨</span>
             )}
           </button>
         </li>

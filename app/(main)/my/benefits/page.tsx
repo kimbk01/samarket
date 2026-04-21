@@ -59,26 +59,26 @@ export default function MyBenefitsPage() {
       />
       <div className="mx-auto max-w-lg space-y-4 p-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[13px] text-sam-muted">내 회원 구분 (profiles.role)</p>
+          <p className="sam-text-body-secondary text-sam-muted">내 회원 구분 (profiles.role)</p>
           <div className="mt-1 flex items-center gap-2">
             {role === undefined ? (
-              <span className="text-[14px] text-sam-meta">불러오는 중…</span>
+              <span className="sam-text-body text-sam-meta">불러오는 중…</span>
             ) : role === null ? (
-              <span className="text-[14px] text-sam-muted">
+              <span className="sam-text-body text-sam-muted">
                 로그인 후 프로필을 불러올 수 있습니다.
               </span>
             ) : (
-              <span className="rounded bg-ig-highlight px-2 py-1 text-[14px] font-medium text-foreground">
+              <span className="rounded bg-sam-primary-soft px-2 py-1 sam-text-body font-medium text-foreground">
                 {roleLabel(role)}
               </span>
             )}
           </div>
         </div>
-        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">
           혜택 정책 목록은 DB 설계·관리자 연동 후 표시됩니다. 샘플 정책은 사용하지 않습니다.
         </div>
         <div>
-          <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">적용 혜택</h2>
+          <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">적용 혜택</h2>
           <MemberBenefitList
             policies={policies}
             emptyMessage="등록된 혜택이 없습니다. 공지를 확인해 주세요."

@@ -130,17 +130,17 @@ export function AdminTradeHub() {
       <div className="space-y-6">
         {SECTIONS.map((section) => (
           <section key={section.title}>
-            <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-sam-muted">{section.title}</h2>
+            <h2 className="mb-2 sam-text-body-secondary font-semibold uppercase tracking-wide text-sam-muted">{section.title}</h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {section.items.map((card) => (
                 <li key={card.href}>
                   <Link
                     href={card.href}
-                    className="block h-full rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[14px] shadow-sm transition hover:border-signature/40 hover:bg-sam-app/80"
+                    className="block h-full rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body shadow-sm transition hover:border-signature/40 hover:bg-sam-app/80"
                   >
                     <span className="font-medium text-sam-fg">{card.title}</span>
-                    <p className="mt-1 text-[13px] text-sam-muted">{card.description}</p>
-                    {card.note ? <p className="mt-1 text-[11px] text-amber-800/90">{card.note}</p> : null}
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
+                    {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
                   </Link>
                 </li>
               ))}

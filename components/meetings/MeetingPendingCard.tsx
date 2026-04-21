@@ -44,11 +44,11 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
       {/* 상단 상태 바 */}
       <div className="flex items-center gap-3 bg-amber-50 px-5 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-          <span className="text-[20px]">⏳</span>
+          <span className="sam-text-page-title">⏳</span>
         </div>
         <div>
-          <p className="text-[15px] font-bold text-amber-900">승인 대기 중</p>
-          <p className="text-[12px] text-amber-700">
+          <p className="sam-text-body font-bold text-amber-900">승인 대기 중</p>
+          <p className="sam-text-helper text-amber-700">
             운영자가 참여 요청을 검토하고 있어요
           </p>
         </div>
@@ -56,7 +56,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
 
       {/* 안내 내용 */}
       <div className="px-5 py-4">
-        <ul className="space-y-2 text-[13px] text-sam-muted">
+        <ul className="space-y-2 sam-text-body-secondary text-sam-muted">
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
             승인되면 모임 상세를 이용할 수 있어요.
@@ -73,13 +73,13 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
           )}
         </ul>
 
-        {err && <p className="mt-3 text-[12px] text-red-600">{err}</p>}
+        {err && <p className="mt-3 sam-text-helper text-red-600">{err}</p>}
 
         <div className="mt-5 flex gap-2">
           <button
             type="button"
             onClick={onInquiry}
-            className="flex-1 rounded-ui-rect border border-sam-border py-3 text-[13px] font-semibold text-sam-fg hover:bg-sam-app"
+            className="flex-1 rounded-ui-rect border border-sam-border py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
             운영자 문의
           </button>
@@ -87,7 +87,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
             type="button"
             disabled={busy}
             onClick={() => void onCancel()}
-            className="flex-1 rounded-ui-rect bg-amber-500 py-3 text-[13px] font-semibold text-white disabled:opacity-50 hover:bg-amber-600"
+            className="flex-1 rounded-ui-rect bg-amber-500 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-50 hover:bg-amber-600"
           >
             {busy ? "처리 중…" : "신청 취소"}
           </button>

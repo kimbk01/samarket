@@ -50,14 +50,14 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
             fetchPriority="low"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-[12px] text-sam-muted">이미지</div>
+          <div className="flex h-full w-full items-center justify-center sam-text-helper text-sam-muted">이미지</div>
         )}
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
         {preview ? (
           <PostListPreviewColumn listingPost={item} preview={preview} />
         ) : (
-          <p className="line-clamp-2 min-h-[34px] text-[13px] font-medium text-sam-fg">{item.title}</p>
+          <p className="line-clamp-2 min-h-[34px] sam-text-body-secondary font-medium text-sam-fg">{item.title}</p>
         )}
       </div>
     </Link>
@@ -98,13 +98,13 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
               fetchPriority="low"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-muted">이미지</div>
+            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-muted">이미지</div>
           )}
         </div>
       </div>
-      <p className="mt-1.5 line-clamp-2 text-[12px] font-medium leading-tight text-sam-fg">{item.title}</p>
-      <p className="mt-0.5 text-[11px] text-sam-muted">파트너 · 광고</p>
-      <p className="text-[16px] font-bold leading-tight text-sam-fg">{priceText}</p>
+      <p className="mt-1.5 line-clamp-2 sam-text-helper font-medium leading-tight text-sam-fg">{item.title}</p>
+      <p className="mt-0.5 sam-text-xxs text-sam-muted">파트너 · 광고</p>
+      <p className="sam-text-body-lg font-bold leading-tight text-sam-fg">{priceText}</p>
     </Link>
   );
 }
@@ -124,9 +124,9 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
     <section className="px-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-[26px] font-extrabold tracking-[-0.02em] text-sam-fg">{personalTitle}</h3>
+          <h3 className="truncate sam-text-hero font-extrabold tracking-[-0.02em] text-sam-fg">{personalTitle}</h3>
           <span
-            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-sam-border text-[10px] text-sam-muted"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-sam-border sam-text-xxs text-sam-muted"
             aria-label="광고 안내"
             title="광고 상품 영역"
           >
@@ -204,7 +204,7 @@ function RelatedGridSection({
   if (items.length === 0) return null;
   return (
     <section className="px-4">
-      <h3 className="mb-3 text-[22px] font-extrabold tracking-[-0.02em] text-sam-fg">{title}</h3>
+      <h3 className="mb-3 sam-text-hero font-extrabold tracking-[-0.02em] text-sam-fg">{title}</h3>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {items.map((item) => (
           <PostMiniCard key={item.id} item={item} />

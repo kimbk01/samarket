@@ -40,7 +40,7 @@ export function AdminMemberBenefitDetailPage({
           title="회원 혜택 상세"
           backHref="/admin/member-benefits"
         />
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           정책을 찾을 수 없습니다.
         </div>
       </div>
@@ -82,7 +82,7 @@ export function AdminMemberBenefitDetailPage({
       />
 
       <AdminCard title="기본 정보">
-        <dl className="grid grid-cols-1 gap-2 text-[14px] sm:grid-cols-2">
+        <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">
           <div>
             <dt className="text-sam-muted">구분</dt>
             <dd>{MEMBER_TYPE_LABELS[policy.memberType]}</dd>
@@ -95,7 +95,7 @@ export function AdminMemberBenefitDetailPage({
             <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                   policy.isActive
                     ? "bg-emerald-50 text-emerald-800"
                     : "bg-sam-border-soft text-sam-muted"
@@ -128,14 +128,14 @@ export function AdminMemberBenefitDetailPage({
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="rounded border border-signature bg-signature px-3 py-1.5 text-[13px] font-medium text-white"
+            className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white"
           >
             편집
           </button>
           <button
             type="button"
             onClick={handleToggleActive}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
           >
             {policy.isActive ? "비활성화" : "활성화"}
           </button>

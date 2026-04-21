@@ -9,7 +9,7 @@ export function OpsResponseQualityTable() {
 
   if (feedback.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
         대응 품질 피드백이 없습니다.
       </div>
     );
@@ -17,7 +17,7 @@ export function OpsResponseQualityTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">이슈</th>
@@ -53,7 +53,7 @@ export function OpsResponseQualityTable() {
               <td className="px-3 py-2.5 text-sam-fg">
                 {(f.documentFitScore * 100).toFixed(0)}%
               </td>
-              <td className="px-3 py-2.5 text-sam-muted text-[13px] max-w-[200px] truncate">
+              <td className="px-3 py-2.5 text-sam-muted sam-text-body-secondary max-w-[200px] truncate">
                 {f.feedbackSummary}
               </td>
             </tr>

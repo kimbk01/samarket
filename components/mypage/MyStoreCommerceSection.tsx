@@ -50,8 +50,8 @@ export function MyStoreCommerceSection() {
 
   if (phase.kind === "loading") {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-        <h2 className="text-[14px] font-semibold text-sam-fg">동네 매장</h2>
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장</h2>
         <div className="mt-3 h-20 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
       </section>
     );
@@ -65,19 +65,19 @@ export function MyStoreCommerceSection() {
 
   if (!approved) {
     return (
-      <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-        <h2 className="text-[14px] font-semibold text-sam-fg">동네 매장 (사장님)</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-sam-muted">
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)</h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
           승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <Link
             href="/my/business/apply"
-            className="rounded-ui-rect border border-sam-border bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-sam-fg"
+            className="rounded-ui-rect border border-sam-border bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
           >
             매장 등록 신청
           </Link>
-          <Link href="/my/store-orders" className="text-center text-[12px] text-sam-muted underline">
+          <Link href="/my/store-orders" className="text-center sam-text-helper text-sam-muted underline">
             내가 주문한 배달 주문 보기
           </Link>
         </div>
@@ -98,30 +98,30 @@ export function MyStoreCommerceSection() {
     : "/my/business/products";
 
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-      <h2 className="text-[14px] font-semibold text-sam-fg">동네 매장 (사장님)</h2>
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           href={ordersHref}
-          className="rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-center text-[13px] font-semibold text-amber-950"
+          className="rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-center sam-text-body-secondary font-semibold text-amber-950"
         >
           신규·접수 주문
         </Link>
         <Link
           href={inquiriesHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           받은 문의
         </Link>
         <Link
           href={hubHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           운영 허브
         </Link>
         <Link
           href={productsHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           상품 관리
         </Link>
@@ -131,12 +131,12 @@ export function MyStoreCommerceSection() {
               ? `/my/business/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
               : "/my/business/settlements"
           }
-          className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center text-[13px] font-medium text-sam-fg"
+          className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           정산 내역
         </Link>
       </div>
-      <Link href="/my/store-orders" className="mt-3 block text-center text-[12px] text-sam-muted underline">
+      <Link href="/my/store-orders" className="mt-3 block text-center sam-text-helper text-sam-muted underline">
         내가 주문한 배달 주문 보기
       </Link>
     </section>

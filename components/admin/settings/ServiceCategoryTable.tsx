@@ -11,7 +11,7 @@ interface ServiceCategoryTableProps {
 export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceCategoryTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded border border-sam-border bg-sam-app py-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded border border-sam-border bg-sam-app py-8 text-center sam-text-body text-sam-muted">
         상단 서비스 카테고리가 없습니다.
       </div>
     );
@@ -19,7 +19,7 @@ export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceC
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[500px] border-collapse text-[14px]">
+      <table className="w-full min-w-[500px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
@@ -41,7 +41,7 @@ export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceC
                 <button
                   type="button"
                   onClick={() => onToggleActive(row.id)}
-                  className={`rounded px-2 py-1 text-[12px] font-medium ${
+                  className={`rounded px-2 py-1 sam-text-helper font-medium ${
                     row.is_active
                       ? "bg-green-100 text-green-800"
                       : "bg-sam-border-soft text-sam-muted"
@@ -54,7 +54,7 @@ export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceC
                 <button
                   type="button"
                   onClick={() => onEdit(row.id)}
-                  className="text-[13px] text-sam-muted hover:text-sam-fg"
+                  className="sam-text-body-secondary text-sam-muted hover:text-sam-fg"
                 >
                   수정
                 </button>

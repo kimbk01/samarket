@@ -29,42 +29,42 @@ export function OpsOperationalizationStatusCard() {
   return (
     <div className="space-y-4">
       <div className={`rounded-ui-rect border p-4 ${statusBg}`}>
-        <p className="text-[12px] text-sam-muted">운영 체계 정착 상태</p>
-        <p className={`text-[22px] font-semibold ${statusClass}`}>
+        <p className="sam-text-helper text-sam-muted">운영 체계 정착 상태</p>
+        <p className={`sam-text-hero font-semibold ${statusClass}`}>
           {getOperationalizationLabel(status.overallStatus)}
         </p>
-        <p className="mt-2 text-[13px] text-sam-muted">
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">
           평가일: {new Date(status.evaluatedAt).toLocaleString()}
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">루틴 완료율</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">루틴 완료율</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.routineCompletionRate}%
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">지연 / 이월</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">지연 / 이월</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.overdueRoutineCount} / {status.carryOverCount}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">문서 최신화 / 액션 마감율</p>
-          <p className="text-[14px] text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">문서 최신화 / 액션 마감율</p>
+          <p className="sam-text-body text-sam-fg">
             {status.documentationFreshnessRate}% / {status.actionClosureRate}%
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-[13px] text-sam-muted">
+      <div className="flex flex-wrap gap-2 sam-text-body-secondary text-sam-muted">
         <span>월간 리뷰: {status.monthlyReviewDone ? "완료" : "미완료"}</span>
         <span>벤치마크 리뷰: {status.benchmarkReviewDone ? "완료" : "미완료"}</span>
       </div>
 
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         <Link href="/admin/ops-board" className="text-signature hover:underline">
           운영 보드
         </Link>
@@ -83,7 +83,7 @@ export function OpsOperationalizationStatusCard() {
       </p>
 
       {status.note && (
-        <p className="text-[13px] text-sam-muted">{status.note}</p>
+        <p className="sam-text-body-secondary text-sam-muted">{status.note}</p>
       )}
     </div>
   );

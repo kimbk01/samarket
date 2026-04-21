@@ -77,7 +77,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
   if (loading) {
     return (
       <AdminCard title="포인트">
-        <p className="text-[13px] text-sam-meta">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-sam-meta">불러오는 중…</p>
       </AdminCard>
     );
   }
@@ -91,17 +91,17 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {/* 잔액 + 바로가기 */}
       <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-4 py-3">
         <div>
-          <p className="text-[12px] text-sky-700">포인트 잔액</p>
-          <p className="text-[24px] font-bold text-sky-800">{(balance ?? 0).toLocaleString()}P</p>
+          <p className="sam-text-helper text-sky-700">포인트 잔액</p>
+          <p className="sam-text-hero font-bold text-sky-800">{(balance ?? 0).toLocaleString()}P</p>
         </div>
         {pendingCount > 0 && (
-          <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[12px] font-bold text-white">
+          <span className="rounded-full bg-amber-500 px-2.5 py-1 sam-text-helper font-bold text-white">
             신청 {pendingCount}건 대기
           </span>
         )}
       </div>
 
-      {err ? <p className="mb-2 text-[12px] text-red-600">{err}</p> : null}
+      {err ? <p className="mb-2 sam-text-helper text-red-600">{err}</p> : null}
 
       {/* 탭 */}
       <div className="mb-3 flex gap-1 rounded-ui-rect bg-sam-surface-muted p-1">
@@ -110,7 +110,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-ui-rect py-1.5 text-[12px] font-semibold transition-colors ${
+            className={`flex-1 rounded-ui-rect py-1.5 sam-text-helper font-semibold transition-colors ${
               tab === t ? "bg-sam-surface text-sam-fg shadow-sm" : "text-sam-muted"
             }`}
           >
@@ -123,7 +123,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {tab === "charges" && (
         <div>
           {charges.length === 0 ? (
-            <p className="py-4 text-center text-[12px] text-sam-meta">충전 신청 내역이 없습니다.</p>
+            <p className="py-4 text-center sam-text-helper text-sam-meta">충전 신청 내역이 없습니다.</p>
           ) : (
             <div className="space-y-2">
               {charges.map((c) => {
@@ -142,18 +142,18 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[13px] font-semibold text-sam-fg">{c.planName}</p>
-                        <p className="text-[12px] text-sky-700 font-bold">+{c.pointAmount.toLocaleString()}P</p>
-                        <p className="text-[11px] text-sam-muted">
+                        <p className="sam-text-body-secondary font-semibold text-sam-fg">{c.planName}</p>
+                        <p className="sam-text-helper text-sky-700 font-bold">+{c.pointAmount.toLocaleString()}P</p>
+                        <p className="sam-text-xxs text-sam-muted">
                           ₱{c.paymentAmount.toLocaleString()} ·{" "}
                           {c.paymentMethod === "manual_confirm" ? "계좌입금" : "이체"}
                           {c.depositorName ? ` · ${c.depositorName}` : ""}
                         </p>
-                        <p className="text-[10px] text-sam-meta">
+                        <p className="sam-text-xxs text-sam-meta">
                           {new Date(c.requestedAt).toLocaleString("ko-KR")}
                         </p>
                         {c.adminMemo && (
-                          <p className="mt-1 text-[11px] text-amber-700">메모: {c.adminMemo}</p>
+                          <p className="mt-1 sam-text-xxs text-amber-700">메모: {c.adminMemo}</p>
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -164,7 +164,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                               type="button"
                               disabled={busy === c.id}
                               onClick={() => void doAction(c.id, "approve")}
-                              className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                              className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                             >
                               승인
                             </button>
@@ -172,7 +172,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                               type="button"
                               disabled={busy === c.id}
                               onClick={() => void doAction(c.id, "reject")}
-                              className="rounded bg-red-500 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                              className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                             >
                               반려
                             </button>
@@ -181,7 +181,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                                 type="button"
                                 disabled={busy === c.id}
                                 onClick={() => void doAction(c.id, "hold")}
-                                className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
+                                className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                               >
                                 보류
                               </button>
@@ -202,7 +202,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       {tab === "ledger" && (
         <div>
           {ledger.length === 0 ? (
-            <p className="py-4 text-center text-[12px] text-sam-meta">원장 내역이 없습니다.</p>
+            <p className="py-4 text-center sam-text-helper text-sam-meta">원장 내역이 없습니다.</p>
           ) : (
             <div className="divide-y divide-sam-border-soft">
               {ledger.map((l) => (
@@ -210,23 +210,23 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        className={`shrink-0 rounded-full px-1.5 py-0.5 sam-text-xxs font-semibold ${
                           l.amount >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"
                         }`}
                       >
                         {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
                       </span>
-                      <p className="truncate text-[12px] text-sam-fg">{l.description}</p>
+                      <p className="truncate sam-text-helper text-sam-fg">{l.description}</p>
                     </div>
-                    <p className="text-[10px] text-sam-meta">
+                    <p className="sam-text-xxs text-sam-meta">
                       {new Date(l.createdAt).toLocaleString("ko-KR")}
                     </p>
                   </div>
                   <div className="ml-2 shrink-0 text-right">
-                    <p className={`text-[13px] font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
+                    <p className={`sam-text-body-secondary font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                       {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                     </p>
-                    <p className="text-[10px] text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
+                    <p className="sam-text-xxs text-sam-meta">{l.balanceAfter.toLocaleString()}P</p>
                   </div>
                 </div>
               ))}

@@ -16,7 +16,7 @@ import {
 
 function EmptyHint({ children }: { children: string }) {
   return (
-    <p className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-surface-muted)] py-2 px-2 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+    <p className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-surface-muted)] py-2 px-2 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
       {children}
     </p>
   );
@@ -31,7 +31,7 @@ function MessengerSearchSection({
 }) {
   return (
     <section className="space-y-1">
-      <h3 className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+      <h3 className="sam-text-xxs font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
         {title}
       </h3>
       {children}
@@ -102,7 +102,7 @@ function SearchActionsSheet({
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
 }) {
   const row =
-    "w-full rounded-[var(--messenger-radius-md)] px-4 py-3 text-left text-[15px] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
+    "w-full rounded-[var(--messenger-radius-md)] px-4 py-3 text-left sam-text-body text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
     <div className="fixed inset-0 z-[44] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
@@ -226,7 +226,7 @@ function SearchActionsSheet({
         ) : null}
         <button
           type="button"
-          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 text-[14px] text-[color:var(--messenger-text-secondary)]"
+          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 sam-text-body text-[color:var(--messenger-text-secondary)]"
           onClick={onDismiss}
         >
           취소
@@ -254,7 +254,7 @@ function RecentChip({
         if (consumeClickSuppression()) return;
         onApply();
       }}
-      className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 text-[12px] active:bg-[color:var(--messenger-primary-soft)]"
+      className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 sam-text-helper active:bg-[color:var(--messenger-primary-soft)]"
       style={{ color: "var(--messenger-text)" }}
     >
       {term}
@@ -292,24 +292,24 @@ function FriendSearchRow({
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
-          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[color:var(--messenger-primary)]">
+          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
+          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-semibold text-[color:var(--messenger-primary)]">
             친구
           </span>
           {friend.isFavoriteFriend ? (
-            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[9px] text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 sam-text-xxs text-[color:var(--messenger-text-secondary)]">
               ★
             </span>
           ) : null}
           {friend.isHiddenFriend ? (
-            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[9px] text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 sam-text-xxs text-[color:var(--messenger-text-secondary)]">
               숨김
             </span>
           ) : null}
         </div>
-        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">{friend.subtitle ?? ""}</p>
+        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">{friend.subtitle ?? ""}</p>
       </div>
-      <span className="text-[10px] text-[color:var(--messenger-text-secondary)]">열기</span>
+      <span className="sam-text-xxs text-[color:var(--messenger-text-secondary)]">열기</span>
     </button>
   );
 }
@@ -344,21 +344,21 @@ function OpenGroupSearchRow({
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{group.title}</p>
-          <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
+          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{group.title}</p>
+          <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
             오픈
           </span>
           {group.isJoined ? (
-            <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-medium text-[color:var(--messenger-primary)]">
+            <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
               참여
             </span>
           ) : null}
         </div>
-        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">
+        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">
           {group.summary || `${group.ownerLabel} · ${group.memberCount}명`}
         </p>
       </div>
-      <span className="text-[10px] font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
+      <span className="sam-text-xxs font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
     </button>
   );
 }
@@ -393,15 +393,15 @@ function MessageHitRow({
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="truncate text-[13px] font-medium text-[color:var(--messenger-text)]">{item.room.title}</p>
-          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-medium text-[color:var(--messenger-primary)]">
+          <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{item.room.title}</p>
+          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
             {getRoomTypeBadgeLabel(item.room)}
           </span>
         </div>
-        <p className="truncate text-[11px] text-[color:var(--messenger-text-secondary)]">{item.preview}</p>
+        <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">{item.preview}</p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[10px] tabular-nums text-[color:var(--messenger-text-secondary)]">{formatConversationTimestamp(item.lastEventAt)}</p>
+        <p className="sam-text-xxs tabular-nums text-[color:var(--messenger-text-secondary)]">{formatConversationTimestamp(item.lastEventAt)}</p>
       </div>
     </button>
   );
@@ -446,7 +446,7 @@ export function MessengerSearchSheet({
           data-messenger-shell
           className="max-h-[min(82vh,640px)] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
         >
-          <p className="text-center text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+          <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
             검색
           </p>
           <input
@@ -459,7 +459,7 @@ export function MessengerSearchSheet({
               }
             }}
             placeholder="친구, 방, 메시지, 오픈채팅"
-            className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 text-[14px] outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+            className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 sam-text-body outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
             style={{ color: "var(--messenger-text)" }}
           />
           <div className="mt-2 space-y-2.5">
@@ -570,7 +570,7 @@ export function MessengerSearchSheet({
           </div>
           <button
             type="button"
-            className="mt-2 w-full py-2 text-[13px]"
+            className="mt-2 w-full py-2 sam-text-body-secondary"
             style={{ color: "var(--messenger-text-secondary)" }}
             onClick={onClose}
           >

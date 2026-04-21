@@ -55,7 +55,7 @@ export function DeliveryOrdersByBuyerClient({ buyerUserId }: { buyerUserId: stri
         </Link>
       </p>
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           불러오지 못했습니다 ({error}).
         </p>
       ) : null}

@@ -14,7 +14,7 @@ export default function NewProductPageClient() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-sam-border-soft bg-sam-surface px-4 py-3">
         <AppBackButton />
-        <h1 className="text-[16px] font-semibold text-sam-fg">상품 등록</h1>
+        <h1 className="sam-text-body-lg font-semibold text-sam-fg">상품 등록</h1>
         <span className="w-10" />
       </header>
       <ProductForm

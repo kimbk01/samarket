@@ -138,10 +138,10 @@ export function AdminTradePostAdsPage() {
     actions: (r: TradePostAdRow) => ReactNode,
     emptyText: string
   ) => {
-    if (list.length === 0) return <p className="text-[13px] text-sam-muted">{emptyText}</p>;
+    if (list.length === 0) return <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p>;
     return (
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-        <table className="min-w-full text-left text-[13px]">
+        <table className="min-w-full text-left sam-text-body-secondary">
           <thead className="bg-sam-surface-muted text-sam-muted">
             <tr>
               <th className="px-3 py-2">상태</th>
@@ -156,7 +156,7 @@ export function AdminTradePostAdsPage() {
             {list.map((r) => (
               <tr key={r.id} className="border-t border-sam-border-soft">
                 <td className="px-3 py-2 font-medium">{r.apply_status}</td>
-                <td className="max-w-[180px] px-3 py-2 text-[12px]">
+                <td className="max-w-[180px] px-3 py-2 sam-text-helper">
                   <p className="font-medium text-sam-fg">{r.product?.name ?? "상품 미연결"}</p>
                   <p className="text-sam-muted">
                     {(r.product?.placement && PLACEMENT_LABEL[r.product.placement]) || r.product?.placement || "slot-unknown"} ·{" "}
@@ -168,7 +168,7 @@ export function AdminTradePostAdsPage() {
                   <Link href={`/post/${r.post_id}`} className="text-blue-700 underline" target="_blank">
                     {(r.post?.title && r.post.title.slice(0, 20)) || `${r.post_id.slice(0, 8)}…`}
                   </Link>
-                  <p className="text-[11px] text-sam-muted">
+                  <p className="sam-text-xxs text-sam-muted">
                     {r.post?.author_nickname ?? "작성자"} · {r.post?.status ?? "status?"}
                   </p>
                 </td>
@@ -198,14 +198,14 @@ export function AdminTradePostAdsPage() {
         description="당근형 유료 광고 운영 흐름(신청→검토→기간 활성)을 여기서 처리합니다. 상품·단가 정책은 「거래 광고 정책」에서 수정하세요."
       />
 
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         <Link href="/admin/trade-ad-policies" className="text-blue-700 underline">
           거래 광고 정책 (ad_products)
         </Link>
       </p>
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="mb-2 text-[14px] font-semibold text-sam-fg">유료 광고 형식 기준</h2>
-        <ul className="list-disc space-y-1 pl-5 text-[12px] text-sam-muted">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">유료 광고 형식 기준</h2>
+        <ul className="list-disc space-y-1 pl-5 sam-text-helper text-sam-muted">
           {TRADE_PAID_AD_FORMAT_GUIDE.map((line) => (
             <li key={line}>{line}</li>
           ))}
@@ -213,12 +213,12 @@ export function AdminTradePostAdsPage() {
       </section>
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-800">
           {err}
         </div>
       ) : null}
 
-      {loading ? <p className="text-[13px] text-sam-muted">불러오는 중…</p> : null}
+      {loading ? <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p> : null}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -228,15 +228,15 @@ export function AdminTradePostAdsPage() {
           { label: "종료/반려", value: stageRows.closed.length },
         ].map((card) => (
           <div key={card.label} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-center">
-            <p className="text-[22px] font-bold text-sam-fg">{card.value}</p>
-            <p className="text-[12px] text-sam-muted">{card.label}</p>
+            <p className="sam-text-hero font-bold text-sam-fg">{card.value}</p>
+            <p className="sam-text-helper text-sam-muted">{card.label}</p>
           </div>
         ))}
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">1) 판매자 신청 접수</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">1) 판매자 신청 접수</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">
           판매자가 신청한 건을 확인하고, 기준 충족 시 `확인완료`로 전환합니다.
         </p>
         {renderRows(
@@ -247,7 +247,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void runAction(r, "verify")}
-                className="mr-2 rounded-ui-rect bg-blue-600 px-2 py-1 text-[12px] text-white disabled:opacity-50"
+                className="mr-2 rounded-ui-rect bg-blue-600 px-2 py-1 sam-text-helper text-white disabled:opacity-50"
               >
                 확인완료
               </button>
@@ -255,7 +255,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void runAction(r, "reject")}
-                className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px] disabled:opacity-50"
+                className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
                 반려
               </button>
@@ -266,8 +266,8 @@ export function AdminTradePostAdsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">2) 관리자 심사/집행</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">2) 관리자 심사/집행</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">
           확인 완료된 건만 광고 집행(활성)할 수 있습니다. 기본은 상품 기간 자동 적용입니다.
         </p>
         {renderRows(
@@ -278,7 +278,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void runAction(r, "activate")}
-                className="mr-2 rounded-ui-rect bg-emerald-600 px-2 py-1 text-[12px] text-white disabled:opacity-50"
+                className="mr-2 rounded-ui-rect bg-emerald-600 px-2 py-1 sam-text-helper text-white disabled:opacity-50"
               >
                 활성(자동기간)
               </button>
@@ -286,7 +286,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void activateWithManualPeriod(r)}
-                className="mr-2 rounded-ui-rect border border-sam-border px-2 py-1 text-[12px] disabled:opacity-50"
+                className="mr-2 rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
                 활성(기간수동)
               </button>
@@ -294,7 +294,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void runAction(r, "reject")}
-                className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px] disabled:opacity-50"
+                className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
                 반려
               </button>
@@ -305,8 +305,8 @@ export function AdminTradePostAdsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">3) 노출 운영/종료</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">3) 노출 운영/종료</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">
           노출중 광고를 조기 종료할 수 있습니다.
         </p>
         {renderRows(
@@ -316,7 +316,7 @@ export function AdminTradePostAdsPage() {
               type="button"
               disabled={busyId === r.id}
               onClick={() => void runAction(r, "end")}
-              className="rounded-ui-rect border border-sam-border px-2 py-1 text-[12px] disabled:opacity-50"
+              className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
             >
               종료
             </button>
@@ -326,20 +326,20 @@ export function AdminTradePostAdsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">4) 완료/반려 이력</h2>
-        <p className="mb-2 text-[12px] text-sam-muted">
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">4) 완료/반려 이력</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">
           종료·반려·취소 상태를 확인하는 이력 영역입니다.
         </p>
-        {renderRows(stageRows.closed, () => <span className="text-[12px] text-sam-muted">이력</span>, "이력이 없습니다.")}
+        {renderRows(stageRows.closed, () => <span className="sam-text-helper text-sam-muted">이력</span>, "이력이 없습니다.")}
       </section>
 
       <section>
-        <h2 className="mb-2 text-[15px] font-semibold text-sam-fg">포인트 hold / 차감 기록</h2>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">포인트 hold / 차감 기록</h2>
         {holds.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">기록 없음</p>
+          <p className="sam-text-body-secondary text-sam-muted">기록 없음</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-            <table className="min-w-full text-left text-[13px]">
+            <table className="min-w-full text-left sam-text-body-secondary">
               <thead className="bg-sam-surface-muted text-sam-muted">
                 <tr>
                   <th className="px-3 py-2">상태</th>
@@ -353,7 +353,7 @@ export function AdminTradePostAdsPage() {
                   <tr key={String(h.id)} className="border-t border-sam-border-soft">
                     <td className="px-3 py-2">{String(h.status ?? "")}</td>
                     <td className="px-3 py-2">{String(h.amount ?? "")}</td>
-                    <td className="px-3 py-2 font-mono text-[11px]">{String(h.trade_post_ad_id ?? "")}</td>
+                    <td className="px-3 py-2 font-mono sam-text-xxs">{String(h.trade_post_ad_id ?? "")}</td>
                     <td className="px-3 py-2 text-sam-muted">{String(h.created_at ?? "")}</td>
                   </tr>
                 ))}

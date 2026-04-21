@@ -167,13 +167,13 @@ function LoginPageContent() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
         <h1 className="text-center text-lg font-semibold text-sam-fg">로그인</h1>
-        <p className="mt-1 text-center text-[13px] text-sam-muted">구글, 카카오, 애플 또는 이메일 계정</p>
+        <p className="mt-1 text-center sam-text-body-secondary text-sam-muted">구글, 카카오, 애플 또는 이메일 계정</p>
         <div className="mt-5 space-y-2">
           <button
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("google")}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "google" ? "이동 중…" : "구글로 로그인"}
           </button>
@@ -181,7 +181,7 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("kakao")}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "kakao" ? "이동 중…" : "카카오로 로그인"}
           </button>
@@ -189,19 +189,19 @@ function LoginPageContent() {
             type="button"
             disabled={!!oauthBusy || loading}
             onClick={() => void handleOAuthLogin("apple")}
-            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[14px] font-medium text-sam-fg disabled:opacity-50"
+            className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg disabled:opacity-50"
           >
             {oauthBusy === "apple" ? "이동 중…" : "애플로 로그인"}
           </button>
         </div>
-        <div className="my-4 flex items-center gap-3 text-[12px] text-sam-meta">
+        <div className="my-4 flex items-center gap-3 sam-text-helper text-sam-meta">
           <div className="h-px flex-1 bg-sam-border-soft" />
           <span>또는 이메일·비밀번호</span>
           <div className="h-px flex-1 bg-sam-border-soft" />
         </div>
         <form onSubmit={handleEmailSubmit} className="mt-6 space-y-4" noValidate>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">이메일</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">이메일</label>
             <input
               type="text"
               inputMode="email"
@@ -210,35 +210,35 @@ function LoginPageContent() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일 또는 수동 회원 아이디"
               required
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">비밀번호</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
-          {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+          {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
           <button
             type="submit"
             disabled={loading || !!oauthBusy}
-            className="w-full rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
           >
             {loading ? "로그인 중…" : "로그인"}
           </button>
         </form>
-        <p className="mt-4 text-center text-[12px] text-sam-muted">
+        <p className="mt-4 text-center sam-text-helper text-sam-muted">
           계정이 없으면{" "}
           <Link href="/signup" className="font-medium text-signature underline">
             회원가입
           </Link>
         </p>
-        <p className="mt-3 text-center text-[10px] text-sam-meta">
+        <p className="mt-3 text-center sam-text-xxs text-sam-meta">
           <a href="/api/system/supabase-project" className="underline">
             /api/system/supabase-project
           </a>
@@ -259,7 +259,7 @@ export default function LoginPageClient() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
+        <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       }

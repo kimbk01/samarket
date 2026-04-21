@@ -211,18 +211,18 @@ export function OrdersHubStoreAdminMenuTrigger() {
             />
             <div className="relative flex h-full w-[min(100vw,22rem)] max-w-full flex-col bg-sam-surface shadow-2xl sm:w-[24rem]">
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-sam-border px-3">
-                <p className="min-w-0 truncate text-[15px] font-semibold text-sam-fg">매장 관리</p>
+                <p className="min-w-0 truncate sam-text-body font-semibold text-sam-fg">매장 관리</p>
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-[20px] leading-none text-sam-muted hover:bg-sam-surface-muted"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
                   aria-label="닫기"
                 >
                   ×
                 </button>
               </div>
               {hub.kind === "ok" && storeRow?.store_name?.trim() ? (
-                <p className="truncate border-b border-sam-border-soft bg-sam-app px-3 py-2 text-[13px] text-sam-fg">
+                <p className="truncate border-b border-sam-border-soft bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">
                   {storeRow.store_name.trim()}
                 </p>
               ) : null}

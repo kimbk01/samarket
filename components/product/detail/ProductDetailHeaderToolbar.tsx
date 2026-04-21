@@ -55,7 +55,7 @@ export function ProductDetailHeaderToolbar({
       <button
         type="button"
         onClick={handleShare}
-        className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+        className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
         aria-label="공유"
       >
         <ShareIcon className="h-5 w-5" />
@@ -65,20 +65,20 @@ export function ProductDetailHeaderToolbar({
         <button
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
-          className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-ig-highlight"
+          className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
           aria-label="더보기"
         >
           <MoreIcon className="h-5 w-5" />
         </button>
         {moreOpen && onReport ? (
-          <div className="absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-10 mt-1 min-w-[120px] rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] py-1 shadow-sam-elevated">
             <button
               type="button"
               onClick={() => {
                 onReport();
                 setMoreOpen(false);
               }}
-              className="block w-full px-4 py-2.5 text-left text-[14px] text-foreground hover:bg-ig-highlight"
+              className="block w-full px-4 py-2.5 text-left sam-text-body text-foreground hover:bg-sam-primary-soft"
             >
               상품 신고
             </button>

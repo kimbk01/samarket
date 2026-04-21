@@ -25,7 +25,7 @@ export function OpsKnowledgeResultList({
 }: OpsKnowledgeResultListProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         검색 결과가 없습니다.
       </div>
     );
@@ -46,7 +46,7 @@ export function OpsKnowledgeResultList({
             role="button"
             tabIndex={0}
           >
-            <div className="flex items-center gap-2 text-[12px] text-sam-muted">
+            <div className="flex items-center gap-2 sam-text-helper text-sam-muted">
               <span>{DOC_TYPE_LABELS[item.docType]}</span>
               {item.isPinned && <span>📌</span>}
             </div>
@@ -60,7 +60,7 @@ export function OpsKnowledgeResultList({
             >
               {item.title}
             </Link>
-            <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">{item.summary}</p>
+            <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.summary}</p>
           </div>
         </li>
       ))}

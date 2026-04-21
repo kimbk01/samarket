@@ -33,7 +33,7 @@ export function AdminChatFilterBar({
             roomType: e.target.value as AdminRoomType,
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         title={t("admin_menu_chat_trade")}
       >
         {ROOM_TYPE_OPTIONS.map((o) => (
@@ -50,7 +50,7 @@ export function AdminChatFilterBar({
             roomStatus: e.target.value as RoomStatus | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {ROOM_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -58,7 +58,7 @@ export function AdminChatFilterBar({
           </option>
         ))}
       </select>
-      <label className="flex cursor-pointer items-center gap-2 text-[14px] text-sam-fg">
+      <label className="flex cursor-pointer items-center gap-2 sam-text-body text-sam-fg">
         <input
           type="checkbox"
           checked={filters.reportedOnly}
@@ -74,7 +74,7 @@ export function AdminChatFilterBar({
         placeholder={t("admin_chat_search_placeholder")}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
     </div>
   );

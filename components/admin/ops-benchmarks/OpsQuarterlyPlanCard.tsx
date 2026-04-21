@@ -49,7 +49,7 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
               : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
         <span>{DOMAIN_LABELS[plan.domain]}</span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {PRIORITY_LABELS[plan.priority]}
@@ -62,21 +62,21 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
         </span>
       </div>
       <h3 className="mt-2 font-medium text-sam-fg">{plan.title}</h3>
-      <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
+      <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">
         {plan.description}
       </p>
       {(plan.targetMetric || plan.targetValue) && (
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           목표: {plan.targetMetric} = {plan.targetValue}
         </p>
       )}
       {plan.milestone && (
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           마일스톤: {plan.milestone}
         </p>
       )}
       {plan.relatedRoadmapItemId && (
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           로드맵:{" "}
           <Link
             href="/admin/ops-maturity"
@@ -87,7 +87,7 @@ export function OpsQuarterlyPlanCard({ plan }: OpsQuarterlyPlanCardProps) {
         </p>
       )}
       {(plan.ownerAdminNickname || plan.dueDate) && (
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           {plan.ownerAdminNickname && `담당 ${plan.ownerAdminNickname}`}
           {plan.dueDate && ` · 기한 ${plan.dueDate}`}
         </p>

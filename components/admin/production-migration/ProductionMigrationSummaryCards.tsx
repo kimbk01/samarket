@@ -19,20 +19,20 @@ export function ProductionMigrationSummaryCards() {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">테이블</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">테이블</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.productionReadyTables} / {summary.totalTables} 준비
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">RLS 정책</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">RLS 정책</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.verifiedRlsChecks} / {summary.totalRlsChecks} 검증
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">인프라</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">인프라</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.readyInfraChecks} / {summary.totalInfraChecks} 준비
           </p>
         </div>
@@ -45,12 +45,12 @@ export function ProductionMigrationSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="text-[12px] text-sam-muted">전환 Go/No-Go</p>
-          <p className={`text-[20px] font-semibold ${goClass}`}>
+          <p className="sam-text-helper text-sam-muted">전환 Go/No-Go</p>
+          <p className={`sam-text-page-title font-semibold ${goClass}`}>
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
           {summary.blockedChecks > 0 && (
-            <p className="mt-1 text-[12px] text-red-600">
+            <p className="mt-1 sam-text-helper text-red-600">
               차단 {summary.blockedChecks}건
             </p>
           )}
@@ -58,11 +58,11 @@ export function ProductionMigrationSummaryCards() {
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="text-[12px] text-sam-muted">배포 체크리스트</p>
-        <p className="text-[14px] text-sam-fg">
+        <p className="sam-text-helper text-sam-muted">배포 체크리스트</p>
+        <p className="sam-text-body text-sam-fg">
           완료 {summary.doneLaunchChecks} / {summary.totalLaunchChecks}
         </p>
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">
           <Link href="/admin/launch-readiness" className="text-signature hover:underline">
             런칭 준비
           </Link>
@@ -74,7 +74,7 @@ export function ProductionMigrationSummaryCards() {
       </div>
 
       {summary.latestUpdatedAt && (
-        <p className="text-[12px] text-sam-muted">
+        <p className="sam-text-helper text-sam-muted">
           최종 갱신: {new Date(summary.latestUpdatedAt).toLocaleString()}
         </p>
       )}

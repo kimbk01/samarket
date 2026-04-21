@@ -33,7 +33,7 @@ export function SettingsToggleRow({
       <span className="flex h-9 w-9 shrink-0 items-center justify-center text-sam-muted">
         {icon}
       </span>
-      <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{label}</span>
+      <span className="min-w-0 flex-1 sam-text-body text-sam-fg">{label}</span>
       <span
         role="switch"
         aria-checked={checked}

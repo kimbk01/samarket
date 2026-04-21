@@ -65,10 +65,10 @@ export function TradeSubtopicsPanel({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-[17px] font-semibold text-sam-fg">
+          <h2 className="sam-text-section-title font-semibold text-sam-fg">
             {onClose ? "주제(하위) 관리" : `「${parent.name}」 주제`}
           </h2>
-          <p className="mt-1 text-[13px] text-sam-muted">
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">
             이 메뉴를 탭했을 때 홈·마켓 상단 2행 칩·글쓰기 주제로 쓰입니다. 주제가 없으면 2행은 표시되지 않습니다.
           </p>
         </div>
@@ -76,7 +76,7 @@ export function TradeSubtopicsPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-ui-rect px-2 py-1 text-[14px] text-sam-muted hover:bg-sam-surface-muted"
+            className="rounded-ui-rect px-2 py-1 sam-text-body text-sam-muted hover:bg-sam-surface-muted"
             aria-label="닫기"
           >
             ✕
@@ -88,7 +88,7 @@ export function TradeSubtopicsPanel({
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-ui-rect bg-signature px-3 py-1.5 text-[13px] font-medium text-white hover:bg-signature/90"
+          className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white hover:bg-signature/90"
         >
           주제 추가
         </button>
@@ -96,10 +96,10 @@ export function TradeSubtopicsPanel({
 
       {siblings.length === 0 ? (
         <div className="space-y-3">
-          <p className="rounded-ui-rect border border-dashed border-sam-border py-6 text-center text-[14px] text-sam-muted">
+          <p className="rounded-ui-rect border border-dashed border-sam-border py-6 text-center sam-text-body text-sam-muted">
             아래에서 주제를 추가하면 목록이 여기 표시됩니다. 사용자 화면에서는 주제가 없으면 2행 칩이 나타나지 않습니다.
           </p>
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-900">
             <strong className="font-medium">주제를 저장했는데도 목록·표에 안 보이면</strong> Supabase <code className="rounded bg-amber-100 px-1">categories</code> 테이블에{" "}
             <code className="rounded bg-amber-100 px-1">parent_id</code> 컬럼이 있는지 확인하세요. 없으면 SQL Editor에서 마이그레이션(
             <code className="rounded bg-amber-100 px-1">ALTER TABLE … ADD parent_id</code>)을 실행해야 합니다.
@@ -107,7 +107,7 @@ export function TradeSubtopicsPanel({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[480px] border-collapse text-[14px]">
+          <table className="w-full min-w-[480px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
@@ -122,8 +122,8 @@ export function TradeSubtopicsPanel({
                 <tr key={c.id} className="border-b border-sam-border-soft">
                   <td className="px-3 py-2 text-sam-muted">{c.sort_order}</td>
                   <td className="px-3 py-2 font-medium text-sam-fg">{c.name}</td>
-                  <td className="px-3 py-2 text-[12px] text-sam-muted">{c.slug}</td>
-                  <td className="px-3 py-2 text-[13px] text-sam-muted">{c.is_active ? "사용" : "비활성"}</td>
+                  <td className="px-3 py-2 sam-text-helper text-sam-muted">{c.slug}</td>
+                  <td className="px-3 py-2 sam-text-body-secondary text-sam-muted">{c.is_active ? "사용" : "비활성"}</td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       <button
@@ -145,14 +145,14 @@ export function TradeSubtopicsPanel({
                       <button
                         type="button"
                         onClick={() => setEditingId(c.id)}
-                        className="rounded px-1.5 py-0.5 text-[12px] text-signature hover:bg-signature/10"
+                        className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                       >
                         수정
                       </button>
                       <button
                         type="button"
                         onClick={() => onDelete(c.id)}
-                        className="rounded px-1.5 py-0.5 text-[12px] text-red-600 hover:bg-red-50"
+                        className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                       >
                         삭제
                       </button>

@@ -52,34 +52,34 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
     <>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="min-w-0 truncate text-[15px] font-semibold text-sam-fg">
-            <span className="mr-1.5 rounded bg-signature/10 px-1.5 py-0.5 text-[11px] font-medium text-sam-fg">
+          <p className="min-w-0 truncate sam-text-body font-semibold text-sam-fg">
+            <span className="mr-1.5 rounded bg-signature/10 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
               {label}
             </span>
             {title}
           </p>
           {isStoreOrder ? (
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 sam-text-xxs font-semibold text-amber-900">
                 {t("nav_chat_order_status")}
               </span>
-              <span className="text-[12px] font-medium text-sam-fg">{statusSummary}</span>
+              <span className="sam-text-helper font-medium text-sam-fg">{statusSummary}</span>
             </div>
           ) : null}
         </div>
-        <time className="shrink-0 text-[12px] text-sam-meta">{formatChatTime(room.lastMessageAt)}</time>
+        <time className="shrink-0 sam-text-helper text-sam-meta">{formatChatTime(room.lastMessageAt)}</time>
       </div>
       {isStoreOrder ? (
         <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2.5">
-          <p className="text-[12px] font-medium text-sam-fg">{t("nav_chat_order_follow_notice")}</p>
-          <p className="mt-1 line-clamp-2 text-[12px] text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
+          <p className="sam-text-helper font-medium text-sam-fg">{t("nav_chat_order_follow_notice")}</p>
+          <p className="mt-1 line-clamp-2 sam-text-helper text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
         </div>
       ) : (
-        <p className="line-clamp-2 text-[14px] text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
+        <p className="line-clamp-2 sam-text-body text-sam-muted">{room.lastMessage || t("nav_chat_start_conversation")}</p>
       )}
       {product?.thumbnail || product?.title ? (
         <div className="flex gap-3 border-t border-sam-border-soft pt-2">
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-ig-highlight">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft">
             {product?.thumbnail ? (
               <img
                 src={product.thumbnail}
@@ -92,23 +92,23 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
                 fetchPriority="low"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">
+              <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
                 {t("common_image")}
               </div>
             )}
           </div>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">
+            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">
               {product?.title || title}
             </p>
             {subtitle ? (
-              <p className="mt-1 text-[12px] text-muted">{subtitle}</p>
+              <p className="mt-1 sam-text-helper text-muted">{subtitle}</p>
             ) : null}
             {isStoreOrder ? (
-              <p className="mt-2 text-[12px] font-medium text-signature">{t("nav_chat_continue_order_context")}</p>
+              <p className="mt-2 sam-text-helper font-medium text-signature">{t("nav_chat_continue_order_context")}</p>
             ) : null}
             {(kind === "group" || kind === "open_chat") && typeof room.memberCount === "number" ? (
-              <p className="mt-2 text-[12px] font-medium text-signature">
+              <p className="mt-2 sam-text-helper font-medium text-signature">
                 {kind === "open_chat" ? t("nav_chat_participants") : t("nav_chat_members")}{" "}
                 {t("nav_chat_count_people", { count: room.memberCount })}
               </p>
@@ -117,10 +117,10 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
         </div>
       ) : null}
       {!product?.thumbnail && !product?.title && subtitle ? (
-        <p className="truncate text-[12px] text-muted">{subtitle}</p>
+        <p className="truncate sam-text-helper text-muted">{subtitle}</p>
       ) : null}
       {!product?.thumbnail && !subtitle && product?.title ? (
-        <p className="truncate text-[12px] text-muted">{product.title}</p>
+        <p className="truncate sam-text-helper text-muted">{product.title}</p>
       ) : null}
     </>
   );
@@ -130,7 +130,7 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       className={`relative flex flex-col gap-2 overflow-visible transition-shadow hover:shadow-[0_3px_8px_rgba(0,0,0,0.12)] ${APP_FEED_LIST_CARD_SHELL}`}
     >
       {room.unreadCount > 0 && (
-        <span className="absolute right-11 top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-sam-surface">
+        <span className="absolute right-11 top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white shadow-sm ring-2 ring-sam-surface">
           {room.unreadCount > 99 ? "99+" : room.unreadCount}
         </span>
       )}

@@ -39,10 +39,10 @@ export function OwnerLiteStoreBar() {
         className={`flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
       >
         <div className="min-w-0 flex-1 shrink">
-          <p className="truncate text-[13px] font-semibold text-sam-fg">
+          <p className="truncate sam-text-body-secondary font-semibold text-sam-fg">
             {ownerStore.store_name || t("nav_store_name_fallback")}
           </p>
-          <p className="truncate text-[11px] text-sam-fg">
+          <p className="truncate sam-text-xxs text-sam-fg">
             {formatStoreApprovalStatusKo(ownerStore.approval_status)}
             {!isStorePubliclyListed(ownerStore) ? t("nav_store_hidden_hint") : ""}
           </p>
@@ -74,7 +74,7 @@ export function OwnerLiteStoreBar() {
             onClick={(e) => {
               if (openBlockedModalIfNeeded()) e.preventDefault();
             }}
-            className="inline-flex min-h-[36px] items-center rounded-full border border-sam-surface/80 bg-sam-surface/60 px-3 text-[12px] font-medium text-sam-fg"
+            className="inline-flex min-h-[36px] items-center rounded-full border border-sam-surface/80 bg-sam-surface/60 px-3 sam-text-helper font-medium text-sam-fg"
           >
             전체
           </Link>
@@ -101,7 +101,7 @@ function ShortcutLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`inline-flex min-h-[36px] items-center rounded-full px-3 text-[12px] font-semibold ${
+      className={`inline-flex min-h-[36px] items-center rounded-full px-3 sam-text-helper font-semibold ${
         strong
           ? "bg-sam-ink text-white shadow-sm"
           : "border border-sam-surface/80 bg-sam-surface/80 text-sam-fg"
@@ -110,7 +110,7 @@ function ShortcutLink({
       <span>{label}</span>
       {badge && badge > 0 ? (
         <span
-          className={`ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${
+          className={`ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 sam-text-xxs font-bold ${
             strong ? "bg-sam-surface/20 text-white" : "bg-red-600 text-white"
           }`}
         >

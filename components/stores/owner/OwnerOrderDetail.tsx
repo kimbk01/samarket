@@ -50,7 +50,7 @@ export function OwnerOrderDetail({
           >
             ← 목록
           </HistoryBackTextLink>
-          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold text-sam-fg">
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body font-bold text-sam-fg">
             {order.order_no}
           </h1>
           <OwnerOrderChatShortcut />
@@ -71,7 +71,7 @@ export function OwnerOrderDetail({
         {order.community_messenger_room_id ? (
           <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
             <h2 className="text-sm font-bold text-sam-fg">{t("nav_store_order_messenger_section_title")}</h2>
-            <p className="mt-1 text-[11px] leading-relaxed text-sam-muted">{t("nav_store_order_messenger_section_hint")}</p>
+            <p className="mt-1 sam-text-xxs leading-relaxed text-sam-muted">{t("nav_store_order_messenger_section_hint")}</p>
             <div className="mt-3">
               <StoreOrderMessengerDeepLink
                 roomId={order.community_messenger_room_id}
@@ -123,7 +123,7 @@ export function OwnerOrderDetail({
                 {order.buyer_phone_tel_href ? (
                   <a
                     href={order.buyer_phone_tel_href}
-                    className="rounded-full border border-signature/30 bg-signature/10 px-3 py-1 text-[12px] font-semibold text-signature no-underline"
+                    className="rounded-full border border-signature/30 bg-signature/10 px-3 py-1 sam-text-helper font-semibold text-signature no-underline"
                   >
                     전화 문의
                   </a>
@@ -144,7 +144,7 @@ export function OwnerOrderDetail({
                   <div className="mt-3">
                     <dt className="text-sam-muted">배달 업체(안내)</dt>
                     <dd className="mt-1 text-sam-fg">{order.delivery_courier_label.trim()}</dd>
-                    <p className="mt-1 text-[11px] text-sam-muted">
+                    <p className="mt-1 sam-text-xxs text-sam-muted">
                       안내 문구이며, 상품·배달비 합계와 별도로 청구되지 않습니다.
                     </p>
                   </div>

@@ -17,9 +17,9 @@ export function StorePublicNoticesList({ lines, className = "" }: Props) {
       {lines.map((text, i) => (
         <div
           key={i}
-          className="flex gap-2.5 rounded-ui-rect border border-sam-border bg-sam-app/90 px-3 py-3 text-[13px] leading-relaxed text-sam-fg"
+          className="flex gap-2.5 rounded-ui-rect border border-sam-border bg-sam-app/90 px-3 py-3 sam-text-body-secondary leading-relaxed text-sam-fg"
         >
-          <span className="shrink-0 text-[12px] font-bold tracking-tight text-sam-muted">공지</span>
+          <span className="shrink-0 sam-text-helper font-bold tracking-tight text-sam-muted">공지</span>
           <p className="min-w-0 flex-1 whitespace-pre-wrap">{text}</p>
         </div>
       ))}

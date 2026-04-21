@@ -20,7 +20,7 @@ export function SettingsDangerRow({ href, icon, label, danger = true }: Settings
       <span className="flex h-9 w-9 shrink-0 items-center justify-center text-current opacity-80">
         {icon}
       </span>
-      <span className="min-w-0 flex-1 text-[15px]">{label}</span>
+      <span className="min-w-0 flex-1 sam-text-body">{label}</span>
       <ChevronRight />
     </Link>
   );

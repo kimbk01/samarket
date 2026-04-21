@@ -83,7 +83,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-bold text-sam-fg">{r.buyer_name}</p>
                       {issue ? (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">
                           확인
                         </span>
                       ) : null}

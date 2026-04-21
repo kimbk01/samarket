@@ -117,7 +117,7 @@ export function AdminPointPolicyPage() {
             key={t.id}
             type="button"
             onClick={() => setActiveTab(t.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === t.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
@@ -138,7 +138,7 @@ export function AdminPointPolicyPage() {
                   setSelectedPolicyId(null);
                   setShowBoardForm(true);
                 }}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-app"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
               >
                 정책 추가
               </button>
@@ -173,7 +173,7 @@ export function AdminPointPolicyPage() {
       {activeTab === "probability" && (
         <AdminCard title="확률 구간 (확률형 정책용)">
           <div className="mb-3">
-            <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
               정책 선택
             </label>
             <select
@@ -181,7 +181,7 @@ export function AdminPointPolicyPage() {
               onChange={(e) =>
                 setSelectedPolicyId(e.target.value || null)
               }
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">선택</option>
               {policies
@@ -227,7 +227,7 @@ export function AdminPointPolicyPage() {
                   setEditingEventId(null);
                   setShowEventForm(true);
                 }}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-app"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
               >
                 이벤트 추가
               </button>

@@ -143,7 +143,7 @@ export function MapPicker({
           aria-hidden
         >
           <div className="relative flex flex-col items-center">
-            <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 text-[12px] font-medium text-white shadow-md">
+            <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 sam-text-helper font-medium text-white shadow-md">
               여기로 선택
             </span>
             <svg width="40" height="48" viewBox="0 0 40 48" className="text-signature drop-shadow-md" aria-hidden>

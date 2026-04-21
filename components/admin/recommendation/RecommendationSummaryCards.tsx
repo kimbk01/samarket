@@ -30,22 +30,22 @@ export function RecommendationSummaryCards({
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="text-[12px] text-sam-muted">총 노출</p>
-        <p className="text-[20px] font-semibold text-sam-fg">{totalImpressions}</p>
+        <p className="sam-text-helper text-sam-muted">총 노출</p>
+        <p className="sam-text-page-title font-semibold text-sam-fg">{totalImpressions}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="text-[12px] text-sam-muted">총 클릭</p>
-        <p className="text-[20px] font-semibold text-sam-fg">{totalClicks}</p>
+        <p className="sam-text-helper text-sam-muted">총 클릭</p>
+        <p className="sam-text-page-title font-semibold text-sam-fg">{totalClicks}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="text-[12px] text-sam-muted">CTR</p>
-        <p className="text-[20px] font-semibold text-sam-fg">
+        <p className="sam-text-helper text-sam-muted">CTR</p>
+        <p className="sam-text-page-title font-semibold text-sam-fg">
           {(overallCtr * 100).toFixed(2)}%
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="text-[12px] text-sam-muted">전환률</p>
-        <p className="text-[20px] font-semibold text-sam-fg">
+        <p className="sam-text-helper text-sam-muted">전환률</p>
+        <p className="sam-text-page-title font-semibold text-sam-fg">
           {(overallCvr * 100).toFixed(2)}%
         </p>
       </div>
@@ -54,10 +54,10 @@ export function RecommendationSummaryCards({
           key={surface}
           className="rounded-ui-rect border border-sam-border bg-sam-app p-4 sm:col-span-2"
         >
-          <p className="text-[14px] font-medium text-sam-fg">
+          <p className="sam-text-body font-medium text-sam-fg">
             {surfaceLabels[surface] ?? surface} · 섹션별 성과
           </p>
-          <ul className="mt-2 space-y-1 text-[13px] text-sam-fg">
+          <ul className="mt-2 space-y-1 sam-text-body-secondary text-sam-fg">
             {list.slice(0, 5).map((s) => (
               <li key={s.id}>
                 {s.sectionKey}: 노출 {s.impressionCount} / 클릭 {s.clickCount} (CTR {(s.ctr * 100).toFixed(1)}%) · 대표 사유: {s.topReason}

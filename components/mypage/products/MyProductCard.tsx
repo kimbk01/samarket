@@ -56,7 +56,7 @@ export function MyProductCard({
               <div className="h-full w-full bg-sam-border-soft" />
             )}
             {product.isBoosted && (
-              <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 text-[10px] font-medium text-white">
+              <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
                 끌올
               </span>
             )}
@@ -81,7 +81,7 @@ export function MyProductCard({
                 </p>
               </div>
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-signature">
+            <p className="mt-1 sam-text-xxs leading-snug text-signature">
               아래에서 구매자별 거래완료를 바로 처리할 수 있어요.
             </p>
           </div>

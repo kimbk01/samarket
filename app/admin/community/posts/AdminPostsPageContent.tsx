@@ -287,7 +287,7 @@ export function AdminPostsPageContent() {
         <button
           type="button"
           onClick={() => setTab("community")}
-          className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
+          className={`rounded-ui-rect px-3 py-2 sam-text-body font-medium ${
             tab === "community"
               ? "bg-signature text-white"
               : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
@@ -298,7 +298,7 @@ export function AdminPostsPageContent() {
         <button
           type="button"
           onClick={() => setTab("trade")}
-          className={`rounded-ui-rect px-3 py-2 text-[14px] font-medium ${
+          className={`rounded-ui-rect px-3 py-2 sam-text-body font-medium ${
             tab === "trade"
               ? "bg-signature text-white"
               : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
@@ -309,13 +309,13 @@ export function AdminPostsPageContent() {
       </div>
 
       {actionMsg ? (
-        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900">
+        <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">
           {actionMsg}
         </div>
       ) : null}
 
       {tab === "community" ? (
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           <code className="rounded bg-sam-surface-muted px-1">community_posts</code> 기준 목록입니다. 앱{" "}
           <Link href="/philife" className="text-signature hover:underline">
             /philife
@@ -325,7 +325,7 @@ export function AdminPostsPageContent() {
           <strong>선택 후 DB 삭제</strong>는 행을 영구 제거합니다.
         </p>
       ) : (
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           <strong className="font-semibold text-sam-fg">거래 마켓 글</strong>은{" "}
           <code className="rounded bg-sam-surface-muted px-1">posts</code> 테이블이며 필라이프 피드와{" "}
           <strong className="font-semibold text-sam-fg">별도</strong>입니다. 커뮤니티 글은 위의「동네·커뮤니티」탭을
@@ -335,14 +335,14 @@ export function AdminPostsPageContent() {
 
       {tab === "community" && !loading && communityRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="text-[13px] text-sam-fg">
+          <span className="sam-text-body-secondary text-sam-fg">
             선택 <strong>{selectedCommunity.size}</strong>개
           </span>
           <button
             type="button"
             disabled={bulkBusy || selectedCommunity.size === 0}
             onClick={() => void bulkDeleteCommunity()}
-            className="rounded-ui-rect bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
           >
             선택 항목 DB에서 영구 삭제
           </button>
@@ -351,14 +351,14 @@ export function AdminPostsPageContent() {
 
       {tab === "trade" && !loading && posts.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="text-[13px] text-sam-fg">
+          <span className="sam-text-body-secondary text-sam-fg">
             선택 <strong>{selectedTrade.size}</strong>개
           </span>
           <button
             type="button"
             disabled={bulkBusy || selectedTrade.size === 0}
             onClick={() => void bulkDeleteTrade()}
-            className="rounded-ui-rect bg-red-600 px-3 py-1.5 text-[13px] font-medium text-white disabled:opacity-40"
+            className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
           >
             선택 항목 DB에서 영구 삭제
           </button>
@@ -366,15 +366,15 @@ export function AdminPostsPageContent() {
       ) : null}
 
       {loading ? (
-        <div className="py-12 text-center text-[14px] text-sam-muted">불러오는 중…</div>
+        <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중…</div>
       ) : tab === "trade" ? (
         posts.length === 0 ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
             게시글이 없습니다.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-            <table className="w-full text-left text-[14px]">
+            <table className="w-full text-left sam-text-body">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app">
                   <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
@@ -419,7 +419,7 @@ export function AdminPostsPageContent() {
                         onChange={(e) =>
                           handleStatusChange(p.id, e.target.value as PostWithMeta["status"])
                         }
-                        className="rounded border border-sam-border px-2 py-1 text-[13px]"
+                        className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                       >
                         {STATUS_OPTIONS.map((o) => (
                           <option key={o.value} value={o.value}>
@@ -433,7 +433,7 @@ export function AdminPostsPageContent() {
                       <button
                         type="button"
                         onClick={() => handleStatusChange(p.id, "hidden")}
-                        className="text-[13px] text-red-600 hover:underline"
+                        className="sam-text-body-secondary text-red-600 hover:underline"
                       >
                         숨김
                       </button>
@@ -447,17 +447,17 @@ export function AdminPostsPageContent() {
       ) : (
         <>
           {communityErr ? (
-            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
               {communityErr}
             </div>
           ) : null}
           {communityRows.length === 0 && !communityErr ? (
-            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
               동네·커뮤니티 글이 없습니다.
             </div>
           ) : communityRows.length > 0 ? (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-              <table className="w-full min-w-[760px] text-left text-[14px]">
+              <table className="w-full min-w-[760px] text-left sam-text-body">
                 <thead>
                   <tr className="border-b border-sam-border bg-sam-app">
                     <th className="w-10 px-2 py-2 text-center font-medium text-sam-fg">
@@ -504,7 +504,7 @@ export function AdminPostsPageContent() {
                             {String(r.title ?? "(제목 없음)")}
                           </Link>
                           {r.is_sample_data === true ? (
-                            <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] text-amber-900">
+                            <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
                               샘플
                             </span>
                           ) : null}
@@ -521,7 +521,7 @@ export function AdminPostsPageContent() {
                             value={String(r.status ?? "active")}
                             disabled={busy || bulkBusy}
                             onChange={(e) => void patchCommunityPost(id, e.target.value)}
-                            className="max-w-[7rem] rounded border border-sam-border px-2 py-1 text-[13px]"
+                            className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                           >
                             {COMMUNITY_STATUS_OPTIONS.map((o) => (
                               <option key={o.value} value={o.value}>
@@ -530,7 +530,7 @@ export function AdminPostsPageContent() {
                             ))}
                           </select>
                         </td>
-                        <td className="p-3 text-center text-[13px]">
+                        <td className="p-3 text-center sam-text-body-secondary">
                           {r.is_reported === true ? (
                             <span className="rounded bg-amber-100 px-1.5 text-amber-900">Y</span>
                           ) : (
@@ -546,7 +546,7 @@ export function AdminPostsPageContent() {
                               type="button"
                               disabled={busy || bulkBusy}
                               onClick={() => void patchCommunityPost(id, "hidden")}
-                              className="text-[12px] text-amber-700 hover:underline"
+                              className="sam-text-helper text-amber-700 hover:underline"
                             >
                               숨김
                             </button>
@@ -554,7 +554,7 @@ export function AdminPostsPageContent() {
                               type="button"
                               disabled={busy || bulkBusy}
                               onClick={() => void patchCommunityPost(id, "deleted")}
-                              className="text-[12px] text-red-600 hover:underline"
+                              className="sam-text-helper text-red-600 hover:underline"
                             >
                               삭제
                             </button>
@@ -562,7 +562,7 @@ export function AdminPostsPageContent() {
                               type="button"
                               disabled={busy || bulkBusy}
                               onClick={() => void patchCommunityPost(id, "active")}
-                              className="text-[12px] text-emerald-700 hover:underline"
+                              className="sam-text-helper text-emerald-700 hover:underline"
                             >
                               복구
                             </button>

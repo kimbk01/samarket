@@ -40,8 +40,8 @@ function SoundFieldRow({
   return (
     <div className="space-y-2 border-b border-ui-border py-3 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[14px] font-medium text-ui-fg">{label}</span>
-        <label className="flex items-center gap-2 text-[13px] text-ui-muted">
+        <span className="sam-text-body font-medium text-ui-fg">{label}</span>
+        <label className="flex items-center gap-2 sam-text-body-secondary text-ui-muted">
           사용
           <input
             type="checkbox"
@@ -54,13 +54,13 @@ function SoundFieldRow({
         type="url"
         value={url}
         placeholder="https://… (스토리지 공개 URL)"
-        className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 text-[13px] text-ui-fg"
+        className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary text-ui-fg"
         onChange={(e) => onPatch({ [urlKey]: e.target.value || null })}
       />
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover"
+          className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover"
           disabled={!url.trim()}
           onClick={() => onTest(url.trim())}
         >
@@ -68,7 +68,7 @@ function SoundFieldRow({
         </button>
         <button
           type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
+          className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
           onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
           title="URL을 비우고 이 사운드 사용을 기본(켜짐)으로 되돌립니다."
         >
@@ -85,7 +85,7 @@ function SoundFieldRow({
             />
             <button
               type="button"
-              className="rounded-ui-rect border border-ui-border px-3 py-1 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
@@ -123,7 +123,7 @@ function DefaultFallbackSoundField({
 
   return (
     <div className="space-y-2 py-3">
-      <label className="flex items-center justify-between gap-3 text-[14px]">
+      <label className="flex items-center justify-between gap-3 sam-text-body">
         <span>관리자 커스텀 사운드 사용</span>
         <input
           type="checkbox"
@@ -131,20 +131,20 @@ function DefaultFallbackSoundField({
           onChange={(e) => onPatch({ use_custom_sounds: e.target.checked })}
         />
       </label>
-      <p className="text-[12px] text-ui-muted">끄면 아래 기본 폴백 URL만 사용합니다(없으면 앱 기본음).</p>
-      <p className="text-[13px] font-medium text-ui-fg">기본 폴백 URL</p>
+      <p className="sam-text-helper text-ui-muted">끄면 아래 기본 폴백 URL만 사용합니다(없으면 앱 기본음).</p>
+      <p className="sam-text-body-secondary font-medium text-ui-fg">기본 폴백 URL</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <input
           type="url"
           value={url}
           placeholder="선택"
-          className="min-w-0 flex-1 rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 text-[13px]"
+          className="min-w-0 flex-1 rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary"
           onChange={(e) => onPatch({ default_fallback_sound_url: e.target.value || null })}
         />
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
             disabled={!url.trim()}
             onClick={() => onTest(url.trim())}
           >
@@ -159,7 +159,7 @@ function DefaultFallbackSoundField({
           />
           <button
             type="button"
-            className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[12px] text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+            className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
             disabled={uploading}
             onClick={() => fileRef.current?.click()}
           >
@@ -268,19 +268,19 @@ export function AdminMessengerCallSoundsSection() {
 
   if (loading) {
     return (
-      <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-4 text-[13px] text-ui-muted">통화 사운드 설정 불러오는 중…</div>
+      <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-4 sam-text-body-secondary text-ui-muted">통화 사운드 설정 불러오는 중…</div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <h2 className="text-[16px] font-semibold text-ui-fg">통화 알림음 설정</h2>
-      <p className="text-[13px] text-ui-muted">
+      <h2 className="sam-text-body-lg font-semibold text-ui-fg">통화 알림음 설정</h2>
+      <p className="sam-text-body-secondary text-ui-muted">
         음성·영상 통화의 수신 벨, 발신 연결음(링백), 부재중 알림, 통화 종료음을 분리해 설정합니다. 비워 두면 기본 알림음으로 폴백되고, 나중에 파일 업로드로
         바로 교체할 수 있습니다.
       </p>
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">{err}</div>
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{err}</div>
       ) : null}
 
       <AdminCard title="음성 통화">
@@ -353,7 +353,7 @@ export function AdminMessengerCallSoundsSection() {
       </AdminCard>
 
       <AdminCard title="통화 정책(링·수신·서버)">
-        <div className="space-y-3 py-2 text-[13px] text-ui-fg">
+        <div className="space-y-3 py-2 sam-text-body-secondary text-ui-fg">
           <label className="flex flex-col gap-1">
             <span className="text-ui-muted">수신 링 최대 길이(초) — 클라이언트 남은 시간 표시</span>
             <input
@@ -410,7 +410,7 @@ export function AdminMessengerCallSoundsSection() {
       <button
         type="button"
         disabled={saving || !row}
-        className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+        className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         onClick={() => void save()}
       >
         {saving ? "저장 중…" : "통화 사운드 저장"}

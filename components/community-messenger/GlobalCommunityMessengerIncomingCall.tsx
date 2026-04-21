@@ -959,12 +959,12 @@ export function GlobalCommunityMessengerIncomingCall() {
           className="pointer-events-auto fixed inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] z-[61] px-3"
           role="alert"
         >
-          <div className="rounded-ui-rect border border-sam-border bg-sam-ink/95 px-3 py-2.5 text-[13px] text-white shadow-lg backdrop-blur-sm">
+          <div className="rounded-ui-rect border border-sam-border bg-sam-ink/95 px-3 py-2.5 sam-text-body-secondary text-white shadow-sam-elevated backdrop-blur-sm">
             <p className="leading-snug">{incomingListError}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
-                className="rounded-ui-rect bg-white/15 px-3 py-1.5 text-[12px] font-semibold text-white active:bg-white/25"
+                className="rounded-ui-rect bg-white/15 px-3 py-1.5 sam-text-helper font-semibold text-white active:bg-white/25"
                 onClick={() => {
                   setIncomingListError(null);
                   void refresh(true);
@@ -974,7 +974,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               </button>
               <button
                 type="button"
-                className="rounded-ui-rect px-3 py-1.5 text-[12px] font-medium text-white/75 underline-offset-2 active:text-white"
+                className="rounded-ui-rect px-3 py-1.5 sam-text-helper font-medium text-white/75 underline-offset-2 active:text-white"
                 onClick={() => setIncomingListError(null)}
               >
                 닫기

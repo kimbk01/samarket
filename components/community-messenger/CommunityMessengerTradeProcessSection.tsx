@@ -195,7 +195,7 @@ export function CommunityMessengerTradeProcessSection({
 
   if (loading) {
     return (
-      <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 text-[12px] text-[color:var(--cm-room-text-muted)]">
+      <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">
         거래 정보를 불러오는 중…
       </div>
     );
@@ -203,7 +203,7 @@ export function CommunityMessengerTradeProcessSection({
 
   if (loadError || !room) {
     return (
-      <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 text-[12px] text-amber-900">
+      <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper text-amber-900">
         {loadError ?? "거래 정보를 표시할 수 없습니다."}
       </div>
     );

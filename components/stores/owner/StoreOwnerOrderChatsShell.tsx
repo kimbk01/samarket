@@ -139,7 +139,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <AppBackButton backHref={ordersHref} />
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-sam-fg">
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">
             주문 채팅
           </h1>
           <span className="w-10" />

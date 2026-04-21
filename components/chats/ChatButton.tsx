@@ -99,7 +99,7 @@ export function ChatButton({
           });
         }}
         disabled={disabled}
-        className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 text-[14px] font-medium text-white disabled:opacity-50"}
+        className={className ?? "rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white disabled:opacity-50"}
       >
         {label}
       </button>

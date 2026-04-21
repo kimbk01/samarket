@@ -148,7 +148,7 @@ export function PostListMenuBottomSheet({
           {showOwnerTradeActions ? (
             <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 p-2">
               {showLockBanner ? (
-                <div className="space-y-1 px-3 py-2 text-[12px] leading-snug text-amber-800">
+                <div className="space-y-1 px-3 py-2 sam-text-helper leading-snug text-amber-800">
                   {editLocked ? <p>{ownerEditLockHint || ownerEditDeleteLockHint}</p> : null}
                   {deleteLocked ? <p>{ownerDeleteLockHint || ownerEditDeleteLockHint}</p> : null}
                 </div>
@@ -157,7 +157,7 @@ export function PostListMenuBottomSheet({
                 type="button"
                 disabled={editLocked}
                 onClick={() => !editLocked && handle("edit_own")}
-                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-sam-fg hover:bg-sam-surface disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <IconPencil className="h-5 w-5 text-sam-muted" />
                 수정
@@ -166,7 +166,7 @@ export function PostListMenuBottomSheet({
                 type="button"
                 disabled={deleteLocked}
                 onClick={confirmDeleteOwn}
-                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
+                className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <IconTrash className="h-5 w-5 text-red-500" />
                 삭제
@@ -178,7 +178,7 @@ export function PostListMenuBottomSheet({
             <button
               type="button"
               onClick={() => handle("interest")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-sam-fg hover:bg-sam-surface"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
             >
               <IconPlusCircle className="h-5 w-5 text-sam-muted" />
               관심 있음
@@ -186,7 +186,7 @@ export function PostListMenuBottomSheet({
             <button
               type="button"
               onClick={() => handle("not_interest")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-sam-fg hover:bg-sam-surface"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
             >
               <IconMinusCircle className="h-5 w-5 text-sam-muted" />
               관심 없음
@@ -197,7 +197,7 @@ export function PostListMenuBottomSheet({
             <button
               type="button"
               onClick={() => handle("hide")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-sam-fg hover:bg-sam-surface"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
             >
               <IconEyeSlash className="h-5 w-5 text-sam-muted" />
               이 글 숨기기
@@ -205,7 +205,7 @@ export function PostListMenuBottomSheet({
             <button
               type="button"
               onClick={() => handle("exposure_criteria")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-sam-fg hover:bg-sam-surface"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface"
             >
               <IconQuestionCircle className="h-5 w-5 text-sam-muted" />
               게시글 노출 기준
@@ -213,7 +213,7 @@ export function PostListMenuBottomSheet({
             <button
               type="button"
               onClick={() => handle("report")}
-              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left text-[15px] text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50"
             >
               <IconReport className="h-5 w-5 text-red-500" />
               신고하기
@@ -223,7 +223,7 @@ export function PostListMenuBottomSheet({
           <button
             type="button"
             onClick={onClose}
-            className="w-full rounded-ui-rect bg-sam-surface-muted py-3.5 text-[15px] font-medium text-sam-fg hover:bg-sam-border-soft"
+            className="w-full rounded-ui-rect bg-sam-surface-muted py-3.5 sam-text-body font-medium text-sam-fg hover:bg-sam-border-soft"
           >
             닫기
           </button>

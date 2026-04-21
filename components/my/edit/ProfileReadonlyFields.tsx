@@ -14,8 +14,8 @@ export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
 
   return (
     <div className="space-y-3 rounded-ui-rect bg-sam-app p-3">
-      <p className="text-[12px] font-medium text-sam-muted">읽기 전용</p>
-      <div className="grid gap-2 text-[14px]">
+      <p className="sam-text-helper font-medium text-sam-muted">읽기 전용</p>
+      <div className="grid gap-2 sam-text-body">
         <div className="flex justify-between">
           <span className="text-sam-muted">이메일</span>
           <span className="text-sam-fg">{profile.email ?? "-"}</span>

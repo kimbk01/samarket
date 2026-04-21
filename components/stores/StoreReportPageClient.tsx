@@ -24,7 +24,7 @@ export function StoreReportPageClient({
   return (
     <div className="min-h-screen bg-[#F7F7F7]">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
-        <h1 className="truncate text-center text-[16px] font-semibold text-sam-fg">
+        <h1 className="truncate text-center sam-text-body-lg font-semibold text-sam-fg">
           {mode === "product" ? "상품 신고" : "매장 신고"}
         </h1>
       </header>

@@ -294,12 +294,12 @@ export function OrderChatRoomClient({
       <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <AppBackButton backHref={backHref} />
-          <h1 className="min-w-0 flex-1 truncate text-center text-[15px] font-bold">주문 채팅</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body font-bold">주문 채팅</h1>
           <span className="w-10" />
         </div>
         <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref ?? "/my/store-orders"} />
         {state.role === "buyer" ? (
-          <p className="border-t border-sam-border-soft bg-sam-app px-4 py-2 text-center text-[11px] leading-relaxed text-sam-muted">
+          <p className="border-t border-sam-border-soft bg-sam-app px-4 py-2 text-center sam-text-xxs leading-relaxed text-sam-muted">
             {t("member_order_chat_notice")}
           </p>
         ) : null}
@@ -330,7 +330,7 @@ export function OrderChatRoomClient({
                   }
                 })();
               }}
-              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+              className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
             >
               {messengerOpenBusy ? t("nav_messenger_order_bridge_busy") : t("nav_messenger_open_store_order")}
             </button>

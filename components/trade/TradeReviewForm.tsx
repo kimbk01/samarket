@@ -100,12 +100,12 @@ export function TradeReviewForm({
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pt-2 pb-2">
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         <strong>{revieweeLabel}</strong>님에 대한 거래 후기 (1회)
       </p>
 
       <div className="mt-3">
-        <p className="mb-2 text-[13px] font-medium text-sam-fg">총평</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">총평</p>
         <div className="flex flex-wrap gap-2">
           {PUBLIC_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex cursor-pointer items-center gap-1.5">
@@ -117,21 +117,21 @@ export function TradeReviewForm({
                 onChange={() => setPublicType(opt.value)}
                 className="rounded border-sam-border"
               />
-              <span className="text-[13px] text-sam-fg">{opt.label}</span>
+              <span className="sam-text-body-secondary text-sam-fg">{opt.label}</span>
             </label>
           ))}
         </div>
       </div>
 
       <div className="mt-3">
-        <p className="mb-1.5 text-[12px] font-medium text-sam-fg">긍정 항목 (복수)</p>
+        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">긍정 항목 (복수)</p>
         <div className="flex flex-wrap gap-2">
           {posOpts.map((o) => (
             <button
               key={o.key}
               type="button"
               onClick={() => toggle(pos, o.key, setPos)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] ${
+              className={`rounded-full border px-2.5 py-1 sam-text-xxs ${
                 pos.has(o.key)
                   ? "border-signature bg-signature/5 text-sam-fg"
                   : "border-sam-border bg-sam-surface text-sam-fg"
@@ -144,14 +144,14 @@ export function TradeReviewForm({
       </div>
 
       <div className="mt-3">
-        <p className="mb-1.5 text-[12px] font-medium text-sam-fg">부정 항목 (복수, 상대에게 일부 비공개)</p>
+        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">부정 항목 (복수, 상대에게 일부 비공개)</p>
         <div className="flex flex-wrap gap-2">
           {negOpts.map((o) => (
             <button
               key={o.key}
               type="button"
               onClick={() => toggle(neg, o.key, setNeg)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] ${
+              className={`rounded-full border px-2.5 py-1 sam-text-xxs ${
                 neg.has(o.key)
                   ? "border-amber-500 bg-amber-50 text-amber-900"
                   : "border-sam-border bg-sam-surface text-sam-fg"
@@ -164,12 +164,12 @@ export function TradeReviewForm({
       </div>
 
       <div className="mt-3">
-        <label className="text-[12px] font-medium text-sam-fg">한줄 코멘트 (선택)</label>
+        <label className="sam-text-helper font-medium text-sam-fg">한줄 코멘트 (선택)</label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value.slice(0, 200))}
           rows={2}
-          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[13px]"
+          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body-secondary"
           placeholder="짧게 남겨 주세요"
         />
       </div>
@@ -182,25 +182,25 @@ export function TradeReviewForm({
             onChange={(e) => setAnonymousNegative(e.target.checked)}
             className="rounded border-sam-border"
           />
-          <span className="text-[12px] text-sam-muted">부정 평가는 상대에게 익명으로 표시</span>
+          <span className="sam-text-helper text-sam-muted">부정 평가는 상대에게 익명으로 표시</span>
         </label>
       )}
       </div>
 
       <div className="shrink-0 border-t border-sam-border-soft bg-sam-surface px-4 py-3 shadow-[0_-4px_14px_rgba(0,0,0,0.06)] safe-area-pb">
-        {error ? <p className="mb-2 text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className="mb-2 sam-text-body-secondary text-red-600">{error}</p> : null}
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
+            className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+            className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
           >
             {loading ? "등록 중..." : "후기 등록"}
           </button>

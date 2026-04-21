@@ -213,7 +213,7 @@ function AnchoredAction({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2 text-left text-[14px] font-semibold last:border-b-0 disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
+      className="flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-[color:var(--messenger-divider)] px-3 py-2 text-left sam-text-body font-semibold last:border-b-0 disabled:opacity-40 active:bg-[color:var(--messenger-primary-soft)]"
       style={{ color: "var(--messenger-text)" }}
     >
       <span className="min-w-0 flex-1 truncate">{label}</span>

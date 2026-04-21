@@ -61,7 +61,7 @@ export function CategoryDragList({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center sam-text-body text-sam-muted">
         등록된 카테고리가 없습니다.
       </div>
     );
@@ -85,16 +85,16 @@ export function CategoryDragList({
           <span className="cursor-grab text-sam-meta" aria-label="드래그">
             ⋮⋮
           </span>
-          <span className="w-8 text-[13px] text-sam-muted">{c.sort_order + 1}</span>
+          <span className="w-8 sam-text-body-secondary text-sam-muted">{c.sort_order + 1}</span>
           <span className="min-w-[100px] font-medium text-sam-fg">{c.name}</span>
-          <span className="text-[13px] text-sam-muted">{c.slug}</span>
-          <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-muted">
+          <span className="sam-text-body-secondary text-sam-muted">{c.slug}</span>
+          <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
             {CATEGORY_TYPE_LABELS[c.type]}
           </span>
           <button
             type="button"
             onClick={() => onToggleActive(c.id)}
-            className={`rounded px-2 py-1 text-[12px] font-medium ${
+            className={`rounded px-2 py-1 sam-text-helper font-medium ${
               c.is_active ? "bg-green-100 text-green-800" : "bg-sam-border-soft text-sam-muted"
             }`}
           >
@@ -103,7 +103,7 @@ export function CategoryDragList({
           <button
             type="button"
             onClick={() => onEdit(c.id)}
-            className="ml-auto text-[13px] text-signature"
+            className="ml-auto sam-text-body-secondary text-signature"
           >
             수정
           </button>

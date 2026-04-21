@@ -31,13 +31,13 @@ export function IncomingCallView({
           aria-label="통화 창 최소화"
         >
           <ChevronDown size={28} strokeWidth={2} className="-mb-0.5" />
-          <span className="text-[11px] font-medium tracking-wide">내리기</span>
+          <span className="sam-text-xxs font-medium tracking-wide">내리기</span>
         </button>
       </div>
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
         <div className={`flex flex-col items-center ${dockTop ? "mt-0" : "-mt-[10vh]"}`}>
-          <div className="flex items-center gap-1.5 text-[15px] font-semibold text-white/72">
+          <div className="flex items-center gap-1.5 sam-text-body font-semibold text-white/72">
             {vm.mode === "video" ? (
               <Video size={16} className="opacity-80" />
             ) : (
@@ -45,10 +45,10 @@ export function IncomingCallView({
             )}
             <span>{callKindLine}</span>
           </div>
-          <h2 className="mt-2 text-center text-[26px] font-bold tracking-tight text-white">{peerName}</h2>
+          <h2 className="mt-2 text-center sam-text-hero font-bold tracking-tight text-white">{peerName}</h2>
         </div>
         {vm.subStatusText ? (
-          <p className="mt-4 max-w-[300px] text-center text-[13px] leading-snug text-white/68">{vm.subStatusText}</p>
+          <p className="mt-4 max-w-[300px] text-center sam-text-body-secondary leading-snug text-white/68">{vm.subStatusText}</p>
         ) : null}
 
         <div className="mt-auto flex w-full max-w-[360px] items-center justify-between pb-[max(4px,env(safe-area-inset-bottom))]">
@@ -61,7 +61,7 @@ export function IncomingCallView({
             >
               <MessageCircle size={22} />
             </button>
-            <span className="text-[13px] font-medium text-white/88">메시지 보내기</span>
+            <span className="sam-text-body-secondary font-medium text-white/88">메시지 보내기</span>
           </div>
           <div className="flex flex-col items-center gap-2">
             <button
@@ -72,7 +72,7 @@ export function IncomingCallView({
             >
               <BellOff size={22} />
             </button>
-            <span className="text-[13px] font-medium text-white/88">나중에 알림</span>
+            <span className="sam-text-body-secondary font-medium text-white/88">나중에 알림</span>
           </div>
         </div>
       </div>
@@ -88,7 +88,7 @@ export function IncomingCallView({
           >
             <PhoneOff size={38} strokeWidth={2.6} />
           </button>
-          <span className="text-[17px] font-medium text-white/92">거절</span>
+          <span className="sam-text-section-title font-medium text-white/92">거절</span>
         </div>
         <div className="flex flex-col items-center gap-3">
           <button
@@ -100,7 +100,7 @@ export function IncomingCallView({
           >
             <Check size={42} strokeWidth={3.2} />
           </button>
-          <span className="text-[17px] font-medium text-white/92">응답</span>
+          <span className="sam-text-section-title font-medium text-white/92">응답</span>
         </div>
       </div>
     </div>

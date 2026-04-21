@@ -23,7 +23,7 @@ export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
     return (
       <div className="relative">
         {item.itemType === "sponsored" && (
-          <span className="absolute left-1 top-1 z-[1] rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+          <span className="absolute left-1 top-1 z-[1] rounded bg-amber-500 px-1.5 py-0.5 sam-text-xxs font-medium text-white">
             광고
           </span>
         )}

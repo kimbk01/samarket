@@ -50,13 +50,13 @@ export function ProductBacklogBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">카테고리</span>
+        <span className="sam-text-body-secondary text-sam-muted">카테고리</span>
         <select
           value={categoryFilter}
           onChange={(e) =>
             setCategoryFilter((e.target.value || "") as ProductFeedbackCategory | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="onboarding">온보딩</option>
@@ -70,13 +70,13 @@ export function ProductBacklogBoard() {
           <option value="performance">성능</option>
           <option value="bug">버그</option>
         </select>
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as ProductBacklogStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체 칸반</option>
           <option value="inbox">인박스</option>
@@ -88,7 +88,7 @@ export function ProductBacklogBoard() {
       </div>
 
       {allItems.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           백로그 항목이 없습니다.
         </div>
       ) : (
@@ -98,7 +98,7 @@ export function ProductBacklogBoard() {
               key={status}
               className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
             >
-              <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
+              <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
                 {getBacklogStatusLabel(status)}
                 <span className="ml-1 text-sam-muted">
                   ({byStatus[status]?.length ?? 0})

@@ -49,15 +49,15 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
   };
 
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-[13px] text-sam-muted">광고 신청 내역이 없습니다.</p>;
+    return <p className="py-8 text-center sam-text-body-secondary text-sam-muted">광고 신청 내역이 없습니다.</p>;
   }
 
   return (
     <div className="overflow-x-auto">
       {err ? (
-        <p className="mb-2 rounded bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
+        <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{err}</p>
       ) : null}
-      <table className="w-full min-w-[800px] border-collapse text-[13px]">
+      <table className="w-full min-w-[800px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             {["게시글", "광고주", "게시판", "상품", "유형", "상태", "포인트", "기간", "신청일", "액션"].map(
@@ -105,7 +105,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                         setNoteInputs((prev) => ({ ...prev, [row.id]: e.target.value }))
                       }
                       placeholder="관리자 메모"
-                      className="w-36 rounded border border-sam-border px-2 py-1 text-[12px]"
+                      className="w-36 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                     <div className="flex flex-wrap gap-1">
                       {row.applyStatus === "pending_review" || row.applyStatus === "pending_payment" ? (
@@ -114,7 +114,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                             type="button"
                             disabled={busy}
                             onClick={() => void doAction(row.id, "approve", note)}
-                            className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                            className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-semibold text-white disabled:opacity-50"
                           >
                             승인
                           </button>
@@ -122,7 +122,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                             type="button"
                             disabled={busy}
                             onClick={() => void doAction(row.id, "reject", note)}
-                            className="rounded bg-red-500 px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                            className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-semibold text-white disabled:opacity-50"
                           >
                             반려
                           </button>
@@ -133,7 +133,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(row.id, "expire", note)}
-                          className="rounded bg-sam-muted px-2 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
+                          className="rounded bg-sam-muted px-2 py-1 sam-text-xxs font-semibold text-white disabled:opacity-50"
                         >
                           강제종료
                         </button>
@@ -142,7 +142,7 @@ export function AdminAdTable({ rows }: AdminAdTableProps) {
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(row.id, "cancel", note)}
-                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
+                        className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                       >
                         취소
                       </button>

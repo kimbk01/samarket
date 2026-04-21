@@ -40,7 +40,7 @@ export function AdminUserFilterBar({
         placeholder={searchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[180px] max-w-[min(100%,280px)] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[180px] max-w-[min(100%,280px)] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
       <select
         value={filters.moderationStatus}
@@ -50,7 +50,7 @@ export function AdminUserFilterBar({
             moderationStatus: e.target.value as AdminUserFilters["moderationStatus"],
           })
         }
-        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -66,7 +66,7 @@ export function AdminUserFilterBar({
             memberType: e.target.value as AdminUser["memberType"] | "",
           })
         }
-        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -79,10 +79,10 @@ export function AdminUserFilterBar({
         placeholder={t("common_region")}
         value={filters.location}
         onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-        className="min-w-[100px] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+        className="min-w-[100px] shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
       />
       {onShowMemberUuidChange ? (
-        <label className="flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] text-sam-fg shadow-sm">
+        <label className="flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg shadow-sm">
           <input
             type="checkbox"
             className="h-4 w-4 shrink-0 rounded border-sam-border text-signature focus:ring-signature"
@@ -100,7 +100,7 @@ export function AdminUserFilterBar({
             sortKey: e.target.value as AdminUserSortKey,
           })
         }
-        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+        className="shrink-0 rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>

@@ -9,7 +9,7 @@ interface UserBehaviorProfileTableProps {
 export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableProps) {
   if (profiles.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         사용자 행동 프로필이 없습니다.
       </div>
     );
@@ -17,7 +17,7 @@ export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableP
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -52,16 +52,16 @@ export function UserBehaviorProfileTable({ profiles }: UserBehaviorProfileTableP
                   .filter(Boolean)
                   .join(" · ") || "-"}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[120px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {p.favoriteCategories.slice(0, 3).join(", ") || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {p.recentViewedProductIds.length}건 / {p.recentViewedCategories.slice(0, 2).join(", ") || "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 찜 {p.recentFavoritedProductIds.length} / 채팅 {p.recentChattedProductIds.length}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.updatedAt).toLocaleString("ko-KR")}
               </td>
             </tr>

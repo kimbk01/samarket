@@ -97,7 +97,7 @@ export function MemberOrderChatList() {
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-bold text-sam-fg">{r.store_name}</p>
                         {issue ? (
-                          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">
                             확인
                           </span>
                         ) : null}
@@ -105,7 +105,7 @@ export function MemberOrderChatList() {
                       <p className="font-mono text-xs text-sam-meta">{r.order_no}</p>
                       <p className="mt-1 line-clamp-2 text-sm text-sam-muted">{r.last_message}</p>
                       {r.last_chat_order_status ? (
-                        <p className="mt-1 text-[11px] text-signature">상태 · {r.last_chat_order_status}</p>
+                        <p className="mt-1 sam-text-xxs text-signature">상태 · {r.last_chat_order_status}</p>
                       ) : null}
                     </div>
                     <UnreadBadge count={r.unread_count_buyer} />

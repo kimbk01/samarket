@@ -14,7 +14,7 @@ export type MainBottomNavStoredItem = {
   iconActiveClass?: string;
   labelInactiveClass?: string;
   labelActiveClass?: string;
-  /** 라벨 기본 크기 덮어쓰기 (예: text-[11px], text-xs) */
+  /** 라벨 기본 크기 덮어쓰기 (예: sam-text-xxs, text-xs) */
   labelSizeClass?: string;
   /** 라벨 폰트 패밀리 (font-sans 등) */
   labelFontFamilyClass?: string;

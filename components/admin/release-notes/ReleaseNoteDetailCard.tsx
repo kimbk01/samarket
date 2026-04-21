@@ -23,7 +23,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
 
   if (!note) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
         릴리즈 노트를 찾을 수 없습니다.
       </div>
     );
@@ -32,7 +32,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <div className="flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+        <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
           <span>{note.releaseVersion}</span>
           <span>{note.buildTag}</span>
           <span
@@ -47,15 +47,15 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
             {getReleaseNoteStatusLabel(note.status)}
           </span>
         </div>
-        <h2 className="mt-2 text-[18px] font-semibold text-sam-fg">
+        <h2 className="mt-2 sam-text-page-title font-semibold text-sam-fg">
           {note.title}
         </h2>
-        <p className="mt-2 text-[14px] text-sam-fg">{note.summary}</p>
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-body text-sam-fg">{note.summary}</p>
+        <p className="mt-2 sam-text-helper text-sam-muted">
           릴리즈일 {note.releaseDate ?? "-"} · {note.createdByAdminNickname}
         </p>
         {note.includedSprintId && (
-          <p className="mt-1 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-helper text-sam-muted">
             스프린트: {note.includedSprintId}
             <Link href="/admin/dev-sprints" className="ml-1 text-signature hover:underline">
               스프린트 보드
@@ -65,9 +65,9 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="text-[15px] font-medium text-sam-fg">변경 항목</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">변경 항목</h3>
         {items.length === 0 ? (
-          <p className="mt-2 text-[13px] text-sam-muted">항목 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">항목 없음</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {items.map((i) => (
@@ -75,12 +75,12 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
                 key={i.id}
                 className="flex flex-wrap items-start gap-2 border-b border-sam-border-soft pb-2 last:border-0 last:pb-0"
               >
-                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-muted">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
                   {getReleaseNoteItemTypeLabel(i.itemType)}
                 </span>
                 <span className="font-medium text-sam-fg">{i.title}</span>
-                <span className="text-[13px] text-sam-muted">{i.description}</span>
-                <span className="flex gap-1 text-[12px]">
+                <span className="sam-text-body-secondary text-sam-muted">{i.description}</span>
+                <span className="flex gap-1 sam-text-helper">
                   {i.linkedBacklogItemId && (
                     <Link href="/admin/product-backlog" className="text-signature hover:underline">
                       백로그

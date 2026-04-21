@@ -35,8 +35,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {vm.showRemoteVideo ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
-              <div className="text-[20px] font-semibold tracking-tight text-white">{vm.peerLabel}</div>
-              <div className="mt-1 flex items-center justify-center gap-2 text-[14px] font-medium text-white/90">
+              <div className="sam-text-page-title font-semibold tracking-tight text-white">{vm.peerLabel}</div>
+              <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
                 <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]" aria-hidden />
                 <span>{timer ?? vm.statusText}</span>
               </div>
@@ -47,8 +47,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {outgoingSoloVideoLayout ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
-              <div className="text-[20px] font-semibold tracking-tight text-white">{vm.peerLabel}</div>
-              <div className="mt-1 flex items-center justify-center gap-2 text-[14px] font-medium text-white/90">
+              <div className="sam-text-page-title font-semibold tracking-tight text-white">{vm.peerLabel}</div>
+              <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
                 <span
                   className={
                     vm.phase === "connected"
@@ -60,7 +60,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 <span>{timer ?? vm.statusText}</span>
               </div>
               {detailLine ? (
-                <p className="mt-1.5 text-[13px] leading-snug text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]">
+                <p className="mt-1.5 sam-text-body-secondary leading-snug text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]">
                   {detailLine}
                 </p>
               ) : null}
@@ -111,7 +111,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </MiniLocalVideo>
         ) : null}
         {vm.participantsSummary ? (
-          <div className="absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full bg-black/30 px-3 py-1.5 text-[12px] font-medium text-white/90 backdrop-blur-sm">
+          <div className="absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full bg-black/30 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm">
             {vm.participantsSummary}
           </div>
         ) : null}

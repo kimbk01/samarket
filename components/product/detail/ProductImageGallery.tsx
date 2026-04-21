@@ -84,7 +84,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
             <ChevronRight className="h-6 w-6" />
           </button>
           {/* 현재/전체 표시 (우하단) */}
-          <div className="absolute bottom-2 right-2 z-10 rounded bg-black/50 px-2 py-1 text-[12px] font-medium text-white">
+          <div className="absolute bottom-2 right-2 z-10 rounded bg-black/50 px-2 py-1 sam-text-helper font-medium text-white">
             {current + 1}/{list.length}
           </div>
         </>

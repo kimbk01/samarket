@@ -50,7 +50,7 @@ export function AlertRuleTable() {
 
   if (rules.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         알림 규칙이 없습니다.
       </div>
     );
@@ -58,7 +58,7 @@ export function AlertRuleTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -98,7 +98,7 @@ export function AlertRuleTable() {
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                     r.severity === "critical"
                       ? "bg-red-50 text-red-800"
                       : "bg-amber-50 text-amber-800"
@@ -114,7 +114,7 @@ export function AlertRuleTable() {
                 <button
                   type="button"
                   onClick={() => void handleToggleActive(r.id, r.isActive)}
-                  className={`rounded border px-2 py-1 text-[13px] ${
+                  className={`rounded border px-2 py-1 sam-text-body-secondary ${
                     r.isActive
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                       : "border-sam-border bg-sam-surface-muted text-sam-muted"

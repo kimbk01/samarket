@@ -27,7 +27,7 @@ export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListP
   const { t, tt } = useI18n();
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-sam-muted">{t("admin_chat_no_action_history")}</p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_no_action_history")}</p>
     );
   }
   const sorted = [...logs].sort(
@@ -38,7 +38,7 @@ export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListP
       {sorted.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
         >
           <span className="font-medium text-sam-fg">
             {tt(ACTION_LABELS[log.actionType] ?? log.actionType)}

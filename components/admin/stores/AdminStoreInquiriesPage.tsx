@@ -61,7 +61,7 @@ export function AdminStoreInquiriesPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 문의 모니터링" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         회원이 매장에 보낸 문의·오너 답변 상태를 조회합니다. 답변은 오너 화면(
         <code className="rounded bg-sam-surface-muted px-1">/my/business/inquiries</code>)에서 처리합니다.
       </p>
@@ -81,7 +81,7 @@ export function AdminStoreInquiriesPage() {
               key={r.id}
               className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
             >
-              <div className="flex flex-wrap justify-between gap-2 text-[13px]">
+              <div className="flex flex-wrap justify-between gap-2 sam-text-body-secondary">
                 <span className="font-semibold text-sam-fg">{r.store_name || r.store_id}</span>
                 <span className="text-sam-muted">{STATUS_LABEL[r.status] ?? r.status}</span>
               </div>
@@ -96,7 +96,7 @@ export function AdminStoreInquiriesPage() {
                   <p className="text-xs font-medium text-sam-muted">매장 답변</p>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                   {r.answered_at ? (
-                    <p className="mt-1 text-[11px] text-sam-meta">
+                    <p className="mt-1 sam-text-xxs text-sam-meta">
                       {new Date(r.answered_at).toLocaleString("ko-KR")}
                     </p>
                   ) : null}

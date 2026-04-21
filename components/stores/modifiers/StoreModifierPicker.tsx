@@ -102,17 +102,17 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             >
               <div className="px-3 pb-2 pt-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-[15px] font-semibold text-sam-fg">{g.label}</h3>
+                  <h3 className="sam-text-body font-semibold text-sam-fg">{g.label}</h3>
                   {required ? (
-                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-[#1877F2]">
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 sam-text-xxs font-semibold text-[#1877F2]">
                       필수
                     </span>
                   ) : (
-                    <span className="text-[12px] text-sam-muted">선택 {rangeHint}</span>
+                    <span className="sam-text-helper text-sam-muted">선택 {rangeHint}</span>
                   )}
                 </div>
                 {g.description ? (
-                  <p className="mt-1 text-[13px] leading-snug text-sam-muted">{g.description}</p>
+                  <p className="mt-1 sam-text-body-secondary leading-snug text-sam-muted">{g.description}</p>
                 ) : null}
               </div>
               {g.inputType === "quantity" ? (
@@ -134,8 +134,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                     return (
                       <li key={opt.key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                         <div className="min-w-0 flex-1">
-                          <p className="text-[15px] text-sam-fg">{opt.name}</p>
-                          <p className="text-[13px] text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
+                          <p className="sam-text-body text-sam-fg">{opt.name}</p>
+                          <p className="sam-text-body-secondary text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <button
@@ -146,7 +146,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           >
                             −
                           </button>
-                          <span className="min-w-[1.25rem] text-center text-[15px] font-semibold">{q}</span>
+                          <span className="min-w-[1.25rem] text-center sam-text-body font-semibold">{q}</span>
                           <button
                             type="button"
                             disabled={dim || q >= maxForThis}
@@ -157,7 +157,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           </button>
                         </div>
                         {opt.soldOut ? (
-                          <span className="text-[11px] font-medium text-amber-700">품절</span>
+                          <span className="sam-text-xxs font-medium text-amber-700">품절</span>
                         ) : null}
                       </li>
                     );
@@ -198,15 +198,15 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                                 />
                               ) : null}
                             </span>
-                            <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{opt.name}</span>
+                            <span className="min-w-0 flex-1 sam-text-body text-sam-fg">{opt.name}</span>
                             <span
-                              className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
+                              className={`shrink-0 sam-text-body font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
                             >
                               {deltaLabel(opt.priceDelta)}
                             </span>
                           </button>
                           {opt.soldOut ? (
-                            <p className="px-3 pb-2 text-[11px] text-amber-700">품절</p>
+                            <p className="px-3 pb-2 sam-text-xxs text-amber-700">품절</p>
                           ) : null}
                         </li>
                       );
@@ -225,7 +225,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           } ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                         >
                           <span
-                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-sam-surface text-[11px] font-bold leading-none shadow-sm"
+                            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-ui-rect border bg-sam-surface sam-text-xxs font-bold leading-none shadow-sm"
                             style={{
                               borderColor: selected ? SHEET_ACCENT : "#CCD0D5",
                               color: selected ? "#fff" : "transparent",
@@ -234,9 +234,9 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           >
                             {selected ? "✓" : ""}
                           </span>
-                          <span className="min-w-0 flex-1 text-[15px] text-sam-fg">{opt.name}</span>
+                          <span className="min-w-0 flex-1 sam-text-body text-sam-fg">{opt.name}</span>
                           <span
-                            className={`shrink-0 text-[14px] font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
+                            className={`shrink-0 sam-text-body font-semibold ${selected ? "text-[#1877F2]" : "text-sam-muted"}`}
                           >
                             {deltaLabel(opt.priceDelta)}
                           </span>
@@ -273,23 +273,23 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
 
         const header = (
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[15px] font-semibold text-sam-fg">{g.label}</span>
+            <span className="sam-text-body font-semibold text-sam-fg">{g.label}</span>
             {required ? (
-              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+              <span className="rounded-full bg-rose-100 px-2 py-0.5 sam-text-xxs font-bold text-rose-800">
                 필수
               </span>
             ) : (
-              <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-medium text-sam-muted">
+              <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
                 선택
               </span>
             )}
-            <span className="text-[12px] text-sam-muted">{rangeHint}</span>
+            <span className="sam-text-helper text-sam-muted">{rangeHint}</span>
           </div>
         );
 
         const body = (
           <div className="mt-2 space-y-2">
-            {g.description ? <p className="text-[12px] text-sam-muted">{g.description}</p> : null}
+            {g.description ? <p className="sam-text-helper text-sam-muted">{g.description}</p> : null}
             {g.inputType === "quantity" ? (
               <ul className="space-y-3">
                 {g.options.map((opt) => {
@@ -311,8 +311,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                       className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[14px] font-medium text-sam-fg">{opt.name}</p>
-                        <p className="text-[13px] text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
+                        <p className="sam-text-body font-medium text-sam-fg">{opt.name}</p>
+                        <p className="sam-text-body-secondary text-sam-muted">{deltaLabel(opt.priceDelta)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <button
@@ -323,7 +323,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         >
                           −
                         </button>
-                        <span className="min-w-[1.5rem] text-center text-[15px] font-semibold">{q}</span>
+                        <span className="min-w-[1.5rem] text-center sam-text-body font-semibold">{q}</span>
                         <button
                           type="button"
                           disabled={disabled || opt.soldOut || q >= maxForThis}
@@ -334,7 +334,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         </button>
                       </div>
                       {opt.soldOut ? (
-                        <span className="text-[11px] font-medium text-amber-700">품절</span>
+                        <span className="sam-text-xxs font-medium text-amber-700">품절</span>
                       ) : null}
                     </li>
                   );
@@ -364,13 +364,13 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           }}
                           className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                         >
-                          <span className="text-[15px] font-medium">{opt.name}</span>
-                          <span className="shrink-0 text-[14px] font-semibold text-sam-fg">
+                          <span className="sam-text-body font-medium">{opt.name}</span>
+                          <span className="shrink-0 sam-text-body font-semibold text-sam-fg">
                             {deltaLabel(opt.priceDelta)}
                           </span>
                         </button>
                         {opt.soldOut ? (
-                          <p className="mt-0.5 text-[11px] text-amber-700">품절 · 선택 불가</p>
+                          <p className="mt-0.5 sam-text-xxs text-amber-700">품절 · 선택 불가</p>
                         ) : null}
                       </li>
                     );
@@ -384,8 +384,8 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         onClick={() => !dim && toggleMulti(g.key, opt.name, maxS, minS, value.pick[g.key] ?? [])}
                         className={`${btnBase} ${selected ? btnOn : btnOff} ${dim ? "cursor-not-allowed opacity-45" : ""}`}
                       >
-                        <span className="text-[15px] font-medium">{opt.name}</span>
-                        <span className="shrink-0 text-[14px] font-semibold text-sam-fg">
+                        <span className="sam-text-body font-medium">{opt.name}</span>
+                        <span className="shrink-0 sam-text-body font-semibold text-sam-fg">
                           {deltaLabel(opt.priceDelta)}
                         </span>
                       </button>

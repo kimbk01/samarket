@@ -29,7 +29,7 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
           {getAreaLabel(entry.area)}
         </h3>
         <span
-          className={`rounded px-1.5 py-0.5 text-[12px] ${
+          className={`rounded px-1.5 py-0.5 sam-text-helper ${
             isReady
               ? "bg-emerald-100 text-emerald-800"
               : isBlocked
@@ -40,17 +40,17 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
           {getStatusLabel(entry.status)}
         </span>
       </div>
-      <p className="mt-2 text-[24px] font-semibold text-sam-fg">
+      <p className="mt-2 sam-text-hero font-semibold text-sam-fg">
         {entry.score}%
       </p>
-      <p className="mt-1 text-[13px] text-sam-muted">
+      <p className="mt-1 sam-text-body-secondary text-sam-muted">
         완료 {entry.readyItems} / {entry.totalItems}
         {entry.blockedItems > 0 && (
           <span className="ml-1 text-red-600">· 차단 {entry.blockedItems}</span>
         )}
       </p>
       {entry.ownerAdminNickname && (
-        <p className="mt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 sam-text-helper text-sam-muted">
           담당 {entry.ownerAdminNickname}
         </p>
       )}

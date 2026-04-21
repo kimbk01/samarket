@@ -111,16 +111,16 @@ export function MessengerStickerSheet({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-3 py-2">
-        <span className="text-[15px] font-semibold text-sam-fg">스티커</span>
+        <span className="sam-text-body font-semibold text-sam-fg">스티커</span>
         <button
           type="button"
-          className="rounded-full px-2 py-1 text-[13px] font-medium text-sam-muted hover:bg-sam-surface-muted"
+          className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
           onClick={onClose}
         >
           닫기
         </button>
       </div>
-      {packErr ? <p className="px-3 py-2 text-[13px] text-red-600">{packErr}</p> : null}
+      {packErr ? <p className="px-3 py-2 sam-text-body-secondary text-red-600">{packErr}</p> : null}
       <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-sam-border-soft px-2 py-2">
         {packRow.map((p) => (
           <button
@@ -140,9 +140,9 @@ export function MessengerStickerSheet({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         {itemsBusy ? (
-          <p className="py-6 text-center text-[13px] text-sam-muted">불러오는 중…</p>
+          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">불러오는 중…</p>
         ) : !items?.length ? (
-          <p className="py-6 text-center text-[13px] text-sam-muted">
+          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">
             {activePackId === RECENT_PACK_ID ? "최근 사용한 스티커가 없습니다." : "스티커가 없습니다."}
           </p>
         ) : (

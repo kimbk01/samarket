@@ -59,13 +59,13 @@ export function ExposurePolicyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           surface
         </label>
         <select
           value={surface}
           onChange={(e) => setSurface(e.target.value as ExposureSurface)}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {SURFACE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -75,14 +75,14 @@ export function ExposurePolicyForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           정책명
         </label>
         <input
           type="text"
           value={policyName}
           onChange={(e) => setPolicyName(e.target.value)}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div className="flex items-center gap-2">
@@ -93,7 +93,7 @@ export function ExposurePolicyForm({
           onChange={(e) => setIsActive(e.target.checked)}
           className="rounded border-sam-border"
         />
-        <label htmlFor="expActive" className="text-[14px] text-sam-fg">
+        <label htmlFor="expActive" className="sam-text-body text-sam-fg">
           활성
         </label>
       </div>
@@ -114,7 +114,7 @@ export function ExposurePolicyForm({
           ] as const
         ).map((key) => (
           <div key={key}>
-            <label className="mb-0.5 block text-[12px] text-sam-muted">
+            <label className="mb-0.5 block sam-text-helper text-sam-muted">
               {key.replace(/Weight|BoostWeight|MatchWeight/g, "")}
             </label>
             <input
@@ -125,26 +125,26 @@ export function ExposurePolicyForm({
               onChange={(e) =>
                 updateWeight(key, parseFloat(e.target.value) || 0)
               }
-              className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
+              className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body"
             />
           </div>
         ))}
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div className="flex gap-2">
         <button
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           저장
         </button>
@@ -152,7 +152,7 @@ export function ExposurePolicyForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
           >
             취소
           </button>

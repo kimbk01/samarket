@@ -52,11 +52,11 @@ export function AdminReportListPage() {
       />
       <AdminReportFilterBar filters={filters} onChange={setFilters} />
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           조건에 맞는 신고가 없습니다.
         </div>
       ) : (

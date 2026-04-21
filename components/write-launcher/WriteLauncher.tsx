@@ -52,11 +52,11 @@ export function WriteLauncherPanel({
     >
       <div className="w-full rounded-ui-rect bg-sam-surface py-2 shadow-xl">
         {loading ? (
-          <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>
         ) : categories.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[14px] text-sam-muted">
+          <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
             <p>노출할 주제가 없습니다.</p>
-            <p className="mt-2 text-[12px] leading-relaxed text-sam-meta">
+            <p className="mt-2 sam-text-helper leading-relaxed text-sam-meta">
               관리자 → 메뉴 관리에서 항목의 「런처 노출」을 켜 주세요.
             </p>
           </div>
@@ -83,7 +83,7 @@ export function WriteLauncherPanel({
           className={
             subFabClose
               ? HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS
-              : "flex h-12 w-12 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-lg hover:bg-sam-app"
+              : "flex h-12 w-12 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sam-elevated hover:bg-sam-app"
           }
           aria-label="닫기"
         >

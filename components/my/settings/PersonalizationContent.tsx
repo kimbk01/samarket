@@ -32,7 +32,7 @@ export function PersonalizationContent() {
 
   return (
     <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-      <span className="text-[15px] text-sam-fg">개인화 추천 사용</span>
+      <span className="sam-text-body text-sam-fg">개인화 추천 사용</span>
       <button
         type="button"
         role="switch"

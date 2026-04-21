@@ -29,7 +29,7 @@ export function AdminAdActionPanel({
         <button
           type="button"
           onClick={() => handle(() => markAdApplicationPaid(application.id))}
-          className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-[14px] text-emerald-800 hover:bg-emerald-100"
+          className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
         >
           입금 확인
         </button>
@@ -39,7 +39,7 @@ export function AdminAdActionPanel({
           <button
             type="button"
             onClick={() => handle(() => approveAdApplication(application.id))}
-            className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-[14px] text-emerald-800 hover:bg-emerald-100"
+            className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
           >
             승인
           </button>
@@ -48,7 +48,7 @@ export function AdminAdActionPanel({
         <button
           type="button"
           onClick={() => handle(() => rejectAdApplication(application.id))}
-          className="rounded border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-700 hover:bg-red-100"
+          className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-700 hover:bg-red-100"
         >
           반려
         </button>
@@ -57,7 +57,7 @@ export function AdminAdActionPanel({
         <button
           type="button"
           onClick={() => handle(() => activateAdApplication(application.id))}
-          className="rounded border border-signature bg-signature/10 px-3 py-2 text-[14px] text-signature hover:bg-signature/20"
+          className="rounded border border-signature bg-signature/10 px-3 py-2 sam-text-body text-signature hover:bg-signature/20"
         >
           노출 시작
         </button>
@@ -66,7 +66,7 @@ export function AdminAdActionPanel({
         <button
           type="button"
           onClick={() => handle(() => expireAdApplication(application.id))}
-          className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-border-soft"
+          className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-border-soft"
         >
           노출 종료
         </button>

@@ -35,7 +35,7 @@ export function MemberProfileFrame({
       {children}
       {showBadge && (
         <span
-          className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${
+          className={`mt-1 inline-block rounded px-1.5 py-0.5 sam-text-xxs font-medium ${
             config.memberType === "premium"
               ? "bg-amber-100 text-amber-800"
               : config.memberType === "admin"

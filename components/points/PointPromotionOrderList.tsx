@@ -20,7 +20,7 @@ const STATUS_CLASS: Record<PointPromotionOrder["orderStatus"], string> = {
 export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         포인트로 신청한 노출 내역이 없습니다.
       </div>
     );
@@ -34,18 +34,18 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
           <p className="font-medium text-sam-fg">{o.targetTitle}</p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">
+          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {POINT_PROMOTION_PLACEMENT_LABELS[o.placement]} · {o.durationDays}일
           </p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">
+          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {o.pointCost.toLocaleString()}P 사용
           </p>
           <span
-            className={`mt-2 inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[o.orderStatus]}`}
+            className={`mt-2 inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}
           >
             {POINT_PROMOTION_ORDER_STATUS_LABELS[o.orderStatus]}
           </span>
-          <p className="mt-1 text-[12px] text-sam-meta">
+          <p className="mt-1 sam-text-helper text-sam-meta">
             {new Date(o.createdAt).toLocaleDateString("ko-KR")}
           </p>
         </li>

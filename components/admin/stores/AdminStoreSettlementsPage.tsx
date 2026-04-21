@@ -75,7 +75,7 @@ export function AdminStoreSettlementsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 정산" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         결제 완료 주문마다 예정 건이 생성됩니다. 지급 완료는 운영에서 처리합니다.
       </p>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
@@ -85,7 +85,7 @@ export function AdminStoreSettlementsPage() {
         <p className="text-sm text-sam-muted">정산 건이 없습니다.</p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-          <table className="min-w-full text-left text-[13px]">
+          <table className="min-w-full text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
               <tr>
                 <th className="px-3 py-2">매장</th>
@@ -103,7 +103,7 @@ export function AdminStoreSettlementsPage() {
                   <td className="px-3 py-2 text-sam-muted">{r.order_no || r.order_id.slice(0, 8)}</td>
                   <td className="px-3 py-2">
                     <span className="font-medium">{formatMoneyPhp(Number(r.settlement_amount) || 0)}</span>
-                    <span className="ml-1 text-[11px] text-sam-meta">
+                    <span className="ml-1 sam-text-xxs text-sam-meta">
                       (수수료 {formatMoneyPhp(Number(r.fee_amount) || 0)})
                     </span>
                   </td>
@@ -115,7 +115,7 @@ export function AdminStoreSettlementsPage() {
                         <button
                           type="button"
                           disabled={busyId === r.id}
-                          className="rounded bg-sam-ink px-2 py-1 text-[11px] text-white disabled:opacity-50"
+                          className="rounded bg-sam-ink px-2 py-1 sam-text-xxs text-white disabled:opacity-50"
                           onClick={() => void patch(r.id, { settlement_status: "paid" })}
                         >
                           지급완료
@@ -123,13 +123,13 @@ export function AdminStoreSettlementsPage() {
                         <button
                           type="button"
                           disabled={busyId === r.id}
-                          className="rounded border border-sam-border px-2 py-1 text-[11px] disabled:opacity-50"
+                          className="rounded border border-sam-border px-2 py-1 sam-text-xxs disabled:opacity-50"
                           onClick={() => void patch(r.id, { settlement_status: "processing" })}
                         >
                           처리중
                         </button>
                         <input
-                          className="w-36 rounded border border-sam-border px-1 py-0.5 text-[11px]"
+                          className="w-36 rounded border border-sam-border px-1 py-0.5 sam-text-xxs"
                           placeholder="보류 사유"
                           value={holdMemo[r.id] ?? ""}
                           onChange={(e) => setHoldMemo((m) => ({ ...m, [r.id]: e.target.value }))}
@@ -137,7 +137,7 @@ export function AdminStoreSettlementsPage() {
                         <button
                           type="button"
                           disabled={busyId === r.id}
-                          className="rounded border border-amber-300 px-2 py-1 text-[11px] text-amber-900 disabled:opacity-50"
+                          className="rounded border border-amber-300 px-2 py-1 sam-text-xxs text-amber-900 disabled:opacity-50"
                           onClick={() =>
                             void patch(r.id, {
                               settlement_status: "held",
@@ -152,13 +152,13 @@ export function AdminStoreSettlementsPage() {
                       <button
                         type="button"
                         disabled={busyId === r.id}
-                        className="rounded bg-sam-ink px-2 py-1 text-[11px] text-white disabled:opacity-50"
+                        className="rounded bg-sam-ink px-2 py-1 sam-text-xxs text-white disabled:opacity-50"
                         onClick={() => void patch(r.id, { settlement_status: "paid" })}
                       >
                         지급완료
                       </button>
                     ) : (
-                      <span className="text-[11px] text-sam-meta">—</span>
+                      <span className="sam-text-xxs text-sam-meta">—</span>
                     )}
                   </td>
                 </tr>

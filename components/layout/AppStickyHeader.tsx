@@ -41,7 +41,7 @@ export function AppStickyHeader() {
   const stickyBelow = extras?.stickyBelow ?? null;
 
   return (
-    <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-[var(--sub-bg)]">
+    <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface">
       {categorySticky ? (
           <div className="border-b border-sam-border bg-sam-surface">
             <RegionBar embedded tier1RuleSet={topTier1RuleSet} />

@@ -20,7 +20,7 @@ const STYLES: Record<PointChargeRequestStatus, string> = {
 
 export function PointChargeBadge({ status }: { status: PointChargeRequestStatus }) {
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${STYLES[status]}`}>
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STYLES[status]}`}>
       {LABELS[status]}
     </span>
   );

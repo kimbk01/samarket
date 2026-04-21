@@ -19,10 +19,10 @@ export function MyManagedCtaStrip({ links, label }: Props) {
   const labelText = typeof label === "string" ? label.trim() : "";
 
   return (
-    <div className="w-full min-w-0 overflow-x-hidden border-b border-ig-border bg-background">
+    <div className="w-full min-w-0 overflow-x-hidden border-b border-sam-border bg-background">
       <div className={`${APP_MAIN_HEADER_INNER_CLASS} min-w-0 py-2`}>
         {labelText ? (
-          <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+          <p className="mb-1.5 px-1 sam-text-xxs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             {labelText}
           </p>
         ) : null}
@@ -35,10 +35,10 @@ export function MyManagedCtaStrip({ links, label }: Props) {
               <Link
                 key={item.href + item.label}
                 href={item.href}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${
+                className={`shrink-0 rounded-full border px-3 py-1.5 sam-text-helper font-semibold transition-colors ${
                   active
                     ? "border-foreground bg-foreground text-[var(--sub-bg)]"
-                    : "border-ig-border bg-[var(--sub-bg)] text-foreground active:bg-ig-highlight"
+                    : "border-sam-border bg-[var(--sub-bg)] text-foreground active:bg-sam-primary-soft"
                 }`}
               >
                 {item.label}

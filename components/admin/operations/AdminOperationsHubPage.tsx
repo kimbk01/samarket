@@ -17,29 +17,29 @@ export function AdminOperationsHubPage() {
     <div className="space-y-4">
       <AdminPageHeader title="운영 허브" backHref="/admin" />
       <AdminCard title="빠른 이동">
-        <ul className="space-y-3 text-[14px]">
+        <ul className="space-y-3 sam-text-body">
           {LINKS.map((x) => (
             <li key={x.href} className="border-b border-sam-border-soft pb-3 last:border-0 last:pb-0">
               <Link href={x.href} className="font-medium text-signature hover:underline">
                 {x.label}
               </Link>
-              <p className="mt-0.5 text-[13px] text-sam-muted">{x.desc}</p>
+              <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{x.desc}</p>
             </li>
           ))}
         </ul>
       </AdminCard>
       <AdminCard title="채팅 조치 (백엔드)">
-        <p className="text-[13px] leading-relaxed text-sam-muted">
+        <p className="sam-text-body-secondary leading-relaxed text-sam-muted">
           관리자 채팅 상세의 버튼은{" "}
-          <code className="rounded bg-sam-surface-muted px-1 text-[12px]">POST /api/admin/chat/rooms/[id]/action</code>
-          으로 처리됩니다. <code className="rounded bg-sam-surface-muted px-1 text-[12px]">product_chats</code> ID로
-          열어도 연결된 <code className="rounded bg-sam-surface-muted px-1 text-[12px]">chat_rooms</code>에 동일하게
+          <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">POST /api/admin/chat/rooms/[id]/action</code>
+          으로 처리됩니다. <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">product_chats</code> ID로
+          열어도 연결된 <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">chat_rooms</code>에 동일하게
           반영됩니다.
         </p>
-        <p className="mt-2 text-[13px] leading-relaxed text-sam-muted">
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
           읽기 전용·관련 컬럼 오류 시 Supabase에 일반채팅 확장 마이그레이션(
-          <code className="rounded bg-sam-surface-muted px-1 text-[12px]">is_readonly</code>,{" "}
-          <code className="rounded bg-sam-surface-muted px-1 text-[12px]">related_*</code>) 적용 여부를 확인하세요.
+          <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">is_readonly</code>,{" "}
+          <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">related_*</code>) 적용 여부를 확인하세요.
         </p>
       </AdminCard>
     </div>

@@ -48,11 +48,11 @@ export function RollbackPolicyForm() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         자동 롤백 조건은 placeholder입니다. 수동 롤백은 운영 버전 탭에서 이전 버전으로 복원할 수 있습니다.
       </p>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           surface
         </label>
         <select
@@ -67,7 +67,7 @@ export function RollbackPolicyForm() {
             setCompareWindowHours(p?.compareWindowHours ?? 24);
             setAdminMemo(p?.adminMemo ?? "");
           }}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {(["home", "search", "shop"] as const).map((s) => (
             <option key={s} value={s}>
@@ -84,13 +84,13 @@ export function RollbackPolicyForm() {
           onChange={(e) => setAutoRollbackEnabled(e.target.checked)}
           className="rounded border-sam-border"
         />
-        <label htmlFor="autoRollback" className="text-[14px] text-sam-fg">
+        <label htmlFor="autoRollback" className="sam-text-body text-sam-fg">
           자동 롤백 사용 (placeholder)
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div>
-          <label className="mb-0.5 block text-[12px] text-sam-muted">
+          <label className="mb-0.5 block sam-text-helper text-sam-muted">
             최소 CTR
           </label>
           <input
@@ -101,11 +101,11 @@ export function RollbackPolicyForm() {
             onChange={(e) =>
               setMinCtrThreshold(parseFloat(e.target.value) || 0)
             }
-            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body"
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[12px] text-sam-muted">
+          <label className="mb-0.5 block sam-text-helper text-sam-muted">
             최소 전환율
           </label>
           <input
@@ -116,11 +116,11 @@ export function RollbackPolicyForm() {
             onChange={(e) =>
               setMinConversionRateThreshold(parseFloat(e.target.value) || 0)
             }
-            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body"
           />
         </div>
         <div>
-          <label className="mb-0.5 block text-[12px] text-sam-muted">
+          <label className="mb-0.5 block sam-text-helper text-sam-muted">
             비교 구간(시간)
           </label>
           <input
@@ -130,25 +130,25 @@ export function RollbackPolicyForm() {
             onChange={(e) =>
               setCompareWindowHours(Number(e.target.value) || 24)
             }
-            className="w-full rounded border border-sam-border px-2 py-1.5 text-[14px]"
+            className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body"
           />
         </div>
       </div>
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           메모
         </label>
         <textarea
           value={adminMemo}
           onChange={(e) => setAdminMemo(e.target.value)}
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <button
         type="button"
         onClick={handleSave}
-        className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+        className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
       >
         {saved ? "저장됨" : "저장"}
       </button>

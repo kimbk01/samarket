@@ -21,7 +21,7 @@ export function BasicListSkin({
             >
               <div className="flex flex-wrap items-center gap-2">
                 {post.community_topic?.name ? (
-                  <span className="shrink-0 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-800">
+                  <span className="shrink-0 rounded bg-sky-50 px-1.5 py-0.5 sam-text-xxs font-medium text-sky-800">
                     {post.community_topic.name}
                   </span>
                 ) : null}

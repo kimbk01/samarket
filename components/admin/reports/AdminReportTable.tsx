@@ -35,7 +35,7 @@ interface AdminReportTableProps {
 export function AdminReportTable({ reports }: AdminReportTableProps) {
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고 id</th>
@@ -54,13 +54,13 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
         <tbody>
           {reports.map((r) => (
             <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app">
-              <td className="max-w-[90px] truncate px-3 py-2.5 font-mono text-[12px] text-sam-muted">
+              <td className="max-w-[90px] truncate px-3 py-2.5 font-mono sam-text-helper text-sam-muted">
                 {r.id.slice(0, 8)}…
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[12px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-helper text-sam-muted">
                 {r.reportSource === "community_feed" ? "피드" : "DB"}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(r.createdAt).toLocaleString("ko-KR")}
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
@@ -76,18 +76,18 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
               <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">{r.reasonLabel}</td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[r.status] ?? "bg-sam-surface-muted text-sam-fg"}`}
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.status] ?? "bg-sam-surface-muted text-sam-fg"}`}
                 >
                   {STATUS_LABEL[r.status] ?? r.status}
                 </span>
               </td>
-              <td className="max-w-[80px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[80px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {r.resolvedBy ?? "-"}
               </td>
               <td className="px-3 py-2.5 text-right">
                 <Link
                   href={`/admin/reports/${r.id}`}
-                  className="text-[13px] font-medium text-signature hover:underline"
+                  className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
                   상세보기
                 </Link>

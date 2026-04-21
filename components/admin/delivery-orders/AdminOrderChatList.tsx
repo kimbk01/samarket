@@ -62,7 +62,7 @@ export function AdminOrderChatList() {
 
   if (error) {
     return (
-      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-950">
+      <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
         목록을 불러오지 못했습니다 ({error}).
       </p>
     );
@@ -71,7 +71,7 @@ export function AdminOrderChatList() {
   if (rows.length === 0) {
     return (
       <p className="text-sm text-sam-muted">
-        등록된 주문 채팅 방이 없습니다. 주문이 생기면 <code className="rounded bg-sam-app px-1 text-[11px]">order_chat_*</code> 에
+        등록된 주문 채팅 방이 없습니다. 주문이 생기면 <code className="rounded bg-sam-app px-1 sam-text-xxs">order_chat_*</code> 에
         방이 만들어집니다.
       </p>
     );
@@ -82,12 +82,12 @@ export function AdminOrderChatList() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-sam-muted">
           검토·환불·취소 관련 방이 위로 정렬됩니다 · 원장:{" "}
-          <code className="rounded bg-sam-app px-1 text-[11px]">order_chat_rooms</code>
+          <code className="rounded bg-sam-app px-1 sam-text-xxs">order_chat_rooms</code>
         </p>
         <button
           type="button"
           onClick={() => void load()}
-          className="rounded-ui-rect border border-sam-border px-2 py-1 text-[11px] text-sam-fg hover:bg-sam-app"
+          className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
         >
           새로고침
         </button>
@@ -102,7 +102,7 @@ export function AdminOrderChatList() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-sam-muted">{r.order_no}</span>
               {r.room_status === "admin_review" ? (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">검토</span>
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">검토</span>
               ) : null}
             </div>
             <p className="text-sm font-semibold text-sam-fg">
@@ -110,7 +110,7 @@ export function AdminOrderChatList() {
             </p>
             <p className="mt-1 line-clamp-2 text-xs text-sam-muted">{r.last_message}</p>
             {r.last_chat_order_status ? (
-              <p className="mt-1 text-[11px] text-sam-muted">채팅 동기 주문상태 {r.last_chat_order_status}</p>
+              <p className="mt-1 sam-text-xxs text-sam-muted">채팅 동기 주문상태 {r.last_chat_order_status}</p>
             ) : null}
           </div>
           <UnreadBadge count={r.unread_count_admin} />

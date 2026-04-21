@@ -199,11 +199,11 @@ export function OwnerStoreInquiriesView() {
             <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
               <p className="text-xs text-sam-muted">
                 {STATUS_LABEL[r.status] ?? r.status} ·{" "}
-                <span className="font-mono text-[11px]">{r.from_user_id}</span>
+                <span className="font-mono sam-text-xxs">{r.from_user_id}</span>
               </p>
               <p className="mt-1 text-sm font-semibold text-sam-fg">{r.subject}</p>
               <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
-              <p className="mt-1 text-[11px] text-sam-meta">{formatDate(r.created_at)}</p>
+              <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.created_at)}</p>
               {r.answer ? (
                 <div className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
                   <span className="text-xs text-sam-muted">내 답변</span>

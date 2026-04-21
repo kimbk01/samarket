@@ -16,14 +16,14 @@ const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
 
 export function MyTradeSection() {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
-      <h2 className="mb-3 text-[13px] font-semibold text-muted">거래 관리 · 내 정보</h2>
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">거래 관리 · 내 정보</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
           <li key={item.label}>
             <Link
               href={item.href}
-              className="flex items-center gap-3 py-3 text-[14px] text-foreground"
+              className="flex items-center gap-3 py-3 sam-text-body text-foreground"
             >
               <span className="flex h-8 w-8 items-center justify-center text-foreground">
                 {item.icon}
@@ -31,7 +31,7 @@ export function MyTradeSection() {
               <span className="flex-1">{item.label}</span>
               <ChevronRight />
             </Link>
-            {i < ITEMS.length - 1 && <hr className="border-ig-border" />}
+            {i < ITEMS.length - 1 && <hr className="border-sam-border" />}
           </li>
         ))}
       </ul>

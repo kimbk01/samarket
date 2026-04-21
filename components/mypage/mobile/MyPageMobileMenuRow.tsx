@@ -21,8 +21,8 @@ export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
 }: Props) {
   const titleClass =
     tone === "danger"
-      ? "min-w-0 flex-1 text-[15px] font-medium text-red-600"
-      : "min-w-0 flex-1 text-[15px] font-medium text-sam-fg";
+      ? "min-w-0 flex-1 sam-text-body font-medium text-red-600"
+      : "min-w-0 flex-1 sam-text-body font-medium text-sam-fg";
 
   return (
     <Link
@@ -31,7 +31,7 @@ export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
     >
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center text-sam-muted">{icon}</span> : null}
       <span className={titleClass}>{title}</span>
-      {accessory ? <span className="shrink-0 text-[13px] text-sam-muted">{accessory}</span> : null}
+      {accessory ? <span className="shrink-0 sam-text-body-secondary text-sam-muted">{accessory}</span> : null}
       <Chevron />
     </Link>
   );

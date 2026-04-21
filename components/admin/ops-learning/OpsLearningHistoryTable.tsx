@@ -48,7 +48,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
 
   if (histories.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
         학습 히스토리가 없습니다.
       </div>
     );
@@ -56,7 +56,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[600px] border-collapse text-[14px]">
+      <table className="w-full min-w-[600px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
@@ -72,7 +72,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
             <tr key={h.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5">
                 <span className="font-medium text-sam-fg">{h.title}</span>
-                <p className="mt-0.5 text-[12px] text-sam-muted line-clamp-1">{h.summary}</p>
+                <p className="mt-0.5 sam-text-helper text-sam-muted line-clamp-1">{h.summary}</p>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {SOURCE_LABELS[h.sourceType]}
@@ -82,7 +82,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
                 {LEARNING_TYPE_LABELS[h.learningType]}
               </td>
               <td className="px-3 py-2.5">
-                <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-fg">
+                <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper text-sam-fg">
                   {STATUS_LABELS[h.status]}
                 </span>
               </td>

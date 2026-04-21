@@ -30,7 +30,7 @@ export function AdminPointChargeDetailPage({
 
   if (!request) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         충전 신청을 찾을 수 없습니다.
       </div>
     );
@@ -50,7 +50,7 @@ export function AdminPointChargeDetailPage({
       />
       <AdminPointActionPanel request={request} onActionSuccess={refreshDetail} />
       <AdminCard title="신청 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">신청자</dt>
             <dd>
@@ -75,7 +75,7 @@ export function AdminPointChargeDetailPage({
             <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                   request.requestStatus === "approved"
                     ? "bg-emerald-50 text-emerald-800"
                     : request.requestStatus === "rejected"
@@ -93,7 +93,7 @@ export function AdminPointChargeDetailPage({
           </div>
           <div>
             <dt className="text-sam-muted">신청일 / 수정일</dt>
-            <dd className="text-[13px] text-sam-muted">
+            <dd className="sam-text-body-secondary text-sam-muted">
               {new Date(request.requestedAt).toLocaleString("ko-KR")} /{" "}
               {new Date(request.updatedAt).toLocaleString("ko-KR")}
             </dd>
@@ -115,27 +115,27 @@ export function AdminPointChargeDetailPage({
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
             placeholder="메모 입력"
-            className="flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-surface-muted"
+            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
           >
             저장
           </button>
         </div>
         {request.adminMemo && (
-          <p className="mt-2 text-[13px] text-sam-muted">{request.adminMemo}</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{request.adminMemo}</p>
         )}
       </AdminCard>
       <AdminCard title="포인트 수동 조정 (placeholder)">
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           특정 사용자 포인트 증감은 원장 화면에서 연결 예정
         </p>
       </AdminCard>
       <AdminCard title="변경 이력">
-        <ul className="space-y-2 text-[13px]">
+        <ul className="space-y-2 sam-text-body-secondary">
           {logs.length === 0 ? (
             <li className="text-sam-muted">이력 없음</li>
           ) : (

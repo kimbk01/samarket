@@ -25,7 +25,7 @@ export function AdminBackupPage() {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
@@ -40,11 +40,11 @@ export function AdminBackupPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded border border-signature bg-signature/10 px-3 py-2 text-[14px] font-medium text-signature hover:bg-signature/20"
+              className="rounded border border-signature bg-signature/10 px-3 py-2 sam-text-body font-medium text-signature hover:bg-signature/20"
             >
               백업 실행 (mock)
             </button>
-            <span className="text-[12px] text-sam-muted">
+            <span className="sam-text-helper text-sam-muted">
               manual / scheduled / pre-release / emergency
             </span>
           </div>

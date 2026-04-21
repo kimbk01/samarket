@@ -219,7 +219,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
         {props.loading && canRenderList ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] flex justify-center px-2 pt-1">
             <div
-              className="inline-flex items-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]/95 px-3 py-1.5 text-[11px] font-medium shadow-[var(--messenger-shadow-soft)] backdrop-blur-sm"
+              className="inline-flex items-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]/95 px-3 py-1.5 sam-text-xxs font-medium shadow-[var(--messenger-shadow-soft)] backdrop-blur-sm"
               style={{ color: "var(--messenger-text-secondary)" }}
               data-cm-home-refresh-overlay="true"
             >
@@ -242,7 +242,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
 
       {props.actionError ? (
         <div
-          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 text-[13px] shadow-[var(--messenger-shadow-soft)]"
+          className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 sam-text-body-secondary shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}
         >
           {props.actionError}
@@ -254,8 +254,8 @@ export function CommunityMessengerHomeListPane(props: Props) {
           className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}
         >
-          <p className="text-[16px] font-semibold">로그인이 필요합니다.</p>
-          <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="sam-text-body-lg font-semibold">로그인이 필요합니다.</p>
+          <p className="mt-2 sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {props.pageError ?? props.loginRequiredText}
           </p>
         </section>
@@ -266,15 +266,15 @@ export function CommunityMessengerHomeListPane(props: Props) {
           className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}
         >
-          <p className="text-[16px] font-semibold">메신저를 불러오지 못했습니다.</p>
-          <p className="mt-2 text-[13px]" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="sam-text-body-lg font-semibold">메신저를 불러오지 못했습니다.</p>
+          <p className="mt-2 sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {props.pageError ?? props.retryText}
           </p>
           <div className="mt-4 flex justify-center">
             <button
               type="button"
               onClick={props.onRetry}
-              className="rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] px-4 py-3 text-[14px] font-semibold text-white active:opacity-90"
+              className="rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] px-4 py-3 sam-text-body font-semibold text-white active:opacity-90"
             >
               다시 불러오기
             </button>

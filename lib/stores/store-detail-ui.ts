@@ -14,11 +14,11 @@ export const STORE_DETAIL_GUTTER = "mx-4";
 
 /** 메뉴 섹션 제목과 동일 톤의 구역 제목 */
 export const STORE_DETAIL_SECTION_HEAD =
-  "mb-3 flex items-center justify-center gap-2 px-1 text-center text-[14px] font-bold text-stone-800";
+  "mb-3 flex items-center justify-center gap-2 px-1 text-center sam-text-body font-bold text-stone-800";
 
 /** 정보 탭 지표 칩(메뉴 리스트와 동일 보더 톤) */
 export const STORE_DETAIL_METRIC_TILE =
-  "rounded-ui-rect border border-ig-border bg-background px-3 py-2.5";
+  "rounded-ui-rect border border-sam-border bg-background px-3 py-2.5";
 
 /**
  * 뒤로가기 줄 + 메뉴·정보·리뷰 탭(+칩) — 연한 반투명 흰 배경, 하단 보더 동일.

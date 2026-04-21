@@ -136,9 +136,9 @@ function MyCommunityPostsPanel() {
       <MyPageSectionHeader description="내가 남긴 커뮤니티 글을 최근순으로 확인합니다." />
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
         {loading ? (
-          <div className="px-4 py-8 text-center text-[12px] text-sam-muted">불러오는 중입니다.</div>
+          <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">불러오는 중입니다.</div>
         ) : items.length === 0 ? (
-          <div className="px-4 py-8 text-center text-[12px] text-sam-muted">
+          <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">
             아직 남긴 커뮤니티 글이 없습니다.
           </div>
         ) : (
@@ -149,8 +149,8 @@ function MyCommunityPostsPanel() {
                 href={`/philife/${encodeURIComponent(item.id)}`}
                 className="block px-4 py-3 hover:bg-sam-app"
               >
-                <p className="text-[14px] font-semibold text-sam-fg">{item.title}</p>
-                <p className="mt-1 text-[12px] text-sam-muted">
+                <p className="sam-text-body font-semibold text-sam-fg">{item.title}</p>
+                <p className="mt-1 sam-text-helper text-sam-muted">
                   {item.topic_name || "커뮤니티"} · {item.region_label || "지역 없음"} · 댓글{" "}
                   {item.comment_count ?? 0}
                 </p>
@@ -239,9 +239,9 @@ function MyCommunityActivityPanel({
         emptyMessage="아직 남긴 댓글이 없습니다."
         items={comments.map((item) => (
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
-            <p className="text-[14px] font-medium text-sam-fg">{item.postTitle}</p>
-            <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">{item.content}</p>
-            <p className="mt-1 text-[12px] text-sam-meta">
+            <p className="sam-text-body font-medium text-sam-fg">{item.postTitle}</p>
+            <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.content}</p>
+            <p className="mt-1 sam-text-helper text-sam-meta">
               {[item.regionLabel, formatDate(item.createdAt)].filter(Boolean).join(" · ")}
             </p>
           </Link>
@@ -254,8 +254,8 @@ function MyCommunityActivityPanel({
         emptyMessage="찜한 커뮤니티 게시물이 없습니다."
         items={favoritePosts.map((item) => (
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
-            <p className="text-[14px] font-medium text-sam-fg">{item.title}</p>
-            <p className="mt-1 text-[12px] text-sam-meta">
+            <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
+            <p className="mt-1 sam-text-helper text-sam-meta">
               {[item.regionLabel, formatDate(item.createdAt)].filter(Boolean).join(" · ")}
             </p>
           </Link>
@@ -273,8 +273,8 @@ function MyCommunityActivityPanel({
               : null;
           const body = (
             <>
-              <p className="text-[14px] font-medium text-sam-fg">{item.title}</p>
-              <p className="mt-1 text-[12px] text-sam-muted">
+              <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
+              <p className="mt-1 sam-text-helper text-sam-muted">
                 {[
                   item.channel === "community" ? "커뮤니티" : "메신저",
                   item.reasonType,
@@ -318,13 +318,13 @@ function ActivityList({
   items: ReactNode[];
 }) {
   if (loading) {
-    return <div className="px-4 py-8 text-center text-[12px] text-sam-muted">불러오는 중입니다.</div>;
+    return <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">불러오는 중입니다.</div>;
   }
   if (error) {
-    return <div className="px-4 py-8 text-center text-[12px] text-red-600">{error}</div>;
+    return <div className="px-4 py-8 text-center sam-text-helper text-red-600">{error}</div>;
   }
   if (items.length === 0) {
-    return <div className="px-4 py-8 text-center text-[12px] text-sam-muted">{emptyMessage}</div>;
+    return <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">{emptyMessage}</div>;
   }
   return <div className="divide-y divide-sam-border">{items}</div>;
 }

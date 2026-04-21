@@ -129,7 +129,7 @@ export function CommunityMessengerRoomPhase2Header() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-[color:var(--cm-room-primary)]">
+                <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
                   {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
                 </div>
               )}
@@ -139,10 +139,10 @@ export function CommunityMessengerRoomPhase2Header() {
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">
+            <p className="truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.title}
             </p>
-            <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+            <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
           <div className="flex shrink-0 items-center gap-0">
             {tradeMessengerCallButtons.showVoice ? (

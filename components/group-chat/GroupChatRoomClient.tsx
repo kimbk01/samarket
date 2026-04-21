@@ -179,9 +179,9 @@ export function GroupChatRoomClient({
         <div className={`flex items-center gap-2 ${THREAD_INNER}`}>
           <AppBackButton backHref={listHref} preferHistoryBack={false} />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[16px] font-semibold text-sam-fg">{title || "그룹 채팅"}</h1>
+            <h1 className="truncate sam-text-body-lg font-semibold text-sam-fg">{title || "그룹 채팅"}</h1>
             {memberCount != null ? (
-              <p className="truncate text-[12px] text-sam-muted">{memberCount}명</p>
+              <p className="truncate sam-text-helper text-sam-muted">{memberCount}명</p>
             ) : null}
           </div>
         </div>
@@ -196,7 +196,7 @@ export function GroupChatRoomClient({
             {loading ? (
               <ChatMessagesLoadingSkeleton variant="default" />
             ) : err ? (
-              <div className="px-4 py-8 text-center text-[14px] text-sam-muted">{err}</div>
+              <div className="px-4 py-8 text-center sam-text-body text-sam-muted">{err}</div>
             ) : (
               <ChatMessageList
                 messages={messages}

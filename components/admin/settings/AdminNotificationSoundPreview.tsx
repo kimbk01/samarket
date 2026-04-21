@@ -121,7 +121,7 @@ export function AdminNotificationSoundPreview({
 
   return (
     <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-3 shadow-sm">
-      <p className="mb-2 text-[12px] font-medium text-ui-fg">미리듣기</p>
+      <p className="mb-2 sam-text-helper font-medium text-ui-fg">미리듣기</p>
       <div className="flex items-stretch gap-3">
         <button
           type="button"
@@ -160,14 +160,14 @@ export function AdminNotificationSoundPreview({
               })}
             </div>
           </div>
-          <div className="mt-1.5 flex items-center justify-between font-mono text-[12px] tabular-nums text-ui-muted">
+          <div className="mt-1.5 flex items-center justify-between font-mono sam-text-helper tabular-nums text-ui-muted">
             <span>{formatTime(current)}</span>
             <span className="text-ui-border">/</span>
             <span>{formatTime(duration)}</span>
           </div>
         </div>
       </div>
-      <p className="mt-2 text-[11px] leading-snug text-ui-muted">
+      <p className="mt-2 sam-text-xxs leading-snug text-ui-muted">
         {soundUrl?.trim()
           ? "위에 올린 파일 기준으로 재생합니다. 볼륨 슬라이더 값이 반영됩니다."
           : "앱 기본 알림음으로 재생합니다. 파일을 올리면 해당 음원으로 바뀝니다."}

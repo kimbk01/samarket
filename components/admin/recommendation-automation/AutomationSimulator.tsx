@@ -33,18 +33,18 @@ export function AutomationSimulator() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         조건 평가만 하거나, Dry-run / Live 로 자동 조치를 한 번 실행할 수 있습니다.
       </p>
       <div className="flex flex-wrap items-center gap-3">
-        <label className="text-[14px] font-medium text-sam-fg">surface</label>
+        <label className="sam-text-body font-medium text-sam-fg">surface</label>
         <select
           value={surface}
           onChange={(e) => {
             setSurface(e.target.value as RecommendationSurface);
             setResult(null);
           }}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
@@ -52,11 +52,11 @@ export function AutomationSimulator() {
             </option>
           ))}
         </select>
-        <label className="text-[14px] font-medium text-sam-fg">실행 모드</label>
+        <label className="sam-text-body font-medium text-sam-fg">실행 모드</label>
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as "dry_run" | "live")}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="dry_run">Dry-run (기록만)</option>
           <option value="live">Live (실제 반영)</option>
@@ -64,22 +64,22 @@ export function AutomationSimulator() {
         <button
           type="button"
           onClick={handleEval}
-          className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] font-medium text-sam-fg"
+          className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body font-medium text-sam-fg"
         >
           조건만 평가
         </button>
         <button
           type="button"
           onClick={handleRun}
-          className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           실행
         </button>
       </div>
       {result && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-          <p className="mb-2 text-[14px] font-medium text-sam-fg">결과</p>
-          <ul className="space-y-1 text-[13px] text-sam-fg">
+          <p className="mb-2 sam-text-body font-medium text-sam-fg">결과</p>
+          <ul className="space-y-1 sam-text-body-secondary text-sam-fg">
             <li>Fallback 필요: {result.shouldFallback ? "예" : "아니오"}</li>
             <li>킬스위치 필요: {result.shouldKillSwitch ? "예" : "아니오"}</li>
             <li>롤백 필요: {result.shouldRollback ? "예" : "아니오"}</li>

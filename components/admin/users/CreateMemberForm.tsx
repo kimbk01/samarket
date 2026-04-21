@@ -157,25 +157,25 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
         <div className="border-b border-sam-border px-5 py-4">
           <h2 className="text-lg font-semibold text-sam-fg">회원 수동 입력</h2>
-          <p className="mt-1 text-[12px] text-sam-muted">auth.users · profiles · test_users</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">auth.users · profiles · test_users</p>
         </div>
         {createdLoginId ? (
           <div className="space-y-4 p-5">
-            <p className="text-[14px] text-sam-fg">
+            <p className="sam-text-body text-sam-fg">
               <strong>{createdLoginId}</strong> 생성됨. 로그인 이메일:{" "}
               <code className="rounded bg-sam-surface-muted px-1">{createdLoginEmail}</code>
             </p>
             <div className="flex flex-wrap gap-2 border-t border-sam-border pt-4">
               <Link
                 href="/login"
-                className="rounded bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+                className="rounded bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
               >
                 로그인 페이지로
               </Link>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+                className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
               >
                 닫기
               </button>
@@ -184,19 +184,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 p-5">
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">아이디 (로그인 ID)</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">아이디 (로그인 ID)</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 maxLength={64}
                 autoComplete="username"
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="2~64자 (영문/숫자)"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">비밀번호</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
               <input
                 type="password"
                 value={password}
@@ -204,36 +204,36 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 minLength={4}
                 maxLength={128}
                 autoComplete="new-password"
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="4자 이상"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">닉네임</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">닉네임</label>
               <input
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
                 maxLength={20}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder="서비스에서 표시할 닉네임"
               />
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 이메일 <span className="font-normal text-sam-meta">(선택)</span>
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder={`비워두면 아이디@${MANUAL_MEMBER_EMAIL_DOMAIN} 로 생성`}
               />
             </div>
             <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/60 px-3 py-2">
-              <p className="text-[11px] text-sam-muted">Auth 이메일</p>
-              <code className="mt-0.5 block break-all text-[13px] text-sam-fg">
+              <p className="sam-text-xxs text-sam-muted">Auth 이메일</p>
+              <code className="mt-0.5 block break-all sam-text-body-secondary text-sam-fg">
                 {resolvedAuthEmailPreview.kind === "need_id"
                   ? "—"
                   : resolvedAuthEmailPreview.kind === "invalid_custom"
@@ -242,7 +242,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               </code>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 연락처 <span className="font-normal text-sam-meta">(선택)</span>
               </label>
               <input
@@ -251,7 +251,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 autoComplete="tel"
                 value={formatPhMobileDisplay(contactPhoneDigits)}
                 onChange={(e) => setContactPhoneDigits(parsePhMobileInput(e.target.value))}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 placeholder={PH_LOCAL_09_PLACEHOLDER}
               />
             </div>
@@ -274,7 +274,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 label="거래 지역"
                 showZipLookup={false}
               />
-              <p className="mt-2 text-[12px] leading-relaxed text-sam-muted">
+              <p className="mt-2 sam-text-helper leading-relaxed text-sam-muted">
                 {STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER}
               </p>
               <div className="mt-2">
@@ -283,16 +283,16 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                   addressDetail={addressDetail}
                   onAddressStreetLineChange={setAddressStreetLine}
                   onAddressDetailChange={setAddressDetail}
-                  inputClassName="w-full rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
+                  inputClassName="w-full rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block text-[13px] font-medium text-sam-fg">권한</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">권한</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as "normal" | "premium")}
-                className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {ROLE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -301,7 +301,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                 ))}
               </select>
             </div>
-            <label className="flex items-center gap-2 rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 text-[13px] text-sam-fg">
+            <label className="flex items-center gap-2 rounded-ui-rect border border-amber-200 bg-amber-50/70 px-3 py-2 sam-text-body-secondary text-sam-fg">
               <input
                 type="checkbox"
                 checked={phoneVerified}
@@ -310,19 +310,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               관리자 확인을 마친 전화번호로 바로 생성
             </label>
 
-            {error && <p className="text-[13px] text-red-600">{error}</p>}
+            {error && <p className="sam-text-body-secondary text-red-600">{error}</p>}
             <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded border border-sam-border px-4 py-2 text-[14px] text-sam-fg hover:bg-sam-app"
+                className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
               >
                 취소
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded bg-signature px-4 py-2 text-[14px] text-white hover:bg-signature/90 disabled:opacity-50"
+                className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
               >
                 {submitting ? "생성 중…" : "추가"}
               </button>

@@ -204,7 +204,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+            className={`rounded-full px-3 py-1 sam-text-xxs font-semibold ${
               tab === t ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
             }`}
           >
@@ -245,7 +245,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                   !r.is_read ? "border-sam-border bg-signature/5" : "border-sam-border-soft bg-sam-surface"
                 }`}
               >
-                <div className="flex flex-wrap justify-between gap-1 text-[11px] text-sam-meta">
+                <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-meta">
                   <span>
                     {kindLabel ?? typeLabel}
                     {kindLabel ? <span className="text-sam-muted"> · {typeLabel}</span> : null}
@@ -253,7 +253,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                   <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
                 </div>
                 <p className="mt-1 text-sm font-bold text-sam-fg">{r.title}</p>
-                {r.body ? <p className="mt-0.5 text-[13px] text-sam-fg">{r.body}</p> : null}
+                {r.body ? <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link
                     href={href}

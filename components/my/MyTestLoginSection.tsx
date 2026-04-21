@@ -13,11 +13,11 @@ export function MyTestLoginSection({ redirectTo }: MyTestLoginSectionProps) {
 
   return (
     <section className="space-y-2" aria-label="아이디 로그인">
-      <h2 className="px-1 text-[13px] font-semibold text-muted">아이디 로그인</h2>
-      <div className="overflow-hidden rounded-ui-rect border border-ig-border bg-sam-surface">
+      <h2 className="px-1 sam-text-body-secondary font-semibold text-muted">아이디 로그인</h2>
+      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <TestLoginBar redirectTo={redirectTo} />
       </div>
-      <p className="px-1 text-[11px] leading-relaxed text-muted">
+      <p className="px-1 sam-text-xxs leading-relaxed text-muted">
         관리자「회원 관리 → 수동 입력」으로 만든 로그인 아이디로 접속하면 매장·주문 API가 해당 회원 UUID와
         연결됩니다. 여러 계정을 동시에 쓰려면 브라우저(또는 프로필·시크릿)를 나누세요.
       </p>

@@ -37,13 +37,13 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">
+        <label className="sam-text-body font-medium text-sam-fg">
           surface
         </label>
         <select
           value={surface}
           onChange={(e) => setSurface(e.target.value as ExposureSurface)}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {SURFACE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -65,13 +65,13 @@ export function ExposureSimulator({ onSimulated }: ExposureSimulatorProps) {
             }
             setRun((r) => r + 1);
           }}
-          className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           시뮬레이션 실행
         </button>
       </div>
       {!policy && (
-        <p className="text-[14px] text-amber-700">
+        <p className="sam-text-body text-amber-700">
           해당 surface의 활성 정책이 없습니다.
         </p>
       )}

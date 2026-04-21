@@ -12,19 +12,16 @@ import { encodedTradeMarketSegment } from "@/lib/categories/tradeMarketPath";
 import {
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
+import { TRADE_SECONDARY_TABS_SHELL_CLASS } from "@/lib/trade/ui/secondary-tabs-surface";
 import {
   TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS,
   TRADE_GAP_MENU_TO_POSTS_CLASS,
 } from "@/lib/trade/ui/post-spacing";
-import {
-  TRADE_SECONDARY_TABS_INNER_Y_CLASS,
-  TRADE_SECONDARY_TABS_SHELL_CLASS,
-} from "@/lib/trade/ui/secondary-tabs-surface";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
-import { TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS } from "@/lib/trade/ui/market-topic-scroll";
+import { Sam } from "@/lib/ui/sam-component-classes";
 import { JobListingKindTabs, type JobListingKindTab } from "@/components/market/JobListingKindTabs";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -162,27 +159,26 @@ export function MarketCategoryFeed({
   const secondaryHeaderNode = useMemo(() => {
     const topicBlock =
       children.length > 0 ? (
-        <div className={`w-full min-w-0 overflow-x-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-          <div className={TRADE_SECONDARY_TABS_INNER_Y_CLASS}>
-            <HorizontalDragScroll
-              className={TRADE_MARKET_TOPIC_SCROLL_NAV_CLASS}
-              style={{ WebkitOverflowScrolling: "touch" }}
-              aria-label="주제 필터"
-            >
-              <TradeTopicChipsRow
-                marketBasePath={marketBase}
-                topics={children}
-                selectedTopicKey={topicKeyForChips}
-                extraQuery={isJobMarket ? { jk: jobKindTab } : undefined}
-              />
-            </HorizontalDragScroll>
-          </div>
+        <div className={APP_MAIN_HEADER_INNER_CLASS}>
+          <HorizontalDragScroll
+            className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+            style={{ WebkitOverflowScrolling: "touch" }}
+            role="tablist"
+            aria-label="주제 필터"
+          >
+            <TradeTopicChipsRow
+              marketBasePath={marketBase}
+              topics={children}
+              selectedTopicKey={topicKeyForChips}
+              extraQuery={isJobMarket ? { jk: jobKindTab } : undefined}
+            />
+          </HorizontalDragScroll>
         </div>
       ) : null;
 
     const jobBlock = isJobMarket ? (
-      <div className={`w-full min-w-0 overflow-x-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-        <div className={TRADE_SECONDARY_TABS_INNER_Y_CLASS}>
+      <div className={children.length > 0 ? "border-b border-sam-border" : ""}>
+        <div className={APP_MAIN_HEADER_INNER_CLASS}>
           <JobListingKindTabs
             category={category}
             selectedKind={jobKindTab}
@@ -196,7 +192,7 @@ export function MarketCategoryFeed({
 
     return (
       <div className={TRADE_SECONDARY_TABS_SHELL_CLASS}>
-        <div className="flex w-full flex-col gap-2">
+        <div className="flex w-full min-w-0 flex-col">
           {jobBlock}
           {topicBlock}
         </div>
@@ -216,17 +212,16 @@ export function MarketCategoryFeed({
     tradeSecondaryTabsSyncKey
   );
 
+  const postsTopGapClass =
+    isJobMarket || children.length > 0
+      ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS
+      : TRADE_GAP_MENU_TO_POSTS_CLASS;
+
   return (
     <div className="touch-pan-y" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      <div
-        className={`${TRADE_CONTENT_SHELL_CLASS} ${
-          isJobMarket || children.length > 0
-            ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS
-            : TRADE_GAP_MENU_TO_POSTS_CLASS
-        }`}
-      >
+      <div className={`${TRADE_CONTENT_SHELL_CLASS} ${postsTopGapClass}`}>
         {filterRows === null ? (
-          <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>
+          <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>
         ) : (
           <PostListByCategory
             categoryId={category.id}

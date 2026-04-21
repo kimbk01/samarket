@@ -39,13 +39,13 @@ export function SearchInputBar({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 text-[15px] font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
+          className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 sam-text-body font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
           aria-label="검색어 입력"
         />
       </div>
       <button
         type="submit"
-        className="flex min-h-[44px] shrink-0 items-center rounded-ui-rect bg-signature px-4 text-[15px] font-semibold text-white"
+        className="flex min-h-[44px] shrink-0 items-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-white"
       >
         검색
       </button>

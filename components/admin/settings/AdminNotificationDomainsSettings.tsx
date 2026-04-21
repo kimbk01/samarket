@@ -168,7 +168,7 @@ export function AdminNotificationDomainsSettings() {
 
   if (loading) {
     return (
-      <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-6 text-[14px] text-ui-muted">
+      <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-6 sam-text-body text-ui-muted">
         불러오는 중…
       </div>
     );
@@ -177,12 +177,12 @@ export function AdminNotificationDomainsSettings() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="알림·알림음 (도메인)" />
-      <p className="text-[14px] text-ui-muted">
+      <p className="sam-text-body text-ui-muted">
         1:1 채팅, 그룹채팅, 거래채팅, 주문, 매장 알림음을 각각 분리해 설정합니다. 통화 수발신/연결음과
         매장·배달 전용 알림음도 이 화면에서 함께 관리할 수 있습니다.
       </p>
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800">
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
           {err}
         </div>
       ) : null}
@@ -191,7 +191,7 @@ export function AdminNotificationDomainsSettings() {
         {rows.map((r) => (
         <AdminCard key={r.type} title={LABELS[r.type]}>
           <div className="space-y-3 px-1 py-2">
-            <label className="flex items-center justify-between gap-3 text-[14px]">
+            <label className="flex items-center justify-between gap-3 sam-text-body">
               <span>알림 사용</span>
               <input
                 type="checkbox"
@@ -200,7 +200,7 @@ export function AdminNotificationDomainsSettings() {
               />
             </label>
             <div className="space-y-2">
-              <span className="text-[13px] text-ui-muted">알림음 파일</span>
+              <span className="sam-text-body-secondary text-ui-muted">알림음 파일</span>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
@@ -216,7 +216,7 @@ export function AdminNotificationDomainsSettings() {
                 />
                 <label
                   htmlFor={`notif-domain-sound-${r.type}`}
-                  className={`inline-flex cursor-pointer rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-1.5 text-[13px] text-ui-fg hover:bg-ui-hover ${
+                  className={`inline-flex cursor-pointer rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-1.5 sam-text-body-secondary text-ui-fg hover:bg-ui-hover ${
                     uploadBusy === r.type ? "pointer-events-none opacity-60" : ""
                   }`}
                 >
@@ -225,7 +225,7 @@ export function AdminNotificationDomainsSettings() {
                 <button
                   type="button"
                   disabled={clearBusy === r.type || uploadBusy === r.type || !r.sound_url}
-                  className="rounded-ui-rect border border-ui-border px-3 py-1.5 text-[13px] text-ui-muted hover:bg-ui-hover disabled:opacity-50"
+                  className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-body-secondary text-ui-muted hover:bg-ui-hover disabled:opacity-50"
                   onClick={() => void clearUploadedSound(r.type)}
                 >
                   {clearBusy === r.type ? "해제 중…" : "업로드 해제(기본음)"}
@@ -233,7 +233,7 @@ export function AdminNotificationDomainsSettings() {
               </div>
               <AdminNotificationSoundPreview soundUrl={r.sound_url} volume={r.volume} />
             </div>
-            <label className="flex items-center gap-3 text-[14px]">
+            <label className="flex items-center gap-3 sam-text-body">
               볼륨
               <input
                 type="range"
@@ -245,7 +245,7 @@ export function AdminNotificationDomainsSettings() {
               />
               <span className="text-ui-muted">{r.volume.toFixed(2)}</span>
             </label>
-            <label className="flex items-center gap-3 text-[14px]">
+            <label className="flex items-center gap-3 sam-text-body">
               반복 (1~5)
               <input
                 type="number"
@@ -260,7 +260,7 @@ export function AdminNotificationDomainsSettings() {
                 }
               />
             </label>
-            <label className="flex items-center gap-3 text-[14px]">
+            <label className="flex items-center gap-3 sam-text-body">
               쿨다운(초)
               <input
                 type="number"
@@ -300,7 +300,7 @@ export function AdminNotificationDomainsSettings() {
       <button
         type="button"
         disabled={saving}
-        className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+        className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         onClick={() => void save()}
       >
         {saving ? "저장 중…" : "저장"}

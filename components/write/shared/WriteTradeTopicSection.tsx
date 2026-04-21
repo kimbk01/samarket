@@ -35,7 +35,7 @@ export function WriteTradeTopicSection({ category, value, onChange }: WriteTrade
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
-      <p className="mb-2 text-[14px] font-medium text-sam-fg">
+      <p className="mb-2 sam-text-body font-medium text-sam-fg">
         주제 <span className="font-normal text-sam-muted">(하나만 선택)</span>
       </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -48,7 +48,7 @@ export function WriteTradeTopicSection({ category, value, onChange }: WriteTrade
             }}
             className="rounded border-sam-border"
           />
-          <span className="text-[14px] text-sam-fg">전체</span>
+          <span className="sam-text-body text-sam-fg">전체</span>
         </label>
         {topics.map((t) => (
           <label key={t.id} className="flex cursor-pointer items-center gap-2">
@@ -61,7 +61,7 @@ export function WriteTradeTopicSection({ category, value, onChange }: WriteTrade
               }}
               className="rounded border-sam-border"
             />
-            <span className="text-[14px] text-sam-fg">{t.name}</span>
+            <span className="sam-text-body text-sam-fg">{t.name}</span>
           </label>
         ))}
       </div>

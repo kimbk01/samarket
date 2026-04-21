@@ -96,7 +96,7 @@ export function AdminTradeSettingsPage() {
     return (
       <div className="space-y-4" data-admin>
         <AdminPageHeader title="거래 설정" backHref="/admin/trade" />
-        <p className="text-[13px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
       </div>
     );
   }
@@ -105,12 +105,12 @@ export function AdminTradeSettingsPage() {
     <div className="space-y-4" data-admin>
       <AdminPageHeader title="거래 설정" backHref="/admin/trade" />
       <AdminCard title="거래 상세 하단 추천·지역 운영">
-        <p className="mb-4 text-[13px] text-sam-muted">
+        <p className="mb-4 sam-text-body-secondary text-sam-muted">
           설정 반영 규칙: 지역 사용 OFF면 지역 조건 없이 추천하고, ON이면
           <span className="font-medium text-sam-fg"> region_id → region_group → 전체 fallback</span>
           순서로 완화합니다. 지역 필수 ON은 지역 우선 매칭을 더 엄격하게 적용하지만, 최종 fallback은 유지해 빈 화면을 막습니다.
         </p>
-        <form onSubmit={onSave} className="space-y-4 text-[13px]">
+        <form onSubmit={onSave} className="space-y-4 sam-text-body-secondary">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="flex items-center gap-2">
               <input
@@ -187,7 +187,7 @@ export function AdminTradeSettingsPage() {
                   })
                 }
               />
-              <span className="text-[12px] text-sam-muted">
+              <span className="sam-text-helper text-sam-muted">
                 거래완료(completed/sold) 아이템은 설정한 기간 이후 상세 추천 리스트에서 자동 제외됩니다.
               </span>
             </label>
@@ -198,10 +198,10 @@ export function AdminTradeSettingsPage() {
             <textarea
               value={regionGroupsText}
               onChange={(e) => setRegionGroupsText(e.target.value)}
-              className="min-h-[140px] rounded border border-sam-border px-2 py-2 font-mono text-[12px]"
+              className="min-h-[140px] rounded border border-sam-border px-2 py-2 font-mono sam-text-helper"
               placeholder="quezon city:metro-manila"
             />
-            <span className="text-[12px] text-sam-muted">
+            <span className="sam-text-helper text-sam-muted">
               예) quezon city:metro-manila / makati:metro-manila
             </span>
           </label>

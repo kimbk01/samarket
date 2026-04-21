@@ -39,18 +39,18 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
 
   if (requests.length === 0) {
     return (
-      <p className="py-10 text-center text-[13px] text-sam-meta">충전 신청 내역이 없습니다.</p>
+      <p className="py-10 text-center sam-text-body-secondary text-sam-meta">충전 신청 내역이 없습니다.</p>
     );
   }
 
   return (
     <div className="overflow-x-auto">
       {err ? (
-        <p className="mb-2 rounded bg-red-50 px-3 py-2 text-[12px] text-red-700">{err}</p>
+        <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{err}</p>
       ) : null}
-      <table className="w-full min-w-[820px] border-collapse text-[13px]">
+      <table className="w-full min-w-[820px] border-collapse sam-text-body-secondary">
         <thead>
-          <tr className="border-b border-sam-border bg-sam-app text-[12px]">
+          <tr className="border-b border-sam-border bg-sam-app sam-text-helper">
             {["신청자", "플랜/포인트", "결제방식", "입금자명", "상태", "신청일", "메모", "액션"].map((h) => (
               <th key={h} className="px-3 py-2.5 text-left font-semibold text-sam-muted">
                 {h}
@@ -80,12 +80,12 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                   >
                     {r.userNickname}
                   </Link>
-                  <p className="text-[10px] text-sam-meta font-mono">{r.userId}</p>
+                  <p className="sam-text-xxs text-sam-meta font-mono">{r.userId}</p>
                 </td>
                 <td className="px-3 py-2.5">
                   <p className="font-medium text-sam-fg">{r.planName}</p>
-                  <p className="text-[12px] text-sky-700 font-bold">+{r.pointAmount.toLocaleString()}P</p>
-                  <p className="text-[11px] text-sam-muted">₱{r.paymentAmount.toLocaleString()}</p>
+                  <p className="sam-text-helper text-sky-700 font-bold">+{r.pointAmount.toLocaleString()}P</p>
+                  <p className="sam-text-xxs text-sam-muted">₱{r.paymentAmount.toLocaleString()}</p>
                 </td>
                 <td className="px-3 py-2.5 text-sam-muted">
                   {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
@@ -107,7 +107,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                       setMemoInputs((prev) => ({ ...prev, [r.id]: e.target.value }))
                     }
                     placeholder="관리자 메모"
-                    className="w-28 rounded border border-sam-border px-2 py-1 text-[11px] outline-none focus:border-sky-300"
+                    className="w-28 rounded border border-sam-border px-2 py-1 sam-text-xxs outline-none focus:border-sky-300"
                   />
                 </td>
                 <td className="px-3 py-2.5">
@@ -117,7 +117,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(r.id, "approve", memo)}
-                        className="rounded bg-emerald-600 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                        className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
                         {busy ? "…" : "승인"}
                       </button>
@@ -125,7 +125,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(r.id, "reject", memo)}
-                        className="rounded bg-red-500 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                        className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
                         반려
                       </button>
@@ -134,14 +134,14 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                           type="button"
                           disabled={busy}
                           onClick={() => void doAction(r.id, "hold", memo)}
-                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[11px] text-sam-muted disabled:opacity-50"
+                          className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                         >
                           보류
                         </button>
                       )}
                     </div>
                   ) : (
-                    <span className="text-[11px] text-sam-meta">처리완료</span>
+                    <span className="sam-text-xxs text-sam-meta">처리완료</span>
                   )}
                 </td>
               </tr>

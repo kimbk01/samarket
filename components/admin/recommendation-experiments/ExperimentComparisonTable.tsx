@@ -22,7 +22,7 @@ export function ExperimentComparisonTable() {
 
   if (experiments.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         실험이 없습니다.
       </div>
     );
@@ -31,11 +31,11 @@ export function ExperimentComparisonTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">실험</label>
+        <label className="sam-text-body font-medium text-sam-fg">실험</label>
         <select
           value={experimentId || effectiveId}
           onChange={(e) => setExperimentId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {experiments.map((e) => (
             <option key={e.id} value={e.id}>
@@ -45,12 +45,12 @@ export function ExperimentComparisonTable() {
         </select>
       </div>
       {effectiveMetrics.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           해당 실험의 성과 데이터가 없습니다.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[560px] border-collapse text-[14px]">
+          <table className="w-full min-w-[560px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">

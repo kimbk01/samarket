@@ -14,14 +14,14 @@ export function ProductConditionSelect({
 }: ProductConditionSelectProps) {
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-2 text-[14px] font-medium text-sam-fg">상품 상태</p>
+      <p className="mb-2 sam-text-body font-medium text-sam-fg">상품 상태</p>
       <div className="flex flex-wrap gap-2">
         {CONDITIONS.map((c) => (
           <button
             key={c.value}
             type="button"
             onClick={() => onChange(c.value)}
-            className={`rounded-ui-rect border px-3 py-2 text-[14px] ${
+            className={`rounded-ui-rect border px-3 py-2 sam-text-body ${
               value === c.value
                 ? "border-signature bg-signature/10 text-signature"
                 : "border-sam-border text-sam-muted"

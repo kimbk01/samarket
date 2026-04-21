@@ -26,16 +26,16 @@ export function CategoryListSubheader({
             <CategoryIcon iconKey={category.icon_key} />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[16px] font-semibold leading-snug text-sam-fg">{category.name}</h1>
+            <h1 className="truncate sam-text-body-lg font-semibold leading-snug text-sam-fg">{category.name}</h1>
             {showTypeBadge && (
-              <span className="mt-0.5 inline-block text-[12px] text-sam-muted">
+              <span className="mt-0.5 inline-block sam-text-helper text-sam-muted">
                 {CATEGORY_TYPE_LABELS[category.type]}
               </span>
             )}
           </div>
         </>
       ) : (
-        <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
       )}
       </div>
     </div>

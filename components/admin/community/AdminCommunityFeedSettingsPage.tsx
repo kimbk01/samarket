@@ -68,7 +68,7 @@ export function AdminCommunityFeedSettingsPage() {
     return (
       <div className="space-y-4">
         <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
-        <p className="text-[13px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
       </div>
     );
   }
@@ -77,14 +77,14 @@ export function AdminCommunityFeedSettingsPage() {
     <div className="space-y-4">
       <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
       <AdminCard title="커뮤니티 피드 (admin_settings · community_feed_ops)">
-        <p className="mb-4 text-[13px] text-sam-muted">
+        <p className="mb-4 sam-text-body-secondary text-sam-muted">
           금칙어·본문 길이·하루 글 수·댓글 도배 간격을 설정합니다. 사용자 글/댓글 API에 반영됩니다.
         </p>
-        <form onSubmit={onSave} className="max-w-xl space-y-4 text-[13px]">
+        <form onSubmit={onSave} className="max-w-xl space-y-4 sam-text-body-secondary">
           <label className="flex flex-col gap-1">
             <span className="font-medium text-sam-fg">금칙어 (한 줄에 하나, 부분 일치)</span>
             <textarea
-              className="min-h-[120px] rounded border border-sam-border px-2 py-2 font-mono text-[12px]"
+              className="min-h-[120px] rounded border border-sam-border px-2 py-2 font-mono sam-text-helper"
               value={bannedText}
               onChange={(e) => setBannedText(e.target.value)}
               placeholder="예시단어"

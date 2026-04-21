@@ -48,7 +48,7 @@ async function TradeChatComposePageBody({
   }
 
   return (
-    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-ig-border bg-sam-surface shadow-sm">
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <TradeChatComposeClient productId={productId} />
     </section>
   );

@@ -52,7 +52,7 @@ export function OpsRoadmapBoard() {
         <select
           value={domainFilter}
           onChange={(e) => setDomainFilter(e.target.value as OpsRoadmapDomain | "")}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="">전체 영역</option>
           <option value="monitoring">모니터링</option>
@@ -66,7 +66,7 @@ export function OpsRoadmapBoard() {
       <div className="grid gap-3 overflow-x-auto lg:grid-cols-6">
         {STATUS_COLUMNS.map((status) => (
           <div key={status} className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3">
-            <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
+            <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
               {STATUS_LABELS[status]} ({byStatus[status].length})
             </h3>
             <div className="space-y-2">

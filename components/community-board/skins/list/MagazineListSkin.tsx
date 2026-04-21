@@ -20,7 +20,7 @@ export function MagazineListSkin({
       {featured && (
         <Link
           href={`${baseHref}/${featured.id}`}
-          className="block rounded-ui-rect overflow-hidden border border-sam-border bg-sam-surface hover:shadow-lg transition-shadow"
+          className="block rounded-ui-rect overflow-hidden border border-sam-border bg-sam-surface hover:shadow-sam-elevated transition-shadow"
         >
           <div className="aspect-[16/9] bg-sam-surface-muted relative">
             {thumb ? (

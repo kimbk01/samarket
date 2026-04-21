@@ -278,25 +278,25 @@ export function CategoryFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-lg"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-ui-rect bg-sam-surface p-4 shadow-sam-elevated"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-[17px] font-semibold text-sam-fg">
+        <h2 className="mb-4 sam-text-section-title font-semibold text-sam-fg">
           {isCreate ? (isMenuMode ? "항목 추가" : "카테고리 추가") : isMenuMode ? "항목 수정" : "카테고리 수정"}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">카테고리명 *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">카테고리명 *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">slug * (영문 소문자, 숫자, 하이픈만)</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">slug * (영문 소문자, 숫자, 하이픈만)</label>
             <input
               type="text"
               value={slug}
@@ -305,29 +305,29 @@ export function CategoryFormModal({
                 setSlugError(null);
               }}
               placeholder="jobs, real-estate, bulk-sell"
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
-            {slugError && <p className="mt-1 text-[12px] text-red-600">{slugError}</p>}
+            {slugError && <p className="mt-1 sam-text-helper text-red-600">{slugError}</p>}
           </div>
           {!isMenuMode && (
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">아이콘</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">아이콘</label>
               <input
                 type="text"
                 value={icon_key}
                 onChange={(e) => setIconKey(e.target.value)}
-                className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               />
             </div>
           )}
           {(!isMenuMode || !fixedType) && (
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">타입</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">타입</label>
               <select
                 value={type}
                 onChange={(e) => handleTypeChange(e.target.value as CategoryType)}
-                className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {isMenuMode
                   ? MENU_TYPE_OPTIONS.map((o) => (
@@ -345,7 +345,7 @@ export function CategoryFormModal({
           )}
           {isMenuMode && (type === "trade" || fixedType === "trade") && (
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">종류</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">종류</label>
               <select
                 value={tradeSubtype}
                 onChange={(e) => {
@@ -354,7 +354,7 @@ export function CategoryFormModal({
                   if (v !== "__custom__") setIconKey(v);
                   else if (customTradeSubtype.trim()) setIconKey(slugifyForIconKey(customTradeSubtype));
                 }}
-                className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {TRADE_SUBTYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -372,10 +372,10 @@ export function CategoryFormModal({
                     setIconKey(v.trim() ? slugifyForIconKey(v) : "__custom__");
                   }}
                   placeholder="예: 중고배송, direct-deal (영문 소문자·숫자·하이픈)"
-                  className="mt-2 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                  className="mt-2 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 />
               )}
-              <p className="mt-1 text-[11px] text-sam-muted">일반·중고차·부동산·알바·환전 외 추가 가능. 직거래·나눔은 기능 설정에서 쓰기 선택 항목으로 둡니다.</p>
+              <p className="mt-1 sam-text-xxs text-sam-muted">일반·중고차·부동산·알바·환전 외 추가 가능. 직거래·나눔은 기능 설정에서 쓰기 선택 항목으로 둡니다.</p>
               {tradeSubtype !== "__custom__" ? (
                 <div className="mt-3">
                   <CategoryMenuIconPicker
@@ -392,7 +392,7 @@ export function CategoryFormModal({
           )}
           {isMenuMode && (type === "community" || fixedType === "community") && (
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">게시판 스킨</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">게시판 스킨</label>
               <select
                 value={communitySkin}
                 onChange={(e) => {
@@ -400,7 +400,7 @@ export function CategoryFormModal({
                   setCommunitySkin(v);
                   setIconKey(v);
                 }}
-                className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {COMMUNITY_SKIN_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -422,33 +422,33 @@ export function CategoryFormModal({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[13px] font-medium text-sam-fg">순서 (sort_order)</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">순서 (sort_order)</label>
               <input
                 type="number"
                 min={0}
                 value={sort_order}
                 onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
-                className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               />
             </div>
             <div className="flex items-end pb-2">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={is_active} onChange={(e) => setIsActive(e.target.checked)} className="rounded" />
-                <span className="text-[13px] text-sam-fg">사용 (is_active)</span>
+                <span className="sam-text-body-secondary text-sam-fg">사용 (is_active)</span>
               </label>
             </div>
           </div>
           <div>
-            <label className="block text-[13px] font-medium text-sam-fg">설명</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">설명</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div className="border-t border-sam-border-soft pt-4">
-            <p className="mb-2 text-[13px] font-medium text-sam-fg">
+            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
               {isMenuMode ? "웹 + 퀵메뉴" : "Quick Create (글쓰기 런처)"}
             </p>
             <div className="space-y-2">
@@ -459,21 +459,21 @@ export function CategoryFormModal({
                   onChange={(e) => setShowInHomeChips(e.target.checked)}
                   className="rounded"
                 />
-                <span className="text-[13px] text-sam-fg">
+                <span className="sam-text-body-secondary text-sam-fg">
                   {isMenuMode ? "웹 메뉴 노출" : "상단 카테고리 칩 노출"}
                 </span>
               </label>
               {isMenuMode && (
-                <p className="text-[11px] text-sam-muted">켜면 홈 상단 가로 메뉴(칩)에 이 항목이 표시됩니다.</p>
+                <p className="sam-text-xxs text-sam-muted">켜면 홈 상단 가로 메뉴(칩)에 이 항목이 표시됩니다.</p>
               )}
               {!isMenuMode && (
-                <p className="text-[11px] text-sam-muted">
+                <p className="sam-text-xxs text-sam-muted">
                   해제하면 홈 상단 칩에는 안 보이고, Quick Create(런처)에만 노출할 수 있어요.
                 </p>
               )}
               <div className="border-t border-sam-border-soft pt-3 mt-2">
-                <span className="block text-[12px] font-medium text-sam-muted mb-1">홈 글쓰기 플로팅 메뉴 (주제 선택)</span>
-                <p className="mb-2 text-[11px] leading-relaxed text-sam-muted">
+                <span className="block sam-text-helper font-medium text-sam-muted mb-1">홈 글쓰기 플로팅 메뉴 (주제 선택)</span>
+                <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
                   새 메뉴는 기본 켜짐 — 홈·거래 화면 + 플로팅의 「글쓰기」 목록에 자동으로 들어갑니다. 끄면 상단 칩만 쓰고 플로팅 주제에서는 빼고 싶을 때 사용하세요. 거래/커뮤니티 타입별로 섹션이 나뉘며, 같은 타입 안에서는 아래 숫자가 작을수록 위에 표시됩니다.
                 </p>
                 <label className="flex items-center gap-2">
@@ -483,36 +483,36 @@ export function CategoryFormModal({
                     onChange={(e) => setQuickCreateEnabled(e.target.checked)}
                     className="rounded"
                   />
-                  <span className="text-[13px] text-sam-fg">런처에 표시</span>
+                  <span className="sam-text-body-secondary text-sam-fg">런처에 표시</span>
                 </label>
                 <div className="mt-2">
-                  <label className="block text-[12px] text-sam-muted">런처 그룹 (선택)</label>
+                  <label className="block sam-text-helper text-sam-muted">런처 그룹 (선택)</label>
                   <select
                     value={quick_create_group ?? ""}
                     onChange={(e) => setQuickCreateGroup((e.target.value || null) as QuickCreateGroup | null)}
-                    className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                    className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                   >
                     <option value="">지정 안 함</option>
                     <option value="content">콘텐츠·커뮤니티류 (content)</option>
                     <option value="trade">거래·판매류 (trade)</option>
                   </select>
-                  <p className="mt-0.5 text-[10px] text-sam-meta">DB·레거시 분류용입니다. 앱 목록은 주로 「타입」으로 묶입니다.</p>
+                  <p className="mt-0.5 sam-text-xxs text-sam-meta">DB·레거시 분류용입니다. 앱 목록은 주로 「타입」으로 묶입니다.</p>
                 </div>
                 <div className="mt-2">
-                  <label className="block text-[12px] text-sam-muted">런처 순서 (같은 타입 내)</label>
+                  <label className="block sam-text-helper text-sam-muted">런처 순서 (같은 타입 내)</label>
                   <input
                     type="number"
                     min={0}
                     value={quick_create_order}
                     onChange={(e) => setQuickCreateOrder(parseInt(e.target.value, 10) || 0)}
-                    className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                    className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                   />
                 </div>
               </div>
             </div>
           </div>
           <div className="border-t border-sam-border-soft pt-4">
-            <p className="mb-2 text-[13px] font-medium text-sam-fg">기능 설정</p>
+            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">기능 설정</p>
             <div className="space-y-2">
               <LabelCheck checked={can_write} onChange={setCanWrite} label="글쓰기 (can_write)" />
               <LabelCheck checked={has_price} onChange={setHasPrice} label="가격 (has_price)" />
@@ -521,11 +521,11 @@ export function CategoryFormModal({
               <LabelCheck checked={has_direct_deal} onChange={setHasDirectDeal} label="직거래 선택 (has_direct_deal)" />
               <LabelCheck checked={has_free_share} onChange={setHasFreeShare} label="나눔 선택 (has_free_share)" />
               <div>
-                <label className="block text-[12px] text-sam-muted">post_type</label>
+                <label className="block sam-text-helper text-sam-muted">post_type</label>
                 <select
                   value={post_type}
                   onChange={(e) => setPostType(e.target.value)}
-                  className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+                  className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
                 >
                   {POST_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -540,15 +540,15 @@ export function CategoryFormModal({
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50"
+              className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
             >
               {submitting ? "저장 중…" : "저장"}
             </button>
-            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 text-[14px] text-sam-fg">
+            <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg">
               취소
             </button>
             {!isCreate && onDelete && (
-              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 text-[14px] text-red-700">
+              <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body text-red-700">
                 삭제
               </button>
             )}
@@ -571,7 +571,7 @@ function LabelCheck({
   return (
     <label className="flex items-center gap-2">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="rounded" />
-      <span className="text-[13px] text-sam-fg">{label}</span>
+      <span className="sam-text-body-secondary text-sam-fg">{label}</span>
     </label>
   );
 }

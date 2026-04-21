@@ -50,30 +50,30 @@ export default function GroupChatHomePageClient() {
       <div className={INNER}>
         <div className="mb-6 flex items-center gap-2">
           <AppBackButton backHref="/chats" preferHistoryBack={false} />
-          <h1 className="text-[18px] font-semibold text-sam-fg">그룹 채팅</h1>
+          <h1 className="sam-text-page-title font-semibold text-sam-fg">그룹 채팅</h1>
         </div>
-        <p className="mb-4 text-[14px] text-sam-muted">
+        <p className="mb-4 sam-text-body text-sam-muted">
           새 방을 만들면 소유자로 입장합니다. 링크로 방 id를 알면 `/group-chat/방id` 로 바로 들어갈 수 있어요.
         </p>
-        <label className="mb-2 block text-[13px] font-medium text-sam-fg">방 이름 (선택)</label>
+        <label className="mb-2 block sam-text-body-secondary font-medium text-sam-fg">방 이름 (선택)</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="예: 동호회 잡담"
-          className="mb-4 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg outline-none focus:border-sam-fg/30"
+          className="mb-4 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg outline-none focus:border-sam-fg/30"
           maxLength={200}
         />
-        {err ? <p className="mb-3 text-[13px] text-red-600">{err}</p> : null}
+        {err ? <p className="mb-3 sam-text-body-secondary text-red-600">{err}</p> : null}
         <button
           type="button"
           disabled={busy}
           onClick={() => void createRoom()}
-          className="w-full rounded-ui-rect bg-sam-fg px-4 py-3 text-[15px] font-medium text-white disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-sam-fg px-4 py-3 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {busy ? "만드는 중…" : "방 만들기"}
         </button>
-        <p className="mt-6 text-center text-[13px] text-sam-muted">
+        <p className="mt-6 text-center sam-text-body-secondary text-sam-muted">
           <Link href="/chats" className="underline">
             거래 채팅 목록
           </Link>

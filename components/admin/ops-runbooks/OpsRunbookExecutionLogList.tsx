@@ -27,7 +27,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
         실행 로그가 없습니다.
       </div>
     );
@@ -38,7 +38,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
       {logs.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-3 py-2 text-[13px]"
+          className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-body-secondary"
         >
           <span className="rounded bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType] ?? log.actionType}

@@ -38,8 +38,8 @@ export const AdminKpiCards = memo(function AdminKpiCards({ stats, loading }: Adm
             key={key}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3"
           >
-            <p className="text-[12px] text-sam-muted">{label}</p>
-            <p className="mt-1 text-[18px] font-semibold text-sam-fg">
+            <p className="sam-text-helper text-sam-muted">{label}</p>
+            <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">
               {loading ? (
                 <span
                   className="inline-block h-[1.125rem] w-[3.5rem] animate-pulse rounded bg-sam-border"

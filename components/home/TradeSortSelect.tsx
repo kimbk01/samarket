@@ -14,7 +14,7 @@ interface TradeSortSelectProps {
 }
 
 const COMMUNITY_SELECT_CLASS =
-  "w-max max-w-full appearance-none rounded-ui-rect border border-sam-border bg-sam-surface-muted py-1 pl-1 pr-5 text-[13px] font-semibold text-sam-fg shadow-none outline-none focus:border-sam-border focus:ring-0";
+  "w-max max-w-full appearance-none rounded-ui-rect border border-sam-border bg-sam-surface-muted py-1 pl-1 pr-5 sam-text-body-secondary font-semibold text-sam-fg shadow-none outline-none focus:border-sam-border focus:ring-0";
 
 const COMMUNITY_SELECT_STYLE: CSSProperties = {
   backgroundImage:
@@ -37,7 +37,7 @@ export function TradeSortSelect({ value, onChange, id, variant = "default" }: Tr
       className={
         variant === "community"
           ? COMMUNITY_SELECT_CLASS
-          : "w-full max-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-2 pl-3 pr-9 text-[13px] font-semibold text-sam-fg shadow-sm"
+          : "w-full max-w-[11rem] rounded-ui-rect border border-sam-border bg-sam-surface py-2 pl-3 pr-9 sam-text-body-secondary font-semibold text-sam-fg shadow-sm"
       }
       style={variant === "community" ? COMMUNITY_SELECT_STYLE : undefined}
     >

@@ -67,7 +67,7 @@ function SectionBlock({
       <div className="flex items-end justify-between gap-2 px-0.5">
         <div>
           {eyebrow ?
-            <p className={`text-[12px] font-semibold uppercase tracking-wide ${FB.metaSm}`}>{eyebrow}</p>
+            <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>{eyebrow}</p>
           : null}
           <h3 className={`${FB.name} ${eyebrow ? "mt-0.5" : ""}`}>{title}</h3>
           {subtitle ? <p className={`mt-1 ${FB.meta}`}>{subtitle}</p> : null}
@@ -178,19 +178,19 @@ export function StoreNearbyFeedSection({
     <section className="space-y-5 pb-4">
       <div className="flex items-end justify-between px-0.5">
         <div>
-          <p className={`text-[12px] font-semibold uppercase tracking-wide ${FB.metaSm}`}>피드</p>
-          <h2 className={`mt-0.5 text-[20px] font-bold leading-tight text-[#050505] dark:text-[#E4E6EB]`}>
+          <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>피드</p>
+          <h2 className={`mt-0.5 sam-text-page-title font-bold leading-tight text-[#050505] dark:text-[#E4E6EB]`}>
             매장
           </h2>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 pb-0.5">
-          <Link href={storesBrowsePrimaryPath("restaurant")} className={`text-[15px] ${FB.link}`}>
+          <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
             음식 더보기
           </Link>
-          <span className="text-[13px] text-[#CED0D4] dark:text-[#5F6062]" aria-hidden>
+          <span className="sam-text-body-secondary text-[#CED0D4] dark:text-[#5F6062]" aria-hidden>
             ·
           </span>
-          <Link href="/stores#store-industry-explore" className={`text-[15px] ${FB.link}`}>
+          <Link href="/stores#store-industry-explore" className={`sam-text-body ${FB.link}`}>
             업종별
           </Link>
         </div>
@@ -263,10 +263,10 @@ export function StoreNearbyFeedSection({
               subtitle="거리와 인기를 섞어 보여 드려요"
               action={
                 <div className="flex flex-wrap items-center justify-end gap-x-2">
-                  <Link href={storesBrowsePrimaryPath("restaurant")} className={`text-[15px] ${FB.link}`}>
+                  <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
                     음식
                   </Link>
-                  <Link href={storesBrowsePrimaryPath("mart")} className={`text-[15px] ${FB.link}`}>
+                  <Link href={storesBrowsePrimaryPath("mart")} className={`sam-text-body ${FB.link}`}>
                     마트
                   </Link>
                 </div>

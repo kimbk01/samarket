@@ -64,7 +64,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
 
   if (apiUser === "loading") {
     return (
-      <div className="py-12 text-center text-[14px] text-sam-muted">회원 정보를 불러오는 중…</div>
+      <div className="py-12 text-center sam-text-body text-sam-muted">회원 정보를 불러오는 중…</div>
     );
   }
 
@@ -74,7 +74,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
 
   if (!user) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         회원을 찾을 수 없습니다.
       </div>
     );
@@ -96,24 +96,24 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
         <div className="flex gap-4">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-border-soft" />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-sam-fg">{user.nickname}</p>
+            <p className="sam-text-body font-semibold text-sam-fg">{user.nickname}</p>
             {showMemberUuid ? (
-              <p className="text-[13px] text-sam-muted">
+              <p className="sam-text-body-secondary text-sam-muted">
                 ID: {user.id}
                 <button
                   type="button"
-                  className="ml-2 text-[12px] font-medium text-signature hover:underline"
+                  className="ml-2 sam-text-helper font-medium text-signature hover:underline"
                   onClick={() => setShowMemberUuid(false)}
                 >
                   숨기기
                 </button>
               </p>
             ) : (
-              <p className="text-[13px] text-sam-muted">
+              <p className="sam-text-body-secondary text-sam-muted">
                 ID 숨김
                 <button
                   type="button"
-                  className="ml-2 text-[12px] font-medium text-signature hover:underline"
+                  className="ml-2 sam-text-helper font-medium text-signature hover:underline"
                   onClick={() => setShowMemberUuid(true)}
                 >
                   표시
@@ -121,22 +121,22 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
               </p>
             )}
             {user.email && (
-              <p className="mt-1 text-[13px] text-sam-muted">{user.email}</p>
+              <p className="mt-1 sam-text-body-secondary text-sam-muted">{user.email}</p>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <AdminModerationStatusBadge status={user.moderationStatus} />
-              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] text-sam-fg">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper text-sam-fg">
                 {MEMBER_TYPE_LABELS[user.memberType] ?? user.memberType}
               </span>
             </div>
-            <p className="mt-2 text-[13px] text-sam-muted">
+            <p className="mt-2 sam-text-body-secondary text-sam-muted">
               가입 {new Date(user.joinedAt).toLocaleString("ko-KR")}
               {user.lastActiveAt && (
                 <> · 최근활동 {new Date(user.lastActiveAt).toLocaleDateString("ko-KR")}</>
               )}
             </p>
             {user.location && (
-              <p className="mt-1 text-[13px] text-sam-muted">지역: {user.location}</p>
+              <p className="mt-1 sam-text-body-secondary text-sam-muted">지역: {user.location}</p>
             )}
           </div>
         </div>
@@ -145,7 +145,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
       <AdminUserSummaryCards summary={summary} />
 
       <AdminCard title="거래/상품 요약">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">등록 상품</dt>
             <dd>{user.productCount}</dd>
@@ -167,7 +167,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
 
       <AdminCard title="회원 메모 (placeholder)">
         {hasMemo && (
-          <p className="mb-2 text-[13px] text-sam-fg">{hasMemo}</p>
+          <p className="mb-2 sam-text-body-secondary text-sam-fg">{hasMemo}</p>
         )}
         <div className="flex gap-2">
           <input
@@ -175,12 +175,12 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
             placeholder="메모 입력"
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
-            className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 text-[14px] text-sam-fg placeholder:text-sam-meta"
+            className="min-w-0 flex-1 rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
           >
             저장
           </button>

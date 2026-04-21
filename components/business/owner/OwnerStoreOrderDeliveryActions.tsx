@@ -9,16 +9,16 @@ import {
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 
 const BTN_PRIMARY =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center text-[13px] font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
+  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center sam-text-body-secondary font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:sam-text-body";
 const BTN_DANGER =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-2 text-center text-[13px] font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:text-[14px]";
+  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-2 text-center sam-text-body-secondary font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:sam-text-body";
 const OC_SM =
-  "text-[13px] font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
+  "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-1.5 text-center text-[12px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -101,7 +101,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
   return (
     <div className={wrapClass}>
       {err ? (
-        <p className="max-w-full text-left text-[11px] leading-snug text-red-600 [overflow-wrap:anywhere] [word-break:break-word]">
+        <p className="max-w-full text-left sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere] [word-break:break-word]">
           {err}
         </p>
       ) : null}
@@ -144,7 +144,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   const noticeEl: ReactNode = useMemo(() => {
     if (order.order_status === "refund_requested") {
       return (
-        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 text-[12px] leading-snug text-amber-950">
+        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-helper leading-snug text-amber-950">
           구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
         </p>
       );
@@ -163,16 +163,16 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
 
   return (
-    <div className="shrink-0 border-b border-ig-border px-3 py-3">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+    <div className="shrink-0 border-b border-sam-border px-3 py-3">
+      <p className="mb-1 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
         배달·주문 처리
       </p>
-      <p className="mb-2 text-[12px] text-muted">
+      <p className="mb-2 sam-text-helper text-muted">
         진행 단계 변경·주문취소는 채팅과 함께 이곳에서 할 수 있습니다. ({statusLabel})
       </p>
       {noticeEl}
       {err ? (
-        <p className="mt-2 text-[12px] leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+        <p className="mt-2 sam-text-helper leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
       ) : null}
       {showTransitionButtons ? (
         <div className="mt-3 flex flex-row flex-nowrap gap-2">
@@ -221,34 +221,34 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   const noticeEl: ReactNode = useMemo(() => {
     if (order.order_status === "refund_requested") {
       return (
-        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/90 px-2 py-1.5 text-[11px] leading-snug text-amber-950">
+        <p className="rounded-ui-rect border border-amber-100 bg-amber-50/90 px-2 py-1.5 sam-text-xxs leading-snug text-amber-950">
           환불 요청됨 — 관리자 배달 주문에서 승인 시 반영됩니다.
         </p>
       );
     }
     if (order.order_status === "refunded") {
-      return <p className="text-[11px] leading-snug text-sam-muted">환불 처리 완료</p>;
+      return <p className="sam-text-xxs leading-snug text-sam-muted">환불 처리 완료</p>;
     }
     if (!showTransitionButtons) {
-      return <p className="text-[11px] leading-snug text-sam-meta">이 단계에서는 변경할 수 없습니다.</p>;
+      return <p className="sam-text-xxs leading-snug text-sam-meta">이 단계에서는 변경할 수 없습니다.</p>;
     }
     return null;
   }, [order.order_status, showTransitionButtons]);
 
   return (
-    <div className="shrink-0 border-b border-ig-border bg-background px-3 py-2">
+    <div className="shrink-0 border-b border-sam-border bg-background px-3 py-2">
       <div className="mb-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
-        <p className="min-w-0 truncate text-[13px] font-semibold text-sam-fg">
+        <p className="min-w-0 truncate sam-text-body-secondary font-semibold text-sam-fg">
           <span className="text-muted">주문</span> {orderNo}
         </p>
-        <p className="shrink-0 text-[12px] font-medium text-[#555]">{statusLabel}</p>
+        <p className="shrink-0 sam-text-helper font-medium text-[#555]">{statusLabel}</p>
       </div>
-      <p className="mb-2 text-[10px] leading-snug text-muted">
+      <p className="mb-2 sam-text-xxs leading-snug text-muted">
         배달·접수 처리는 여기서 진행하고, 주문 전문·채팅 전송은 우측 ⋯에서 확인하세요.
       </p>
       {noticeEl}
       {err ? (
-        <p className="mt-1.5 text-[11px] leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+        <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
       ) : null}
       {showTransitionButtons ? (
         <div className="mt-2 flex min-w-0 flex-row flex-wrap gap-2">
@@ -281,7 +281,7 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
 
   if (order.order_status === "refund_requested") {
     return (
-      <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 text-[13px] leading-snug text-amber-950">
+      <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-body-secondary leading-snug text-amber-950">
         구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
       </p>
     );

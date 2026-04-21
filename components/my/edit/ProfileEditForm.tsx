@@ -202,14 +202,14 @@ export function ProfileEditForm() {
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         프로필을 불러오는 중…
       </div>
     );
   }
   if (!profile) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         로그인 화면으로 이동 중…
       </div>
     );
@@ -239,14 +239,14 @@ export function ProfileEditForm() {
           <p
             className={
               message.type === "ok"
-                ? "text-[14px] text-green-600"
-                : "text-[14px] text-red-600"
+                ? "sam-text-body text-green-600"
+                : "sam-text-body text-red-600"
             }
           >
             {message.text}
           </p>
           {message.type === "ok" && message.detail ? (
-            <p className="text-[13px] leading-relaxed text-amber-900">{message.detail}</p>
+            <p className="sam-text-body-secondary leading-relaxed text-amber-900">{message.detail}</p>
           ) : null}
         </div>
       ) : null}
@@ -254,14 +254,14 @@ export function ProfileEditForm() {
       <div className="flex gap-3">
         <Link
           href="/my"
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center text-[14px] font-medium text-sam-fg"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center sam-text-body font-medium text-sam-fg"
         >
           취소
         </Link>
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-60"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-60"
         >
           {saving ? "저장 중…" : "저장"}
         </button>

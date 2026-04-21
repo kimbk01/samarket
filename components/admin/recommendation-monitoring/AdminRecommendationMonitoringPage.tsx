@@ -43,7 +43,7 @@ export function AdminRecommendationMonitoringPage() {
           description="헬스·섹션·이슈·알림 규칙·알림 이벤트"
         />
         <AdminCard>
-          <p className="py-8 text-center text-[14px] text-sam-muted">알림 규칙 등 운영 설정을 불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body text-sam-muted">알림 규칙 등 운영 설정을 불러오는 중…</p>
         </AdminCard>
       </>
     );
@@ -57,7 +57,7 @@ export function AdminRecommendationMonitoringPage() {
       />
       {hydrateError && (
         <div
-          className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[13px] text-sam-fg"
+          className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
           role="alert"
         >
           추천 운영 설정 로드에 실패했습니다. 알림 규칙은 기본값일 수 있습니다. ({hydrateError})
@@ -69,7 +69,7 @@ export function AdminRecommendationMonitoringPage() {
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"

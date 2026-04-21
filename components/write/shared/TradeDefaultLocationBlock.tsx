@@ -158,10 +158,10 @@ export function TradeDefaultLocationBlock({
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-2 text-[14px] font-medium text-sam-fg">
+      <p className="mb-2 sam-text-body font-medium text-sam-fg">
         거래 지역 <span className="text-red-500">*</span>
       </p>
-      <p className="break-words text-[14px] leading-snug text-sam-fg">
+      <p className="break-words sam-text-body leading-snug text-sam-fg">
         {!ready
           ? snapshotLabel ?? "…"
           : displayLine?.trim() ||
@@ -172,7 +172,7 @@ export function TradeDefaultLocationBlock({
         onBeforeNavigateToAddresses ? (
           <button
             type="button"
-            className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
             onClick={async () => {
               try {
                 await onBeforeNavigateToAddresses();
@@ -187,13 +187,13 @@ export function TradeDefaultLocationBlock({
         ) : (
           <Link
             href={ADDRESSES_HREF}
-            className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+            className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
             주소 관리로 변경
           </Link>
         )
       ) : null}
-      {error ? <p className="mt-2 text-[13px] text-red-500">{error}</p> : null}
+      {error ? <p className="mt-2 sam-text-body-secondary text-red-500">{error}</p> : null}
     </section>
   );
 }

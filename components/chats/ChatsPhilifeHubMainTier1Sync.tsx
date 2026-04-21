@@ -12,7 +12,7 @@ export function ChatsPhilifeHubMainTier1Sync() {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       stickyBelow: (
-        <div className="w-full min-w-0 shrink-0 border-b border-ig-border bg-[var(--sub-bg)]">
+        <div className="w-full min-w-0 shrink-0 border-b border-sam-border bg-[var(--sub-bg)]">
           <ChatHubTopTabs active="trade" />
         </div>
       ),

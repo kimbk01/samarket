@@ -49,19 +49,19 @@ export function AdminSanctionPanel({
 
   return (
     <div>
-      {error && <p className="mb-2 text-[13px] text-red-600">{error}</p>}
+      {error && <p className="mb-2 sam-text-body-secondary text-red-600">{error}</p>}
       {targetLabel && (
-        <p className="mb-3 text-[14px] text-sam-muted">
+        <p className="mb-3 sam-text-body text-sam-muted">
           대상: <strong>{targetLabel}</strong> ({targetUserId || "—"})
         </p>
       )}
       <div className="mb-3">
-        <label className="block text-[12px] font-medium text-sam-muted">처리 메모 (선택)</label>
+        <label className="block sam-text-helper font-medium text-sam-muted">처리 메모 (선택)</label>
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           placeholder="관리자 메모"
-          className="mt-1 w-full rounded border border-sam-border px-3 py-2 text-[13px]"
+          className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body-secondary"
           rows={2}
         />
       </div>
@@ -72,7 +72,7 @@ export function AdminSanctionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => handleAction(type)}
-            className={`rounded border px-3 py-2 text-[13px] font-medium disabled:opacity-50 ${
+            className={`rounded border px-3 py-2 sam-text-body-secondary font-medium disabled:opacity-50 ${
               type === "reject"
                 ? "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
                 : type === "account_ban"

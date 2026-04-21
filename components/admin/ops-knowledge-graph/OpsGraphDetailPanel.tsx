@@ -38,7 +38,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
 
   if (!nodeId || !node) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center sam-text-body text-sam-muted">
         노드를 선택하면 상세가 표시됩니다.
       </div>
     );
@@ -54,7 +54,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-[15px] font-medium text-sam-fg">{node.title}</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">{node.title}</h3>
         {onClose && (
           <button
             type="button"
@@ -65,25 +65,25 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
           </button>
         )}
       </div>
-      <p className="mt-1 text-[12px] text-sam-muted">
+      <p className="mt-1 sam-text-helper text-sam-muted">
         {NODE_TYPE_LABELS[node.nodeType]} · {node.refId}
       </p>
       {node.category && (
-        <p className="mt-1 text-[13px] text-sam-muted">카테고리: {node.category}</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">카테고리: {node.category}</p>
       )}
       {docHref && (
         <Link
           href={docHref}
-          className="mt-2 inline-block text-[14px] text-signature hover:underline"
+          className="mt-2 inline-block sam-text-body text-signature hover:underline"
         >
           상세 보기 →
         </Link>
       )}
       <div className="mt-4 border-t border-sam-border-soft pt-3">
-        <p className="text-[12px] font-medium text-sam-fg">
+        <p className="sam-text-helper font-medium text-sam-fg">
           나가는 관계 {outgoing.length} / 들어오는 관계 {incoming.length}
         </p>
-        <p className="mt-1 text-[12px] text-sam-muted">
+        <p className="mt-1 sam-text-helper text-sam-muted">
           연결 노드 {connected.length}개
         </p>
       </div>

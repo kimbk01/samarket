@@ -63,22 +63,22 @@ export function MessengerCallDialingLayout({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[13px] font-medium text-white/90 transition active:scale-[0.98]"
+          className="rounded-full border border-white/15 bg-white/10 px-4 py-2 sam-text-body-secondary font-medium text-white/90 transition active:scale-[0.98]"
           onClick={onCancel}
         >
           {"\uCDE8\uC18C"}
         </button>
-        <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-white/85">{kindLabel}</span>
+        <span className="rounded-full bg-white/12 px-3 py-1 sam-text-xxs font-semibold text-white/85">{kindLabel}</span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center">
-        <div className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-white/10 text-[44px] font-semibold text-white shadow-[0_0_0_18px_rgba(255,255,255,0.05)]">
+        <div className="relative flex h-32 w-32 shrink-0 items-center justify-center rounded-full bg-white/10 sam-text-hero font-semibold text-white shadow-[0_0_0_18px_rgba(255,255,255,0.05)]">
           <div className="absolute inset-[-14px] rounded-full border border-white/20 animate-pulse" aria-hidden />
           {initial}
         </div>
-        <p className="mt-8 text-[26px] font-semibold tracking-tight text-white">{peerLabel}</p>
-        <p className="mt-2 text-[14px] text-white/75">{kindLabel}</p>
-        <p className="mt-10 text-[16px] font-medium text-white/92">{primaryStatus}</p>
-        <p className="mt-2 text-[13px] text-white/60">{secondaryStatus}</p>
+        <p className="mt-8 sam-text-hero font-semibold tracking-tight text-white">{peerLabel}</p>
+        <p className="mt-2 sam-text-body text-white/75">{kindLabel}</p>
+        <p className="mt-10 sam-text-body-lg font-medium text-white/92">{primaryStatus}</p>
+        <p className="mt-2 sam-text-body-secondary text-white/60">{secondaryStatus}</p>
         {children}
       </div>
       <div className="flex justify-center">

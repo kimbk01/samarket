@@ -65,13 +65,13 @@ function AvatarBubble({
   return (
     <div className="flex flex-col items-center gap-1">
       <div
-        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[14px] font-bold ring-2 ring-sam-surface ${
+        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full sam-text-body font-bold ring-2 ring-sam-surface ${
           isHost ? "bg-emerald-500 text-white" : "bg-sam-surface-muted text-sam-muted"
         }`}
       >
         {(name || "?").charAt(0)}
         {isMe && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-[8px] font-bold text-white ring-1 ring-sam-surface">
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 sam-text-xxs font-bold text-white ring-1 ring-sam-surface">
             나
           </span>
         )}
@@ -146,7 +146,7 @@ function MemberItem({
       <div className="flex items-center gap-3 py-3">
         {/* 아바타 */}
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full sam-text-body-secondary font-bold ${
             member.role === "host" ? "bg-emerald-500 text-white" : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
@@ -156,21 +156,21 @@ function MemberItem({
         {/* 이름 + 날짜 */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <span className="truncate text-[14px] font-medium text-sam-fg">
+            <span className="truncate sam-text-body font-medium text-sam-fg">
               {member.name || "알 수 없음"}
             </span>
             {isMe && (
-              <span className="rounded-full bg-sky-50 px-1.5 py-0 text-[10px] text-sky-600">나</span>
+              <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">나</span>
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
             {roleLabel ? (
-              <span className={`rounded-full px-1.5 py-0 text-[10px] font-semibold ${roleColor}`}>
+              <span className={`rounded-full px-1.5 py-0 sam-text-xxs font-semibold ${roleColor}`}>
                 {roleLabel}
               </span>
             ) : null}
             {member.joinedAt ? (
-              <span className="text-[11px] text-sam-meta">{formatJoinedAt(member.joinedAt)}</span>
+              <span className="sam-text-xxs text-sam-meta">{formatJoinedAt(member.joinedAt)}</span>
             ) : null}
           </div>
         </div>
@@ -198,7 +198,7 @@ function MemberItem({
             <button
               type="button"
               onClick={() => { setShowActions(false); onReport?.(member.userId); }}
-              className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg"
+              className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
             >
               🚨 신고
             </button>
@@ -209,7 +209,7 @@ function MemberItem({
                 type="button"
                 disabled={busy}
                 onClick={() => void doKick()}
-                className="rounded-ui-rect bg-orange-50 px-3 py-1.5 text-[12px] font-medium text-orange-700 disabled:opacity-50"
+                className="rounded-ui-rect bg-orange-50 px-3 py-1.5 sam-text-helper font-medium text-orange-700 disabled:opacity-50"
               >
                 강퇴
               </button>
@@ -217,7 +217,7 @@ function MemberItem({
                 type="button"
                 disabled={busy}
                 onClick={() => void doBan()}
-                className="rounded-ui-rect bg-red-50 px-3 py-1.5 text-[12px] font-medium text-red-700 disabled:opacity-50"
+                className="rounded-ui-rect bg-red-50 px-3 py-1.5 sam-text-helper font-medium text-red-700 disabled:opacity-50"
               >
                 차단
               </button>
@@ -226,11 +226,11 @@ function MemberItem({
           <button
             type="button"
             onClick={() => setShowActions(false)}
-            className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-[12px] text-sam-meta"
+            className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-meta"
           >
             닫기
           </button>
-          {errMsg && <p className="w-full text-[11px] text-red-500">{errMsg}</p>}
+          {errMsg && <p className="w-full sam-text-xxs text-red-500">{errMsg}</p>}
         </div>
       )}
     </li>
@@ -271,15 +271,15 @@ function PendingMemberRow({
   return (
     <li className="rounded-ui-rect border border-amber-100 bg-sam-surface px-3 py-3 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[13px] font-bold text-amber-900">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 sam-text-body-secondary font-bold text-amber-900">
           {(member.name || "?").charAt(0)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-medium text-sam-fg">
+          <p className="truncate sam-text-body font-medium text-sam-fg">
             {member.name || "알 수 없음"}
           </p>
           {member.joinedAt && (
-            <p className="text-[11px] text-sam-muted">{formatJoinedAt(member.joinedAt)?.replace("참여", "신청")}</p>
+            <p className="sam-text-xxs text-sam-muted">{formatJoinedAt(member.joinedAt)?.replace("참여", "신청")}</p>
           )}
           {member.requestMessage ? (
             <div className="mt-2">
@@ -293,7 +293,7 @@ function PendingMemberRow({
           type="button"
           disabled={busy}
           onClick={() => void handle("approve")}
-          className="flex-1 rounded-ui-rect bg-emerald-600 py-2.5 text-[13px] font-semibold text-white shadow-sm active:bg-emerald-700 disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-emerald-600 py-2.5 sam-text-body-secondary font-semibold text-white shadow-sm active:bg-emerald-700 disabled:opacity-50"
         >
           승인
         </button>
@@ -301,12 +301,12 @@ function PendingMemberRow({
           type="button"
           disabled={busy}
           onClick={() => void handle("reject")}
-          className="flex-1 rounded-ui-rect border border-amber-200 bg-amber-50/80 py-2.5 text-[13px] font-semibold text-amber-900 disabled:opacity-50"
+          className="flex-1 rounded-ui-rect border border-amber-200 bg-amber-50/80 py-2.5 sam-text-body-secondary font-semibold text-amber-900 disabled:opacity-50"
         >
           거절
         </button>
       </div>
-      {errMsg && <p className="mt-2 text-[11px] text-red-600">{errMsg}</p>}
+      {errMsg && <p className="mt-2 sam-text-xxs text-red-600">{errMsg}</p>}
     </li>
   );
 }
@@ -384,8 +384,8 @@ export function MeetingMembersTab({
       {/* ── 정원 현황 + 아바타 미리보기 ────────────────── */}
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-[14px] font-semibold text-sam-fg">참여 멤버</span>
-          <span className="text-[13px] text-sam-muted">
+          <span className="sam-text-body font-semibold text-sam-fg">참여 멤버</span>
+          <span className="sam-text-body-secondary text-sam-muted">
             {totalJoined}<span className="text-sam-meta">/{maxMembers}</span>명
           </span>
         </div>
@@ -413,7 +413,7 @@ export function MeetingMembersTab({
             ))}
             {sorted.length > 12 && (
               <div className="flex flex-col items-center gap-1">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sam-surface-muted text-[11px] font-semibold text-sam-muted">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-sam-surface-muted sam-text-xxs font-semibold text-sam-muted">
                   +{sorted.length - 12}
                 </div>
               </div>
@@ -428,8 +428,8 @@ export function MeetingMembersTab({
           id="meeting-members-pending"
           className="scroll-mt-4 rounded-ui-rect border border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center shadow-sm"
         >
-          <p className="text-[13px] font-medium text-amber-950">가입 요청 관리</p>
-          <p className="mt-1 text-[12px] text-amber-800/80">대기 중인 가입 요청이 없습니다.</p>
+          <p className="sam-text-body-secondary font-medium text-amber-950">가입 요청 관리</p>
+          <p className="mt-1 sam-text-helper text-amber-800/80">대기 중인 가입 요청이 없습니다.</p>
         </div>
       ) : null}
 
@@ -439,8 +439,8 @@ export function MeetingMembersTab({
           className="scroll-mt-4 rounded-ui-rect border border-amber-200 bg-amber-50/70 p-3 shadow-sm"
         >
           <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-            <h2 className="text-[13px] font-semibold text-amber-950">가입 승인</h2>
-            <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[11px] font-bold text-amber-950 tabular-nums">
+            <h2 className="sam-text-body-secondary font-semibold text-amber-950">가입 승인</h2>
+            <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 sam-text-xxs font-bold text-amber-950 tabular-nums">
               {localPending.length}
             </span>
           </div>
@@ -463,7 +463,7 @@ export function MeetingMembersTab({
         className="scroll-mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 shadow-sm"
       >
         {sorted.length === 0 ? (
-          <p className="py-8 text-center text-[13px] text-sam-meta">아직 참여자가 없습니다.</p>
+          <p className="py-8 text-center sam-text-body-secondary text-sam-meta">아직 참여자가 없습니다.</p>
         ) : (
           <ul className="divide-y divide-sam-border-soft">
             {sorted.map((m) => (

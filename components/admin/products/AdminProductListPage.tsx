@@ -110,7 +110,7 @@ export function AdminProductListPage() {
     <div className="space-y-4">
       <AdminPageHeader title="상품 목록" />
       {supabaseAvailable === false && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
           <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
           <p className="mt-1 text-amber-700">
             메뉴 목록·필터를 쓰려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.
@@ -128,11 +128,11 @@ export function AdminProductListPage() {
         onTradeMenuRootIdChange={setTradeMenuRootId}
       />
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           {listError ? (
             <p className="whitespace-pre-wrap text-sam-danger">{listError}</p>
           ) : (

@@ -51,7 +51,7 @@ export function FloatingAddButton() {
         <button
           type="button"
           onClick={handleClick}
-          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-lg`}
+          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated`}
           aria-label={t("nav_write_aria")}
         >
           <PlusIcon />

@@ -43,7 +43,7 @@ export function AutomationPolicyTable() {
 
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         자동화 정책이 없습니다.
       </div>
     );
@@ -51,7 +51,7 @@ export function AutomationPolicyTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[800px] border-collapse text-[14px]">
+      <table className="w-full min-w-[800px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -93,7 +93,7 @@ export function AutomationPolicyTable() {
                 <button
                   type="button"
                   onClick={() => void handleToggle(p.id, p.surface, "isActive", !p.isActive)}
-                  className={`rounded border px-2 py-1 text-[13px] ${
+                  className={`rounded border px-2 py-1 sam-text-body-secondary ${
                     p.isActive
                       ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                       : "border-sam-border bg-sam-surface-muted text-sam-muted"
@@ -182,7 +182,7 @@ export function AutomationPolicyTable() {
                   />
                 </label>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {FALLBACK_MODE_LABELS[p.fallbackMode] ?? p.fallbackMode}
               </td>
             </tr>

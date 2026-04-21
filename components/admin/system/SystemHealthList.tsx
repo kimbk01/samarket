@@ -10,9 +10,9 @@ export function SystemHealthList() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[12px] text-sam-muted">서비스 health 체크</p>
+      <p className="sam-text-helper text-sam-muted">서비스 health 체크</p>
       {health.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           서비스 상태 없음
         </div>
       ) : (
@@ -30,7 +30,7 @@ export function SystemHealthList() {
             >
               <span className="font-medium text-sam-fg">{h.serviceName}</span>
               <span
-                className={`rounded px-1.5 py-0.5 text-[12px] ${
+                className={`rounded px-1.5 py-0.5 sam-text-helper ${
                   h.status === "healthy"
                     ? "bg-emerald-50 text-emerald-700"
                     : h.status === "warning"
@@ -40,7 +40,7 @@ export function SystemHealthList() {
               >
                 {getSystemHealthStatusLabel(h.status as SystemHealthStatus)}
               </span>
-              <span className="w-full text-[12px] text-sam-muted sm:w-auto">
+              <span className="w-full sam-text-helper text-sam-muted sm:w-auto">
                 {new Date(h.lastCheckedAt).toLocaleString()}
               </span>
             </li>

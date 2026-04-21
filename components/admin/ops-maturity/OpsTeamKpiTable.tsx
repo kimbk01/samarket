@@ -67,14 +67,14 @@ export function OpsTeamKpiTable() {
         <select
           value={periodType}
           onChange={(e) => setPeriodType(e.target.value as OpsKpiPeriodType)}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="weekly">주간 (이번 주 vs 지난 주)</option>
           <option value="monthly">월간 (이번 달 vs 지난 달)</option>
         </select>
       </div>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="w-full min-w-[520px] border-collapse text-[14px]">
+        <table className="w-full min-w-[520px] border-collapse sam-text-body">
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">지표</th>

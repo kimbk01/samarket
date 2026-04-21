@@ -138,24 +138,24 @@ export function PurchaseHistoryCard({
                 onError={() => setThumbFailed(true)}
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
+              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">이미지</div>
             )}
           </div>
           <div className="min-w-0 flex-1 pr-1">
-            <p className="line-clamp-2 text-[14px] font-medium text-sam-fg">{row.title || "상품"}</p>
-            <p className="mt-0.5 text-[15px] font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
+            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || "상품"}</p>
+            <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
             {row.sellerNickname ? (
-              <p className="mt-0.5 truncate text-[12px] text-sam-muted">{row.sellerNickname}</p>
+              <p className="mt-0.5 truncate sam-text-helper text-sam-muted">{row.sellerNickname}</p>
             ) : null}
-            <p className="mt-0.5 text-[11px] text-sam-meta">거래 {tradeAtLabel}</p>
+            <p className="mt-0.5 sam-text-xxs text-sam-meta">거래 {tradeAtLabel}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
-              <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+              <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">
                 상품 · {productBadge}
               </span>
-              <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+              <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 진행 · {tradeBadge}
               </span>
-              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+              <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 후기 · {reviewBadge}
               </span>
             </div>
@@ -171,7 +171,7 @@ export function PurchaseHistoryCard({
             <DotsIcon />
           </button>
           {menuOpen ? (
-            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg">
+            <div className="absolute right-0 top-9 z-[60] min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
               <MenuLink
                 href={tradeHubChatRoomHref(row.chatId, "product_chat")}
                 onNavigate={() => setMenuOpen(false)}
@@ -239,11 +239,11 @@ export function PurchaseHistoryCard({
             type="button"
             disabled={!!actionLoading}
             onClick={() => postTrade(`${base}/buyer-confirm`)}
-            className="w-full rounded-ui-rect bg-signature py-2.5 text-[13px] font-medium text-white disabled:opacity-50"
+            className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body-secondary font-medium text-white disabled:opacity-50"
           >
             {actionLoading?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
           </button>
-          <p className="mt-1.5 text-center text-[10px] text-sam-muted">
+          <p className="mt-1.5 text-center sam-text-xxs text-sam-muted">
             문제가 있으면 ⋮ 메뉴에서 「문제있어요」를 눌러 주세요.
           </p>
         </div>
@@ -251,13 +251,13 @@ export function PurchaseHistoryCard({
 
       {needsReviewCallToAction ? (
         <div className="border-t border-sam-border-soft px-3 py-2.5">
-          <p className="mb-2 text-center text-[11px] text-sam-fg">
+          <p className="mb-2 text-center sam-text-xxs text-sam-fg">
             거래완료 확인이 끝났어요. 이제 <strong className="font-semibold">평가·후기</strong>를 남겨 주세요.
           </p>
           <button
             type="button"
             onClick={() => setReviewSheet(true)}
-            className="w-full rounded-ui-rect bg-signature py-2.5 text-[13px] font-medium text-white"
+            className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body-secondary font-medium text-white"
           >
             평가·후기 보내기
           </button>
@@ -321,7 +321,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
     >
       {children}
     </Link>
@@ -342,7 +342,7 @@ function MenuButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="block w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app disabled:opacity-50"
+      className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
     >
       {children}
     </button>

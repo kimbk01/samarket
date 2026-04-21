@@ -34,7 +34,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
 
   if (loading && !product) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -42,7 +42,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
 
   if (!product) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         상품을 찾을 수 없습니다.
       </div>
     );
@@ -68,12 +68,12 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
             <div className="h-24 w-24 shrink-0 rounded-ui-rect bg-sam-surface-muted" />
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-semibold text-sam-fg">{product.title}</p>
-            <p className="mt-1 text-[14px] font-medium text-sam-fg">
+            <p className="sam-text-body font-semibold text-sam-fg">{product.title}</p>
+            <p className="mt-1 sam-text-body font-medium text-sam-fg">
               {formatMoneyPhp(product.price)}
             </p>
             <AdminStatusBadge status={product.status} className="mt-2" />
-            <p className="mt-2 text-[13px] text-sam-muted">
+            <p className="mt-2 sam-text-body-secondary text-sam-muted">
               등록 {new Date(product.createdAt).toLocaleString("ko-KR")}
               {product.updatedAt && (
                 <> · 수정 {new Date(product.updatedAt).toLocaleString("ko-KR")}</>
@@ -81,7 +81,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
             </p>
             <Link
               href={`/post/${product.id}`}
-              className="mt-2 inline-block text-[13px] font-medium text-signature hover:underline"
+              className="mt-2 inline-block sam-text-body-secondary font-medium text-signature hover:underline"
             >
               웹에서 보기
             </Link>
@@ -90,7 +90,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       </AdminCard>
 
       <AdminCard title="판매자">
-        <dl className="grid gap-1 text-[14px]">
+        <dl className="grid gap-1 sam-text-body">
           <div>
             <dt className="text-sam-muted">닉네임</dt>
             <dd>{product.seller?.nickname ?? product.sellerId ?? "-"}</dd>
@@ -107,7 +107,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       </AdminCard>
 
       <AdminCard title="상품 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">카테고리</dt>
             <dd>{product.category ?? "-"}</dd>
@@ -147,7 +147,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
       <AdminCard title="상태 변경 이력">
         <AdminProductStatusLogList logs={logs} />
         {logs.length === 0 && (
-          <p className="text-[13px] text-sam-muted">상태 변경 이력은 DB 연동 후 제공됩니다.</p>
+          <p className="sam-text-body-secondary text-sam-muted">상태 변경 이력은 DB 연동 후 제공됩니다.</p>
         )}
       </AdminCard>
     </div>

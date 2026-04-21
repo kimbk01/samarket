@@ -22,20 +22,20 @@ export function OpsPatternLogList({ patternId }: OpsPatternLogListProps) {
   if (logs.length === 0) {
     return (
       <div>
-        <p className="text-[12px] font-medium text-sam-fg">패턴 로그</p>
-        <p className="mt-1 text-[13px] text-sam-muted">로그가 없습니다.</p>
+        <p className="sam-text-helper font-medium text-sam-fg">패턴 로그</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">로그가 없습니다.</p>
       </div>
     );
   }
 
   return (
     <div>
-      <p className="text-[12px] font-medium text-sam-fg">패턴 로그</p>
+      <p className="sam-text-helper font-medium text-sam-fg">패턴 로그</p>
       <ul className="mt-2 space-y-1">
         {logs.map((log) => (
           <li
             key={log.id}
-            className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-2 py-1.5 text-[13px]"
+            className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
           >
             <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 font-medium text-sam-fg">
               {ACTION_LABELS[log.actionType] ?? log.actionType}

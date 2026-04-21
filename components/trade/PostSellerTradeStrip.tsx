@@ -112,15 +112,15 @@ export function PostSellerTradeStrip({
   if (!isSeller || rows === null || rows.length === 0) return null;
 
   const pad = variant === "compact" ? "px-3 py-2" : "px-4 py-3";
-  const titleCls = variant === "compact" ? "text-[11px]" : "text-[12px]";
+  const titleCls = variant === "compact" ? "sam-text-xxs" : "sam-text-helper";
 
   return (
     <div className={`border-b border-sam-border bg-signature/5 ${pad}`}>
       <p className={`${titleCls} font-medium text-sam-fg`}>구매자 채팅 · 거래</p>
-      <p className="mt-0.5 text-[11px] text-sam-fg">
+      <p className="mt-0.5 sam-text-xxs text-sam-fg">
         채팅방에서도 거래완료할 수 있어요. 아래에서 바로 처리할 수도 있어요.
       </p>
-      {err ? <p className="mt-1 text-[11px] text-red-600">{err}</p> : null}
+      {err ? <p className="mt-1 sam-text-xxs text-red-600">{err}</p> : null}
       <ul className="mt-2 space-y-1.5">
         {rows.map((r) => {
           const flowOk = r.tradeFlowStatus === "chatting" || !r.tradeFlowStatus;
@@ -137,10 +137,10 @@ export function PostSellerTradeStrip({
               <div className="flex flex-col gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <Link
                   href={tradeHubChatRoomHref(r.chatId, "product_chat")}
-                  className="min-w-0 flex-1 text-[13px] text-sam-fg active:bg-signature/5"
+                  className="min-w-0 flex-1 sam-text-body-secondary text-sam-fg active:bg-signature/5"
                 >
                   <span className="truncate font-medium">{r.buyerNickname}</span>
-                  <span className="mt-0.5 block text-[11px] text-signature sm:mt-0 sm:inline sm:ml-2">
+                  <span className="mt-0.5 block sam-text-xxs text-signature sm:mt-0 sm:inline sm:ml-2">
                     {FLOW_SHORT[r.tradeFlowStatus] ?? r.tradeFlowStatus}
                     {listingReserved && reservedBuyerId && r.buyerId && r.buyerId !== reservedBuyerId
                       ? " · 예약 아님"
@@ -152,12 +152,12 @@ export function PostSellerTradeStrip({
                     type="button"
                     disabled={!!busyChatId}
                     onClick={() => sellerComplete(r.chatId)}
-                    className="shrink-0 rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50"
+                    className="shrink-0 rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
                   >
                     {busyChatId === r.chatId ? "처리 중…" : "거래완료"}
                   </button>
                 ) : listingReserved && reservedBuyerId && r.buyerId && r.buyerId !== reservedBuyerId ? (
-                  <span className="shrink-0 text-[11px] text-sam-muted">예약된 다른 분과 거래 중</span>
+                  <span className="shrink-0 sam-text-xxs text-sam-muted">예약된 다른 분과 거래 중</span>
                 ) : null}
               </div>
             </li>

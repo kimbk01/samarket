@@ -57,10 +57,12 @@ export function TradePrimaryColumnStickyAppBar({
   const shell = (
     <TradePrimaryAppBarShell embedded={embedded} variant={shellVariant}>
       {!hidePrimaryRow ? (
-        <div className={`flex h-14 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}>
+        <div
+          className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
+        >
           <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
             {!hideBackButton ? <AppBackButton {...backButtonProps} /> : null}
-            <h1 className="min-w-0 truncate text-left text-[16px] font-semibold text-sam-fg">{title}</h1>
+            <h1 className="sam-app-header-title">{title}</h1>
           </div>
           {actions != null ? (
             <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
@@ -72,7 +74,7 @@ export function TradePrimaryColumnStickyAppBar({
   );
 
   const stickyClasses = [
-    `sticky z-20 mb-[9px] max-w-full overflow-x-hidden ${stickyTopClassName}`,
+    `sticky z-20 mb-[length:var(--sam-section-gap)] max-w-full overflow-x-hidden ${stickyTopClassName}`,
     viewportBleed ? APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS : "",
     className ?? "",
   ]

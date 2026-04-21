@@ -20,7 +20,7 @@ interface AdminAdLogListProps {
 export function AdminAdLogList({ logs }: AdminAdLogListProps) {
   if (logs.length === 0) {
     return (
-      <p className="text-[13px] text-sam-muted">변경 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">변경 이력이 없습니다.</p>
     );
   }
   return (
@@ -28,7 +28,7 @@ export function AdminAdLogList({ logs }: AdminAdLogListProps) {
       {logs.map((log) => (
         <li
           key={log.id}
-          className="flex flex-wrap items-baseline gap-2 border-b border-sam-border-soft pb-2 text-[13px] last:border-0"
+          className="flex flex-wrap items-baseline gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary last:border-0"
         >
           <span className="font-medium text-sam-fg">
             {ACTION_LABELS[log.actionType]}

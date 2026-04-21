@@ -33,7 +33,7 @@ export function OpsBenchmarkCards() {
 
   if (benchmarks.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
         해당 기간 벤치마크 데이터가 없습니다.
       </div>
     );
@@ -42,13 +42,13 @@ export function OpsBenchmarkCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">범위</span>
+        <span className="sam-text-body-secondary text-sam-muted">범위</span>
         {(["quarterly", "yearly"] as const).map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setScope(s)}
-            className={`rounded border px-3 py-1.5 text-[13px] ${
+            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
               scope === s
                 ? "border-signature bg-signature/10 text-signature"
                 : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
@@ -70,10 +70,10 @@ export function OpsBenchmarkCards() {
                   : "border-sam-border bg-sam-surface"
             }`}
           >
-            <p className="text-[12px] text-sam-muted">
+            <p className="sam-text-helper text-sam-muted">
               {DOMAIN_LABELS[b.domain]}
             </p>
-            <div className="mt-2 flex flex-wrap items-baseline gap-2 text-[14px]">
+            <div className="mt-2 flex flex-wrap items-baseline gap-2 sam-text-body">
               <span className="font-medium text-sam-fg">
                 현재 {b.currentScore}
               </span>
@@ -84,7 +84,7 @@ export function OpsBenchmarkCards() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span
-                className={`text-[12px] ${
+                className={`sam-text-helper ${
                   b.gapScore > 5
                     ? "text-amber-700"
                     : b.gapScore <= 0
@@ -94,7 +94,7 @@ export function OpsBenchmarkCards() {
               >
                 갭 {b.gapScore > 0 ? `+${b.gapScore}` : b.gapScore}
               </span>
-              <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[11px] text-sam-muted">
+              <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">
                 {TREND_LABELS[b.trend]}
               </span>
             </div>

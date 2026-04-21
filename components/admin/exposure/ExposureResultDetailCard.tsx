@@ -18,18 +18,18 @@ export function ExposureResultDetailCard({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-[15px] font-medium text-sam-fg">
+        <h3 className="sam-text-body font-medium text-sam-fg">
           점수 상세: {candidate.title} ({candidate.id})
         </h3>
         <button
           type="button"
           onClick={onClose}
-          className="text-[13px] text-sam-muted hover:underline"
+          className="sam-text-body-secondary text-sam-muted hover:underline"
         >
           닫기
         </button>
       </div>
-      <dl className="grid grid-cols-1 gap-2 text-[14px] sm:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">
         <div>
           <dt className="text-sam-muted">판매자 / 구분</dt>
           <dd>

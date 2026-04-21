@@ -15,7 +15,7 @@ export function ExposurePolicyTable({
 }: ExposurePolicyTableProps) {
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         등록된 노출 점수 정책이 없습니다.
       </div>
     );
@@ -23,7 +23,7 @@ export function ExposurePolicyTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -60,12 +60,12 @@ export function ExposurePolicyTable({
               <td className="px-3 py-2.5">
                 <span className="font-medium text-sam-fg">{p.policyName}</span>
               </td>
-              <td className="max-w-[280px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[280px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 latest {p.latestWeight} / popular {p.popularWeight} / premium +{p.premiumBoostWeight} / ad +{p.adBoostWeight}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
                       ? "bg-emerald-50 text-emerald-800"
                       : "bg-sam-border-soft text-sam-muted"
@@ -74,7 +74,7 @@ export function ExposurePolicyTable({
                   {p.isActive ? "활성" : "비활성"}
                 </span>
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.updatedAt).toLocaleString("ko-KR")}
               </td>
               {onEdit && (
@@ -82,7 +82,7 @@ export function ExposurePolicyTable({
                   <button
                     type="button"
                     onClick={() => onEdit(p)}
-                    className="text-[13px] text-signature hover:underline"
+                    className="sam-text-body-secondary text-signature hover:underline"
                   >
                     편집
                   </button>

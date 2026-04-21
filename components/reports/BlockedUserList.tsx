@@ -20,7 +20,7 @@ export function BlockedUserList({ refreshKey, onUnblock }: BlockedUserListProps)
   if (list.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="text-[14px] text-sam-muted">차단한 사용자가 없어요</p>
+        <p className="sam-text-body text-sam-muted">차단한 사용자가 없어요</p>
       </div>
     );
   }

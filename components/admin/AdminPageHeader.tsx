@@ -15,8 +15,8 @@ export function AdminPageHeader({ title, backHref, description }: AdminPageHeade
     <div className="mb-4 flex flex-wrap items-start gap-3">
       {backHref ? <AppBackButton backHref={backHref} ariaLabel={t("admin_back_to_list")} /> : null}
       <div className="min-w-0">
-        <h1 className="text-[18px] font-semibold text-sam-fg">{tt(title)}</h1>
-        {description ? <p className="mt-1 text-[14px] text-sam-muted">{tt(description)}</p> : null}
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">{tt(title)}</h1>
+        {description ? <p className="mt-1 sam-text-body text-sam-muted">{tt(description)}</p> : null}
       </div>
     </div>
   );

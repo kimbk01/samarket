@@ -71,13 +71,13 @@ export function MyProfileCard({
   if (!profile.realname_verified) chips.push({ key: "realname", label: tt("본인인증 필요"), warn: true });
 
   return (
-    <div className="rounded-ui-rect border border-ig-border bg-sam-surface p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+    <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
       {/* 1행: 아바타 · 닉네임 · 회원 · 프로필 편집 */}
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] p-[2px]">
           <Link
             href={editHref}
-            className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-ig-highlight sm:h-[76px] sm:w-[76px]"
+            className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-sam-primary-soft sm:h-[76px] sm:w-[76px]"
             aria-label={tt("프로필 이미지 편집")}
           >
             {profile.avatar_url ? (
@@ -93,20 +93,20 @@ export function MyProfileCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-[17px] font-semibold text-foreground sm:text-[18px]">{displayName}</span>
+                <span className="truncate sam-text-section-title font-semibold text-foreground sm:sam-text-page-title">{displayName}</span>
                 {isBusinessMember ? (
-                  <span className="rounded-full bg-signature/10 px-2 py-0.5 text-[11px] font-medium text-signature">
+                  <span className="rounded-full bg-signature/10 px-2 py-0.5 sam-text-xxs font-medium text-signature">
                     {tt("비즈")}
                   </span>
                 ) : null}
-                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-medium text-[#4B5563]">
+                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 sam-text-xxs font-medium text-[#4B5563]">
                   {memberLabel}
                 </span>
               </div>
             </div>
             <Link
               href={editHref}
-              className="inline-flex shrink-0 items-center rounded-full border border-ig-border px-2.5 py-1 text-[11px] font-medium text-foreground active:bg-ig-highlight sm:px-3 sm:text-[12px]"
+              className="inline-flex shrink-0 items-center rounded-full border border-sam-border px-2.5 py-1 sam-text-xxs font-medium text-foreground active:bg-sam-primary-soft sm:px-3 sm:sam-text-helper"
             >
               {tt("프로필 편집")}
             </Link>
@@ -117,8 +117,8 @@ export function MyProfileCard({
             <div className="flex items-center gap-3">
               <MannerBatteryDisplay raw={mannerScore} size="md" layout="inline" className="gap-2" />
               <div>
-                <p className="text-[11px] font-medium text-[#6B7280]">{tt("신뢰 온도")}</p>
-                <p className="text-[13px] font-semibold text-[#111827]">{tt("거래 매너 지표")}</p>
+                <p className="sam-text-xxs font-medium text-[#6B7280]">{tt("신뢰 온도")}</p>
+                <p className="sam-text-body-secondary font-semibold text-[#111827]">{tt("거래 매너 지표")}</p>
               </div>
             </div>
             <div className="flex gap-2 sm:justify-end">
@@ -143,8 +143,8 @@ export function MyProfileCard({
               key={c.key}
               className={
                 c.warn
-                  ? "rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200/80"
-                  : "rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-medium text-[#4B5563]"
+                  ? "rounded-full bg-amber-50 px-2 py-0.5 sam-text-xxs font-medium text-amber-900 ring-1 ring-amber-200/80"
+                  : "rounded-full bg-[#F3F4F6] px-2 py-0.5 sam-text-xxs font-medium text-[#4B5563]"
               }
             >
               {c.label}
@@ -174,8 +174,8 @@ function StatMini({
         warn ? "bg-amber-50 ring-1 ring-amber-200/70" : "bg-sam-surface/80 ring-1 ring-[#E5E7EB]"
       }`}
     >
-      <p className="text-[10px] text-muted">{label}</p>
-      <p className={`mt-0.5 truncate text-[13px] font-semibold ${warn ? "text-amber-950" : "text-foreground"}`}>
+      <p className="sam-text-xxs text-muted">{label}</p>
+      <p className={`mt-0.5 truncate sam-text-body-secondary font-semibold ${warn ? "text-amber-950" : "text-foreground"}`}>
         {value}
       </p>
     </Link>
@@ -188,8 +188,8 @@ function QuickLink({ href, title, subtitle }: { href: string; title: string; sub
       href={href}
       className="flex flex-col rounded-ui-rect bg-[#F9FAFB] px-2 py-2 text-center active:bg-[#F3F4F6] sm:px-3"
     >
-      <span className="text-[12px] font-semibold text-foreground">{title}</span>
-      <span className="mt-0.5 text-[10px] text-muted">{subtitle}</span>
+      <span className="sam-text-helper font-semibold text-foreground">{title}</span>
+      <span className="mt-0.5 sam-text-xxs text-muted">{subtitle}</span>
     </Link>
   );
 }

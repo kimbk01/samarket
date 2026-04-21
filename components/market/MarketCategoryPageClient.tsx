@@ -24,7 +24,7 @@ export function MarketCategoryPageClient({
     >
       {(category, extra) => (
         <Suspense
-          fallback={<div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>}
+          fallback={<div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>}
         >
           <MarketCategoryFeed
             category={category}

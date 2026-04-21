@@ -18,7 +18,7 @@ export function CallPrimaryButton({ children, className = "", variant = "outline
   return (
     <button
       type="button"
-      className={`touch-manipulation rounded-ui-rect px-4 py-3 text-[15px] font-semibold transition-colors disabled:opacity-40 ${tapMin} ${v} ${className}`.trim()}
+      className={`touch-manipulation rounded-ui-rect px-4 py-3 sam-text-body font-semibold transition-colors disabled:opacity-40 ${tapMin} ${v} ${className}`.trim()}
       {...rest}
     >
       {children}

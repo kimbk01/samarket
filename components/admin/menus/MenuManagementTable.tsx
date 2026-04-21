@@ -45,7 +45,7 @@ export function MenuManagementTable({
 }: MenuManagementTableProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         등록된 항목이 없습니다. 항목 추가로 메뉴·카테고리를 등록해 주세요.
       </div>
     );
@@ -53,7 +53,7 @@ export function MenuManagementTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[720px] border-collapse text-[14px]">
+      <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
@@ -82,15 +82,15 @@ export function MenuManagementTable({
               {showTypeColumn ? (
                 <td className="px-3 py-2">
                   <CategoryTypeBadge type={c.type} />
-                  <p className="mt-0.5 text-[11px] text-sam-muted">
+                  <p className="mt-0.5 sam-text-xxs text-sam-muted">
                     {c.type === "trade" ? "홈 상단 칩(중고)" : "게시판형 글"}
                   </p>
                 </td>
               ) : null}
               <td className="px-3 py-2 font-medium text-sam-fg">{c.name}</td>
-              <td className="px-3 py-2 text-[12px] text-sam-muted">{c.slug}</td>
+              <td className="px-3 py-2 sam-text-helper text-sam-muted">{c.slug}</td>
               <td className="px-3 py-2">
-                <div className="flex flex-wrap gap-1 text-[11px]">
+                <div className="flex flex-wrap gap-1 sam-text-xxs">
                   {c.settings?.can_write !== false && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">글쓰기</span>}
                   {c.settings?.has_price && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">가격</span>}
                   {c.settings?.has_chat && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">채팅</span>}
@@ -114,7 +114,7 @@ export function MenuManagementTable({
                     onChange={() => onToggleShowOnMenu(c.id, c.show_in_home_chips !== false)}
                     className="rounded border-sam-border"
                   />
-                  <span className="text-[13px] text-sam-fg">
+                  <span className="sam-text-body-secondary text-sam-fg">
                     {c.show_in_home_chips !== false ? "적용" : "미적용"}
                   </span>
                 </label>
@@ -131,10 +131,10 @@ export function MenuManagementTable({
                       onChange={() => onToggleQuickLauncher(c.id, c.quick_create_enabled === true)}
                       className="rounded border-sam-border"
                     />
-                    <span className="text-[10px] text-sam-muted">{c.quick_create_enabled ? "ON" : "OFF"}</span>
+                    <span className="sam-text-xxs text-sam-muted">{c.quick_create_enabled ? "ON" : "OFF"}</span>
                   </label>
                 ) : (
-                  <span className="text-[12px] text-sam-meta">—</span>
+                  <span className="sam-text-helper text-sam-meta">—</span>
                 )}
               </td>
               <td className="px-3 py-2">
@@ -145,7 +145,7 @@ export function MenuManagementTable({
                 </div>
               </td>
               {tradeSubtopicsEnabled ? (
-                <td className="max-w-[240px] align-top px-3 py-2 text-[12px] text-sam-fg">
+                <td className="max-w-[240px] align-top px-3 py-2 sam-text-helper text-sam-fg">
                   {(() => {
                     const subs = subtopicsForParent(allCategories, c.id);
                     if (subs.length === 0) {
@@ -157,7 +157,7 @@ export function MenuManagementTable({
                           <li key={s.id} className="truncate" title={`${s.name} (${s.slug})`}>
                             {!s.is_active ? <span className="text-sam-meta">(비활성) </span> : null}
                             {s.name}
-                            <span className="ml-1 text-[11px] text-sam-meta">{s.slug}</span>
+                            <span className="ml-1 sam-text-xxs text-sam-meta">{s.slug}</span>
                           </li>
                         ))}
                       </ul>
@@ -171,13 +171,13 @@ export function MenuManagementTable({
                     <button
                       type="button"
                       onClick={() => onManageSubtopics(c)}
-                      className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-1.5 text-[12px] font-semibold text-signature hover:bg-signature/15"
+                      className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-1.5 sam-text-helper font-semibold text-signature hover:bg-signature/15"
                       title="현대·기아 등 2행 칩·글쓰기 주제"
                     >
                       주제 관리
                     </button>
                   ) : (
-                    <span className="text-[12px] text-sam-meta">—</span>
+                    <span className="sam-text-helper text-sam-meta">—</span>
                   )}
                 </td>
               ) : null}
@@ -204,14 +204,14 @@ export function MenuManagementTable({
                   <button
                     type="button"
                     onClick={() => onEdit(c.id)}
-                    className="rounded px-1.5 py-0.5 text-[12px] text-signature hover:bg-signature/10"
+                    className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                   >
                     수정
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(c.id)}
-                    className="rounded px-1.5 py-0.5 text-[12px] text-red-600 hover:bg-red-50"
+                    className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                   >
                     삭제
                   </button>

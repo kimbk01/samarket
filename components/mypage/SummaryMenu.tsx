@@ -22,13 +22,13 @@ interface SummaryMenuProps {
 
 export function SummaryMenu({ favoriteCount }: SummaryMenuProps) {
   return (
-    <section className="rounded-ui-rect border border-ig-border bg-sam-surface p-4">
+    <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ITEMS.map(({ label, href, icon, hasAlert, showFavoriteBadge }) => (
           <Link
             key={label}
             href={href}
-            className="flex flex-col items-center gap-2 py-3 text-[14px] text-foreground"
+            className="flex flex-col items-center gap-2 py-3 sam-text-body text-foreground"
           >
             <span className="relative flex h-10 w-10 items-center justify-center text-foreground">
               {icon}
@@ -36,7 +36,7 @@ export function SummaryMenu({ favoriteCount }: SummaryMenuProps) {
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-signature" />
               )}
               {showFavoriteBadge && favoriteCount != null && favoriteCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white">
                   {favoriteCount > 99 ? "99+" : favoriteCount}
                 </span>
               )}

@@ -212,7 +212,7 @@ export function MyNotificationsView() {
     <div className="space-y-4">
       {hubBlockedModal}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] text-sam-muted">
+        <p className="sam-text-helper text-sam-muted">
           채팅·거래·배달 주문 알림 등입니다. <strong>배달 입점 사장님용 새 주문 알림</strong>은{" "}
           <button
             type="button"
@@ -236,7 +236,7 @@ export function MyNotificationsView() {
             type="button"
             disabled={busy}
             onClick={() => void markAllRead()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-fg disabled:opacity-50"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg disabled:opacity-50"
           >
             {busy ? t("common_processing") : t("common_mark_all_read")}
           </button>
@@ -259,7 +259,7 @@ export function MyNotificationsView() {
                   r.is_read ? "border-sam-border-soft bg-sam-surface" : "border-signature/25 bg-signature/5"
                 }`}
               >
-                <div className="flex flex-wrap justify-between gap-1 text-[11px] text-sam-meta">
+                <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-meta">
                   <span>
                     {typeLbl}
                     {kindLbl ? (
@@ -268,12 +268,12 @@ export function MyNotificationsView() {
                   </span>
                   <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
                 </div>
-                <p className="mt-1 text-[14px] font-semibold text-sam-fg">{r.title}</p>
-                {r.body ? <p className="mt-1 text-[13px] text-sam-fg">{r.body}</p> : null}
+                <p className="mt-1 sam-text-body font-semibold text-sam-fg">{r.title}</p>
+                {r.body ? <p className="mt-1 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
                 {r.link_url ? (
                   <Link
                     href={shortcutHref}
-                    className="mt-2 inline-block text-[13px] text-signature underline"
+                    className="mt-2 inline-block sam-text-body-secondary text-signature underline"
                     onMouseEnter={() => prewarmShortcutRoute(shortcutHref)}
                     onTouchStart={() => prewarmShortcutRoute(shortcutHref)}
                     onClick={() => {
@@ -286,7 +286,7 @@ export function MyNotificationsView() {
                 ) : !r.is_read ? (
                   <button
                     type="button"
-                    className="mt-2 text-[13px] text-signature underline"
+                    className="mt-2 sam-text-body-secondary text-signature underline"
                     onClick={() => void markIdsRead([r.id])}
                   >
                     읽음 처리

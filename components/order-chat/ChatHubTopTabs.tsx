@@ -114,7 +114,7 @@ export function ChatHubTopTabs({
                 prefetch={false}
                 aria-current={isOn ? "page" : undefined}
                 className={[
-                  "flex shrink-0 items-center whitespace-nowrap text-[14px] leading-snug transition-colors duration-200 sm:text-[15px]",
+                  "flex shrink-0 items-center whitespace-nowrap sam-text-body leading-snug transition-colors duration-200 sm:sam-text-body",
                   isOn ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
                 ].join(" ")}
               >

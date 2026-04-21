@@ -86,7 +86,7 @@ export function MyProductActions({
         <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-ui-rect border border-sam-border bg-sam-surface py-1">
           <Link
             href={`/products/${product.id}/edit`}
-            className="block px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+            className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             onClick={() => setOpen(false)}
           >
             수정
@@ -95,7 +95,7 @@ export function MyProductActions({
             <button
               type="button"
               onClick={handleBump}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
               끌올
             </button>
@@ -104,13 +104,13 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => handleStatusChange("active")}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
               다시 판매중으로
             </button>
           ) : (
             <>
-              <div className="px-4 py-1.5 text-[11px] font-medium uppercase tracking-wide text-sam-meta">
+              <div className="px-4 py-1.5 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">
                 거래 상태
               </div>
               {LISTING_MENU_ORDER.map((state) => {
@@ -124,7 +124,7 @@ export function MyProductActions({
                       onSellerListingStateChange(product.id, state);
                       setOpen(false);
                     }}
-                    className={`w-full px-4 py-2.5 text-left text-[14px] hover:bg-sam-app ${
+                    className={`w-full px-4 py-2.5 text-left sam-text-body hover:bg-sam-app ${
                       isCurrent
                         ? "cursor-default bg-signature/5 font-semibold text-signature"
                         : "text-sam-fg"
@@ -145,7 +145,7 @@ export function MyProductActions({
                 onStatusChange(product.id, "hidden");
                 setOpen(false);
               }}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-red-700 hover:bg-red-50"
+              className="w-full px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50"
             >
               물품 판매 취소
             </button>
@@ -154,7 +154,7 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => handleStatusChange("hidden")}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-sam-fg hover:bg-sam-app"
+              className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
               숨기기
             </button>
@@ -162,7 +162,7 @@ export function MyProductActions({
           <button
             type="button"
             onClick={handleDelete}
-            className="w-full px-4 py-2.5 text-left text-[14px] text-red-600 hover:bg-red-50"
+            className="w-full px-4 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50"
           >
             삭제
           </button>

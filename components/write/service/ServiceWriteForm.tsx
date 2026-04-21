@@ -118,7 +118,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
         {isRequest ? (
           <>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-              <label className="mb-2 block text-[14px] font-medium text-sam-fg">
+              <label className="mb-2 block sam-text-body font-medium text-sam-fg">
                 요청 내용 <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -126,15 +126,15 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="어떤 도움이 필요하신가요?"
                 rows={5}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
+                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.content}
               />
               {errors.content && (
-                <p className="mt-1 text-[13px] text-red-500">{errors.content}</p>
+                <p className="mt-1 sam-text-body-secondary text-red-500">{errors.content}</p>
               )}
             </section>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-              <label className="mb-2 block text-[14px] font-medium text-sam-fg">
+              <label className="mb-2 block sam-text-body font-medium text-sam-fg">
                 연락 방법
               </label>
               <input
@@ -142,14 +142,14 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 value={contactMethod}
                 onChange={(e) => setContactMethod(e.target.value)}
                 placeholder="채팅, 전화 등"
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
               />
             </section>
           </>
         ) : (
           <>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-              <label className="mb-2 block text-[14px] font-medium text-sam-fg">
+              <label className="mb-2 block sam-text-body font-medium text-sam-fg">
                 제목 <span className="text-red-500">*</span>
               </label>
               <input
@@ -158,15 +158,15 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="제목"
                 maxLength={100}
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.title}
               />
               {errors.title && (
-                <p className="mt-1 text-[13px] text-red-500">{errors.title}</p>
+                <p className="mt-1 sam-text-body-secondary text-red-500">{errors.title}</p>
               )}
             </section>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-              <label className="mb-2 block text-[14px] font-medium text-sam-fg">
+              <label className="mb-2 block sam-text-body font-medium text-sam-fg">
                 설명 <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -174,11 +174,11 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="서비스 내용을 입력해 주세요"
                 rows={5}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] text-sam-fg"
+                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.content}
               />
               {errors.content && (
-                <p className="mt-1 text-[13px] text-red-500">{errors.content}</p>
+                <p className="mt-1 sam-text-body-secondary text-red-500">{errors.content}</p>
               )}
             </section>
             {hasLocation && (
@@ -192,7 +192,7 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
           </>
         )}
         {errors.submit && (
-          <p className="px-4 py-2 text-[13px] text-red-500">{errors.submit}</p>
+          <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>
         )}
         <SubmitButton
           label={isRequest ? "요청하기" : "등록하기"}

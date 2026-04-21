@@ -88,14 +88,14 @@ export function PhoneVerificationRequestForm() {
   };
 
   if (loading) {
-    return <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>;
+    return <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>;
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-ui-rect border border-ig-border bg-signature/5 px-4 py-3">
+      <div className="rounded-ui-rect border border-sam-border bg-signature/5 px-4 py-3">
         <p className="text-sm font-semibold text-sam-fg">필리핀 전화번호 인증</p>
-        <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           {status?.full_member_access_ok && !status.phone_verified ? (
             <>
               Google·카카오·애플·이메일 가입 회원과 동일한 정식 회원으로 등록되어 있어 글쓰기·거래·주문·채팅을 이용할
@@ -111,8 +111,8 @@ export function PhoneVerificationRequestForm() {
       </div>
 
       <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
-        <p className="text-[13px] text-sam-muted">현재 상태</p>
-        <p className="mt-1 text-[16px] font-semibold text-sam-fg">
+        <p className="sam-text-body-secondary text-sam-muted">현재 상태</p>
+        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
           {status?.phone_verified
             ? "인증 완료"
             : status?.full_member_access_ok
@@ -122,24 +122,24 @@ export function PhoneVerificationRequestForm() {
                 : "미인증"}
         </p>
         {status?.help_text ? (
-          <p className="mt-1 text-[13px] text-sam-muted">{status.help_text}</p>
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">{status.help_text}</p>
         ) : null}
       </div>
 
       <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-sam-surface p-4 shadow-sm">
         <div>
-          <label className="block text-[13px] font-medium text-sam-fg">닉네임</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">닉네임</label>
           <input
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={20}
             required
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
         <div>
-          <label className="block text-[13px] font-medium text-sam-fg">필리핀 전화번호</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">필리핀 전화번호</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -148,21 +148,21 @@ export function PhoneVerificationRequestForm() {
             onChange={(e) => setPhoneDigits(parsePhMobileInput(e.target.value))}
             placeholder={PH_MOBILE_PLACEHOLDER}
             required
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-[14px]"
+            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
-        {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
-        {message ? <p className="text-[13px] text-green-700">{message}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+        {message ? <p className="sam-text-body-secondary text-green-700">{message}</p> : null}
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-ui-rect bg-signature py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "전화번호 인증 요청 저장"}
         </button>
       </form>
 
-      <Link href="/mypage/account" className="block text-center text-[13px] text-signature underline">
+      <Link href="/mypage/account" className="block text-center sam-text-body-secondary text-signature underline">
         내 계정으로 돌아가기
       </Link>
     </div>

@@ -123,41 +123,41 @@ export function OwnerStoreReviewsView() {
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <p className="text-[13px] text-sam-muted">배달 완료 주문 리뷰 목록입니다. 사장님 댓글을 남길 수 있습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">배달 완료 주문 리뷰 목록입니다. 사장님 댓글을 남길 수 있습니다.</p>
       <ul className="space-y-3">
         {rows.map((r) => (
           <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[14px] font-semibold text-sam-fg">{r.buyer_public_label}</p>
-              <p className="text-[12px] text-sam-muted">{new Date(r.created_at).toLocaleDateString("ko-KR")}</p>
+              <p className="sam-text-body font-semibold text-sam-fg">{r.buyer_public_label}</p>
+              <p className="sam-text-helper text-sam-muted">{new Date(r.created_at).toLocaleDateString("ko-KR")}</p>
             </div>
-            <p className="mt-1 text-[13px] text-amber-700">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
-            <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-sam-fg">{r.content}</p>
-            <p className="mt-1 text-[12px] text-sam-muted">
+            <p className="mt-1 sam-text-body-secondary text-amber-700">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
+            <p className="mt-1 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">{r.content}</p>
+            <p className="mt-1 sam-text-helper text-sam-muted">
               주문 {r.order_id} · {r.visible_to_public ? "공개" : "비공개"} · {r.status}
             </p>
 
             <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-2.5">
-              <p className="text-[12px] font-semibold text-sam-fg">사장님 댓글</p>
+              <p className="sam-text-helper font-semibold text-sam-fg">사장님 댓글</p>
               <textarea
                 value={drafts[r.id] ?? ""}
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
                 placeholder="고객 리뷰에 댓글을 남겨보세요."
                 rows={3}
-                className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] outline-none ring-signature/20 focus:ring-2"
+                className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary outline-none ring-signature/20 focus:ring-2"
               />
               <div className="mt-2 flex justify-end">
                 <button
                   type="button"
                   disabled={busyId !== null || !(drafts[r.id] ?? "").trim()}
                   onClick={() => void saveReply(r.id)}
-                  className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-semibold text-white disabled:opacity-40"
+                  className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40"
                 >
                   {busyId === r.id ? "저장 중…" : "댓글 저장"}
                 </button>
               </div>
               {r.owner_reply_created_at ? (
-                <p className="mt-1 text-right text-[11px] text-sam-muted">
+                <p className="mt-1 text-right sam-text-xxs text-sam-muted">
                   최근 저장: {new Date(r.owner_reply_created_at).toLocaleString("ko-KR")}
                 </p>
               ) : null}

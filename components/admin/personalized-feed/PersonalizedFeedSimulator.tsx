@@ -42,11 +42,11 @@ export function PersonalizedFeedSimulator() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[14px] font-medium text-sam-fg">사용자</label>
+        <label className="sam-text-body font-medium text-sam-fg">사용자</label>
         <select
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {MOCK_USER_IDS.map((id) => (
             <option key={id} value={id}>
@@ -57,26 +57,26 @@ export function PersonalizedFeedSimulator() {
         <button
           type="button"
           onClick={() => setRefreshKey((k) => k + 1)}
-          className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           시뮬레이션 실행
         </button>
       </div>
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         지역: {MOCK_REGION} · 총 {totalItems}건
       </p>
       {totalItems === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           추천 결과가 없습니다. 관심 카테고리/최근 본/찜/채팅 데이터를 확인하세요.
         </div>
       ) : (
         <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           {results.map((r) => (
             <div key={r.sectionKey} className="border-b border-sam-border-soft pb-3 last:border-0">
-              <h3 className="mb-2 text-[14px] font-semibold text-sam-fg">
+              <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">
                 {PERSONALIZED_SECTION_LABELS[r.sectionKey]} ({r.items.length}건)
               </h3>
-              <ul className="space-y-1 text-[13px] text-sam-fg">
+              <ul className="space-y-1 sam-text-body-secondary text-sam-fg">
                 {r.items.slice(0, 5).map((item) => (
                   <li key={item.id}>
                     {item.title} · {item.reasonLabel} (점수: {item.score})

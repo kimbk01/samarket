@@ -25,13 +25,13 @@ export function OpsGapAnalysisCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">범위</span>
+        <span className="sam-text-body-secondary text-sam-muted">범위</span>
         {(["quarterly", "yearly"] as const).map((s) => (
           <button
             key={s}
             type="button"
             onClick={() => setScope(s)}
-            className={`rounded border px-3 py-1.5 text-[13px] ${
+            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
               scope === s
                 ? "border-signature bg-signature/10 text-signature"
                 : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
@@ -43,13 +43,13 @@ export function OpsGapAnalysisCards() {
       </div>
 
       {highGap.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           목표 대비 갭이 큰 영역이 없습니다.
         </div>
       ) : (
         <>
           <div>
-            <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
+            <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
               갭 분석 (목표 미달 영역 강조)
             </h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -58,13 +58,13 @@ export function OpsGapAnalysisCards() {
                   key={domain}
                   className="rounded-ui-rect border border-amber-200 bg-amber-50/50 p-4"
                 >
-                  <p className="text-[12px] text-sam-muted">
+                  <p className="sam-text-helper text-sam-muted">
                     {DOMAIN_LABELS[domain]}
                   </p>
-                  <p className="mt-1 text-[18px] font-semibold text-amber-800">
+                  <p className="mt-1 sam-text-page-title font-semibold text-amber-800">
                     갭 +{gapScore}
                   </p>
-                  <p className="mt-1 text-[12px] text-sam-muted">
+                  <p className="mt-1 sam-text-helper text-sam-muted">
                     개선 우선순위 추천
                   </p>
                 </div>
@@ -72,10 +72,10 @@ export function OpsGapAnalysisCards() {
             </div>
           </div>
           <div>
-            <h3 className="mb-2 text-[13px] font-medium text-sam-fg">
+            <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
               개선 우선순위 추천
             </h3>
-            <p className="text-[13px] text-sam-muted">
+            <p className="sam-text-body-secondary text-sam-muted">
               위 갭이 큰 영역 순으로 분기 계획·로드맵에 반영을 권장합니다.
             </p>
           </div>

@@ -174,13 +174,13 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
         <div className="px-0.5">
           <p
-            className="cm-messenger-section-title text-[20px] font-bold tracking-tight"
+            className="cm-messenger-section-title sam-text-page-title font-bold tracking-tight"
             style={{ color: "var(--messenger-text)" }}
           >
             {sectionTitle}
           </p>
           <p
-            className="cm-messenger-section-desc mt-0.5 text-[12px] leading-snug"
+            className="cm-messenger-section-desc mt-0.5 sam-text-helper leading-snug"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             {sectionDescription}

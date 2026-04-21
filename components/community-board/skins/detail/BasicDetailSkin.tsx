@@ -41,7 +41,7 @@ export function BasicDetailSkin({
       <div className="p-4">
         <div className="flex flex-wrap items-start gap-2">
           {post.community_topic?.name ? (
-            <span className="shrink-0 rounded bg-sky-50 px-2 py-0.5 text-[12px] font-medium text-sky-800">
+            <span className="shrink-0 rounded bg-sky-50 px-2 py-0.5 sam-text-helper font-medium text-sky-800">
               {post.community_topic.name}
             </span>
           ) : null}

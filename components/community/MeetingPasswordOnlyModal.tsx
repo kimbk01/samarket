@@ -41,12 +41,12 @@ export function MeetingPasswordOnlyModal({
     >
       <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:rounded-ui-rect">
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 id="m-pwd-title" className="text-[16px] font-bold text-sam-fg">
+          <h2 id="m-pwd-title" className="sam-text-body-lg font-bold text-sam-fg">
             {title}
           </h2>
           <button
             type="button"
-            className="rounded-ui-rect px-2 py-1 text-[13px] text-sam-muted hover:bg-sam-surface-muted disabled:opacity-40"
+            className="rounded-ui-rect px-2 py-1 sam-text-body-secondary text-sam-muted hover:bg-sam-surface-muted disabled:opacity-40"
             onClick={onClose}
             disabled={busy}
           >
@@ -54,22 +54,22 @@ export function MeetingPasswordOnlyModal({
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
-          {hint ? <p className="text-[12px] leading-relaxed text-sam-muted">{hint}</p> : null}
-          <label className="block text-[12px] font-semibold text-sam-fg">비밀번호</label>
+          {hint ? <p className="sam-text-helper leading-relaxed text-sam-muted">{hint}</p> : null}
+          <label className="block sam-text-helper font-semibold text-sam-fg">비밀번호</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="off"
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 text-[15px] outline-none focus:border-emerald-500"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-emerald-500"
             placeholder="비밀번호 입력"
             disabled={busy}
           />
-          {error ? <p className="text-[12px] text-red-600">{error}</p> : null}
+          {error ? <p className="sam-text-helper text-red-600">{error}</p> : null}
           <button
             type="button"
             disabled={busy || !password.trim()}
-            className="w-full rounded-ui-rect bg-emerald-600 py-3 text-[15px] font-bold text-white disabled:opacity-45"
+            className="w-full rounded-ui-rect bg-emerald-600 py-3 sam-text-body font-bold text-white disabled:opacity-45"
             onClick={() => onSubmit(password.trim())}
           >
             {busy ? "확인 중…" : submitLabel}

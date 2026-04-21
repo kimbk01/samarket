@@ -85,10 +85,10 @@ export function MessengerChatFilterSheet({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <p id={titleId} className="pr-11 text-[17px] font-semibold leading-snug tracking-tight text-sam-fg">
+            <p id={titleId} className="pr-11 sam-text-section-title font-semibold leading-snug tracking-tight text-sam-fg">
               대화 필터
             </p>
-            <p className="pr-11 text-[12px] leading-relaxed text-sam-muted">
+            <p className="pr-11 sam-text-helper leading-relaxed text-sam-muted">
               유형별로 빠르게 전환하세요. 고정은 핀 아이콘으로, 안읽음은 뱃지로 확인합니다.
             </p>
           </div>
@@ -103,7 +103,7 @@ export function MessengerChatFilterSheet({
                       type="button"
                       onClick={() => onSelect(chip)}
                       className={[
-                        "flex min-h-[48px] w-full items-center rounded-ui-rect border px-4 text-left text-[15px] font-medium transition-colors [-webkit-tap-highlight-color:transparent] active:opacity-95",
+                        "flex min-h-[48px] w-full items-center rounded-ui-rect border px-4 text-left sam-text-body font-medium transition-colors [-webkit-tap-highlight-color:transparent] active:opacity-95",
                         selected
                           ? "border-signature bg-signature text-white shadow-sm"
                           : "border-sam-border bg-sam-surface-muted text-sam-fg active:bg-sam-surface",

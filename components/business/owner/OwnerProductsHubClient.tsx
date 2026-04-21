@@ -71,7 +71,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const categoriesHref = `/my/business/menu-categories?${q}`;
 
   const addProductCtaClass =
-    "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-signature/40 bg-signature px-4 py-2 text-[13px] font-semibold text-white shadow-sm transition hover:bg-signature/90 active:bg-signature/95";
+    "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-signature/40 bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white shadow-sm transition hover:bg-signature/90 active:bg-signature/95";
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -188,19 +188,19 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
         <Link
           href={ordersHref}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
         >
           주문 관리
         </Link>
         <Link
           href={inquiriesHref}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
         >
           문의
         </Link>
         <Link
           href={`/my/business?storeId=${encodeURIComponent(storeId)}`}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
         >
           운영 대시보드
         </Link>
@@ -212,7 +212,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         >
           <Link
             href={categoriesHref}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-[#F9FAFB] text-signature"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sam-border bg-[#F9FAFB] text-signature"
             aria-label="카테고리 추가"
             title="카테고리 추가"
           >
@@ -223,7 +223,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           <button
             type="button"
             onClick={() => setTab("all")}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-[13px] font-medium ${
+            className={`shrink-0 rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
               tab === "all" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
             }`}
           >
@@ -234,7 +234,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               key={s.id}
               type="button"
               onClick={() => setTab(s.id)}
-              className={`max-w-[200px] shrink-0 truncate rounded-full px-3 py-1.5 text-[13px] font-medium ${
+              className={`max-w-[200px] shrink-0 truncate rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
                 tab === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
               }`}
             >
@@ -264,16 +264,16 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="상품 검색"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[14px] text-sam-fg outline-none placeholder:text-sam-meta"
+            className="min-w-0 flex-1 border-0 bg-transparent sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
           />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 shadow-sm">
           <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-semibold text-sam-fg">
+            <p className="sam-text-helper font-semibold text-sam-fg">
               {tab === "all" ? "새 상품 등록" : `「${sections.find((s) => s.id === tab)?.name ?? "카테고리"}」에 추가`}
             </p>
-            <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
+            <p className="mt-0.5 sam-text-xxs leading-snug text-sam-muted">
               {tab === "all"
                 ? sections.length > 0
                   ? "등록 화면 맨 위에서 카테고리를 선택한 뒤 입력·저장하면 해당 탭에 표시됩니다."
@@ -289,7 +289,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           </Link>
         </div>
 
-        <p className="text-[12px] leading-relaxed text-sam-muted">
+        <p className="sam-text-helper leading-relaxed text-sam-muted">
           상단 탭 줄의 <span className="font-semibold text-sam-fg">+</span>는{" "}
           <strong className="font-medium text-sam-fg">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
           <Link href={categoriesHref} className="font-medium text-signature underline">
@@ -299,17 +299,17 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         </p>
 
         {toast ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
             {toast}
           </p>
         ) : null}
-        {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
 
         {loading ? (
-          <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
         ) : filtered.length === 0 ? (
           <div
-            className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center text-[14px] text-sam-muted`}
+            className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted`}
           >
             {products.length === 0 ? (
               <>
@@ -337,11 +337,11 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                   className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2 border-b border-sam-border-soft px-3 py-2">
-                    <p className="min-w-0 flex-1 truncate text-[15px] font-semibold text-sam-fg">
+                    <p className="min-w-0 flex-1 truncate sam-text-body font-semibold text-sam-fg">
                       {p.title}
                     </p>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-[11px] text-sam-muted">노출</span>
+                      <span className="sam-text-xxs text-sam-muted">노출</span>
                       <button
                         type="button"
                         role="switch"
@@ -369,18 +369,18 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-meta">
+                        <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
                           이미지 없음
                         </div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[18px] font-semibold text-sam-fg">
+                      <p className="sam-text-page-title font-semibold text-sam-fg">
                         {displayPrice(p).toLocaleString()}
-                        <span className="ml-1 text-[13px] font-normal text-sam-muted">{priceUnit}</span>
+                        <span className="ml-1 sam-text-body-secondary font-normal text-sam-muted">{priceUnit}</span>
                       </p>
                       {p.product_status !== "active" ? (
-                        <p className="mt-0.5 text-[11px] text-sam-muted">
+                        <p className="mt-0.5 sam-text-xxs text-sam-muted">
                           상태:{" "}
                           {p.product_status === "draft"
                             ? "초안"
@@ -396,7 +396,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                   <div className="flex justify-end gap-2 border-t border-sam-border-soft px-3 py-2">
                     <Link
                       href={editHref}
-                      className="inline-flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] font-medium text-signature"
+                      className="inline-flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary font-medium text-signature"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path
@@ -412,7 +412,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                       type="button"
                       disabled={busy}
                       onClick={() => onDelete(p)}
-                      className="inline-flex items-center gap-1 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-1.5 text-[13px] font-medium text-red-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-1.5 sam-text-body-secondary font-medium text-red-700 disabled:opacity-50"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path

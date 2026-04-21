@@ -17,7 +17,7 @@ export function PerformanceSummaryCards() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded px-2 py-1 text-[13px] font-medium ${
+          className={`rounded px-2 py-1 sam-text-body-secondary font-medium ${
             status === "healthy"
               ? "bg-emerald-50 text-emerald-700"
               : status === "warning"
@@ -30,20 +30,20 @@ export function PerformanceSummaryCards() {
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">평균 로딩 시간</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">평균 로딩 시간</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgLoadTime} ms
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">평균 API 응답</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">평균 API 응답</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgApiTime} ms
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="text-[12px] text-sam-muted">평균 DB 쿼리</p>
-          <p className="text-[20px] font-semibold text-sam-fg">
+          <p className="sam-text-helper text-sam-muted">평균 DB 쿼리</p>
+          <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgDbQueryTime} ms
           </p>
         </div>

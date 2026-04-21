@@ -82,7 +82,7 @@ export default function WriteByCategoryPage() {
 
   if (rawId === "exchang") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
+      <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
         이동 중…
       </div>
     );
@@ -90,7 +90,7 @@ export default function WriteByCategoryPage() {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
+      <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -99,7 +99,7 @@ export default function WriteByCategoryPage() {
   if (status === "not_found") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="text-[15px] font-medium text-sam-fg">카테고리를 찾을 수 없습니다.</p>
+        <p className="sam-text-body font-medium text-sam-fg">카테고리를 찾을 수 없습니다.</p>
         <div className="mt-4 flex justify-center">
           <AppBackButton className="text-signature hover:bg-signature/10" />
         </div>
@@ -110,11 +110,11 @@ export default function WriteByCategoryPage() {
   if (status === "no_write" && category) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="text-[15px] font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
+        <p className="sam-text-body font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
         <button
           type="button"
           onClick={() => router.push(getCategoryHref(category))}
-          className="mt-4 text-[14px] text-signature"
+          className="mt-4 sam-text-body text-signature"
         >
           카테고리로 돌아가기
         </button>
@@ -125,7 +125,7 @@ export default function WriteByCategoryPage() {
   if (status !== "found" || !category) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <p className="text-[14px] text-sam-muted">카테고리 정보를 불러오는 중입니다.</p>
+        <p className="sam-text-body text-sam-muted">카테고리 정보를 불러오는 중입니다.</p>
       </div>
     );
   }
@@ -181,7 +181,7 @@ export default function WriteByCategoryPage() {
       return <FeatureWriteBlock category={category} />;
     default:
       return (
-        <div className="flex min-h-screen items-center justify-center bg-background text-[14px] text-sam-muted">
+        <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
           지원하지 않는 카테고리 타입입니다.
         </div>
       );

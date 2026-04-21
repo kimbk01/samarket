@@ -19,14 +19,14 @@ export function AdminOpsRunbookPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/ops-runbooks/start"
-          className="rounded border border-signature bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           새 실행 시작
         </Link>
         <button
           type="button"
           onClick={() => setActiveTab(activeTab === "list" ? "summary" : "list")}
-          className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px] text-sam-fg"
+          className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
           {activeTab === "list" ? "요약 보기" : "목록 보기"}
         </button>
@@ -38,11 +38,11 @@ export function AdminOpsRunbookPage() {
       ) : (
         <>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <label className="text-[14px] text-sam-fg">상태</label>
+            <label className="sam-text-body text-sam-fg">상태</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as OpsRunbookExecutionStatus | "")}
-              className="rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
               <option value="">전체</option>
               <option value="in_progress">진행중</option>

@@ -9,8 +9,7 @@ export const MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS: { value: string; label: string
 /** 라벨 글자 크기 */
 export const MAIN_BOTTOM_NAV_LABEL_SIZE_PRESETS: { value: string; label: string }[] = [
   { value: "", label: "기본(11px)" },
-  { value: "text-[10px]", label: "10px" },
-  { value: "text-[11px]", label: "11px" },
+  { value: "sam-text-xxs", label: "10–11px" },
   { value: "text-xs", label: "12px(xs)" },
   { value: "text-sm", label: "14px(sm)" },
 ];

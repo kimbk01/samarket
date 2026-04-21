@@ -62,7 +62,7 @@ export function AdminTradeAdPoliciesPage() {
         description="상세 하단·리스트 상단 등 거래 마켓 광고의 기간·포인트·노출 위치·서비스 타입을 DB에서 관리합니다. 수치는 코드가 아니라 여기서만 조정하세요."
       />
 
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         신청 처리·승인은{" "}
         <Link href="/admin/trade-post-ads" className="text-blue-700 underline">
           거래 상세 광고 (trade_post_ads)
@@ -71,18 +71,18 @@ export function AdminTradeAdPoliciesPage() {
       </p>
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-800">{err}</div>
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-800">{err}</div>
       ) : null}
 
       {loading ? (
-        <p className="text-[13px] text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
       ) : rows.length === 0 ? (
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           ad_products 테이블에 board_key=trade 또는 placement가 설정된 행이 없습니다. Supabase에 행을 추가하거나 마이그레이션 시드를 적용하세요.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
-          <table className="min-w-full text-left text-[13px]">
+          <table className="min-w-full text-left sam-text-body-secondary">
             <thead className="bg-sam-surface-muted text-sam-muted">
               <tr>
                 <th className="px-3 py-2">이름</th>
@@ -112,7 +112,7 @@ export function AdminTradeAdPoliciesPage() {
                         type="button"
                         disabled={busyId === id}
                         onClick={() => void toggleActive(r)}
-                        className="rounded border border-sam-border px-2 py-0.5 text-[12px] disabled:opacity-50"
+                        className="rounded border border-sam-border px-2 py-0.5 sam-text-helper disabled:opacity-50"
                       >
                         {r.is_active ? "끄기" : "켜기"}
                       </button>

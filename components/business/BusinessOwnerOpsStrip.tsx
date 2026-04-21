@@ -37,8 +37,8 @@ export function BusinessOwnerOpsStrip({
       className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
       aria-label="매장 운영 상태"
     >
-      <h2 className="text-[13px] font-semibold text-sam-muted">운영·심사 상태</h2>
-      <dl className="mt-3 space-y-2 text-[13px] text-sam-fg">
+      <h2 className="sam-text-body-secondary font-semibold text-sam-muted">운영·심사 상태</h2>
+      <dl className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
         <div className="flex justify-between gap-3">
           <dt className="shrink-0 text-sam-muted">매장 심사</dt>
           <dd className="text-right font-medium">{APPROVAL_LABEL[approval] ?? approval}</dd>
@@ -61,7 +61,7 @@ export function BusinessOwnerOpsStrip({
             </dd>
           </div>
         )}
-        <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-sam-border-soft pt-2 text-[12px] text-sam-muted">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-sam-border-soft pt-2 sam-text-helper text-sam-muted">
           {row.delivery_available === true && <span>배달 가능</span>}
           {row.pickup_available !== false && <span>포장·픽업 가능</span>}
           {row.delivery_available !== true && row.pickup_available === false && (

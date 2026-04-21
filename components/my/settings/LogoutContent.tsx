@@ -19,18 +19,18 @@ export function LogoutContent() {
 
   return (
     <div className="space-y-4">
-      <p className="text-[14px] text-sam-fg">로그아웃 하시겠습니까?</p>
+      <p className="sam-text-body text-sam-fg">로그아웃 하시겠습니까?</p>
       <div className="flex gap-3">
         <Link
           href={MYPAGE_MAIN_HREF}
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center text-[14px] font-medium text-sam-fg"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center sam-text-body font-medium text-sam-fg"
         >
           취소
         </Link>
         <button
           type="button"
           onClick={handleLogout}
-          className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 text-[14px] font-medium text-white"
+          className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white"
         >
           로그아웃
         </button>

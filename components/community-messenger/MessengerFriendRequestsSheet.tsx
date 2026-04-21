@@ -40,8 +40,8 @@ export function MessengerFriendRequestsSheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="max-h-[min(78vh,560px)] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between border-b border-ui-border px-3 py-2.5">
-          <p className="text-[16px] font-semibold text-ui-fg">{MessengerFriendRequestSheetLabels.title}</p>
-          <button type="button" className="text-[14px] text-ui-muted" onClick={onClose}>
+          <p className="sam-text-body-lg font-semibold text-ui-fg">{MessengerFriendRequestSheetLabels.title}</p>
+          <button type="button" className="sam-text-body text-ui-muted" onClick={onClose}>
             닫기
           </button>
         </div>
@@ -52,15 +52,15 @@ export function MessengerFriendRequestsSheet({
                 <div key={request.id} className="flex items-center gap-2.5 px-3 py-2.5">
                   <RequestAvatar label={request.requesterLabel} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-ui-fg">{request.requesterLabel}</p>
-                    <p className="truncate text-[11px] text-ui-muted">{MessengerFriendRequestSheetLabels.subtitleReceived}</p>
+                    <p className="truncate sam-text-body font-medium text-ui-fg">{request.requesterLabel}</p>
+                    <p className="truncate sam-text-xxs text-ui-muted">{MessengerFriendRequestSheetLabels.subtitleReceived}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => void onRequestAction(request.id, "reject")}
                       disabled={busyId === `request:${request.id}:reject`}
-                      className="rounded-ui-rect border border-ui-border px-2.5 py-1 text-[12px] text-ui-fg disabled:opacity-50"
+                      className="rounded-ui-rect border border-ui-border px-2.5 py-1 sam-text-helper text-ui-fg disabled:opacity-50"
                     >
                       {busyId === `request:${request.id}:reject` ? MessengerFriendRequestSheetLabels.processing : MessengerFriendAddCtaLabels.reject}
                     </button>
@@ -68,7 +68,7 @@ export function MessengerFriendRequestsSheet({
                       type="button"
                       onClick={() => void onRequestAction(request.id, "accept")}
                       disabled={busyId === `request:${request.id}:accept`}
-                      className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2.5 py-1 text-[12px] font-semibold text-ui-surface disabled:opacity-50"
+                      className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2.5 py-1 sam-text-helper font-semibold text-ui-surface disabled:opacity-50"
                     >
                       {busyId === `request:${request.id}:accept` ? MessengerFriendRequestSheetLabels.processing : MessengerFriendAddCtaLabels.accept}
                     </button>
@@ -76,7 +76,7 @@ export function MessengerFriendRequestsSheet({
                 </div>
               ))
             ) : (
-              <p className="px-3 py-3 text-[12px] text-ui-muted">{MessengerFriendRequestSheetLabels.emptyReceived}</p>
+              <p className="px-3 py-3 sam-text-helper text-ui-muted">{MessengerFriendRequestSheetLabels.emptyReceived}</p>
             )}
           </RequestSection>
           <RequestSection title={MessengerFriendRequestSheetLabels.sectionSent}>
@@ -85,21 +85,21 @@ export function MessengerFriendRequestsSheet({
                 <div key={request.id} className="flex items-center gap-2.5 px-3 py-2.5">
                   <RequestAvatar label={request.addresseeLabel} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-ui-fg">{request.addresseeLabel}</p>
-                    <p className="truncate text-[11px] text-ui-muted">{MessengerFriendRequestSheetLabels.subtitleSent}</p>
+                    <p className="truncate sam-text-body font-medium text-ui-fg">{request.addresseeLabel}</p>
+                    <p className="truncate sam-text-xxs text-ui-muted">{MessengerFriendRequestSheetLabels.subtitleSent}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => void onRequestAction(request.id, "cancel")}
                     disabled={busyId === `request:${request.id}:cancel`}
-                    className="shrink-0 rounded-ui-rect border border-ui-border px-2.5 py-1 text-[12px] text-ui-fg disabled:opacity-50"
+                    className="shrink-0 rounded-ui-rect border border-ui-border px-2.5 py-1 sam-text-helper text-ui-fg disabled:opacity-50"
                   >
                     {busyId === `request:${request.id}:cancel` ? MessengerFriendRequestSheetLabels.processing : MessengerFriendAddCtaLabels.cancel}
                   </button>
                 </div>
               ))
             ) : (
-              <p className="px-3 py-3 text-[12px] text-ui-muted">{MessengerFriendRequestSheetLabels.emptySent}</p>
+              <p className="px-3 py-3 sam-text-helper text-ui-muted">{MessengerFriendRequestSheetLabels.emptySent}</p>
             )}
           </RequestSection>
           <RequestSection title={MessengerFriendRequestSheetLabels.sectionSuggested}>
@@ -123,19 +123,19 @@ export function MessengerFriendRequestsSheet({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[13px] font-semibold text-ui-muted">{initial}</div>
+                        <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-ui-muted">{initial}</div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-medium text-ui-fg">{p.label}</p>
-                      <p className="truncate text-[11px] text-ui-muted">{p.subtitle ?? "추천"}</p>
+                      <p className="truncate sam-text-body font-medium text-ui-fg">{p.label}</p>
+                      <p className="truncate sam-text-xxs text-ui-muted">{p.subtitle ?? "추천"}</p>
                     </div>
-                    <span className="shrink-0 text-[12px] text-ui-muted">{MessengerFriendRequestSheetLabels.openProfile}</span>
+                    <span className="shrink-0 sam-text-helper text-ui-muted">{MessengerFriendRequestSheetLabels.openProfile}</span>
                   </button>
                 );
               })
             ) : (
-              <p className="px-3 py-3 text-[12px] text-ui-muted">{MessengerFriendRequestSheetLabels.emptySuggested}</p>
+              <p className="px-3 py-3 sam-text-helper text-ui-muted">{MessengerFriendRequestSheetLabels.emptySuggested}</p>
             )}
           </RequestSection>
         </div>
@@ -147,7 +147,7 @@ export function MessengerFriendRequestsSheet({
 function RequestSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <p className="bg-ui-page px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ui-muted">{title}</p>
+      <p className="bg-ui-page px-3 py-1.5 sam-text-xxs font-semibold uppercase tracking-wide text-ui-muted">{title}</p>
       {children}
     </div>
   );
@@ -156,7 +156,7 @@ function RequestSection({ title, children }: { title: string; children: ReactNod
 function RequestAvatar({ label }: { label: string }) {
   const initial = label.trim().slice(0, 1) || "?";
   return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-hover text-[13px] font-semibold text-ui-muted">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ui-hover sam-text-body-secondary font-semibold text-ui-muted">
       {initial}
     </div>
   );

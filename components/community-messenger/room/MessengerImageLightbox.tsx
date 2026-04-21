@@ -38,18 +38,18 @@ export function MessengerImageLightbox(props: {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg px-3 py-2 text-[14px] font-medium text-white/90 active:bg-white/10"
+          className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
         >
           닫기
         </button>
-        <span className="text-[13px] tabular-nums text-white/70">
+        <span className="sam-text-body-secondary tabular-nums text-white/70">
           {safeIndex + 1} / {urls.length}
         </span>
         <a
           href={orig}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-lg px-3 py-2 text-[14px] font-medium text-white/90 active:bg-white/10"
+          className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
         >
           원본
         </a>
@@ -61,7 +61,7 @@ export function MessengerImageLightbox(props: {
               type="button"
               disabled={safeIndex <= 0}
               onClick={() => onChangeIndex(safeIndex - 1)}
-              className="absolute left-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 text-[22px] leading-none text-white disabled:opacity-25"
+              className="absolute left-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 sam-text-hero leading-none text-white disabled:opacity-25"
               aria-label="이전"
             >
               ‹
@@ -70,7 +70,7 @@ export function MessengerImageLightbox(props: {
               type="button"
               disabled={safeIndex >= urls.length - 1}
               onClick={() => onChangeIndex(safeIndex + 1)}
-              className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 text-[22px] leading-none text-white disabled:opacity-25"
+              className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 sam-text-hero leading-none text-white disabled:opacity-25"
               aria-label="다음"
             >
               ›

@@ -39,7 +39,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("warn")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "warn" ? "처리 중..." : "경고"}
           </button>
@@ -49,7 +49,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("suspend")}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
             {loading === "suspend" ? "처리 중..." : "일시정지"}
           </button>
@@ -59,7 +59,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("ban")}
-            className="rounded border border-red-100 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+            className="rounded border border-red-100 bg-red-50 px-3 py-2 sam-text-body-secondary font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
           >
             {loading === "ban" ? "처리 중..." : "영구정지"}
           </button>
@@ -69,7 +69,7 @@ export function AdminUserActionPanel({
             type="button"
             disabled={loading !== null}
             onClick={() => runModeration("restore")}
-            className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 text-[13px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            className="rounded border border-emerald-100 bg-emerald-50 px-3 py-2 sam-text-body-secondary font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
           >
             {loading === "restore" ? "처리 중..." : "정상복구"}
           </button>
@@ -83,7 +83,7 @@ export function AdminUserActionPanel({
                 type="button"
                 disabled={loading !== null}
                 onClick={() => runPremium(false)}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
               >
                 {loading === "premium_off" ? "처리 중..." : "특별회원 해제"}
               </button>
@@ -92,14 +92,14 @@ export function AdminUserActionPanel({
                 type="button"
                 disabled={loading !== null}
                 onClick={() => runPremium(true)}
-                className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
+                className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
               >
                 {loading === "premium_on" ? "처리 중..." : "특별회원 지정"}
               </button>
             )}
           </>
         )}
-        <span className="rounded border border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] text-sam-muted">
+        <span className="rounded border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
           관리자 지정 (placeholder)
         </span>
       </div>

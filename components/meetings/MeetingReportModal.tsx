@@ -97,15 +97,15 @@ export function MeetingReportModal({
         {done ? (
           /* 완료 화면 */
           <div className="py-6 text-center">
-            <p className="text-[28px]">✅</p>
-            <p className="mt-3 text-[16px] font-semibold text-sam-fg">신고가 접수되었습니다</p>
-            <p className="mt-1 text-[13px] text-sam-muted">
+            <p className="sam-text-hero">✅</p>
+            <p className="mt-3 sam-text-body-lg font-semibold text-sam-fg">신고가 접수되었습니다</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">
               검토 후 필요한 조치를 취하겠습니다.
             </p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 w-full rounded-ui-rect bg-sam-ink py-3 text-[14px] font-semibold text-white"
+              className="mt-5 w-full rounded-ui-rect bg-sam-ink py-3 sam-text-body font-semibold text-white"
             >
               닫기
             </button>
@@ -113,10 +113,10 @@ export function MeetingReportModal({
         ) : (
           /* 신고 폼 */
           <>
-            <h2 className="text-[16px] font-semibold text-sam-fg">
+            <h2 className="sam-text-body-lg font-semibold text-sam-fg">
               {TARGET_LABEL[targetType]} 신고
             </h2>
-            <p className="mt-0.5 text-[12px] text-sam-muted">
+            <p className="mt-0.5 sam-text-helper text-sam-muted">
               신고 사유를 선택해 주세요.
             </p>
 
@@ -126,7 +126,7 @@ export function MeetingReportModal({
                   key={r.value}
                   type="button"
                   onClick={() => setReasonType(r.value)}
-                  className={`rounded-ui-rect border py-2.5 text-[13px] font-medium transition-colors ${
+                  className={`rounded-ui-rect border py-2.5 sam-text-body-secondary font-medium transition-colors ${
                     reasonType === r.value
                       ? "border-red-400 bg-red-50 text-red-700"
                       : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app"
@@ -143,16 +143,16 @@ export function MeetingReportModal({
               rows={3}
               maxLength={500}
               placeholder="상세 내용을 입력해 주세요. (선택)"
-              className="mt-3 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 text-[13px] text-sam-fg placeholder-sam-meta outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
+              className="mt-3 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body-secondary text-sam-fg placeholder-sam-meta outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
             />
 
-            {err && <p className="mt-2 text-[12px] text-red-500">{err}</p>}
+            {err && <p className="mt-2 sam-text-helper text-red-500">{err}</p>}
 
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-ui-rect border border-sam-border py-3 text-[14px] font-medium text-sam-muted"
+                className="flex-1 rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-sam-muted"
               >
                 취소
               </button>
@@ -160,7 +160,7 @@ export function MeetingReportModal({
                 type="button"
                 disabled={submitting || !reasonType}
                 onClick={() => void onSubmit()}
-                className="flex-1 rounded-ui-rect bg-red-500 py-3 text-[14px] font-semibold text-white disabled:opacity-50"
+                className="flex-1 rounded-ui-rect bg-red-500 py-3 sam-text-body font-semibold text-white disabled:opacity-50"
               >
                 {submitting ? "신고 중…" : "신고하기"}
               </button>

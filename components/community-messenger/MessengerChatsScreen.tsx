@@ -237,10 +237,10 @@ export function MessengerChatsScreen({
         <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
+              <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
                 {listContext === "archive" ? "보관된 대화" : "대화 목록"}
               </p>
-              <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
                 필터 · 안읽음 · 고정은 목록에서 확인합니다.
               </p>
             </div>
@@ -251,14 +251,14 @@ export function MessengerChatsScreen({
                   closeAllTransient();
                   setFilterSheetOpen(true);
                 }}
-                className="inline-flex h-9 items-center gap-1 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 text-[12px] font-semibold active:opacity-80"
+                className="inline-flex h-9 items-center gap-1 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 sam-text-helper font-semibold active:opacity-80"
                 style={{ color: "var(--messenger-text)" }}
               >
                 <FilterIcon />
                 필터
               </button>
               <span
-                className="inline-flex h-9 max-w-[7rem] items-center truncate rounded-full bg-[color:var(--messenger-surface-muted)] px-2.5 text-[11px] font-semibold"
+                className="inline-flex h-9 max-w-[7rem] items-center truncate rounded-full bg-[color:var(--messenger-surface-muted)] px-2.5 sam-text-xxs font-semibold"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
                 {messengerChatListChipLabel(chatListChip)}
@@ -299,7 +299,7 @@ export function MessengerChatsScreen({
       ) : (
         <div
           data-cm-home-empty-state="true"
-          className={`px-3 py-8 text-center text-[13px] leading-snug whitespace-pre-line ${
+          className={`px-3 py-8 text-center sam-text-body-secondary leading-snug whitespace-pre-line ${
             listContext === "archive"
               ? "rounded-[var(--messenger-radius-md)] border border-dashed border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"
               : "text-[color:var(--messenger-text-secondary)]"
@@ -373,17 +373,17 @@ export function MessengerOpenChatScreen({
       }}
     >
       <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
-        <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
+        <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
           오픈채팅
         </p>
-        <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+        <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
           참여 중인 방과 새 오픈채팅을 한곳에서 확인합니다.
         </p>
       </div>
 
       <div>
         <div className="mb-0.5 px-0.5 pt-1">
-          <h2 className="text-[13px] font-bold" style={{ color: "var(--messenger-text)" }}>
+          <h2 className="sam-text-body-secondary font-bold" style={{ color: "var(--messenger-text)" }}>
             참여 중
           </h2>
         </div>
@@ -406,7 +406,7 @@ export function MessengerOpenChatScreen({
             onResetTransientUi={onResetTransientUi}
           />
         ) : (
-          <div className="px-1 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+          <div className="px-1 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
             참여 중인 오픈채팅이 없습니다.
           </div>
         )}
@@ -414,7 +414,7 @@ export function MessengerOpenChatScreen({
 
       <div>
         <div className="mb-0.5 px-0.5 pt-2">
-          <h2 className="text-[13px] font-bold" style={{ color: "var(--messenger-text)" }}>
+          <h2 className="sam-text-body-secondary font-bold" style={{ color: "var(--messenger-text)" }}>
             찾기
           </h2>
         </div>
@@ -432,27 +432,27 @@ export function MessengerOpenChatScreen({
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <p className="truncate text-[13px] font-medium" style={{ color: "var(--messenger-text)" }}>
+                    <p className="truncate sam-text-body-secondary font-medium" style={{ color: "var(--messenger-text)" }}>
                       {group.title}
                     </p>
-                    <span className="shrink-0 rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 text-[9px] font-semibold text-sky-800">
+                    <span className="shrink-0 rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
                       오픈
                     </span>
                     {group.isJoined ? (
-                      <span className="shrink-0 rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[9px] font-medium text-[color:var(--messenger-primary)]">
+                      <span className="shrink-0 rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
                         참여
                       </span>
                     ) : null}
                   </div>
-                  <p className="truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                  <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
                     {group.summary || `${group.ownerLabel} · ${group.memberCount}명`}
                   </p>
                 </div>
-                <span className="shrink-0 text-[11px] font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
+                <span className="shrink-0 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
               </button>
             ))
           ) : (
-            <div className="px-3 py-4 text-center text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+            <div className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
               표시할 오픈채팅이 없습니다.
             </div>
           )}

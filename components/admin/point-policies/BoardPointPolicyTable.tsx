@@ -16,7 +16,7 @@ export function BoardPointPolicyTable({
 }: BoardPointPolicyTableProps) {
   if (policies.length === 0) {
     return (
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         등록된 게시판 포인트 정책이 없습니다.
       </p>
     );
@@ -24,7 +24,7 @@ export function BoardPointPolicyTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -60,7 +60,7 @@ export function BoardPointPolicyTable({
             >
               <td className="px-3 py-2.5">
                 <span className="font-medium text-sam-fg">{p.boardName}</span>
-                <span className="ml-1 text-[12px] text-sam-muted">
+                <span className="ml-1 sam-text-helper text-sam-muted">
                   ({p.boardKey})
                 </span>
               </td>
@@ -76,7 +76,7 @@ export function BoardPointPolicyTable({
                   ? ` ${p.commentFixedPoint}P`
                   : ` ${p.commentRandomMin}~${p.commentRandomMax}P`}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 글 {p.writeCooldownSeconds}초 / 댓글 {p.commentCooldownSeconds}초
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
@@ -84,7 +84,7 @@ export function BoardPointPolicyTable({
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive ? "bg-emerald-50 text-emerald-800" : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
@@ -97,7 +97,7 @@ export function BoardPointPolicyTable({
                     <button
                       type="button"
                       onClick={() => onEdit(p)}
-                      className="mr-1 text-[13px] text-signature hover:underline"
+                      className="mr-1 sam-text-body-secondary text-signature hover:underline"
                     >
                       편집
                     </button>
@@ -106,7 +106,7 @@ export function BoardPointPolicyTable({
                     <button
                       type="button"
                       onClick={() => onToggleActive(p.id, !p.isActive)}
-                      className="text-[13px] text-sam-muted hover:underline"
+                      className="sam-text-body-secondary text-sam-muted hover:underline"
                     >
                       {p.isActive ? "비활성" : "활성"}
                     </button>

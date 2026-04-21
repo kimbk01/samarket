@@ -9,7 +9,7 @@ export default function MyStoreOrdersLoading() {
         aria-hidden
       />
       <div
-        className="rounded-ui-rect bg-sam-surface px-4 py-12 text-center text-[15px] text-[#65676B] shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:text-[#B0B3B8] dark:ring-sam-surface/[0.08]"
+        className="rounded-ui-rect bg-sam-surface px-4 py-12 text-center sam-text-body text-[#65676B] shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:text-[#B0B3B8] dark:ring-sam-surface/[0.08]"
       >
         불러오는 중…
       </div>

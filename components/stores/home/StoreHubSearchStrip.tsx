@@ -35,7 +35,7 @@ export function StoreHubSearchStrip({
           placeholder="매장 검색"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-[#050505] placeholder:text-[#65676B] focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"
+          className="min-w-0 flex-1 bg-transparent sam-text-body text-[#050505] placeholder:text-[#65676B] focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"
         />
       </div>
     </div>

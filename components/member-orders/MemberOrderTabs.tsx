@@ -33,7 +33,7 @@ export function MemberOrderTabs({
               key={key}
               type="button"
               onClick={() => onChange(key)}
-              className={`min-w-0 flex-1 border-b-2 py-2.5 text-center text-[13px] font-semibold transition sm:py-3 sm:text-sm ${
+              className={`min-w-0 flex-1 border-b-2 py-2.5 text-center sam-text-body-secondary font-semibold transition sm:py-3 sm:text-sm ${
                 on
                   ? "border-signature text-signature"
                   : "border-transparent text-[#65676B] hover:bg-[#F0F2F5]/80 dark:hover:bg-sam-surface/5"

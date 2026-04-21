@@ -49,12 +49,12 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
           placeholder="제목·요약·태그 검색 (자동완성 placeholder)"
-          className="min-w-[240px] flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="min-w-[240px] flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
         <button
           type="button"
           onClick={onSearch}
-          className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           검색
         </button>
@@ -65,7 +65,7 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) =>
             onFiltersChange({ ...filters, docType: (e.target.value || undefined) as OpsKnowledgeDocType | undefined })
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {DOC_TYPE_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
@@ -76,7 +76,7 @@ export function OpsKnowledgeSearchBar({
           onChange={(e) =>
             onFiltersChange({ ...filters, category: (e.target.value || undefined) as OpsKnowledgeCategory | undefined })
           }
-          className="rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {CATEGORY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>

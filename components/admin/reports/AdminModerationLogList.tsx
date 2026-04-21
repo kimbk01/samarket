@@ -10,7 +10,7 @@ interface AdminModerationLogListProps {
 export function AdminModerationLogList({ actions }: AdminModerationLogListProps) {
   if (actions.length === 0) {
     return (
-      <p className="text-[13px] text-sam-muted">처리 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">처리 이력이 없습니다.</p>
     );
   }
   return (
@@ -24,7 +24,7 @@ export function AdminModerationLogList({ actions }: AdminModerationLogListProps)
         .map((a) => (
           <li
             key={a.id}
-            className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
+            className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
           >
             <span className="font-medium text-sam-fg">
               {MODERATION_ACTION_LABELS[a.actionType] ?? a.actionType}

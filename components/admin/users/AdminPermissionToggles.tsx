@@ -37,22 +37,22 @@ export function AdminPermissionToggles({
     <div className="space-y-4">
       {showRoleDefaultsButton && (
         <div className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="text-[13px] text-sam-muted">역할에 맞춰 권한을 한 번에 적용</span>
+          <span className="sam-text-body-secondary text-sam-muted">역할에 맞춰 권한을 한 번에 적용</span>
           <button
             type="button"
             onClick={applyRoleDefaults}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-surface-muted"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-surface-muted"
           >
             {currentRole === "master" ? "최고관리자 기본값 적용" : currentRole === "manager" ? "총괄 기본값 적용" : "운영자 기본값 적용"}
           </button>
         </div>
       )}
-      <p className="text-[13px] font-medium text-sam-fg">
+      <p className="sam-text-body-secondary font-medium text-sam-fg">
         아이디별로 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
       </p>
       {ADMIN_PERMISSION_GROUPS.map((g) => (
         <div key={g.groupLabel} className="rounded-ui-rect border border-sam-border bg-sam-surface">
-          <div className="border-b border-sam-border-soft bg-sam-app px-3 py-2 text-[12px] font-medium text-sam-muted">
+          <div className="border-b border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper font-medium text-sam-muted">
             {g.groupLabel}
           </div>
           <ul className="divide-y divide-sam-border-soft">
@@ -60,9 +60,9 @@ export function AdminPermissionToggles({
               .filter((key) => key !== "create_admin" || canGrantCreateAdmin)
               .map((key) => (
                 <li key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                  <span className="text-[14px] text-sam-fg">{getPermissionLabel(key)}</span>
+                  <span className="sam-text-body text-sam-fg">{getPermissionLabel(key)}</span>
                   <label className="flex shrink-0 items-center gap-2">
-                    <span className="text-[13px] text-sam-muted">권한 부여</span>
+                    <span className="sam-text-body-secondary text-sam-muted">권한 부여</span>
                     <input
                       type="checkbox"
                       checked={permissions.includes(key)}

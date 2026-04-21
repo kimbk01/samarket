@@ -61,7 +61,7 @@ export function DeliverySettlementsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="정산 관리" backHref="/admin/delivery-orders" />
-      <p className="mb-2 text-[13px] text-sam-muted">
+      <p className="mb-2 sam-text-body-secondary text-sam-muted">
         주문 단위 정산 스냅샷은 원장 매핑 기준이며, 실제 지급·보류는{" "}
         <Link href="/admin/store-settlements" className="text-signature underline">
           매장 정산
@@ -73,7 +73,7 @@ export function DeliverySettlementsClient() {
         에서 처리합니다.
       </p>
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           목록을 불러오지 못했습니다 ({error}).
         </p>
       ) : null}

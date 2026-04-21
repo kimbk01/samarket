@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MeetingJoinButton } from "@/components/community/MeetingJoinButton";
-import { TradePrimaryColumnStickyAppBar } from "@/components/layout/TradePrimaryColumnStickyAppBar";
+import { AppTopHeader } from "@/components/app-shell";
 import { MeetingPendingCard } from "@/components/meetings/MeetingPendingCard";
 import { MeetingRestrictedCard } from "@/components/meetings/MeetingRestrictedCard";
 import type { NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
@@ -73,15 +73,15 @@ function MeetingInfoCard({
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         <div className="relative z-10 min-w-0">
-          <h1 className="text-[18px] font-bold leading-snug tracking-tight text-white drop-shadow-sm">
+          <h1 className="sam-text-page-title font-bold leading-snug tracking-tight text-white drop-shadow-sm">
             {meeting.title}
           </h1>
           <div className="mt-1 flex items-center gap-1.5">
-            <span className="rounded-full bg-sam-surface/20 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <span className="rounded-full bg-sam-surface/20 px-2 py-0.5 sam-text-xxs font-semibold text-white backdrop-blur-sm">
               {entryLabel}
             </span>
             {!isOpen && statusLabel && (
-              <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px] font-semibold text-white">
+              <span className="rounded-full bg-black/30 px-2 py-0.5 sam-text-xxs font-semibold text-white">
                 {statusLabel}
               </span>
             )}
@@ -91,39 +91,39 @@ function MeetingInfoCard({
 
       <div className="divide-x divide-sam-border-soft flex">
         <div className="flex flex-1 flex-col items-center py-3">
-          <span className="text-[20px]">👥</span>
-          <span className="mt-1 text-[13px] font-bold text-sam-fg">
+          <span className="sam-text-page-title">👥</span>
+          <span className="mt-1 sam-text-body-secondary font-bold text-sam-fg">
             {joinedCount}
             <span className="font-normal text-sam-meta">/{maxMembers}</span>
           </span>
-          <span className="text-[10px] text-sam-meta">참여</span>
+          <span className="sam-text-xxs text-sam-meta">참여</span>
         </div>
         {meeting.tenure_type !== "long" &&
           meeting.meeting_date &&
           !Number.isNaN(Date.parse(meeting.meeting_date)) && (
             <div className="flex flex-1 flex-col items-center py-3 px-1">
-              <span className="text-[20px]">📅</span>
-              <span className="mt-1 text-center text-[13px] font-bold leading-tight text-sam-fg">
+              <span className="sam-text-page-title">📅</span>
+              <span className="mt-1 text-center sam-text-body-secondary font-bold leading-tight text-sam-fg">
                 {new Date(meeting.meeting_date).toLocaleDateString("ko-KR", {
                   month: "short",
                   day: "numeric",
                 })}
               </span>
-              <span className="mt-0.5 text-center text-[11px] font-semibold tabular-nums text-sam-fg">
+              <span className="mt-0.5 text-center sam-text-xxs font-semibold tabular-nums text-sam-fg">
                 {new Date(meeting.meeting_date).toLocaleTimeString("ko-KR", {
                   hour: "2-digit",
                   minute: "2-digit",
                   hour12: false,
                 })}
               </span>
-              <span className="text-[10px] text-sam-meta">일정</span>
+              <span className="sam-text-xxs text-sam-meta">일정</span>
             </div>
           )}
         {pendingCount > 0 && (
           <div className="flex flex-1 flex-col items-center py-3">
-            <span className="text-[20px]">⏳</span>
-            <span className="mt-1 text-[13px] font-bold text-amber-600">{pendingCount}</span>
-            <span className="text-[10px] text-sam-meta">대기</span>
+            <span className="sam-text-page-title">⏳</span>
+            <span className="mt-1 sam-text-body-secondary font-bold text-amber-600">{pendingCount}</span>
+            <span className="sam-text-xxs text-sam-meta">대기</span>
           </div>
         )}
       </div>
@@ -167,7 +167,7 @@ async function PhilifeMeetingPageBody({ params, searchParams }: Props) {
 
   return (
     <div className="min-h-screen bg-sam-app pb-28">
-      <TradePrimaryColumnStickyAppBar
+      <AppTopHeader
         title={meeting.title}
         backButtonProps={{ backHref: `/philife/${meeting.post_id}`, ariaLabel: "게시글로" }}
         shellVariant="flat"

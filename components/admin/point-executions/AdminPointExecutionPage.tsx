@@ -77,7 +77,7 @@ export function AdminPointExecutionPage() {
             key={t.id}
             type="button"
             onClick={() => setActiveTab(t.id)}
-            className={`border-b-2 px-3 py-2 text-[14px] font-medium ${
+            className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
               activeTab === t.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
@@ -91,9 +91,9 @@ export function AdminPointExecutionPage() {
       {activeTab === "executions" && (
         <>
           <AdminCard title="테스트 지급 실행">
-            <form onSubmit={handleTestExecute} className="flex flex-wrap items-end gap-2 text-[14px]">
+            <form onSubmit={handleTestExecute} className="flex flex-wrap items-end gap-2 sam-text-body">
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">게시판</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">게시판</label>
                 <select name="boardKey" className="rounded border border-sam-border px-2 py-1.5" defaultValue="general">
                   {BOARD_OPTIONS.map((b) => (
                     <option key={b.key} value={b.key}>{b.name}</option>
@@ -101,39 +101,39 @@ export function AdminPointExecutionPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">행동</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">행동</label>
                 <select name="actionType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="write">
                   <option value="write">글쓰기</option>
                   <option value="comment">댓글</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">대상 ID</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">대상 ID</label>
                 <input name="targetId" type="text" className="w-28 rounded border border-sam-border px-2 py-1.5" defaultValue="post-test-1" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">대상 유형</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">대상 유형</label>
                 <select name="targetType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="post">
                   <option value="post">글</option>
                   <option value="comment">댓글</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">사용자 ID</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">사용자 ID</label>
                 <input name="userId" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="me" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">닉네임</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">닉네임</label>
                 <input name="userNickname" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="테스트" />
               </div>
               <div>
-                <label className="mb-0.5 block text-[12px] text-sam-muted">회원 유형</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">회원 유형</label>
                 <select name="userType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="free">
                   <option value="free">{USER_TYPE_LABELS.free}</option>
                   <option value="premium">{USER_TYPE_LABELS.premium}</option>
                 </select>
               </div>
-              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 text-[13px] font-medium text-white">
+              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white">
                 실행
               </button>
             </form>

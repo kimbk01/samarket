@@ -212,10 +212,10 @@ export function StoreOrderSellerOrderPanel({
   const surfaceZ = stackAboveOwnerChatModal ? "z-[230]" : "z-[70]";
 
   const headerRow = (
-    <div className="flex shrink-0 items-center gap-2 border-b border-ig-border px-3 py-3">
+    <div className="flex shrink-0 items-center gap-2 border-b border-sam-border px-3 py-3">
       <h2
         id={titleId}
-        className="min-w-0 flex-1 text-[16px] font-semibold leading-[21px] tracking-[-0.02em] text-foreground"
+        className="min-w-0 flex-1 sam-text-body-lg font-semibold leading-[21px] tracking-[-0.02em] text-foreground"
       >
         {heading}
       </h2>
@@ -223,7 +223,7 @@ export function StoreOrderSellerOrderPanel({
         <button
           type="button"
           onClick={onMoreMenuClick}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[20px] font-normal leading-none text-foreground hover:bg-black/[0.05]"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
           aria-label="메뉴"
         >
           ⋯
@@ -233,7 +233,7 @@ export function StoreOrderSellerOrderPanel({
       <button
         type="button"
         onClick={() => onOpenChange(false)}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] font-light leading-none text-foreground hover:bg-black/[0.05]"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-hero font-light leading-none text-foreground hover:bg-black/[0.05]"
         aria-label="닫기"
       >
         ×
@@ -242,32 +242,32 @@ export function StoreOrderSellerOrderPanel({
   );
 
   const sendBlock = (
-    <div className="shrink-0 border-b border-ig-border px-3 py-3">
+    <div className="shrink-0 border-b border-sam-border px-3 py-3">
       <button
         type="button"
         disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
         onClick={() => void handleSendSummary()}
-        className="w-full rounded-ui-rect bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        className="w-full rounded-ui-rect bg-signature px-4 py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
       >
         {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
       </button>
       {sendSummaryDisabled ? (
-        <p className="mt-2 text-center text-[12px] text-amber-700">이 채팅에서는 전송할 수 없습니다.</p>
+        <p className="mt-2 text-center sam-text-helper text-amber-700">이 채팅에서는 전송할 수 없습니다.</p>
       ) : null}
       {sendToast ? (
-        <p className="mt-2 text-center text-[13px] text-muted">{sendToast}</p>
+        <p className="mt-2 text-center sam-text-body-secondary text-muted">{sendToast}</p>
       ) : null}
     </div>
   );
 
   const orderPreviewBlock = (
-    <div className="px-3 py-3 text-[14px] text-foreground">
+    <div className="px-3 py-3 sam-text-body text-foreground">
       {loading ? (
         <p className="text-center text-muted">주문 불러오는 중…</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
-        <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-[1.45] text-foreground">
+        <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
         </pre>
       ) : null}
@@ -275,13 +275,13 @@ export function StoreOrderSellerOrderPanel({
   );
 
   const scrollBody = (
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 text-[14px] text-foreground">
+    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sam-text-body text-foreground">
       {loading ? (
         <p className="text-center text-muted">주문 불러오는 중…</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
       ) : orderSnap ? (
-        <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-[1.45] text-foreground">
+        <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
         </pre>
       ) : null}
@@ -293,19 +293,19 @@ export function StoreOrderSellerOrderPanel({
       {headerRow}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="border-b border-ig-border px-3 py-3">
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <div className="border-b border-sam-border px-3 py-3">
+            <p className="mb-1 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
               내 상점
             </p>
-            <p className="mb-2 text-[12px] leading-snug text-muted">
-              <span className="font-mono text-[11px] text-muted">/my/business</span>
-              <span className="mx-1 text-ig-border">·</span>
+            <p className="mb-2 sam-text-helper leading-snug text-muted">
+              <span className="font-mono sam-text-xxs text-muted">/my/business</span>
+              <span className="mx-1 text-sam-border">·</span>
               매장 관리 허브와 동일한 메뉴입니다.
             </p>
             <Link
               href={businessHubHref}
               onClick={() => onOpenChange(false)}
-              className="flex w-full items-center justify-center rounded-ui-rect bg-foreground px-4 py-3 text-[15px] font-semibold text-[var(--sub-bg)] hover:bg-black"
+              className="flex w-full items-center justify-center rounded-ui-rect bg-foreground px-4 py-3 sam-text-body font-semibold text-[var(--sub-bg)] hover:bg-black"
             >
               내 상점 관리로 이동
             </Link>
@@ -313,31 +313,31 @@ export function StoreOrderSellerOrderPanel({
               <MyBusinessNavList
                 groups={businessNavGroups}
                 onNavigate={() => onOpenChange(false)}
-                className="rounded-ui-rect border border-ig-border bg-ig-highlight pb-2 shadow-none"
+                className="rounded-ui-rect border border-sam-border bg-sam-primary-soft pb-2 shadow-none"
               />
             </div>
           </div>
-          <div className="border-t border-ig-border px-0 pt-1">
-            <p className="px-3 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <div className="border-t border-sam-border px-0 pt-1">
+            <p className="px-3 pt-3 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
               이 채팅 · 주문
             </p>
             {!stackAboveOwnerChatModal ? deliverySection : null}
-            <div className="border-b border-ig-border px-3 py-3">
+            <div className="border-b border-sam-border px-3 py-3">
               <button
                 type="button"
                 disabled={sendBusy || loading || !orderSnap || !!loadErr || sendSummaryDisabled}
                 onClick={() => void handleSendSummary()}
-                className="w-full rounded-ui-rect bg-signature px-4 py-3 text-[15px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-ui-rect bg-signature px-4 py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
               </button>
               {sendSummaryDisabled ? (
-                <p className="mt-2 text-center text-[12px] text-amber-700">
+                <p className="mt-2 text-center sam-text-helper text-amber-700">
                   이 채팅에서는 전송할 수 없습니다.
                 </p>
               ) : null}
               {sendToast ? (
-                <p className="mt-2 text-center text-[13px] text-muted">{sendToast}</p>
+                <p className="mt-2 text-center sam-text-body-secondary text-muted">{sendToast}</p>
               ) : null}
             </div>
             {orderPreviewBlock}

@@ -8,15 +8,15 @@ export function MeetingDetail({ meeting }: { meeting: NeighborhoodMeetingDetailD
   return (
     <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-[16px] font-semibold text-sam-fg">{meeting.title}</h3>
+        <h3 className="sam-text-body-lg font-semibold text-sam-fg">{meeting.title}</h3>
         <MeetingStatusBadge status={meeting.status} />
       </div>
-      <p className="mt-2 text-[14px] text-sam-muted">{meeting.description || "소개 없음"}</p>
-      <p className="mt-2 text-[13px] text-sam-fg">
+      <p className="mt-2 sam-text-body text-sam-muted">{meeting.description || "소개 없음"}</p>
+      <p className="mt-2 sam-text-body-secondary text-sam-fg">
         참여 {meeting.joined_count || meeting.member_count}/{meeting.max_members}명
         {meeting.pending_count > 0 ? ` · 승인 대기 ${meeting.pending_count}명` : ""}
       </p>
-      <p className="mt-1 text-[12px] text-sam-muted">
+      <p className="mt-1 sam-text-helper text-sam-muted">
         참여 방식{" "}
         {meeting.entry_policy === "approve"
           ? "승인제"

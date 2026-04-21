@@ -21,7 +21,7 @@ export function StoreHorizontalRail({
   return (
     <div className="space-y-2">
       <div className="flex items-end justify-between gap-2 px-0.5">
-        <h3 className="text-[15px] font-bold tracking-tight text-sam-fg">{title}</h3>
+        <h3 className="sam-text-body font-bold tracking-tight text-sam-fg">{title}</h3>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       <HorizontalDragScroll className={SCROLL_CLASS} style={{ WebkitOverflowScrolling: "touch" }} aria-label={ariaLabel ?? title}>

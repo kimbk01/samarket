@@ -71,7 +71,7 @@ export function AdminStoreReviewsPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader title="매장 리뷰 검수" />
-      <p className="text-[13px] text-sam-muted">노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.</p>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
         <p className="text-sm text-sam-muted">불러오는 중…</p>
@@ -98,18 +98,18 @@ export function AdminStoreReviewsPage() {
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.owner_reply_content?.trim() ? (
                 <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-                  <p className="text-[12px] font-semibold text-sam-fg">사장님 댓글</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[13px] text-sam-fg">
+                  <p className="sam-text-helper font-semibold text-sam-fg">사장님 댓글</p>
+                  <p className="mt-1 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">
                     {r.owner_reply_content}
                   </p>
                   {r.owner_reply_created_at ? (
-                    <p className="mt-1 text-right text-[11px] text-sam-muted">
+                    <p className="mt-1 text-right sam-text-xxs text-sam-muted">
                       {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
                     </p>
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-2 text-[12px] text-sam-meta">사장님 댓글 없음</p>
+                <p className="mt-2 sam-text-helper text-sam-meta">사장님 댓글 없음</p>
               )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (

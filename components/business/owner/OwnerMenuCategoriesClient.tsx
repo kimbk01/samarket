@@ -193,7 +193,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
       key={t}
       type="button"
       onClick={() => setEditorTab(t)}
-      className={`min-w-0 flex-1 border-b-2 py-3 text-[14px] font-medium transition ${
+      className={`min-w-0 flex-1 border-b-2 py-3 sam-text-body font-medium transition ${
         editorTab === t
           ? "border-signature text-signature"
           : "border-transparent text-sam-muted"
@@ -214,41 +214,41 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
         </nav>
 
         <div className="flex-1 px-4 py-4">
-          {error ? <p className="mb-3 text-[13px] text-red-600">{error}</p> : null}
+          {error ? <p className="mb-3 sam-text-body-secondary text-red-600">{error}</p> : null}
 
           {editorTab === "basic" ? (
             <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-sam-fg">이름</label>
+                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">이름</label>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="카테고리 이름"
-                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
+                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-sam-fg">설명</label>
+                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">설명</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="고객에게 보일 수 있는 짧은 설명 (선택)"
                   rows={3}
-                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
+                  className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[13px] font-medium text-sam-fg">정렬순서</label>
-                <p className="mb-1 text-[12px] text-sam-muted">숫자가 작을수록 메뉴 탭에서 앞에 옵니다.</p>
+                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">정렬순서</label>
+                <p className="mb-1 sam-text-helper text-sam-muted">숫자가 작을수록 메뉴 탭에서 앞에 옵니다.</p>
                 <input
                   inputMode="numeric"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value)}
-                  className="w-full max-w-[140px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-[15px] text-sam-fg"
+                  className="w-full max-w-[140px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
                 />
               </div>
               <div className="flex items-center justify-between border-t border-sam-border-soft pt-3">
-                <span className="text-[14px] text-sam-fg">숨김여부</span>
+                <span className="sam-text-body text-sam-fg">숨김여부</span>
                 <button
                   type="button"
                   role="switch"
@@ -265,14 +265,14 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                   />
                 </button>
               </div>
-              <p className="text-[12px] leading-relaxed text-sam-muted">
+              <p className="sam-text-helper leading-relaxed text-sam-muted">
                 숨김을 켜면 고객 매장 페이지에서 이 카테고리 탭과 속한 메뉴가 보이지 않습니다. 오너 화면에서는
                 계속 관리할 수 있습니다.
               </p>
             </div>
           ) : (
             <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
-              <p className="text-[14px] text-sam-muted">
+              <p className="sam-text-body text-sam-muted">
                 다국어 카테고리 이름·설명은 추후 지원 예정입니다.
               </p>
             </div>
@@ -287,7 +287,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               type="button"
               disabled={saving}
               onClick={() => backToList()}
-              className="min-h-[48px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 text-[16px] font-semibold text-sam-fg disabled:opacity-45"
+              className="min-h-[48px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body-lg font-semibold text-sam-fg disabled:opacity-45"
             >
               취소
             </button>
@@ -295,7 +295,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               type="button"
               disabled={saving || editorTab !== "basic"}
               onClick={() => void saveEditor()}
-              className="min-h-[48px] flex-1 rounded-ui-rect bg-signature py-3 text-[16px] font-semibold text-white disabled:opacity-45"
+              className="min-h-[48px] flex-1 rounded-ui-rect bg-signature py-3 sam-text-body-lg font-semibold text-white disabled:opacity-45"
             >
               {saving ? "처리 중…" : "확인"}
             </button>
@@ -310,14 +310,14 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
       <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
         <Link
           href={productsHubHref}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg"
+          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
         >
           상품 등록
         </Link>
-        <Link href={ordersHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg">
+        <Link href={ordersHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg">
           주문 관리
         </Link>
-        <Link href={inquiriesHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 text-[12px] font-semibold text-sam-fg">
+        <Link href={inquiriesHref} className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg">
           문의
         </Link>
       </div>
@@ -326,7 +326,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           <button
             type="button"
             onClick={() => openNew()}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-ig-border bg-sam-surface text-signature shadow-sm"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-signature shadow-sm"
             aria-label="카테고리 추가"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -335,21 +335,21 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           </button>
           <Link
             href={productsHubHref}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-2 text-[13px] font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-ui-rect border border-signature/40 bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold leading-tight text-signature shadow-sm transition hover:bg-signature/5 active:bg-signature/10"
           >
             상품 목록으로
           </Link>
         </div>
-        <p className="text-[13px] leading-relaxed text-sam-muted">
+        <p className="sam-text-body-secondary leading-relaxed text-sam-muted">
           카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요.
         </p>
 
-        {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
 
         {loading ? (
-          <p className="text-[14px] text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
         ) : sections.length === 0 ? (
-          <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+          <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
             등록된 카테고리가 없습니다.
             <button
               type="button"
@@ -371,8 +371,8 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                   onClick={() => openEdit(s)}
                   className="min-w-0 flex-1 text-left"
                 >
-                  <p className="truncate text-[15px] font-semibold text-sam-fg">{s.name}</p>
-                  <p className="text-[12px] text-sam-muted">
+                  <p className="truncate sam-text-body font-semibold text-sam-fg">{s.name}</p>
+                  <p className="sam-text-helper text-sam-muted">
                     정렬 {s.sort_order}
                     {s.is_hidden ? (
                       <span className="ml-2 rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-fg">숨김</span>
@@ -382,7 +382,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                 <button
                   type="button"
                   onClick={() => void deleteSection(s)}
-                  className="shrink-0 rounded-ui-rect border border-red-100 bg-red-50 px-2 py-1.5 text-[12px] font-medium text-red-700"
+                  className="shrink-0 rounded-ui-rect border border-red-100 bg-red-50 px-2 py-1.5 sam-text-helper font-medium text-red-700"
                 >
                   삭제
                 </button>

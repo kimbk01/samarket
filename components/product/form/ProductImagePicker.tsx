@@ -42,7 +42,7 @@ export function ProductImagePicker({
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-3 text-[14px] font-medium text-sam-fg">사진</p>
+      <p className="mb-3 sam-text-body font-medium text-sam-fg">사진</p>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
           <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">

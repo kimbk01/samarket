@@ -15,10 +15,10 @@ export function CallStatusText({
 }) {
   return (
     <div className="px-6 text-center">
-      <h1 className="text-[32px] font-bold tracking-tight text-white sm:text-[36px]">{title}</h1>
-      <p className="mt-3 text-[16px] font-medium text-white/76 sm:text-[17px]">{status}</p>
+      <h1 className="sam-text-hero font-bold tracking-tight text-white sm:sam-text-hero">{title}</h1>
+      <p className="mt-3 sam-text-body-lg font-medium text-white/76 sm:sam-text-section-title">{status}</p>
       <CallTimer value={timer ?? null} className="mt-3" />
-      {detail ? <p className="mt-2 text-[13px] leading-snug text-white/60 sm:text-[14px]">{detail}</p> : null}
+      {detail ? <p className="mt-2 sam-text-body-secondary leading-snug text-white/60 sm:sam-text-body">{detail}</p> : null}
     </div>
   );
 }

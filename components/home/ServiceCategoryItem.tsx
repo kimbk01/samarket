@@ -19,7 +19,7 @@ export function ServiceCategoryItem({ category }: ServiceCategoryItemProps) {
       <span className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sm">
         <CategoryIcon iconKey={category.icon_key} />
       </span>
-      <span className="text-center text-[13px] font-medium text-sam-fg">{category.name}</span>
+      <span className="text-center sam-text-body-secondary font-medium text-sam-fg">{category.name}</span>
     </Link>
   );
 }

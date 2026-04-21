@@ -20,10 +20,10 @@ export function AdminAppLanguagesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-[18px] font-semibold text-sam-fg">언어 목록</h1>
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">언어 목록</h1>
         <Link
           href="/admin/app/languages/create"
-          className="rounded-ui-rect bg-signature px-3 py-2 text-[14px] font-medium text-white"
+          className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
           추가
         </Link>
@@ -31,7 +31,7 @@ export function AdminAppLanguagesPage() {
       {loading ? (
         <p className="text-sam-muted">불러오는 중…</p>
       ) : items.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-4 text-[14px] text-sam-muted">
+        <p className="rounded-ui-rect bg-sam-surface p-4 sam-text-body text-sam-muted">
           언어가 없습니다. Supabase app_supported_languages 연동 후 목록이 표시됩니다.
         </p>
       ) : (
@@ -40,11 +40,11 @@ export function AdminAppLanguagesPage() {
             <li key={l.code} className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-3">
               <div>
                 <span className="font-medium">{l.name}</span>
-                <span className="ml-2 text-[13px] text-sam-muted">
+                <span className="ml-2 sam-text-body-secondary text-sam-muted">
                   {l.code} · {l.is_active ? "노출" : "숨김"} · 순서 {l.sort_order}
                 </span>
               </div>
-              <Link href={`/admin/app/languages/${l.code}/edit`} className="text-[14px] text-signature">
+              <Link href={`/admin/app/languages/${l.code}/edit`} className="sam-text-body text-signature">
                 수정
               </Link>
             </li>

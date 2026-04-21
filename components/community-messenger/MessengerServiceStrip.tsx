@@ -35,17 +35,17 @@ export function MessengerServiceStrip({
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4">
       <div className="mb-3 flex items-center justify-between px-1">
-        <h2 className="text-[14px] font-semibold text-sam-fg">바로가기</h2>
-        <span className="text-[11px] text-sam-meta">거래·주문은 별도 유지</span>
+        <h2 className="sam-text-body font-semibold text-sam-fg">바로가기</h2>
+        <span className="sam-text-xxs text-sam-meta">거래·주문은 별도 유지</span>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {items.map((it) => {
           const body = (
             <>
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sam-app text-[22px]" aria-hidden>
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-sam-app sam-text-hero" aria-hidden>
                 {it.emoji}
               </span>
-              <span className="mt-1.5 block max-w-[72px] truncate text-center text-[11px] font-medium text-sam-fg">{it.label}</span>
+              <span className="mt-1.5 block max-w-[72px] truncate text-center sam-text-xxs font-medium text-sam-fg">{it.label}</span>
             </>
           );
           if (it.href) {

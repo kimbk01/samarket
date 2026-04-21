@@ -59,13 +59,13 @@ export function BoardPointPolicyForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {!initial?.id && (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             게시판
           </label>
           <select
             value={values.boardKey ?? ""}
             onChange={(e) => setBoard(e.target.value)}
-            className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
           >
             {BOARD_OPTIONS.map((b) => (
               <option key={b.key} value={b.key}>
@@ -77,7 +77,7 @@ export function BoardPointPolicyForm({
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           글쓰기 보상 유형
         </label>
         <select
@@ -88,7 +88,7 @@ export function BoardPointPolicyForm({
               writeRewardType: e.target.value as PointRewardType,
             }))
           }
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="fixed">{REWARD_TYPE_LABELS.fixed}</option>
           <option value="random">{REWARD_TYPE_LABELS.random}</option>
@@ -96,7 +96,7 @@ export function BoardPointPolicyForm({
       </div>
       {values.writeRewardType === "fixed" ? (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             글쓰기 고정 포인트
           </label>
           <input
@@ -109,13 +109,13 @@ export function BoardPointPolicyForm({
                 writeFixedPoint: parseInt(e.target.value, 10) || 0,
               }))
             }
-            className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
               글쓰기 최소
             </label>
             <input
@@ -128,11 +128,11 @@ export function BoardPointPolicyForm({
                   writeRandomMin: parseInt(e.target.value, 10) || 0,
                 }))
               }
-              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
               글쓰기 최대
             </label>
             <input
@@ -145,14 +145,14 @@ export function BoardPointPolicyForm({
                   writeRandomMax: parseInt(e.target.value, 10) || 0,
                 }))
               }
-              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
         </div>
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           글쓰기 쿨다운(초)
         </label>
         <input
@@ -165,12 +165,12 @@ export function BoardPointPolicyForm({
               writeCooldownSeconds: parseInt(e.target.value, 10) || 0,
             }))
           }
-          className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           댓글 보상 유형
         </label>
         <select
@@ -181,7 +181,7 @@ export function BoardPointPolicyForm({
               commentRewardType: e.target.value as PointRewardType,
             }))
           }
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           <option value="fixed">{REWARD_TYPE_LABELS.fixed}</option>
           <option value="random">{REWARD_TYPE_LABELS.random}</option>
@@ -189,7 +189,7 @@ export function BoardPointPolicyForm({
       </div>
       {values.commentRewardType === "fixed" ? (
         <div>
-          <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             댓글 고정 포인트
           </label>
           <input
@@ -202,13 +202,13 @@ export function BoardPointPolicyForm({
                 commentFixedPoint: parseInt(e.target.value, 10) || 0,
               }))
             }
-            className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
               댓글 최소
             </label>
             <input
@@ -221,11 +221,11 @@ export function BoardPointPolicyForm({
                   commentRandomMin: parseInt(e.target.value, 10) || 0,
                 }))
               }
-              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
               댓글 최대
             </label>
             <input
@@ -238,14 +238,14 @@ export function BoardPointPolicyForm({
                   commentRandomMax: parseInt(e.target.value, 10) || 0,
                 }))
               }
-              className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+              className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
         </div>
       )}
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           댓글 쿨다운(초)
         </label>
         <input
@@ -258,12 +258,12 @@ export function BoardPointPolicyForm({
               commentCooldownSeconds: parseInt(e.target.value, 10) || 0,
             }))
           }
-          className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           비입금 회원 포인트 상한
         </label>
         <input
@@ -276,7 +276,7 @@ export function BoardPointPolicyForm({
               maxFreeUserPointCap: parseInt(e.target.value, 10) || 0,
             }))
           }
-          className="w-24 rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-24 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
 
@@ -293,13 +293,13 @@ export function BoardPointPolicyForm({
           }
           className="rounded border-sam-border"
         />
-        <label htmlFor="eventMultiplier" className="text-[14px] text-sam-fg">
+        <label htmlFor="eventMultiplier" className="sam-text-body text-sam-fg">
           이벤트 배율 적용
         </label>
       </div>
 
       <div>
-        <label className="mb-1 block text-[14px] font-medium text-sam-fg">
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
           관리자 메모
         </label>
         <textarea
@@ -308,14 +308,14 @@ export function BoardPointPolicyForm({
             setValues((v) => ({ ...v, adminMemo: e.target.value }))
           }
           rows={2}
-          className="w-full rounded border border-sam-border px-3 py-2 text-[14px]"
+          className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
 
       <div className="flex gap-2">
         <button
           type="submit"
-          className="rounded border border-signature bg-signature px-4 py-2 text-[14px] font-medium text-white"
+          className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
           저장
         </button>
@@ -323,7 +323,7 @@ export function BoardPointPolicyForm({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded border border-sam-border bg-sam-surface px-4 py-2 text-[14px] text-sam-fg"
+            className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
           >
             취소
           </button>

@@ -42,11 +42,11 @@ export function VersionContent() {
 
   return (
     <div>
-      <p className="text-[15px] text-sam-fg">
+      <p className="sam-text-body text-sam-fg">
         현재 버전 {loading ? "확인 중" : version}
         {!loading && build != null ? ` (${build})` : ""}
       </p>
-      <p className={`mt-2 text-[13px] ${error ? "text-red-600" : "text-sam-muted"}`}>
+      <p className={`mt-2 sam-text-body-secondary ${error ? "text-red-600" : "text-sam-muted"}`}>
         {error || "최신 버전 정보를 기준으로 표시합니다."}
       </p>
     </div>

@@ -33,7 +33,7 @@ export function AdminSidebar() {
         <div className="flex shrink-0 items-center border-b border-sam-border-soft px-3 py-3">
           <Link
             href="/admin"
-            className="text-[17px] font-bold text-sam-fg"
+            className="sam-text-section-title font-bold text-sam-fg"
           >
             {t("admin_brand")}
           </Link>

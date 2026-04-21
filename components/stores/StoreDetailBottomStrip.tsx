@@ -61,22 +61,22 @@ export function StoreDetailBottomStrip({
       <div className={`mx-auto flex max-w-lg flex-col ${hasCart ? "gap-1.5" : "gap-0.5"}`}>
         {hasCart ? (
           <>
-            <div className="flex items-center justify-between gap-2 text-[11px] text-sam-muted">
+            <div className="flex items-center justify-between gap-2 sam-text-xxs text-sam-muted">
               <span className="min-w-0 truncate font-medium text-sam-fg">{statusText}</span>
-              <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 text-[10px] font-semibold text-sam-fg">
+              <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">
                 {modeLabel}
               </span>
             </div>
             {minNeed > 0 ? (
-              <p className="text-center text-[12px] font-semibold text-amber-800">
+              <p className="text-center sam-text-helper font-semibold text-amber-800">
                 최소주문까지 {formatMoneyPhp(minNeed)} 남았어요
               </p>
             ) : null}
           </>
         ) : (
-          <div className="flex items-center justify-between gap-2 text-[10px] text-sam-muted">
+          <div className="flex items-center justify-between gap-2 sam-text-xxs text-sam-muted">
             <span className="min-w-0 truncate">{statusText}</span>
-            <span className="shrink-0 rounded-full bg-sam-surface-muted/90 px-1.5 py-0.5 text-[9px] font-semibold text-sam-muted">
+            <span className="shrink-0 rounded-full bg-sam-surface-muted/90 px-1.5 py-0.5 sam-text-xxs font-semibold text-sam-muted">
               {modeLabel}
             </span>
           </div>
@@ -86,27 +86,27 @@ export function StoreDetailBottomStrip({
             <p
               className={
                 hasCart
-                  ? "text-[13px] font-semibold text-sam-fg"
-                  : "text-[12px] font-medium text-sam-muted"
+                  ? "sam-text-body-secondary font-semibold text-sam-fg"
+                  : "sam-text-helper font-medium text-sam-muted"
               }
             >
               <span className="tabular-nums">{cartQtyTotal}</span>개 ·{" "}
               <span
-                className={`tabular-nums font-bold text-sam-fg ${hasCart ? "text-[15px]" : "text-[13px]"}`}
+                className={`tabular-nums font-bold text-sam-fg ${hasCart ? "sam-text-body" : "sam-text-body-secondary"}`}
               >
                 {formatMoneyPhp(cartTotalPhp)}
               </span>
             </p>
             {hasCart ? null : (
-              <p className="mt-0.5 text-[10px] text-sam-meta">메뉴에서 담기</p>
+              <p className="mt-0.5 sam-text-xxs text-sam-meta">메뉴에서 담기</p>
             )}
           </div>
           <Link
             href={cartHref}
             className={
               hasCart
-                ? "flex shrink-0 items-center gap-2 rounded-ui-rect bg-signature px-5 py-3 text-[15px] font-bold text-white shadow-md ring-2 ring-signature/25 active:bg-signature/90"
-                : "flex shrink-0 items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-[12px] font-semibold text-sam-muted active:bg-sam-surface-muted"
+                ? "flex shrink-0 items-center gap-2 rounded-ui-rect bg-signature px-5 py-3 sam-text-body font-bold text-white shadow-md ring-2 ring-signature/25 active:bg-signature/90"
+                : "flex shrink-0 items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted active:bg-sam-surface-muted"
             }
             aria-label={hasCart ? "주문 확인으로 이동" : "장바구니로 이동"}
           >

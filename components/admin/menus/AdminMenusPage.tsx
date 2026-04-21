@@ -156,12 +156,12 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
   return (
     <div className="space-y-4">
       <AdminPageHeader title={title} />
-      <p className="text-[14px] text-sam-muted">{subtitle}</p>
+      <p className="sam-text-body text-sam-muted">{subtitle}</p>
       {menuType === "trade" ? (
-        <p className="text-[13px] text-sam-muted">
-          앱 하단 탭에서 경로를 <span className="font-mono text-[12px] text-sam-fg">/market/…</span> 로 둔 항목은
+        <p className="sam-text-body-secondary text-sam-muted">
+          앱 하단 탭에서 경로를 <span className="font-mono sam-text-helper text-sam-fg">/market/…</span> 로 둔 항목은
           여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
-          <span className="font-mono text-[12px]"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
+          <span className="font-mono sam-text-helper"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
           <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
             메인 하단 탭 메뉴
           </Link>
@@ -169,7 +169,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
         </p>
       ) : null}
       {menuType === "community" ? (
-        <p className="text-[13px] text-sam-muted">
+        <p className="sam-text-body-secondary text-sam-muted">
           커뮤니티 <strong className="font-medium text-sam-fg">게시판 목록</strong>(자유게시판 등)은{" "}
           <Link href="/admin/boards" className="font-medium text-signature hover:underline">
             게시판 관리
@@ -179,20 +179,20 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       ) : null}
 
       <div className="flex items-center justify-between">
-        <span className="text-[14px] text-sam-muted">
+        <span className="sam-text-body text-sam-muted">
           {menuType === "trade" ? "거래 종류 항목" : "커뮤니티 메뉴 항목"}
         </span>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
-          className="rounded-ui-rect bg-signature px-4 py-2 text-[14px] font-medium text-white hover:bg-signature/90"
+          className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
         >
           항목 추가
         </button>
       </div>
 
       {supabaseAvailable === false && (
-        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
           <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
           <p className="mt-1 text-amber-700">
             저장·조회를 하려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.
@@ -202,7 +202,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
 
       {message && (
         <div
-          className={`rounded-ui-rect px-4 py-2 text-[14px] ${
+          className={`rounded-ui-rect px-4 py-2 sam-text-body ${
             message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
           }`}
         >
@@ -211,7 +211,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       )}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
           불러오는 중…
         </div>
       ) : (

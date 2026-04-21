@@ -13,7 +13,7 @@ import {
 } from "@/components/post/PostListMenuBottomSheet";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
-import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
+import { APP_FEED_LIST_ROW_SHELL } from "@/lib/ui/app-feed-card";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
   bumpTradeListProductCardRenderCount,
@@ -108,7 +108,7 @@ export const PostCard = memo(function PostCard({
 
   return (
     <div
-      className={`relative flex flex-col transition-colors hover:bg-sam-app/60 ${APP_FEED_LIST_CARD_SHELL}`}
+      className={`flex flex-col ${APP_FEED_LIST_ROW_SHELL}`}
     >
       <div className="relative flex gap-3 p-3">
         <div

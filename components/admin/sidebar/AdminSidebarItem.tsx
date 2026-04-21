@@ -43,7 +43,7 @@ export function AdminSidebarItem({
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
-  const baseLinkClass = `block rounded-ui-rect py-2 pr-3 text-[15px] whitespace-nowrap ${padding}`;
+  const baseLinkClass = `block rounded-ui-rect py-2 pr-3 sam-text-body whitespace-nowrap ${padding}`;
   const activeClass =
     "bg-signature/25 font-bold text-signature shadow-sm ring-1 ring-inset ring-signature/15";
   const inactiveClass = pending
@@ -57,7 +57,7 @@ export function AdminSidebarItem({
 
   const linkClass = `${baseLinkClass} ${leafIsActive ? activeClass : inactiveClass}`;
 
-  const groupLabelClass = `flex-1 text-[15px] whitespace-nowrap min-w-0 text-left ${
+  const groupLabelClass = `flex-1 sam-text-body whitespace-nowrap min-w-0 text-left ${
     isActive || childActive
       ? "font-bold text-signature"
       : pending
@@ -99,7 +99,7 @@ export function AdminSidebarItem({
           <button
             type="button"
             onClick={toggleOpen}
-            className="shrink-0 rounded p-1 text-[14px] font-semibold text-sam-muted hover:bg-sam-border-soft"
+            className="shrink-0 rounded p-1 sam-text-body font-semibold text-sam-muted hover:bg-sam-border-soft"
             aria-expanded={open}
             aria-label={open ? t("common_close_submenu") : t("common_open_submenu")}
           >

@@ -26,17 +26,17 @@ export function MessengerIncomingFriendRequestPopup({ request, busyId, onDismiss
       >
         <div className="flex items-start gap-3 p-3">
           <div
-            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] text-[15px] font-semibold"
+            className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] sam-text-body font-semibold"
             style={{ color: "var(--messenger-text-secondary)" }}
             aria-hidden
           >
             {initial}
           </div>
           <div className="min-w-0 flex-1">
-            <p id="messenger-incoming-fr-title" className="text-[14px] font-semibold leading-snug">
+            <p id="messenger-incoming-fr-title" className="sam-text-body font-semibold leading-snug">
               친구 요청
             </p>
-            <p className="mt-0.5 truncate text-[13px] leading-snug">
+            <p className="mt-0.5 truncate sam-text-body-secondary leading-snug">
               <span className="font-medium">{request.requesterLabel}</span>
               <span style={{ color: "var(--messenger-text-secondary)" }}> 님의 요청</span>
             </p>
@@ -46,7 +46,7 @@ export function MessengerIncomingFriendRequestPopup({ request, busyId, onDismiss
           <button
             type="button"
             onClick={onDismiss}
-            className="min-h-[40px] flex-1 rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] text-[13px] font-medium active:bg-[color:var(--messenger-primary-soft)]"
+            className="min-h-[40px] flex-1 rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] sam-text-body-secondary font-medium active:bg-[color:var(--messenger-primary-soft)]"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             닫기
@@ -55,7 +55,7 @@ export function MessengerIncomingFriendRequestPopup({ request, busyId, onDismiss
             type="button"
             disabled={busyReject}
             onClick={() => onRespond(request.id, "reject")}
-            className="min-h-[40px] flex-1 rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] text-[13px] font-medium disabled:opacity-50"
+            className="min-h-[40px] flex-1 rounded-[var(--messenger-radius-sm)] border border-[color:var(--messenger-divider)] sam-text-body-secondary font-medium disabled:opacity-50"
           >
             {busyReject ? "…" : "거절"}
           </button>
@@ -63,7 +63,7 @@ export function MessengerIncomingFriendRequestPopup({ request, busyId, onDismiss
             type="button"
             disabled={busyAccept}
             onClick={() => onRespond(request.id, "accept")}
-            className="min-h-[40px] flex-[1.1] rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-primary)] text-[13px] font-semibold text-white disabled:opacity-50"
+            className="min-h-[40px] flex-[1.1] rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-primary)] sam-text-body-secondary font-semibold text-white disabled:opacity-50"
           >
             {busyAccept ? "…" : "수락"}
           </button>

@@ -53,7 +53,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   if (loading && !report) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -61,7 +61,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   if (!report) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         신고를 찾을 수 없습니다.
       </div>
     );
@@ -73,7 +73,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       <AdminPageHeader title="신고 상세" backHref="/admin/reports" />
 
       <AdminCard title="신고 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">ID</dt>
             <dd className="font-medium text-sam-fg">{report.id}</dd>
@@ -99,7 +99,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
             <dd>
               {report.reasonLabel}
               {report.detail ? (
-                <span className="mt-1 block whitespace-pre-wrap text-[13px] text-sam-muted">{report.detail}</span>
+                <span className="mt-1 block whitespace-pre-wrap sam-text-body-secondary text-sam-muted">{report.detail}</span>
               ) : null}
             </dd>
           </div>
@@ -107,7 +107,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
             <dt className="text-sam-muted">상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] ${
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
                   report.status === "pending" || report.status === "reviewing"
                     ? "bg-amber-100 text-amber-800"
                     : report.status === "rejected" || report.status === "sanctioned"
@@ -129,7 +129,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
 
       <AdminCard title="신고자 / 대상자">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">신고자</dt>
             <dd>
@@ -138,7 +138,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
           </div>
           <div>
             <dt className="text-sam-muted">피신고자(게시글 작성자) ID</dt>
-            <dd className="font-mono text-[13px]">{report.targetUserId || "—"}</dd>
+            <dd className="font-mono sam-text-body-secondary">{report.targetUserId || "—"}</dd>
           </div>
           {report.targetType === "product" && report.targetId && (
             <div>
@@ -147,7 +147,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                 <Link href={`/post/${report.targetId}`} className="text-signature hover:underline" target="_blank" rel="noreferrer">
                   웹에서 글 보기
                 </Link>
-                <Link href="/admin/community/posts" className="text-[13px] text-sam-muted hover:underline">
+                <Link href="/admin/community/posts" className="sam-text-body-secondary text-sam-muted hover:underline">
                   게시글 관리 목록
                 </Link>
               </dd>
@@ -157,10 +157,10 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
 
       <AdminCard title="처리 · 제재 (DB 연동)">
-        <p className="mb-3 text-[13px] text-sam-muted">
+        <p className="mb-3 sam-text-body-secondary text-sam-muted">
           반려·경고·채팅 제한·<strong>게시글 숨김</strong>(posts.status → hidden)·계정 정지 등은{" "}
-          <code className="text-[11px]">report_actions</code>에 기록되고, 해당 시{" "}
-          <code className="text-[11px]">sanctions</code>에 제재가 쌓입니다.
+          <code className="sam-text-xxs">report_actions</code>에 기록되고, 해당 시{" "}
+          <code className="sam-text-xxs">sanctions</code>에 제재가 쌓입니다.
         </p>
         <AdminSanctionPanel
           reportId={report.id}
@@ -171,13 +171,13 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
       </AdminCard>
       <AdminCard title="처리 이력 (report_actions)">
         {actionLogs.length === 0 ? (
-          <p className="text-[13px] text-sam-muted">처리 이력이 없습니다.</p>
+          <p className="sam-text-body-secondary text-sam-muted">처리 이력이 없습니다.</p>
         ) : (
           <ul className="space-y-2">
             {actionLogs.map((a) => (
               <li
                 key={a.id}
-                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 text-[13px]"
+                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
               >
                 <span className="font-medium text-sam-fg">
                   {MODERATION_ACTION_LABELS[a.actionType] ?? labelReportActionType(a.actionType)}
@@ -196,7 +196,7 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
         <AdminCard title="관련 채팅">
           <Link
             href={`/admin/chats/${report.targetId}`}
-            className="text-[14px] font-medium text-signature hover:underline"
+            className="sam-text-body font-medium text-signature hover:underline"
           >
             채팅방 상세 보기
           </Link>

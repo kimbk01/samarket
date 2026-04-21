@@ -148,10 +148,10 @@ export function MandatoryAddressGate() {
       aria-describedby="mandatory-address-desc"
     >
       <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 shadow-xl sm:rounded-ui-rect sm:p-6">
-        <h2 id="mandatory-address-title" className="text-[17px] font-semibold text-ui-fg">
+        <h2 id="mandatory-address-title" className="sam-text-section-title font-semibold text-ui-fg">
           대표 주소가 필요해요
         </h2>
-        <p id="mandatory-address-desc" className="mt-2 text-[14px] leading-relaxed text-ui-muted">
+        <p id="mandatory-address-desc" className="mt-2 sam-text-body leading-relaxed text-ui-muted">
           로그인 후 서비스(거래·동네·배달)를 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해야
           합니다. 아래에서 주소를 입력해 주세요.
         </p>
@@ -159,14 +159,14 @@ export function MandatoryAddressGate() {
           <button
             type="button"
             onClick={() => router.push("/mypage/addresses")}
-            className="w-full rounded-ui-rect bg-signature py-3.5 text-[15px] font-semibold text-white"
+            className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white"
           >
             주소 입력하기
           </button>
           <button
             type="button"
             onClick={() => router.push("/mypage/logout")}
-            className="w-full rounded-ui-rect border border-ig-border py-3 text-[14px] font-medium text-ui-muted"
+            className="w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-ui-muted"
           >
             로그아웃
           </button>

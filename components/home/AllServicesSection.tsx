@@ -38,7 +38,7 @@ export function AllServicesSection() {
 
   if (loading) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-12 text-center text-[14px] text-sam-muted shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-12 text-center sam-text-body text-sam-muted shadow-sm">
         {tt("불러오는 중…")}
       </div>
     );
@@ -46,7 +46,7 @@ export function AllServicesSection() {
 
   if (error) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-8 text-center text-[14px] text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-red-500 shadow-sm">
         {error}
       </div>
     );
@@ -54,7 +54,7 @@ export function AllServicesSection() {
 
   if (!grouped || grouped.all.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-12 text-center text-[14px] text-sam-muted shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-12 text-center sam-text-body text-sam-muted shadow-sm">
         {tt("등록된 카테고리가 없습니다.")}
       </div>
     );
@@ -69,7 +69,7 @@ export function AllServicesSection() {
         if (list.length === 0) return null;
         return (
           <section key={type}>
-            <h2 className="mb-3 text-[15px] font-semibold text-sam-fg">
+            <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">
               {tt(GROUP_LABELS[type])}
             </h2>
             <ServiceCategoryGrid categories={list} maxItems={0} />

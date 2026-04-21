@@ -18,7 +18,7 @@ export function DeliveryAuditLogTable({
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[960px] border-collapse text-[12px]">
+      <table className="w-full min-w-[960px] border-collapse sam-text-helper">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
             <th className="px-2 py-2">시각</th>

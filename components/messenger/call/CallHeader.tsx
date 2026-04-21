@@ -19,12 +19,12 @@ export function CallHeader({
       <button
         type="button"
         onClick={onTopLabelClick}
-        className="rounded-full bg-white/12 px-3 py-1.5 text-[12px] font-medium text-white/90 backdrop-blur-sm transition active:scale-[0.98]"
+        className="rounded-full bg-white/12 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm transition active:scale-[0.98]"
       >
         {topLabel}
       </button>
     ) : (
-      <div className="rounded-full bg-white/12 px-3 py-1.5 text-[12px] font-medium text-white/90 backdrop-blur-sm">{topLabel}</div>
+      <div className="rounded-full bg-white/12 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm">{topLabel}</div>
     );
 
   if (!onBack && chip == null && (trailing == null || trailing === false)) {
@@ -38,9 +38,9 @@ export function CallHeader({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex h-11 items-center gap-0.5 rounded-full px-2 text-[15px] font-medium text-white/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] transition active:scale-[0.98]"
+            className="inline-flex h-11 items-center gap-0.5 rounded-full px-2 sam-text-body font-medium text-white/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] transition active:scale-[0.98]"
           >
-            <span className="pb-0.5 text-[26px] font-light leading-none">‹</span>
+            <span className="pb-0.5 sam-text-hero font-light leading-none">‹</span>
             <span>{backLabel}</span>
           </button>
         ) : null}

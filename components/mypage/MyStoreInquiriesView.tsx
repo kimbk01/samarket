@@ -102,7 +102,7 @@ export function MyStoreInquiriesView() {
     <ul className="space-y-3">
       {state.rows.map((r) => (
         <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-          <p className="text-[15px] font-semibold text-sam-fg">{r.store_name || "매장"}</p>
+          <p className="sam-text-body font-semibold text-sam-fg">{r.store_name || "매장"}</p>
           <p className="mt-1 text-sm font-medium text-sam-fg">{r.subject}</p>
           <p className="mt-2 whitespace-pre-wrap text-sm text-sam-muted">{r.content}</p>
           <p className="mt-2 text-xs text-sam-muted">
@@ -113,7 +113,7 @@ export function MyStoreInquiriesView() {
               <p className="text-xs font-medium text-sam-muted">매장 답변</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.answer}</p>
               {r.answered_at ? (
-                <p className="mt-1 text-[11px] text-sam-meta">{formatDate(r.answered_at)}</p>
+                <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.answered_at)}</p>
               ) : null}
             </div>
           ) : null}

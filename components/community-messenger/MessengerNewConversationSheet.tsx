@@ -26,12 +26,12 @@ function SheetActionButton({
       className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-4 py-3 text-left"
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[15px] font-medium text-ui-fg">{label}</p>
-        <span className="rounded-ui-rect border border-ui-border bg-ui-page px-2 py-0.5 text-[10px] font-medium text-ui-muted">
+        <p className="sam-text-body font-medium text-ui-fg">{label}</p>
+        <span className="rounded-ui-rect border border-ui-border bg-ui-page px-2 py-0.5 sam-text-xxs font-medium text-ui-muted">
           {meta}
         </span>
       </div>
-      <p className="mt-1 text-[12px] text-ui-muted">{helper}</p>
+      <p className="mt-1 sam-text-helper text-ui-muted">{helper}</p>
     </button>
   );
 }
@@ -48,8 +48,8 @@ export function MessengerNewConversationSheet({
     <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--ui-shadow-card)]">
-        <p className="text-center text-[14px] font-semibold text-ui-fg">새 대화</p>
-        <p className="mt-3 text-center text-[12px] text-ui-muted">새 대화 메뉴</p>
+        <p className="text-center sam-text-body font-semibold text-ui-fg">새 대화</p>
+        <p className="mt-3 text-center sam-text-helper text-ui-muted">새 대화 메뉴</p>
         <div className="mt-4 grid gap-2">
           <SheetActionButton
             label="친구와 대화 시작"
@@ -88,7 +88,7 @@ export function MessengerNewConversationSheet({
             }}
           />
         </div>
-        <button type="button" className="mt-3 w-full py-2 text-[14px] text-ui-muted" onClick={onClose}>
+        <button type="button" className="mt-3 w-full py-2 sam-text-body text-ui-muted" onClick={onClose}>
           취소
         </button>
       </div>

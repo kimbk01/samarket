@@ -29,7 +29,7 @@ async function MypageCommunityPostsPageBody() {
 
       <div className="mx-auto max-w-4xl space-y-3 px-4 py-4">
         {!uid ? (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center text-[14px] text-sam-muted">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-8 text-center sam-text-body text-sam-muted">
             로그인 후 내 활동을 확인할 수 있어요.
             <div className="mt-4">
               <Link href="/login" className="font-medium text-blue-600 hover:underline">
@@ -38,7 +38,7 @@ async function MypageCommunityPostsPageBody() {
             </div>
           </div>
         ) : posts.length === 0 ? (
-          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-12 text-center text-[14px] text-sam-muted">
+          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-12 text-center sam-text-body text-sam-muted">
             아직 남긴 활동이 없어요.
           </p>
         ) : (

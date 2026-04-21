@@ -35,13 +35,13 @@ export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitle
 
   return (
     <span className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
-      <span className="shrink-0 text-[16px] font-semibold leading-none text-foreground">{segmentTitle}</span>
-      <span className="shrink-0 text-[15px] leading-none text-[var(--text-muted)]" aria-hidden>
+      <span className="sam-text-section-title shrink-0 leading-none">{segmentTitle}</span>
+      <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
         ·
       </span>
       <Link
         href={ADDRESS_MANAGEMENT_HREF}
-        className="min-w-0 flex-1 truncate text-[13px] font-normal leading-none text-[var(--text-muted)] hover:text-foreground hover:underline"
+        className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
         aria-label={`내 동네 ${addressLine}, 주소 관리에서 대표 주소 변경`}
       >
         {addressLine}

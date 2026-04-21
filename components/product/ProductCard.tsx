@@ -49,7 +49,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="h-full w-full bg-sam-border-soft" />
         )}
         {product.isBoosted && (
-          <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 text-[10px] font-medium text-white">
+          <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
             끌올
           </span>
         )}

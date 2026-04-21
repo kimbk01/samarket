@@ -47,16 +47,16 @@ export function AdminPointChargeListPage() {
             key={label}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-center shadow-sm"
           >
-            <p className={`text-[22px] font-bold ${color}`}>{value}</p>
-            <p className="text-[11px] text-sam-muted">{label}</p>
+            <p className={`sam-text-hero font-bold ${color}`}>{value}</p>
+            <p className="sam-text-xxs text-sam-muted">{label}</p>
           </div>
         ))}
       </div>
 
       {/* 입금확인대기 강조 안내 */}
       {counts.waiting > 0 && (
-        <div className="flex items-center gap-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
-          <span className="text-[16px]">⚠️</span>
+        <div className="flex items-center gap-2 rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">
+          <span className="sam-text-body-lg">⚠️</span>
           <span>
             입금 확인이 필요한 신청 <strong>{counts.waiting}건</strong>이 있습니다.
             아래 목록에서 입금 확인 후 승인해 주세요.
@@ -68,7 +68,7 @@ export function AdminPointChargeListPage() {
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
         <div className="border-b border-sam-border-soft px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-sam-fg">
+          <h2 className="sam-text-body font-semibold text-sam-fg">
             충전 신청 목록 ({filtered.length}건)
           </h2>
         </div>

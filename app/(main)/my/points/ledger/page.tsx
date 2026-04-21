@@ -20,7 +20,7 @@ export default function MyPointsLedgerPage() {
         hideCtaStrip
       />
       <div className="mx-auto max-w-lg space-y-4 p-4">
-        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+        <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">
           실제 거래내역은 포인트 API 연동 후 표시됩니다.
         </div>
         <PointBalanceCard balance={balance} />

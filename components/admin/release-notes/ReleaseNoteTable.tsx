@@ -18,13 +18,13 @@ export function ReleaseNoteTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={statusFilter}
           onChange={(e) =>
             setStatusFilter((e.target.value || "") as ReleaseNoteStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="draft">초안</option>
@@ -34,7 +34,7 @@ export function ReleaseNoteTable() {
       </div>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           릴리즈 노트가 없습니다.
         </div>
       ) : (
@@ -54,15 +54,15 @@ export function ReleaseNoteTable() {
               <td className="px-3 py-2.5 font-medium text-sam-fg">
                 {n.releaseVersion}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {n.buildTag}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {n.title}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     n.status === "published"
                       ? "bg-emerald-50 text-emerald-700"
                       : n.status === "draft"
@@ -73,10 +73,10 @@ export function ReleaseNoteTable() {
                   {getReleaseNoteStatusLabel(n.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {n.releaseDate ?? "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {n.createdByAdminNickname}
               </td>
               <td className="px-3 py-2.5">

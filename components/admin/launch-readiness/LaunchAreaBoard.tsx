@@ -16,13 +16,13 @@ export function LaunchAreaBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">단계</span>
         {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setPhase(p)}
-            className={`rounded border px-3 py-1.5 text-[13px] ${
+            className={`rounded border px-3 py-1.5 sam-text-body-secondary ${
               phase === p
                 ? "border-signature bg-signature/10 text-signature"
                 : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
@@ -34,7 +34,7 @@ export function LaunchAreaBoard() {
       </div>
 
       {areas.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           영역별 데이터가 없습니다.
         </div>
       ) : (

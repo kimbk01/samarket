@@ -171,12 +171,12 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
     <>
       <div className="border-b border-sam-border-soft px-3 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] text-[15px] font-semibold text-white">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] sam-text-body font-semibold text-white">
             {shopInitial}
           </span>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-semibold text-sam-fg">{shopName}</p>
-            <p className="text-[11px] text-sam-muted">매장 운영 센터</p>
+            <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
+            <p className="sam-text-xxs text-sam-muted">매장 운영 센터</p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -202,7 +202,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
       <div className="border-t border-sam-border-soft p-3">
         <Link
           href="/my"
-          className="block rounded-ui-rect px-3 py-2 text-[14px] font-medium text-sam-fg hover:bg-sam-app"
+          className="block rounded-ui-rect px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           onClick={() => setDrawerOpen(false)}
         >
           ← 내 정보(홈)
@@ -250,19 +250,19 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
               </button>
               <div className="min-w-0 flex-1 lg:hidden">
                 {pageTitle ? (
-                  <h1 className="truncate text-[16px] font-semibold text-sam-fg">{pageTitle}</h1>
+                  <h1 className="truncate sam-text-body-lg font-semibold text-sam-fg">{pageTitle}</h1>
                 ) : (
-                  <h1 className="truncate text-[16px] font-semibold text-sam-fg">운영 대시보드</h1>
+                  <h1 className="truncate sam-text-body-lg font-semibold text-sam-fg">운영 대시보드</h1>
                 )}
-                <p className="truncate text-[11px] text-sam-muted">{shopName}</p>
+                <p className="truncate sam-text-xxs text-sam-muted">{shopName}</p>
               </div>
               <div className="hidden min-w-0 flex-1 items-baseline gap-3 lg:flex">
                 {pageTitle ? (
-                  <h1 className="text-[18px] font-semibold text-sam-fg">{pageTitle}</h1>
+                  <h1 className="sam-text-page-title font-semibold text-sam-fg">{pageTitle}</h1>
                 ) : (
-                  <h1 className="text-[18px] font-semibold text-sam-fg">운영 대시보드</h1>
+                  <h1 className="sam-text-page-title font-semibold text-sam-fg">운영 대시보드</h1>
                 )}
-                <span className="text-[13px] text-sam-muted">{shopName}</span>
+                <span className="sam-text-body-secondary text-sam-muted">{shopName}</span>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Link

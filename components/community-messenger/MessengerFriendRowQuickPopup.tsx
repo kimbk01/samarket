@@ -186,10 +186,10 @@ export function MessengerFriendRowQuickPopup({
           {step === "main" ? (
             <>
               <div className="border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3">
-                <p id={titleId} className="truncate text-[16px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                <p id={titleId} className="truncate sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
                   {profile.label}
                 </p>
-                <p className="mt-1 truncate text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+                <p className="mt-1 truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
                   {profile.bio?.trim() || profile.subtitle?.trim() || ""}
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -303,7 +303,7 @@ export function MessengerFriendRowQuickPopup({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full border-t border-[color:var(--messenger-divider)] px-4 py-3 text-[14px] font-medium"
+                className="w-full border-t border-[color:var(--messenger-divider)] px-4 py-3 sam-text-body font-medium"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
                 닫기
@@ -315,13 +315,13 @@ export function MessengerFriendRowQuickPopup({
                 <button
                   type="button"
                   onClick={() => setStep("main")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[18px] active:bg-[color:var(--messenger-primary-soft)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg sam-text-page-title active:bg-[color:var(--messenger-primary-soft)]"
                   style={{ color: "var(--messenger-text)" }}
                   aria-label="뒤로"
                 >
                   ‹
                 </button>
-                <p className="flex-1 text-center text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+                <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
                   통화하기
                 </p>
                 <span className="w-8" />
@@ -377,11 +377,11 @@ function ActionTile({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 text-[12px] font-semibold disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
+      className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 sam-text-helper font-semibold disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
       style={{ color: "var(--messenger-text)" }}
     >
       <span className="text-[color:var(--messenger-primary)]">{icon}</span>
-      <span className="text-[12px]">{label}</span>
+      <span className="sam-text-helper">{label}</span>
     </button>
   );
 }
@@ -413,8 +413,8 @@ function SheetRow({
     >
       {icon ? <span className="shrink-0">{icon}</span> : null}
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-medium">{label}</span>
-        {sub ? <span className="mt-0.5 block text-[11px] text-[color:var(--messenger-text-secondary)]">{sub}</span> : null}
+        <span className="block sam-text-body font-medium">{label}</span>
+        {sub ? <span className="mt-0.5 block sam-text-xxs text-[color:var(--messenger-text-secondary)]">{sub}</span> : null}
       </span>
     </button>
   );

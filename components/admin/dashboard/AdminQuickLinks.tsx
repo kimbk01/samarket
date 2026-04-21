@@ -59,13 +59,13 @@ const LINKS: { href: string; label: string }[] = [
 export function AdminQuickLinks() {
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 text-[15px] font-medium text-sam-fg">빠른 이동</h2>
+      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">빠른 이동</h2>
       <ul className="flex flex-wrap gap-2">
         {LINKS.map(({ href, label }) => (
           <li key={href}>
             <Link
               href={href}
-              className="inline-block rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-fg hover:border-signature hover:bg-signature/5 hover:text-signature"
+              className="inline-block rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:border-signature hover:bg-signature/5 hover:text-signature"
             >
               {label}
             </Link>

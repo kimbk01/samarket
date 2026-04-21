@@ -254,9 +254,9 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
               <StoreDetailBackLink fallbackHref={fallbackHref} />
               <div className="min-w-0 flex-1 py-0.5">
                 {loading ? (
-                  <p className="text-[13px] text-sam-meta">불러오는 중…</p>
+                  <p className="sam-text-body-secondary text-sam-meta">불러오는 중…</p>
                 ) : (
-                  <p className="truncate text-[15px] font-semibold text-sam-muted">{decoded}</p>
+                  <p className="truncate sam-text-body font-semibold text-sam-muted">{decoded}</p>
                 )}
               </div>
             </div>

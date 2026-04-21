@@ -94,7 +94,7 @@ export function OrdersHubTopTabs({
                 }}
                 onClick={() => onSelect(id)}
                 className={[
-                  "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center px-1 text-center text-[14px] leading-snug transition-colors duration-200 [text-wrap:balance] sm:px-1.5 sm:text-[15px]",
+                  "flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center px-1 text-center sam-text-body leading-snug transition-colors duration-200 [text-wrap:balance] sm:px-1.5 sm:sam-text-body",
                   isOn ? "font-semibold text-sam-fg" : "font-medium text-sam-muted hover:text-sam-fg",
                 ].join(" ")}
               >

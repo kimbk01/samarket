@@ -9,16 +9,16 @@ export function AdminPointLedgerPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-[18px] font-semibold text-sam-fg">
+      <h1 className="sam-text-page-title font-semibold text-sam-fg">
         포인트 원장
       </h1>
       {entries.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           원장 내역이 없습니다.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[640px] border-collapse text-[14px]">
+          <table className="w-full min-w-[640px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -67,7 +67,7 @@ export function AdminPointLedgerPage() {
                   <td className="max-w-[200px] truncate px-3 py-2.5 text-sam-muted">
                     {e.description}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+                  <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                     {new Date(e.createdAt).toLocaleString("ko-KR")}
                   </td>
                 </tr>

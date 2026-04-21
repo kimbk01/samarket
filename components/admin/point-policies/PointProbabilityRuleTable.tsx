@@ -53,7 +53,7 @@ export function PointProbabilityRuleTable({
 
   if (!policyId) {
     return (
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         위에서 확률형 정책을 선택하면 구간을 설정할 수 있습니다.
       </p>
     );
@@ -62,14 +62,14 @@ export function PointProbabilityRuleTable({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-[14px] text-sam-muted">
+        <span className="sam-text-body text-sam-muted">
           합계: {totalPercent}% {totalPercent !== 100 && "(100% 권장)"}
         </span>
         {onSaveRule && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg hover:bg-sam-app"
+            className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
           >
             구간 추가
           </button>
@@ -78,45 +78,45 @@ export function PointProbabilityRuleTable({
       {showAddForm && onSaveRule && (
         <form
           onSubmit={handleAddSubmit}
-          className="rounded border border-sam-border bg-sam-app p-3 text-[14px]"
+          className="rounded border border-sam-border bg-sam-app p-3 sam-text-body"
         >
           <div className="mb-2 font-medium text-sam-fg">새 확률 구간</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <div>
-              <label className="mb-0.5 block text-[12px] text-sam-muted">대상</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">대상</label>
               <select
                 value={targetType}
                 onChange={(e) =>
                   setTargetType(e.target.value as PointProbabilityTargetType)
                 }
-                className="w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               >
                 <option value="write">{TARGET_TYPE_LABELS.write}</option>
                 <option value="comment">{TARGET_TYPE_LABELS.comment}</option>
               </select>
             </div>
             <div>
-              <label className="mb-0.5 block text-[12px] text-sam-muted">최소 P</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">최소 P</label>
               <input
                 type="number"
                 min={0}
                 value={minPoint}
                 onChange={(e) => setMinPoint(parseInt(e.target.value, 10) || 0)}
-                className="w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               />
             </div>
             <div>
-              <label className="mb-0.5 block text-[12px] text-sam-muted">최대 P</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">최대 P</label>
               <input
                 type="number"
                 min={0}
                 value={maxPoint}
                 onChange={(e) => setMaxPoint(parseInt(e.target.value, 10) || 0)}
-                className="w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               />
             </div>
             <div>
-              <label className="mb-0.5 block text-[12px] text-sam-muted">확률(%)</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">확률(%)</label>
               <input
                 type="number"
                 min={0}
@@ -125,11 +125,11 @@ export function PointProbabilityRuleTable({
                 onChange={(e) =>
                   setProbabilityPercent(parseInt(e.target.value, 10) || 0)
                 }
-                className="w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               />
             </div>
             <div>
-              <label className="mb-0.5 block text-[12px] text-sam-muted">순서</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">순서</label>
               <input
                 type="number"
                 min={1}
@@ -137,21 +137,21 @@ export function PointProbabilityRuleTable({
                 onChange={(e) =>
                   setSortOrder(parseInt(e.target.value, 10) || 1)
                 }
-                className="w-full rounded border border-sam-border px-2 py-1.5 text-[13px]"
+                className="w-full rounded border border-sam-border px-2 py-1.5 sam-text-body-secondary"
               />
             </div>
           </div>
           <div className="mt-2 flex gap-2">
             <button
               type="submit"
-              className="rounded border border-signature bg-signature px-3 py-1.5 text-[13px] text-white"
+              className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary text-white"
             >
               추가
             </button>
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
-              className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px] text-sam-fg"
+              className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
             >
               취소
             </button>
@@ -159,12 +159,12 @@ export function PointProbabilityRuleTable({
         </form>
       )}
       {rules.length === 0 && !showAddForm ? (
-        <p className="text-[14px] text-sam-muted">
+        <p className="sam-text-body text-sam-muted">
           확률 구간이 없습니다. 게시판 정책에서 확률형을 사용할 때 여기에서 구간을 설정합니다.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="w-full min-w-[400px] border-collapse text-[14px]">
+          <table className="w-full min-w-[400px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -203,7 +203,7 @@ export function PointProbabilityRuleTable({
                       <button
                         type="button"
                         onClick={() => onDeleteRule(r.id)}
-                        className="text-[13px] text-red-600 hover:underline"
+                        className="sam-text-body-secondary text-red-600 hover:underline"
                       >
                         삭제
                       </button>

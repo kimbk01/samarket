@@ -14,7 +14,7 @@ export function PersonalizedPolicyTable({
 }: PersonalizedPolicyTableProps) {
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         등록된 개인화 정책이 없습니다.
       </div>
     );
@@ -22,7 +22,7 @@ export function PersonalizedPolicyTable({
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[640px] border-collapse text-[14px]">
+      <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -54,12 +54,12 @@ export function PersonalizedPolicyTable({
                 {PERSONALIZED_SECTION_LABELS[p.sectionKey]}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{p.maxItems}</td>
-              <td className="max-w-[200px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 카테고리 {p.categoryAffinityWeight} / 최근본 {p.recentViewWeight} / 찜 {p.recentFavoriteWeight} / 채팅 {p.recentChatWeight}
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                     p.isActive
                       ? "bg-emerald-50 text-emerald-800"
                       : "bg-sam-border-soft text-sam-muted"
@@ -73,7 +73,7 @@ export function PersonalizedPolicyTable({
                   <button
                     type="button"
                     onClick={() => onEdit(p)}
-                    className="text-[13px] text-signature hover:underline"
+                    className="sam-text-body-secondary text-signature hover:underline"
                   >
                     편집
                   </button>

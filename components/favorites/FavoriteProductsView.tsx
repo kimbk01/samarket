@@ -128,18 +128,21 @@ export function FavoriteProductsView({
   };
 
   return (
-    <div className={embedded ? "space-y-2" : "mx-auto max-w-lg space-y-2 px-4 py-3 pb-24"}>
+    <div className={embedded ? "flex flex-col gap-2" : "mx-auto flex max-w-lg flex-col gap-2 px-4 py-3 pb-24"}>
       <TradeManagementTabBar tabs={FAVORITE_MANAGE_TABS} active={tab} counts={counts} onChange={setTab} />
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
-        filtered.map((post) => (
-          <FavoritePostCard
-            key={post.id}
-            post={post}
-            onUnfavorite={() => setPosts((prev) => prev.filter((p) => p.id !== post.id))}
-          />
-        ))
+        <ul className="m-0 min-w-0 w-full list-none divide-y divide-sam-border p-0">
+          {filtered.map((post) => (
+            <li key={post.id} className="min-w-0">
+              <FavoritePostCard
+                post={post}
+                onUnfavorite={() => setPosts((prev) => prev.filter((p) => p.id !== post.id))}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

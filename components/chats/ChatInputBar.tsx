@@ -218,11 +218,11 @@ function ChatInputBarInner({
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-ui-rect border bg-sam-surface shadow-lg sm:max-h-[min(48dvh,380px)] md:max-w-lg md:mx-auto ${ig ? "border-ig-border" : "border-sam-border"}`}
+          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-ui-rect border bg-sam-surface shadow-sam-elevated sm:max-h-[min(48dvh,380px)] md:max-w-lg md:mx-auto ${ig ? "border-sam-border" : "border-sam-border"}`}
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border-soft px-2.5 py-2">
-            <span className="text-[13px] font-semibold text-sam-fg">{t("common_emoji")}</span>
-            <span className="text-[11px] text-sam-muted">{t("common_emoji_panel_hint")}</span>
+            <span className="sam-text-body-secondary font-semibold text-sam-fg">{t("common_emoji")}</span>
+            <span className="sam-text-xxs text-sam-muted">{t("common_emoji_panel_hint")}</span>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pt-2.5">
             <div className="grid grid-cols-7 gap-1 touch-manipulation sm:grid-cols-8 md:grid-cols-7 md:gap-1.5">
@@ -231,7 +231,7 @@ function ChatInputBarInner({
                   <button
                     key={`${emoji}-${i}`}
                     type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-[24px] hover:bg-ig-highlight active:scale-[0.96] sm:h-11 sm:w-11 sm:text-[25px] md:text-[26px]"
+                    className="flex h-10 w-10 items-center justify-center rounded-ui-rect sam-text-hero hover:bg-sam-primary-soft active:scale-[0.96] sm:h-11 sm:w-11 sm:sam-text-hero md:sam-text-hero"
                     onClick={() => insertEmoji(emoji)}
                     aria-label={`${t("common_emoji")} ${emoji}`}
                   >
@@ -243,7 +243,7 @@ function ChatInputBarInner({
             {!emojiShowAll && ALL_CHAT_EMOJIS.length > EMOJI_PANEL_PREVIEW_COUNT ? (
               <button
                 type="button"
-                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] py-2.5 text-[13px] font-medium text-sam-fg hover:bg-black/[0.04] active:bg-black/[0.06]"
+                className="mt-2 w-full rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-black/[0.04] active:bg-black/[0.06]"
                 onClick={() => setEmojiShowAll(true)}
               >
                 {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - EMOJI_PANEL_PREVIEW_COUNT}+
@@ -305,12 +305,12 @@ function ChatInputBarInner({
           {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
-              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-ui-rect py-1 shadow-lg ring-1 ring-black/10 ${ig ? "border border-ig-border bg-sam-surface" : "border border-sam-border bg-sam-surface"}`}
+              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-ui-rect py-1 shadow-sam-elevated ring-1 ring-black/10 ${ig ? "border border-sam-border bg-sam-surface" : "border border-sam-border bg-sam-surface"}`}
             >
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
                 onClick={() => {
                   setAttachOpen(false);
                   cameraInputRef.current?.click();
@@ -322,7 +322,7 @@ function ChatInputBarInner({
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
+                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
                 onClick={() => {
                   setAttachOpen(false);
                   galleryInputRef.current?.click();
@@ -340,7 +340,7 @@ function ChatInputBarInner({
         </button>
       )}
       <div
-        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-ig-border bg-sam-surface px-1.5" : "rounded-ui-rect bg-[#F5F5F5] px-1"}`}
+        className={`flex min-h-[44px] min-w-0 flex-1 items-center ${ig ? "rounded-full border border-sam-border bg-sam-surface px-1.5" : "rounded-ui-rect bg-[#F5F5F5] px-1"}`}
       >
         <textarea
           ref={inputRef}
@@ -365,14 +365,14 @@ function ChatInputBarInner({
           }}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : "min-h-[40px] rounded-ui-rect px-3 py-2.5 text-[15px] font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : "min-h-[40px] rounded-ui-rect px-3 py-2.5 sam-text-body font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (
           <button
             type="button"
             onClick={() => setEmojiOpen((v) => !v)}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 md:h-[52px] md:w-[52px] ${emojiOpen ? (ig ? "bg-black/[0.08] text-foreground" : "bg-ig-highlight text-foreground") : ig ? "text-foreground hover:bg-black/[0.05]" : "text-foreground hover:bg-ig-highlight"}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50 md:h-[52px] md:w-[52px] ${emojiOpen ? (ig ? "bg-black/[0.08] text-foreground" : "bg-sam-primary-soft text-foreground") : ig ? "text-foreground hover:bg-black/[0.05]" : "text-foreground hover:bg-sam-primary-soft"}`}
             aria-label={t("common_emoji")}
             aria-expanded={emojiOpen}
             disabled={inputLocked}
@@ -385,7 +385,7 @@ function ChatInputBarInner({
         type="button"
         onClick={handleSubmit}
         disabled={inputLocked || !hasText}
-        className={`flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-white hover:opacity-90 disabled:opacity-50 ${ig ? "bg-signature" : "bg-signature"}`}
+        className={`flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-full sam-text-body font-semibold text-white hover:opacity-90 disabled:opacity-50 ${ig ? "bg-signature" : "bg-signature"}`}
         aria-label={t("common_send")}
       >
         <SendIcon className="h-5 w-5" />

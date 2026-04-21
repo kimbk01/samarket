@@ -67,18 +67,18 @@ export function BuyerReviewReadSheet({
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center">
       <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:rounded-ui-rect">
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 className="text-[16px] font-semibold text-sam-fg">{title}</h2>
-          <button type="button" onClick={onClose} className="text-[14px] text-sam-muted">
+          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{title}</h2>
+          <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">
             닫기
           </button>
         </div>
         <div className="max-h-[calc(85vh-52px)] overflow-y-auto p-4">
           {loading ? (
-            <p className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</p>
+            <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>
           ) : err ? (
-            <p className="py-8 text-center text-[14px] text-red-600">{err}</p>
+            <p className="py-8 text-center sam-text-body text-red-600">{err}</p>
           ) : rev ? (
-            <div className="space-y-3 text-[14px] text-sam-fg">
+            <div className="space-y-3 sam-text-body text-sam-fg">
               <p>
                 <span className="text-sam-muted">총평</span>{" "}
                 <span className="font-medium">
@@ -91,12 +91,12 @@ export function BuyerReviewReadSheet({
               </p>
               {(rev.positive_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 text-[12px] font-medium text-sam-muted">긍정</p>
+                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">긍정</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.positive_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
-                        className="rounded-full bg-signature/5 px-2 py-0.5 text-[11px] text-sam-fg"
+                        className="rounded-full bg-signature/5 px-2 py-0.5 sam-text-xxs text-sam-fg"
                       >
                         {LABEL.get(k) ?? k}
                       </li>
@@ -106,12 +106,12 @@ export function BuyerReviewReadSheet({
               ) : null}
               {(rev.negative_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 text-[12px] font-medium text-sam-muted">부정</p>
+                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">부정</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.negative_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
-                        className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] text-amber-900"
+                        className="rounded-full bg-amber-50 px-2 py-0.5 sam-text-xxs text-amber-900"
                       >
                         {LABEL.get(k) ?? k}
                       </li>
@@ -120,9 +120,9 @@ export function BuyerReviewReadSheet({
                 </div>
               ) : null}
               {rev.review_comment ? (
-                <p className="whitespace-pre-wrap text-[13px] text-sam-fg">{rev.review_comment}</p>
+                <p className="whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{rev.review_comment}</p>
               ) : null}
-              <p className="text-[11px] text-sam-meta">
+              <p className="sam-text-xxs text-sam-meta">
                 {rev.created_at
                   ? new Date(rev.created_at).toLocaleString("ko-KR")
                   : ""}

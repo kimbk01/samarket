@@ -32,17 +32,17 @@ export function TradeHubSectionShell({
 
     <section
 
-      className={`overflow-hidden rounded-ui-rect border border-ig-border bg-[var(--sub-bg)] px-4 py-4 shadow-sm md:px-5 md:py-5 ${className}`}
+      className={`overflow-hidden rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-4 shadow-sm md:px-5 md:py-5 ${className}`}
 
     >
 
       <div className="mb-4">
 
-        <h2 className="text-[17px] font-semibold text-sam-fg">{tt(title)}</h2>
+        <h2 className="sam-text-section-title font-semibold text-sam-fg">{tt(title)}</h2>
 
         {description ? (
 
-          <p className="mt-1 text-[12px] leading-relaxed text-sam-muted">{tt(description)}</p>
+          <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{tt(description)}</p>
 
         ) : null}
 

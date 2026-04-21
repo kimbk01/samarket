@@ -34,7 +34,7 @@ export function MyAdApplicationList({
 
   if (applications.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         광고 신청 내역이 없습니다.
       </div>
     );
@@ -48,27 +48,27 @@ export function MyAdApplicationList({
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
           <p className="font-medium text-sam-fg">{a.targetTitle}</p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">
+          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {a.planName} · ₩{a.totalPrice.toLocaleString()}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
-              className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[a.applicationStatus]}`}
+              className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[a.applicationStatus]}`}
             >
               {AD_APPLICATION_STATUS_LABELS[a.applicationStatus]}
             </span>
-            <span className="text-[12px] text-sam-muted">
+            <span className="sam-text-helper text-sam-muted">
               결제: {AD_PAYMENT_STATUS_LABELS[a.paymentStatus]}
             </span>
           </div>
-          <p className="mt-1 text-[12px] text-sam-meta">
+          <p className="mt-1 sam-text-helper text-sam-meta">
             신청일 {new Date(a.createdAt).toLocaleDateString("ko-KR")}
           </p>
           {["pending", "waiting_payment"].includes(a.applicationStatus) && (
             <button
               type="button"
               onClick={() => handleCancel(a.id)}
-              className="mt-2 text-[13px] text-red-600 hover:underline"
+              className="mt-2 sam-text-body-secondary text-red-600 hover:underline"
             >
               신청 취소
             </button>

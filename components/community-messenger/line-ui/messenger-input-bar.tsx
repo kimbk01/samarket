@@ -7,7 +7,7 @@ type Props = {
 
 /**
  * 입력 영역 그리드 래퍼 — 마크업만 통일 (`CommunityMessengerRoomPhase2Composer` 가 슬롯 채움).
- * 스타일 토큰은 `community-messenger-line-skin.css` 와 함께 사용.
+ * 스타일 토큰은 전역 `design-tokens.css` · `samarket-components.css` 와 `[data-cm-room]` 규칙을 따른다.
  */
 export function MessengerInputBar({ children, className = "" }: Props) {
   return (

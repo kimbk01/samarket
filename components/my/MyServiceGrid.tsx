@@ -33,7 +33,7 @@ export function MyServiceGrid({ services }: MyServiceGridProps) {
           <span className="mb-2 flex h-10 w-10 items-center justify-center text-sam-muted">
             {ICON_MAP[s.icon_key] ?? ICON_MAP.default}
           </span>
-          <span className="text-[13px] font-medium text-sam-fg">{s.label}</span>
+          <span className="sam-text-body-secondary font-medium text-sam-fg">{s.label}</span>
         </Link>
       ))}
     </div>

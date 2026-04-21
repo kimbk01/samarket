@@ -30,7 +30,7 @@ export function PointChargeRequestList({
 
   if (requests.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface p-8 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
         충전 신청 내역이 없습니다.
       </div>
     );
@@ -44,27 +44,27 @@ export function PointChargeRequestList({
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
           <p className="font-medium text-sam-fg">{r.planName}</p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">
+          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             ₩{r.paymentAmount.toLocaleString()} → {r.pointAmount.toLocaleString()}P
           </p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">
+          <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span
-              className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${STATUS_CLASS[r.requestStatus]}`}
+              className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
             >
               {POINT_CHARGE_STATUS_LABELS[r.requestStatus]}
             </span>
           </div>
-          <p className="mt-1 text-[12px] text-sam-meta">
+          <p className="mt-1 sam-text-helper text-sam-meta">
             {new Date(r.requestedAt).toLocaleString("ko-KR")}
           </p>
           {onCancel && ["pending", "waiting_confirm"].includes(r.requestStatus) && (
             <button
               type="button"
               onClick={() => handleCancel(r.id)}
-              className="mt-2 text-[13px] text-red-600 hover:underline"
+              className="mt-2 sam-text-body-secondary text-red-600 hover:underline"
             >
               신청 취소
             </button>

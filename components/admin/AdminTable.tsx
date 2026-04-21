@@ -9,7 +9,7 @@ export function AdminTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[600px] border-collapse text-[14px]">
+      <table className="w-full min-w-[600px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             {headers.map((h) => (

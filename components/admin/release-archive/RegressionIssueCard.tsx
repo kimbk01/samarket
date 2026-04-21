@@ -30,7 +30,7 @@ export function RegressionIssueCard({
             : "border-sam-border bg-sam-surface"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-1.5 sam-text-helper text-sam-muted">
         <span>{getRegressionCategoryLabel(issue.regressionCategory)}</span>
         <span
           className={`rounded px-1.5 py-0.5 ${
@@ -58,16 +58,16 @@ export function RegressionIssueCard({
       </div>
       <p className="mt-2 font-medium text-sam-fg">{issue.title}</p>
       {issue.description && (
-        <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
+        <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">
           {issue.description}
         </p>
       )}
-      <p className="mt-2 text-[12px] text-sam-muted">
+      <p className="mt-2 sam-text-helper text-sam-muted">
         감지 {new Date(issue.detectedAt).toLocaleString()}
         {issue.fixedAt && ` · 수정 ${new Date(issue.fixedAt).toLocaleString()}`}
         {issue.ownerAdminNickname && ` · ${issue.ownerAdminNickname}`}
       </p>
-      <div className="mt-2 flex flex-wrap gap-1 text-[12px]">
+      <div className="mt-2 flex flex-wrap gap-1 sam-text-helper">
         {issue.linkedQaIssueId && (
           <Link href="/admin/qa-board" className="text-signature hover:underline">
             QA

@@ -78,7 +78,7 @@ export function CommunityBoardPage({
             <div className="mt-3 flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
               <Link
                 href={filterBaseHref}
-                className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                className={`rounded-full px-3 py-1 sam-text-helper font-medium ${
                   !topicSlug ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
                 }`}
               >
@@ -88,7 +88,7 @@ export function CommunityBoardPage({
                 <Link
                   key={t.slug}
                   href={`${filterBaseHref}?topic=${encodeURIComponent(t.slug)}`}
-                  className={`rounded-full px-3 py-1 text-[12px] font-medium ${
+                  className={`rounded-full px-3 py-1 sam-text-helper font-medium ${
                     topicSlug === t.slug
                       ? "bg-sky-700 text-white"
                       : "bg-sky-50 text-sky-900 hover:bg-sky-100"

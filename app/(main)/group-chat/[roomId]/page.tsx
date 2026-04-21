@@ -12,7 +12,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
   const id = roomId?.trim() ?? "";
   if (!id) {
     return (
-      <div className="p-6 text-center text-[14px] text-sam-muted">roomId가 필요합니다.</div>
+      <div className="p-6 text-center sam-text-body text-sam-muted">roomId가 필요합니다.</div>
     );
   }
 

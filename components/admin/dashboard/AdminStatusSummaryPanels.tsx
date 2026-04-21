@@ -32,7 +32,7 @@ function StatusRow({
   loading?: boolean;
 }) {
   return (
-    <div className="flex justify-between text-[13px]">
+    <div className="flex justify-between sam-text-body-secondary">
       <span className="text-sam-muted">{label}</span>
       {loading ? (
         <span

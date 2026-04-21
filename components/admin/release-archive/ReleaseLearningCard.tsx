@@ -23,11 +23,11 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">릴리즈</span>
+        <span className="sam-text-body-secondary text-sam-muted">릴리즈</span>
         <select
           value={versionFilter}
           onChange={(e) => setVersionFilter(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           {archives.map((a) => (
@@ -39,7 +39,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
       </div>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 릴리즈의 학습 메모가 없습니다.
         </div>
       ) : (
@@ -51,45 +51,45 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
                 key={n.id}
                 className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
               >
-                <div className="text-[12px] text-sam-muted">
+                <div className="sam-text-helper text-sam-muted">
                   {archive?.releaseVersion ?? n.releaseArchiveId} ·{" "}
                   {n.createdByAdminNickname} ·{" "}
                   {new Date(n.createdAt).toLocaleString()}
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
-                    <p className="text-[13px] font-medium text-sam-fg">
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">
                       잘 된 점
                     </p>
-                    <p className="mt-1 text-[13px] text-sam-muted">
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">
                       {n.whatWentWell}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[13px] font-medium text-sam-fg">
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">
                       깨진 점
                     </p>
-                    <p className="mt-1 text-[13px] text-sam-muted">
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">
                       {n.whatBroke}
                     </p>
                   </div>
                 </div>
-                <p className="mt-3 text-[13px] font-medium text-sam-fg">
+                <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
                   회귀 요약
                 </p>
-                <p className="mt-1 text-[13px] text-sam-muted">
+                <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.regressionSummary}
                 </p>
-                <p className="mt-3 text-[13px] font-medium text-sam-fg">
+                <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
                   완화 조치
                 </p>
-                <p className="mt-1 text-[13px] text-sam-muted">
+                <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.mitigationSummary}
                 </p>
-                <p className="mt-3 text-[13px] font-medium text-sam-fg">
+                <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
                   다음 릴리즈 체크리스트
                 </p>
-                <p className="mt-1 text-[13px] text-sam-muted">
+                <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.nextReleaseChecklist}
                 </p>
               </div>

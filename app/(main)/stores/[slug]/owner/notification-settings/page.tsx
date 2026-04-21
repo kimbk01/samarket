@@ -32,7 +32,7 @@ async function StoreOwnerNotificationSettingsPageBody({ params }: PageProps) {
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <AppBackButton backHref={`/stores/${encodeURIComponent(safe)}/owner/notifications`} />
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold text-sam-fg">알림 설정</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">알림 설정</h1>
           <span className="w-11 shrink-0" />
         </div>
       </header>

@@ -371,54 +371,54 @@ export function PostListByCategory({
   const skinKey = category?.icon_key ?? undefined;
 
   return (
-    <div className="space-y-3">
-      {posts.map((post) =>
-        notInterestedPostIds.has(post.id) ? (
-          <NotInterestedCard
-            key={post.id}
-            onUndo={() => handleUndoNotInterested(post.id)}
-          />
-        ) : hiddenPostIds.has(post.id) ? (
-          <HiddenPostCard
-            key={post.id}
-            postId={post.id}
-            onUndo={() => handleUndoHide(post.id)}
-          />
-        ) : (
-          <PostCard
-            key={post.id}
-            post={post}
-            skinKey={skinKey}
-            isFavorite={favoriteMap[post.id]}
-            onFavoriteChange={handleFavoriteChange}
-            onMenuAction={handleMenuAction}
-          />
-        )
-      )}
-      {hasMore && (
+    <>
+      <ul className="m-0 min-w-0 w-full max-w-full list-none divide-y divide-sam-border p-0">
+        {posts.map((post) =>
+          notInterestedPostIds.has(post.id) ? (
+            <li key={post.id} className="min-w-0">
+              <NotInterestedCard onUndo={() => handleUndoNotInterested(post.id)} />
+            </li>
+          ) : hiddenPostIds.has(post.id) ? (
+            <li key={post.id} className="min-w-0">
+              <HiddenPostCard postId={post.id} onUndo={() => handleUndoHide(post.id)} />
+            </li>
+          ) : (
+            <li key={post.id} className="min-w-0">
+              <PostCard
+                post={post}
+                skinKey={skinKey}
+                isFavorite={favoriteMap[post.id]}
+                onFavoriteChange={handleFavoriteChange}
+                onMenuAction={handleMenuAction}
+              />
+            </li>
+          )
+        )}
+      </ul>
+      {hasMore ? (
         <button
           type="button"
           onClick={loadMore}
           disabled={loading}
-          className="w-full py-3 text-[14px] text-sam-muted disabled:opacity-50"
+          className="mt-3 w-full py-3 text-[14px] text-sam-muted disabled:opacity-50"
         >
           {loading ? "불러오는 중…" : "더보기"}
         </button>
-      )}
+      ) : null}
 
-      {toast && (
+      {toast ? (
         <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">
           {toast}
         </div>
-      )}
+      ) : null}
 
-      {reportPostId && (
+      {reportPostId ? (
         <ReportReasonModal
           postId={reportPostId}
           open={!!reportPostId}
           onClose={() => setReportPostId(null)}
         />
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }

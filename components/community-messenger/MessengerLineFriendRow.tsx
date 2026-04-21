@@ -230,14 +230,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
         <button
           type="button"
           onClick={() => runAction(swipeToggleFavorite)}
-          className="flex w-[72px] items-center justify-center bg-violet-600 text-[12px] font-semibold text-white active:opacity-90"
+          className="flex w-[72px] items-center justify-center bg-violet-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
           {friend.isFavoriteFriend ? "해제" : "즐겨찾기"}
         </button>
         <button
           type="button"
           onClick={() => runAction(swipeHideFriend)}
-          className="flex w-[72px] items-center justify-center bg-amber-600 text-[12px] font-semibold text-white active:opacity-90"
+          className="flex w-[72px] items-center justify-center bg-amber-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
           {hideLabel}
         </button>
@@ -246,14 +246,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
         <button
           type="button"
           onClick={() => runAction(swipeRemoveFriend)}
-          className="flex w-[72px] items-center justify-center bg-orange-600 text-[12px] font-semibold text-white active:opacity-90"
+          className="flex w-[72px] items-center justify-center bg-orange-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
           삭제
         </button>
         <button
           type="button"
           onClick={() => runAction(swipeBlockFriend)}
-          className="flex w-[72px] items-center justify-center bg-red-600 text-[12px] font-semibold text-white active:opacity-90"
+          className="flex w-[72px] items-center justify-center bg-red-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
           {blockLabel}
         </button>
@@ -304,7 +304,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
                     <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div
-                      className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
+                      className="flex h-full w-full items-center justify-center sam-text-body font-semibold"
                       style={{ color: "var(--messenger-text-secondary)" }}
                     >
                       {initial}
@@ -331,7 +331,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
                   starToggleFavorite();
                 }}
                 disabled={busyFavorite}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold disabled:opacity-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold disabled:opacity-50"
                 style={{
                   color: friend.isFavoriteFriend ? "var(--messenger-primary)" : "var(--messenger-text-secondary)",
                   backgroundColor: friend.isFavoriteFriend ? "var(--messenger-primary-soft)" : "transparent",
@@ -344,15 +344,15 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             }
           >
             <div className="flex min-w-0 items-center gap-1">
-              <p className="truncate text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+              <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
                 {friend.label}
               </p>
-              <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
+              <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
                 {friendKind === "trade" ? "거래 친구" : friendKind === "delivery" ? "배달 친구" : "친구"}
               </span>
               {friend.isFavoriteFriend ? (
                 <span
-                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-semibold"
+                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-semibold"
                   style={{
                     backgroundColor: "var(--messenger-primary-soft)",
                     color: "var(--messenger-primary)",
@@ -363,7 +363,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               ) : null}
               {friend.blocked ? (
                 <span
-                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium"
+                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium"
                   style={{ color: "var(--messenger-text-secondary)" }}
                 >
                   차단
@@ -371,12 +371,12 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               ) : null}
             </div>
             {handleLine ? (
-              <p className="truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
                 {handleLine}
               </p>
             ) : null}
             {bioLine ? (
-              <p className="line-clamp-2 text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="line-clamp-2 sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
                 {bioLine}
               </p>
             ) : null}

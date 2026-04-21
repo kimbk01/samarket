@@ -27,8 +27,8 @@ export function BusinessDashboardOrderTimeline({
   if (orders.length === 0) {
     return (
       <section className="space-y-2">
-        <h2 className="text-[15px] font-semibold text-sam-fg">최근 주문</h2>
-        <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-8 text-center text-[14px] text-sam-muted">
+        <h2 className="sam-text-body font-semibold text-sam-fg">최근 주문</h2>
+        <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-8 text-center sam-text-body text-sam-muted">
           아직 주문이 없습니다.
         </p>
       </section>
@@ -38,10 +38,10 @@ export function BusinessDashboardOrderTimeline({
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between px-0.5">
-        <h2 className="text-[15px] font-semibold text-sam-fg">최근 주문</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">최근 주문</h2>
         <Link
           href={buildStoreOrdersHref({ storeId })}
-          className="text-[13px] font-medium text-signature"
+          className="sam-text-body-secondary font-medium text-signature"
         >
           전체 보기
         </Link>
@@ -54,19 +54,19 @@ export function BusinessDashboardOrderTimeline({
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[13px] font-semibold text-sam-fg">{o.order_no}</span>
-                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[10px] font-medium text-sam-fg">
+                <span className="font-mono sam-text-body-secondary font-semibold text-sam-fg">{o.order_no}</span>
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                   {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                 </span>
               </div>
-              <p className="mt-1 text-[12px] text-sam-muted">
+              <p className="mt-1 sam-text-helper text-sam-muted">
                 고객 {o.buyer_user_id.slice(0, 8)}… · 결제 {o.payment_status} ·{" "}
                 {formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail)}
               </p>
-              <p className="text-[11px] text-sam-meta">{new Date(o.created_at).toLocaleString("ko-KR")}</p>
+              <p className="sam-text-xxs text-sam-meta">{new Date(o.created_at).toLocaleString("ko-KR")}</p>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-0 sm:shrink-0">
-              <span className="text-[15px] font-bold text-sam-fg">
+              <span className="sam-text-body font-bold text-sam-fg">
                 ₱{Math.round(Number(o.payment_amount) || 0).toLocaleString()}
               </span>
               <Link
@@ -74,13 +74,13 @@ export function BusinessDashboardOrderTimeline({
                   storeId,
                   orderId: o.id,
                 })}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] font-medium text-sam-fg"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
               >
                 상세
               </Link>
               <Link
                 href={`/my/business/store-order-chat/${encodeURIComponent(o.id)}`}
-                className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white"
+                className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white"
               >
                 채팅
               </Link>

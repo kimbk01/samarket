@@ -15,17 +15,17 @@ function MemoList({
 }) {
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-5">
-      <h2 className="mb-3 text-[15px] font-medium text-sam-fg">
+      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">
         {sectionLabel}
       </h2>
       {items.length === 0 ? (
-        <p className="text-[14px] text-sam-muted">등록된 항목이 없습니다.</p>
+        <p className="sam-text-body text-sam-muted">등록된 항목이 없습니다.</p>
       ) : (
         <ul className="space-y-3">
           {items.map((item) => (
             <li
               key={item.id}
-              className={`flex items-start gap-3 text-[14px] ${
+              className={`flex items-start gap-3 sam-text-body ${
                 item.applied ? "text-sam-muted" : "text-sam-fg"
               }`}
             >
@@ -60,7 +60,7 @@ export default function AdminMemoPage() {
     <div className="space-y-8 p-6">
       <div>
         <h1 className="text-xl font-semibold text-sam-fg">실서비스 메모</h1>
-        <p className="mt-1 text-[13px] text-sam-muted">
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">
           테스트 기간 수동 적용 항목·실서비스 전 처리 목록. 적용 시 대화에서
           &quot;N번 적용해줘&quot; 요청하면 코드 반영 후 체크 표시해 드립니다.
         </p>
@@ -75,7 +75,7 @@ export default function AdminMemoPage() {
         sectionLabel="실서비스 전 처리해야 할 부분"
       />
 
-      <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+      <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
         <p className="font-medium">적용 방법</p>
         <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-700">
           <li>항목 추가·수정: <code className="rounded bg-amber-100 px-1">web/lib/admin/production-memo.ts</code> 편집</li>

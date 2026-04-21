@@ -23,7 +23,7 @@ export function TradeChatLoadingShell({
         aria-busy="true"
       >
         <TradeChatEntryRingSpinner />
-        <p className="mt-5 text-[15px] font-medium text-sam-fg">{label}</p>
+        <p className="mt-5 sam-text-body font-medium text-sam-fg">{label}</p>
         {description ? <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{description}</p> : null}
       </div>
     );

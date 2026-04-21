@@ -28,7 +28,7 @@ export function AdminBannerStatusBadge({ status, className = "" }: AdminBannerSt
   const { tt } = useI18n();
   return (
     <span
-      className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${CLASSES[status]} ${className}`}
+      className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
       {tt(LABELS[status])}
     </span>

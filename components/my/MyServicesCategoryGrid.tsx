@@ -33,7 +33,7 @@ export function MyServicesCategoryGrid() {
 
   if (loading) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-8 text-center text-[14px] text-sam-muted shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-sam-muted shadow-sm">
         불러오는 중…
       </div>
     );
@@ -41,7 +41,7 @@ export function MyServicesCategoryGrid() {
 
   if (error) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-6 text-center text-[14px] text-red-500 shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-6 text-center sam-text-body text-red-500 shadow-sm">
         {error}
       </div>
     );
@@ -50,8 +50,8 @@ export function MyServicesCategoryGrid() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="mb-2 px-1 text-[13px] font-medium text-sam-muted">서비스</h2>
-        <Link href="/services" className="text-[13px] text-signature">
+        <h2 className="mb-2 px-1 sam-text-body-secondary font-medium text-sam-muted">서비스</h2>
+        <Link href="/services" className="sam-text-body-secondary text-signature">
           전체 서비스
         </Link>
       </div>

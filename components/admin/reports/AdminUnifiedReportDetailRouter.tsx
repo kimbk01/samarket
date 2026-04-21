@@ -46,10 +46,10 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
   }, [reportId]);
 
   if (phase === "loading") {
-    return <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>;
+    return <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>;
   }
   if (phase === "none") {
-    return <div className="py-8 text-center text-[14px] text-sam-muted">신고를 찾을 수 없습니다.</div>;
+    return <div className="py-8 text-center sam-text-body text-sam-muted">신고를 찾을 수 없습니다.</div>;
   }
   if (phase === "legacy") {
     return <AdminReportDetailPage reportId={reportId.trim()} />;
@@ -57,5 +57,5 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
   if (phase === "community" && communityRow) {
     return <AdminCommunityReportDetailClient initialRow={communityRow} />;
   }
-  return <div className="py-8 text-center text-[14px] text-sam-muted">불러오는 중…</div>;
+  return <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>;
 }

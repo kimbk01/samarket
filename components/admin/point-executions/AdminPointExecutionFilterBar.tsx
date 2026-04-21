@@ -30,7 +30,7 @@ export function AdminPointExecutionFilterBar({
             status: e.target.value as PointRewardExecutionStatus | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
         {EXECUTION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -43,7 +43,7 @@ export function AdminPointExecutionFilterBar({
         onChange={(e) =>
           onFiltersChange({ ...filters, boardKey: e.target.value })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
         <option value="">전체 게시판</option>
         {BOARD_OPTIONS.map((b) => (
@@ -60,7 +60,7 @@ export function AdminPointExecutionFilterBar({
             actionType: e.target.value as PointRewardActionType | "",
           })
         }
-        className="rounded border border-sam-border bg-sam-surface px-3 py-2 text-[14px]"
+        className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
         <option value="">전체 행동</option>
         <option value="write">{POINT_REWARD_ACTION_LABELS.write}</option>
@@ -73,7 +73,7 @@ export function AdminPointExecutionFilterBar({
         onChange={(e) =>
           onFiltersChange({ ...filters, userId: e.target.value })
         }
-        className="min-w-[120px] rounded border border-sam-border px-3 py-2 text-[14px]"
+        className="min-w-[120px] rounded border border-sam-border px-3 py-2 sam-text-body"
       />
     </div>
   );

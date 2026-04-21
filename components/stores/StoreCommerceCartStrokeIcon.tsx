@@ -1,6 +1,6 @@
 /** 헤더·스티키바 등 장바구니 숫자 뱃지 공통 (브랜드 시그니처) */
 export const STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME =
-  "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-signature px-1 text-[10px] font-bold leading-none text-white";
+  "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-signature px-1 sam-text-xxs font-bold leading-none text-white";
 
 /** 매장 상단·하단 장바구니 링크 공통 아이콘 (stroke, currentColor) */
 export function StoreCommerceCartStrokeIcon({ className }: { className?: string }) {

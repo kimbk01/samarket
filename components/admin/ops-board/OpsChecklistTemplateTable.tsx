@@ -32,7 +32,7 @@ export function OpsChecklistTemplateTable() {
 
   if (templates.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center text-[14px] text-sam-muted">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
         체크리스트 템플릿이 없습니다.
       </div>
     );
@@ -40,7 +40,7 @@ export function OpsChecklistTemplateTable() {
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-      <table className="w-full min-w-[560px] border-collapse text-[14px]">
+      <table className="w-full min-w-[560px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
@@ -78,9 +78,9 @@ export function OpsChecklistTemplateTable() {
               </td>
               <td className="px-3 py-2.5">
                 {t.isActive ? (
-                  <span className="text-[13px] text-emerald-600">ON</span>
+                  <span className="sam-text-body-secondary text-emerald-600">ON</span>
                 ) : (
-                  <span className="text-[13px] text-sam-meta">OFF</span>
+                  <span className="sam-text-body-secondary text-sam-meta">OFF</span>
                 )}
               </td>
             </tr>

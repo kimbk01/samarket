@@ -115,10 +115,10 @@ export function MessengerFriendsScreen({
         className={`mt-2 overflow-hidden bg-[color:var(--messenger-bg)] ${topDivider ? "border-t border-[color:var(--messenger-divider)]" : ""}`}
       >
         <div className="flex items-center justify-between px-3 py-1.5">
-          <h2 className="text-[13px] font-bold" style={{ color: accent ?? "var(--messenger-text)" }}>
+          <h2 className="sam-text-body-secondary font-bold" style={{ color: accent ?? "var(--messenger-text)" }}>
             {title}
           </h2>
-          <span className="text-[12px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="sam-text-helper tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
             {rows.length}
           </span>
         </div>
@@ -167,7 +167,7 @@ export function MessengerFriendsScreen({
           : null}
         {sortedFriends.length === 0 ? (
           <div
-            className="border-b border-t border-[color:var(--messenger-divider)] px-3 py-6 text-center text-[13px]"
+            className="border-b border-t border-[color:var(--messenger-divider)] px-3 py-6 text-center sam-text-body-secondary"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             아직 친구가 없습니다.
@@ -182,12 +182,12 @@ export function MessengerFriendsScreen({
             style={{ color: "var(--messenger-text)" }}
           >
             <div>
-              <p className="text-[14px] font-medium">숨김 · 차단 · 알림 끔</p>
-              <p className="mt-0.5 text-[11px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="sam-text-body font-medium">숨김 · 차단 · 알림 끔</p>
+              <p className="mt-0.5 sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
                 숨김 {friendStateModel.hidden.length} · 차단 {friendStateModel.blocked.length} · 끔 {friendStateModel.muted.length}
               </p>
             </div>
-            <span className="text-[12px]" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
+            <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
               ›
             </span>
           </button>

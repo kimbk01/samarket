@@ -34,7 +34,7 @@ export function AdminAdApplicationDetailPage({
 
   if (!application) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
+      <div className="py-8 text-center sam-text-body text-sam-muted">
         광고 신청을 찾을 수 없습니다.
       </div>
     );
@@ -54,7 +54,7 @@ export function AdminAdApplicationDetailPage({
       />
       <AdminAdActionPanel application={application} onActionSuccess={refreshDetail} />
       <AdminCard title="신청 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">대상</dt>
             <dd>
@@ -85,7 +85,7 @@ export function AdminAdApplicationDetailPage({
             <dt className="text-sam-muted">신청 상태</dt>
             <dd>
               <span
-                className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${
+                className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
                   application.applicationStatus === "active"
                     ? "bg-signature/10 text-signature"
                     : application.applicationStatus === "rejected"
@@ -106,7 +106,7 @@ export function AdminAdApplicationDetailPage({
           {(application.startAt || application.endAt) && (
             <div>
               <dt className="text-sam-muted">노출 기간</dt>
-              <dd className="text-[13px] text-sam-muted">
+              <dd className="sam-text-body-secondary text-sam-muted">
                 {application.startAt &&
                   new Date(application.startAt).toLocaleString("ko-KR")}
                 {" ~ "}
@@ -117,7 +117,7 @@ export function AdminAdApplicationDetailPage({
           )}
           <div>
             <dt className="text-sam-muted">신청일</dt>
-            <dd className="text-[13px] text-sam-muted">
+            <dd className="sam-text-body-secondary text-sam-muted">
               {new Date(application.createdAt).toLocaleString("ko-KR")}
             </dd>
           </div>
@@ -138,18 +138,18 @@ export function AdminAdApplicationDetailPage({
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
             placeholder="메모 입력"
-            className="flex-1 rounded border border-sam-border px-3 py-2 text-[14px]"
+            className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <button
             type="button"
             onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 text-[14px] text-sam-fg hover:bg-sam-surface-muted"
+            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
           >
             저장
           </button>
         </div>
         {application.adminMemo && (
-          <p className="mt-2 text-[13px] text-sam-muted">
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">
             {application.adminMemo}
           </p>
         )}

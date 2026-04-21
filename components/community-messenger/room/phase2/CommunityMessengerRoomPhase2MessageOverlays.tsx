@@ -117,13 +117,13 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={() => vm.setCallStubSheet(null)} />
           <div className="w-full max-h-[min(72vh,480px)] overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
             <div className="border-b border-ui-border px-4 py-3">
-              <p className="text-[13px] font-semibold text-ui-fg">통화 메시지</p>
-              <p className="mt-1 line-clamp-2 text-[12px] text-ui-muted">{callStubSheet.content}</p>
+              <p className="sam-text-body-secondary font-semibold text-ui-fg">통화 메시지</p>
+              <p className="mt-1 line-clamp-2 sam-text-helper text-ui-muted">{callStubSheet.content}</p>
             </div>
             <nav className="flex flex-col p-1" aria-label="통화 로그 작업">
               <button
                 type="button"
-                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover disabled:opacity-40"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left sam-text-body text-ui-fg active:bg-ui-hover disabled:opacity-40"
                 disabled={
                   vm.roomUnavailable ||
                   (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
@@ -141,7 +141,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
               </button>
               <button
                 type="button"
-                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left sam-text-body text-ui-fg active:bg-ui-hover"
                 onClick={() => {
                   vm.setCallStubSheet(null);
                   window.requestAnimationFrame(() => vm.composerTextareaRef.current?.focus());
@@ -151,7 +151,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
               </button>
               <button
                 type="button"
-                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left sam-text-body text-ui-fg active:bg-ui-hover"
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(callStubSheet.content);
@@ -165,14 +165,14 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
               </button>
               <button
                 type="button"
-                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-ui-fg active:bg-ui-hover"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left sam-text-body text-ui-fg active:bg-ui-hover"
                 onClick={() => vm.hideCallStubLocally(callStubSheet.id)}
               >
                 이 기기에서만 숨기기
               </button>
               <button
                 type="button"
-                className="w-full rounded-ui-rect px-4 py-3.5 text-left text-[15px] text-red-600 active:bg-red-50"
+                className="w-full rounded-ui-rect px-4 py-3.5 text-left sam-text-body text-red-600 active:bg-red-50"
                 onClick={() => {
                   const id = callStubSheet.id;
                   vm.setCallStubSheet(null);
@@ -185,7 +185,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             <button
               type="button"
               onClick={() => vm.setCallStubSheet(null)}
-              className="mt-1 w-full border-t border-ui-border py-3 text-[14px] font-medium text-ui-muted"
+              className="mt-1 w-full border-t border-ui-border py-3 sam-text-body font-medium text-ui-muted"
             >
               취소
             </button>
@@ -209,8 +209,8 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
       {vm.replyToMessage && !vm.voiceRecording ? (
         <div className="flex shrink-0 items-center gap-2 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2">
           <div className="min-w-0 flex-1 border-l-2 border-[color:var(--cm-room-primary)] pl-2">
-            <p className="text-[10px] font-semibold text-[color:var(--cm-room-primary)]">답장</p>
-            <p className="line-clamp-2 text-[12px] text-[color:var(--cm-room-text-muted)]">
+            <p className="sam-text-xxs font-semibold text-[color:var(--cm-room-primary)]">답장</p>
+            <p className="line-clamp-2 sam-text-helper text-[color:var(--cm-room-text-muted)]">
               {vm.replyToMessage.messageType === "text"
                 ? vm.replyToMessage.content
                 : `(${vm.replyToMessage.messageType})`}
@@ -219,7 +219,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           <button
             type="button"
             onClick={() => vm.setReplyToMessage(null)}
-            className="shrink-0 rounded-full px-2 py-1 text-[12px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
+            className="shrink-0 rounded-full px-2 py-1 sam-text-helper font-medium text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
           >
             취소
           </button>

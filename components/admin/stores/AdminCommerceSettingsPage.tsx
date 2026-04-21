@@ -83,7 +83,7 @@ export function AdminCommerceSettingsPage() {
   return (
     <div className="max-w-lg space-y-6">
       <AdminPageHeader title="매장 커머스 수치" />
-      <p className="text-[13px] text-sam-muted">
+      <p className="sam-text-body-secondary text-sam-muted">
         DB에 값이 있으면 <strong>.env보다 우선</strong>합니다. &quot;DB 제거&quot;는 해당 항목만 환경변수 기본으로
         돌립니다. 주문 채팅 일치 알림음은{" "}
         <Link href="/admin/stores/application-settings" className="text-signature underline">
@@ -125,7 +125,7 @@ export function AdminCommerceSettingsPage() {
               value={autoDays}
               onChange={(e) => setAutoDays(e.target.value)}
             />
-            <span className="mt-0.5 block text-[11px] text-sam-meta">1~90</span>
+            <span className="mt-0.5 block sam-text-xxs text-sam-meta">1~90</span>
           </label>
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">

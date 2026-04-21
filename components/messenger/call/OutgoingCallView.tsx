@@ -14,12 +14,12 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#512bbb_36%,#27154a_100%)] px-5 pb-[max(22px,calc(env(safe-area-inset-bottom)+10px))] pt-[max(18px,env(safe-area-inset-top)+8px)]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.14),transparent_36%),radial-gradient(circle_at_50%_92%,rgba(255,255,255,0.05),transparent_34%)]" />
       <div className="relative flex min-h-0 flex-1 flex-col items-center">
-        <div className="mt-[10vh] flex items-center gap-1.5 text-[15px] font-semibold text-white/72">
+        <div className="mt-[10vh] flex items-center gap-1.5 sam-text-body font-semibold text-white/72">
           {isVideo ? <Video size={16} className="opacity-80" /> : <PhoneOff size={15} className="rotate-[135deg] opacity-70" />}
           <span>{topLine}</span>
         </div>
-        <h1 className="mt-2 text-center text-[26px] font-bold tracking-tight text-white">{vm.peerLabel}</h1>
-        <p className="mt-3 text-[16px] font-medium text-white/76">{vm.statusText}</p>
+        <h1 className="mt-2 text-center sam-text-hero font-bold tracking-tight text-white">{vm.peerLabel}</h1>
+        <p className="mt-3 sam-text-body-lg font-medium text-white/76">{vm.statusText}</p>
         <div className="mt-8">
           <CallAvatar
             label={vm.peerLabel}
@@ -29,7 +29,7 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
           />
         </div>
         {vm.subStatusText ? (
-          <p className="mt-2 max-w-[300px] text-center text-[13px] leading-snug text-white/62">{vm.subStatusText}</p>
+          <p className="mt-2 max-w-[300px] text-center sam-text-body-secondary leading-snug text-white/62">{vm.subStatusText}</p>
         ) : null}
 
         <div className="mt-auto flex w-full flex-col items-center justify-center pb-2 pt-8">
@@ -44,7 +44,7 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
               >
                 <PhoneOff size={38} strokeWidth={2.6} />
               </button>
-              <span className="text-[17px] font-medium text-white/92">{endAction.label}</span>
+              <span className="sam-text-section-title font-medium text-white/92">{endAction.label}</span>
             </div>
           ) : (
             <CallActionBar actions={vm.primaryActions} />

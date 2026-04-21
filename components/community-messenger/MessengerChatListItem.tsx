@@ -378,7 +378,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       </div>
     ) : (
       <div className="relative">
-        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-12 w-12" textClassName="text-[14px]" />
+        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-12 w-12" textClassName="sam-text-body" />
         {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
       </div>
     );
@@ -389,7 +389,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       avatar={avatarBlock}
       trailing={
         <>
-          <span className="text-[12px] font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="sam-text-helper font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
             {formatConversationTimestamp(item.lastEventAt)}
           </span>
           <div className="flex items-center gap-0.5">
@@ -404,7 +404,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               </span>
             ) : null}
             {room.unreadCount > 0 ? (
-              <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center text-[10px] font-semibold leading-[18px] text-white">
+              <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white">
                 {room.unreadCount > 999 ? "999+" : room.unreadCount}
               </span>
             ) : null}
@@ -413,59 +413,59 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       }
     >
       <div className="flex min-w-0 items-center gap-1">
-        <p className="min-w-0 truncate text-[15px] font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
+        <p className="min-w-0 truncate sam-text-body font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
           {room.title}
         </p>
         {titleSuffix ? (
-          <span className="shrink-0 text-[12px] font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="shrink-0 sam-text-helper font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
             {titleSuffix}
           </span>
         ) : null}
         <span
-          className={`shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium leading-none ${getRoomTypeBadgeClassName(
+          className={`shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium leading-none ${getRoomTypeBadgeClassName(
             roomTypeLabel
           )}`}
         >
           {roomTypeLabel}
         </span>
         {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
-          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
+          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
             {tradeItemStateLabel}
           </span>
         ) : null}
       </div>
       {commerceMeta?.kind === "trade" ? (
         tradeRoleLabel ? (
-          <p className="mt-0.5 truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p className="mt-0.5 truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
             {tradeRoleLabel}
           </p>
         ) : null
       ) : commerceSubline ? (
-        <p className="mt-0.5 truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+        <p className="mt-0.5 truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
           {commerceSubline}
         </p>
       ) : null}
       <div className="mt-0.5 flex min-w-0 items-center gap-1">
         {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
-          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
+          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
             {deliveryStepLabel}
           </span>
         ) : null}
         {secondaryHint ? (
           <span
-            className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-normal"
+            className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-normal"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             {secondaryHint}
           </span>
         ) : null}
         {isFavorite ? (
-          <span className="shrink-0 text-[11px]" style={{ color: "var(--messenger-primary)" }}>
+          <span className="shrink-0 sam-text-xxs" style={{ color: "var(--messenger-primary)" }}>
             ★
           </span>
         ) : null}
         <p
-          className={`min-w-0 truncate text-[13px] font-normal leading-snug ${room.unreadCount > 0 ? "font-medium" : ""}`}
+          className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${room.unreadCount > 0 ? "font-medium" : ""}`}
           style={{ color: room.unreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
         >
           {item.preview}
@@ -528,7 +528,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           type="button"
           onClick={() => runRowAction(() => onTogglePin(room))}
           disabled={settingsBusy}
-          className="flex w-[78px] items-center justify-center bg-violet-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+          className="flex w-[78px] items-center justify-center bg-violet-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
           {room.isPinned ? "고정 해제" : "고정"}
         </button>
@@ -536,7 +536,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           type="button"
           onClick={() => runRowAction(() => onToggleMute(room))}
           disabled={settingsBusy}
-          className="flex w-[78px] items-center justify-center bg-slate-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+          className="flex w-[78px] items-center justify-center bg-slate-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
           {room.isMuted ? "알림 켜기" : "알림 끄기"}
         </button>
@@ -549,7 +549,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             })
           }
           disabled={archiveBusy || readBusy}
-          className="flex w-[78px] items-center justify-center bg-amber-600 px-2 text-[12px] font-semibold text-white disabled:opacity-50"
+          className="flex w-[78px] items-center justify-center bg-amber-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
           {listContext === "archive" ? "복원" : "보관"}
         </button>
@@ -623,7 +623,7 @@ function CommerceThumb({
 }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
-    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="text-[14px]" />;
+    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="sam-text-body" />;
   }
   return (
     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">

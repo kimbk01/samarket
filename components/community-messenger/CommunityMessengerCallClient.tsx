@@ -1965,11 +1965,11 @@ export function CommunityMessengerCallClient({
   if (!session) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-[18px] font-semibold text-ui-fg">통화를 찾을 수 없습니다.</p>
+        <p className="sam-text-page-title font-semibold text-ui-fg">통화를 찾을 수 없습니다.</p>
         <button
           type="button"
           onClick={() => router.replace("/community-messenger")}
-          className="rounded-ui-rect bg-ui-fg px-4 py-3 text-[14px] font-semibold text-ui-surface"
+          className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >
           메신저로 돌아가기
         </button>
@@ -2398,23 +2398,23 @@ function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-[15px] font-semibold text-white">자판</p>
+          <p className="sam-text-body font-semibold text-white">자판</p>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-3 py-1.5 text-[13px] font-medium text-white/75 transition hover:bg-sam-surface/10"
+            className="rounded-full px-3 py-1.5 sam-text-body-secondary font-medium text-white/75 transition hover:bg-sam-surface/10"
           >
             닫기
           </button>
         </div>
-        <p className="mb-3 text-[11px] leading-snug text-white/45">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>
+        <p className="mb-3 sam-text-xxs leading-snug text-white/45">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>
         <div className="grid grid-cols-3 gap-2">
           {keys.map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => playDtmfDigit(k)}
-              className="flex h-12 items-center justify-center rounded-full border border-sam-surface/18 bg-sam-surface/[0.06] text-[18px] font-semibold text-white transition active:scale-95 active:bg-sam-surface/12"
+              className="flex h-12 items-center justify-center rounded-full border border-sam-surface/18 bg-sam-surface/[0.06] sam-text-page-title font-semibold text-white transition active:scale-95 active:bg-sam-surface/12"
             >
               {k}
             </button>
@@ -2456,7 +2456,7 @@ function ViberOutlineCallButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex h-[88px] w-full max-w-[108px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-full border-2 text-[10px] font-medium tracking-tight text-white/95 transition active:scale-[0.96] disabled:opacity-40 ${
+      className={`flex h-[88px] w-full max-w-[108px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-full border-2 sam-text-xxs font-medium tracking-tight text-white/95 transition active:scale-[0.96] disabled:opacity-40 ${
         active
           ? "border-sam-surface/45 bg-sam-surface/[0.14] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
           : "border-sam-surface/22 bg-sam-surface/[0.05]"
@@ -2488,7 +2488,7 @@ function CallControlButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-ui-rect border px-2 py-2 text-center text-[11px] disabled:opacity-40 ${
+      className={`flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-ui-rect border px-2 py-2 text-center sam-text-xxs disabled:opacity-40 ${
         active ? "border-sam-surface/30 bg-sam-surface/15 text-white" : "border-sam-surface/10 bg-sam-surface/5 text-white/88"
       }`}
     >
@@ -2534,14 +2534,14 @@ function CallerMediaGateOverlay({
   return (
     <div className="pointer-events-auto absolute inset-0 z-[45] flex items-center justify-center bg-black/50 px-5 backdrop-blur-[2px]">
       <div className="w-full max-w-[300px] rounded-[20px] border border-sam-surface/12 bg-[#1e232c]/95 px-5 py-5 text-center shadow-xl">
-        <p className="text-[16px] font-semibold text-white">{headline}</p>
-        <p className="mt-2 text-[13px] leading-snug text-white/75">{explain}</p>
-        <p className="mt-2 text-[11px] leading-snug text-white/50">{t("nav_messenger_call_gate_trust_hint")}</p>
+        <p className="sam-text-body-lg font-semibold text-white">{headline}</p>
+        <p className="mt-2 sam-text-body-secondary leading-snug text-white/75">{explain}</p>
+        <p className="mt-2 sam-text-xxs leading-snug text-white/50">{t("nav_messenger_call_gate_trust_hint")}</p>
         <button
           type="button"
           onClick={onConfirm}
           disabled={busy}
-          className="mt-4 w-full rounded-full bg-sam-surface py-3 text-[15px] font-semibold text-sam-fg disabled:opacity-40"
+          className="mt-4 w-full rounded-full bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
         >
           {busy ? "연결 중…" : "허용하고 연결"}
         </button>

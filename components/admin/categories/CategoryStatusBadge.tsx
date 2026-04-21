@@ -7,7 +7,7 @@ interface CategoryStatusBadgeProps {
 export function CategoryStatusBadge({ isActive }: CategoryStatusBadgeProps) {
   return (
     <span
-      className={`inline-flex rounded px-1.5 py-0.5 text-[12px] font-medium ${
+      className={`inline-flex rounded px-1.5 py-0.5 sam-text-helper font-medium ${
         isActive ? "bg-green-100 text-green-800" : "bg-sam-border-soft text-sam-muted"
       }`}
     >

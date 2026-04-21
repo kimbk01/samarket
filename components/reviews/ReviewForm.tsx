@@ -53,11 +53,11 @@ export function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className="p-4">
-      <p className="text-[14px] text-sam-muted">
+      <p className="sam-text-body text-sam-muted">
         <strong>{revieweeLabel}</strong>님에 대한 거래 후기를 남겨주세요. (1회만 가능)
       </p>
       <div className="mt-4">
-        <p className="mb-2 text-[13px] font-medium text-sam-fg">평가</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">평가</p>
         <div className="flex gap-2">
           {PUBLIC_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex cursor-pointer items-center gap-1.5">
@@ -69,7 +69,7 @@ export function ReviewForm({
                 onChange={() => setPublicType(opt.value)}
                 className="rounded border-sam-border"
               />
-              <span className="text-[13px] text-sam-fg">{opt.label}</span>
+              <span className="sam-text-body-secondary text-sam-fg">{opt.label}</span>
             </label>
           ))}
         </div>
@@ -82,22 +82,22 @@ export function ReviewForm({
             onChange={(e) => setAnonymousNegative(e.target.checked)}
             className="rounded border-sam-border"
           />
-          <span className="text-[12px] text-sam-muted">부정/비매너 평가는 상대방에게 익명으로 표시</span>
+          <span className="sam-text-helper text-sam-muted">부정/비매너 평가는 상대방에게 익명으로 표시</span>
         </label>
       )}
-      {error && <p className="mt-2 text-[13px] text-red-600">{error}</p>}
+      {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}
       <div className="mt-4 flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-[14px] text-sam-fg"
+          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
         >
           취소
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-ui-rect bg-signature py-2.5 text-[14px] font-medium text-white disabled:opacity-50"
+          className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
           {loading ? "등록 중..." : "후기 보내기"}
         </button>

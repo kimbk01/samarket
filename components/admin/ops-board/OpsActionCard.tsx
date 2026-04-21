@@ -53,8 +53,8 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <h3 className="font-medium text-sam-fg">{item.title}</h3>
-          <p className="mt-1 text-[13px] text-sam-muted">{item.description}</p>
-          <div className="mt-2 flex flex-wrap gap-2 text-[12px] text-sam-muted">
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">{item.description}</p>
+          <div className="mt-2 flex flex-wrap gap-2 sam-text-helper text-sam-muted">
             <span>{SOURCE_LABELS[item.sourceType] ?? item.sourceType}</span>
             <span>{PRIORITY_LABELS[item.priority]}</span>
             {item.dueDate && (
@@ -69,7 +69,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
           </div>
         </div>
         <span
-          className={`shrink-0 rounded px-2 py-0.5 text-[12px] ${
+          className={`shrink-0 rounded px-2 py-0.5 sam-text-helper ${
             item.status === "done"
               ? "bg-emerald-50 text-emerald-800"
               : item.status === "in_progress"
@@ -85,14 +85,14 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
           <button
             type="button"
             onClick={() => handleStatusChange("in_progress")}
-            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[12px] text-amber-800"
+            className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
           >
             진행
           </button>
           <button
             type="button"
             onClick={() => handleStatusChange("done")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[12px] text-emerald-800"
+            className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
           >
             완료
           </button>

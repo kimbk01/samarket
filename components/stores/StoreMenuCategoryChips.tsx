@@ -41,7 +41,7 @@ export function StoreMenuCategoryChips({
               role="tab"
               aria-selected={on}
               onClick={() => onSelect(i)}
-              className={`shrink-0 rounded-full border px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+              className={`shrink-0 rounded-full border px-3.5 py-2 sam-text-body-secondary font-semibold transition-colors ${
                 on
                   ? "border-sam-border bg-sam-ink text-white"
                   : "border-sam-border bg-sam-surface text-sam-muted shadow-sm active:bg-sam-app"

@@ -25,13 +25,13 @@ export function QaIssueTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">상태</span>
         <select
           value={status}
           onChange={(e) =>
             setStatus((e.target.value || "") as QaIssueStatus | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="open">오픈</option>
@@ -40,13 +40,13 @@ export function QaIssueTable() {
           <option value="verified">검증됨</option>
           <option value="wont_fix">미해결</option>
         </select>
-        <span className="text-[13px] text-sam-muted">심각도</span>
+        <span className="sam-text-body-secondary text-sam-muted">심각도</span>
         <select
           value={severity}
           onChange={(e) =>
             setSeverity((e.target.value || "") as QaIssueSeverity | "")
           }
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
           <option value="">전체</option>
           <option value="critical">긴급</option>
@@ -56,12 +56,12 @@ export function QaIssueTable() {
         </select>
       </div>
 
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         재현 가능 여부(reproduced)는 placeholder로 표시됩니다.
       </p>
 
       {logs.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           QA 이슈가 없습니다.
         </div>
       ) : (
@@ -90,7 +90,7 @@ export function QaIssueTable() {
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     l.severity === "critical"
                       ? "bg-red-100 text-red-800"
                       : l.severity === "high"
@@ -103,7 +103,7 @@ export function QaIssueTable() {
               </td>
               <td className="px-3 py-2.5">
                 <span
-                  className={`rounded px-1.5 py-0.5 text-[12px] ${
+                  className={`rounded px-1.5 py-0.5 sam-text-helper ${
                     l.status === "verified"
                       ? "bg-emerald-100 text-emerald-800"
                       : l.status === "open"
@@ -114,7 +114,7 @@ export function QaIssueTable() {
                   {getIssueStatusLabel(l.status)}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {l.relatedTestCaseId ? (
                   <Link
                     href="/admin/qa-board"
@@ -126,13 +126,13 @@ export function QaIssueTable() {
                   "-"
                 )}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {l.reproduced === true ? "Y" : l.reproduced === false ? "N" : "-"}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-fg">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
                 {l.ownerAdminNickname ?? "-"}
               </td>
-              <td className="max-w-[180px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[180px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {l.note || "-"}
               </td>
             </tr>

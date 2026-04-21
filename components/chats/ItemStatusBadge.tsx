@@ -23,7 +23,7 @@ export function ItemStatusBadge({ status, sellerListingState }: ItemStatusBadgeP
   const ls = normalizeSellerListingState(sellerListingState, status);
   const { label, tone } = publicListingBadge(ls, status);
   return (
-    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${TONE_CLASS[tone]}`}>
+    <span className={`inline-block rounded px-1.5 py-0.5 sam-text-xxs font-semibold ${TONE_CLASS[tone]}`}>
       {label}
     </span>
   );

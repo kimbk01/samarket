@@ -200,8 +200,8 @@ export function MeetingJoinButton({
             : "";
 
   const btnClass = embedChrome
-    ? "w-full rounded-ui-rect bg-emerald-600 py-3 text-[14px] font-semibold text-white disabled:opacity-40"
-    : "w-full rounded-ui-rect bg-emerald-600 py-3 text-[15px] font-bold text-white shadow-sm disabled:opacity-45";
+    ? "w-full rounded-ui-rect bg-emerald-600 py-3 sam-text-body font-semibold text-white disabled:opacity-40"
+    : "w-full rounded-ui-rect bg-emerald-600 py-3 sam-text-body font-bold text-white shadow-sm disabled:opacity-45";
 
   return (
     <div className={embedChrome ? "space-y-2" : "space-y-3"}>
@@ -215,12 +215,12 @@ export function MeetingJoinButton({
       </button>
 
       {helperText ? (
-        <p className={embedChrome ? "text-[11px] leading-relaxed text-sam-muted" : "text-[12px] leading-relaxed text-sam-muted"}>
+        <p className={embedChrome ? "sam-text-xxs leading-relaxed text-sam-muted" : "sam-text-helper leading-relaxed text-sam-muted"}>
           {helperText}
         </p>
       ) : null}
-      {err ? <p className="text-[12px] text-red-600">{err}</p> : null}
-      {okMsg ? <p className="text-[12px] text-emerald-700">{okMsg}</p> : null}
+      {err ? <p className="sam-text-helper text-red-600">{err}</p> : null}
+      {okMsg ? <p className="sam-text-helper text-emerald-700">{okMsg}</p> : null}
 
       <MeetingPasswordOnlyModal
         open={passwordModalOpen}

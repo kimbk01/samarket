@@ -83,7 +83,7 @@ function WheelColumn({ labels, selectedIndex, onChangeIndex, widthClass }: Wheel
               key={`${label}-${i}`}
               role="option"
               aria-selected={i === selectedIndex}
-              className="flex shrink-0 items-center justify-center text-[17px] leading-none"
+              className="flex shrink-0 items-center justify-center sam-text-section-title leading-none"
               style={{
                 height: ROW_PX,
                 scrollSnapAlign: "center",
@@ -166,7 +166,7 @@ export function TumblerTimePickerDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-sky-200/80 px-4 py-3">
-          <h2 id="tumbler-time-title" className="text-[15px] font-medium text-sky-500">
+          <h2 id="tumbler-time-title" className="sam-text-body font-medium text-sky-500">
             {title}
           </h2>
         </div>
@@ -178,7 +178,7 @@ export function TumblerTimePickerDialog({
             onChangeIndex={(i) => setH12(i + 1)}
             widthClass="w-11"
           />
-          <span className="mb-0.5 self-center px-0.5 text-[20px] font-semibold text-sam-fg" aria-hidden>
+          <span className="mb-0.5 self-center px-0.5 sam-text-page-title font-semibold text-sam-fg" aria-hidden>
             :
           </span>
           <WheelColumn
@@ -199,7 +199,7 @@ export function TumblerTimePickerDialog({
           <button
             type="button"
             onClick={done}
-            className="w-full py-3.5 text-[16px] font-bold text-sam-fg active:bg-sam-app"
+            className="w-full py-3.5 sam-text-body-lg font-bold text-sam-fg active:bg-sam-app"
           >
             완료
           </button>

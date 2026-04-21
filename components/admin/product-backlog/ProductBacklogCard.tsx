@@ -21,7 +21,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-sam-muted">
+      <div className="flex flex-wrap items-center gap-1.5 sam-text-helper text-sam-muted">
         <span>{getCategoryLabel(item.category)}</span>
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
           {getPriorityLabel(item.priority)}
@@ -35,11 +35,11 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
       </div>
       <p className="mt-2 font-medium text-sam-fg">{item.title}</p>
       {item.description && (
-        <p className="mt-1 line-clamp-2 text-[13px] text-sam-muted">
+        <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">
           {item.description}
         </p>
       )}
-      <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-sam-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
         <span
           className={`rounded px-1.5 py-0.5 ${
             item.status === "released"
@@ -58,7 +58,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
         )}
         {item.ownerAdminNickname && <span>담당 {item.ownerAdminNickname}</span>}
       </div>
-      <div className="mt-2 flex flex-wrap gap-1 text-[12px]">
+      <div className="mt-2 flex flex-wrap gap-1 sam-text-helper">
         {item.linkedActionItemId && (
           <Link href="/admin/ops-board" className="text-signature hover:underline">
             액션
@@ -76,7 +76,7 @@ export function ProductBacklogCard({ item }: ProductBacklogCardProps) {
         )}
       </div>
       {item.handoffNote && (
-        <p className="mt-2 border-t border-sam-border-soft pt-2 text-[12px] text-sam-muted">
+        <p className="mt-2 border-t border-sam-border-soft pt-2 sam-text-helper text-sam-muted">
           {item.handoffNote}
         </p>
       )}

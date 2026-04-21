@@ -29,22 +29,22 @@ export function OpsAdminPerformanceReviewTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] text-sam-muted">리뷰 기간</span>
+        <span className="sam-text-body-secondary text-sam-muted">리뷰 기간</span>
         <input
           type="month"
           value={period}
           onChange={(e) => setPeriod(e.target.value)}
-          className="rounded border border-sam-border px-3 py-1.5 text-[13px] text-sam-fg"
+          className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         />
         {teamFilter !== null && (
-          <span className="text-[13px] text-sam-muted">
+          <span className="sam-text-body-secondary text-sam-muted">
             팀 필터 placeholder
           </span>
         )}
       </div>
 
       {reviews.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center text-[14px] text-sam-muted">
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           해당 기간 성과 리뷰가 없습니다.
         </div>
       ) : (
@@ -89,11 +89,11 @@ export function OpsAdminPerformanceReviewTable() {
                 {r.overallPerformanceScore}
               </td>
               <td className="px-3 py-2.5">
-                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-[12px] text-sam-muted">
+                <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
                   {STATUS_LABELS[r.status]}
                 </span>
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="max-w-[120px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {r.reviewNote || "-"}
               </td>
             </tr>
@@ -101,7 +101,7 @@ export function OpsAdminPerformanceReviewTable() {
         </AdminTable>
       )}
 
-      <p className="text-[12px] text-sam-muted">
+      <p className="sam-text-helper text-sam-muted">
         성과 리뷰 메모/코멘트는 위 표의 메모 칸에 표시됩니다. (편집 placeholder)
       </p>
     </div>

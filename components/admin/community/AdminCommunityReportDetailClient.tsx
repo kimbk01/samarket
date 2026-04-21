@@ -57,14 +57,14 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
       <AdminPageHeader title="피드 신고 상세" backHref="/admin/reports" description="community_reports · 통합 신고 목록과 동일 id" />
 
       <AdminCard title="신고 정보">
-        <dl className="grid gap-2 text-[14px]">
+        <dl className="grid gap-2 sam-text-body">
           <div>
             <dt className="text-sam-muted">ID</dt>
-            <dd className="font-mono text-[12px] text-sam-fg">{row.id}</dd>
+            <dd className="font-mono sam-text-helper text-sam-fg">{row.id}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">대상</dt>
-            <dd className="font-mono text-[12px]">
+            <dd className="font-mono sam-text-helper">
               {row.target_type} · {row.target_id}
             </dd>
           </div>
@@ -87,7 +87,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           </div>
           <div>
             <dt className="text-sam-muted">신고자</dt>
-            <dd className="font-mono text-[12px]">{row.reporter_id}</dd>
+            <dd className="font-mono sam-text-helper">{row.reporter_id}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">사유 코드</dt>
@@ -95,12 +95,12 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           </div>
           <div>
             <dt className="text-sam-muted">내용</dt>
-            <dd className="whitespace-pre-wrap text-[13px] text-sam-fg">{row.reason_text ?? "—"}</dd>
+            <dd className="whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{row.reason_text ?? "—"}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">상태</dt>
             <dd>
-              <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-[12px]">
+              <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper">
                 {STATUS_LABEL[row.status] ?? row.status}
               </span>
             </dd>
@@ -119,7 +119,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
       </AdminCard>
 
       <AdminCard title="관리자 메모 · 상태">
-        <label className="mb-3 flex flex-col gap-1 text-[13px]">
+        <label className="mb-3 flex flex-col gap-1 sam-text-body-secondary">
           <span className="text-sam-muted">메모</span>
           <textarea
             className="min-h-[100px] rounded border border-sam-border px-2 py-2"
@@ -128,7 +128,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
             placeholder="내부 메모 (선택)"
           />
         </label>
-        <p className="mb-2 text-[12px] text-sam-muted">상태 변경 시 위 메모가 함께 저장됩니다.</p>
+        <p className="mb-2 sam-text-helper text-sam-muted">상태 변경 시 위 메모가 함께 저장됩니다.</p>
         <div className="flex flex-wrap gap-2">
           {(["open", "reviewing", "resolved", "dismissed"] as const).map((s) => (
             <button
@@ -136,13 +136,13 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
               type="button"
               disabled={busy || row.status === s}
               onClick={() => void patchStatus(s)}
-              className="rounded border border-sam-border px-3 py-1.5 text-[13px] hover:bg-sam-app disabled:opacity-40"
+              className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary hover:bg-sam-app disabled:opacity-40"
             >
               {STATUS_LABEL[s] ?? s}
             </button>
           ))}
         </div>
-        <p className="mt-4 text-[13px]">
+        <p className="mt-4 sam-text-body-secondary">
           <Link href="/admin/philife/reports" className="text-blue-600 hover:underline">
             피드 신고 목록으로
           </Link>

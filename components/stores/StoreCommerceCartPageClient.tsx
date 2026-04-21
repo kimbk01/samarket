@@ -745,13 +745,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (!cart.hydrated) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-sam-muted">{t("common_loading")}</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
 
   if (storeLoading) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center text-[14px] text-sam-muted">{t("common_loading")}</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
 
@@ -774,34 +774,34 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
           <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">장바구니</h1>
+              <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
             </div>
           </div>
         </div>
         <div className="px-4 py-10 text-center">
-          <p className="text-[16px] font-semibold text-emerald-800">주문이 접수되었습니다.</p>
+          <p className="sam-text-body-lg font-semibold text-emerald-800">주문이 접수되었습니다.</p>
           <div className="mt-6 flex flex-col items-center gap-3">
             <Link
               href="/my/store-orders"
-              className="text-[15px] font-semibold text-signature underline"
+              className="sam-text-body font-semibold text-signature underline"
             >
               주문 내역 확인
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}`}
-              className="text-[14px] text-sam-fg underline"
+              className="sam-text-body text-sam-fg underline"
             >
               이 주문 진행 보기
             </Link>
             <Link
               href={`/my/store-orders/${encodeURIComponent(lastOrderId)}/chat`}
-              className="text-[14px] text-sam-fg underline"
+              className="sam-text-body text-sam-fg underline"
             >
               매장 문의 남기기
             </Link>
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}`}
-              className="text-[14px] text-sam-muted underline"
+              className="sam-text-body text-sam-muted underline"
             >
               매장으로 돌아가기
             </Link>
@@ -817,14 +817,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
           <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">장바구니</h1>
+              <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
             </div>
           </div>
         </div>
         <div className="px-4 py-6">
-          <p className="text-[14px] text-sam-muted">이 매장 장바구니가 비어 있습니다.</p>
+          <p className="sam-text-body text-sam-muted">이 매장 장바구니가 비어 있습니다.</p>
           {otherBuckets.length > 0 ? (
-            <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 text-[13px] leading-relaxed text-amber-950">
+            <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
               <p className="font-medium text-amber-950">
                 다른 매장(
                 {otherBuckets.map((b, i) => (
@@ -843,19 +843,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <ul className="mt-3 space-y-2">
                 {otherBuckets.map((b) => (
                   <li key={b.storeId} className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12px] text-amber-900/90">
+                    <span className="sam-text-helper text-amber-900/90">
                       {b.storeName} · 상품 {b.itemCount}종 · {formatMoneyPhp(b.subtotalPhp)}
                     </span>
                     <button
                       type="button"
                       onClick={() => cart.clearStoreCart(b.storeId)}
-                      className="text-[12px] font-semibold text-red-700 underline"
+                      className="sam-text-helper font-semibold text-red-700 underline"
                     >
                       이 매장 비우기
                     </button>
                     <Link
                       href={`/stores/${encodeURIComponent(b.storeSlug)}/cart`}
-                      className="text-[12px] font-semibold text-signature underline"
+                      className="sam-text-helper font-semibold text-signature underline"
                     >
                       장바구니 열기
                     </Link>
@@ -867,7 +867,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           <div className="mt-6 flex flex-col gap-2">
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}`}
-              className="inline-block text-[14px] font-medium text-signature"
+              className="inline-block sam-text-body font-medium text-signature"
             >
               매장으로 돌아가기
             </Link>
@@ -891,7 +891,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
         <div className="w-full border-b border-sam-border-soft bg-sam-surface">
           <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-            <h1 className="py-3 text-center text-[16px] font-semibold text-sam-fg">{t("common_cart")}</h1>
+            <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">{t("common_cart")}</h1>
           </div>
         </div>
       </div>
@@ -918,7 +918,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             >
               <div className="relative h-16 w-16 shrink-0 overflow-visible">
                 {showDiscBadge ? (
-                  <span className="absolute -right-1 -top-1 z-10 flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold leading-none text-white shadow-sm">
+                  <span className="absolute -right-1 -top-1 z-10 flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold leading-none text-white shadow-sm">
                     {lineDiscPct}%
                   </span>
                 ) : null}
@@ -935,13 +935,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-semibold text-sam-fg">{line.title}</p>
-                <p className="mt-0.5 text-[12px] text-sam-muted">
+                <p className="sam-text-body font-semibold text-sam-fg">{line.title}</p>
+                <p className="mt-0.5 sam-text-helper text-sam-muted">
                   <span className="font-medium text-sam-muted">{t("common_option")}</span>{" "}
                   {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
                 </p>
                 {line.lineNote?.trim() ? (
-                  <p className="mt-0.5 text-[12px] text-amber-900/90">
+                  <p className="mt-0.5 sam-text-helper text-amber-900/90">
                     <span className="font-medium">{t("common_request")}</span> {line.lineNote.trim()}
                   </p>
                 ) : null}
@@ -957,13 +957,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   <span className="text-xs text-sam-muted">× {line.qty}</span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-baseline justify-end gap-2 border-t border-sam-border-soft pt-1.5">
-                  <span className="text-[11px] text-sam-muted">줄 합계</span>
+                  <span className="sam-text-xxs text-sam-muted">줄 합계</span>
                   {lineListTotal != null && lineListTotal > lineTotal ? (
                     <span className="text-xs font-normal text-sam-meta line-through">
                       {formatMoneyPhp(lineListTotal)}
                     </span>
                   ) : null}
-                  <span className="text-[15px] font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
+                  <span className="sam-text-body font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end justify-end gap-2 self-end">
@@ -976,7 +976,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   >
                     −
                   </button>
-                  <span className="min-w-[2rem] text-center text-[15px] font-semibold">{line.qty}</span>
+                  <span className="min-w-[2rem] text-center sam-text-body font-semibold">{line.qty}</span>
                   <button
                     type="button"
                     disabled={busy || line.qty >= line.maxOrderQty}
@@ -990,7 +990,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   type="button"
                   disabled={busy}
                   onClick={() => cart.removeLine(line.lineId)}
-                  className="text-[13px] font-medium text-red-600"
+                  className="sam-text-body-secondary font-medium text-red-600"
                 >
                   {t("common_delete")}
                 </button>
@@ -1003,21 +1003,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <div className="mx-3 mt-2">
         <Link
           href={`/stores/${encodeURIComponent(store.slug)}`}
-          className="inline-flex w-full items-center justify-center rounded border border-sam-border bg-sam-surface py-3 text-[14px] font-semibold text-signature shadow-sm active:bg-sam-app"
+          className="inline-flex w-full items-center justify-center rounded border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-signature shadow-sm active:bg-sam-app"
         >
           {t("common_menu_more")}
         </Link>
       </div>
 
       {otherBuckets.length > 0 ? (
-        <div className="mx-3 mt-3 rounded border border-sam-border bg-sam-surface px-3 py-2.5 text-[12px] text-sam-muted">
+        <div className="mx-3 mt-3 rounded border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper text-sam-muted">
           다른 매장 장바구니도 있습니다. 해당 매장 페이지에서 장바구니를 열 수 있어요.
         </div>
       ) : null}
 
       <div className="mx-3 mt-3 space-y-3">
         <div className="rounded border border-sam-border bg-sam-surface p-3.5 shadow-sm">
-            <dl className="space-y-2.5 text-[14px] leading-snug">
+            <dl className="space-y-2.5 sam-text-body leading-snug">
               <div className="flex justify-between gap-3">
                 <dt className="text-sam-muted">총상품금액</dt>
                 <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
@@ -1028,7 +1028,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <dt className="text-sam-muted">
                   할인금액
                   {discountAmountPhp > 0 && discountPercentOverall > 0 ? (
-                    <span className="ml-1 text-[11px] font-normal text-sam-meta">
+                    <span className="ml-1 sam-text-xxs font-normal text-sam-meta">
                       ({discountPercentOverall}%)
                     </span>
                   ) : null}
@@ -1050,12 +1050,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </dl>
             <div className="mt-3 border-t border-dashed border-sam-border pt-3">
               <div className="flex items-end justify-between gap-3">
-                <span className="text-[15px] font-bold text-sam-fg">결제예정금액</span>
-                <span className="text-[20px] font-bold leading-none text-rose-600 tabular-nums">
+                <span className="sam-text-body font-bold text-sam-fg">결제예정금액</span>
+                <span className="sam-text-page-title font-bold leading-none text-rose-600 tabular-nums">
                   {formatMoneyPhp(displayGrand)}
                 </span>
               </div>
-              <p className="mt-2 text-[11px] text-sam-meta">
+              <p className="mt-2 sam-text-xxs text-sam-meta">
                 최소 주문 금액 : {formatMoneyPhp(minOrderPhp)}
               </p>
             </div>
@@ -1063,7 +1063,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
         {showFreeDeliveryProgress ? (
           <div className="rounded border border-sky-100 bg-sky-50/80 px-3 py-2.5">
-            <p className="text-[12px] font-semibold text-sky-950">
+            <p className="sam-text-helper font-semibold text-sky-950">
               {formatMoneyPhp(freeDeliveryThresholdPhp!)} 이상 주문 시 무료배달
             </p>
             <div
@@ -1080,11 +1080,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               />
             </div>
             {freeDeliveryMet ? (
-              <p className="mt-1.5 text-[11px] font-medium text-emerald-700">
+              <p className="mt-1.5 sam-text-xxs font-medium text-emerald-700">
                 무료배달 조건을 충족했습니다.
               </p>
             ) : (
-              <p className="mt-1.5 text-[11px] text-sky-900/80">
+              <p className="mt-1.5 sam-text-xxs text-sky-900/80">
                 {formatMoneyPhp(Math.max(0, freeDeliveryThresholdPhp! - subtotalPhp))} 더 담으면 배달비가 면제될 수
                 있어요.
               </p>
@@ -1093,14 +1093,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ) : null}
 
         {fulfillment !== "local_delivery" ? (
-          <p className="text-[11px] text-sam-muted">
+          <p className="sam-text-xxs text-sam-muted">
             배달을 선택하면 매장에 설정된 예상 배달비가 위 요약에 반영됩니다.
           </p>
         ) : null}
 
         {minOrderPhp > 0 ? (
           <p
-            className={`text-[12px] font-medium ${meetsMin ? "text-emerald-700" : "text-amber-800"}`}
+            className={`sam-text-helper font-medium ${meetsMin ? "text-emerald-700" : "text-amber-800"}`}
           >
             {meetsMin
               ? "최소 주문 금액을 충족했습니다."
@@ -1113,7 +1113,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       <div className="mx-3 mt-3 space-y-3 rounded border border-sam-border bg-sam-surface p-4 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
-            <p className="text-[14px] font-medium text-sam-muted">수령 방식</p>
+            <p className="sam-text-body font-medium text-sam-muted">수령 방식</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {fulfillmentOptions.map((o) => (
                 <button
@@ -1127,7 +1127,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       else writeStoreFulfillmentPref(store.slug, "local_delivery");
                     }
                   }}
-                  className={`rounded-full px-3 py-1.5 text-[13px] ${
+                  className={`rounded-full px-3 py-1.5 sam-text-body-secondary ${
                     fulfillment === o.value
                       ? "bg-signature text-white"
                       : "border border-sam-border bg-sam-surface text-sam-fg"
@@ -1139,19 +1139,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
             {lines.length > 0 && fulfillmentOptions.length === 0 ? (
               canPickup || canDelivery || canShip ? (
-                <p className="mt-2 text-[12px] leading-snug text-amber-800">
+                <p className="mt-2 sam-text-helper leading-snug text-amber-800">
                   이 매장의 「서비스 형태」에서 포장 픽업과 배달이 모두 꺼져 있거나, 담긴 상품과 맞지 않아 수령
                   방식을 고를 수 없습니다. 매장 설정을 확인하거나 항목을 조정한 뒤 다시 시도해 주세요.
                 </p>
               ) : (
-                <p className="mt-2 text-[12px] leading-snug text-amber-800">
+                <p className="mt-2 sam-text-helper leading-snug text-amber-800">
                   담긴 상품은 포장 픽업·배달 모두 불가로 표시되어 있습니다. 항목을 삭제한 뒤 다시 담아 주세요.
                 </p>
               )
             ) : null}
           </div>
           <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pt-0 sm:pl-3">
-            <p className="text-[14px] font-medium text-sam-muted">
+            <p className="sam-text-body font-medium text-sam-muted">
               결제 방법 <span className="text-red-600">*</span>
             </p>
             <div
@@ -1162,7 +1162,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutPaymentOptions.map((opt) => (
                 <label
                   key={opt.id}
-                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 text-[13px] font-medium shadow-sm ${
+                  className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 sam-text-body-secondary font-medium shadow-sm ${
                     selectedPaymentMethod === opt.id
                       ? "border-signature bg-signature/5 text-sam-fg ring-1 ring-signature/25"
                       : "border-sam-border bg-sam-surface text-sam-fg"
@@ -1186,11 +1186,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
         {fulfillment === "pickup" && offerPickup && storePickupLines.length > 0 ? (
           <div className="rounded-ui-rect border border-sky-100 bg-sky-50/90 px-3 py-2.5">
-            <p className="text-[12px] font-semibold text-sky-950">픽업 장소 (매장 주소)</p>
-            <p className="mt-1 text-[11px] leading-snug text-sky-900/85">
+            <p className="sam-text-helper font-semibold text-sky-950">픽업 장소 (매장 주소)</p>
+            <p className="mt-1 sam-text-xxs leading-snug text-sky-900/85">
               이 주소에서 수령합니다. 배달을 고르면 아래에 입력하는 주소가 배달지로 전달됩니다.
             </p>
-            <ul className="mt-2 list-none space-y-0.5 text-[13px] leading-relaxed text-sky-950">
+            <ul className="mt-2 list-none space-y-0.5 sam-text-body-secondary leading-relaxed text-sky-950">
               {storePickupLines.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
@@ -1198,14 +1198,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {store?.slug ?
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/info`}
-                className="mt-2 inline-block text-[12px] font-medium text-signature underline"
+                className="mt-2 inline-block sam-text-helper font-medium text-signature underline"
               >
                 매장 정보
               </Link>
             : null}
           </div>
         ) : fulfillment === "pickup" && offerPickup ? (
-          <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2 text-[12px] text-amber-950">
+          <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2 sam-text-helper text-amber-950">
             매장 주소가 비어 있어 픽업 장소를 표시할 수 없습니다. 사장님 메뉴에서 매장 기본 정보를
             등록해 주세요.
           </p>
@@ -1219,7 +1219,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           }
         >
           <div className={needsAddressAndPhone ? "min-w-0 sm:max-w-[13rem] sm:shrink-0" : undefined}>
-            <p className="text-[14px] font-medium text-sam-muted">
+            <p className="sam-text-body font-medium text-sam-muted">
               연락처
               {fulfillment === "pickup" ? (
                 <span className="font-normal text-sam-meta"> (선택)</span>
@@ -1227,25 +1227,25 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <span className="text-red-600"> *</span>
               )}
             </p>
-            <p className="mt-2 text-[16px] font-medium tabular-nums tracking-tight text-sam-fg">
+            <p className="mt-2 sam-text-body-lg font-medium tabular-nums tracking-tight text-sam-fg">
               {formattedPhoneDisplay}
             </p>
           </div>
 
           {needsAddressAndPhone ? (
             <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pl-4 sm:pt-0">
-            <p className="text-[14px] font-medium text-sam-muted">
+            <p className="sam-text-body font-medium text-sam-muted">
               배송지 <span className="text-red-600">*</span>
             </p>
             <ul className="mt-2 space-y-2">
               {!checkoutContactReady ? (
                 <li className="rounded border border-sam-border bg-sam-surface p-3">
-                  <p className="text-[12px] text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
+                  <p className="sam-text-helper text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && addressBook.length === 0 ? (
                 <li className="rounded border border-amber-100 bg-amber-50/60 p-3">
-                  <p className="text-[12px] leading-snug text-amber-950">
+                  <p className="sam-text-helper leading-snug text-amber-950">
                     로그인하면 마이페이지에 저장한 배달 주소를 여기서 선택할 수 있습니다.
                   </p>
                 </li>
@@ -1268,16 +1268,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       aria-label="배달주소 1 (마이페이지) 선택"
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-sam-fg">배달주소 1</p>
-                      <p className="mt-0.5 text-[11px] font-medium text-sam-muted">
+                      <p className="sam-text-body-secondary font-bold text-sam-fg">배달주소 1</p>
+                      <p className="mt-0.5 sam-text-xxs font-medium text-sam-muted">
                         내정보 · 주소 관리 기본 배달
                       </p>
-                      <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-sam-fg">
+                      <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
                         {profileAddressBodyText ||
                           "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 아래 배송지 추가를 이용해 주세요."}
                       </p>
                       {!profileDeliveryReady && profileAddressBodyText ? (
-                        <p className="mt-1.5 text-[11px] leading-snug text-amber-800">
+                        <p className="mt-1.5 sam-text-xxs leading-snug text-amber-800">
                           주문 전 지역·주소 한 줄이 3자 이상인지 확인해 주세요.
                         </p>
                       ) : null}
@@ -1308,8 +1308,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                         aria-label={`${slotLabel} 선택`}
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-bold text-sam-fg">{slotLabel}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-[12px] font-normal leading-relaxed text-sam-fg">
+                        <p className="sam-text-body-secondary font-bold text-sam-fg">{slotLabel}</p>
+                        <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
                           {body || "—"}
                         </p>
                       </div>
@@ -1318,7 +1318,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                           type="button"
                           disabled={busy}
                           onClick={() => removeDeliveryAddress(e.id)}
-                          className="rounded border border-red-200 px-2 py-1 text-[11px] font-semibold text-red-700"
+                          className="rounded border border-red-200 px-2 py-1 sam-text-xxs font-semibold text-red-700"
                         >
                           삭제
                         </button>
@@ -1333,18 +1333,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 type="button"
                 disabled={busy}
                 onClick={openAddressModalAdd}
-                className="rounded border border-signature bg-sam-surface px-3 py-2 text-[13px] font-bold text-signature shadow-sm"
+                className="rounded border border-signature bg-sam-surface px-3 py-2 sam-text-body-secondary font-bold text-signature shadow-sm"
               >
                 + 배송지 추가
               </button>
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || addressBook.length > 0) ? (
-              <p className="mt-2 text-[11px] leading-snug text-amber-800">
+              <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {STORE_ADDRESS_STREET_LABEL}이 필요합니다.
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && addressBook.length === 0 ? (
-              <p className="mt-2 text-[11px] leading-snug text-amber-800">
+              <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나 배송지 추가로 주소를
                 넣어 주세요.
               </p>
@@ -1353,7 +1353,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           ) : null}
         </div>
         <div>
-          <label htmlFor="cart-buyer-note" className="text-[14px] font-medium text-sam-muted">
+          <label htmlFor="cart-buyer-note" className="sam-text-body font-medium text-sam-muted">
             요청 사항 (선택)
           </label>
           <textarea
@@ -1365,24 +1365,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             className="mt-2 w-full resize-none rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
             maxLength={500}
           />
-          <p className="mt-1 text-[11px] leading-snug text-sam-muted">
+          <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
             입력하시면 매장 사장님 주문 관리 화면에 &apos;고객 요청 사항&apos;으로 표시됩니다.
           </p>
         </div>
 
         {fulfillment === "local_delivery" && commerce.deliveryCourierLabel?.trim() ? (
-          <p className="text-[11px] leading-snug text-sam-muted">
+          <p className="sam-text-xxs leading-snug text-sam-muted">
             배달 업체(안내): {commerce.deliveryCourierLabel.trim()}
           </p>
         ) : null}
         {checkoutBlocked && frontCommerce ? (
-          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-medium leading-snug text-amber-950">
+          <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {frontCommerce.inBreak
               ? `준비중 · Break time: ${frontCommerce.breakRangeLabel}. 쉬는 시간에는 주문할 수 없습니다.`
               : "지금은 준비 중이라 주문할 수 없습니다."}
           </p>
         ) : null}
-        {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
+        {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
       </div>
 
       <div
@@ -1393,7 +1393,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           type="button"
           disabled={busy || !meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
           onClick={() => void submitOrder()}
-          className="w-full rounded bg-signature py-3.5 text-[15px] font-bold text-white shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
+          className="w-full rounded bg-signature py-3.5 sam-text-body font-bold text-white shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
         >
           {busy ? t("common_processing") : t("common_order_action")}
         </button>
@@ -1417,7 +1417,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <h2 id="cart-addr-modal-title" className="text-base font-bold text-sam-fg">
               {`${t("common_delivery_label")}지 추가`}
             </h2>
-            <p className="mt-1 text-[12px] leading-snug text-sam-muted">
+            <p className="mt-1 sam-text-helper leading-snug text-sam-muted">
               저장하면 목록에 배달주소 {addressBook.length + (profileSnap ? 2 : 1)}로 추가됩니다. 라디오로
               이번 주문에 쓸 주소를
               고를 수 있습니다.
@@ -1440,12 +1440,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 label={t("common_location")}
               />
               <div className="space-y-2">
-                <p className="text-[12px] leading-snug text-sam-muted">{STORE_ADDRESS_STREET_HINT}</p>
+                <p className="sam-text-helper leading-snug text-sam-muted">{STORE_ADDRESS_STREET_HINT}</p>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <div className="min-w-0">
                     <label
                       htmlFor="cart-modal-addr-line"
-                      className="block text-[12px] font-medium text-sam-muted"
+                      className="block sam-text-helper font-medium text-sam-muted"
                     >
                       {STORE_ADDRESS_STREET_LABEL}
                     </label>
@@ -1464,7 +1464,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   <div className="min-w-0">
                     <label
                       htmlFor="cart-modal-addr-detail"
-                      className="block text-[12px] font-medium text-sam-muted"
+                      className="block sam-text-helper font-medium text-sam-muted"
                     >
                       {STORE_ADDRESS_DETAIL_LABEL}
                     </label>
@@ -1483,7 +1483,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               </div>
             </div>
             {modalLocationError ? (
-              <p className="mt-3 text-[13px] text-red-600">{modalLocationError}</p>
+              <p className="mt-3 sam-text-body-secondary text-red-600">{modalLocationError}</p>
             ) : null}
             <div className="mt-5 flex gap-2 border-t border-sam-border-soft pt-4">
               <button

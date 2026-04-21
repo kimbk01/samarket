@@ -42,8 +42,8 @@ export function CommunityMessengerMessageActionSheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div className="w-full max-h-[min(72vh,480px)] overflow-y-auto rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2">
-          <p className="truncate text-[13px] font-semibold text-[color:var(--cm-room-text)]">메시지</p>
-          <p className="mt-0.5 line-clamp-2 text-[12px] text-[color:var(--cm-room-text-muted)]">
+          <p className="truncate sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">메시지</p>
+          <p className="mt-0.5 line-clamp-2 sam-text-helper text-[color:var(--cm-room-text-muted)]">
             {item.messageType === "text" ? item.content : `${item.messageType} · ${item.content?.slice(0, 80) ?? ""}`}
           </p>
         </div>
@@ -76,7 +76,7 @@ export function CommunityMessengerMessageActionSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-0.5 w-full border-t border-[color:var(--cm-room-divider)] py-2.5 text-[14px] font-medium text-[color:var(--cm-room-text-muted)] active:bg-[color:var(--cm-room-primary-soft)]"
+          className="mt-0.5 w-full border-t border-[color:var(--cm-room-divider)] py-2.5 sam-text-body font-medium text-[color:var(--cm-room-text-muted)] active:bg-[color:var(--cm-room-primary-soft)]"
         >
           취소
         </button>
@@ -101,7 +101,7 @@ function SheetRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-[color:var(--cm-room-divider)] px-4 py-2.5 text-left text-[15px] font-medium last:border-b-0 disabled:opacity-45 ${
+      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-[color:var(--cm-room-divider)] px-4 py-2.5 text-left sam-text-body font-medium last:border-b-0 disabled:opacity-45 ${
         danger ? "text-[var(--ui-danger)]" : "text-[color:var(--cm-room-text)]"
       } active:bg-[color:var(--cm-room-primary-soft)]`}
     >

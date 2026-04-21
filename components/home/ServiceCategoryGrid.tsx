@@ -17,7 +17,7 @@ export function ServiceCategoryGrid({ categories, maxItems = 12 }: ServiceCatego
 
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect bg-sam-surface py-8 text-center text-[14px] text-sam-muted shadow-sm">
+      <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-sam-muted shadow-sm">
         표시할 카테고리가 없습니다.
       </div>
     );

@@ -5,7 +5,7 @@ export interface ProfileStatRowProps {
 
 export function ProfileStatRow({ label, value }: ProfileStatRowProps) {
   return (
-    <div className="flex items-center justify-between text-[13px]">
+    <div className="flex items-center justify-between sam-text-body-secondary">
       <span className="text-sam-muted">{label}</span>
       <span className="text-sam-fg">{value}</span>
     </div>

@@ -92,7 +92,7 @@ export const AdminPostsManagementTable = forwardRef<
       className="w-full max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm [-webkit-overflow-scrolling:touch]"
     >
       <table
-        className={`w-full border-collapse text-[14px] ${showProductIdColumn ? "min-w-[1240px]" : "min-w-[1120px]"}`}
+        className={`w-full border-collapse sam-text-body ${showProductIdColumn ? "min-w-[1240px]" : "min-w-[1120px]"}`}
       >
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
@@ -161,7 +161,7 @@ export const AdminPostsManagementTable = forwardRef<
                 <td className="whitespace-nowrap px-3 py-2.5">
                   <Link
                     href={`/admin/products/${p.id}`}
-                    className="font-mono text-[13px] text-signature hover:underline"
+                    className="font-mono sam-text-body-secondary text-signature hover:underline"
                     title={p.id}
                   >
                     {p.id.slice(0, 8)}…
@@ -207,11 +207,11 @@ export const AdminPostsManagementTable = forwardRef<
 
                   const body = (
                     <>
-                      <span className="inline-block rounded bg-sam-surface-muted px-2 py-0.5 text-[12px] font-medium text-sam-fg">
+                      <span className="inline-block rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-medium text-sam-fg">
                         {label}
                       </span>
                       {(p.serviceType || p.serviceSlug) && (
-                        <div className="mt-1 font-mono text-[11px] leading-tight text-sam-meta">
+                        <div className="mt-1 font-mono sam-text-xxs leading-tight text-sam-meta">
                           {p.serviceType ?? ""}
                           {p.serviceSlug ? ` · ${p.serviceSlug}` : ""}
                         </div>
@@ -272,11 +272,11 @@ export const AdminPostsManagementTable = forwardRef<
                 {(() => {
                   const badge = listTradeStatusBadge(p.sellerListingState, p.status);
                   if (!badge) {
-                    return <span className="text-[12px] text-sam-meta">—</span>;
+                    return <span className="sam-text-helper text-sam-meta">—</span>;
                   }
                   return (
                     <span
-                      className={`inline-block rounded px-2 py-0.5 text-[12px] font-medium ${badge.className}`}
+                      className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${badge.className}`}
                     >
                       {badge.label}
                     </span>
@@ -301,10 +301,10 @@ export const AdminPostsManagementTable = forwardRef<
                   <span className="text-sam-muted">0</span>
                 )}
               </td>
-              <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {new Date(p.createdAt).toLocaleDateString("ko-KR")}
               </td>
-              <td className="px-3 py-2.5 text-[13px] text-sam-muted">
+              <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {p.visibility === "hidden" || p.status === "hidden" ? (
                   <span className="text-amber-600">숨김</span>
                 ) : (
@@ -317,77 +317,77 @@ export const AdminPostsManagementTable = forwardRef<
                   onClick={() =>
                     setActionRowId(actionRowId === p.id ? null : p.id)
                   }
-                  className="rounded border border-sam-border bg-sam-surface px-2 py-1 text-[13px] text-sam-fg hover:bg-sam-app"
+                  className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                 >
                   액션 ▾
                 </button>
                 {actionRowId === p.id && (
-                  <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] rounded border border-sam-border bg-sam-surface py-1 shadow-lg">
+                  <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] rounded border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
                     <Link
                       href={getPublicProductPath(p.id)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       웹에서 보기
                     </Link>
                     <button
                       type="button"
                       onClick={() => runTradeOverride("cancel_sale", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-amber-800 hover:bg-amber-50"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-amber-800 hover:bg-amber-50"
                     >
                       물품 판매 취소(강제)
                     </button>
                     <button
                       type="button"
                       onClick={() => runTradeOverride("force_complete", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-signature/5"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-signature/5"
                     >
                       거래완료(강제)
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("hide", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       숨김
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("restore", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       숨김 해제
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("delete", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-red-600 hover:bg-sam-app"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-600 hover:bg-sam-app"
                     >
                       강제 삭제
                     </button>
                     <Link
                       href={`/admin/reports?target=${p.id}`}
-                      className="block px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       신고 내역 보기
                     </Link>
                     <Link
                       href={`/admin/users/${p.sellerId}`}
-                      className="block px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       판매자 제재
                     </Link>
                     <button
                       type="button"
                       onClick={() => runAction("bump", p)}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       추천/인기 노출 조정
                     </button>
                     <button
                       type="button"
-                      className="block w-full px-3 py-2 text-left text-[13px] text-sam-fg hover:bg-sam-app"
+                      className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
                       금지품목 판정 메모
                     </button>

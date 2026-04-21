@@ -232,14 +232,14 @@ export function AdminCommunityEngineMeetingsClient() {
       <button
         type="button"
         onClick={() => void load()}
-        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[13px]"
+        className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
       >
         새로고침
       </button>
-      {err ? <p className="text-[13px] text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-        <table className="min-w-full text-left text-[12px] text-sam-fg">
-          <thead className="bg-sam-app text-[11px] uppercase text-sam-muted">
+        <table className="min-w-full text-left sam-text-helper text-sam-fg">
+          <thead className="bg-sam-app sam-text-xxs uppercase text-sam-muted">
             <tr>
               <th className="px-2 py-2">제목</th>
               <th className="px-2 py-2">상태</th>
@@ -268,13 +268,13 @@ export function AdminCommunityEngineMeetingsClient() {
                     <td className="max-w-[180px] truncate px-2 py-2">
                       {String(r.title ?? "")}
                       {isSample ? (
-                        <span className="ml-1 rounded bg-signature/10 px-1 py-0.5 text-[10px] text-sam-fg" title="is_sample_data=true">
+                        <span className="ml-1 rounded bg-signature/10 px-1 py-0.5 sam-text-xxs text-sam-fg" title="is_sample_data=true">
                           DB샘플
                         </span>
                       ) : null}
                     </td>
                     <td className="px-2 py-2">{String(r.status ?? "")}</td>
-                    <td className="px-2 py-2 text-[11px] text-sam-fg">
+                    <td className="px-2 py-2 sam-text-xxs text-sam-fg">
                       {entryLabel}
                       {ep === "password" && r.has_password ? (
                         <span className="ml-1 text-emerald-700">설정됨</span>
@@ -284,7 +284,7 @@ export function AdminCommunityEngineMeetingsClient() {
                       ) : null}
                     </td>
                     <td className="px-2 py-2">{String(r.max_members ?? "")}</td>
-                    <td className="max-w-[120px] truncate px-2 py-2 font-mono text-[10px]">
+                    <td className="max-w-[120px] truncate px-2 py-2 font-mono sam-text-xxs">
                       {r.chat_room_id != null ? String(r.chat_room_id) : "—"}
                     </td>
                     <td className="flex flex-wrap gap-1 px-2 py-2">
@@ -316,7 +316,7 @@ export function AdminCommunityEngineMeetingsClient() {
                   </tr>
                   {insightId === id ? (
                     <tr className="border-t border-sam-border bg-signature/5">
-                      <td colSpan={6} className="px-3 py-3 text-[12px] text-sam-fg">
+                      <td colSpan={6} className="px-3 py-3 sam-text-helper text-sam-fg">
                         {insightLoading ? (
                           <p className="text-sam-muted">불러오는 중…</p>
                         ) : insightErr ? (
@@ -324,14 +324,14 @@ export function AdminCommunityEngineMeetingsClient() {
                         ) : insight ? (
                           <div className="space-y-2">
                             <p className="font-semibold text-sam-fg">모임 채팅 검토</p>
-                            <p className="text-[11px] text-sam-muted">
+                            <p className="sam-text-xxs text-sam-muted">
                               연결된 채팅{" "}
                               <span className="font-mono">{insight.total_linked_rooms ?? 0}</span>개 · 부가 방{" "}
                               <span className="font-mono">{insight.extra_room_count ?? 0}</span> · 비공개{" "}
                               <span className="font-mono">{insight.private_room_count ?? 0}</span>
                             </p>
                             {insight.schema_note ? (
-                              <p className="text-[11px] text-amber-800">{insight.schema_note}</p>
+                              <p className="sam-text-xxs text-amber-800">{insight.schema_note}</p>
                             ) : null}
                             <ul className="space-y-1.5 border-t border-sam-border pt-2">
                               {(insight.rooms ?? []).map((room) => {
@@ -350,21 +350,21 @@ export function AdminCommunityEngineMeetingsClient() {
                                       <span className="font-medium">
                                         {room.title ?? room.room_id.slice(0, 8)}
                                       </span>
-                                      <span className="ml-2 text-[10px] text-sam-muted">
+                                      <span className="ml-2 sam-text-xxs text-sam-muted">
                                         {room.role === "main" ? "기본" : "부가"}
                                         {room.is_private ? " · 비공개" : ""}
                                         {ro ? " · 읽기전용" : ""}
                                         {lk ? " · 잠금" : ""}
                                         {blk ? " · 차단" : ""}
                                       </span>
-                                      <div className="mt-0.5 font-mono text-[10px] text-sam-meta">{room.room_id}</div>
+                                      <div className="mt-0.5 font-mono sam-text-xxs text-sam-meta">{room.room_id}</div>
                                     </div>
-                                    <div className="shrink-0 text-[11px] text-sam-muted">
+                                    <div className="shrink-0 sam-text-xxs text-sam-muted">
                                       <div className="text-right">
                                         메시지 {room.message_count} · 숨김 {room.hidden_message_count} · 신고{" "}
                                         {room.report_count}
                                         {room.last_message_at ? (
-                                          <div className="text-[10px] text-sam-meta">
+                                          <div className="sam-text-xxs text-sam-meta">
                                             마지막 {new Date(room.last_message_at).toLocaleString("ko-KR")}
                                           </div>
                                         ) : null}
@@ -439,7 +439,7 @@ export function AdminCommunityEngineMeetingsClient() {
                               })}
                             </ul>
                             {(insight.rooms ?? []).length === 0 ? (
-                              <p className="text-[11px] text-sam-muted">연결된 채팅방이 없습니다.</p>
+                              <p className="sam-text-xxs text-sam-muted">연결된 채팅방이 없습니다.</p>
                             ) : null}
                           </div>
                         ) : null}

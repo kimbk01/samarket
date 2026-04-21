@@ -156,7 +156,7 @@ export function MeetingRoomHero({
               {menuOpen ? (
                 <div
                   role="menu"
-                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface py-1 text-[13px] shadow-lg"
+                  className="absolute right-0 top-full z-30 mt-1 min-w-[220px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface py-1 sam-text-body-secondary shadow-sam-elevated"
                 >
                   <button
                     type="button"
@@ -166,7 +166,7 @@ export function MeetingRoomHero({
                   >
                     <span>가입 요청 관리</span>
                     {pendingApprovalCount > 0 ? (
-                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] font-bold text-white">
+                      <span className="rounded-full bg-red-500 px-1.5 py-0.5 sam-text-xxs font-bold text-white">
                         {pendingApprovalCount}
                       </span>
                     ) : null}
@@ -204,13 +204,13 @@ export function MeetingRoomHero({
         </div>
 
         <div className="relative z-10 min-w-0">
-          <h1 className="text-[20px] font-bold leading-snug text-white drop-shadow-sm">{title}</h1>
+          <h1 className="sam-text-page-title font-bold leading-snug text-white drop-shadow-sm">{title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-[#8fd4b3]/35 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <span className="rounded-full bg-[#8fd4b3]/35 px-2.5 py-0.5 sam-text-xxs font-semibold text-white backdrop-blur-sm">
               {entryLabel}
             </span>
             {!isOpen && statusLabel ? (
-              <span className="rounded-full bg-black/35 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+              <span className="rounded-full bg-black/35 px-2.5 py-0.5 sam-text-xxs font-semibold text-white">
                 {statusLabel}
               </span>
             ) : null}
@@ -220,12 +220,12 @@ export function MeetingRoomHero({
 
       <div className="grid grid-cols-1 divide-y divide-sam-border-soft bg-sam-surface sm:grid-cols-1">
         <div className="flex flex-col items-center py-3.5">
-          <span className="text-[22px]">👥</span>
-          <span className="mt-1 text-[13px] font-bold text-sam-fg">
+          <span className="sam-text-hero">👥</span>
+          <span className="mt-1 sam-text-body-secondary font-bold text-sam-fg">
             {joinedCount}
             <span className="font-normal text-sam-meta">/{maxMembers}</span>
           </span>
-          <span className="text-[11px] text-sam-muted">멤버</span>
+          <span className="sam-text-xxs text-sam-muted">멤버</span>
         </div>
       </div>
     </div>

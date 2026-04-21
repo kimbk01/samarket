@@ -31,7 +31,7 @@ export function StoreHorizontalStoreTile({
   return (
     <article className="w-[148px] shrink-0">
       <Link href={storeHref} className="block">
-        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-ig-highlight ring-1 ring-black/[0.06]">
+        <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-sam-primary-soft ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
             <img src={store.profileImageUrl} alt="" className="h-full w-full object-cover" />
           : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-sam-border-soft to-sam-surface-muted text-2xl text-white/90">
@@ -45,23 +45,23 @@ export function StoreHorizontalStoreTile({
             <StoreCardFavoriteIcon slug={store.slug} className="h-8 w-8 bg-black/25" />
           </div>
           {store.isFeatured ?
-            <span className="absolute left-2 top-2 rounded-ui-rect bg-black/55 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">
+            <span className="absolute left-2 top-2 rounded-ui-rect bg-black/55 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-200">
               추천
             </span>
           : null}
         </div>
         <div className="mt-2 px-0.5">
-          <p className="line-clamp-2 min-h-[2.25rem] text-[13px] font-semibold leading-tight text-sam-fg">
+          <p className="line-clamp-2 min-h-[2.25rem] sam-text-body-secondary font-semibold leading-tight text-sam-fg">
             {store.nameKo}
           </p>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-sam-muted">
+          <div className="mt-1 flex items-center gap-1 sam-text-xxs text-sam-muted">
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${openDot}`} aria-hidden />
             <span className="font-medium text-sam-fg">★{store.rating.toFixed(1)}</span>
             {distLabel ?
               <span className="text-sam-meta">· {distLabel}</span>
             : null}
           </div>
-          <p className="mt-0.5 truncate text-[10px] text-sam-meta">{store.estPrepLabel}</p>
+          <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">{store.estPrepLabel}</p>
         </div>
       </Link>
     </article>

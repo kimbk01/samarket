@@ -401,19 +401,19 @@ export function MeetingHostControls({
 
   return (
     <div className="space-y-3 rounded-ui-rect border border-amber-200 bg-amber-50/80 p-3">
-      <p className="text-[13px] font-semibold text-amber-900">개설자 관리</p>
+      <p className="sam-text-body-secondary font-semibold text-amber-900">개설자 관리</p>
       {isHost ? (
         <button
           type="button"
           disabled={busy}
           onClick={() => void onCloseMeeting()}
-          className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 text-[13px] font-medium text-amber-900"
+          className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 sam-text-body-secondary font-medium text-amber-900"
         >
           모임 종료
         </button>
       ) : null}
       <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-        <p className="text-[12px] font-semibold text-amber-900">입장 설정</p>
+        <p className="sam-text-helper font-semibold text-amber-900">입장 설정</p>
         {isHost ? (
           <>
             <select
@@ -427,7 +427,7 @@ export function MeetingHostControls({
                     : "open"
                 )
               }
-              className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+              className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
             >
               <option value="open">바로 참여</option>
               <option value="approve">승인제</option>
@@ -440,43 +440,43 @@ export function MeetingHostControls({
                 value={meetingPassword}
                 onChange={(e) => setMeetingPassword(e.target.value)}
                 placeholder={hasPassword ? "새 비밀번호 입력 시 변경" : "모임 비밀번호 입력"}
-                className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+                className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
               />
             ) : null}
             <button
               type="button"
               disabled={busy || (entryPolicy === "password" && !meetingPassword.trim() && !hasPassword)}
               onClick={() => void onUpdateAccessPolicy()}
-              className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 text-[13px] font-medium text-amber-900 disabled:opacity-50"
+              className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 sam-text-body-secondary font-medium text-amber-900 disabled:opacity-50"
             >
               입장 설정 저장
             </button>
           </>
         ) : (
-          <p className="text-[12px] text-sam-muted">공동 운영자는 초대와 승인, 공지 관리만 할 수 있습니다.</p>
+          <p className="sam-text-helper text-sam-muted">공동 운영자는 초대와 승인, 공지 관리만 할 수 있습니다.</p>
         )}
         {entryPolicy === "invite_only" && canManage ? (
           <div
             id="meeting-host-invite-section"
             className="space-y-2 scroll-mt-4 rounded-ui-rect border border-amber-100 bg-amber-50/60 p-3"
           >
-            <p className="text-[12px] font-semibold text-amber-900">초대 관리</p>
+            <p className="sam-text-helper font-semibold text-amber-900">초대 관리</p>
             <input
               value={inviteUserId}
               onChange={(e) => setInviteUserId(e.target.value)}
               placeholder="닉네임 또는 아이디로 검색"
-              className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+              className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
             />
-            {inviteSearching ? <p className="text-[12px] text-sam-muted">검색 중...</p> : null}
+            {inviteSearching ? <p className="sam-text-helper text-sam-muted">검색 중...</p> : null}
             {inviteCandidates.length > 0 ? (
-              <ul className="space-y-2 rounded-ui-rect border border-amber-100 bg-sam-surface p-2 text-[13px]">
+              <ul className="space-y-2 rounded-ui-rect border border-amber-100 bg-sam-surface p-2 sam-text-body-secondary">
                 {inviteCandidates.map((candidate) => (
                   <li key={candidate.userId} className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sam-fg">{candidate.label}</p>
-                      <p className="truncate text-[11px] text-sam-muted">{candidate.secondary}</p>
+                      <p className="truncate sam-text-xxs text-sam-muted">{candidate.secondary}</p>
                       {candidate.neighborFollow || candidate.sameRegion ? (
-                        <p className="truncate text-[11px] text-amber-700">
+                        <p className="truncate sam-text-xxs text-amber-700">
                           {candidate.neighborFollow ? "관심이웃 우선" : ""}
                           {candidate.neighborFollow && candidate.sameRegion ? " · " : ""}
                           {candidate.sameRegion ? "같은 지역" : ""}
@@ -502,12 +502,12 @@ export function MeetingHostControls({
               type="button"
               disabled={busy || !inviteUserId.trim()}
               onClick={() => void onInvite()}
-              className="w-full rounded-ui-rect bg-amber-500 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+              className="w-full rounded-ui-rect bg-amber-500 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
             >
               초대 보내기
             </button>
             {invitedMembers.length > 0 ? (
-              <ul className="space-y-2 text-[13px]">
+              <ul className="space-y-2 sam-text-body-secondary">
                 {invitedMembers.map((member) => (
                   <li key={member.user_id} className="flex items-center justify-between gap-2">
                     <span className="truncate text-sam-fg">{member.label}</span>
@@ -527,13 +527,13 @@ export function MeetingHostControls({
         ) : null}
       </div>
       <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-        <p className="text-[12px] font-semibold text-amber-900">공지 작성</p>
+        <p className="sam-text-helper font-semibold text-amber-900">공지 작성</p>
         <input
           value={noticeTitle}
           onChange={(e) => setNoticeTitle(e.target.value)}
           placeholder="공지 제목"
           maxLength={120}
-          className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+          className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
         />
         <textarea
           value={noticeBody}
@@ -541,21 +541,21 @@ export function MeetingHostControls({
           placeholder="모임 공지 내용을 입력하세요"
           rows={3}
           maxLength={2000}
-          className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+          className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
         />
         <button
           type="button"
           disabled={busy || (!noticeTitle.trim() && !noticeBody.trim())}
           onClick={() => void onCreateNotice()}
-          className="w-full rounded-ui-rect bg-amber-500 py-2 text-[13px] font-medium text-white disabled:opacity-50"
+          className="w-full rounded-ui-rect bg-amber-500 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
         >
           공지 등록
         </button>
       </div>
       {notices.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-          <p className="text-[12px] font-semibold text-amber-900">등록된 공지</p>
-          <ul className="space-y-2 text-[13px]">
+          <p className="sam-text-helper font-semibold text-amber-900">등록된 공지</p>
+          <ul className="space-y-2 sam-text-body-secondary">
             {notices.map((notice) => (
               <li key={notice.id} className="rounded-ui-rect border border-amber-100 bg-sam-surface px-3 py-2">
                 {editingNoticeId === notice.id ? (
@@ -565,21 +565,21 @@ export function MeetingHostControls({
                       onChange={(e) => setEditingNoticeTitle(e.target.value)}
                       placeholder="공지 제목"
                       maxLength={120}
-                      className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+                      className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
                     />
                     <textarea
                       value={editingNoticeBody}
                       onChange={(e) => setEditingNoticeBody(e.target.value)}
                       rows={3}
                       maxLength={2000}
-                      className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 text-[13px] text-sam-fg outline-none"
+                      className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
                     />
                     <div className="flex gap-2">
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void onSaveNoticeEdit()}
-                        className="flex-1 rounded-ui-rect bg-amber-500 py-2 text-[12px] font-medium text-white disabled:opacity-50"
+                        className="flex-1 rounded-ui-rect bg-amber-500 py-2 sam-text-helper font-medium text-white disabled:opacity-50"
                       >
                         저장
                       </button>
@@ -587,7 +587,7 @@ export function MeetingHostControls({
                         type="button"
                         disabled={busy}
                         onClick={onCancelEditNotice}
-                        className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-2 text-[12px] font-medium text-sam-fg"
+                        className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-2 sam-text-helper font-medium text-sam-fg"
                       >
                         취소
                       </button>
@@ -597,7 +597,7 @@ export function MeetingHostControls({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-medium text-sam-fg">{notice.title || "공지"}</p>
-                      {notice.body ? <p className="mt-1 whitespace-pre-wrap text-[12px] text-sam-fg">{notice.body}</p> : null}
+                      {notice.body ? <p className="mt-1 whitespace-pre-wrap sam-text-helper text-sam-fg">{notice.body}</p> : null}
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button
@@ -626,13 +626,13 @@ export function MeetingHostControls({
       ) : null}
       {isHost && bannedMembers.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-red-200 bg-sam-surface/80 p-3">
-          <p className="text-[12px] font-semibold text-red-900">차단된 사용자</p>
-          <ul className="space-y-2 text-[13px]">
+          <p className="sam-text-helper font-semibold text-red-900">차단된 사용자</p>
+          <ul className="space-y-2 sam-text-body-secondary">
             {bannedMembers.map((m) => (
               <li key={m.user_id} className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate text-sam-fg">{m.label}</p>
-                  {m.reason ? <p className="text-[11px] text-sam-muted">{m.reason}</p> : null}
+                  {m.reason ? <p className="sam-text-xxs text-sam-muted">{m.reason}</p> : null}
                 </div>
                 <button
                   type="button"
@@ -649,8 +649,8 @@ export function MeetingHostControls({
       ) : null}
       {canManage && members.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-sky-200 bg-sky-50/50 p-3">
-          <p className="text-[12px] font-semibold text-sky-900">참석 확인</p>
-          <ul className="space-y-2 text-[13px]">
+          <p className="sam-text-helper font-semibold text-sky-900">참석 확인</p>
+          <ul className="space-y-2 sam-text-body-secondary">
             {members.map((m) => {
               const att: AttendanceStatus = m.attendance_status ?? "unknown";
               return (
@@ -661,15 +661,15 @@ export function MeetingHostControls({
                   <div className="min-w-0">
                     <p className="truncate font-medium text-sam-fg">{m.label}</p>
                     {m.user_id === createdBy ? (
-                      <p className="text-[11px] text-sam-muted">개설자</p>
+                      <p className="sam-text-xxs text-sam-muted">개설자</p>
                     ) : m.role === "co_host" ? (
-                      <p className="text-[11px] text-amber-700">공동 운영자</p>
+                      <p className="sam-text-xxs text-amber-700">공동 운영자</p>
                     ) : null}
                   </div>
-                  <label className="flex shrink-0 items-center gap-2 text-[12px] text-sam-muted">
+                  <label className="flex shrink-0 items-center gap-2 sam-text-helper text-sam-muted">
                     <span className="hidden sm:inline">참석</span>
                     <select
-                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 text-[13px] text-sam-fg"
+                      className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary text-sam-fg"
                       disabled={busy}
                       value={att}
                       onChange={(e) =>
@@ -690,15 +690,15 @@ export function MeetingHostControls({
       ) : null}
       {isHost && members.filter((m) => m.user_id !== createdBy).length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-          <p className="text-[12px] font-semibold text-amber-900">멤버 관리</p>
-          <ul className="space-y-1 text-[13px]">
+          <p className="sam-text-helper font-semibold text-amber-900">멤버 관리</p>
+          <ul className="space-y-1 sam-text-body-secondary">
             {members
               .filter((m) => m.user_id !== createdBy)
               .map((m) => (
                 <li key={m.user_id} className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sam-fg">{m.label}</p>
-                    {m.role === "co_host" ? <p className="text-[11px] text-amber-700">공동 운영자</p> : null}
+                    {m.role === "co_host" ? <p className="sam-text-xxs text-amber-700">공동 운영자</p> : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                   {m.role === "co_host" ? (
@@ -742,7 +742,7 @@ export function MeetingHostControls({
           </ul>
         </div>
       ) : null}
-      {err ? <p className="text-[12px] text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-helper text-red-600">{err}</p> : null}
     </div>
   );
 }

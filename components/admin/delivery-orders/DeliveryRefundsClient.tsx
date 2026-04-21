@@ -82,8 +82,8 @@ export function DeliveryRefundsClient() {
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader title="환불 요청" backHref="/admin/delivery-orders" />
-      <p className="mb-2 text-[13px] text-sam-muted">
-        <code className="rounded bg-sam-app px-1 text-[12px]">order_status = refund_requested</code> 원장만
+      <p className="mb-2 sam-text-body-secondary text-sam-muted">
+        <code className="rounded bg-sam-app px-1 sam-text-helper">order_status = refund_requested</code> 원장만
         표시합니다. 승인은 DB API로 처리하고, 거절·기타 조정은{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
           매장 주문(액션)
@@ -92,7 +92,7 @@ export function DeliveryRefundsClient() {
       </p>
       {toast ? <p className="mb-2 text-sm text-sam-fg">{toast}</p> : null}
       {error ? (
-        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950">
+        <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
           불러오지 못했습니다 ({error}).
         </p>
       ) : null}

@@ -22,7 +22,7 @@ export function CommentList({
   }, [scrollToBottomSignal]);
 
   if (roots.length === 0) {
-    return <p className="py-6 text-center text-[14px] text-sam-muted">첫 댓글을 남겨 보세요.</p>;
+    return <p className="py-6 text-center sam-text-body text-sam-muted">첫 댓글을 남겨 보세요.</p>;
   }
 
   return (

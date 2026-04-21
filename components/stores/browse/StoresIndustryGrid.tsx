@@ -40,7 +40,7 @@ export function StoresIndustryGrid({
                 <span className="text-2xl leading-none" aria-hidden>
                   {p.symbol}
                 </span>
-                <span className="text-[13px] font-semibold text-sam-fg">{p.nameKo}</span>
+                <span className="sam-text-body-secondary font-semibold text-sam-fg">{p.nameKo}</span>
               </Link>
             </li>
           );

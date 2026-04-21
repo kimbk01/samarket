@@ -41,7 +41,7 @@ export function MyPageItemRouteClient({
   if (loading) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center text-[14px] text-sam-muted sm:px-4`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center sam-text-body text-sam-muted sm:px-4`}>
           불러오는 중…
         </div>
       </MyPageStackShell>
@@ -51,7 +51,7 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center text-[14px] text-sam-muted sm:px-4`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center sam-text-body text-sam-muted sm:px-4`}>
           로그인이 필요합니다.
         </div>
       </MyPageStackShell>
