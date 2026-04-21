@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
+import { MessengerListRow } from "@/components/community-messenger/line-ui";
 
 const ACTION_W = 78;
 const ACTION_TOTAL = ACTION_W * 3;
@@ -369,116 +370,108 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     [closeSwipe, menuItemId, onCloseMenuItem]
   );
 
+  const avatarBlock =
+    commerceMeta?.thumbnailUrl ? (
+      <div className="relative">
+        <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
+        {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
+      </div>
+    ) : (
+      <div className="relative">
+        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-12 w-12" textClassName="text-[14px]" />
+        {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
+      </div>
+    );
+
   const rowContent = (
-    <div
-      className="flex items-start gap-2 transition-transform duration-[110ms] ease-out"
-      style={{
-        transform: pressVisualActive
-          ? "translate3d(0,0.5px,0) scale(0.992)"
-          : "translate3d(0,0,0) scale(1)",
-      }}
-    >
-      {commerceMeta?.thumbnailUrl ? (
-        <div className="relative">
-          <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
-          {room.roomType === "direct" && peerPresence ? (
-            <CommunityMessengerPresenceDot state={peerPresence.state} />
-          ) : null}
-        </div>
-      ) : (
-        <div className="relative">
-          <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-9 w-9" textClassName="text-[12px]" />
-          {room.roomType === "direct" && peerPresence ? (
-            <CommunityMessengerPresenceDot state={peerPresence.state} />
-          ) : null}
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <p className="min-w-0 truncate text-[13px] font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
-            {room.title}
-          </p>
-          {titleSuffix ? (
-            <span className="shrink-0 text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-              {titleSuffix}
-            </span>
-          ) : null}
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold leading-none ${getRoomTypeBadgeClassName(
-              roomTypeLabel
-            )}`}
-          >
-            {roomTypeLabel}
+    <MessengerListRow
+      className={`transition-colors duration-100 ${pressVisualActive ? "bg-[color:var(--messenger-surface-muted)]" : ""}`}
+      avatar={avatarBlock}
+      trailing={
+        <>
+          <span className="text-[12px] font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+            {formatConversationTimestamp(item.lastEventAt)}
           </span>
-          {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
-            <span className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2 py-0.5 text-[9px] font-semibold text-[color:var(--messenger-text-secondary)]">
-              {tradeItemStateLabel}
-            </span>
-          ) : null}
-        </div>
-        {commerceMeta?.kind === "trade" ? (
-          tradeRoleLabel ? (
-            <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-              {tradeRoleLabel}
-            </p>
-          ) : null
-        ) : commerceSubline ? (
-          <p className="mt-0.5 truncate text-[11px]" style={{ color: "var(--messenger-text-secondary)" }}>
-            {commerceSubline}
-          </p>
-        ) : null}
-        <div className="mt-0.5 flex items-center gap-1">
-          {commerceMeta?.kind === "delivery" ? (
-            deliveryStepLabel ? (
-              <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
-                {deliveryStepLabel}
+          <div className="flex items-center gap-0.5">
+            {room.isPinned ? (
+              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="고정됨">
+                <PinIcon />
               </span>
-            ) : null
-          ) : null}
-          {secondaryHint ? (
-            <span
-              className="shrink-0 rounded-sm border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {secondaryHint}
-            </span>
-          ) : null}
-          {isFavorite ? (
-            <span className="shrink-0 text-[10px]" style={{ color: "var(--messenger-primary)" }}>
-              ★
-            </span>
-          ) : null}
-          <p
-            className={`min-w-0 truncate text-[11px] ${room.unreadCount > 0 ? "font-medium" : ""}`}
-            style={{ color: room.unreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
-          >
-            {item.preview}
-          </p>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-0.5 pl-0.5">
-        <span className="text-[10px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-          {formatConversationTimestamp(item.lastEventAt)}
+            ) : null}
+            {room.isMuted ? (
+              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="알림 끔">
+                <MuteIcon />
+              </span>
+            ) : null}
+            {room.unreadCount > 0 ? (
+              <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center text-[10px] font-semibold leading-[18px] text-white">
+                {room.unreadCount > 999 ? "999+" : room.unreadCount}
+              </span>
+            ) : null}
+          </div>
+        </>
+      }
+    >
+      <div className="flex min-w-0 items-center gap-1">
+        <p className="min-w-0 truncate text-[15px] font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
+          {room.title}
+        </p>
+        {titleSuffix ? (
+          <span className="shrink-0 text-[12px] font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
+            {titleSuffix}
+          </span>
+        ) : null}
+        <span
+          className={`shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium leading-none ${getRoomTypeBadgeClassName(
+            roomTypeLabel
+          )}`}
+        >
+          {roomTypeLabel}
         </span>
-        <div className="flex items-center gap-0.5">
-          {room.isPinned ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="고정됨">
-              <PinIcon />
-            </span>
-          ) : null}
-          {room.isMuted ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="알림 끔">
-              <MuteIcon />
-            </span>
-          ) : null}
-          {room.unreadCount > 0 ? (
-            <span className="min-w-[16px] rounded-full bg-[color:var(--messenger-primary)] px-1 py-px text-center text-[9px] font-semibold leading-none text-white">
-              {room.unreadCount > 999 ? "999+" : room.unreadCount}
-            </span>
-          ) : null}
-        </div>
+        {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
+          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
+            {tradeItemStateLabel}
+          </span>
+        ) : null}
       </div>
-    </div>
+      {commerceMeta?.kind === "trade" ? (
+        tradeRoleLabel ? (
+          <p className="mt-0.5 truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+            {tradeRoleLabel}
+          </p>
+        ) : null
+      ) : commerceSubline ? (
+        <p className="mt-0.5 truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          {commerceSubline}
+        </p>
+      ) : null}
+      <div className="mt-0.5 flex min-w-0 items-center gap-1">
+        {commerceMeta?.kind === "delivery" && deliveryStepLabel ? (
+          <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
+            {deliveryStepLabel}
+          </span>
+        ) : null}
+        {secondaryHint ? (
+          <span
+            className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-normal"
+            style={{ color: "var(--messenger-text-secondary)" }}
+          >
+            {secondaryHint}
+          </span>
+        ) : null}
+        {isFavorite ? (
+          <span className="shrink-0 text-[11px]" style={{ color: "var(--messenger-primary)" }}>
+            ★
+          </span>
+        ) : null}
+        <p
+          className={`min-w-0 truncate text-[13px] font-normal leading-snug ${room.unreadCount > 0 ? "font-medium" : ""}`}
+          style={{ color: room.unreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+        >
+          {item.preview}
+        </p>
+      </div>
+    </MessengerListRow>
   );
 
   if (compact && onCompactLongPress) {
@@ -498,7 +491,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             navigateToCommunityRoom(room.id);
           }
         }}
-        className="block cursor-default rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 touch-manipulation transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
+        className="block cursor-default border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-0 py-0 touch-manipulation transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]"
       >
         {rowContent}
       </div>
@@ -517,7 +510,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         onClick={() =>
           beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(room.id)}`)
         }
-        className="block rounded-[calc(var(--messenger-radius-md)-2px)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out active:translate-y-[0.5px] active:scale-[0.994] active:border-[color:var(--messenger-primary)] active:bg-[color:var(--messenger-primary-soft)]"
+        className="block border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-0 py-0 transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]"
       >
         {rowContent}
       </Link>
@@ -527,7 +520,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   return (
     <div
       ref={rowRef}
-      className="relative overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]"
+      className="relative w-full min-w-0 overflow-hidden border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)]"
       data-messenger-chat-row="true"
     >
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
@@ -562,7 +555,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         </button>
       </div>
       <div
-        className="relative flex min-w-0 flex-row bg-[color:var(--messenger-surface)] touch-pan-y"
+        className="relative flex min-w-0 flex-row bg-[color:var(--messenger-bg)] touch-pan-y"
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
           transition: isDragging ? "none" : "transform 0.2s ease-out",
@@ -603,17 +596,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               navigateToCommunityRoom(room.id);
             }
           }}
-          className="block w-full flex-1 cursor-default rounded-[calc(var(--messenger-radius-md)-2px)] border px-2.5 py-2 transition-[background-color,border-color,transform] duration-100 ease-out"
+          className="block w-full flex-1 cursor-default border-0 px-0 py-0 transition-colors duration-100 ease-out"
           style={{
             minWidth: 0,
             flex: "1 1 0%",
-            backgroundColor: pressVisualActive
-              ? "var(--messenger-primary-soft)"
-              : "var(--messenger-surface)",
-            borderColor: pressVisualActive
-              ? "var(--messenger-primary)"
-              : "var(--messenger-divider)",
-            transform: pressVisualActive ? "translate3d(0,0.5px,0)" : "translate3d(0,0,0)",
+            backgroundColor: "transparent",
           }}
         >
           {rowContent}
@@ -636,16 +623,16 @@ function CommerceThumb({
 }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
-    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-9 w-9" textClassName="text-[12px]" />;
+    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="text-[14px]" />;
   }
   return (
-    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-ui-border bg-ui-page">
+    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
-        width={36}
-        height={36}
+        width={48}
+        height={48}
         className="h-full w-full object-cover"
         decoding="async"
         fetchPriority="low"
@@ -681,8 +668,8 @@ function AvatarCircle({
         <img
           src={safeSrc}
           alt=""
-          width={36}
-          height={36}
+          width={48}
+          height={48}
           className="h-full w-full object-cover"
           decoding="async"
           fetchPriority="low"
@@ -695,13 +682,8 @@ function AvatarCircle({
   );
 }
 
-function getRoomTypeBadgeClassName(label: string): string {
-  if (label.startsWith("1:1")) return "border border-violet-200 bg-violet-50 text-violet-700";
-  if (label.startsWith("그룹")) return "border border-sky-200 bg-sky-50 text-sky-700";
-  if (label.startsWith("오픈")) return "border border-cyan-200 bg-cyan-50 text-cyan-700";
-  if (label.startsWith("거래")) return "border border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (label.startsWith("배달")) return "border border-amber-200 bg-amber-50 text-amber-700";
-  return "border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]";
+function getRoomTypeBadgeClassName(_label: string): string {
+  return "bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]";
 }
 
 function PinIcon() {

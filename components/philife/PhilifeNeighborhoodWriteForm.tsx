@@ -16,6 +16,7 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
+import { PHILIFE_PAGE_ROOT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { AD_TYPE_LABELS } from "@/lib/ads/types";
@@ -344,7 +345,7 @@ export function PhilifeNeighborhoodWriteForm({
       : "일상, 정보, 질문 글을 자유롭게 작성할 수 있어요.";
 
   return (
-    <div className={`min-h-screen bg-[#f0f2f5] pb-28 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
+    <div className={`${PHILIFE_PAGE_ROOT_CLASS} pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
       <WriteScreenTier1Sync
         backHref={philifeAppPaths.home}
         title={tier1Title}
@@ -355,7 +356,7 @@ export function PhilifeNeighborhoodWriteForm({
         <div className="mb-2">
           <Link
             href={philifeAppPaths.writeMeeting}
-            className="flex w-full items-center justify-center rounded-ui-rect border border-sam-border/90 bg-sam-surface py-2.5 text-[13px] font-medium text-sam-muted shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-sam-border hover:bg-sam-app hover:text-sam-fg"
+            className="flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-[13px] font-medium text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
           >
             모임 만들기
           </Link>
@@ -373,7 +374,7 @@ export function PhilifeNeighborhoodWriteForm({
 
       <form
         onSubmit={onSubmit}
-        className="space-y-[4pt] rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm"
+        className="space-y-[4pt] rounded-ui-rect border border-sam-border bg-sam-surface p-4"
       >
         {category === "meetup" ? (
             <>
@@ -722,7 +723,7 @@ export function PhilifeNeighborhoodWriteForm({
           <button
             type="submit"
             disabled={busy}
-            className={`relative z-10 w-full rounded-ui-rect py-3.5 text-[16px] font-semibold text-white shadow-sm disabled:opacity-50 ${
+            className={`relative z-10 w-full rounded-ui-rect py-3.5 text-[16px] font-semibold text-white disabled:opacity-50 ${
               category === "meetup" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-sam-ink hover:bg-sam-surface-dark"
             }`}
           >

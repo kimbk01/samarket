@@ -5,6 +5,7 @@ import { messengerFriendSwipeItemId } from "@/lib/community-messenger/messenger-
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
+import { MessengerListRow } from "@/components/community-messenger/line-ui";
 
 const ACTION_W = 72;
 const LEFT_ACTION_TOTAL = ACTION_W * 2;
@@ -259,7 +260,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
       </div>
 
       <div
-        className="relative flex min-w-0 flex-row bg-[color:var(--messenger-surface)] touch-pan-y"
+        className="relative flex min-w-0 flex-row bg-[color:var(--messenger-bg)] touch-pan-y"
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
           transition: isDragging ? "none" : "transform 0.2s ease-out",
@@ -274,7 +275,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
         <div
           role="button"
           tabIndex={0}
-          className="relative flex min-w-0 flex-1 cursor-pointer items-center gap-3 px-3 py-3 touch-manipulation active:bg-[color:var(--messenger-primary-soft)]"
+          className="relative min-w-0 flex-1 cursor-pointer touch-manipulation active:bg-[color:var(--messenger-surface-muted)]"
           onKeyDown={(ev) => {
             if (ev.key === "Enter" || ev.key === " ") {
               ev.preventDefault();
@@ -293,41 +294,65 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             openQuickMenu();
           }}
         >
-          <div className="relative h-12 w-12 shrink-0">
-            <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]">
-              {avatarSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
-                  style={{ color: "var(--messenger-text-secondary)" }}
-                >
-                  {initial}
+          <MessengerListRow
+            trailingLayout="center"
+            avatar={
+              <div className="relative h-12 w-12">
+                <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]">
+                  {avatarSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div
+                      className="flex h-full w-full items-center justify-center text-[14px] font-semibold"
+                      style={{ color: "var(--messenger-text-secondary)" }}
+                    >
+                      {initial}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <CommunityMessengerPresenceDot state={peerPresence?.state} />
-          </div>
-          <div className="min-w-0 flex-1 pr-0.5">
-            <div className="flex items-center gap-1.5">
+                <CommunityMessengerPresenceDot state={peerPresence?.state} />
+              </div>
+            }
+            trailing={
+              <button
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (dragX < -16) {
+                    snapClosed();
+                    return;
+                  }
+                  if (dragX > 16) {
+                    snapClosed();
+                    return;
+                  }
+                  starToggleFavorite();
+                }}
+                disabled={busyFavorite}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold disabled:opacity-50"
+                style={{
+                  color: friend.isFavoriteFriend ? "var(--messenger-primary)" : "var(--messenger-text-secondary)",
+                  backgroundColor: friend.isFavoriteFriend ? "var(--messenger-primary-soft)" : "transparent",
+                }}
+                aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
+                aria-pressed={friend.isFavoriteFriend}
+              >
+                {friend.isFavoriteFriend ? "★" : "☆"}
+              </button>
+            }
+          >
+            <div className="flex min-w-0 items-center gap-1">
               <p className="truncate text-[15px] font-semibold" style={{ color: "var(--messenger-text)" }}>
                 {friend.label}
               </p>
-              <span
-                className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                  friendKind === "trade"
-                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : friendKind === "delivery"
-                      ? "border border-amber-200 bg-amber-50 text-amber-700"
-                      : "border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] text-[color:var(--messenger-text-secondary)]"
-                }`}
-              >
+              <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px text-[10px] font-medium text-[color:var(--messenger-text-secondary)]">
                 {friendKind === "trade" ? "거래 친구" : friendKind === "delivery" ? "배달 친구" : "친구"}
               </span>
               {friend.isFavoriteFriend ? (
                 <span
-                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-semibold"
                   style={{
                     backgroundColor: "var(--messenger-primary-soft)",
                     color: "var(--messenger-primary)",
@@ -338,7 +363,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               ) : null}
               {friend.blocked ? (
                 <span
-                  className="shrink-0 rounded-sm border border-[color:var(--messenger-divider)] px-1 py-px text-[9px] font-medium"
+                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px text-[10px] font-medium"
                   style={{ color: "var(--messenger-text-secondary)" }}
                 >
                   차단
@@ -346,42 +371,16 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               ) : null}
             </div>
             {handleLine ? (
-              <p className="truncate text-[12px]" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="truncate text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
                 {handleLine}
               </p>
             ) : null}
             {bioLine ? (
-              <p className="line-clamp-2 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p className="line-clamp-2 text-[12px] font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
                 {bioLine}
               </p>
             ) : null}
-          </div>
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (dragX < -16) {
-                snapClosed();
-                return;
-              }
-              if (dragX > 16) {
-                snapClosed();
-                return;
-              }
-              starToggleFavorite();
-            }}
-            disabled={busyFavorite}
-            className="inline-flex h-8 shrink-0 items-center justify-center rounded-full px-2 text-[12px] font-semibold disabled:opacity-50"
-            style={{
-              color: friend.isFavoriteFriend ? "var(--messenger-primary)" : "var(--messenger-text-secondary)",
-              backgroundColor: friend.isFavoriteFriend ? "var(--messenger-primary-soft)" : "transparent",
-            }}
-            aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
-            aria-pressed={friend.isFavoriteFriend}
-          >
-            {friend.isFavoriteFriend ? "★" : "☆"}
-          </button>
+          </MessengerListRow>
         </div>
       </div>
     </div>

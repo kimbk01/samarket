@@ -25,6 +25,13 @@ import {
   philifePostViewUrl,
 } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import {
+  PHILIFE_DETAIL_BODY_CLASS,
+  PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
+  PHILIFE_DETAIL_META_CLASS,
+  PHILIFE_DETAIL_POST_SLAB_CLASS,
+  PHILIFE_DETAIL_TITLE_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import {
@@ -387,9 +394,9 @@ export function CommunityDetail({
     "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[11px] [&>button]:font-medium [&>button]:leading-tight [&>button]:text-sam-fg sm:[&>button]:text-[12px]";
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-24">
+    <div className="min-h-screen bg-sam-app pb-24">
       <article ref={articleRef} className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
+        <div className={PHILIFE_DETAIL_POST_SLAB_CLASS}>
           {post.images.length > 0 ? (
             <div className="grid grid-cols-1 gap-px bg-sam-surface-muted sm:grid-cols-2">
               {post.images.map((url, i) =>
@@ -424,15 +431,15 @@ export function CommunityDetail({
                 {meeting ? "모임" : post.category_label}
               </span>
             </div>
-            <h1 className="mt-3 text-xl font-bold text-sam-fg">{post.title}</h1>
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-sam-muted">
+            <h1 className={PHILIFE_DETAIL_TITLE_CLASS}>{post.title}</h1>
+            <div className={PHILIFE_DETAIL_META_CLASS}>
               <span>{post.author_name}</span>
               {post.location_label ? <span>{post.location_label}</span> : null}
               <span>{time}</span>
               <span>조회 {viewCount}</span>
               <span>댓글 {flatCommentCount(comments)}</span>
             </div>
-            <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
+            <div className={PHILIFE_DETAIL_BODY_CLASS}>
               {meeting ? stripMeetupPostMetaFromContent(post.content) : post.content}
             </div>
 
@@ -470,7 +477,7 @@ export function CommunityDetail({
               {me?.id ? (
                 <Link
                   href={philifeAppPaths.meeting(meeting.id)}
-                  className={`${meetingToolbarBtn} border-transparent bg-[#7b3fe4] text-white`}
+                  className={`${meetingToolbarBtn} border-transparent bg-signature text-white`}
                 >
                   문의
                 </Link>
@@ -565,7 +572,7 @@ export function CommunityDetail({
 
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-ui-rect bg-sam-surface p-4 shadow-xl">
+            <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4 ring-1 ring-black/[0.08]">
               <p className="text-[15px] font-semibold text-sam-fg">게시글 신고</p>
               <textarea
                 value={reportText}
@@ -595,7 +602,7 @@ export function CommunityDetail({
           </div>
         ) : null}
 
-        <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm" id="comments">
+        <section className={`${PHILIFE_DETAIL_COMMENTS_WRAP_CLASS} mt-4`} id="comments">
           <h2 className="text-[15px] font-semibold text-sam-fg">댓글</h2>
           {commentsLocked ? (
             <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-ui-rect bg-sam-surface-muted px-4 py-4 text-[13px] text-sam-muted">

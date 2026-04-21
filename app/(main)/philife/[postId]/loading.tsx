@@ -4,7 +4,7 @@ import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 export default function PhilifePostDetailLoading() {
   return (
     <div
-      className={`min-h-screen min-w-0 bg-[#f3f4f6] pb-24 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}
+      className={`min-h-screen min-w-0 bg-sam-app pb-24 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}
       aria-busy
       aria-label="글 불러오는 중"
     >

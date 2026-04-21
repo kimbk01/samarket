@@ -190,11 +190,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   pathname,
   optimisticActive,
   onNavigationIntent,
+  flatMessengerNav = false,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
+  flatMessengerNav?: boolean;
 }) {
   const { tt, t } = useI18n();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
@@ -216,10 +218,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const className = [
-    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-2",
+    "relative flex flex-1 flex-col items-center justify-center",
+    flatMessengerNav ? "min-h-[40px] gap-0 rounded-md py-1" : "min-h-[44px] gap-0.5 rounded-xl py-2",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
-    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
+    isActive && !flatMessengerNav ? "bg-signature/10 ring-1 ring-signature/15" : "",
     hasOwnerStore && !isActive ? "opacity-80" : "",
   ]
     .filter(Boolean)
@@ -267,11 +270,13 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   pathname,
   optimisticActive,
   onNavigationIntent,
+  flatMessengerNav = false,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
+  flatMessengerNav?: boolean;
 }) {
   const { tt, t } = useI18n();
   const ownerStore = useOwnerLitePreferredStoreRow();
@@ -296,12 +301,13 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const storesTabOwnerLite = !!ownerStore;
 
   const className = [
-    "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 py-2",
-    storesTabOwnerLite && !isActive ? "rounded-ui-rect" : "rounded-xl",
+    "relative flex flex-1 flex-col items-center justify-center",
+    flatMessengerNav ? "min-h-[40px] gap-0 py-1" : "min-h-[44px] gap-0.5 py-2",
+    storesTabOwnerLite && !isActive && !flatMessengerNav ? "rounded-ui-rect" : flatMessengerNav ? "rounded-md" : "rounded-xl",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signature/35",
-    isActive ? "bg-signature/10 ring-1 ring-signature/15" : "",
-    storesTabOwnerLite && !isActive
+    isActive && !flatMessengerNav ? "bg-signature/10 ring-1 ring-signature/15" : "",
+    storesTabOwnerLite && !isActive && !flatMessengerNav
       ? "bg-sam-surface/70 shadow-[0_1px_4px_rgba(15,23,42,0.08)] ring-1 ring-sam-border/70"
       : "",
   ]
@@ -383,6 +389,12 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/mypage\/trade\/chat\/[^/]+\/?$/) ?? false);
+
+  const pathNoQuery = pathname?.split("?")[0] ?? "";
+  /** 메신저 목록·Philife 피드 — 하단 탭 플랫 크롬(메신저 스킨과 동일 톤) */
+  const messengerFlatBottomNav =
+    !isChatRoomDetail &&
+    (pathNoQuery.startsWith("/community-messenger") || pathNoQuery === "/philife" || pathNoQuery.startsWith("/philife/"));
 
   const clearPendingActiveReset = useCallback(() => {
     if (pendingActiveResetTimerRef.current != null) {
@@ -529,7 +541,9 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
   return (
     <>
     <nav
-      className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden`}
+      className={`${BOTTOM_NAV_SHELL.navClassName} ${BOTTOM_NAV_SHELL.heightClass} min-w-0 max-w-full justify-center overflow-x-hidden ${
+        messengerFlatBottomNav ? "!bg-white !shadow-none [border-top-color:#ececec]" : ""
+      }`}
       aria-label={t("nav_bottom_bar_aria")}
     >
       <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-w-0 max-w-full`}>
@@ -541,6 +555,7 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
               pathname={pathname}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
+              flatMessengerNav={messengerFlatBottomNav}
             />
           ) : (
             <BottomNavTabStandard
@@ -549,6 +564,7 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
               pathname={pathname}
               optimisticActive={pendingActiveTabId === tab.id}
               onNavigationIntent={markBottomNavIntent}
+              flatMessengerNav={messengerFlatBottomNav}
             />
           )
         )}

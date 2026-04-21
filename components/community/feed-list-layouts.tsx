@@ -120,7 +120,7 @@ function CardShell({
   };
 
   return (
-    <article className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
+    <article className="overflow-hidden bg-sam-surface">
       <Link
         href={href}
         prefetch={false}

@@ -1,0 +1,136 @@
+/**
+ * Community messenger flat UI — `[data-cm-ui="line"]` 하위만.
+ * 토큰: 흰 배경 + 회색 텍스트 단계 + 보라 포인트 최소 사용. 그림자 기본 금지.
+ */
+
+[data-cm-ui="line"] {
+  --cm-line-text-primary: #111111;
+  --cm-line-text-secondary: #777777;
+  --cm-line-text-tertiary: #999999;
+  --cm-line-divider: #ececec;
+  --cm-line-search-bg: #f5f5f5;
+  --cm-line-radius: 8px;
+
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans KR",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    sans-serif;
+}
+
+[data-cm-ui="line"] [data-messenger-shell],
+[data-cm-ui="line"] [data-cm-room] {
+  --messenger-primary: #7360f2;
+  --messenger-primary-soft: #f1eeff;
+  --messenger-primary-soft-2: #e9e3ff;
+  --messenger-bg: #ffffff;
+  --messenger-chat-bg: #fafafa;
+  --messenger-surface: #ffffff;
+  --messenger-surface-muted: #f5f5f5;
+  --messenger-text: var(--cm-line-text-primary);
+  --messenger-text-secondary: var(--cm-line-text-secondary);
+  --messenger-divider: var(--cm-line-divider);
+  --messenger-icon: #555555;
+  --messenger-badge-direct-bg: #f1eeff;
+  --messenger-badge-group-bg: #f5f5f5;
+  --messenger-shadow-soft: none;
+}
+
+[data-cm-ui="line"] [data-cm-room] {
+  --cm-room-primary: #7360f2;
+  --cm-room-primary-soft: #f1eeff;
+  --cm-room-page-bg: #ffffff;
+  --cm-room-chat-bg: #fafafa;
+  --cm-room-text: var(--cm-line-text-primary);
+  --cm-room-text-muted: var(--cm-line-text-secondary);
+  --cm-room-divider: var(--cm-line-divider);
+  --cm-room-header-bg: #ffffff;
+  --cm-room-bubble-incoming: #f5f5f5;
+  --cm-room-bubble-outgoing: color-mix(in srgb, #7360f2 22%, #f5f5f5);
+  --cm-room-radius-bubble: 8px;
+  --cm-room-radius-input: 8px;
+}
+
+[data-cm-ui="line"] [data-cm-messenger-home-root] {
+  background-color: var(--messenger-bg);
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 2px;
+}
+
+[data-cm-ui="line"] [data-cm-messenger-main] .cm-messenger-section-desc {
+  display: none;
+}
+
+[data-cm-ui="line"] [data-cm-messenger-main] .cm-messenger-section-title {
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+[data-cm-ui="line"] [data-cm-room] .sam-bubble {
+  box-shadow: none;
+}
+
+[data-cm-ui="line"] [data-cm-room] .sam-bubble--outgoing {
+  color: var(--cm-line-text-primary);
+  border: 1px solid color-mix(in srgb, #7360f2 35%, transparent);
+}
+
+[data-cm-ui="line"] [data-cm-room] .sam-bubble--incoming {
+  color: var(--cm-line-text-primary);
+  border: 1px solid var(--cm-line-divider);
+}
+
+[data-cm-ui="line"] [data-cm-room] footer[data-cm-line-composer-footer] {
+  background-color: #ffffff !important;
+  box-shadow: none !important;
+  border-top-color: var(--cm-line-divider) !important;
+}
+
+[data-cm-ui="line"] [data-cm-room] footer[data-cm-line-composer-footer] textarea {
+  background-color: var(--cm-line-search-bg) !important;
+  box-shadow: none !important;
+  border-radius: var(--cm-line-radius) !important;
+  font-size: 15px !important;
+}
+
+[data-cm-ui="line"] [data-cm-room] footer[data-cm-line-composer-footer] textarea:focus {
+  outline: 1px solid color-mix(in srgb, #7360f2 45%, transparent);
+  outline-offset: 0;
+}
+
+[data-cm-ui="line"] [data-cm-room] [data-cm-line-plus-btn] {
+  background-color: transparent !important;
+  color: #7360f2 !important;
+}
+
+[data-cm-ui="line"] [data-cm-room] [data-cm-line-timeline] {
+  background-image: none !important;
+  background-color: var(--cm-room-chat-bg) !important;
+}
+
+[data-cm-ui="line"] [data-messenger-friend-row="true"] [role="button"]:active {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 거래 독 — 카드형 그림자 제거·radius 상한 */
+[data-cm-ui="line"] [data-cm-trade-dock] {
+  box-shadow: none !important;
+}
+
+[data-cm-ui="line"] [data-cm-trade-dock] .rounded-ui-rect {
+  border-radius: var(--cm-line-radius) !important;
+}
+
+/* 메신저 홈 검색 등 입력 톤 */
+[data-cm-ui="line"] [data-messenger-shell] input[type="search"],
+[data-cm-ui="line"] [data-messenger-shell] input[type="text"] {
+  background-color: var(--cm-line-search-bg);
+}

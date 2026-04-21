@@ -102,18 +102,23 @@ export function MessengerFriendsScreen({
     return { favoriteFriends: favorite, normalFriends: normal };
   }, [sortedFriends]);
 
-  const renderFriendSection = (title: string, rows: CommunityMessengerProfileLite[], accent?: string) => {
+  const renderFriendSection = (
+    title: string,
+    rows: CommunityMessengerProfileLite[],
+    accent?: string,
+    opts?: { topDivider?: boolean }
+  ) => {
     if (rows.length === 0) return null;
+    const topDivider = opts?.topDivider !== false;
     return (
-      <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
-        <div className="flex items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2">
-          <h2
-            className="text-[11px] font-semibold uppercase tracking-wide"
-            style={{ color: accent ?? "var(--messenger-text-secondary)" }}
-          >
+      <div
+        className={`mt-2 overflow-hidden bg-[color:var(--messenger-bg)] ${topDivider ? "border-t border-[color:var(--messenger-divider)]" : ""}`}
+      >
+        <div className="flex items-center justify-between px-3 py-1.5">
+          <h2 className="text-[13px] font-bold" style={{ color: accent ?? "var(--messenger-text)" }}>
             {title}
           </h2>
-          <span className="text-[11px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          <span className="text-[12px] tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
             {rows.length}
           </span>
         </div>
@@ -141,7 +146,7 @@ export function MessengerFriendsScreen({
   return (
     <>
       <section
-        className="space-y-3 pt-1"
+        className="space-y-2 pt-0"
         onPointerDownCapture={(e) => {
           if (quickMenuUserId) return;
           const target = e.target as HTMLElement | null;
@@ -154,11 +159,15 @@ export function MessengerFriendsScreen({
       >
         <MessengerFriendsMyProfileStrip me={me} />
 
-        {favoriteFriends.length > 0 ? renderFriendSection("즐겨찾기", favoriteFriends, "var(--messenger-primary)") : null}
-        {normalFriends.length > 0 ? renderFriendSection("친구", normalFriends) : null}
+        {favoriteFriends.length > 0
+          ? renderFriendSection("즐겨찾기", favoriteFriends, "var(--messenger-primary)", { topDivider: false })
+          : null}
+        {normalFriends.length > 0
+          ? renderFriendSection("친구", normalFriends, undefined, { topDivider: favoriteFriends.length > 0 })
+          : null}
         {sortedFriends.length === 0 ? (
           <div
-            className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-5 text-center text-[12px] shadow-[var(--messenger-shadow-soft)]"
+            className="border-b border-t border-[color:var(--messenger-divider)] px-3 py-6 text-center text-[13px]"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
             아직 친구가 없습니다.
@@ -169,7 +178,7 @@ export function MessengerFriendsScreen({
           <button
             type="button"
             onClick={onOpenPrivacySummary}
-            className="flex w-full items-center justify-between rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-2.5 text-left shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-primary-soft)]"
+            className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
             style={{ color: "var(--messenger-text)" }}
           >
             <div>

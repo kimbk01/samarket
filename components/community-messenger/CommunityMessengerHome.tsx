@@ -1861,7 +1861,8 @@ export function CommunityMessengerHome({
   return (
     <div
       data-messenger-shell
-      className="min-h-0 space-y-3 bg-[color:var(--messenger-bg)] px-3 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+      data-cm-messenger-home-root
+      className="min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-1 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
     >
       <CommunityMessengerHomeListPane
         loading={loading}

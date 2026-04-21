@@ -22,6 +22,7 @@ import {
   tradeChatCallPolicyAllowsVideo,
   tradeChatCallPolicyAllowsVoice,
 } from "@/lib/trade/trade-chat-call-policy";
+import { MessengerHeader } from "@/components/community-messenger/line-ui";
 
 function formatPresenceLine(
   state: "online" | "away" | "offline",
@@ -105,8 +106,8 @@ export function CommunityMessengerRoomPhase2Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 shrink-0 border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 shadow-none">
-        <div className="flex items-center gap-2">
+      <MessengerHeader>
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => {
@@ -117,12 +118,12 @@ export function CommunityMessengerRoomPhase2Header() {
                   : "/community-messenger?section=chats"
               );
             }}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}
           >
-            <BackIcon className="h-5 w-5" />
+            <BackIcon className="h-[18px] w-[18px]" />
           </button>
-          <div className="relative h-10 w-10 shrink-0">
+          <div className="relative h-9 w-9 shrink-0">
             <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
               {vm.snapshot.room.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -143,16 +144,16 @@ export function CommunityMessengerRoomPhase2Header() {
             </p>
             <p className="truncate text-[11px] text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-0">
             {tradeMessengerCallButtons.showVoice ? (
               <button
                 type="button"
                 onClick={() => setConfirmKind("voice")}
                 disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                 aria-label={vm.t("nav_voice_call_label")}
               >
-                <VoiceCallIcon className="h-5 w-5" />
+                <VoiceCallIcon className="h-[18px] w-[18px]" />
               </button>
             ) : null}
             {tradeMessengerCallButtons.showVideo ? (
@@ -160,23 +161,23 @@ export function CommunityMessengerRoomPhase2Header() {
                 type="button"
                 onClick={() => setConfirmKind("video")}
                 disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                className="flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
                 aria-label={vm.t("nav_video_call_label")}
               >
-                <VideoCallIcon className="h-5 w-5" />
+                <VideoCallIcon className="h-[18px] w-[18px]" />
               </button>
             ) : null}
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
               aria-label={vm.t("nav_messenger_room_menu")}
             >
-              <MoreIcon className="h-5 w-5" />
+              <MoreIcon className="h-[18px] w-[18px]" />
             </button>
           </div>
         </div>
-      </header>
+      </MessengerHeader>
       {confirmKind ? (
         <MessengerOutgoingCallConfirmDialog
           open

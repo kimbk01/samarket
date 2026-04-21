@@ -210,7 +210,7 @@ export function CommunityMessengerTradeProcessSection({
   }
 
   return (
-    <div className="shrink-0 border-b border-[color:var(--cm-room-divider)]">
+    <div data-cm-trade-dock className="shrink-0 border-b border-[color:var(--cm-room-divider)]">
       <TradeFlowBanner
         room={room}
         currentUserId={viewerUserId}
@@ -226,7 +226,7 @@ export function CommunityMessengerTradeProcessSection({
         sellerListingControlsEnabled
       />
       {room.product ? (
-        <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2">
+        <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">
           <ChatProductSummary product={room.product} hideFavorite={amISeller} sellerUserId={room.sellerId} />
         </div>
       ) : null}

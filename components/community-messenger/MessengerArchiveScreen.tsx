@@ -30,16 +30,16 @@ export function MessengerArchiveScreen({
     selectedArchiveSection === "muted_chats" ? "알림을 끈 대화가 없습니다." : emptyMessage;
 
   return (
-    <section className="space-y-3 pt-1">
-      <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--messenger-shadow-soft)]">
-        <p className="text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+    <section className="space-y-2 pt-0">
+      <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
+        <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
           보관함
         </p>
         <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-          중요한 대화는 숨기고, 필요할 때 다시 꺼낼 수 있습니다. 행을 밀면 바로 복원할 수 있습니다.
+          숨김·차단·알림 끔·보관을 구분해 관리합니다. 행을 밀면 복원할 수 있습니다.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         <ArchiveSectionCard
           title="숨김 친구"
           active={selectedArchiveSection === "hidden_friends"}
@@ -90,10 +90,10 @@ function ArchiveSectionCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-[var(--messenger-radius-md)] border px-3 py-3 text-left shadow-[var(--messenger-shadow-soft)] ${
+      className={`rounded-[10px] border px-2.5 py-2.5 text-left ${
         active
           ? "border-[color:var(--messenger-primary)] bg-[color:var(--messenger-primary-soft)]"
-          : "border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]"
+          : "border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       }`}
     >
       <p className="text-[13px] font-semibold" style={{ color: "var(--messenger-text)" }}>

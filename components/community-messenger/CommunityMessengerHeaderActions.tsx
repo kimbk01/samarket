@@ -16,10 +16,10 @@ export function CommunityMessengerHeaderActions({
   onOpenSettings: () => void;
 }) {
   const iconBtn =
-    "flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] text-[color:var(--messenger-icon)] shadow-sm active:bg-[color:var(--messenger-primary-soft)]";
+    "flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] text-[color:var(--messenger-icon)] active:bg-[color:var(--messenger-surface-muted)]";
 
   return (
-    <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-1.5">
+    <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-1">
       <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label="메신저 검색">
         <SearchIcon />
       </button>
@@ -45,7 +45,7 @@ export function CommunityMessengerHeaderActions({
 
 function SearchIcon() {
   return (
-    <svg className="h-[22px] w-[22px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
       <circle cx="11" cy="11" r="6" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-4.2-4.2" />
     </svg>
@@ -54,7 +54,7 @@ function SearchIcon() {
 
 function BellListIcon() {
   return (
-    <svg className="h-[21px] w-[21px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -68,7 +68,7 @@ function BellListIcon() {
 /** 단색 채움 스타일 (톱니 설정) */
 function SettingsIconSolid() {
   return (
-    <svg className="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
     </svg>
   );

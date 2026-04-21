@@ -63,6 +63,7 @@ import {
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   try {
@@ -172,23 +173,21 @@ export function CommunityMessengerRoomPhase2Composer() {
   return (
     <>
       <footer
-        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pt-2.5 transition-[background-color,box-shadow] duration-300 ${
+        {...(!vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
+        className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pt-2 transition-[background-color] duration-200 ${
           vm.voiceRecording
-            ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white shadow-[0_-6px_18px_rgba(42,171,238,0.08)]"
-            : "bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_28px_rgba(17,24,39,0.07)]"
+            ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
+            : "bg-[color:var(--cm-room-header-bg)]"
         }`}
         style={{
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
         }}
       >
-        {/**
-         * 열 너비 고정: 5열을 항상 `2.75rem`으로 두어 전송·녹음·잠금 녹음 전환 시에도
-         * 마이크(4열)의 화면상 위치가 동일하게 유지된다. (`auto`+다른 min-w는 마이크가 좌우로 밀림)
-         */}
-        <div className="grid min-h-[48px] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem_2.75rem] items-center gap-2">
+        <MessengerInputBar>
           {!vm.voiceRecording ? (
             <button
               type="button"
+              data-cm-line-plus-btn
               onClick={() => vm.setActiveSheet("attach")}
               className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
               aria-label="첨부 메뉴"
@@ -246,7 +245,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                         : "보관된 방입니다"
                     : "메시지"
                 }
-                className="max-h-28 min-h-[44px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-3 text-[14px] leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
+                className="max-h-28 min-h-[40px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 py-2 text-[15px] leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
               />
             ) : vm.voiceHandsFree ? (
               <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
@@ -368,7 +367,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.busy === "send-sticker" ||
                 vm.busy === "delete-message"
               }
-              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] text-[13px] font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] text-[13px] font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
               aria-label="전송"
             >
               <SendPlaneIcon className="h-5 w-5 text-white" />
@@ -376,7 +375,7 @@ export function CommunityMessengerRoomPhase2Composer() {
           ) : (
             <div className="pointer-events-none h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
           )}
-        </div>
+        </MessengerInputBar>
       </footer>
     </>
   );

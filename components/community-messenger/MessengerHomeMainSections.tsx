@@ -169,14 +169,20 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           : "숨긴 대화와 보관한 채팅을 다시 꺼낼 수 있습니다.";
 
   return (
-    <section className="space-y-3">
-      <div className="space-y-2">
+    <section data-cm-messenger-main className="space-y-2 px-3">
+      <div className="space-y-1.5">
         <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
-        <div className="px-1">
-          <p className="text-[20px] font-bold tracking-tight" style={{ color: "var(--messenger-text)" }}>
+        <div className="px-0.5">
+          <p
+            className="cm-messenger-section-title text-[20px] font-bold tracking-tight"
+            style={{ color: "var(--messenger-text)" }}
+          >
             {sectionTitle}
           </p>
-          <p className="mt-0.5 text-[12px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          <p
+            className="cm-messenger-section-desc mt-0.5 text-[12px] leading-snug"
+            style={{ color: "var(--messenger-text-secondary)" }}
+          >
             {sectionDescription}
           </p>
         </div>

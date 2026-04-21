@@ -58,7 +58,7 @@ function MeetingInfoCard({
   const hasCover = !!(meeting as { cover_image_url?: string }).cover_image_url;
 
   return (
-    <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
+    <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
       <div
         className={`relative flex h-28 items-end px-5 pb-4 ${
           hasCover
@@ -73,7 +73,7 @@ function MeetingInfoCard({
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         <div className="relative z-10 min-w-0">
-          <h1 className="text-[20px] font-bold leading-tight text-white drop-shadow-sm">
+          <h1 className="text-[18px] font-bold leading-snug tracking-tight text-white drop-shadow-sm">
             {meeting.title}
           </h1>
           <div className="mt-1 flex items-center gap-1.5">
@@ -166,10 +166,11 @@ async function PhilifeMeetingPageBody({ params, searchParams }: Props) {
   } = hub;
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] pb-28">
+    <div className="min-h-screen bg-sam-app pb-28">
       <TradePrimaryColumnStickyAppBar
         title={meeting.title}
         backButtonProps={{ backHref: `/philife/${meeting.post_id}`, ariaLabel: "게시글로" }}
+        shellVariant="flat"
       />
 
       <div className={`${APP_MAIN_GUTTER_X_CLASS} pt-3`}>
@@ -182,7 +183,7 @@ async function PhilifeMeetingPageBody({ params, searchParams }: Props) {
               openChatAnyApproval={openChatAnyApproval}
             />
             {!isPending && !isRestricted ? (
-              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
                 <MeetingJoinButton
                   meetingId={meeting.id}
                   chatRoomId={meeting.chat_room_id}

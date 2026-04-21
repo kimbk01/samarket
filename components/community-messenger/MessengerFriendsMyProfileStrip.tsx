@@ -20,7 +20,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
   const bioLine = me?.bio?.trim() ?? "";
 
   return (
-    <div className="flex items-center gap-2.5 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-2.5 py-2 shadow-[var(--messenger-shadow-soft)]">
+    <div className="flex items-center gap-2.5 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-1 py-2">
       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]">
         {me?.avatarUrl?.trim() ? (
           // eslint-disable-next-line @next/next/no-img-element

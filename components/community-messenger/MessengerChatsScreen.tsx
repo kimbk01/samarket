@@ -12,12 +12,13 @@ import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/ty
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
+import { FlatListContainer } from "@/components/community-messenger/line-ui";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
 
 /** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
 const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
-const MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX = 88;
+const MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX = 72;
 
 function useMessengerHomeListDocumentScroll(onScroll: () => void) {
   useEffect(() => {
@@ -78,7 +79,7 @@ function MessengerRoomRows({
 
   if (!useVirtual) {
     return (
-      <div className="space-y-1.5">
+      <FlatListContainer>
         {items.map((item) => (
           <MessengerChatListItem
             key={item.room.id}
@@ -98,12 +99,12 @@ function MessengerRoomRows({
             onResetTransientUi={onResetTransientUi}
           />
         ))}
-      </div>
+      </FlatListContainer>
     );
   }
 
   return (
-    <div className="relative w-full" role="list" style={{ height: rowVirtualizer.getTotalSize() }}>
+    <FlatListContainer className="relative" role="list" style={{ height: rowVirtualizer.getTotalSize() }}>
       {rowVirtualizer.getVirtualItems().map((vi) => {
         const item = items[vi.index]!;
         return (
@@ -112,7 +113,7 @@ function MessengerRoomRows({
             role="listitem"
             ref={rowVirtualizer.measureElement}
             data-index={vi.index}
-            className="pb-1.5"
+            className="pb-0"
             style={{
               position: "absolute",
               top: 0,
@@ -140,7 +141,7 @@ function MessengerRoomRows({
           </div>
         );
       })}
-    </div>
+    </FlatListContainer>
   );
 }
 
@@ -222,7 +223,7 @@ export function MessengerChatsScreen({
 
   return (
     <section
-      className="space-y-3 pt-1"
+      className="space-y-2 pt-0"
       onPointerDownCapture={(e) => {
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -233,32 +234,32 @@ export function MessengerChatsScreen({
       }}
     >
       {showFilters ? (
-        <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--messenger-shadow-soft)]">
-          <div className="flex items-start justify-between gap-3">
+        <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+              <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
                 {listContext === "archive" ? "보관된 대화" : "대화 목록"}
               </p>
               <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-                필터는 버튼으로 열고, 안읽음은 뱃지로, 고정은 핀 아이콘으로 확인합니다.
+                필터 · 안읽음 · 고정은 목록에서 확인합니다.
               </p>
             </div>
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => {
                   closeAllTransient();
                   setFilterSheetOpen(true);
                 }}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 text-[12px] font-semibold active:bg-[color:var(--messenger-primary-soft)]"
+                className="inline-flex h-9 items-center gap-1 rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 text-[12px] font-semibold active:opacity-80"
                 style={{ color: "var(--messenger-text)" }}
               >
                 <FilterIcon />
                 필터
               </button>
               <span
-                className="inline-flex h-10 items-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-3 text-[12px] font-semibold"
-                style={{ color: "var(--messenger-text)" }}
+                className="inline-flex h-9 max-w-[7rem] items-center truncate rounded-full bg-[color:var(--messenger-surface-muted)] px-2.5 text-[11px] font-semibold"
+                style={{ color: "var(--messenger-text-secondary)" }}
               >
                 {messengerChatListChipLabel(chatListChip)}
               </span>
@@ -362,7 +363,7 @@ export function MessengerOpenChatScreen({
 
   return (
     <section
-      className="space-y-3 pt-1.5"
+      className="space-y-2 pt-0"
       onPointerDownCapture={(e) => {
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -371,18 +372,18 @@ export function MessengerOpenChatScreen({
         onResetTransientUi();
       }}
     >
-      <div className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 py-3 shadow-[var(--messenger-shadow-soft)]">
-        <p className="text-[14px] font-semibold" style={{ color: "var(--messenger-text)" }}>
+      <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
+        <p className="text-[15px] font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
           오픈채팅
         </p>
         <p className="mt-0.5 text-[11px] leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-          참여 중인 방과 새 오픈채팅을 한 흐름 안에서 탐색할 수 있게 정리했습니다.
+          참여 중인 방과 새 오픈채팅을 한곳에서 확인합니다.
         </p>
       </div>
 
       <div>
-        <div className="mb-1 px-0.5">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+        <div className="mb-0.5 px-0.5 pt-1">
+          <h2 className="text-[13px] font-bold" style={{ color: "var(--messenger-text)" }}>
             참여 중
           </h2>
         </div>
@@ -412,12 +413,12 @@ export function MessengerOpenChatScreen({
       </div>
 
       <div>
-        <div className="mb-1 px-0.5">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--messenger-text-secondary)" }}>
+        <div className="mb-0.5 px-0.5 pt-2">
+          <h2 className="text-[13px] font-bold" style={{ color: "var(--messenger-text)" }}>
             찾기
           </h2>
         </div>
-        <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+        <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden border-y border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)]">
           {discoverableGroups.length ? (
             discoverableGroups.map((group) => (
               <button
@@ -427,7 +428,7 @@ export function MessengerOpenChatScreen({
                   onResetTransientUi();
                   onPreviewGroup(group.id);
                 }}
-                className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left active:bg-[color:var(--messenger-primary-soft)]"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">

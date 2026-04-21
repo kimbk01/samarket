@@ -15,6 +15,13 @@ import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import { philifePostCommentsUrl, philifePostLikeUrl, philifePostViewUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import {
+  PHILIFE_DETAIL_BODY_CLASS,
+  PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
+  PHILIFE_DETAIL_META_CLASS,
+  PHILIFE_DETAIL_POST_SLAB_CLASS,
+  PHILIFE_DETAIL_TITLE_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 
 export function CommunityPostDetailClient({
   post,
@@ -135,9 +142,9 @@ export function CommunityPostDetailClient({
       : "";
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-24">
+    <div className="min-h-screen bg-sam-app pb-24">
       <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+        <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} p-4`}>
           <div className="flex flex-wrap items-center gap-2">
             <span
               className="rounded-ui-rect px-2 py-0.5 text-[11px] font-semibold text-white"
@@ -149,15 +156,15 @@ export function CommunityPostDetailClient({
               <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">질문</span>
             ) : null}
           </div>
-          <h1 className="mt-3 text-xl font-bold text-sam-fg">{post.title}</h1>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-sam-muted">
+          <h1 className={PHILIFE_DETAIL_TITLE_CLASS}>{post.title}</h1>
+          <div className={PHILIFE_DETAIL_META_CLASS}>
             <span>{post.author_name}</span>
             {post.region_label ? <span>{post.region_label}</span> : null}
             <span>{time}</span>
             <span>조회 {viewCount}</span>
             <span>댓글 {comments.length}</span>
           </div>
-          <div className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-sam-fg">
+          <div className={PHILIFE_DETAIL_BODY_CLASS}>
             {post.is_meetup ? stripMeetupPostMetaFromContent(post.content) : post.content}
           </div>
           {post.images.length > 0 ? (
@@ -215,7 +222,7 @@ export function CommunityPostDetailClient({
 
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-ui-rect bg-sam-surface p-4 shadow-xl">
+            <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4 ring-1 ring-black/[0.08]">
               <p className="text-[15px] font-semibold text-sam-fg">게시글 신고</p>
               <p className="mt-1 text-[12px] text-sam-muted">신고 사유를 적어 주세요. 운영팀이 확인합니다.</p>
               <textarea
@@ -247,7 +254,7 @@ export function CommunityPostDetailClient({
           </div>
         ) : null}
 
-        <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm" id="comments">
+        <section className={`${PHILIFE_DETAIL_COMMENTS_WRAP_CLASS} mt-4`} id="comments">
           <h2 className="text-[15px] font-semibold text-sam-fg">댓글 {comments.length}</h2>
           <ul className="mt-3 divide-y divide-sam-border-soft">
             {comments.map((c) => (

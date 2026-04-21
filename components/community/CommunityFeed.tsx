@@ -6,8 +6,14 @@ import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighb
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
-import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
-import { TRADE_SECONDARY_TABS_INNER_Y_CLASS, TRADE_SECONDARY_TABS_SHELL_CLASS } from "@/lib/trade/ui/secondary-tabs-surface";
+import {
+  PHILIFE_FEED_FILTER_STRIP_CLASS,
+  PHILIFE_PAGE_ROOT_CLASS,
+  PHILIFE_TOPIC_TAB_OFF_CLASS,
+  PHILIFE_TOPIC_TAB_ON_CLASS,
+  PHILIFE_TOPIC_TAB_STRIP_CLASS,
+  philifeFabComposeClass,
+} from "@/lib/philife/philife-flat-ui-classes";
 import { TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { CommunityCard } from "./CommunityCard";
 import { HorizontalDragScroll } from "./HorizontalDragScroll";
@@ -104,11 +110,6 @@ function mergeNeighborhoodFeedById(
   }
   return out;
 }
-
-const PHILIFE_TOPIC_TAB_CLASS = {
-  on: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-semibold text-sam-fg",
-  off: "flex h-[55px] shrink-0 items-center justify-center whitespace-nowrap px-1 text-center text-[14px] leading-snug transition-colors duration-200 sm:px-1.5 sm:text-[15px] font-medium text-sam-muted hover:text-sam-fg",
-} as const;
 
 export function CommunityFeed() {
   const viewerSig = usePhilifeFeedViewerSig();
@@ -457,20 +458,20 @@ export function CommunityFeed() {
   const postsForList = postsDeduped;
 
   return (
-    <div className="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background pb-28">
+    <div className={PHILIFE_PAGE_ROOT_CLASS}>
       <MySubpageHeader
         registerMainTier1={false}
         hideCtaStrip
         stickyBelow={
           <>
-            <div className="min-w-0 overflow-x-hidden border-t border-sam-fg/[0.08] bg-sam-surface-muted">
+            <div className={PHILIFE_TOPIC_TAB_STRIP_CLASS}>
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
                   className={TRADE_PRIMARY_TABS_OUTER_SCROLL_CLASS}
                   style={{ WebkitOverflowScrolling: "touch" }}
                   aria-label="피드 주제"
                 >
-                  <div className="flex h-[55px] min-w-0 w-max items-stretch gap-4">
+                  <div className="flex min-w-0 w-max items-stretch gap-0">
                     {chips.map((c) => {
                       const on = category === c.slug || (c.slug === "" && category === "");
                       return (
@@ -478,7 +479,7 @@ export function CommunityFeed() {
                           key={c.slug || "all"}
                           type="button"
                           onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
-                          className={on ? PHILIFE_TOPIC_TAB_CLASS.on : PHILIFE_TOPIC_TAB_CLASS.off}
+                          className={on ? PHILIFE_TOPIC_TAB_ON_CLASS : PHILIFE_TOPIC_TAB_OFF_CLASS}
                         >
                           {c.label}
                         </button>
@@ -488,9 +489,9 @@ export function CommunityFeed() {
                 </HorizontalDragScroll>
               </div>
             </div>
-            <div className={`${TRADE_SECONDARY_TABS_SHELL_CLASS} ${TRADE_SECONDARY_TABS_INNER_Y_CLASS}`}>
+            <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
               <div className={`min-w-0 space-y-1.5 ${APP_MAIN_HEADER_INNER_CLASS}`}>
-                <label className="flex cursor-pointer items-center gap-2 px-0 text-[12px] text-[var(--text-muted)]">
+                <label className="flex cursor-pointer items-center gap-2 px-0 text-[12px] text-sam-muted">
                   <input
                     type="checkbox"
                     checked={neighborOnly}
@@ -499,7 +500,7 @@ export function CommunityFeed() {
                   />
                   관심이웃 글만 보기
                 </label>
-                <p className="text-[11px] leading-snug text-[var(--text-muted)]">
+                <p className="text-[11px] leading-snug text-sam-meta">
                   글은 지역과 무관하게 모두 보이며, 상단 주제 탭으로 나눠 볼 수 있어요.
                 </p>
               </div>
@@ -539,13 +540,15 @@ export function CommunityFeed() {
           </div>
         ) : (
           <>
-            <div
-              className={`${APP_MAIN_GUTTER_X_CLASS} space-y-2.5 pt-2 pb-1 ${topAds.length > 0 ? "mt-2" : ""}`}
+            <ul
+              className={`m-0 list-none divide-y divide-sam-border p-0 ${APP_MAIN_GUTTER_X_CLASS} pt-2 pb-1 ${topAds.length > 0 ? "mt-2" : ""}`}
             >
               {postsForList.map((p) => (
-                <CommunityCard key={p.id} post={p} />
+                <li key={p.id} className="list-none">
+                  <CommunityCard post={p} />
+                </li>
               ))}
-            </div>
+            </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
             {loadingMore ? <p className="py-4 text-center text-[13px] text-sam-meta">더 불러오는 중…</p> : null}
             {!hasMore && postsForList.length > 0 ? (
@@ -557,7 +560,7 @@ export function CommunityFeed() {
 
       <Link
         href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
-        className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass} z-30 flex h-12 min-w-[5.75rem] items-center justify-center rounded-full bg-signature px-4 text-[15px] font-semibold text-white shadow-lg`}
+        className={philifeFabComposeClass()}
         aria-label={category === "meetup" ? "모임 글쓰기" : "커뮤니티 글쓰기"}
       >
         글쓰기

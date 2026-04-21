@@ -196,6 +196,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={vm.messagesViewportRef}
+        data-cm-line-timeline
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
         onScroll={scheduleScroll}
       >
