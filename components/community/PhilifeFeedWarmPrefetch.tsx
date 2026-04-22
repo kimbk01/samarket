@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
@@ -8,8 +8,14 @@ import { warmPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighbo
 import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
+import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
+/** 거래·마켓 셸에서 커뮤니티 탭이 자주 열림 — 워밍 스케줄을 더 앞당김 */
+const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 320;
+const PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS = 520;
+/** `scheduleWhenBrowserIdle` timeout — 과도한 대기 방지 */
+const PHILIFE_WARM_IDLE_TIMEOUT_MS = 650;
 const warmedFeedAtByKey = new Map<string, number>();
 
 /**
@@ -18,14 +24,16 @@ const warmedFeedAtByKey = new Map<string, number>();
 export function PhilifeFeedWarmPrefetch() {
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
-  pathnameRef.current = pathname;
+  useLayoutEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
+  const warmShellDomain = useMemo(() => mainBottomNavPrefetchTriggerKey(pathname || null), [pathname]);
   const viewerSig = usePhilifeFeedViewerSig();
   const tickRef = useRef(0);
 
   /**
-   * `pathname` 은 deps 에 넣지 않는다. 셸이 `mountPhilifeWarmPrefetch` 로 마운트하는 동안은
-   * 피드/매장 등 **같은 워밍 구역** 내 이동이 잦아도 타이머·idle 작업이 매번 리셋되지 않게 한다.
-   * 실행 시점에는 `pathnameRef` 로 최신 경로만 검사한다.
+   * deps 는 `viewerSig`·`warmShellDomain` 만 — `/home`→`/market` 같이 **같은 거래 셸** 안에서는 타이머를 리셋하지 않는다.
+   * 실행·가드에는 `pathnameRef` 로 최신 경로를 본다.
    */
   useEffect(() => {
     if (!shouldRunPhilifeBackgroundFeedWarm()) return;
@@ -42,6 +50,11 @@ export function PhilifeFeedWarmPrefetch() {
 
     const my = ++tickRef.current;
     let refreshIdleId = -1;
+    const outerDelayMs = (() => {
+      const p0 = pathnameRef.current;
+      const d = mainBottomNavPrefetchTriggerKey(p0 || null);
+      return d === "trade" ? PHILIFE_WARM_OUTER_DELAY_TRADE_MS : PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS;
+    })();
     const t = window.setTimeout(() => {
       if (tickRef.current !== my) return;
       const p = pathnameRef.current;
@@ -55,15 +68,15 @@ export function PhilifeFeedWarmPrefetch() {
           noStore: viewerSig !== "_anon",
         });
         warmPhilifeNeighborhoodTopicOptions();
-      }, 1800);
-    }, 1800);
+      }, PHILIFE_WARM_IDLE_TIMEOUT_MS);
+    }, outerDelayMs);
 
     return () => {
       tickRef.current += 1;
       window.clearTimeout(t);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
-  }, [viewerSig]);
+  }, [viewerSig, warmShellDomain]);
 
   return null;
 }

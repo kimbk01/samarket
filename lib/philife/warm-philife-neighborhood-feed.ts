@@ -28,8 +28,9 @@ export function warmPhilifeNeighborhoodFeedByUrl(
   };
 
   if (typeof requestIdleCallback === "function") {
-    requestIdleCallback(run, { timeout: 2500 });
+    /** 이전 2500ms 는 idle 이 자주 밀려 거래→커뮤니티 직전 워밍이 늦게 도착함 */
+    requestIdleCallback(run, { timeout: 900 });
   } else {
-    setTimeout(run, 400);
+    setTimeout(run, 200);
   }
 }

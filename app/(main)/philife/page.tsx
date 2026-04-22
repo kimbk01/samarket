@@ -1,5 +1,5 @@
-import { Feed } from "@/components/community/Feed";
+import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
 
 export default function PhilifePage() {
-  return <Feed />;
+  return <PhilifeFeedClientEntry />;
 }

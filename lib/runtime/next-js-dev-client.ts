@@ -16,9 +16,12 @@ export function shouldRunBottomNavProgrammaticPrefetch(): boolean {
   return process.env.NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH !== "1";
 }
 
-/** dev 에서 Philife 글로벌 피드 워밍은 네트워크·컴파일만 증가 — 생략 */
+/**
+ * Philife 글로벌 피드 백그라운드 워밍 — 기본 **허용**(거래 등 타 탭 → `/philife` 체감).
+ * dev 에서만 끄려면 `NEXT_PUBLIC_DISABLE_PHILIFE_BACKGROUND_FEED_WARM=1`.
+ */
 export function shouldRunPhilifeBackgroundFeedWarm(): boolean {
-  return !isNextJsDevelopmentBundle();
+  return process.env.NEXT_PUBLIC_DISABLE_PHILIFE_BACKGROUND_FEED_WARM !== "1";
 }
 
 /** dev 에서 홈 진입 후 셸 예열(여러 API)은 이동 체감과 겹침 — 생략 */

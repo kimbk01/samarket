@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -42,102 +52,17 @@ import {
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
-
-/**
- * 프로그램적 `router.prefetch` 상한 — 리스트·피드가 커져도 **탭 전환 경로가 무거워지지 않게** 짧게 유지.
- * (각 탭 `Link prefetch` 는 그대로; 여기는 idle 보조만)
- */
-const MAIN_BOTTOM_NAV_PREFETCH_MAX = 3;
-
-function findLongestMatchingBottomNavTabIndex(
-  pathname: string | null,
-  tabs: readonly BottomNavItemConfig[]
-): number {
-  const raw = pathname?.trim() ?? "";
-  const p = raw.split("?")[0] ?? "";
-  if (!p) return 0;
-  let bestIdx = 0;
-  let bestLen = -1;
-  for (let i = 0; i < tabs.length; i++) {
-    const raw = tabs[i]?.href?.trim() ?? "";
-    const h = raw.split("?")[0] ?? "";
-    if (!h) continue;
-    const tradeAliasHome = h === "/home" && (p === "/market" || p.startsWith("/market/"));
-    if (p === h || p.startsWith(`${h}/`) || tradeAliasHome) {
-      const effectiveLen = tradeAliasHome ? Math.max(h.length, "/market".length) : h.length;
-      if (effectiveLen > bestLen) {
-        bestLen = effectiveLen;
-        bestIdx = i;
-      }
-    }
-  }
-  if (bestLen < 0) return 0;
-  return bestIdx;
-}
-
-/**
- * 메신저 목록 → 거래(`/home`) → 내정보(`/mypage`) → 이웃 탭 순으로 후보를 쌓고 **상한만** 자른다.
- * 거래 채팅 허브 URL은 `Link prefetch` 에 맡기고, idle 보조는 메인 3종만(장시간 누적 부하 방지).
- */
-function pickMainBottomNavPrefetchHrefs(
-  pathname: string | null,
-  tabs: readonly BottomNavItemConfig[]
-): string[] {
-  const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
-  const messengerListHref = "/community-messenger?section=chats";
-  const homeHref = "/home";
-  const mypageHref = "/mypage";
-  const raw = pathname?.trim() ?? "";
-  const p = raw.split("?")[0] ?? "";
-  const pathNorm = (p.replace(/\/+$/, "") || "/") as string;
-  const onMessengerListOnly = pathNorm === "/community-messenger";
-  const onTradeFeedSurface = pathNorm === homeHref || pathNorm.startsWith("/market");
-  const onMypageSurface = pathNorm === mypageHref || pathNorm.startsWith(`${mypageHref}/`);
-
-  const activeIdx = findLongestMatchingBottomNavTabIndex(pathname, list);
-  const n = list.length;
-  const out: string[] = [];
-  const seen = new Set<string>();
-
-  const push = (href: string) => {
-    const h = href.trim();
-    if (!h || seen.has(h)) return;
-    if (p === h || p.startsWith(`${h}/`)) return;
-    seen.add(h);
-    out.push(h);
-  };
-
-  if (!onMessengerListOnly) {
-    push(messengerListHref);
-  }
-  if (!onTradeFeedSurface) {
-    push(homeHref);
-  }
-  if (!onMypageSurface) {
-    push(mypageHref);
-  }
-
-  const neighborHref = list[(activeIdx + 1) % n]?.href?.trim() ?? "";
-  push(neighborHref);
-
-  return out.slice(0, MAIN_BOTTOM_NAV_PREFETCH_MAX);
-}
+import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import {
+  isBottomNavTabActive,
+  pickMainBottomNavPrefetchHrefs,
+} from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
   if (!pathname) return true;
   if (pathname === "/home" && targetHref !== "/home") return false;
   return true;
-}
-
-/** 탭 `href` 기준 활성 — 거래 허브는 `/home` 탭에 묶이며 `/market` 도 동일 탭으로 본다 */
-function isBottomNavTabActive(pathname: string | null, tabHref: string): boolean {
-  const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
-  const h = tabHref.split("?")[0]?.trim() ?? "";
-  if (!p || !h) return false;
-  if (p === h || p.startsWith(`${h}/`)) return true;
-  if (h === "/home" && (p === "/market" || p.startsWith("/market/"))) return true;
-  return false;
 }
 
 /**
@@ -205,7 +130,7 @@ function scrollAppShellToTop(): void {
   if (typeof document === "undefined") return;
   const mainEl = document.querySelector("main");
   try {
-    mainEl?.scrollTo?.({ top: 0, behavior: "smooth" });
+    mainEl?.scrollTo?.({ top: 0, behavior: "auto" });
   } catch {
     try {
       mainEl?.scrollTo?.(0, 0);
@@ -214,7 +139,7 @@ function scrollAppShellToTop(): void {
     }
   }
   try {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   } catch {
     window.scrollTo(0, 0);
   }
@@ -245,6 +170,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   onNavigationIntent: (tabId: string) => void;
 }) {
   const { tt, t } = useI18n();
+  const router = useRouter();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
@@ -334,6 +260,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onPointerDown={() => {
         triggerLightTapFeedback();
         onNavigationIntent(tab.id);
+        if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -362,6 +295,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   onNavigationIntent: (tabId: string) => void;
 }) {
   const { tt, t } = useI18n();
+  const router = useRouter();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
@@ -459,6 +393,13 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       onPointerDown={() => {
         triggerLightTapFeedback();
         onNavigationIntent(tab.id);
+        if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -487,6 +428,15 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
   const { t } = useI18n();
   const pathname = usePathname();
+  /** idle 프리페치 콜백 시점의 최신 경로 — effect deps 는 도메인 키만 쓰므로 클로저 pathname 고착 방지 */
+  const pathnameForPrefetchRef = useRef<string | null>(pathname ?? null);
+  useLayoutEffect(() => {
+    pathnameForPrefetchRef.current = pathname ?? null;
+  }, [pathname]);
+  const bottomNavPrefetchDomain = useMemo(
+    () => mainBottomNavPrefetchTriggerKey(pathname ?? null),
+    [pathname]
+  );
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const router = useRouter();
@@ -594,9 +544,14 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
   }, [clearPendingActiveReset]);
 
   /**
-   * 주요 탭 RSC idle 선로딩 — **상한 `MAIN_BOTTOM_NAV_PREFETCH_MAX`**, 순차 `router.prefetch`.
-   * 경로가 바뀌면 **연쇄 setTimeout 전부 취소**해 장시간 사용 시 작업이 쌓이지 않게 한다.
-   * `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끔.
+   * 주요 탭 RSC idle 선로딩 — **비활성 탭 최대 4개(`pickMainBottomNavPrefetchHrefs`)**, 순차 `router.prefetch`.
+   *
+   * **회귀 방지(중복·누락)**:
+   * - effect deps 는 `mainBottomNavPrefetchTriggerKey` 만 — 같은 셸 도메인 안 세부 경로 변경으로 배치가 다시 돌지 않게 한다.
+   * - `pick` 에는 `pathnameForPrefetchRef.current` 로 **idle 실행 시점** 최신 pathname 을 넘긴다.
+   * - `pickMainBottomNavPrefetchHrefs` 내부 `seen` + 상한으로 href 중복·초과 방지.
+   *
+   * 경로가 바뀌면 **연쇄 setTimeout 전부 취소**한다. `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끔.
    */
   useEffect(() => {
     if (!shouldRunBottomNavProgrammaticPrefetch()) return;
@@ -610,8 +565,15 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
       if (cancelled) return;
       idleId = scheduleWhenBrowserIdle(() => {
         if (cancelled) return;
-        const hrefs = pickMainBottomNavPrefetchHrefs(pathname ?? null, tabsRef.current);
+        const hrefs = pickMainBottomNavPrefetchHrefs(pathnameForPrefetchRef.current, tabsRef.current);
         if (hrefs.length === 0) return;
+
+        const scheduleNext = (nextIdx: number) => {
+          if (nextIdx >= hrefs.length) return;
+          chainTimers.push(
+            window.setTimeout(() => runPrefetchAt(nextIdx), BOTTOM_NAV_PREFETCH_SPREAD_MS)
+          );
+        };
 
         const runPrefetchAt = (idx: number) => {
           if (cancelled || idx >= hrefs.length) return;
@@ -619,7 +581,8 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
           try {
             samarketRuntimeDebugLog("bottom-nav-prefetch", "router.prefetch", {
               href,
-              pathname: pathname ?? null,
+              pathname: pathnameForPrefetchRef.current,
+              prefetchDomain: bottomNavPrefetchDomain,
               index: idx,
               total: hrefs.length,
             });
@@ -631,11 +594,7 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
           } catch {
             /* no-op */
           }
-          if (idx + 1 < hrefs.length) {
-            chainTimers.push(
-              window.setTimeout(() => runPrefetchAt(idx + 1), BOTTOM_NAV_PREFETCH_SPREAD_MS)
-            );
-          }
+          scheduleNext(idx + 1);
         };
         runPrefetchAt(0);
       }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
@@ -650,7 +609,7 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
       }
       chainTimers.length = 0;
     };
-  }, [pathname, router]);
+  }, [bottomNavPrefetchDomain, router]);
 
   if (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname)) return null;
 

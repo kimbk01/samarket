@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
+import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 
 /**
  * 로그인 직후·홈 등에서 메신저 탭 **첫 선택** 전에 lite 부트스트랩을 미리 받아
@@ -12,14 +13,15 @@ import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm
  */
 export function MessengerBootstrapEarlyWarm() {
   const pathname = usePathname() ?? "";
+  const shellDomain = useMemo(() => mainBottomNavPrefetchTriggerKey(pathname || null), [pathname]);
 
   useEffect(() => {
-    if (pathname.startsWith("/community-messenger")) return;
+    if (shellDomain === "messenger") return;
     if (peekBootstrapCache()) return;
     queueMicrotask(() => {
       warmMessengerListBootstrapClient();
     });
-  }, [pathname]);
+  }, [shellDomain]);
 
   return null;
 }
