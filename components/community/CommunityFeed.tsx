@@ -83,6 +83,14 @@ type PhilifeFeedTopicChip = {
   sort_slot: "recommend" | "popular" | null;
 };
 
+/** 동네 피드 상단 「전체」칩 — `sort_slot` 없음 */
+const PHILIFE_FEED_ALL_TAB_CHIP: PhilifeFeedTopicChip = {
+  slug: "",
+  label: "전체",
+  is_feed_sort: false,
+  sort_slot: null,
+};
+
 function isRecommendTabDropdownChip(
   c: { slug: string; sort_slot?: "recommend" | "popular" | null; is_feed_sort?: boolean }
 ): boolean {
@@ -342,23 +350,18 @@ export function CommunityFeed() {
             };
           });
           const allTab = j.showAllFeedTab !== false;
-          const next = allTab
-            ? [
-                { slug: "", label: "전체", is_feed_sort: false, sort_slot: null as const },
-                ...rest,
-              ]
-            : rest;
+          const next = allTab ? [PHILIFE_FEED_ALL_TAB_CHIP, ...rest] : rest;
           if (!cancelled) setChips(next);
           /** 「전체」없이 칩만 올 때 URL/상태가 `전체`면 첫 주제로 — 피드·탭·fetch와 동기 */
           if (!cancelled && !allTab && next.length) {
             setCategory((c) => (c === "" || !next.some((t) => t.slug === c) ? next[0]!.slug : c));
           }
         } else {
-          if (!cancelled) setChips([{ slug: "", label: "전체", is_feed_sort: false, sort_slot: null }]);
+          if (!cancelled) setChips([PHILIFE_FEED_ALL_TAB_CHIP]);
         }
       } catch {
         if (!cancelled) {
-          setChips([{ slug: "", label: "전체", is_feed_sort: false, sort_slot: null }]);
+          setChips([PHILIFE_FEED_ALL_TAB_CHIP]);
           setShowNeighborOnlyStrip(true);
         }
       } finally {
