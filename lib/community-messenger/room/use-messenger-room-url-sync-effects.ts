@@ -80,12 +80,21 @@ export function useMessengerRoomUrlSyncEffects({
           body: JSON.stringify({ action: "context_meta", contextMeta: meta }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && json.ok) void refresh(true);
+        if (res.ok && json.ok) {
+          const currentMeta =
+            snapshot?.room?.contextMeta && typeof snapshot.room.contextMeta === "object"
+              ? JSON.stringify(snapshot.room.contextMeta)
+              : "";
+          const incomingMeta = JSON.stringify(meta);
+          if (!currentMeta || currentMeta !== incomingMeta) {
+            void refresh(true);
+          }
+        }
       } finally {
         stripCmCtxFromUrl();
       }
     })();
-  }, [pathname, refresh, resourceRoomId, roomId, routerReplace, searchParams, contextMetaFromUrlHandledRef]);
+  }, [pathname, refresh, resourceRoomId, roomId, routerReplace, searchParams, contextMetaFromUrlHandledRef, snapshot]);
 
   useEffect(() => {
     sheetInfoFromUrlHandledRef.current = false;

@@ -1,10 +1,11 @@
 /**
  * 동일 방(목록 첫 행) 3회 진입 후 `#samarket-room-snapshot-diag` JSON 으로 snapshot Δ 를 수집한다.
- * 비프로덕션에서는 `samarket_e2e_room_diag=1` 쿠키로 계측을 켠다(별도 `MESSENGER_PERF_TRACE_ROOM_SNAPSHOT` 불필요).
+ * 비프로덕션에서는 `samarket_e2e_room_diag=1` 쿠키로 계측을 켠다. 진단 본문은 `GET .../room-snapshot-diagnostics-e2e` 로 채운다.
  *
  * PLAYWRIGHT_NO_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/messenger-room-snapshot-diag-three-runs.spec.ts
  */
 import { expect, test } from "@playwright/test";
+import { readDiagFromDom, waitForRoomSnapshotDiagReady } from "./helpers/messenger-room-snapshot-diag";
 
 type Diag = {
   snapshotEntryMs?: number;
@@ -106,7 +107,7 @@ async function pickRoomIdWithFetchPostSellerMatchDiagnostics(
     /** 클라이언트 전환만 하면 스냅샷 `<script>` 가 안 붙을 수 있어 전체 문서 로드로 RSC 재실행 */
     await page.goto(page.url(), { waitUntil: "domcontentloaded" });
     await waitForRoomSnapshotDiagReady(page);
-    const probe = await readDiagFromDom(page);
+    const probe = (await readDiagFromDom(page)) as Diag;
     lastProbe = probe;
     if (extractPostMatchGaps(probe)) {
       const m = page.url().match(/\/community-messenger\/rooms\/([^/?#]+)/);
@@ -132,53 +133,6 @@ type DeltaRow = {
   Nd_minus_Ns: number | null;
   Pr_minus_Nd: number | null;
 };
-
-async function readDiagFromDom(page: import("@playwright/test").Page): Promise<Diag> {
-  return page.evaluate(() => {
-    const el = document.getElementById("samarket-room-snapshot-diag");
-    const raw =
-      el?.textContent?.trim() ||
-      (el instanceof HTMLScriptElement ? el.innerHTML?.trim() : "") ||
-      "";
-    if (!raw) return {};
-    try {
-      return JSON.parse(raw) as Diag;
-    } catch {
-      return {};
-    }
-  });
-}
-
-async function waitForRoomSnapshotDiagReady(page: import("@playwright/test").Page): Promise<void> {
-  await page.locator("#samarket-room-snapshot-diag").waitFor({ state: "attached", timeout: 60_000 });
-  await page.waitForFunction(
-    () => {
-      const el = document.getElementById("samarket-room-snapshot-diag");
-      const raw =
-        el?.textContent?.trim() ||
-        (el instanceof HTMLScriptElement ? el.innerHTML?.trim() : "") ||
-        "";
-      if (!raw) return false;
-      try {
-        const j = JSON.parse(raw) as {
-          snapshotQueryAParallelEndMs?: unknown;
-          deferTradeDiagSkipped?: unknown;
-          chatRoomDetailLoad?: {
-            fetchPostRowForChatSellerMatch?: { fetchPostRelationAdoptedFrom?: unknown };
-          };
-        };
-        if (typeof j.snapshotQueryAParallelEndMs !== "number") return false;
-        const adopted = j.chatRoomDetailLoad?.fetchPostRowForChatSellerMatch?.fetchPostRelationAdoptedFrom;
-        if (typeof adopted === "string" && adopted.trim().length > 0) return true;
-        return j.deferTradeDiagSkipped === true;
-      } catch {
-        return false;
-      }
-    },
-    undefined,
-    { timeout: 60_000 }
-  );
-}
 
 function computeDeltas(d: Diag): Omit<DeltaRow, "run"> {
   const E = d.snapshotEntryMs ?? 0;
@@ -311,7 +265,7 @@ test.describe("messenger room snapshot diag 3 runs", () => {
         });
       }
       await waitForRoomSnapshotDiagReady(page);
-      const diag = await readDiagFromDom(page);
+      const diag = (await readDiagFromDom(page)) as Diag;
       const d = computeDeltas(diag);
       rows.push({ run, ...d });
       const pg = extractPostMatchGaps(diag);

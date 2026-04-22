@@ -723,7 +723,19 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-        void refresh(true);
+        const scheduleRefresh = () => {
+          const exists = roomMessagesRef.current.some(
+            (item) => item.clientMessageId === clientMessageId && item.id !== tempId && !item.pending
+          );
+          if (!exists) {
+            void refresh(true);
+          }
+        };
+        if (typeof window !== "undefined") {
+          window.setTimeout(scheduleRefresh, 420);
+        } else {
+          scheduleRefresh();
+        }
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         setBusy(null);

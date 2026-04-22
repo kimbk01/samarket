@@ -57,21 +57,23 @@ function LoginPageContent() {
       setLoading(false);
       return;
     }
-    try {
-      const ac = new AbortController();
-      const tid = window.setTimeout(() => ac.abort(), 8_000);
+    void (async () => {
       try {
-        await fetch("/api/test-logout", {
-          method: "POST",
-          credentials: "include",
-          signal: ac.signal,
-        });
-      } finally {
-        window.clearTimeout(tid);
+        const ac = new AbortController();
+        const tid = window.setTimeout(() => ac.abort(), 8_000);
+        try {
+          await fetch("/api/test-logout", {
+            method: "POST",
+            credentials: "include",
+            signal: ac.signal,
+          });
+        } finally {
+          window.clearTimeout(tid);
+        }
+      } catch {
+        // Ignore local API delays before Supabase sign-in.
       }
-    } catch {
-      // Ignore local API delays before Supabase sign-in.
-    }
+    })();
     let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
     try {
       signInResult = await withTimeout(
@@ -108,22 +110,14 @@ function LoginPageContent() {
       return;
     }
     const loginUntilNavT0 = performance.now();
-    const doubleRafT0 = performance.now();
     const fetchAuthT0 = performance.now();
-    let sessionPromise: Promise<unknown> = Promise.resolve();
-    await new Promise<void>((r) => {
-      requestAnimationFrame(() => {
-        sessionPromise = fetchAuthSessionNoStore().catch(() => {});
-        requestAnimationFrame(() => r());
+    void fetchAuthSessionNoStore()
+      .then(() => {
+        recordAppWidePhaseLastMs("login_fetch_auth_session_ms", Math.round(performance.now() - fetchAuthT0));
+      })
+      .catch(() => {
+        // Ignore session sync failures here.
       });
-    });
-    recordAppWidePhaseLastMs("login_double_raf_ms", Math.round(performance.now() - doubleRafT0));
-    try {
-      await sessionPromise;
-    } catch {
-      // Ignore session sync failures here.
-    }
-    recordAppWidePhaseLastMs("login_fetch_auth_session_ms", Math.round(performance.now() - fetchAuthT0));
     recordAppWidePhaseLastMs("login_until_navigation_ms", Math.round(performance.now() - loginUntilNavT0));
     setLoading(false);
     window.location.assign(postLoginDestination);

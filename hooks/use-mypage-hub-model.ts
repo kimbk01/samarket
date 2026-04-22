@@ -47,12 +47,20 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   );
   const skipInitialAddressFetchRef = useRef(Boolean(hub0));
   const skipInitialCountsFetchRef = useRef(Boolean(hub0));
-  const load = useCallback(async () => {
-    setLoading(true);
-    const d = await getMyPageData();
-    setData(d);
-    setLoading(false);
-  }, []);
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent === true;
+      const shouldToggleLoading = !silent || data == null;
+      if (shouldToggleLoading) setLoading(true);
+      try {
+        const d = await getMyPageData();
+        setData(d);
+      } finally {
+        if (shouldToggleLoading) setLoading(false);
+      }
+    },
+    [data]
+  );
 
   const loadAddressDefaults = useCallback(async () => {
     try {
@@ -127,7 +135,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onProfileUpdated = () => {
-      void load();
+      void load({ silent: true });
       void loadAddressDefaultsRef.current();
     };
     const onAddressesUpdated = () => {
@@ -145,7 +153,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     if (typeof window === "undefined") return;
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
-        void load();
+        void load({ silent: true });
         if (getCurrentUser()?.id?.trim()) void loadAddressDefaultsRef.current();
       }
     };

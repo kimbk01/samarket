@@ -32,6 +32,7 @@ type ParticipantRealtimeRow = {
   room_id?: unknown;
   unread_count?: unknown;
 };
+const MESSAGE_NOTIFICATION_ROOM_BUMP_MIN_GAP_MS = 260;
 
 function getRoomId(row: ParticipantRealtimeRow | null): string {
   return typeof row?.room_id === "string" ? row.room_id : "";
@@ -67,6 +68,7 @@ export function useMessageNotificationBridge(
     typeof document !== "undefined" ? document.visibilityState : "visible"
   );
   const [userId, setUserId] = useState<string | null>(null);
+  const roomBumpLastAtRef = useRef<Map<string, number>>(new Map());
 
   const navigateToCommunityRoom = useCallback((roomId: string) => {
     const id = String(roomId ?? "").trim();
@@ -152,7 +154,13 @@ export function useMessageNotificationBridge(
            * 메시지 테이블 Realtime(publication 누락/세션 레이스 등)이 드물게 끊겨도
            * 방 화면은 `cm.room.bump`로 증분 동기화를 즉시 실행해 새로고침 없이 따라잡는다.
            */
-          postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: nextRoomId, at: Date.now() });
+          const now = Date.now();
+          const roomNorm = nextRoomId.toLowerCase();
+          const last = roomBumpLastAtRef.current.get(roomNorm) ?? 0;
+          if (now - last >= MESSAGE_NOTIFICATION_ROOM_BUMP_MIN_GAP_MS) {
+            roomBumpLastAtRef.current.set(roomNorm, now);
+            postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: nextRoomId, at: now });
+          }
           void prefetchCommunityMessengerRoomSnapshot(nextRoomId, { force: true });
 
           if (playbackRef.current === "hub_sync_only") {

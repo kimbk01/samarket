@@ -6,9 +6,8 @@
  * - **`composer_wall_ms`**: 기본 목록(`MessengerChatListItem` 비-compact)은 **`<a href>` 없이** `role="button"` 만
  *   있어 `E2E_SNAPSHOT_DIAG_ROOM_ID` 행만 클릭하는 `measureChatRoomEntry` 동일 재현이 불가하다.
  *   → 본 스펙은 **고정 방 직접 `goto`** 로만 정의: `goto(/community-messenger/rooms/{id})` 직전 시각 → `textarea` 가시.
- * - **`fetchPostRelationAdoptedFrom`**: RSC 시드 진단 후 클라이언트가 `GET .../e2e-room-snapshot-diag` 로 trade 진단을 합류(첫 HTML과 분리).
- * - 스냅샷 JSON: `messenger-room-snapshot-diag-three-runs` 와 동일하게 `page.goto(page.url())` 후
- *   `#samarket-room-snapshot-diag` 가 채워질 때까지 대기 후 파싱.
+ * - **`fetchPostRelationAdoptedFrom`**: E2E 전용 `GET .../room-snapshot-diagnostics-e2e` 가 스냅샷·trade 진단을 한 번에 채운 뒤 `#samarket-room-snapshot-diag` 에 주입한다.
+ * - 스냅샷 JSON: `messenger-room-snapshot-diag-three-runs` 와 동일하게 `helpers/messenger-room-snapshot-diag` 의 `waitForRoomSnapshotDiagReady` 후 파싱.
  *
  * PLAYWRIGHT_NO_WEBSERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:3000
  * E2E_SNAPSHOT_DIAG_ROOM_ID=<uuid> npx playwright test tests/e2e/messenger-composer-snapshot-three-stable.spec.ts
@@ -18,6 +17,7 @@ import {
   assertPlaywrightOriginAndTestLogin,
   gotoWithRetry,
 } from "./helpers/playwright-origin-and-session";
+import { readDiagFromDom, waitForRoomSnapshotDiagReady } from "./helpers/messenger-room-snapshot-diag";
 
 type SnapshotDiag = {
   snapshotQueryAParallelEndMs?: number;
@@ -82,53 +82,6 @@ async function testLoginViaFetch(
     lastErr = String(ok);
   }
   expect(false, `test-login 실패 (${lastErr})`).toBe(true);
-}
-
-async function readDiagFromDom(page: import("@playwright/test").Page): Promise<SnapshotDiag> {
-  return page.evaluate(() => {
-    const el = document.getElementById("samarket-room-snapshot-diag");
-    const raw =
-      el?.textContent?.trim() ||
-      (el instanceof HTMLScriptElement ? el.innerHTML?.trim() : "") ||
-      "";
-    if (!raw) return {};
-    try {
-      return JSON.parse(raw) as SnapshotDiag;
-    } catch {
-      return {};
-    }
-  });
-}
-
-async function waitForRoomSnapshotDiagReady(page: import("@playwright/test").Page): Promise<void> {
-  await page.locator("#samarket-room-snapshot-diag").waitFor({ state: "attached", timeout: 60_000 });
-  await page.waitForFunction(
-    () => {
-      const el = document.getElementById("samarket-room-snapshot-diag");
-      const raw =
-        el?.textContent?.trim() ||
-        (el instanceof HTMLScriptElement ? el.innerHTML?.trim() : "") ||
-        "";
-      if (!raw) return false;
-      try {
-        const j = JSON.parse(raw) as {
-          snapshotQueryAParallelEndMs?: unknown;
-          deferTradeDiagSkipped?: unknown;
-          chatRoomDetailLoad?: {
-            fetchPostRowForChatSellerMatch?: { fetchPostRelationAdoptedFrom?: unknown };
-          };
-        };
-        if (typeof j.snapshotQueryAParallelEndMs !== "number") return false;
-        const adopted = j.chatRoomDetailLoad?.fetchPostRowForChatSellerMatch?.fetchPostRelationAdoptedFrom;
-        if (typeof adopted === "string" && adopted.trim().length > 0) return true;
-        return j.deferTradeDiagSkipped === true;
-      } catch {
-        return false;
-      }
-    },
-    undefined,
-    { timeout: 60_000 }
-  );
 }
 
 async function openFixedRoomOnce(
@@ -210,7 +163,7 @@ test.describe("messenger composer + snapshot three stable", () => {
 
         await gotoWithRetry(page, page.url());
         await waitForRoomSnapshotDiagReady(page);
-        const diag = await readDiagFromDom(page);
+        const diag = (await readDiagFromDom(page)) as SnapshotDiag;
 
         const normalizeSlowestNormalizeSubstepFromSummaryMs =
           typeof diag.normalizeSlowestNormalizeSubstepFromSummaryMs === "number"

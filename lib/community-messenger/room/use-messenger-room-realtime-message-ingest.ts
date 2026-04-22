@@ -126,7 +126,11 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               created_at: event.message.createdAt,
             },
           });
-          if (event.eventType === "INSERT") {
+          const isOwnInsert =
+            event.eventType === "INSERT" &&
+            Boolean(event.message.senderId) &&
+            messengerUserIdsEqual(event.message.senderId, snap.viewerUserId);
+          if (event.eventType === "INSERT" && !isOwnInsert) {
             postCommunityMessengerBusEvent({
               type: "cm.room.incoming_message",
               roomId: streamRoomId.trim(),

@@ -26,8 +26,12 @@ export function useMessengerRoomVisibilityBusCatchup({
       const now = Date.now();
       if (now - lastBumpAt < 2000) return; // burst 1~2 + cooldown
       lastBumpAt = now;
-      void catchUpNewerMessages();
-      void refresh(true);
+      void (async () => {
+        const merged = await catchUpNewerMessages();
+        if (!merged) {
+          void refresh(true);
+        }
+      })();
     };
     document.addEventListener("visibilitychange", bump);
     window.addEventListener("pageshow", bump);
@@ -51,8 +55,12 @@ export function useMessengerRoomVisibilityBusCatchup({
       const now = Date.now();
       if (now - lastAt < 1500) return;
       lastAt = now;
-      void catchUpNewerMessages();
-      void refresh(true);
+      void (async () => {
+        const merged = await catchUpNewerMessages();
+        if (!merged) {
+          void refresh(true);
+        }
+      })();
     });
   }, [catchUpNewerMessages, refresh, roomId, streamRoomId]);
 }

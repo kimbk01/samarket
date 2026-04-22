@@ -56,12 +56,17 @@ export async function GET(
   const limit = rawLimit ? Math.floor(Number(rawLimit)) : undefined;
 
   if (after) {
-    const result = await listCommunityMessengerRoomMessagesAfter({
-      userId: auth.userId,
-      roomId: canonicalRoomId,
-      afterMessageId: after,
-      limit: Number.isFinite(limit) ? limit : undefined,
-    });
+    const afterKey = `community-messenger:messages:after:${auth.userId}:${canonicalRoomId}:${after}:${
+      Number.isFinite(limit) ? String(limit) : "default"
+    }`;
+    const result = await runSingleFlight(afterKey, async () =>
+      listCommunityMessengerRoomMessagesAfter({
+        userId: auth.userId,
+        roomId: canonicalRoomId,
+        afterMessageId: after,
+        limit: Number.isFinite(limit) ? limit : undefined,
+      })
+    );
     if (!result.ok) {
       recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 400);
       if (result.error === "not_found") {
@@ -82,12 +87,17 @@ export async function GET(
   if (!before) {
     return jsonError("before(메시지 id) 또는 after(메시지 id)가 필요합니다.", 400);
   }
-  const result = await listCommunityMessengerRoomMessagesBefore({
-    userId: auth.userId,
-    roomId: canonicalRoomId,
-    beforeMessageId: before,
-    limit: Number.isFinite(limit) ? limit : undefined,
-  });
+  const beforeKey = `community-messenger:messages:before:${auth.userId}:${canonicalRoomId}:${before}:${
+    Number.isFinite(limit) ? String(limit) : "default"
+  }`;
+  const result = await runSingleFlight(beforeKey, async () =>
+    listCommunityMessengerRoomMessagesBefore({
+      userId: auth.userId,
+      roomId: canonicalRoomId,
+      beforeMessageId: before,
+      limit: Number.isFinite(limit) ? limit : undefined,
+    })
+  );
   if (!result.ok) {
     recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 400);
     if (result.error === "not_found") {

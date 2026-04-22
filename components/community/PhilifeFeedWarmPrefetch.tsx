@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
+import { warmPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
@@ -53,6 +54,7 @@ export function PhilifeFeedWarmPrefetch() {
         warmPhilifeNeighborhoodFeedByUrl(url, {
           noStore: viewerSig !== "_anon",
         });
+        warmPhilifeNeighborhoodTopicOptions();
       }, 1800);
     }, 1800);
 

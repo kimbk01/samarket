@@ -75,6 +75,8 @@ function pushMessengerHomeRealtimeMapProbe(): void {
 
 /** INSERT 힌트 폭주 시 한 프레임 작업량 상한 — 이후 큐는 다음 rAF에서 이어 처리 */
 const HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH = 50;
+const HOME_REALTIME_ROOM_BUMP_MIN_GAP_MS = 220;
+const homeRealtimeRoomBumpLastAt = new Map<string, number>();
 
 function emitHomeRefresh(entry: HomeRealtimeEntry): void {
   for (const listener of entry.listeners) {
@@ -161,8 +163,13 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   }
 
   bumpMessengerRealtimeLocalUnreadForRoom(roomRaw);
-  postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: roomRaw, at: Date.now() });
-  requestMessengerHubBadgeResync("participant_unread_changed");
+  const now = Date.now();
+  const last = homeRealtimeRoomBumpLastAt.get(roomNorm) ?? 0;
+  if (now - last >= HOME_REALTIME_ROOM_BUMP_MIN_GAP_MS) {
+    homeRealtimeRoomBumpLastAt.set(roomNorm, now);
+    postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: roomRaw, at: now });
+    requestMessengerHubBadgeResync("participant_unread_changed");
+  }
 
   const dedupeKey = `home-msg-insert:${roomNorm}:${messageId || Date.now()}`;
   const pathname = typeof window !== "undefined" ? window.location.pathname : "";

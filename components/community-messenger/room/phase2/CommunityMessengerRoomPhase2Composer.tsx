@@ -109,18 +109,14 @@ export function CommunityMessengerRoomPhase2Composer() {
   }, [roomKey, vm.message]);
 
   useLayoutEffect(() => {
-    composerEffectCountRef.current += 1;
-    recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
-    if (composerMountRecordedRef.current) return;
-    composerMountRecordedRef.current = true;
-    recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
-  }, []);
-
-  useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
   }, [roomKey]);
 
   useLayoutEffect(() => {
+    if (!composerMountRecordedRef.current) {
+      composerMountRecordedRef.current = true;
+      recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
+    }
     if (seededSilentHoldReleasedRef.current) return;
     const tryRelease = () => {
       if (seededSilentHoldReleasedRef.current) return;

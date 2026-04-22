@@ -320,11 +320,10 @@ export function CommunityMessengerRoomClientPhase2() {
     return () => set(false);
   }, [messengerKeyboardChromeEnabled, messengerKeyboardChromeOpen]);
 
-  if (room.loading && !room.snapshot) {
-    return <CommunityMessengerRoomShellSkeleton />;
-  }
-
   if (!room.snapshot) {
+    if (room.loading) {
+      return <CommunityMessengerRoomShellSkeleton />;
+    }
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="sam-text-body-lg font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>

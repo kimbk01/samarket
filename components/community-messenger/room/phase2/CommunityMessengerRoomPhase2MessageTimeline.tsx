@@ -13,6 +13,7 @@ import {
 } from "react";
 import {
   communityMessengerRoomIsGloballyUsable,
+  type CommunityMessengerMessage,
   type CommunityMessengerMessageActionAnchorRect,
 } from "@/lib/community-messenger/types";
 
@@ -82,8 +83,226 @@ import { MessageReactionRosterSheet } from "@/components/community-messenger/roo
 
 const MESSENGER_TIMELINE_MESSAGES_CAP = 100;
 
+type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean };
+
+const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
+  item,
+  onOpenLightbox,
+}: {
+  item: TimelineViberBubbleMessage;
+  onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
+}) {
+  return <MessengerChatImageBubble item={item} onOpenLightbox={onOpenLightbox} />;
+});
+
+const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker({ item }: { item: TimelineViberBubbleMessage }) {
+  const mineLight = item.isMine;
+  const stickerSrc = item.content.trim();
+  return (
+    <div className="flex flex-col items-stretch p-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={stickerSrc}
+        alt=""
+        width={160}
+        height={160}
+        loading="lazy"
+        decoding="async"
+        className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
+      />
+      {item.pending ? (
+        <span className={`mt-1 sam-text-xxs ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
+      ) : null}
+    </div>
+  );
+});
+
+const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
+  item,
+  streamRoomId,
+}: {
+  item: TimelineViberBubbleMessage;
+  streamRoomId: string;
+}) {
+  return (
+    <VoiceMessageBubble
+      src={communityMessengerVoiceAudioSrc(streamRoomId, item)}
+      durationSeconds={item.voiceDurationSeconds ?? 0}
+      isMine={item.isMine}
+      pending={item.pending}
+      waveformPeaks={item.voiceWaveformPeaks ?? null}
+      sentTimeLabel={undefined}
+      mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
+      fallbackSrc={
+        item.pending ? null : /^https?:\/\//i.test(item.content.trim()) ? item.content.trim() : null
+      }
+      mediaType={item.voiceMimeType ?? null}
+    />
+  );
+});
+
+const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
+  item,
+  mediaAutoSaveEnabled,
+}: {
+  item: TimelineViberBubbleMessage;
+  mediaAutoSaveEnabled: boolean;
+}) {
+  return (
+    <div className="min-w-[200px]">
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
+            item.isMine ? "bg-sam-surface/20 text-white" : "bg-sam-surface-muted text-sam-fg"
+          }`}
+        >
+          <FileIcon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`truncate font-semibold ${item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"}`}>
+            {item.fileName?.trim() || "첨부 파일"}
+          </p>
+          <p className={`mt-1 sam-text-helper ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}>
+            {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
+          </p>
+        </div>
+      </div>
+      <div className="mt-3">
+        {item.pending ? (
+          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>업로드 중…</span>
+        ) : item.content.trim() ? (
+          <a
+            href={item.content.trim()}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={mediaAutoSaveEnabled ? item.fileName?.trim() || "community-messenger-file" : undefined}
+            className={`inline-flex rounded-[10px] border px-3 py-2 sam-text-helper font-semibold ${
+              item.isMine
+                ? "border-sam-surface/40 bg-sam-surface/15 text-white"
+                : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
+            }`}
+          >
+            {mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
+const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallStub({
+  item,
+  stubBusy,
+  onOpenOutgoingConfirm,
+  voiceCallLabel,
+  videoCallLabel,
+  callStatusLabel,
+}: {
+  item: TimelineViberBubbleMessage;
+  stubBusy: boolean;
+  onOpenOutgoingConfirm: (kind: "voice" | "video") => void;
+  voiceCallLabel: string;
+  videoCallLabel: string;
+  callStatusLabel: string;
+}) {
+  const kind: "voice" | "video" = item.callKind === "video" ? "video" : "voice";
+  const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
+  return (
+    <button
+      type="button"
+      disabled={stubBusy}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenOutgoingConfirm(kind);
+      }}
+      className="flex w-full max-w-full items-center gap-2.5 rounded-[12px] py-1 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+    >
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          item.isMine ? "bg-sam-surface/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+        }`}
+        aria-hidden
+      >
+        <CallGlyph className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
+          <span
+            className={`sam-text-body font-semibold leading-snug ${
+              item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"
+            }`}
+          >
+            {item.callKind === "video" ? videoCallLabel : voiceCallLabel}
+          </span>
+          <span
+            className={`sam-text-xxs font-medium leading-snug ${
+              item.isMine ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"
+            }`}
+          >
+            {callStatusLabel}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+});
+
+const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefault({
+  item,
+  linkPreviewEnabled,
+  sendingLabel,
+}: {
+  item: TimelineViberBubbleMessage;
+  linkPreviewEnabled: boolean;
+  sendingLabel: string;
+}) {
+  const mineLight = item.isMine;
+  return (
+    <div className="flex w-max max-w-full flex-col gap-2">
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
+        <p
+          className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
+            mineLight ? "text-white" : "text-[color:var(--cm-room-text)]"
+          }`}
+        >
+          {item.content}
+        </p>
+        {item.pending ? (
+          <span
+            className={`shrink-0 sam-text-xxs ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
+          >
+            {sendingLabel}
+          </span>
+        ) : null}
+      </div>
+      {linkPreviewEnabled && extractHttpUrls(item.content).length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {extractHttpUrls(item.content)
+            .slice(0, 2)
+            .map((url) => (
+              <a
+                key={`${item.id}:${url}`}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
+                  mineLight
+                    ? "border-sam-surface/35 bg-sam-surface/15 text-white"
+                    : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
+                }`}
+              >
+                {url.replace(/^https?:\/\//i, "")}
+              </a>
+            ))}
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
     urls: string[];
     originals: string[];
@@ -94,6 +313,26 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     reactionKey: string;
     anchor: CommunityMessengerMessageActionAnchorRect;
   } | null>(null);
+
+  const onOpenImageLightbox = useCallback((urls: string[], originals: string[], index: number) => {
+    setImageLightbox({ urls, originals, index });
+  }, []);
+
+  const shouldRecoverEmptyTimeline = useMemo(() => {
+    const hasLastMessageHint = Boolean(vm.snapshot.room.lastMessage?.trim());
+    const snapshotHasMessages = vm.snapshot.messages.length > 0;
+    return !vm.loading && (hasLastMessageHint || snapshotHasMessages) && vm.roomMessages.length === 0;
+  }, [vm.loading, vm.roomMessages.length, vm.snapshot.messages.length, vm.snapshot.room.lastMessage]);
+
+  useEffect(() => {
+    if (!shouldRecoverEmptyTimeline) {
+      emptyTimelineRecoverTriedRef.current = false;
+      return;
+    }
+    if (emptyTimelineRecoverTriedRef.current) return;
+    emptyTimelineRecoverTriedRef.current = true;
+    void vm.refresh(false);
+  }, [shouldRecoverEmptyTimeline, vm]);
 
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
@@ -122,19 +361,32 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
     }
 
-    let cursorMsg: (typeof msgs)[number] | undefined;
-    let mineLatestMsg: (typeof msgs)[number] | undefined;
+    const firstRowById = new Map<string, (typeof msgs)[number]>();
     for (let i = 0; i < msgs.length; i += 1) {
       const m = msgs[i];
       if (m.pending) continue;
-      if (m.id === readCursor) cursorMsg = m;
-      if (m.id === latestMineId) mineLatestMsg = m;
-      if (cursorMsg && mineLatestMsg) break;
+      if (!firstRowById.has(m.id)) {
+        firstRowById.set(m.id, m);
+      }
+      if (firstRowById.has(readCursor) && firstRowById.has(latestMineId)) {
+        break;
+      }
     }
+    const cursorMsg = firstRowById.get(readCursor);
+    const mineLatestMsg = firstRowById.get(latestMineId);
 
-    const fromSnap = (id: string) => vm.snapshot.messages.find((msg) => msg.id === id);
-    const cMsg = cursorMsg ?? fromSnap(readCursor);
-    const mMsg = mineLatestMsg ?? fromSnap(latestMineId);
+    type SnapRow = (typeof vm.snapshot.messages)[number];
+    let cMsg: (typeof msgs)[number] | SnapRow | undefined = cursorMsg;
+    let mMsg: (typeof msgs)[number] | SnapRow | undefined = mineLatestMsg;
+    if (!cMsg || !mMsg) {
+      const byId = new Map<string, SnapRow>();
+      for (let s = 0; s < vm.snapshot.messages.length; s += 1) {
+        const row = vm.snapshot.messages[s]!;
+        byId.set(row.id, row);
+      }
+      cMsg = cMsg ?? byId.get(readCursor);
+      mMsg = mMsg ?? byId.get(latestMineId);
+    }
     if (!cMsg || !mMsg) {
       return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
     }
@@ -201,9 +453,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     });
   }, [onScroll]);
 
-  /** 가상 행 map 직전: 행마다 `new Date(createdAt)` 2회·동일 viewer 아바타 N회·동일 sender `members.find` 반복을 줄인다. */
+  /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
   const messageRowPreamble = useMemo(() => {
-    const createdAtMs = vm.displayRoomMessages.map((m) => new Date(m.createdAt).getTime());
     const avatarBySenderId = new Map<string, ReturnType<typeof communityMessengerMemberAvatar>>();
     const peerAvatarFor = (senderId: string | null | undefined) => {
       if (!senderId) return null;
@@ -213,8 +464,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       return v;
     };
     const myRowAvatar = communityMessengerMemberAvatar(vm.roomMembersDisplay, vm.snapshot.viewerUserId);
-    return { createdAtMs, peerAvatarFor, myRowAvatar };
-  }, [vm.displayRoomMessages, vm.roomMembersDisplay, vm.snapshot.viewerUserId]);
+    return { peerAvatarFor, myRowAvatar };
+  }, [vm.roomMembersDisplay, vm.snapshot.viewerUserId]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -288,7 +539,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const prev = index > 0 ? vm.displayRoomMessages[index - 1] : null;
               const gapMs =
                 prev && prev.messageType !== "system" && item.messageType !== "system"
-                  ? Math.max(0, messageRowPreamble.createdAtMs[index]! - messageRowPreamble.createdAtMs[index - 1]!)
+                  ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
                   : 0;
               const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
               const peerSenderChanged =
@@ -490,197 +741,39 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               const systemBubbleClass =
                 "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
 
-              const viberInnerBody: ReactNode = (() => {
-                const mineLight = item.isMine;
-                if (item.messageType === "image") {
-                  return (
-                    <MessengerChatImageBubble
-                      item={item}
-                      onOpenLightbox={(urls, originals, index) => setImageLightbox({ urls, originals, index })}
-                    />
-                  );
-                }
-                if (item.messageType === "sticker") {
-                  const stickerSrc = item.content.trim();
-                  return (
-                    <div className="flex flex-col items-stretch p-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={stickerSrc}
-                        alt=""
-                        width={160}
-                        height={160}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
-                      />
-                      {item.pending ? (
-                        <span className={`mt-1 sam-text-xxs ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
-                      ) : null}
-                    </div>
-                  );
-                }
-                if (item.messageType === "voice") {
-                  return (
-                    <VoiceMessageBubble
-                      src={communityMessengerVoiceAudioSrc(vm.streamRoomId, item)}
-                      durationSeconds={item.voiceDurationSeconds ?? 0}
-                      isMine={item.isMine}
-                      pending={item.pending}
-                      waveformPeaks={item.voiceWaveformPeaks ?? null}
-                      sentTimeLabel={undefined}
-                      mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
-                      fallbackSrc={
-                        item.pending
-                          ? null
-                          : /^https?:\/\//i.test(item.content.trim())
-                            ? item.content.trim()
-                            : null
-                      }
-                      mediaType={item.voiceMimeType ?? null}
-                    />
-                  );
-                }
-                if (item.messageType === "file") {
-                  return (
-                    <div className="min-w-[200px]">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
-                            item.isMine ? "bg-sam-surface/20 text-white" : "bg-sam-surface-muted text-sam-fg"
-                          }`}
-                        >
-                          <FileIcon className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`truncate font-semibold ${item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"}`}>
-                            {item.fileName?.trim() || "첨부 파일"}
-                          </p>
-                          <p
-                            className={`mt-1 sam-text-helper ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}
-                          >
-                            {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        {item.pending ? (
-                          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>
-                            업로드 중…
-                          </span>
-                        ) : item.content.trim() ? (
-                          <a
-                            href={item.content.trim()}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={
-                              vm.roomPreferences.mediaAutoSaveEnabled
-                                ? item.fileName?.trim() || "community-messenger-file"
-                                : undefined
-                            }
-                            className={`inline-flex rounded-[10px] border px-3 py-2 sam-text-helper font-semibold ${
-                              item.isMine
-                                ? "border-sam-surface/40 bg-sam-surface/15 text-white"
-                                : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
-                            }`}
-                          >
-                            {vm.roomPreferences.mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
-                          </a>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                }
-                if (item.messageType === "call_stub") {
-                  const kind: "voice" | "video" = item.callKind === "video" ? "video" : "voice";
-                  const stubBusy =
-                    vm.roomUnavailable ||
-                    (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
-                    vm.call.busy === "call-start" ||
-                    vm.call.busy === "device-prepare" ||
-                    vm.call.busy === "call-accept";
-                  const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
-                  return (
-                    <button
-                      type="button"
-                      disabled={stubBusy}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        vm.openCallStubOutgoingConfirm(kind);
-                      }}
-                      className="flex w-full max-w-full items-center gap-2.5 rounded-[12px] py-1 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-                    >
-                      <span
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                          item.isMine ? "bg-sam-surface/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
-                        }`}
-                        aria-hidden
-                      >
-                        <CallGlyph className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-                          <span
-                            className={`sam-text-body font-semibold leading-snug ${
-                              item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"
-                            }`}
-                          >
-                            {item.callKind === "video" ? vm.t("nav_video_call_label") : vm.t("nav_voice_call_label")}
-                          </span>
-                          <span
-                            className={`sam-text-xxs font-medium leading-snug ${
-                              item.isMine ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"
-                            }`}
-                          >
-                            {vm.tt(formatRoomCallStatus(item.callStatus))}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                }
-                return (
-                  <div className="flex w-max max-w-full flex-col gap-2">
-                    <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
-                      <p
-                        className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
-                          mineLight ? "text-white" : "text-[color:var(--cm-room-text)]"
-                        }`}
-                      >
-                        {item.content}
-                      </p>
-                      {item.pending ? (
-                        <span
-                          className={`shrink-0 sam-text-xxs ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
-                        >
-                          {vm.t("common_sending")}
-                        </span>
-                      ) : null}
-                    </div>
-                    {vm.roomPreferences.linkPreviewEnabled && extractHttpUrls(item.content).length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {extractHttpUrls(item.content)
-                          .slice(0, 2)
-                          .map((url) => (
-                            <a
-                              key={`${item.id}:${url}`}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
-                                mineLight
-                                  ? "border-sam-surface/35 bg-sam-surface/15 text-white"
-                                  : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
-                              }`}
-                            >
-                              {url.replace(/^https?:\/\//i, "")}
-                            </a>
-                          ))}
-                      </div>
-                    ) : null}
-                  </div>
+              const stubBusy =
+                item.messageType === "call_stub" &&
+                (vm.roomUnavailable ||
+                  (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
+                  vm.call.busy === "call-start" ||
+                  vm.call.busy === "device-prepare" ||
+                  vm.call.busy === "call-accept");
+
+              const viberInnerBody: ReactNode =
+                item.messageType === "image" ? (
+                  <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
+                ) : item.messageType === "sticker" ? (
+                  <TimelineViberInnerSticker item={item} />
+                ) : item.messageType === "voice" ? (
+                  <TimelineViberInnerVoice item={item} streamRoomId={vm.streamRoomId} />
+                ) : item.messageType === "file" ? (
+                  <TimelineViberInnerFile item={item} mediaAutoSaveEnabled={vm.roomPreferences.mediaAutoSaveEnabled} />
+                ) : item.messageType === "call_stub" ? (
+                  <TimelineViberInnerCallStub
+                    item={item}
+                    stubBusy={stubBusy}
+                    onOpenOutgoingConfirm={vm.openCallStubOutgoingConfirm}
+                    voiceCallLabel={vm.t("nav_voice_call_label")}
+                    videoCallLabel={vm.t("nav_video_call_label")}
+                    callStatusLabel={vm.tt(formatRoomCallStatus(item.callStatus))}
+                  />
+                ) : (
+                  <TimelineViberInnerTextDefault
+                    item={item}
+                    linkPreviewEnabled={vm.roomPreferences.linkPreviewEnabled}
+                    sendingLabel={vm.t("common_sending")}
+                  />
                 );
-              })();
 
               const viberBubble = (
                 <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
@@ -810,40 +903,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
-              {(() => {
-                const lastHint = Boolean(vm.snapshot.room.lastMessage?.trim());
-                const snapshotHasMessages = vm.snapshot.messages.length > 0;
-                const showLoadRecovery =
-                  !vm.loading &&
-                  (lastHint || snapshotHasMessages) &&
-                  vm.roomMessages.length === 0;
-                if (showLoadRecovery) {
-                  return (
-                    <>
-                      <p className="sam-text-body font-medium text-[color:var(--cm-room-text)]">
-                        대화 내용을 불러오지 못했습니다.
-                      </p>
-                      <p className="mx-auto mt-2 max-w-sm sam-text-helper leading-relaxed">
-                        방 미리보기에는 최근 메시지가 있는데 목록이 비어 있으면, 로컬 DB 마이그레이션 누락이거나 동기화 오류일 수 있습니다. 다시 불러오기를 눌러 보세요.
-                      </p>
-                      <button
-                        type="button"
-                        className="mt-4 rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-5 py-2.5 sam-text-body font-semibold text-[color:var(--cm-room-primary)] active:bg-[color:var(--cm-room-primary-soft)]"
-                        onClick={() => void vm.refresh(false)}
-                      >
-                        다시 불러오기
-                      </button>
-                    </>
-                  );
-                }
-                return (
-                  <>
-                    아직 메시지가 없습니다.
-                    <br />
-                    <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
-                  </>
-                );
-              })()}
+              {shouldRecoverEmptyTimeline ? (
+                <>
+                  대화 내용을 동기화하는 중입니다.
+                  <br />
+                  <span className="mt-1 inline-block sam-text-helper">잠시만 기다려 주세요.</span>
+                </>
+              ) : (
+                <>
+                  아직 메시지가 없습니다.
+                  <br />
+                  <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
+                </>
+              )}
             </div>
           )}
           <div ref={vm.messageEndRef} />

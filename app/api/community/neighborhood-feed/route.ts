@@ -9,6 +9,7 @@ import {
   peekLastPhilifeTopicsColdMetrics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,16 +97,29 @@ export async function GET(req: NextRequest) {
   const offset = Math.min(Math.max(parseInt(offsetRaw, 10) || 0, 0), 500);
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
 
-  const listResult = await listNeighborhoodFeed({
-    ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
-    category: category ?? undefined,
-    authorUserId: authorId,
-    offset,
-    limit,
-    viewerUserId,
-    neighborOnly,
-    topics,
-  });
+  const listQueryKey = [
+    "community:neighborhood-feed:list",
+    viewerUserId ?? "anon",
+    globalFeed ? "global" : "local",
+    globalFeed ? "all" : locationId ?? "none",
+    category ?? "all",
+    authorId ?? "all",
+    neighborOnly ? "neighbor-only" : "all-users",
+    String(offset),
+    String(limit),
+  ].join(":");
+  const listResult = await runSingleFlight(listQueryKey, async () =>
+    listNeighborhoodFeed({
+      ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
+      category: category ?? undefined,
+      authorUserId: authorId,
+      offset,
+      limit,
+      viewerUserId,
+      neighborOnly,
+      topics,
+    })
+  );
   const { posts, hasMore, dbScannedCount, serverCommunityPerf } = listResult;
 
   const body = {

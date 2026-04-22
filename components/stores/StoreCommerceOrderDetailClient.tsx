@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -97,7 +97,7 @@ export function StoreCommerceOrderDetailClient({
     }
   }, [orderId, storeSlug]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void load();
   }, [load]);
 

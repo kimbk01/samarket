@@ -17,6 +17,18 @@ function isBucketSortedDescByLastMessageAt(rooms: CommunityMessengerRoomSummary[
   return true;
 }
 
+function roomSummaryShallowEqual(a: CommunityMessengerRoomSummary, b: CommunityMessengerRoomSummary): boolean {
+  if (a === b) return true;
+  const aKeys = Object.keys(a) as Array<keyof CommunityMessengerRoomSummary>;
+  const bKeys = Object.keys(b) as Array<keyof CommunityMessengerRoomSummary>;
+  if (aKeys.length !== bKeys.length) return false;
+  for (const k of aKeys) {
+    if (!(k in b)) return false;
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
 /** `rooms` 는 이미 `summary.id` 가 제거된 상태 */
 function mergeSummaryIntoDescSortedBucket(
   rooms: CommunityMessengerRoomSummary[],
@@ -49,6 +61,21 @@ export function mergeBootstrapRoomSummaryIntoLists(
   const isGroup = isCommunityMessengerGroupRoomType(summary.roomType);
   const targetKey = isGroup ? "groups" : "chats";
   const otherKey = isGroup ? "chats" : "groups";
+  const target0 = data[targetKey] ?? [];
+  const sameIndex = target0.findIndex((r) => r.id === summary.id);
+  const existsInOther = (data[otherKey] ?? []).some((r) => r.id === summary.id);
+  if (!existsInOther && sameIndex >= 0) {
+    const same = target0[sameIndex]!;
+    const prev = sameIndex > 0 ? target0[sameIndex - 1] : null;
+    const next = sameIndex + 1 < target0.length ? target0[sameIndex + 1] : null;
+    const ts = String(summary.lastMessageAt ?? "");
+    const inOrder =
+      (!prev || String(prev.lastMessageAt ?? "").localeCompare(ts) >= 0) &&
+      (!next || ts.localeCompare(String(next.lastMessageAt ?? "")) >= 0);
+    if (inOrder && roomSummaryShallowEqual(same, summary)) {
+      return data;
+    }
+  }
   const other = (data[otherKey] ?? []).filter((r) => r.id !== summary.id);
   const target = (data[targetKey] ?? []).filter((r) => r.id !== summary.id);
   let mergedTarget: CommunityMessengerRoomSummary[];

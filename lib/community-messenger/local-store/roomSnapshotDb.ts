@@ -17,6 +17,7 @@ const TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 const MAX_ROOMS = 200;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let lastPruneAt = 0;
 
 async function getDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -90,7 +91,10 @@ export async function putLocalRoomSnapshot(roomId: string, snapshot: CommunityMe
     const nowMs = now();
     const row: RoomRow = { roomId: id, at: nowMs, lastAccessAt: nowMs, snapshot };
     await idbPut(db, STORE_ROOMS, row);
-    void pruneRooms(db);
+    if (nowMs - lastPruneAt >= 60_000) {
+      lastPruneAt = nowMs;
+      void pruneRooms(db);
+    }
   } catch {
     // ignore quota/private mode
   }

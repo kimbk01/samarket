@@ -27,6 +27,8 @@ export function CommunityMessengerRoomClient(props: {
   initialCallSessionId?: string;
   /** RSC에서 `loadCommunityMessengerRoomBootstrap` — 첫 페인트까지 클라이언트 대기 완화 */
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
+  /** RSC 세션 힌트(가벼움). peek·single-flight 키에만 쓰이며 스냅샷 본문은 클라 부트스트랩으로 확정된다. */
+  initialViewerUserId?: string | null;
 }) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
   const phase1 = useMessengerRoomClientPhase1(props);

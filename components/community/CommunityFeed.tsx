@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -101,6 +101,17 @@ function mergeNeighborhoodFeedById(
   const seen = new Set(prev.map((p) => p.id));
   const out = [...prev];
   for (const p of incoming) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+  }
+  return out;
+}
+
+function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): NeighborhoodFeedPostDTO[] {
+  const seen = new Set<string>();
+  const out: NeighborhoodFeedPostDTO[] = [];
+  for (const p of list) {
     if (seen.has(p.id)) continue;
     seen.add(p.id);
     out.push(p);
@@ -365,7 +376,7 @@ export function CommunityFeed() {
 
     const snap = readPhilifeFeedCache(PHILIFE_GLOBAL_FEED_SESSION_KEY, category, neighborOnly, viewerSig);
     if (snap?.posts?.length) {
-      setPosts(snap.posts);
+      setPosts(dedupeNeighborhoodFeedById(snap.posts));
       setHasMore(snap.hasMore);
       nextOffsetRef.current = snap.nextOffset;
       setErr("");
@@ -421,18 +432,6 @@ export function CommunityFeed() {
     };
   }, []);
 
-  /** 동일 id 가 캐시·재요청 경합으로 두 번 들어오는 경우 대비 */
-  const postsDeduped = useMemo(() => {
-    const seen = new Set<string>();
-    const out: NeighborhoodFeedPostDTO[] = [];
-    for (const p of posts) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      out.push(p);
-    }
-    return out;
-  }, [posts]);
-
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el || !hasMore || loading || loadingMore) return;
@@ -452,7 +451,7 @@ export function CommunityFeed() {
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, fetchPage]);
 
-  const postsForList = postsDeduped;
+  const postsForList = posts;
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS}>

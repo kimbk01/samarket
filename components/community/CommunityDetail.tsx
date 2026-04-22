@@ -14,13 +14,16 @@ import type { NeighborhoodCommentNode, NeighborhoodFeedPostDTO, NeighborhoodMeet
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
+import {
+  fetchCommunityPostCommentsDeduped,
+  invalidateCommunityPostCommentsDeduped,
+} from "@/lib/community/fetch-community-post-comments-deduped";
 import { CommentList } from "./CommentList";
 import { MeetingCard } from "./MeetingCard";
 import { NeighborFollowButton } from "./NeighborFollowButton";
 import { UserBlockButton } from "./UserBlockButton";
 import {
   philifeNeighborhoodPostUrl,
-  philifePostCommentsUrl,
   philifePostLikeUrl,
   philifePostViewUrl,
 } from "@domain/philife/api";
@@ -206,13 +209,15 @@ export function CommunityDetail({
   }, []);
 
   const refreshComments = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const startedAt = perfNow();
       const silent = opts?.silent === true;
       if (!silent) setCommentsLoading(true);
       try {
-        const res = await fetch(philifePostCommentsUrl(post.id), { cache: "no-store" });
-        const data = (await res.json()) as {
+        const result = await fetchCommunityPostCommentsDeduped(post.id, {
+          force: opts?.force === true,
+        });
+        const data = result.json as {
           ok?: boolean;
           tree?: NeighborhoodCommentNode[];
           comments?: {
@@ -225,7 +230,7 @@ export function CommunityDetail({
             author_name: string;
           }[];
         };
-        if (!data.ok) return;
+        if (result.status < 200 || result.status >= 300 || !data.ok) return;
         const roots = Array.isArray(data.tree)
           ? data.tree
           : Array.isArray(data.comments)
@@ -335,7 +340,8 @@ export function CommunityDetail({
       if (data.ok) {
         setCommentText("");
         setParentId(null);
-        await refreshComments({ silent: true });
+        invalidateCommunityPostCommentsDeduped(post.id);
+        await refreshComments({ silent: true, force: true });
         setScrollSig((s) => s + 1);
       }
     } finally {

@@ -13,6 +13,10 @@ import type { CommunityCommentDTO, CommunityPostDetailDTO } from "@/lib/communit
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
+import {
+  fetchCommunityPostCommentsDeduped,
+  invalidateCommunityPostCommentsDeduped,
+} from "@/lib/community/fetch-community-post-comments-deduped";
 import { philifePostCommentsUrl, philifePostLikeUrl, philifePostViewUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
 import {
@@ -93,13 +97,20 @@ export function CommunityPostDetailClient({
     }
   };
 
-  const refreshComments = useCallback(async () => {
-    const res = await fetch(philifePostCommentsUrl(post.id), { cache: "no-store" });
-    const data = (await res.json()) as { ok?: boolean; comments?: CommunityCommentDTO[] };
-    if (data.ok && data.comments) setComments(data.comments);
-  }, [post.id]);
+  const refreshComments = useCallback(
+    async (opts?: { force?: boolean }) => {
+      const result = await fetchCommunityPostCommentsDeduped(post.id, {
+        force: opts?.force === true,
+      });
+      const data = result.json as { ok?: boolean; comments?: CommunityCommentDTO[] };
+      if (result.status >= 200 && result.status < 300 && data.ok && data.comments) {
+        setComments(data.comments);
+      }
+    },
+    [post.id]
+  );
 
-  useRefetchOnPageShowRestore(() => void refreshComments());
+  useRefetchOnPageShowRestore(() => void refreshComments({ force: true }));
 
   const onSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +126,8 @@ export function CommunityPostDetailClient({
       const data = (await res.json()) as { ok?: boolean };
       if (data.ok) {
         setCommentText("");
-        await refreshComments();
+        invalidateCommunityPostCommentsDeduped(post.id);
+        await refreshComments({ force: true });
       }
     } finally {
       setBusy(false);

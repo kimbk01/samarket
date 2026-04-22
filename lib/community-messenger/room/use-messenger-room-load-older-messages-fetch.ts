@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -51,10 +52,15 @@ export function useMessengerRoomLoadOlderMessagesFetch({
   oldestLoadedMessageId: string | null;
   loadOlderMessages: () => Promise<void>;
 } {
+  const inFlightBeforeIdRef = useRef<string | null>(null);
+  const inFlightPromiseRef = useRef<Promise<void> | null>(null);
+
   useEffect(() => {
     olderMessagesExhaustedRef.current = false;
     setHasMoreOlderMessages(false);
     setLoadingOlderMessages(false);
+    inFlightBeforeIdRef.current = null;
+    inFlightPromiseRef.current = null;
   }, [roomId]);
 
   useEffect(() => {
@@ -79,45 +85,60 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     if (loadingOlderMessages || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
     const beforeId = oldestLoadedMessageId;
     if (!beforeId) return;
+    if (inFlightPromiseRef.current && inFlightBeforeIdRef.current === beforeId) {
+      return inFlightPromiseRef.current;
+    }
     const apiRoomId = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
     if (!apiRoomId) return;
-    const vp = messagesViewportRef.current;
-    const prevScrollHeight = vp?.scrollHeight ?? 0;
-    setLoadingOlderMessages(true);
-    try {
-      const res = await fetch(
-        `${communityMessengerRoomResourcePath(apiRoomId)}/messages?before=${encodeURIComponent(beforeId)}`,
-        { cache: "no-store", credentials: "include" }
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        messages?: CommunityMessengerMessage[];
-        hasMore?: boolean;
-      };
-      if (!res.ok || !json.ok || !Array.isArray(json.messages)) {
-        olderMessagesExhaustedRef.current = true;
-        setHasMoreOlderMessages(false);
-        return;
-      }
-      if (json.messages.length === 0) {
-        olderMessagesExhaustedRef.current = true;
-        setHasMoreOlderMessages(false);
-        return;
-      }
-      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
-      if (!json.hasMore) {
-        olderMessagesExhaustedRef.current = true;
-      }
-      setHasMoreOlderMessages(Boolean(json.hasMore));
-      window.requestAnimationFrame(() => {
-        const el = messagesViewportRef.current;
-        if (el && prevScrollHeight > 0) {
-          el.scrollTop += el.scrollHeight - prevScrollHeight;
+    const run = async () => {
+      const vp = messagesViewportRef.current;
+      const prevScrollHeight = vp?.scrollHeight ?? 0;
+      setLoadingOlderMessages(true);
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomResourcePath(apiRoomId)}/messages?before=${encodeURIComponent(beforeId)}`,
+          { cache: "no-store", credentials: "include" }
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          messages?: CommunityMessengerMessage[];
+          hasMore?: boolean;
+        };
+        if (!res.ok || !json.ok || !Array.isArray(json.messages)) {
+          olderMessagesExhaustedRef.current = true;
+          setHasMoreOlderMessages(false);
+          return;
         }
-      });
-    } finally {
-      setLoadingOlderMessages(false);
-    }
+        if (json.messages.length === 0) {
+          olderMessagesExhaustedRef.current = true;
+          setHasMoreOlderMessages(false);
+          return;
+        }
+        setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+        if (!json.hasMore) {
+          olderMessagesExhaustedRef.current = true;
+        }
+        setHasMoreOlderMessages(Boolean(json.hasMore));
+        window.requestAnimationFrame(() => {
+          const el = messagesViewportRef.current;
+          if (el && prevScrollHeight > 0) {
+            el.scrollTop += el.scrollHeight - prevScrollHeight;
+          }
+        });
+      } finally {
+        setLoadingOlderMessages(false);
+      }
+    };
+    inFlightBeforeIdRef.current = beforeId;
+    let inFlightPromise: Promise<void>;
+    inFlightPromise = run().finally(() => {
+      if (inFlightPromiseRef.current === inFlightPromise) {
+        inFlightPromiseRef.current = null;
+        inFlightBeforeIdRef.current = null;
+      }
+    });
+    inFlightPromiseRef.current = inFlightPromise;
+    return inFlightPromise;
   }, [roomId, oldestLoadedMessageId, loadingOlderMessages, hasMoreOlderMessages]);
 
   loadOlderMessagesRef.current = () => {

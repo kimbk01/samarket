@@ -9,14 +9,8 @@ import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messen
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
-import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
-import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
-import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
 import { createMessengerRoomPageRscTimers } from "@/lib/community-messenger/server/messenger-room-page-rsc-timers";
-
-const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
 
 async function CommunityMessengerRoomPageLoaded({
   params,
@@ -38,58 +32,22 @@ async function CommunityMessengerRoomPageLoaded({
       (hdrs.get("x-samarket-e2e-room-diag") ?? "").trim() === "1");
   const rscTimers = createMessengerRoomPageRscTimers(rid);
   rscTimers.mark("server_entry");
+  rscTimers.mark("bootstrap_start");
+  rscTimers.mark("bootstrap_end");
   const viewerUserId = await getOptionalAuthenticatedUserId();
-  let initialServerSnapshot = null;
-  let roomSnapshotDiagnostics: CommunityMessengerRoomSnapshotDiagnostics | null = null;
-  let canonicalRoomIdForE2eOverlay: string | null = null;
-  if (viewerUserId) {
-    rscTimers.mark("bootstrap_start");
-    /** 계측 객체를 항상 넘기면 `getRoomSnapshot` 이 inflight 공유를 건너뛴다 — 일반 진입에서는 생략 */
-    const wantRoomSnapshotDiagnostics =
-      process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace;
-    roomSnapshotDiagnostics = wantRoomSnapshotDiagnostics ? {} : null;
-    const readPort = createSupabaseCommunityMessengerReadPort();
-    /**
-     * URL `roomId` 는 CM UUID·레거시 거래 키 등 그대로 전달한다. `getCommunityMessengerRoomSnapshot` 가
-     * 멤버십·브리지를 단일 경로로 처리하며, 여기서 `resolveCommunityMessengerCanonicalRoomIdForUser` 를
-     * **직렬로** 한 번 더 호출하지 않는다(동일 `participants` 조회가 부트스트랩 첫 `Promise.all` 에 포함됨).
-     */
-    initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, viewerUserId, rid, {
-      initialMessageLimit: Math.min(
-        COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
-        COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
-      ),
-      hydrateFullMemberList: false,
-      deferSnapshotSecondary: true,
-      diagnostics: roomSnapshotDiagnostics ?? undefined,
-      e2eRoomSnapshotDiag: e2eRoomTrace,
-    });
-    if (process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace) {
-      console.info("MESSENGER_ROOM_SNAPSHOT_DIAG_JSON:" + JSON.stringify(roomSnapshotDiagnostics));
-    }
-    rscTimers.mark("bootstrap_end");
-    if (!initialServerSnapshot) {
-      notFound();
-    }
-    canonicalRoomIdForE2eOverlay = String(initialServerSnapshot.room.id ?? "").trim() || null;
-  }
   rscTimers.mark("pre_return");
   rscTimers.scheduleResponseAfter();
-  const traceRoomSnapshot =
-    (process.env.MESSENGER_PERF_TRACE_ROOM_SNAPSHOT === "1" || e2eRoomTrace) && !!roomSnapshotDiagnostics;
   return (
     <>
-      {traceRoomSnapshot && roomSnapshotDiagnostics ? (
+      {e2eRoomTrace ? (
         <script
           type="application/json"
           id="samarket-room-snapshot-diag"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(roomSnapshotDiagnostics) }}
+          dangerouslySetInnerHTML={{ __html: "{}" }}
         />
       ) : null}
-      {e2eRoomTrace && canonicalRoomIdForE2eOverlay ? (
-        <MessengerRoomE2eSnapshotDiagTradeOverlay canonicalRoomId={canonicalRoomIdForE2eOverlay} />
-      ) : null}
+      {e2eRoomTrace ? <MessengerRoomE2eSnapshotDiagTradeOverlay canonicalRoomId={rid} /> : null}
       <MessengerRoomPageClientEntryProbe />
       <MessengerRoomRouteEntryMountProbe stage="page" />
       <CommunityMessengerRoomClient
@@ -97,7 +55,8 @@ async function CommunityMessengerRoomPageLoaded({
         roomId={rid}
         initialCallAction={callAction}
         initialCallSessionId={sessionId}
-        initialServerSnapshot={initialServerSnapshot}
+        initialServerSnapshot={null}
+        initialViewerUserId={viewerUserId ?? undefined}
       />
     </>
   );

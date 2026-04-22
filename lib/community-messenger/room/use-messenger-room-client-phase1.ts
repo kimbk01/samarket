@@ -136,6 +136,7 @@ export type MessengerRoomClientPhase1Props = {
   initialCallAction?: string;
   initialCallSessionId?: string;
   initialServerSnapshot?: CommunityMessengerRoomSnapshot | null;
+  initialViewerUserId?: string | null;
 };
 
 export function useMessengerRoomClientPhase1({
@@ -143,10 +144,13 @@ export function useMessengerRoomClientPhase1({
   initialCallAction,
   initialCallSessionId,
   initialServerSnapshot = null,
+  initialViewerUserId = null,
 }: MessengerRoomClientPhase1Props) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "useMessengerRoomClientPhase1_init_ms");
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "phase1_start_ms");
-  const initialViewerId = initialServerSnapshot?.viewerUserId?.trim() ?? "";
+  const initialViewerId =
+    (typeof initialViewerUserId === "string" ? initialViewerUserId.trim() : "") ||
+    (initialServerSnapshot?.viewerUserId?.trim() ?? "");
   const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -202,9 +206,11 @@ export function useMessengerRoomClientPhase1({
   const [timelineHighlightMessageId, setTimelineHighlightMessageId] = useState<string | null>(null);
   const timelineHighlightTimerRef = useRef<number | null>(null);
   const urlDeepLinkMessageHandledRef = useRef<string>("");
+  let initialSnapshotResolved: CommunityMessengerRoomSnapshot | null = null;
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
     /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
     const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
+    initialSnapshotResolved = prepared;
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_prepare_ms");
     return prepared;
   });
@@ -228,8 +234,7 @@ export function useMessengerRoomClientPhase1({
   }, [streamRoomId]);
 
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
-    const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
-    return (prepared?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+    return (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
   });
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
@@ -406,7 +411,8 @@ export function useMessengerRoomClientPhase1({
     const syncPreferences = () => {
       setRoomPreferences(readCommunityMessengerLocalSettings());
     };
-    syncPreferences();
+    // `roomPreferences` is initialized from the same read in `useState` above; skip
+    // duplicate work on mount—`COMMUNITY_MESSENGER_PREFERENCE_EVENT` still resyncs when prefs change.
     if (typeof window === "undefined") return;
     window.addEventListener(COMMUNITY_MESSENGER_PREFERENCE_EVENT, syncPreferences as EventListener);
     return () => {
@@ -635,8 +641,12 @@ export function useMessengerRoomClientPhase1({
     onRefresh: () => {
       // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
       // 방 화면은 unread/participants 변화(onRefresh)만으로 즉시 증분 동기화해 따라잡는다.
-      void catchUpNewerMessages();
-      void refresh(true);
+      void (async () => {
+        const merged = await catchUpNewerMessages();
+        if (!merged) {
+          void refresh(true);
+        }
+      })();
     },
   });
 

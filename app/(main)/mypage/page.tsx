@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { loadMypageServerShell } from "@/lib/my/load-mypage-server";
+import { loadMypageServer } from "@/lib/my/load-mypage-server";
 import { MyContent } from "../my/MyContent";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 
 export const dynamic = "force-dynamic";
 
 async function MypageServerBody() {
-  const initialMyPageData = await loadMypageServerShell();
+  const initialMyPageData = await loadMypageServer();
   return <MyContent initialMyPageData={initialMyPageData} />;
 }
 

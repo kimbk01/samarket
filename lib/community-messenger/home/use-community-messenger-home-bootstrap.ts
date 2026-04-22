@@ -67,6 +67,8 @@ export function useCommunityMessengerHomeBootstrap({
   const lastSilentRefreshAtRef = useRef(0);
   /** 429(Retry-After) 시 즉시 재시도 폭주 방지 */
   const silentBackoffUntilRef = useRef(0);
+  /** 사일런트 home-sync 실패 시 full bootstrap fallback 연속 호출 완화 */
+  const silentFallbackFullBackoffUntilRef = useRef(0);
   /** `lastSilentRefreshAtRef` 380ms 창 안 요청은 버리지 않고 한 번만 지연 실행(방 부트스트랩과 동일 계약) */
   const silentThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** `refresh(false)` 가 Strict Mode·중복 effect 로 겹칠 때 동일 네트워크 라운드 방지 */
@@ -256,6 +258,9 @@ export function useCommunityMessengerHomeBootstrap({
             setPageError(tRef.current("nav_messenger_login_required"));
             setData(null);
           } else {
+            if (Date.now() < silentFallbackFullBackoffUntilRef.current) {
+              return;
+            }
             samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "fresh" });
             const resFull = await fetchCommunityMessengerBootstrapClient("fresh");
             const jsonFull = await parseBootstrapJson<CommunityMessengerBootstrap & {
@@ -265,6 +270,7 @@ export function useCommunityMessengerHomeBootstrap({
             if (resFull.ok && jsonFull.ok) {
               samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "fresh" });
               refreshDataOk = true;
+              silentFallbackFullBackoffUntilRef.current = 0;
               const next: CommunityMessengerBootstrap = {
                 me: jsonFull.me ?? null,
                 tabs: {
@@ -290,6 +296,8 @@ export function useCommunityMessengerHomeBootstrap({
               if (tSilentFetch != null) {
                 messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
               }
+            } else {
+              silentFallbackFullBackoffUntilRef.current = Date.now() + 1200;
             }
           }
         }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
-import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
+import { fetchCommunityMyHubPostsDeduped } from "@/lib/community/fetch-community-my-hub-posts-deduped";
 import { philifeAppPaths } from "@domain/philife/paths";
 
 export function CommunityMyHubClient({ userId }: { userId: string }) {
@@ -13,15 +13,9 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
   const load = useCallback(async () => {
     setErr("");
     try {
-      const url = buildPhilifeNeighborhoodFeedClientUrl({
-        globalFeed: true,
-        authorUserId: userId,
-        limit: 30,
-        offset: 0,
-      });
-      const res = await fetch(url, { cache: "no-store" });
-      const j = (await res.json()) as { ok?: boolean; posts?: NeighborhoodFeedPostDTO[]; error?: string };
-      if (!res.ok || !j.ok) {
+      const result = await fetchCommunityMyHubPostsDeduped(userId);
+      const j = result.json as { ok?: boolean; posts?: NeighborhoodFeedPostDTO[]; error?: string };
+      if (result.status < 200 || result.status >= 300 || !j.ok) {
         setErr(j.error ?? "불러오기 실패");
         setMine([]);
         return;

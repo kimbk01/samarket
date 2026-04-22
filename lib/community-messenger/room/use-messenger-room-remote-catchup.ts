@@ -35,8 +35,6 @@ export function useMessengerRoomRemoteCatchup({
     if (!id) return false;
     const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
     if (confirmed.length === 0) {
-      // 첫 진입/희귀 레이스: 아직 confirmed가 없으면 부트스트랩 refresh로 최신 윈도를 먼저 확보.
-      void refresh(true);
       return false;
     }
     /** 앵커는 배열 끝이 아니라 **시간상 최신 확정 메시지** — 정렬/가상화와 무관하게 `after=` 일관 */
@@ -55,7 +53,6 @@ export function useMessengerRoomRemoteCatchup({
       }
     }
     if (!anchorId) {
-      void refresh(true);
       return false;
     }
     try {
@@ -74,7 +71,7 @@ export function useMessengerRoomRemoteCatchup({
       /* ignore */
     }
     return false;
-  }, [roomId, streamRoomId, refresh]);
+  }, [roomId]);
 
   const tryMergeSingleMessageFromBump = useCallback(async (messageId: string): Promise<boolean> => {
     const mid = String(messageId ?? "").trim();

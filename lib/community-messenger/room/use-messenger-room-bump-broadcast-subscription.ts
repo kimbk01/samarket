@@ -108,6 +108,30 @@ export function useMessengerRoomBumpBroadcastSubscription({
 
     const sb = getSupabaseClient();
     if (!sb) return;
+    let lastCatchUpAt = 0;
+    let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingHint = "";
+    const scheduleCatchUp = (hintMessageId: string) => {
+      const now = Date.now();
+      const elapsed = now - lastCatchUpAt;
+      const minGap = 180;
+      if (elapsed < minGap) {
+        if (hintMessageId) pendingHint = hintMessageId;
+        if (catchUpTimer != null) return;
+        catchUpTimer = setTimeout(() => {
+          catchUpTimer = null;
+          lastCatchUpAt = Date.now();
+          const h = pendingHint;
+          pendingHint = "";
+          void catchUpAfterRemoteBump(h || undefined);
+        }, minGap - elapsed);
+        return;
+      }
+      lastCatchUpAt = now;
+      const h = hintMessageId || pendingHint;
+      pendingHint = "";
+      void catchUpAfterRemoteBump(h || undefined);
+    };
     const onBump = (payload: Record<string, unknown>) => {
       const known = communityMessengerBumpKnownRoomIds({
         routeRoomId: String(roomId ?? "").trim(),
@@ -143,7 +167,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
           setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
         }
-        void catchUpAfterRemoteBump(hint || undefined);
+        scheduleCatchUp(hint);
       });
     };
     listenerRef.current.onBump = onBump;
@@ -160,6 +184,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (remoteBumpCatchUpRafRef.current != null) {
         cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
         remoteBumpCatchUpRafRef.current = null;
+      }
+      if (catchUpTimer != null) {
+        clearTimeout(catchUpTimer);
+        catchUpTimer = null;
       }
       const current = roomBumpEntries.get(registryKey);
       if (!current) return;

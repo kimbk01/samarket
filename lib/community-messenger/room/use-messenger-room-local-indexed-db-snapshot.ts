@@ -28,6 +28,8 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
 }): void {
   const localCacheReadStartRecordedRef = useRef(false);
   const localCacheReadEndRecordedRef = useRef(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPersistSigRef = useRef("");
   // Local-first: 서버 시드가 없을 때만 — 다음 마이크로태스크에서 바로 읽어 첫 페인트를 당김
   useEffect(() => {
     if (snapshotRef.current) return;
@@ -63,6 +65,26 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
     if (!snap) return;
     const id = String(roomId ?? "").trim();
     if (!id) return;
-    void putLocalRoomSnapshot(id, snap);
+    const latestMessageId = String(snap.messages[snap.messages.length - 1]?.id ?? "").trim();
+    const sig = `${id}|${snap.room.unreadCount}|${snap.messages.length}|${latestMessageId}`;
+    if (sig === lastPersistSigRef.current) return;
+    if (persistTimerRef.current != null) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    persistTimerRef.current = setTimeout(() => {
+      persistTimerRef.current = null;
+      lastPersistSigRef.current = sig;
+      void putLocalRoomSnapshot(id, snap);
+    }, 220);
   }, [roomId, snapshot]);
+
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current != null) {
+        clearTimeout(persistTimerRef.current);
+        persistTimerRef.current = null;
+      }
+    };
+  }, []);
 }

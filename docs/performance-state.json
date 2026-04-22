@@ -1,0 +1,765 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-22T18:40:00.000Z",
+  "currentTarget": "community",
+  "inProgress": null,
+  "completed": [
+    {
+      "domain": "delivery",
+      "target": "buyer_order_detail_initial_fetch_effect_phase",
+      "file": "components/stores/StoreCommerceOrderDetailClient.tsx",
+      "reason": "주문 상세 GET 트리거가 useEffect(커밋 페인트 이후)에만 걸려 네트워크 왕복이 한 틱 늦게 붙음",
+      "before": "useEffect([load])에서 void load() — 브라우저 페인트 이후 effect 단계에서 fetch 시작",
+      "after": "useLayoutEffect([load])에서 void load() — DOM 커밋 직후·브라우저 페인트 이전에 fetch 시작",
+      "completedAt": "2026-04-22T12:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_feed_runtime_dedupe_render_loop",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "렌더마다 posts 전체를 순회하며 중복 제거(useMemo)해 리스트 길이에 비례한 반복 계산이 발생함",
+      "before": "매 렌더마다 posts를 순회해 postsDeduped를 생성",
+      "after": "setPosts 주입 시점(세션 캐시 복원) 1회 정규화로 변경하고 렌더에서는 posts를 그대로 사용",
+      "completedAt": "2026-04-22T12:20:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "home_experimental_feed_forced_csr_branch",
+      "file": "app/(main)/home/HomeContent.tsx",
+      "reason": "실험 피드 분기 dynamic import가 ssr:false로 고정돼 브랜치 활성 시 CSR 로딩 단계를 강제함",
+      "before": "HomeFeedViewExperimental dynamic 옵션이 ssr:false",
+      "after": "HomeFeedViewExperimental dynamic 옵션을 ssr:true로 변경",
+      "completedAt": "2026-04-22T12:35:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "messenger_home_initial_bootstrap_csr_only",
+      "file": "app/(main)/community-messenger/page.tsx",
+      "reason": "메신저 홈이 initialServerBootstrap=null 고정으로 첫 데이터가 클라이언트 bootstrap GET 이후에만 채워짐",
+      "before": "RSC에서 initialServerBootstrap=null 전달",
+      "after": "RSC에서 로그인 사용자에 한해 lite bootstrap(skipDiscoverable/deferCallLog) 시드 전달",
+      "completedAt": "2026-04-22T12:50:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_hub_counts_hydration_only_load",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage RSC가 shell 경로만 사용해 hubServerExtras/homeDashboardCounts를 null로 내려 클라이언트 하이드레이션 이후 추가 조회가 필요함",
+      "before": "MypageServerBody에서 loadMypageServerShell() 호출",
+      "after": "MypageServerBody에서 loadMypageServer() 호출",
+      "completedAt": "2026-04-22T13:05:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_refresh_loading_flash_state_update",
+      "file": "hooks/use-mypage-hub-model.ts",
+      "reason": "pageshow/profile 갱신 시 기존 데이터가 있어도 load()가 매번 loading=true를 세팅해 불필요한 로딩 상태 전환이 발생함",
+      "before": "load()가 호출될 때마다 setLoading(true/false) 실행",
+      "after": "silent 옵션으로 기존 데이터가 있으면 loading 상태 전환을 생략",
+      "completedAt": "2026-04-22T13:20:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "login_prelogout_blocking_roundtrip",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "이메일 로그인 시작 전에 /api/test-logout 요청을 await해 인증 요청 진입이 선행 왕복에 의해 지연됨",
+      "before": "signInWithPassword 이전에 /api/test-logout fetch를 await",
+      "after": "test-logout fetch를 비차단(async fire-and-forget)으로 분리",
+      "completedAt": "2026-04-22T13:35:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "login_page_force_dynamic_cache_bypass",
+      "file": "app/login/page.tsx",
+      "reason": "로그인 페이지가 force-dynamic으로 고정되어 정적 라우트 캐시 경로를 사용하지 못함",
+      "before": "app/login/page.tsx에 export const dynamic = \"force-dynamic\" 선언",
+      "after": "force-dynamic 선언 제거",
+      "completedAt": "2026-04-22T13:45:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "login_blocking_session_sync_before_navigation",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "로그인 성공 후 이동 전에 double RAF + auth/session 동기화를 await해 네비게이션 시작이 지연됨",
+      "before": "fetchAuthSessionNoStore 완료까지 await 후 window.location.assign 실행",
+      "after": "auth/session 동기화를 비차단으로 전환하고 즉시 window.location.assign 실행",
+      "completedAt": "2026-04-22T14:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "login_auth_session_route_unauth_fast_fail",
+      "file": "app/api/auth/session/route.ts",
+      "reason": "비로그인 요청도 Supabase client 생성 + auth.getUser 경로를 타면서 로그인 화면/게이트의 세션 확인 왕복이 길어짐",
+      "before": "인증 쿠키 유무와 무관하게 createServerClient + supabase.auth.getUser 실행",
+      "after": "Supabase 인증 쿠키가 없으면 route 초입에서 즉시 401 반환",
+      "completedAt": "2026-04-22T14:15:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "login_auth_session_client_cookie_short_circuit",
+      "file": "lib/auth/fetch-auth-session-client.ts",
+      "reason": "클라이언트 세션 체크가 비로그인 상태에서도 /api/auth/session 요청을 보냄",
+      "before": "fetchAuthSessionNoStore가 항상 /api/auth/session fetch 실행",
+      "after": "브라우저 쿠키에 Supabase auth 토큰이 없으면 클라이언트에서 즉시 401 Response 반환",
+      "completedAt": "2026-04-22T14:30:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_timeline_empty_recovery_error_banner",
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "reason": "스냅샷에 최근 메시지 힌트가 있는데 roomMessages가 비어 있으면 에러 문구와 수동 재시도 버튼을 노출함",
+      "before": "조건 성립 시 '대화 내용을 불러 오지 못했습니다/다시 불러오기' 표시",
+      "after": "조건 성립 시 자동 refresh 1회 실행 + 동기화 안내 문구 표시",
+      "completedAt": "2026-04-22T14:50:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_text_send_immediate_refresh_roundtrip",
+      "file": "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
+      "reason": "텍스트 전송 응답이 message 없이 성공일 때 즉시 refresh(true)를 호출해 전송 직후 추가 GET 왕복이 붙음",
+      "before": "json.message 미포함 성공 경로에서 즉시 refresh(true)",
+      "after": "420ms 지연 후 clientMessageId 기준 미확인일 때만 refresh(true)",
+      "completedAt": "2026-04-22T15:05:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_realtime_onrefresh_duplicate_bootstrap_fetch",
+      "file": "lib/community-messenger/room/use-messenger-room-client-phase1.ts",
+      "reason": "Realtime onRefresh에서 catch-up 증분 병합 호출 뒤에도 refresh(true)를 항상 실행해 중복 부트스트랩 GET이 발생함",
+      "before": "onRefresh에서 catchUpNewerMessages + refresh(true) 동시 호출",
+      "after": "catchUpNewerMessages 결과가 false일 때만 refresh(true) 호출",
+      "completedAt": "2026-04-22T15:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_catchup_internal_refresh_side_effect",
+      "file": "lib/community-messenger/room/use-messenger-room-remote-catchup.ts",
+      "reason": "catchUpNewerMessages 내부에서 refresh(true) 부수효과를 수행해 상위 호출자의 fallback refresh와 중복 왕복이 발생함",
+      "before": "confirmed/anchor 부재 시 catchUpNewerMessages 내부에서 refresh(true) 실행",
+      "after": "catchUpNewerMessages는 boolean 결과만 반환하고 refresh 여부는 호출자에서 결정",
+      "completedAt": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_visibility_bus_unconditional_double_fetch",
+      "file": "lib/community-messenger/room/use-messenger-room-visibility-bus-catchup.ts",
+      "reason": "visibility/pageshow 및 multi-tab 이벤트에서 증분 catch-up 후에도 refresh(true)를 항상 호출해 중복 부트스트랩 GET이 발생함",
+      "before": "이벤트마다 catchUpNewerMessages + refresh(true) 동시 호출",
+      "after": "catchUpNewerMessages가 병합 실패(false)일 때만 refresh(true) 호출",
+      "completedAt": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_seed_enrichment_double_raf_delay",
+      "file": "lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle.ts",
+      "reason": "seed 보강 refresh가 double RAF로 예약되어 보강 GET 시작이 한 프레임 더 지연됨",
+      "before": "bootstrapEnrichmentPending 경로에서 requestAnimationFrame 2회 뒤 refresh(true)",
+      "after": "bootstrapEnrichmentPending 경로에서 requestAnimationFrame 1회 뒤 refresh(true)",
+      "completedAt": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_cm_ctx_patch_redundant_refresh",
+      "file": "lib/community-messenger/room/use-messenger-room-url-sync-effects.ts",
+      "reason": "cm_ctx PATCH 성공 후 현재 snapshot contextMeta와 동일해도 refresh(true)를 호출해 불필요 부트스트랩 GET이 발생함",
+      "before": "cm_ctx PATCH 성공 시 항상 refresh(true)",
+      "after": "현재 snapshot contextMeta와 다른 경우에만 refresh(true)",
+      "completedAt": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_bump_broadcast_catchup_burst_storm",
+      "file": "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts",
+      "reason": "bump burst에서 RAF 단위로 catchUpAfterRemoteBump가 연속 실행되어 잦은 catch-up GET이 발생함",
+      "before": "bump마다 catchUpAfterRemoteBump를 즉시 실행",
+      "after": "180ms 최소 간격으로 catch-up 실행(힌트 병합 coalesce)",
+      "completedAt": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_silent_same_key_rerun_refresh",
+      "file": "lib/community-messenger/room/messenger-room-bootstrap-refresh.ts",
+      "reason": "동일 silent flight key coalesce 분기에서도 again rerun이 refresh(true)를 다시 열어 같은 부트스트랩 요청을 반복할 수 있음",
+      "before": "silent same-key 분기 finish callback에서 refresh(true) 재호출",
+      "after": "silent same-key 분기 finish callback을 no-op으로 변경",
+      "completedAt": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_leave_success_redundant_refresh_fetch",
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "reason": "방 나가기 성공 시 로컬에서 목록 제거 후에도 refresh(true)를 호출해 불필요한 홈 부트스트랩 GET이 추가됨",
+      "before": "leave 성공 후 setRoomActionSheet + refresh(true)",
+      "after": "leave 성공 시 로컬 tabs/chats/groups 상태만 갱신하고 refresh 생략",
+      "completedAt": "2026-04-22T16:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_silent_fallback_full_bootstrap_burst",
+      "file": "lib/community-messenger/home/use-community-messenger-home-bootstrap.ts",
+      "reason": "silent home-sync 실패 구간에서 fresh full bootstrap fallback이 연속 호출되어 짧은 시간 내 중복 GET이 발생함",
+      "before": "silent home-sync 비인증 실패 때마다 즉시 fresh bootstrap fallback 호출",
+      "after": "fresh fallback 실패 후 1200ms backoff를 두고 연속 fallback 호출 억제",
+      "completedAt": "2026-04-22T16:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_mark_read_bump_event_redundancy",
+      "file": "lib/community-messenger/room/use-messenger-room-open-mark-read-effect.ts",
+      "reason": "mark_read 성공 시 local_unread 이벤트와 별도로 cm.room.bump까지 발행해 방 catch-up 경로를 불필요하게 다시 트리거함",
+      "before": "mark_read 성공 시 cm.room.local_unread + cm.room.bump 동시 발행",
+      "after": "mark_read 성공 시 cm.room.local_unread만 유지하고 cm.room.bump 제거",
+      "completedAt": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_realtime_bump_emit_burst",
+      "file": "lib/community-messenger/use-community-messenger-realtime.ts",
+      "reason": "메시지 insert burst에서 room.bump 이벤트를 메시지마다 발행해 멀티탭 catch-up 경로를 과도하게 깨움",
+      "before": "notifyMessengerHomeRealtimeMessageInsert에서 room.bump 무제한 발행",
+      "after": "room 단위 220ms 최소 간격으로 room.bump 발행 coalesce",
+      "completedAt": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "participant_unread_bump_emit_burst",
+      "file": "lib/community-messenger/notifications/use-message-notification-bridge.ts",
+      "reason": "participants unread 증가 이벤트 burst에서 room.bump를 매번 발행해 동일 방 동기화를 과도하게 유발함",
+      "before": "unread 증가마다 즉시 room.bump 발행",
+      "after": "room 단위 260ms 최소 간격으로 room.bump 발행 coalesce",
+      "completedAt": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_load_older_intersection_burst_trigger",
+      "file": "lib/community-messenger/room/use-messenger-room-load-older-messages-intersection.ts",
+      "reason": "상단 sentinel이 교차 상태를 반복 보고할 때 loadOlderMessages 트리거가 짧은 간격으로 연속 호출될 수 있음",
+      "before": "intersection hit마다 즉시 loadOlderMessagesRef 호출",
+      "after": "240ms 최소 간격 throttle로 loadOlderMessagesRef 호출",
+      "completedAt": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_load_older_same_cursor_inflight_duplicate",
+      "file": "lib/community-messenger/room/use-messenger-room-load-older-messages-fetch.ts",
+      "reason": "같은 before cursor에 대한 in-flight 요청이 있을 때 중복 fetch가 다시 열릴 수 있음",
+      "before": "same beforeId in-flight dedupe ref 없음",
+      "after": "beforeId별 in-flight promise dedupe로 동일 cursor 중복 fetch 차단",
+      "completedAt": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_messages_get_same_query_parallel_duplicate",
+      "file": "app/api/community-messenger/rooms/[roomId]/messages/route.ts",
+      "reason": "after/before 동일 질의가 병렬로 들어오면 동일 DB 조회가 중복 실행될 수 있음",
+      "before": "GET after/before 경로에 runSingleFlight 없음",
+      "after": "after/before 경로를 query key 기준 runSingleFlight로 합류",
+      "completedAt": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_realtime_own_insert_bus_fanout",
+      "file": "lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts",
+      "reason": "자기 메시지 INSERT Realtime 이벤트에도 cm.room.incoming_message를 발행해 멀티탭 동기화 fanout이 불필요하게 증가함",
+      "before": "INSERT 이벤트마다 cm.room.incoming_message 발행",
+      "after": "내가 보낸 INSERT 이벤트는 cm.room.incoming_message 발행 생략",
+      "completedAt": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_snapshot_idb_write_every_snapshot",
+      "file": "lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot.ts",
+      "reason": "snapshot 변경마다 즉시 putLocalRoomSnapshot을 호출해 burst 구간 IndexedDB write가 과도하게 발생함",
+      "before": "snapshot 변경마다 즉시 putLocalRoomSnapshot 실행",
+      "after": "snapshot signature 기반 220ms debounce + 동일 signature 중복 write 생략",
+      "completedAt": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "room_snapshot_db_prune_every_write",
+      "file": "lib/community-messenger/local-store/roomSnapshotDb.ts",
+      "reason": "putLocalRoomSnapshot마다 pruneRooms가 실행되어 key scan/delete 작업이 잦아짐",
+      "before": "putLocalRoomSnapshot 호출마다 pruneRooms 실행",
+      "after": "pruneRooms 실행 주기를 60초로 제한",
+      "completedAt": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_realtime_onrefresh_burst_refresh",
+      "file": "lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts",
+      "reason": "home realtime onRefresh 이벤트 burst에서 refresh(true)가 연속 호출되어 홈 사일런트 동기화 GET이 과도하게 발생함",
+      "before": "onRefresh마다 즉시 refresh(true)",
+      "after": "onRefresh refresh(true)를 280ms 최소 간격으로 coalesce",
+      "completedAt": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_merge_summary_noop_state_churn",
+      "file": "lib/community-messenger/home/merge-bootstrap-room-summary-into-lists.ts",
+      "reason": "동일 room summary가 이미 동일 위치/동일 값인데도 새 객체를 반환해 홈 리스트 setData churn이 발생함",
+      "before": "merge 호출마다 chats/groups 새 배열 생성",
+      "after": "동일 summary+정렬 위치 유지 시 원본 data를 그대로 반환",
+      "completedAt": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "home_realtime_patchroom_unnecessary_resort",
+      "file": "lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message.ts",
+      "reason": "같은 프리뷰/같은 timestamp 업데이트에도 map+sort를 수행해 리스트 정렬 비용이 반복됨",
+      "before": "patchRoomInList hit 시 항상 map 후 sort",
+      "after": "same preview는 즉시 return, same timestamp는 replace-only, 필요한 경우에만 sort",
+      "completedAt": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_feed_same_query_parallel_duplicate",
+      "file": "app/api/community/neighborhood-feed/route.ts",
+      "reason": "같은 사용자/필터/페이지 요청이 병렬로 겹칠 때 listNeighborhoodFeed DB 조회가 중복 실행됨",
+      "before": "동일 질의 병렬 요청마다 listNeighborhoodFeed를 독립 실행",
+      "after": "요청 키(user+scope+filter+offset+limit) 기준 runSingleFlight로 병렬 요청 합류",
+      "completedAt": "2026-04-22T18:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_topic_options_repeat_roundtrip_on_tab_switch",
+      "file": "lib/philife/fetch-neighborhood-topic-options-client.ts",
+      "reason": "피드/글쓰기 전환에서 neighborhood-topic-options가 짧은 간격으로 반복 호출되어 탭 전환 체감을 지연시킴",
+      "before": "runSingleFlight는 동시 호출만 합류하고 완료 후 재마운트마다 즉시 재요청",
+      "after": "클라이언트 메모리 TTL(60초) 캐시를 추가해 최근 성공 응답은 즉시 재사용",
+      "completedAt": "2026-04-22T18:20:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_topic_options_idle_warm_before_philife_entry",
+      "file": "components/community/PhilifeFeedWarmPrefetch.tsx",
+      "reason": "비 philife 화면 유휴 구간에서 topic options를 미리 데우지 않아 /philife 진입 시 주제 옵션 GET이 즉시 발생함",
+      "before": "백그라운드 워밍이 피드 목록 API만 선요청",
+      "after": "기존 idle 워밍 경로에서 topic options도 함께 선요청",
+      "completedAt": "2026-04-22T18:20:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_myhub_author_feed_reentry_repeat_fetch",
+      "file": "lib/community/fetch-community-my-hub-posts-deduped.ts",
+      "reason": "내허브 재진입/다중 마운트마다 author 피드(no-store)가 즉시 재요청되어 초기 체감이 흔들림",
+      "before": "CommunityMyHubClient가 마운트마다 /neighborhood-feed?authorId=... 요청을 독립 실행",
+      "after": "user 기준 runSingleFlight + 20초 TTL 캐시로 재진입 중복 요청을 합류/재사용",
+      "completedAt": "2026-04-22T18:30:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_post_comments_get_reentry_duplicate_fetch",
+      "file": "lib/community/fetch-community-post-comments-deduped.ts",
+      "reason": "상세 댓글 GET이 재진입·복귀·중복 마운트에서 no-store로 반복 왕복되어 체감 지연이 누적됨",
+      "before": "postId별 댓글 GET이 호출 시마다 독립 fetch(no-store) 실행",
+      "after": "postId 기준 runSingleFlight + 8초 TTL + invalidate 경로로 댓글 GET 합류/재사용",
+      "completedAt": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_detail_comment_refresh_forced_network_path",
+      "file": "components/community/CommunityDetail.tsx",
+      "reason": "상세 화면 댓글 갱신이 항상 직접 네트워크(no-store)로만 진행되어 POST 직후/복귀 시 중복 fetch가 발생함",
+      "before": "refreshComments가 매번 philifePostCommentsUrl fetch 직접 실행",
+      "after": "deduped 댓글 GET 유틸 사용 + 댓글 작성 성공 시 invalidate 후 강제 갱신",
+      "completedAt": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_post_detail_comment_refresh_forced_network_path",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "구 상세 화면도 댓글 복귀/작성 후 갱신에서 동일 no-store 반복 왕복이 발생함",
+      "before": "refreshComments/useRefetchOnPageShowRestore가 직접 comments GET 호출",
+      "after": "deduped 댓글 GET 유틸로 전환하고 POST 성공 시 invalidate + force refresh",
+      "completedAt": "2026-04-22T18:40:00.000Z"
+    }
+  ],
+  "lockedFiles": [
+    "components/stores/StoreCommerceOrderDetailClient.tsx",
+    "components/community/CommunityFeed.tsx",
+    "app/(main)/home/HomeContent.tsx",
+    "app/(main)/community-messenger/page.tsx",
+    "app/(main)/mypage/page.tsx",
+    "hooks/use-mypage-hub-model.ts",
+    "app/login/LoginPageClient.tsx",
+    "app/api/auth/session/route.ts",
+    "lib/auth/fetch-auth-session-client.ts",
+    "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+    "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
+    "lib/community-messenger/room/use-messenger-room-client-phase1.ts",
+    "lib/community-messenger/room/use-messenger-room-remote-catchup.ts",
+    "lib/community-messenger/room/use-messenger-room-visibility-bus-catchup.ts",
+    "lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle.ts",
+    "lib/community-messenger/room/use-messenger-room-url-sync-effects.ts",
+    "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts",
+    "lib/community-messenger/room/messenger-room-bootstrap-refresh.ts",
+    "components/community-messenger/CommunityMessengerHome.tsx",
+    "lib/community-messenger/home/use-community-messenger-home-bootstrap.ts",
+    "lib/community-messenger/room/use-messenger-room-open-mark-read-effect.ts",
+    "lib/community-messenger/use-community-messenger-realtime.ts",
+    "lib/community-messenger/notifications/use-message-notification-bridge.ts",
+    "lib/community-messenger/room/use-messenger-room-load-older-messages-intersection.ts",
+    "lib/community-messenger/room/use-messenger-room-load-older-messages-fetch.ts",
+    "app/api/community-messenger/rooms/[roomId]/messages/route.ts",
+    "lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts",
+    "lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot.ts",
+    "lib/community-messenger/local-store/roomSnapshotDb.ts",
+    "lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts",
+    "lib/community-messenger/home/merge-bootstrap-room-summary-into-lists.ts",
+    "lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message.ts",
+    "app/api/community/neighborhood-feed/route.ts",
+    "lib/philife/fetch-neighborhood-topic-options-client.ts",
+    "components/community/PhilifeFeedWarmPrefetch.tsx",
+    "lib/community/fetch-community-my-hub-posts-deduped.ts",
+    "components/community/CommunityMyHubClient.tsx",
+    "lib/community/fetch-community-post-comments-deduped.ts",
+    "components/community/CommunityDetail.tsx",
+    "components/community/CommunityPostDetailClient.tsx"
+  ],
+  "history": [
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "buyer_order_detail_initial_fetch_effect_phase",
+      "file": "components/stores/StoreCommerceOrderDetailClient.tsx",
+      "reason": "useLayoutEffect로 초기 load 스케줄을 페인트 전으로 당김",
+      "at": "2026-04-22T12:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_feed_runtime_dedupe_render_loop",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "중복 제거를 렌더 단계에서 제거하고 데이터 주입 시점 1회 정규화로 이동",
+      "at": "2026-04-22T12:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "trade",
+      "target": "home_experimental_feed_forced_csr_branch",
+      "file": "app/(main)/home/HomeContent.tsx",
+      "reason": "실험 피드 dynamic import SSR 비활성 구성을 SSR 활성으로 교정",
+      "at": "2026-04-22T12:35:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "messenger_home_initial_bootstrap_csr_only",
+      "file": "app/(main)/community-messenger/page.tsx",
+      "reason": "메신저 홈에 서버 lite bootstrap 시드를 주입해 초기 클라이언트 의존을 축소",
+      "at": "2026-04-22T12:50:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_hub_counts_hydration_only_load",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage 서버 진입에서 shell 대신 전체 데이터를 사용해 초기 허브 카운트 지연을 줄임",
+      "at": "2026-04-22T13:05:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_refresh_loading_flash_state_update",
+      "file": "hooks/use-mypage-hub-model.ts",
+      "reason": "silent 재조회 경로에서 불필요한 loading 상태 업데이트를 제거",
+      "at": "2026-04-22T13:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "login_prelogout_blocking_roundtrip",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "로그인 전 선행 test-logout 왕복 대기를 제거해 인증 시작 지연 축소",
+      "at": "2026-04-22T13:35:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "login_page_force_dynamic_cache_bypass",
+      "file": "app/login/page.tsx",
+      "reason": "로그인 진입 페이지의 force-dynamic 고정을 제거해 캐시 경로를 복원",
+      "at": "2026-04-22T13:45:00.000Z"
+    },
+    {
+      "type": "unlock",
+      "domain": "myinfo",
+      "target": "login_rework_user_requested",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "사용자 요청으로 로그인 수준 상향 재작업을 위해 잠금 해제",
+      "at": "2026-04-22T13:58:00.000Z"
+    },
+    {
+      "type": "unlock",
+      "domain": "myinfo",
+      "target": "login_rework_user_requested",
+      "file": "app/login/page.tsx",
+      "reason": "사용자 요청으로 로그인 수준 상향 재작업을 위해 잠금 해제",
+      "at": "2026-04-22T13:58:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "login_blocking_session_sync_before_navigation",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "로그인 후 세션 동기화 대기를 비차단화해 네비게이션 시작 지연을 제거",
+      "at": "2026-04-22T14:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "login_auth_session_route_unauth_fast_fail",
+      "file": "app/api/auth/session/route.ts",
+      "reason": "인증 쿠키가 없는 요청을 route 초입에서 즉시 401로 종료해 로그인 경로 세션 확인 지연을 축소",
+      "at": "2026-04-22T14:15:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "login_auth_session_client_cookie_short_circuit",
+      "file": "lib/auth/fetch-auth-session-client.ts",
+      "reason": "브라우저에서 인증 쿠키 부재를 먼저 판별해 세션 확인 네트워크 왕복 자체를 생략",
+      "at": "2026-04-22T14:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_timeline_empty_recovery_error_banner",
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "reason": "메시지 로드 회복 경로를 자동 재시도 중심으로 바꾸고 에러 배너/수동 재시도 문구를 제거",
+      "at": "2026-04-22T14:50:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_text_send_immediate_refresh_roundtrip",
+      "file": "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
+      "reason": "텍스트 전송 직후 즉시 재조회 대신 지연+조건부 재조회로 중복 왕복을 줄임",
+      "at": "2026-04-22T15:05:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_realtime_onrefresh_duplicate_bootstrap_fetch",
+      "file": "lib/community-messenger/room/use-messenger-room-client-phase1.ts",
+      "reason": "Realtime onRefresh 경로를 증분 병합 우선·조건부 refresh로 바꿔 중복 GET을 제거",
+      "at": "2026-04-22T15:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_catchup_internal_refresh_side_effect",
+      "file": "lib/community-messenger/room/use-messenger-room-remote-catchup.ts",
+      "reason": "catchUpNewerMessages를 부수효과 없는 boolean 반환으로 정리해 상위 fallback과 중복 refresh를 제거",
+      "at": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_visibility_bus_unconditional_double_fetch",
+      "file": "lib/community-messenger/room/use-messenger-room-visibility-bus-catchup.ts",
+      "reason": "visibility/pageshow/multi-tab 이벤트 경로를 조건부 refresh로 전환해 중복 GET을 제거",
+      "at": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_seed_enrichment_double_raf_delay",
+      "file": "lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle.ts",
+      "reason": "seed 보강 refresh의 double RAF 대기를 단일 RAF로 줄여 보강 fetch 시작 시점을 당김",
+      "at": "2026-04-22T15:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_cm_ctx_patch_redundant_refresh",
+      "file": "lib/community-messenger/room/use-messenger-room-url-sync-effects.ts",
+      "reason": "cm_ctx PATCH 성공 후 동일 contextMeta인 경우 refresh를 생략해 중복 부트스트랩 GET을 제거",
+      "at": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_bump_broadcast_catchup_burst_storm",
+      "file": "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts",
+      "reason": "bump burst catch-up 실행을 180ms 간격으로 coalesce해 과도한 catch-up 호출을 억제",
+      "at": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_silent_same_key_rerun_refresh",
+      "file": "lib/community-messenger/room/messenger-room-bootstrap-refresh.ts",
+      "reason": "silent same-key coalesce 분기의 refresh 재호출을 제거해 동일 key 반복 요청을 차단",
+      "at": "2026-04-22T16:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_leave_success_redundant_refresh_fetch",
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "reason": "방 나가기 성공 경로에서 로컬 상태 갱신으로 충분한 경우 refresh 호출을 제거",
+      "at": "2026-04-22T16:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_silent_fallback_full_bootstrap_burst",
+      "file": "lib/community-messenger/home/use-community-messenger-home-bootstrap.ts",
+      "reason": "silent fallback full bootstrap 연속 호출에 backoff를 적용해 burst 구간 중복 GET을 완화",
+      "at": "2026-04-22T16:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_mark_read_bump_event_redundancy",
+      "file": "lib/community-messenger/room/use-messenger-room-open-mark-read-effect.ts",
+      "reason": "mark_read 성공 시 불필요한 room.bump 발행을 제거해 읽음 처리 후 중복 catch-up 트리거를 차단",
+      "at": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_realtime_bump_emit_burst",
+      "file": "lib/community-messenger/use-community-messenger-realtime.ts",
+      "reason": "메시지 insert burst의 room.bump 발행을 room 단위 coalesce로 제한",
+      "at": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "participant_unread_bump_emit_burst",
+      "file": "lib/community-messenger/notifications/use-message-notification-bridge.ts",
+      "reason": "participants unread 증가 burst의 room.bump 발행을 room 단위 coalesce로 제한",
+      "at": "2026-04-22T16:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_load_older_intersection_burst_trigger",
+      "file": "lib/community-messenger/room/use-messenger-room-load-older-messages-intersection.ts",
+      "reason": "상단 sentinel 교차 burst를 throttle해 loadOlderMessages 연쇄 호출을 완화",
+      "at": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_load_older_same_cursor_inflight_duplicate",
+      "file": "lib/community-messenger/room/use-messenger-room-load-older-messages-fetch.ts",
+      "reason": "same before cursor in-flight 요청을 promise dedupe로 합류시켜 중복 fetch를 차단",
+      "at": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_messages_get_same_query_parallel_duplicate",
+      "file": "app/api/community-messenger/rooms/[roomId]/messages/route.ts",
+      "reason": "메시지 GET after/before 동일 질의를 runSingleFlight로 합류시켜 병렬 중복 DB 조회를 완화",
+      "at": "2026-04-22T17:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_realtime_own_insert_bus_fanout",
+      "file": "lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts",
+      "reason": "자기 INSERT 이벤트의 incoming_message 발행을 생략해 멀티탭 fanout을 축소",
+      "at": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_snapshot_idb_write_every_snapshot",
+      "file": "lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot.ts",
+      "reason": "snapshot 로컬 저장을 debounce+signature dedupe로 변경해 burst write를 완화",
+      "at": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "room_snapshot_db_prune_every_write",
+      "file": "lib/community-messenger/local-store/roomSnapshotDb.ts",
+      "reason": "room snapshot DB prune를 주기 제한해 write 경합 구간 key scan 비용을 줄임",
+      "at": "2026-04-22T17:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_realtime_onrefresh_burst_refresh",
+      "file": "lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts",
+      "reason": "home realtime onRefresh burst를 280ms coalesce로 묶어 refresh 연쇄를 완화",
+      "at": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_merge_summary_noop_state_churn",
+      "file": "lib/community-messenger/home/merge-bootstrap-room-summary-into-lists.ts",
+      "reason": "동일 summary no-op 케이스에서 원본 반환으로 setData churn을 제거",
+      "at": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "messenger",
+      "target": "home_realtime_patchroom_unnecessary_resort",
+      "file": "lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message.ts",
+      "reason": "room preview patch의 no-op/same timestamp 경로에서 불필요 map/sort를 제거",
+      "at": "2026-04-22T17:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_feed_same_query_parallel_duplicate",
+      "file": "app/api/community/neighborhood-feed/route.ts",
+      "reason": "동일 user/filter/page GET 병렬 요청을 runSingleFlight로 합류시켜 중복 DB 조회를 완화",
+      "at": "2026-04-22T18:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_topic_options_repeat_roundtrip_on_tab_switch",
+      "file": "lib/philife/fetch-neighborhood-topic-options-client.ts",
+      "reason": "topic options를 60초 TTL 캐시 + warm 프리로드로 전환해 피드↔글쓰기 반복 왕복을 완화",
+      "at": "2026-04-22T18:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_topic_options_idle_warm_before_philife_entry",
+      "file": "components/community/PhilifeFeedWarmPrefetch.tsx",
+      "reason": "philife 진입 전 idle 구간에서 topic options를 함께 워밍해 초기 주제 옵션 왕복을 선흡수",
+      "at": "2026-04-22T18:20:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_myhub_author_feed_reentry_repeat_fetch",
+      "file": "lib/community/fetch-community-my-hub-posts-deduped.ts",
+      "reason": "내허브 author feed 요청을 single-flight+TTL로 합류시켜 재진입 중복 GET을 완화",
+      "at": "2026-04-22T18:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_post_comments_get_reentry_duplicate_fetch",
+      "file": "lib/community/fetch-community-post-comments-deduped.ts",
+      "reason": "댓글 GET 경로를 postId 기준 single-flight+TTL+invalidate로 통합해 재진입 왕복을 완화",
+      "at": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_detail_comment_refresh_forced_network_path",
+      "file": "components/community/CommunityDetail.tsx",
+      "reason": "상세 댓글 갱신을 deduped 경로로 전환하고 댓글 작성 직후 invalidate+force refresh로 정합 유지",
+      "at": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "community_post_detail_comment_refresh_forced_network_path",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "구 상세 댓글 갱신/복귀 경로를 deduped 호출로 전환해 중복 GET을 완화",
+      "at": "2026-04-22T18:40:00.000Z"
+    }
+  ]
+}

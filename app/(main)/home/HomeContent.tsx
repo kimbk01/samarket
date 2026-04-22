@@ -18,7 +18,7 @@ const HomeFeedViewExperimental = dynamic(
     import("@/components/home-feed/HomeFeedViewExperimental").then((m) => ({
       default: m.HomeFeedViewExperimental,
     })),
-  { ssr: false, loading: () => null }
+  { ssr: true, loading: () => null }
 );
 
 function HomeTradeFeedBody({ initialHomeTradeFeed }: { initialHomeTradeFeed?: GetPostsForHomeResult | null }) {

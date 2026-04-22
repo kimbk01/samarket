@@ -149,9 +149,7 @@ export function createMessengerRoomBootstrapRefresh(
           silentSameKeyCoalesceRef.key === flightKey &&
           now - silentSameKeyCoalesceRef.at < 220
         ) {
-          finishSilentRefreshRound(true, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {
-            void refresh(true);
-          });
+          finishSilentRefreshRound(true, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
           return;
         }
         silentSameKeyCoalesceRef.key = flightKey;

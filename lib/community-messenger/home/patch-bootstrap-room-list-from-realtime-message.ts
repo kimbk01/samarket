@@ -74,14 +74,23 @@ function patchRoomInList(
   roomId: string,
   patch: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
 ): CommunityMessengerRoomSummary[] {
-  let hit = false;
-  const next = rooms.map((r) => {
-    if (String(r.id) !== String(roomId)) return r;
-    hit = true;
-    return { ...r, ...patch };
-  });
-  if (!hit) return rooms;
-  return [...next].sort((a, b) => String(b.lastMessageAt).localeCompare(String(a.lastMessageAt)));
+  const idx = rooms.findIndex((r) => String(r.id) === String(roomId));
+  if (idx < 0) return rooms;
+  const cur = rooms[idx]!;
+  const samePreview =
+    String(cur.lastMessage ?? "") === String(patch.lastMessage ?? "") &&
+    String(cur.lastMessageType ?? "") === String(patch.lastMessageType ?? "") &&
+    String(cur.lastMessageAt ?? "") === String(patch.lastMessageAt ?? "");
+  if (samePreview) return rooms;
+  const updated = { ...cur, ...patch };
+  if (String(cur.lastMessageAt ?? "") === String(patch.lastMessageAt ?? "")) {
+    const copy = [...rooms];
+    copy[idx] = updated;
+    return copy;
+  }
+  const next = [...rooms];
+  next[idx] = updated;
+  return next.sort((a, b) => String(b.lastMessageAt).localeCompare(String(a.lastMessageAt)));
 }
 
 /**

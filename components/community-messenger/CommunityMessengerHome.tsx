@@ -1494,10 +1494,17 @@ export function CommunityMessengerHome({
     setData((prev) => {
       if (!prev) return prev;
       const drop = (rooms: CommunityMessengerRoomSummary[]) => rooms.filter((room) => room.id !== roomId);
+      const nextChats = drop(prev.chats);
+      const nextGroups = drop(prev.groups);
       return {
         ...prev,
-        chats: drop(prev.chats),
-        groups: drop(prev.groups),
+        chats: nextChats,
+        groups: nextGroups,
+        tabs: {
+          ...prev.tabs,
+          chats: nextChats.length,
+          groups: nextGroups.length,
+        },
       };
     });
   }, []);
@@ -1885,7 +1892,6 @@ export function CommunityMessengerHome({
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && json.ok) {
           setRoomActionSheet(null);
-          void refresh(true);
         } else {
           setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
           void refresh(true);

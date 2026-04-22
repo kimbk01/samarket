@@ -56,6 +56,8 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 }: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
   const homeMissingRoomSummaryTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const homeSummaryLastFetchAtRef = useRef<Map<string, number>>(new Map());
+  const homeRealtimeRefreshLastAtRef = useRef(0);
+  const homeRealtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
@@ -63,11 +65,28 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         clearTimeout(t);
       }
       homeMissingRoomSummaryTimersRef.current.clear();
+      if (homeRealtimeRefreshTimerRef.current != null) {
+        clearTimeout(homeRealtimeRefreshTimerRef.current);
+        homeRealtimeRefreshTimerRef.current = null;
+      }
     };
   }, []);
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
-    void refresh(true);
+    const now = Date.now();
+    const elapsed = now - homeRealtimeRefreshLastAtRef.current;
+    const minGapMs = 280;
+    if (elapsed >= minGapMs) {
+      homeRealtimeRefreshLastAtRef.current = now;
+      void refresh(true);
+      return;
+    }
+    if (homeRealtimeRefreshTimerRef.current != null) return;
+    homeRealtimeRefreshTimerRef.current = setTimeout(() => {
+      homeRealtimeRefreshTimerRef.current = null;
+      homeRealtimeRefreshLastAtRef.current = Date.now();
+      void refresh(true);
+    }, minGapMs - elapsed);
   }, [refresh]);
 
   const scheduleHomeMissingRoomSummaryMerge = useCallback(

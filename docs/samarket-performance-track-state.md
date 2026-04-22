@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-24 |
+| Last updated | 2026-04-22 |
 | Owner | (선택) |
 
 ---
@@ -37,16 +37,16 @@
 | 항목 | 내용 |
 |------|------|
 | 트랙 이름 | 메신저·앱 체감 — **클라이언트 gate / hydration / route 전환 blocking** 병목 **1개 특정**(탐색 단계) |
-| **트랙 상태** | **보류(일시 중단)** — 2026-04-24 기준. 라운드 **M~P** 반영분은 **코드 유지**, 추가 라운드는 **재개 시** 이어감. |
-| 한 줄 요약 | **여기까지 보류.** 직전 확정: **P**(`messageRowPreamble`)·winner **15/15/23ms** 평균 **~17.7ms**. **재개:** 사용자가 **「다음 라운드 최적화 하자」** / **「최적화 이어가자」**라고 하면 **본 파일「트랙 일시 중단」+ 맨 아래「다음 후보」**를 읽고 **원인 1개·수정 1건**으로 이어간다. |
+| **트랙 상태** | **진행 중** — 라운드 **Q**(2026-04-22) 측정 반영. **Q 판정 무효**(warm 역행); 동일 파일 내 **다음 후보(타임라인 JSON 축)**로 이어갈 수 있음. |
+| 한 줄 요약 | **라운드 Q:** `viberInnerBody` **IIFE → 타입별 `memo` 소컴포넌트** + 이미지 라이트박스 **`useCallback`**. winner **13/19/24ms**, warm(런2–3) **21.5ms** → **직전 P warm 19ms 대비 역행** → **[5-보조] 무효**·코드는 **유지**. |
 
 ---
 
 ## 트랙 일시 중단 (보류)
 
-1. **중단 시점:** 라운드 **P** 측정·문서 반영 직후. **composer_wall 동일 축**·**가상화 숫자만 조정** 트랙은 이미 **종료(재개 금지)** — 아래 **「종료된 트랙」** 표 참고.  
-2. **유지:** `CommunityMessengerRoomPhase2`(M), `use-messenger-room-derived-message-lists`(N), 타임라인 읽음 배지(O), `messageRowPreamble`(P) 등 **보류 판정과 함께 채택된 구조 개선 코드**는 롤백하지 않음.  
-3. **재개 트리거(연속성):** 채팅/새 창에서 **「다음 라운드 최적화 하자」** 또는 **「최적화 이어가자」** 등으로 요청하면, **먼저** 본 절 + **「다음 후보 1개」**를 읽고 **라운드 Q**를 연다.
+1. **중단 시점:** 라운드 **P** 측정·문서 반영 직후(이후 **Q 재개·측정 완료**, 2026-04-22). **composer_wall 동일 축**·**가상화 숫자만 조정** 트랙은 이미 **종료(재개 금지)** — 아래 **「종료된 트랙」** 표 참고.  
+2. **유지:** `CommunityMessengerRoomPhase2`(M), `use-messenger-room-derived-message-lists`(N), 타임라인 읽음 배지(O), `messageRowPreamble`(P), **Q의 타입별 `memo` 분리·`onOpenImageLightbox`** 등 **무효/보류라도 제품 구조로 타당한 변경**은 롤백하지 않음.  
+3. **재개 트리거(연속성):** **「다음 라운드 최적화 하자」** / **「최적화 이어가자」** 시 본 절 + **「다음 후보 1개」**를 읽고 **라운드 R**을 연다(Q 다음).
 
 ---
 
@@ -59,7 +59,29 @@
 
 ---
 
-## 이번 라운드 (최신: 라운드 P — 가상 행 map 직전 createdAt·아바타 중복 제거)
+## 이번 라운드 (최신: 라운드 Q — `viberInnerBody` 타입별 `memo` 소컴포넌트)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 가상 행 `map` 직후 **`viberInnerBody` IIFE**가 매 행 **클로저·분기** 비용을 만들고, 이미지 분기에서 **`onOpenLightbox` 인라인**으로 **하위 `memo` 이점이 무력화**될 수 있음. |
+| 측정 명령 | `PLAYWRIGHT_NO_WEBSERVER=1` `PLAYWRIGHT_BASE_URL=http://localhost:3000` `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` — `messenger-room-entry-perf-breakdown.spec.ts` `--workers=1` **3회**(로컬 `npm run dev`). |
+| 완료 기준 | winner **`display_room_messages_ready_to_first_message_render_ms`** 가 **라운드 P warm(런2–3) 평균 19ms** 대비 **역행 없이** 감소·동급 안정. |
+| 수정 파일 (1~3) | **`CommunityMessengerRoomPhase2MessageTimeline.tsx`만** |
+
+### 라운드 Q — 3회 (ms)
+
+| Run | `phase2_enter` | `merge_applied` | `display_room_messages_ready` | `first_message_render` | **display_ready→FMR** |
+|-----|----------------|-----------------|--------------------------------|--------------------------|------------------------|
+| 1 | 12621 | 12630 | 12621 | 12634 | **13** |
+| 2 | 2594 | 2609 | 2594 | 2613 | **19** |
+| 3 | 2454 | 2473 | 2454 | 2478 | **24** |
+
+**Q warm(런2–3) 평균:** **21.5 ms** — **직전 라운드 P warm((15+23)/2) = 19 ms** 대비 **↑** → 헌장 **[5-보조]-2 역행** 적용.  
+**판정:** **무효** — 구조 분리·`useCallback`은 **유지**(유지보수·동일 `item` 참조 시 `memo` 여지); **수치상 성공·보류로 올리지 않음**.
+
+---
+
+## 이번 라운드 (참고: 라운드 P — 가상 행 map 직전 createdAt·아바타 중복 제거)
 
 | 항목 | 내용 |
 |------|------|
@@ -374,4 +396,4 @@
 
 ## 다음 후보 1개 (헌장 [8] 순서)
 
-**재개 시(「다음 라운드 최적화 하자」·「최적화 이어가자」):** 라운드 **P** 직후 — **`CommunityMessengerRoomPhase2MessageTimeline.tsx`** 안 **`viberInnerBody` IIFE**를 메시지 타입별 **`memo` 소컴포넌트**로 나누어 **가상 행 map 직후 JSX 비용**을 줄이거나, winner가 그대로면 **`MESSENGER_ROOM_ENTRY_TIMELINE_JSON`** 기준 **scroll·가상 측정** 축을 **1개만** 잡아 계측·수정. (**금지:** composer 본문, `overscan`/`estimateSize` **숫자만** 변경.)
+**재개 시(라운드 R):** 라운드 **Q** 직후 — **`MESSENGER_ROOM_ENTRY_TIMELINE_JSON`**(E2E 출력) 기준 **`route_start_to_rsc_done_ms` / `composer_mount_to_textarea_visible_ms` / `phase1_done_to_composer_mount_ms`** 중 **1축만** 골라 원인 1개·수정 1건(측정 동일 스펙). (**금지:** composer 본문, `overscan`/`estimateSize` **숫자만** 변경, Q에서 이미 시도한 **동일 `viberInnerBody` IIFE 복원**만 하는 되돌리기.)

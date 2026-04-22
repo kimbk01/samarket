@@ -251,7 +251,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 at: Date.now(),
               });
             }
-            postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: id, at: Date.now() });
             requestMessengerHubBadgeResync("room_open_mark_read");
           } else {
             const cur = roomOpenMarkReadRef.current;

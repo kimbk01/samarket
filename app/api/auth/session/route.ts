@@ -13,6 +13,18 @@ export const dynamic = "force-dynamic";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
+  for (const { name } of request.cookies.getAll()) {
+    if (name.startsWith("sb-") && (name.includes("auth-token") || name.includes("code-verifier"))) {
+      return true;
+    }
+    if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
   for (const c of from.cookies.getAll()) {
     to.cookies.set(c);
@@ -20,6 +32,10 @@ function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
 }
 
 export async function GET(request: NextRequest) {
+  if (!requestHasSupabaseAuthCookies(request)) {
+    return jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) {

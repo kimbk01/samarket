@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type MutableRefObject } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 
 /**
  * 상단 센티넬 IntersectionObserver — `loadOlderMessagesRef` 트리거만 담당.
@@ -23,14 +23,20 @@ export function useMessengerRoomLoadOlderMessagesIntersection({
   olderMessagesExhaustedRef: MutableRefObject<boolean>;
   loadOlderMessagesRef: MutableRefObject<() => void>;
 }): void {
+  const lastTriggerAtRef = useRef(0);
   useEffect(() => {
     const root = messagesViewportRef.current;
     const target = topOlderSentinelRef.current;
     if (!root || !target || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
+    lastTriggerAtRef.current = 0;
     const io = new IntersectionObserver(
       (entries) => {
         const hit = entries.some((e) => e.isIntersecting);
-        if (hit) loadOlderMessagesRef.current();
+        if (!hit) return;
+        const now = Date.now();
+        if (now - lastTriggerAtRef.current < 240) return;
+        lastTriggerAtRef.current = now;
+        loadOlderMessagesRef.current();
       },
       { root, rootMargin: "120px 0px 0px 0px", threshold: 0 }
     );
