@@ -322,7 +322,6 @@ export function MessengerChatsScreen({
 export function MessengerOpenChatScreen({
   joinedItems,
   viewerUserId = null,
-  discoverableGroups,
   favoriteFriendIds,
   busyId,
   onTogglePin,
@@ -330,7 +329,7 @@ export function MessengerOpenChatScreen({
   onMarkRead,
   onToggleArchive,
   onLeaveRoom,
-  onPreviewGroup,
+  onOpenMeetingFind,
   onOpenRoomActions,
   openedSwipeItemId,
   onOpenSwipeItem,
@@ -340,14 +339,6 @@ export function MessengerOpenChatScreen({
 }: {
   joinedItems: UnifiedRoomListItem[];
   viewerUserId?: string | null;
-  discoverableGroups: Array<{
-    id: string;
-    title: string;
-    summary: string;
-    ownerLabel: string;
-    memberCount: number;
-    isJoined: boolean;
-  }>;
   favoriteFriendIds: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
@@ -355,7 +346,7 @@ export function MessengerOpenChatScreen({
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
   onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
-  onPreviewGroup: (groupId: string) => void;
+  onOpenMeetingFind: () => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -383,10 +374,10 @@ export function MessengerOpenChatScreen({
     >
       <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
         <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
-          오픈채팅
+          모임
         </p>
         <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-          참여 중인 방과 새 오픈채팅을 한곳에서 확인합니다.
+          참여 중인 모임 채팅과 새 모임을 한곳에서 확인합니다.
         </p>
       </div>
 
@@ -401,7 +392,7 @@ export function MessengerOpenChatScreen({
             useVirtual={useVirtJoined}
             items={joinedItems}
             viewerUserId={viewerUserId}
-            listContext="default"
+            listContext="open_chat"
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
@@ -417,56 +408,22 @@ export function MessengerOpenChatScreen({
           />
         ) : (
           <div className="px-1 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-            참여 중인 오픈채팅이 없습니다.
+            참여 중인 모임이 없습니다.
           </div>
         )}
       </div>
 
-      <div>
-        <div className="mb-0.5 px-0.5 pt-2">
-          <h2 className="sam-text-body-secondary font-bold" style={{ color: "var(--messenger-text)" }}>
-            찾기
-          </h2>
-        </div>
-        <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden border-y border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)]">
-          {discoverableGroups.length ? (
-            discoverableGroups.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                onClick={() => {
-                  onResetTransientUi();
-                  onPreviewGroup(group.id);
-                }}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="truncate sam-text-body-secondary font-medium" style={{ color: "var(--messenger-text)" }}>
-                      {group.title}
-                    </p>
-                    <span className="shrink-0 rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
-                      오픈
-                    </span>
-                    {group.isJoined ? (
-                      <span className="shrink-0 rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
-                        참여
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-                    {group.summary || `${group.ownerLabel} · ${group.memberCount}명`}
-                  </p>
-                </div>
-                <span className="shrink-0 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
-              </button>
-            ))
-          ) : (
-            <div className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-              표시할 오픈채팅이 없습니다.
-            </div>
-          )}
-        </div>
+      <div className="px-0.5 pt-3">
+        <button
+          type="button"
+          onClick={() => {
+            onResetTransientUi();
+            onOpenMeetingFind();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3.5 sam-text-body-secondary font-semibold text-[color:var(--messenger-text)] shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-surface-muted)]"
+        >
+          모임 찾기
+        </button>
       </div>
     </section>
   );

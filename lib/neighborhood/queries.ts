@@ -323,7 +323,7 @@ export async function listNeighborhoodFeed(options: {
           try {
             const rMeet = await sb
               .from("meetings")
-              .select("id, post_id, meeting_date, tenure_type")
+              .select("id, post_id, meeting_date, tenure_type, cover_image_url")
               .in("post_id", postIds);
             return (rMeet.data as unknown[] | null) ?? null;
           } finally {
@@ -347,13 +347,17 @@ export async function listNeighborhoodFeed(options: {
   nickMeetMs = performance.now() - tNick0;
 
   const tSyncB = performance.now();
-  const meetByPost = new Map<string, { id: string; meeting_date: string | null; tenure_type?: string | null }>();
+  const meetByPost = new Map<
+    string,
+    { id: string; meeting_date: string | null; tenure_type?: string | null; cover_image_url?: string | null }
+  >();
   if (Array.isArray(meetings)) {
     for (const m of meetings as {
       id?: string;
       post_id?: string;
       meeting_date?: string | null;
       tenure_type?: string | null;
+      cover_image_url?: string | null;
     }[]) {
       const pid = String(m.post_id ?? "");
       if (pid && m.id)
@@ -361,6 +365,7 @@ export async function listNeighborhoodFeed(options: {
           id: String(m.id),
           meeting_date: m.meeting_date ?? null,
           tenure_type: m.tenure_type ?? null,
+          cover_image_url: m.cover_image_url != null && String(m.cover_image_url).trim() ? String(m.cover_image_url).trim() : null,
         });
     }
   }
@@ -371,8 +376,11 @@ export async function listNeighborhoodFeed(options: {
     const locationLabel = String(r.region_label ?? "").trim();
     const enumCat = String(r.category ?? "etc").trim().toLowerCase() || "etc";
     const topicUiSlug = neighborhoodPostTopicUiSlug(r);
-    const imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
+    let imgs = Array.isArray(r.images) ? (r.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
     const meet = meetByPost.get(String(r.id));
+    if (imgs.length === 0 && meet?.cover_image_url) {
+      imgs = [meet.cover_image_url];
+    }
     const summaryRaw = r.summary != null ? String(r.summary) : "";
     const content = summaryRaw;
     const isQuestion = Boolean(r.is_question);
@@ -473,13 +481,24 @@ export async function listNeighborhoodFeed(options: {
 async function fetchMeetingLinkByPostId(
   sb: ReturnType<typeof getSupabaseServer>,
   postId: string
-): Promise<{ id: string; meeting_date: string | null; tenure: "short" | "long" } | null> {
+): Promise<{
+  id: string;
+  meeting_date: string | null;
+  tenure: "short" | "long";
+  cover_image_url?: string | null;
+} | null> {
   const trySelect = async (cols: string) =>
     sb.from("meetings").select(cols).eq("post_id", postId).maybeSingle();
 
-  let { data, error } = await trySelect("id, meeting_date, tenure_type");
+  let { data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url");
   if (error && isMissingDbColumnError(error, "tenure_type")) {
-    ({ data, error } = await trySelect("id, meeting_date"));
+    ({ data, error } = await trySelect("id, meeting_date, cover_image_url"));
+  }
+  if (error && isMissingDbColumnError(error, "cover_image_url")) {
+    ({ data, error } = await trySelect("id, meeting_date, tenure_type"));
+    if (error && isMissingDbColumnError(error, "tenure_type")) {
+      ({ data, error } = await trySelect("id, meeting_date"));
+    }
   }
   if (!data) {
     ({ data } = await trySelect("id"));
@@ -490,7 +509,9 @@ async function fetchMeetingLinkByPostId(
   if (!id) return null;
   const tenure: "short" | "long" = row.tenure_type === "long" ? "long" : "short";
   const meeting_date = row.meeting_date != null ? String(row.meeting_date) : null;
-  return { id, meeting_date, tenure };
+  const cover =
+    row.cover_image_url != null && String(row.cover_image_url).trim() ? String(row.cover_image_url).trim() : null;
+  return { id, meeting_date, tenure, cover_image_url: cover };
 }
 
 export async function getNeighborhoodPostDetail(
@@ -561,7 +582,10 @@ export async function getNeighborhoodPostDetail(
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
   const enumCat = String(row.category ?? "etc").trim().toLowerCase() || "etc";
   const topicUiSlug = neighborhoodPostTopicUiSlug(row);
-  const imgs = Array.isArray(row.images) ? (row.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  let imgs = Array.isArray(row.images) ? (row.images as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  if (imgs.length === 0 && meetLink?.cover_image_url) {
+    imgs = [meetLink.cover_image_url];
+  }
   const content = String(row.content ?? "");
   const isQuestion = Boolean(row.is_question);
   const isMeetupRow = Boolean(row.is_meetup);
@@ -672,7 +696,7 @@ export async function isNeighborhoodMeetingId(meetingId: string): Promise<boolea
 
 /** DB 마이그레이션 단계별로 컬럼이 다를 수 있어 select 를 단계적으로 시도 */
 const MEETING_DETAIL_SELECT_LEVELS: string[] = [
-  "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, password_hash, welcome_message, cover_image_url, allow_feed, allow_album_upload",
+  "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, community_messenger_room_id, password_hash, welcome_message, cover_image_url, region_text, category_text, platform_approval_required, platform_approval_status, allow_feed, allow_album_upload",
   "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, entry_policy, requires_approval, status, is_closed, joined_count, pending_count, banned_count, notice_count, last_notice_at, chat_room_id, password_hash",
   "id, post_id, title, description, location_text, meeting_date, tenure_type, max_members, created_by, host_user_id, join_policy, status, is_closed, chat_room_id",
   "id, post_id, title, description, location_text, meeting_date, max_members, created_by, host_user_id, join_policy, status, is_closed, chat_room_id",
@@ -756,8 +780,15 @@ export async function getMeetingDetail(meetingId: string): Promise<NeighborhoodM
     notice_count: Number(row.notice_count ?? 0),
     last_notice_at: row.last_notice_at != null ? String(row.last_notice_at) : null,
     chat_room_id: row.chat_room_id != null ? String(row.chat_room_id) : null,
+    community_messenger_room_id:
+      row.community_messenger_room_id != null ? String(row.community_messenger_room_id) : null,
     welcome_message: row.welcome_message != null ? String(row.welcome_message) : null,
     cover_image_url: row.cover_image_url != null ? String(row.cover_image_url) : null,
+    region_text: row.region_text != null ? String(row.region_text) : null,
+    category_text: row.category_text != null ? String(row.category_text) : null,
+    platform_approval_required: row.platform_approval_required !== false,
+    platform_approval_status:
+      row.platform_approval_status != null ? String(row.platform_approval_status) : null,
     allow_feed: row.allow_feed !== false,
     allow_album_upload: row.allow_album_upload !== false,
   };
@@ -906,6 +937,82 @@ export async function listMeetingNotices(meetingId: string, limit = 3): Promise<
     updated_at: String(row.updated_at ?? row.created_at ?? ""),
     author_user_id: String(row.author_user_id ?? ""),
   }));
+}
+
+export async function listMeetingMembers(
+  meetingId: string,
+  status: "joined" | "pending" = "joined"
+): Promise<import("@/lib/neighborhood/types").MeetingMemberListItemDTO[]> {
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return [];
+  }
+
+  const { data, error } = await sb
+    .from("meeting_members")
+    .select("user_id, status, role, created_at, requested_at")
+    .eq("meeting_id", meetingId)
+    .eq("status", status)
+    .order(status === "pending" ? "requested_at" : "created_at", { ascending: true });
+  if (error || !Array.isArray(data)) return [];
+
+  const rows = data as Array<{
+    user_id?: unknown;
+    status?: unknown;
+    role?: unknown;
+    created_at?: unknown;
+    requested_at?: unknown;
+  }>;
+  const userIds = [...new Set(rows.map((row) => String(row.user_id ?? "").trim()).filter(Boolean))];
+  const nickMap = await fetchNicknamesForUserIds(sb as never, userIds);
+
+  const requestMessageMap = new Map<string, string>();
+  if (status === "pending" && userIds.length > 0) {
+    const { data: requests } = await sb
+      .from("meeting_join_requests")
+      .select("user_id, request_message, requested_at")
+      .eq("meeting_id", meetingId)
+      .eq("status", "pending")
+      .in("user_id", userIds)
+      .order("requested_at", { ascending: false });
+    for (const row of (requests ?? []) as Array<{ user_id?: unknown; request_message?: unknown }>) {
+      const userId = String(row.user_id ?? "").trim();
+      if (!userId || requestMessageMap.has(userId)) continue;
+      requestMessageMap.set(userId, typeof row.request_message === "string" ? row.request_message.trim() : "");
+    }
+  }
+
+  return rows.map((row) => {
+    const userId = String(row.user_id ?? "").trim();
+    const roleRaw = String(row.role ?? "member").trim();
+    const resolvedRole =
+      roleRaw === "host" || roleRaw === "co_host" || roleRaw === "member" ? roleRaw : "member";
+    const statusRaw = String(row.status ?? status).trim();
+    const resolvedStatus =
+      statusRaw === "joined" ||
+      statusRaw === "pending" ||
+      statusRaw === "left" ||
+      statusRaw === "kicked" ||
+      statusRaw === "banned" ||
+      statusRaw === "rejected"
+        ? statusRaw
+        : status;
+    return {
+      userId,
+      name: nickMap.get(userId) ?? (userId ? userId.slice(0, 8) : "알 수 없음"),
+      role: resolvedRole,
+      status: resolvedStatus,
+      joinedAt:
+        typeof row.requested_at === "string"
+          ? row.requested_at
+          : typeof row.created_at === "string"
+            ? row.created_at
+            : null,
+      requestMessage: requestMessageMap.get(userId) ?? null,
+    };
+  });
 }
 
 export type ListMeetingEventsPageResult = {

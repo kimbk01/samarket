@@ -280,7 +280,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
             {room.roomType === "meeting_open_chat" && room.meetingId ? (
               <p className="mt-1 sam-text-body-secondary">
                 <Link
-                  href={`/philife/meetings/${room.meetingId}`}
+                  href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
                   className="font-medium text-signature hover:underline"
                 >
                   {t("admin_chat_move_to_meeting")}

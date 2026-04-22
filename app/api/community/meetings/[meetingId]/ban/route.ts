@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,10 +41,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { data: meeting } = await sb
     .from("meetings")
-    .select("id, created_by, host_user_id, title")
+    .select("id, created_by, host_user_id, title, community_messenger_room_id")
     .eq("id", id)
     .maybeSingle();
-  const m = meeting as { id?: string; created_by?: string | null; host_user_id?: string | null; title?: string } | null;
+  const m = meeting as {
+    id?: string;
+    created_by?: string | null;
+    host_user_id?: string | null;
+    title?: string;
+    community_messenger_room_id?: string | null;
+  } | null;
   if (!m?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const host = String(m.host_user_id ?? m.created_by ?? "").trim();
@@ -89,6 +96,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     title: `${String(m?.title ?? "모임")}에서 차단되었습니다`,
     body: "운영자에 의해 이 모임의 접근이 차단되었습니다.",
     link_url: `/philife`,
+  });
+
+  await removeMeetingMessengerParticipant({
+    roomId: m.community_messenger_room_id,
+    userId: target,
   });
 
   return NextResponse.json({ ok: true });

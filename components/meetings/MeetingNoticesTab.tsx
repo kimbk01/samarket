@@ -119,7 +119,7 @@ export function MeetingNoticesTab({
         </p>
       </div>
 
-      {/* 모임장 전용 — 공지 작성 안내 */}
+      {/* 운영진 전용 — 공지 작성 안내 */}
       {isHost && (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 p-3">
           <div className="flex items-center justify-between">
@@ -134,7 +134,7 @@ export function MeetingNoticesTab({
           </div>
           {showHint && (
             <p className="mt-1 sam-text-helper leading-relaxed text-emerald-700">
-              <strong>개설자 관리</strong>에서 &quot;공지 등록&quot;한 내용과,{" "}
+              <strong>모임 관리</strong>에서 &quot;공지 등록&quot;한 내용과,{" "}
               <strong>피드</strong> 탭에서 유형 <strong>공지</strong>로 올린 글이 모두 여기에
               모입니다. 멤버도 동일한 목록을 봅니다.
             </p>
@@ -157,7 +157,7 @@ export function MeetingNoticesTab({
           <p className="mt-3 sam-text-body text-sam-meta">아직 공지가 없어요.</p>
           {isHost && (
             <p className="mt-1 sam-text-helper text-sam-meta">
-              아래 개설자 관리의 공지 등록 또는 피드의 &apos;공지&apos; 유형 글이 여기에 표시됩니다.
+              아래 모임 관리의 공지 등록 또는 피드의 &apos;공지&apos; 유형 글이 여기에 표시됩니다.
             </p>
           )}
         </div>

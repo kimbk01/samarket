@@ -210,7 +210,17 @@ export function AdminCommunityEngineMeetingsClient() {
     }
   };
 
-  const patch = async (id: string, body: { status?: string; maxMembers?: number }) => {
+  const patch = async (
+    id: string,
+    body: {
+      status?: string;
+      maxMembers?: number;
+      platformApprovalStatus?: string;
+      postStatus?: string;
+      postHidden?: boolean;
+      isClosed?: boolean;
+    }
+  ) => {
     setBusyId(id);
     setErr("");
     try {
@@ -243,8 +253,11 @@ export function AdminCommunityEngineMeetingsClient() {
             <tr>
               <th className="px-2 py-2">제목</th>
               <th className="px-2 py-2">상태</th>
+              <th className="px-2 py-2">플랫폼 승인</th>
               <th className="px-2 py-2">참여 방식</th>
+              <th className="px-2 py-2">노출</th>
               <th className="px-2 py-2">정원</th>
+              <th className="px-2 py-2">신고</th>
               <th className="px-2 py-2">채팅방</th>
               <th className="px-2 py-2">액션</th>
             </tr>
@@ -254,6 +267,9 @@ export function AdminCommunityEngineMeetingsClient() {
               const id = String(r.id ?? "");
               const isSample = r.is_sample_data === true;
               const ep = String(r.entry_policy ?? r.join_policy ?? "open");
+              const approval = String(r.platform_approval_status ?? "pending_approval");
+              const postStatus = String(r.post_status ?? "active");
+              const reportCount = Number(r.meeting_report_count ?? 0) + Number(r.post_report_count ?? 0);
               const entryLabel =
                 ep === "approve"
                   ? "승인제"
@@ -274,6 +290,9 @@ export function AdminCommunityEngineMeetingsClient() {
                       ) : null}
                     </td>
                     <td className="px-2 py-2">{String(r.status ?? "")}</td>
+                    <td className="px-2 py-2">
+                      {approval === "approved" ? "승인" : approval === "rejected" ? "반려" : "대기"}
+                    </td>
                     <td className="px-2 py-2 sam-text-xxs text-sam-fg">
                       {entryLabel}
                       {ep === "password" && r.has_password ? (
@@ -283,9 +302,23 @@ export function AdminCommunityEngineMeetingsClient() {
                         <span className="ml-1 text-amber-700">비번 미설정</span>
                       ) : null}
                     </td>
+                    <td className="px-2 py-2">{postStatus === "hidden" || r.post_hidden === true ? "숨김" : "노출"}</td>
                     <td className="px-2 py-2">{String(r.max_members ?? "")}</td>
+                    <td className="px-2 py-2">
+                      {reportCount > 0 ? (
+                        <Link href="/admin/philife/meeting-reports" className="text-red-700 underline">
+                          {reportCount}건
+                        </Link>
+                      ) : (
+                        "0건"
+                      )}
+                    </td>
                     <td className="max-w-[120px] truncate px-2 py-2 font-mono sam-text-xxs">
-                      {r.chat_room_id != null ? String(r.chat_room_id) : "—"}
+                      {r.community_messenger_room_id != null
+                        ? String(r.community_messenger_room_id)
+                        : r.chat_room_id != null
+                          ? String(r.chat_room_id)
+                          : "—"}
                     </td>
                     <td className="flex flex-wrap gap-1 px-2 py-2">
                       <button
@@ -299,24 +332,56 @@ export function AdminCommunityEngineMeetingsClient() {
                       <button
                         type="button"
                         disabled={busyId === id}
-                        className="rounded bg-red-100 px-2 py-0.5"
-                        onClick={() => void patch(id, { status: "ended" })}
+                        className="rounded bg-emerald-100 px-2 py-0.5"
+                        onClick={() => void patch(id, { platformApprovalStatus: "approved", postStatus: "active", postHidden: false })}
                       >
-                        종료
+                        승인
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === id}
+                        className="rounded bg-amber-100 px-2 py-0.5"
+                        onClick={() => void patch(id, { platformApprovalStatus: "rejected", postStatus: "hidden", postHidden: true })}
+                      >
+                        반려
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === id}
+                        className="rounded bg-sam-surface-muted px-2 py-0.5"
+                        onClick={() => void patch(id, { postStatus: "hidden", postHidden: true })}
+                      >
+                        숨김
                       </button>
                       <button
                         type="button"
                         disabled={busyId === id}
                         className="rounded bg-sky-100 px-2 py-0.5"
-                        onClick={() => void patch(id, { status: "open" })}
+                        onClick={() => void patch(id, { postStatus: "active", postHidden: false })}
                       >
-                        열기
+                        노출
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === id}
+                        className="rounded bg-red-100 px-2 py-0.5"
+                        onClick={() => void patch(id, { status: "ended", isClosed: true })}
+                      >
+                        강제 종료
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === id}
+                        className="rounded bg-sky-100 px-2 py-0.5"
+                        onClick={() => void patch(id, { status: "open", isClosed: false })}
+                      >
+                        재오픈
                       </button>
                     </td>
                   </tr>
                   {insightId === id ? (
                     <tr className="border-t border-sam-border bg-signature/5">
-                      <td colSpan={6} className="px-3 py-3 sam-text-helper text-sam-fg">
+                      <td colSpan={9} className="px-3 py-3 sam-text-helper text-sam-fg">
                         {insightLoading ? (
                           <p className="text-sam-muted">불러오는 중…</p>
                         ) : insightErr ? (

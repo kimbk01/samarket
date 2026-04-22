@@ -17,11 +17,7 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type {
-  CommunityMessengerDiscoverableGroupSummary,
-  CommunityMessengerProfileLite,
-  CommunityMessengerRoomSummary,
-} from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
@@ -78,8 +74,7 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: MessengerChatListChip) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  filteredDiscoverableGroups: CommunityMessengerDiscoverableGroupSummary[];
-  onPreviewOpenGroup: (groupId: string) => void;
+  onOpenMeetingFind: () => void;
   incomingRequestCount: number;
 };
 
@@ -130,8 +125,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   chatKindFilter,
   onChatListChipChange,
   openChatJoinedItems,
-  filteredDiscoverableGroups,
-  onPreviewOpenGroup,
+  onOpenMeetingFind,
   incomingRequestCount,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
@@ -139,7 +133,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     () => [
       { href: "/community-messenger?section=friends" },
       { href: "/community-messenger?section=chats" },
-      { href: "/community-messenger?section=open_chat" },
+      { href: "/philife?category=meetup" },
       { href: "/community-messenger?section=archive" },
     ],
     []
@@ -159,7 +153,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
       : mainSection === "chats"
         ? "채팅"
         : mainSection === "open_chat"
-          ? "오픈채팅"
+          ? "모임"
           : "보관함";
   const sectionDescription =
     mainSection === "friends"
@@ -167,7 +161,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
       : mainSection === "chats"
         ? "최근 대화와 안읽은 메시지를 모바일에 맞게 정리합니다."
         : mainSection === "open_chat"
-          ? "참여 중인 방과 새 오픈채팅을 한곳에서 확인합니다."
+          ? "참여 중인 모임 채팅과 새 모임을 한곳에서 확인합니다."
           : "숨긴 대화와 보관한 채팅을 다시 꺼낼 수 있습니다.";
 
   return (
@@ -260,7 +254,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           <MessengerOpenChatScreen
             joinedItems={openChatJoinedItems}
             viewerUserId={viewerUserId}
-            discoverableGroups={filteredDiscoverableGroups}
             favoriteFriendIds={favoriteFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
@@ -268,7 +261,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
             onLeaveRoom={onLeaveRoom}
-            onPreviewGroup={onPreviewOpenGroup}
+            onOpenMeetingFind={onOpenMeetingFind}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}

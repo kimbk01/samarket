@@ -6,6 +6,7 @@ import { isMeetingJoinable } from "@/lib/community-engine/visibility";
 import { verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,12 +83,19 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const attachOpenChat = async (payload: Record<string, unknown>) => NextResponse.json(payload);
+  const attachOpenChat = async (payload: Record<string, unknown>) => {
+    const roomId = String(meeting?.community_messenger_room_id ?? "").trim() || null;
+    if (roomId) {
+      await ensureMeetingMessengerParticipant({ roomId, userId: auth.userId, role: isHostUser ? "owner" : "member" });
+    }
+    return NextResponse.json({ ...payload, chatRoomId: roomId });
+  };
 
   const { data: m, error: qErr } = await sb
     .from("meetings")
     .select(
       "id, title, is_closed, max_members, post_id, status, entry_policy, requires_approval, password_hash, host_user_id, created_by"
+      + ", community_messenger_room_id"
     )
     .eq("id", id)
     .maybeSingle();
@@ -103,6 +111,7 @@ export async function POST(req: Request, ctx: Ctx) {
     password_hash?: string | null;
     host_user_id?: string | null;
     created_by?: string | null;
+    community_messenger_room_id?: string | null;
   } | null;
   if (qErr || !meeting?.id) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -347,7 +356,12 @@ export async function POST(req: Request, ctx: Ctx) {
             ? `${requestMessage.slice(0, 180)}…`
             : requestMessage
           : "새 가입 신청이 있습니다. 멤버 탭에서 확인해 주세요.",
-        link_url: `/philife/meetings/${id}?tab=members`,
+        link_url: (() => {
+          const rid = String(meeting.community_messenger_room_id ?? "").trim();
+          return rid
+            ? `/community-messenger/rooms/${encodeURIComponent(rid)}`
+            : `/philife?category=meetup&meetingId=${encodeURIComponent(id)}`;
+        })(),
       });
     }
 

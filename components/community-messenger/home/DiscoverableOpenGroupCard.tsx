@@ -22,7 +22,7 @@ export function DiscoverableOpenGroupCard({
             {group.summary || "소개 없음"}
           </p>
           <p className="mt-1.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-            {group.ownerLabel} · {group.memberCount}명
+            {group.regionText || group.ownerLabel} · {group.categoryText || "모임"} · {group.memberCount}명
             {group.isJoined ? " · 참여 중" : ""}
           </p>
         </div>
@@ -33,7 +33,7 @@ export function DiscoverableOpenGroupCard({
             disabled={busy}
             className="rounded-[var(--messenger-radius-sm)] bg-[color:var(--messenger-primary-soft)] px-3 py-2 sam-text-helper font-semibold text-[color:var(--messenger-primary)] disabled:opacity-40 active:opacity-90"
           >
-            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : "참여"}
+            {busy ? "확인 중..." : group.isJoined ? "다시 입장" : group.meetingId ? "모임 보기" : "참여"}
           </button>
         </div>
       </div>

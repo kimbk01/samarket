@@ -79,7 +79,7 @@ export function MeetingCard({
   const joinButton = (
     <MeetingJoinButton
       meetingId={meeting.id}
-      chatRoomId={meeting.chat_room_id}
+      chatRoomId={meeting.community_messenger_room_id}
       successSurface="meeting"
       entryPolicy={meeting.entry_policy}
       hasMeetingPassword={meeting.has_password}

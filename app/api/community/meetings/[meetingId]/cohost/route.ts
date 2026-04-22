@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,6 +66,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     .eq("role", "member");
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const { data: meeting } = await gate.sb
+    .from("meetings")
+    .select("community_messenger_room_id")
+    .eq("id", id)
+    .maybeSingle();
+  await ensureMeetingMessengerParticipant({
+    roomId: (meeting as { community_messenger_room_id?: string | null } | null)?.community_messenger_room_id,
+    userId: target,
+    role: "admin",
+  });
   return NextResponse.json({ ok: true });
 }
 
@@ -104,5 +115,15 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     .eq("role", "co_host");
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const { data: meeting } = await gate.sb
+    .from("meetings")
+    .select("community_messenger_room_id")
+    .eq("id", id)
+    .maybeSingle();
+  await ensureMeetingMessengerParticipant({
+    roomId: (meeting as { community_messenger_room_id?: string | null } | null)?.community_messenger_room_id,
+    userId: target,
+    role: "member",
+  });
   return NextResponse.json({ ok: true });
 }

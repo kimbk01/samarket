@@ -133,7 +133,7 @@ export function MessengerChatRoomActionSheet({
           }
         : isOpenGroup && onViewOpenChatInfo
           ? {
-              label: "오픈채팅 정보",
+              label: "모임 정보",
               icon: <InfoIcon />,
               onClick: onViewOpenChatInfo,
               disabled: anyBusy,

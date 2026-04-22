@@ -82,6 +82,8 @@ export const SAMARKET_ROUTES = {
   },
   chat: {
     messengerHub: "/community-messenger?section=chats",
+    /** Philife 커뮤니티 모임 피드(메신저 `open_chat` 모임 탭 폐기 대비 — 오픈그룹 뒤로가기·나가기 고정) */
+    messengerMeetingsHub: "/philife?category=meetup",
     orderHub: "/my/store-orders",
     newChat: "/chats/new",
     /** 주문/거래 공통 — 방 단위 단일 URL (`source` 있으면 부트스트랩 힌트, `lib/chats/trade-chat-notification-href` 와 동일 의미) */

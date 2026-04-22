@@ -209,7 +209,7 @@ function SearchActionsSheet({
           </nav>
         ) : null}
         {action.kind === "open" ? (
-          <nav className="flex flex-col p-1" aria-label="오픈채팅">
+          <nav className="flex flex-col p-1" aria-label="모임">
             <button
               type="button"
               className={row}
@@ -346,7 +346,7 @@ function OpenGroupSearchRow({
         <div className="flex items-center gap-1.5">
           <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{group.title}</p>
           <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
-            오픈
+            모임
           </span>
           {group.isJoined ? (
             <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
@@ -355,10 +355,12 @@ function OpenGroupSearchRow({
           ) : null}
         </div>
         <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">
-          {group.summary || `${group.ownerLabel} · ${group.memberCount}명`}
+          {group.summary || `${group.regionText || group.ownerLabel} · ${group.categoryText || "모임"} · ${group.memberCount}명`}
         </p>
       </div>
-      <span className="sam-text-xxs font-medium text-[color:var(--messenger-primary)]">{group.isJoined ? "입장" : "보기"}</span>
+      <span className="sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
+        {group.isJoined ? "입장" : group.meetingId ? "모임 보기" : "보기"}
+      </span>
     </button>
   );
 }
@@ -458,7 +460,7 @@ export function MessengerSearchSheet({
                 onCommitRecentSearch(keyword);
               }
             }}
-            placeholder="친구, 방, 메시지, 오픈채팅"
+            placeholder="친구, 방, 메시지, 모임"
             className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 sam-text-body outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
             style={{ color: "var(--messenger-text)" }}
           />
@@ -527,7 +529,7 @@ export function MessengerSearchSheet({
                     <EmptyHint>일치하는 채팅방이 없습니다.</EmptyHint>
                   )}
                 </MessengerSearchSection>
-                <MessengerSearchSection title="오픈채팅">
+                <MessengerSearchSection title="모임">
                   {searchOpenChatMatches.length ? (
                     <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchOpenChatMatches.map((group) => (
@@ -543,7 +545,7 @@ export function MessengerSearchSheet({
                       ))}
                     </div>
                   ) : (
-                    <EmptyHint>일치하는 오픈채팅이 없습니다.</EmptyHint>
+                    <EmptyHint>일치하는 모임이 없습니다.</EmptyHint>
                   )}
                 </MessengerSearchSection>
                 <MessengerSearchSection title="메시지">

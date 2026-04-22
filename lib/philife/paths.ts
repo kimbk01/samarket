@@ -3,22 +3,24 @@
  */
 export const philifeAppPaths = {
   home: "/philife",
+  /** 커뮤니티 모임 목록(Philife 피드 `meetup` 칩과 동일 쿼리) */
+  meetingsFeed: "/philife?category=meetup",
   write: "/philife/write",
   writeMeeting: "/philife/write?category=meetup",
   my: "/philife/my",
   /** 1) 거래 채팅 */
   chats: "/chats",
   post: (id: string) => `/philife/${encodeURIComponent(id)}`,
-  meeting: (id: string) => `/philife/meetings/${encodeURIComponent(id)}`,
-  /** 제거된 커뮤니티 채팅 경로는 모두 모임 상세로 되돌린다. */
+  /** 모임: Philife 모임 피드 + 선택 `meetingId`(딥링크는 피드에서 방으로 이어짐). */
+  meeting: (id: string) => `/philife?category=meetup&meetingId=${encodeURIComponent(id)}`,
   meetingGroupChat: (meetingId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}`,
-  meetingGroupChatRoom: (meetingId: string, _roomId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}`,
+    `/philife?category=meetup&meetingId=${encodeURIComponent(meetingId)}`,
+  meetingGroupChatRoom: (_meetingId: string, roomId: string) =>
+    `/community-messenger/rooms/${encodeURIComponent(roomId)}`,
   meetingOpenChat: (meetingId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}`,
-  meetingOpenChatRoom: (meetingId: string, _roomId: string) =>
-    `/philife/meetings/${encodeURIComponent(meetingId)}`,
+    `/philife?category=meetup&meetingId=${encodeURIComponent(meetingId)}`,
+  meetingOpenChatRoom: (_meetingId: string, roomId: string) =>
+    `/community-messenger/rooms/${encodeURIComponent(roomId)}`,
 } as const;
 
 export const philifeAdminPaths = {

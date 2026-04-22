@@ -13,6 +13,7 @@ type ViewerMeetingStatus = "joined" | "pending" | "left" | "kicked" | "banned" |
 
 export function MeetingJoinButton({
   meetingId,
+  chatRoomId = null,
   successSurface = "meeting",
   entryPolicy = "open",
   isClosed = false,
@@ -43,6 +44,7 @@ export function MeetingJoinButton({
   const router = useRouter();
   const pathname = usePathname();
   const meetingPath = philifeAppPaths.meeting(meetingId);
+  const messengerRoomPath = chatRoomId ? `/community-messenger/rooms/${encodeURIComponent(chatRoomId)}` : meetingPath;
   const mApi = philifeMeetingApi(meetingId);
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
@@ -141,7 +143,7 @@ export function MeetingJoinButton({
       setJoinModalOpen(false);
       setPasswordModalOpen(false);
       setOkMsg(json.already ? "이미 참여 중입니다." : "모임 참여가 완료되었습니다.");
-      if (pathname !== meetingPath) router.push(meetingPath);
+      if (pathname !== messengerRoomPath) router.push(messengerRoomPath);
       router.refresh();
     } catch {
       const msg = "네트워크 오류로 요청하지 못했습니다.";
@@ -159,7 +161,7 @@ export function MeetingJoinButton({
       return;
     }
     if (isJoined) {
-      if (pathname !== meetingPath) router.push(meetingPath);
+      if (pathname !== messengerRoomPath) router.push(messengerRoomPath);
       else router.refresh();
       return;
     }
@@ -178,7 +180,7 @@ export function MeetingJoinButton({
 
   const joinLabel = isJoined
     ? successSurface === "chat"
-      ? "모임 보기"
+      ? "채팅 입장"
       : "참여 중"
     : entryNorm === "approve" || entryNorm === "invite_only" || requiresApproval
       ? effectiveStatus === "pending"

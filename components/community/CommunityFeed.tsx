@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAppPaths } from "@domain/philife/paths";
@@ -120,8 +121,11 @@ function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): Neighborho
 }
 
 export function CommunityFeed() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const viewerSig = usePhilifeFeedViewerSig();
-  const [category, setCategory] = useState<string>("");
+  const categoryParam = searchParams.get("category")?.trim() ?? "";
+  const [category, setCategory] = useState<string>(categoryParam);
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -140,6 +144,71 @@ export function CommunityFeed() {
   const initialFeedLoadTokenRef = useRef(0);
 
   const [chips, setChips] = useState<{ slug: string; label: string }[]>(() => [{ slug: "", label: "전체" }]);
+
+  useEffect(() => {
+    if (!categoryParam) return;
+    setCategory((prev) => (prev === categoryParam ? prev : categoryParam));
+  }, [categoryParam]);
+
+  const meetingDeepLinkSeq = useRef(0);
+  useEffect(() => {
+    const mid = searchParams.get("meetingId")?.trim() ?? "";
+    if (!mid) return;
+
+    const seq = ++meetingDeepLinkSeq.current;
+    const ac = new AbortController();
+
+    const stripMeetingIdFromUrl = () => {
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete("meetingId");
+      if (!next.get("category")) next.set("category", "meetup");
+      const qs = next.toString();
+      router.replace(qs ? `/philife?${qs}` : philifeAppPaths.meetingsFeed, { scroll: false });
+    };
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/community/meetings/${encodeURIComponent(mid)}`, {
+          cache: "no-store",
+          signal: ac.signal,
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          meeting?: {
+            community_messenger_room_id?: string | null;
+            communityMessengerRoomId?: string | null;
+            post_id?: string | null;
+            postId?: string | null;
+          };
+        };
+        if (seq !== meetingDeepLinkSeq.current) return;
+
+        const m = json.ok ? json.meeting : undefined;
+        const roomId = String(
+          m?.community_messenger_room_id ?? m?.communityMessengerRoomId ?? ""
+        ).trim();
+        if (roomId) {
+          router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
+          return;
+        }
+
+        const postId = String(m?.post_id ?? m?.postId ?? "").trim();
+        if (postId) {
+          router.replace(philifeAppPaths.post(postId));
+          return;
+        }
+
+        stripMeetingIdFromUrl();
+      } catch {
+        if (seq !== meetingDeepLinkSeq.current || ac.signal.aborted) return;
+        stripMeetingIdFromUrl();
+      }
+    })();
+
+    return () => {
+      ac.abort();
+    };
+  }, [router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -19,14 +19,16 @@ import {
   getRoomTypeBadgeLabel,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
-import { getSwipeActions, type MessengerSwipeListContext } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import {
+  getSwipeActions,
+  type MessengerSwipeActionKind,
+} from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 
 const ACTION_W = 78;
-const ACTION_TOTAL = ACTION_W * 3;
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
@@ -123,8 +125,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     roomType: room.roomType,
     contextMeta: room.contextMeta ?? null,
   });
-  const swipeListCtx: MessengerSwipeListContext = listContext === "archive" ? "archive" : "default";
-  const swipeActions = getSwipeActions({ policyType, listContext: swipeListCtx });
+  const swipeActions = useMemo(() => getSwipeActions({ policyType, listContext }), [listContext, policyType]);
+  const actionTotalPx = ACTION_W * swipeActions.length;
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
   const tradeRoleLabel = commerceMeta?.kind === "trade" ? commerceMeta.roleLabel?.trim() || null : null;
@@ -229,11 +231,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   useEffect(() => {
     if (openedSwipeItemId === swipeItemId) {
-      dragXRef.current = -ACTION_TOTAL;
-      setDragX(-ACTION_TOTAL);
+      dragXRef.current = -actionTotalPx;
+      setDragX(-actionTotalPx);
       setIsPressedVisual(false);
     }
-  }, [openedSwipeItemId, swipeItemId]);
+  }, [actionTotalPx, openedSwipeItemId, swipeItemId]);
 
   useEffect(() => {
     if (openedSwipeItemId === swipeItemId) {
@@ -241,7 +243,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     }
   }, [openedSwipeItemId, releasePressedVisual, swipeItemId]);
 
-  const clamp = useCallback((x: number) => Math.max(-ACTION_TOTAL, Math.min(0, x)), []);
+  const clamp = useCallback((x: number) => Math.max(-actionTotalPx, Math.min(0, x)), [actionTotalPx]);
   const swipeOpen = openedSwipeItemId === swipeItemId;
   const pressVisualActive = isPressedVisual && !isDragging && !swipeOpen;
 
@@ -339,14 +341,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         releasePressedVisual(PRESS_RELEASE_MS);
         return;
       }
-      const snap = dragXRef.current < -ACTION_TOTAL / 2 ? -ACTION_TOTAL : 0;
+      const snap = dragXRef.current < -actionTotalPx / 2 ? -actionTotalPx : 0;
       dragXRef.current = snap;
       setDragX(snap);
       onCloseMenuItem?.(menuItemId);
-      onOpenSwipeItem?.(snap === -ACTION_TOTAL ? swipeItemId : null);
+      onOpenSwipeItem?.(snap === -actionTotalPx ? swipeItemId : null);
       releasePressedVisual();
     },
     [
+      actionTotalPx,
       closeSwipe,
       compact,
       consumeClickSuppression,
@@ -380,6 +383,30 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       fn();
     },
     [closeSwipe, menuItemId, onCloseMenuItem]
+  );
+
+  const swipeActionSurfaceClass = useCallback((kind: MessengerSwipeActionKind) => {
+    if (kind === "leave") return "bg-orange-600";
+    if (kind === "read") return "bg-slate-500";
+    return "bg-amber-600";
+  }, []);
+
+  const runSwipeKind = useCallback(
+    (kind: MessengerSwipeActionKind) => {
+      if (kind === "archive") runRowAction(() => onToggleArchive(room));
+      else if (kind === "read") runRowAction(() => onMarkRead(room));
+      else runRowAction(() => onLeaveRoom(room));
+    },
+    [onLeaveRoom, onMarkRead, onToggleArchive, room, runRowAction]
+  );
+
+  const swipeActionDisabled = useCallback(
+    (kind: MessengerSwipeActionKind) => {
+      if (kind === "archive") return archiveBusy;
+      if (kind === "read") return readBusy || room.unreadCount <= 0;
+      return leaveBusy;
+    },
+    [archiveBusy, leaveBusy, readBusy, room.unreadCount]
   );
 
   const avatarBlock =
@@ -536,34 +563,17 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       data-messenger-chat-row="true"
     >
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
-        <button
-          type="button"
-          onClick={() =>
-            runRowAction(() => {
-              onToggleArchive(room);
-            })
-          }
-          disabled={archiveBusy}
-          className="flex w-[78px] items-center justify-center bg-amber-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
-          {swipeActions[0]?.label ?? "보관"}
-        </button>
-        <button
-          type="button"
-          onClick={() => runRowAction(() => onMarkRead(room))}
-          disabled={readBusy || room.unreadCount <= 0}
-          className="flex w-[78px] items-center justify-center bg-sky-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
-          {swipeActions[1]?.label ?? "읽음"}
-        </button>
-        <button
-          type="button"
-          onClick={() => runRowAction(() => onLeaveRoom(room))}
-          disabled={leaveBusy}
-          className="flex w-[78px] items-center justify-center bg-rose-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
-          {swipeActions[2]?.label ?? "나가기"}
-        </button>
+        {swipeActions.map((action) => (
+          <button
+            key={action.kind}
+            type="button"
+            onClick={() => runSwipeKind(action.kind)}
+            disabled={swipeActionDisabled(action.kind)}
+            className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${swipeActionSurfaceClass(action.kind)}`}
+          >
+            {action.label}
+          </button>
+        ))}
       </div>
       <div
         className="relative flex min-w-0 flex-row bg-[color:var(--messenger-bg)] touch-pan-y"

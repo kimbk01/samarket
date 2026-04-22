@@ -49,30 +49,39 @@ import {
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
-import { Sticker } from "lucide-react";
+import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
+  const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   return (
     <>
       {vm.activeSheet ? (
         <div
-          className="fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+          className={
+            isGroupMenuDrawer
+              ? "fixed inset-0 z-[40] flex justify-end bg-black/30"
+              : "fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+          }
           onClick={() => {
             if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
             else vm.dismissRoomSheet();
           }}
         >
           <div
-            className={`max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
-              vm.activeSheet === "attach" ||
-              vm.activeSheet === "attach-confirm" ||
-              vm.activeSheet === "stickers"
-                ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-                : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
-                    vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
+            className={
+              isGroupMenuDrawer
+                ? "flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+                : `max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
+                    vm.activeSheet === "attach" ||
+                    vm.activeSheet === "attach-confirm" ||
+                    vm.activeSheet === "stickers"
+                      ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                      : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
+                          vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
+                        }`
                   }`
-            }`}
+            }
             onClick={(event) => event.stopPropagation()}
           >
             {vm.activeSheet === "attach" ? (
@@ -245,299 +254,320 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             ) : null}
             {vm.activeSheet === "menu" && vm.isGroupRoom ? (
               <>
-                <p className="sam-text-body-secondary font-medium text-sam-fg">채팅방 서랍</p>
-                <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.snapshot.room.title}</h2>
-                <div className="mt-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">참여자</p>
-                      <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.snapshot.room.memberCount}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.myRoleLabel}</p>
-                    </div>
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">공유 항목</p>
-                      <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">
-                        {vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount}
-                      </p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">
-                        사진 {vm.photoMessageCount} · 음성 {vm.voiceMessageCount} · 파일 {vm.fileMessageCount} · 링크 {vm.linkMessageCount}
-                      </p>
-                    </div>
+                <div className="mb-3 flex shrink-0 items-center justify-between border-b border-sam-border pb-3">
+                  <p className="sam-text-section-title font-semibold text-sam-fg">채팅방</p>
+                  <button
+                    type="button"
+                    onClick={vm.dismissRoomSheet}
+                    className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted transition active:bg-sam-app"
+                  >
+                    닫기
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center gap-2 border-b border-sam-border-soft pb-4">
+                  <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[14px] bg-sam-app ring-1 ring-sam-border">
+                    {vm.snapshot.room.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center sam-text-page-title font-semibold text-sam-primary">
+                        {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
+                      </div>
+                    )}
                   </div>
+                  <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
+                  <p className="text-center sam-text-helper text-sam-muted">
+                    {vm.snapshot.room.memberCount}명 · {vm.myRoleLabel}
+                  </p>
+                </div>
 
-                  {vm.isGroupRoom ? (
-                    <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">그룹 통화 상태</p>
-                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.groupCallStatusLabel}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">
-                        {vm.activeGroupCall
-                          ? `${vm.activeGroupCall.callKind === "video" ? "영상" : "음성"} · ${vm.activeGroupCall.participants.length}명 참여`
-                          : vm.canStartGroupCall
-                            ? "지금 시작 가능"
-                            : "시작 권한 없음"}
-                      </p>
-                    </div>
-                  ) : null}
+                <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface">
+                  <button
+                    type="button"
+                    onClick={() => vm.setActiveSheet("media")}
+                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700">
+                      <ImageIcon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block sam-text-body font-semibold text-sam-fg">사진/동영상</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                        사진 {vm.photoMessageCount}개 · 음성 {vm.voiceMessageCount}개
+                      </span>
+                    </span>
+                    <span className="sam-text-page-title text-sam-meta">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => vm.setActiveSheet("files")}
+                    className="flex w-full min-h-[48px] items-center gap-3 border-b border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500/12 text-slate-700">
+                      <FileIcon className="h-5 w-5 shrink-0" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block sam-text-body font-semibold text-sam-fg">파일</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">파일 {vm.fileMessageCount}개</span>
+                    </span>
+                    <span className="sam-text-page-title text-sam-meta">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => vm.setActiveSheet("links")}
+                    className="flex w-full min-h-[48px] items-center gap-3 px-4 py-3 text-left transition active:bg-sam-app"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-700">
+                      <Link2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block sam-text-body font-semibold text-sam-fg">링크</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">링크 {vm.linkMessageCount}개</span>
+                    </span>
+                    <span className="sam-text-page-title text-sam-meta">›</span>
+                  </button>
+                </div>
 
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   {vm.roomNotice ? (
                     <button
                       type="button"
                       onClick={() => vm.openInfoSheet("notice")}
-                      className="flex w-full items-start justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 text-left"
+                      className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
                     >
-                      <div className="min-w-0">
-                        <p className="sam-text-helper font-semibold text-sam-fg">공지</p>
-                        <p className="mt-1 line-clamp-2 sam-text-body-secondary leading-5 text-sam-fg">{vm.roomNotice}</p>
-                      </div>
-                      <span className="pl-3 sam-text-page-title text-sam-meta">›</span>
+                      <Megaphone className="h-5 w-5 shrink-0 text-sky-600" strokeWidth={2} aria-hidden />
+                      <span className="sam-text-helper font-semibold text-sam-fg">공지</span>
+                      <span className="line-clamp-2 w-full sam-text-xxs leading-snug text-sam-muted">{vm.roomNotice}</span>
                     </button>
-                  ) : null}
-
-                  {vm.managementEventMessages.length ? (
-                    <div className="rounded-ui-rect border border-sam-border p-4">
-                      <p className="sam-text-body font-semibold text-sam-fg">운영 이력</p>
-                      <div className="mt-3 space-y-2">
-                        {vm.managementEventMessages.map((event) => {
-                          const summary = describeManagementEvent(event.content);
-                          return (
-                            <button
-                              key={event.id}
-                              type="button"
-                              onClick={() => vm.scrollToRoomMessage(event.id)}
-                              className="flex w-full items-start justify-between gap-3 rounded-ui-rect bg-sam-app px-3 py-3 text-left"
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="sam-text-helper font-semibold text-sam-fg">{summary.title}</p>
-                                <p className="mt-1 line-clamp-2 sam-text-helper leading-5 text-sam-muted">{summary.detail}</p>
-                              </div>
-                              <span className="shrink-0 sam-text-xxs text-sam-meta">{formatTime(event.createdAt)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-2">
-                    <p className="px-1 sam-text-helper font-semibold text-sam-muted">대화방</p>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => vm.setActiveSheet("members")}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
+                      onClick={() => vm.openInfoSheet(vm.canEditGroupNotice ? "notice" : undefined)}
+                      className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-3 text-left transition active:bg-sam-surface"
                     >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">{vm.isGroupRoom ? "참여자 및 초대" : "대화상대 정보"}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.isGroupRoom
-                            ? `${vm.snapshot.room.memberCount}명 · ${vm.canInviteMembers ? "초대 가능" : "초대 제한"}`
-                            : "프로필 · 통화"}
-                        </p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => vm.openInfoSheet()}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">채팅방 정보</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.roomNotice ? "공지 있음" : "공지 없음"}
-                          {vm.snapshot.room.ownerLabel ? ` · 방장 ${vm.snapshot.room.ownerLabel}` : ""}
-                        </p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="px-1 sam-text-helper font-semibold text-sam-muted">콘텐츠</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        vm.setRoomSearchQuery("");
-                        vm.setActiveSheet("search");
-                      }}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">대화 내 검색</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">메시지 · 보낸 사람 · 통화 기록</p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => vm.setActiveSheet("media")}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">사진·음성</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">사진 {vm.photoMessageCount}개 · 음성 {vm.voiceMessageCount}개</p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => vm.setActiveSheet("files")}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">파일</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">파일 {vm.fileMessageCount}개</p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => vm.setActiveSheet("links")}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">링크</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">링크 {vm.linkMessageCount}개</p>
-                      </div>
-                      <span className="sam-text-page-title text-sam-meta">›</span>
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="px-1 sam-text-helper font-semibold text-sam-muted">설정</p>
-                    <button
-                      type="button"
-                      onClick={() => void vm.toggleRoomMute()}
-                      disabled={vm.busy === "room-mute"}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">
-                          {vm.snapshot.room.isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
-                        </p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.snapshot.room.isMuted ? "개별 알림 꺼짐" : "개별 알림 켜짐"}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
-                          vm.snapshot.room.isMuted ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted"
-                        }`}
-                      >
-                        {vm.busy === "room-mute" ? "저장 중" : vm.snapshot.room.isMuted ? "꺼짐" : "켜짐"}
+                      <span className="sam-text-helper font-semibold text-sam-muted">공지</span>
+                      <span className="sam-text-xxs text-sam-muted">
+                        {vm.canEditGroupNotice ? "탭해서 등록·수정" : "채팅방 정보에서 확인"}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void vm.toggleRoomArchive()}
-                      disabled={vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)}
-                      className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
-                    >
-                      <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">
-                          {!vm.snapshot.room.isArchivedByViewer ? "이 채팅방 보관" : "이 채팅방 보관 해제"}
-                        </p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">
-                          {!vm.snapshot.room.isArchivedByViewer ? "현재 채팅 목록" : "현재 보관함"}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
-                          !vm.snapshot.room.isArchivedByViewer ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-ink text-white"
-                        }`}
-                      >
-                        {vm.busy === "room-archive" ? "저장 중" : !vm.snapshot.room.isArchivedByViewer ? "활성" : "보관됨"}
-                      </span>
-                    </button>
-                  </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vm.setRoomSearchQuery("");
+                      vm.setActiveSheet("search");
+                    }}
+                    className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
+                  >
+                    <Search className="h-5 w-5 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
+                    <span className="sam-text-helper font-semibold text-sam-fg">대화 내 검색</span>
+                    <span className="sam-text-xxs text-sam-muted">메시지 · 보낸 사람</span>
+                  </button>
+                </div>
 
-                  {!vm.isGroupRoom ? (
-                    <div className="space-y-2">
-                      <p className="px-1 sam-text-helper font-semibold text-sam-muted">통화</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            vm.dismissRoomSheet();
-                            void vm.startManagedDirectCall("voice");
-                          }}
-                          disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                        >
-                          음성 통화
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            vm.dismissRoomSheet();
-                            void vm.startManagedDirectCall("video");
-                          }}
-                          disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                        >
-                          {vm.t("nav_video_call_label")}
-                        </button>
-                      </div>
-                    </div>
-                  ) : vm.isGroupRoom ? (
-                    <div className="space-y-2">
-                      <p className="px-1 sam-text-helper font-semibold text-sam-muted">통화</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void vm.startGroupCall("voice")}
-                          disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
-                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                        >
-                          그룹 음성 통화
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void vm.startGroupCall("video")}
-                          disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
-                          className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                        >
-                          그룹 영상 통화
-                        </button>
-                      </div>
-                      {!vm.canStartGroupCall ? (
-                        <p className="px-1 sam-text-helper text-sam-muted">시작 권한 없음</p>
-                      ) : null}
-                    </div>
-                  ) : null}
+                <button
+                  type="button"
+                  onClick={() => vm.openInfoSheet()}
+                  className="mt-2 flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
+                >
+                  <span className="sam-text-body font-semibold text-sam-fg">채팅방 정보</span>
+                  <span className="sam-text-page-title text-sam-meta">›</span>
+                </button>
 
-                  <div className="space-y-2">
-                    <p className="px-1 sam-text-helper font-semibold text-sam-muted">기타</p>
-                    {vm.isGroupRoom ? (
+                <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+                  <p className="sam-text-xxs font-medium text-sam-muted">그룹 통화</p>
+                  <p className="mt-1 sam-text-body font-semibold text-sam-fg">{vm.groupCallStatusLabel}</p>
+                  <p className="mt-0.5 sam-text-helper text-sam-muted">
+                    {vm.activeGroupCall
+                      ? `${vm.activeGroupCall.callKind === "video" ? "영상" : "음성"} · ${vm.activeGroupCall.participants.length}명 참여`
+                      : vm.canStartGroupCall
+                        ? "지금 시작 가능"
+                        : "시작 권한 없음"}
+                  </p>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void vm.startGroupCall("voice")}
+                    disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
+                    className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
+                  >
+                    그룹 음성 통화
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void vm.startGroupCall("video")}
+                    disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
+                    className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
+                  >
+                    그룹 영상 통화
+                  </button>
+                </div>
+
+                <p className="mt-5 px-0.5 sam-text-helper font-semibold text-sam-muted">
+                  대화상대 {vm.snapshot.room.memberCount}
+                </p>
+                <div className="mt-2 space-y-1">
+                  {vm.sortedMembers.slice(0, 12).map((member) => {
+                    const isSelf = messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId);
+                    const isRoomOwner =
+                      Boolean(vm.snapshot.room.ownerUserId) &&
+                      messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId);
+                    const aliasUrl = member.aliasProfile?.avatarUrl?.trim();
+                    const avatarUrl =
+                      member.identityMode === "alias" && aliasUrl?.startsWith("http")
+                        ? aliasUrl
+                        : member.avatarUrl?.trim()?.startsWith("http")
+                          ? member.avatarUrl.trim()
+                          : null;
+                    const displayLabel =
+                      member.identityMode === "alias" && member.aliasProfile?.displayName?.trim()
+                        ? member.aliasProfile.displayName.trim()
+                        : member.label;
+                    const raw = displayLabel.replace(/\s+/g, "");
+                    const initials = (raw[0] ?? "?").toUpperCase();
+                    return (
                       <button
+                        key={member.id}
                         type="button"
                         onClick={() => {
-                          if (vm.isOwner && vm.isPrivateGroupRoom) {
-                            vm.openMembersForOwnerTransfer();
-                            return;
-                          }
-                          void vm.leaveRoom();
+                          if (isSelf) return;
+                          vm.setMemberActionTarget(member);
                         }}
-                        disabled={vm.busy === "leave-room"}
-                        className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left sam-text-body font-semibold text-red-700 disabled:opacity-40"
+                        className={`flex w-full items-center gap-3 rounded-ui-rect border border-transparent px-2 py-2 text-left transition ${
+                          isSelf ? "opacity-90" : "active:bg-sam-surface"
+                        }`}
                       >
-                        {vm.busy === "leave-room"
-                          ? vm.t("nav_messenger_leaving")
-                          : vm.isOwner && vm.isPrivateGroupRoom
-                            ? "방장 위임 후 나가기"
-                            : vm.t("nav_messenger_leave_group_room")}
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-sam-surface ring-1 ring-sam-border">
+                          {avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center sam-text-helper font-semibold text-sam-primary">
+                              {initials}
+                            </div>
+                          )}
+                          {isRoomOwner ? (
+                            <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-sam-surface ring-1 ring-sam-border">
+                              <Crown className="h-3 w-3 text-sky-600" strokeWidth={2} aria-hidden />
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate sam-text-body font-medium text-sam-fg">
+                            {displayLabel}
+                            {isSelf ? " (나)" : ""}
+                          </p>
+                          {member.memberRole === "admin" && !isRoomOwner ? (
+                            <p className="sam-text-xxs text-sam-muted">관리자</p>
+                          ) : null}
+                        </div>
+                        {!isSelf ? <span className="sam-text-page-title text-sam-meta">›</span> : null}
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        vm.dismissRoomSheet();
-                        void vm.reportTarget({ reportType: "room" });
-                      }}
-                      className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left sam-text-body font-semibold text-red-700"
-                    >
-                      {vm.t("nav_messenger_report")}
-                    </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => vm.setActiveSheet("members")}
+                  className="mt-2 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition active:bg-sam-app"
+                >
+                  참여자 및 초대 · 전체 보기 ›
+                </button>
+
+                {vm.managementEventMessages.length ? (
+                  <div className="mt-4 rounded-ui-rect border border-sam-border p-3">
+                    <p className="sam-text-body font-semibold text-sam-fg">운영 이력</p>
+                    <div className="mt-2 space-y-2">
+                      {vm.managementEventMessages.map((event) => {
+                        const summary = describeManagementEvent(event.content);
+                        return (
+                          <button
+                            key={event.id}
+                            type="button"
+                            onClick={() => vm.scrollToRoomMessage(event.id)}
+                            className="flex w-full items-start justify-between gap-2 rounded-ui-rect bg-sam-app px-2 py-2 text-left"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="sam-text-xxs font-semibold text-sam-fg">{summary.title}</p>
+                              <p className="mt-0.5 line-clamp-2 sam-text-xxs leading-snug text-sam-muted">{summary.detail}</p>
+                            </div>
+                            <span className="shrink-0 sam-text-xxs text-sam-meta">{formatTime(event.createdAt)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                ) : null}
+
+                <div className="mt-4 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => void vm.toggleRoomMute()}
+                    disabled={vm.busy === "room-mute"}
+                    className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
+                  >
+                    <span className="sam-text-body font-semibold text-sam-fg">
+                      {vm.snapshot.room.isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
+                    </span>
+                    <span
+                      className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
+                        vm.snapshot.room.isMuted ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted"
+                      }`}
+                    >
+                      {vm.busy === "room-mute" ? "저장 중" : vm.snapshot.room.isMuted ? "꺼짐" : "켜짐"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void vm.toggleRoomArchive()}
+                    disabled={vm.busy === "room-archive" || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)}
+                    className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
+                  >
+                    <span className="sam-text-body font-semibold text-sam-fg">
+                      {!vm.snapshot.room.isArchivedByViewer ? "이 채팅방 보관" : "이 채팅방 보관 해제"}
+                    </span>
+                    <span
+                      className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
+                        !vm.snapshot.room.isArchivedByViewer ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-ink text-white"
+                      }`}
+                    >
+                      {vm.busy === "room-archive" ? "저장 중" : !vm.snapshot.room.isArchivedByViewer ? "활성" : "보관됨"}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (vm.isOwner && vm.isPrivateGroupRoom) {
+                        vm.openMembersForOwnerTransfer();
+                        return;
+                      }
+                      void vm.leaveRoom();
+                    }}
+                    disabled={vm.busy === "leave-room"}
+                    className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 disabled:opacity-40"
+                  >
+                    {vm.busy === "leave-room"
+                      ? vm.t("nav_messenger_leaving")
+                      : vm.isOwner && vm.isPrivateGroupRoom
+                        ? "방장 위임 후 나가기"
+                        : vm.t("nav_messenger_leave_group_room")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      vm.dismissRoomSheet();
+                      void vm.reportTarget({ reportType: "room" });
+                    }}
+                    className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700"
+                  >
+                    {vm.t("nav_messenger_report")}
+                  </button>
                 </div>
               </>
             ) : null}
@@ -1029,13 +1059,19 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </div>
                   ) : null}
 
-                  {vm.isPrivateGroupRoom ? (
+                  {vm.isPrivateGroupRoom || vm.isOpenGroupRoom ? (
                     <div ref={vm.groupNoticeSectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="sam-text-body font-semibold text-sam-fg">그룹 공지</p>
+                          <p className="sam-text-body font-semibold text-sam-fg">
+                            {vm.isOpenGroupRoom ? "모임 공지" : "그룹 공지"}
+                          </p>
                           <p className="mt-1 sam-text-helper text-sam-muted">
-                            {vm.privateGroupNotice ? "상단과 서랍에 노출 중" : "등록된 공지 없음"}
+                            {vm.privateGroupNotice
+                              ? vm.isOpenGroupRoom
+                                ? "참가자에게 표시 중"
+                                : "상단과 서랍에 노출 중"
+                              : "등록된 공지 없음"}
                           </p>
                         </div>
                         {vm.snapshot.room.noticeUpdatedAt ? (
@@ -1060,7 +1096,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             value={vm.privateGroupNoticeDraft}
                             onChange={(e) => vm.setPrivateGroupNoticeDraft(e.target.value)}
                             rows={4}
-                            placeholder="그룹 공지를 입력하세요"
+                            placeholder={vm.isOpenGroupRoom ? "모임 공지를 입력하세요" : "그룹 공지를 입력하세요"}
                             className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <button
@@ -1078,7 +1114,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                       ) : (
                         <div className="mt-3 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 sam-text-helper text-sam-muted">
-                          아직 등록된 그룹 공지가 없습니다.
+                          {vm.isOpenGroupRoom ? "아직 등록된 모임 공지가 없습니다." : "아직 등록된 그룹 공지가 없습니다."}
                         </div>
                       )}
                     </div>

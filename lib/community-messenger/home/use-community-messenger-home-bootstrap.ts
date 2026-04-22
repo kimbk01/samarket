@@ -19,15 +19,11 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
-import type {
-  CommunityMessengerBootstrap,
-  CommunityMessengerCallLog,
-  CommunityMessengerDiscoverableGroupSummary,
-} from "@/lib/community-messenger/types";
+import type { CommunityMessengerBootstrap, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
-import { fetchCommunityMessengerOpenGroupsClient } from "@/lib/community-messenger/cm-open-groups-client-fetch";
+import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import {
   recordMessengerBootstrapJsonParseComplete,
   recordMessengerHomeRefreshInvocation,
@@ -296,6 +292,11 @@ export function useCommunityMessengerHomeBootstrap({
               if (tSilentFetch != null) {
                 messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
               }
+              if ((next.discoverableGroups?.length ?? 0) === 0) {
+                scheduleWhenBrowserIdle(() => {
+                  void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
+                }, 0);
+              }
             } else {
               silentFallbackFullBackoffUntilRef.current = Date.now() + 1200;
             }
@@ -352,24 +353,11 @@ export function useCommunityMessengerHomeBootstrap({
           }
           if (useLiteBootstrap) {
             scheduleWhenBrowserIdle(() => {
-              void (async () => {
-                try {
-                  const res2 = await fetchCommunityMessengerOpenGroupsClient();
-                  const j2 = (await res2.json().catch(() => ({}))) as {
-                    ok?: boolean;
-                    groups?: CommunityMessengerDiscoverableGroupSummary[];
-                  };
-                  if (!res2.ok || !j2.ok) return;
-                  setData((prev) => {
-                    if (!prev) return prev;
-                    const merged = { ...prev, discoverableGroups: j2.groups ?? [] };
-                    primeBootstrapCache(merged);
-                    return merged;
-                  });
-                } catch {
-                  /* ignore */
-                }
-              })();
+              void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
+            }, 0);
+          } else if ((next.discoverableGroups?.length ?? 0) === 0) {
+            scheduleWhenBrowserIdle(() => {
+              void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
             }, 0);
           }
         } else {

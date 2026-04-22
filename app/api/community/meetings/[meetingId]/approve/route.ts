@@ -4,6 +4,7 @@ import { isSameUserId } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { ensureMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,10 +65,16 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { data: meeting } = await sb
     .from("meetings")
-    .select("id, created_by, host_user_id, title")
+    .select("id, created_by, host_user_id, title, community_messenger_room_id")
     .eq("id", id)
     .maybeSingle();
-  const m = meeting as { id?: string; created_by?: string; host_user_id?: string; title?: string } | null;
+  const m = meeting as {
+    id?: string;
+    created_by?: string;
+    host_user_id?: string;
+    title?: string;
+    community_messenger_room_id?: string | null;
+  } | null;
   if (!m?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
   const host = String(m.host_user_id ?? m.created_by ?? "").trim();
@@ -115,7 +122,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     notification_type: "status",
     title: `${String(m?.title ?? "모임")}에 승인되었습니다`,
     body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
-    link_url: `/philife/meetings/${id}`,
+    link_url: `/philife?category=meetup&meetingId=${encodeURIComponent(id)}`,
+  });
+
+  await ensureMeetingMessengerParticipant({
+    roomId: m.community_messenger_room_id,
+    userId: target,
+    role: "member",
   });
 
   return NextResponse.json({ ok: true });

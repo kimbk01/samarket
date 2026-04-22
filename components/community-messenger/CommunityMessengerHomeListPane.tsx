@@ -88,8 +88,7 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: any) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  filteredDiscoverableGroups: any[];
-  onPreviewOpenGroupStable: (groupId: string) => void;
+  onOpenMeetingFindStable: () => void;
   incomingRequestCount: number;
   incomingFriendRequestPopup: CommunityMessengerFriendRequest | null;
   setIncomingFriendRequestPopup: (value: CommunityMessengerFriendRequest | null) => void;
@@ -211,8 +210,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               chatKindFilter={props.chatKindFilter}
               onChatListChipChange={props.onChatListChipChange}
               openChatJoinedItems={props.openChatJoinedItems}
-              filteredDiscoverableGroups={props.filteredDiscoverableGroups}
-              onPreviewOpenGroup={props.onPreviewOpenGroupStable}
+              onOpenMeetingFind={props.onOpenMeetingFindStable}
               incomingRequestCount={props.incomingRequestCount}
             />
           </div>

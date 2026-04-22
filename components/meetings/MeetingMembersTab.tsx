@@ -36,8 +36,8 @@ interface MeetingMembersTabProps {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  host: "운영자",
-  co_host: "공동 운영자",
+  host: "모임장",
+  co_host: "운영진",
   member: "",
 };
 
@@ -211,7 +211,7 @@ function MemberItem({
                 onClick={() => void doKick()}
                 className="rounded-ui-rect bg-orange-50 px-3 py-1.5 sam-text-helper font-medium text-orange-700 disabled:opacity-50"
               >
-                강퇴
+                내보내기
               </button>
               <button
                 type="button"
@@ -219,7 +219,7 @@ function MemberItem({
                 onClick={() => void doBan()}
                 className="rounded-ui-rect bg-red-50 px-3 py-1.5 sam-text-helper font-medium text-red-700 disabled:opacity-50"
               >
-                차단
+                재참여 차단
               </button>
             </>
           )}
@@ -428,7 +428,7 @@ export function MeetingMembersTab({
           id="meeting-members-pending"
           className="scroll-mt-4 rounded-ui-rect border border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center shadow-sm"
         >
-          <p className="sam-text-body-secondary font-medium text-amber-950">가입 요청 관리</p>
+          <p className="sam-text-body-secondary font-medium text-amber-950">가입 대기 관리</p>
           <p className="mt-1 sam-text-helper text-amber-800/80">대기 중인 가입 요청이 없습니다.</p>
         </div>
       ) : null}
@@ -439,7 +439,7 @@ export function MeetingMembersTab({
           className="scroll-mt-4 rounded-ui-rect border border-amber-200 bg-amber-50/70 p-3 shadow-sm"
         >
           <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-            <h2 className="sam-text-body-secondary font-semibold text-amber-950">가입 승인</h2>
+            <h2 className="sam-text-body-secondary font-semibold text-amber-950">가입 대기</h2>
             <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 sam-text-xxs font-bold text-amber-950 tabular-nums">
               {localPending.length}
             </span>

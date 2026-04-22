@@ -14,6 +14,7 @@ import { resolveMeetupFeedTopicBySlug } from "@/lib/neighborhood/meetup-feed-top
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
+import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,9 +62,17 @@ export async function POST(req: NextRequest) {
       welcome_message?: string;
       allow_feed?: boolean;
       allow_album_upload?: boolean;
+      cover_image_url?: string | null;
+      region_text?: string;
+      category_text?: string;
+      join_questions?: string[];
+      use_notices?: boolean;
+      platform_approval_required?: boolean;
       open_chat_identity_mode?: "realname" | "nickname_optional";
       open_chat_owner_join_as?: "realname" | "nickname";
       open_chat_owner_nickname?: string;
+      /** false면 메신저 오픈그룹 탐색·모임 찾기 목록에서 숨김(초대 링크·직접 URL로만 입장) */
+      messenger_discoverable?: boolean;
     };
   };
   try {
@@ -237,6 +246,7 @@ export async function POST(req: NextRequest) {
       : 30;
 
   let passwordHash: string | null = null;
+  let meetingPasswordPlain: string | null = null;
   if (entryPolicy === "password") {
     const pwd = typeof meet.meeting_password === "string" ? meet.meeting_password.trim() : "";
     if (pwd.length < 4 || pwd.length > 128) {
@@ -245,6 +255,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    meetingPasswordPlain = pwd;
     passwordHash = hashMeetingPassword(pwd);
   }
 
@@ -261,6 +272,19 @@ export async function POST(req: NextRequest) {
       : undefined;
   const openChatOwnerNickname =
     typeof meet.open_chat_owner_nickname === "string" ? meet.open_chat_owner_nickname.trim() : "";
+  const coverImageUrl = typeof meet.cover_image_url === "string" ? meet.cover_image_url.trim() : "";
+  const regionText = typeof meet.region_text === "string" ? meet.region_text.trim() : "";
+  const categoryText = typeof meet.category_text === "string" ? meet.category_text.trim() : "";
+  const joinQuestions = Array.isArray(meet.join_questions)
+    ? meet.join_questions
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+  const useNotices = meet.use_notices !== false;
+  /** 기본 비승인 — 명시 true 일 때만 플랫폼 승인 대기 */
+  const platformApprovalRequired = meet.platform_approval_required === true;
   const openChatJoinType =
     entryPolicy === "password"
       ? "password"
@@ -306,6 +330,7 @@ export async function POST(req: NextRequest) {
 
   const postId = (inserted as { id: string }).id;
   let meetingId: string | null = null;
+  let messengerRoomId: string | null = null;
 
   if (isMeetup) {
     const meetingRowBase = {
@@ -324,6 +349,11 @@ export async function POST(req: NextRequest) {
       welcome_message: typeof meet.welcome_message === "string" ? meet.welcome_message.trim() || null : null,
       allow_feed: meet.allow_feed !== false,
       allow_album_upload: meet.allow_album_upload !== false,
+      cover_image_url: coverImageUrl || null,
+      region_text: regionText || null,
+      category_text: categoryText || null,
+      platform_approval_required: platformApprovalRequired,
+      platform_approval_status: platformApprovalRequired ? "pending_approval" : "approved",
       status: "open",
       host_user_id: auth.userId,
       created_by: auth.userId,
@@ -350,6 +380,52 @@ export async function POST(req: NextRequest) {
       role: "host",
     });
 
+    const messengerDiscoverable =
+      !platformApprovalRequired &&
+      entryPolicy !== "invite_only" &&
+      meet.messenger_discoverable !== false;
+
+    const meetingChat = await createMeetingMessengerRoom({
+      ownerUserId: auth.userId,
+      title,
+      summary: typeof meet.description === "string" ? meet.description.trim() : "",
+      coverImageUrl,
+      discoverable: messengerDiscoverable,
+      joinPolicy: entryPolicy === "password" ? "password" : "free",
+      password: meetingPasswordPlain,
+    });
+    if (!meetingChat.ok || !meetingChat.roomId) {
+      await sb.from("meetings").delete().eq("id", meetingId);
+      await sb.from("community_posts").delete().eq("id", postId);
+      return NextResponse.json({ ok: false, error: meetingChat.error ?? "meeting_chat_create_failed" }, { status: 500 });
+    }
+
+    const meetingPatch: Record<string, unknown> = {
+      community_messenger_room_id: meetingChat.roomId,
+    };
+    const { error: meetingPatchError } = await sb.from("meetings").update(meetingPatch).eq("id", meetingId);
+    if (meetingPatchError) {
+      await sb.from("community_messenger_rooms").delete().eq("id", meetingChat.roomId);
+      await sb.from("meetings").delete().eq("id", meetingId);
+      await sb.from("community_posts").delete().eq("id", postId);
+      return NextResponse.json(
+        { ok: false, error: meetingPatchError.message ?? "meeting_chat_link_failed" },
+        { status: 500 }
+      );
+    }
+
+    if (joinQuestions.length > 0) {
+      await sb.from("meeting_join_questions").insert(
+        joinQuestions.map((question, index) => ({
+          meeting_id: meetingId,
+          question_order: index + 1,
+          question_text: question,
+          created_by: auth.userId,
+        }))
+      );
+    }
+
+    messengerRoomId = meetingChat.roomId;
     void after;
   }
 
@@ -368,5 +444,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: postId, meetingId });
+  return NextResponse.json({ ok: true, id: postId, meetingId, messengerRoomId });
 }

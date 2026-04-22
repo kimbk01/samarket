@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { itemTradeChatRoomIdFromMessengerDirectKey } from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
+import { markMeetingMemberLeftForMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -189,6 +190,7 @@ export async function leaveMessengerRoomUnified(
   if (delErr) {
     return { ok: false, error: "leave_failed" };
   }
+  await markMeetingMemberLeftForMessengerRoom(sb, roomId, uid).catch(() => {});
   invalidateUserChatUnreadCache(uid);
   invalidateOwnerHubBadgeCache(uid);
   return { ok: true };

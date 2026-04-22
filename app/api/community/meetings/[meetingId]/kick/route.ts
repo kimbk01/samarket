@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const { data: m } = await sb
     .from("meetings")
-    .select("id, created_by, host_user_id, chat_room_id, title")
+    .select("id, created_by, host_user_id, chat_room_id, community_messenger_room_id, title")
     .eq("id", id)
     .maybeSingle();
   const meeting = m as {
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     created_by?: string;
     host_user_id?: string;
     chat_room_id?: string | null;
+    community_messenger_room_id?: string | null;
     title?: string;
   } | null;
   if (!meeting?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -95,6 +97,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     title: `${String(meeting?.title ?? "모임")}에서 강퇴되었습니다`,
     body: "운영자에 의해 모임에서 강제 퇴장되었습니다.",
     link_url: `/philife`,
+  });
+
+  await removeMeetingMessengerParticipant({
+    roomId: meeting.community_messenger_room_id,
+    userId: target,
   });
 
   return NextResponse.json({ ok: true });

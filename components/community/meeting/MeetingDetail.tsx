@@ -30,7 +30,7 @@ export function MeetingDetail({ meeting }: { meeting: NeighborhoodMeetingDetailD
       <div className="mt-3">
         <MeetingJoinButton
           meetingId={meeting.id}
-          chatRoomId={meeting.chat_room_id}
+          chatRoomId={meeting.community_messenger_room_id}
           successSurface="meeting"
           entryPolicy={meeting.entry_policy}
           hasMeetingPassword={meeting.has_password}

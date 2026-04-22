@@ -16,6 +16,7 @@ import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
+import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
@@ -65,6 +66,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
+import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -1279,6 +1281,22 @@ export function CommunityMessengerHome({
     [getMessengerActionErrorMessage, joinOpenGroup, localSettings.groupJoinPreviewEnabled, resetJoinOpenGroupDraft]
   );
 
+  const philifeMeetingRedirectRef = useRef<string | null>(null);
+  /** 모임 딥링크는 Philife 모임 피드에서만 처리(메신저 `open_chat` 의존 제거). */
+  useEffect(() => {
+    const mid = searchParams.get("meetingId")?.trim() ?? "";
+    if (!mid) {
+      philifeMeetingRedirectRef.current = null;
+      return;
+    }
+    if (philifeMeetingRedirectRef.current === mid) return;
+    philifeMeetingRedirectRef.current = mid;
+    const qs = new URLSearchParams();
+    qs.set("category", "meetup");
+    qs.set("meetingId", mid);
+    router.replace(`/philife?${qs.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
   const {
     favoriteFriendIds,
     sortedFriends,
@@ -1297,6 +1315,14 @@ export function CommunityMessengerHome({
     roomSearchKeyword,
     openGroupSearch,
   });
+
+  useEffect(() => {
+    if (!publicGroupFindOpen || !data?.me?.id) return;
+    if (openGroupSearch.trim()) return;
+    if ((data.discoverableGroups?.length ?? 0) > 0) return;
+    void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
+  }, [publicGroupFindOpen, data?.me?.id, data?.discoverableGroups, openGroupSearch, setData]);
+
   const openOutgoingCallConfirm = useCallback(
     (peerUserId: string, kind: "voice" | "video") => {
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
@@ -1665,6 +1691,11 @@ export function CommunityMessengerHome({
     [resetMessengerTransientUi, openJoinModal]
   );
 
+  const onOpenMeetingFindStable = useCallback(() => {
+    resetMessengerTransientUi();
+    openHomeOverlay("public-group-find");
+  }, [openHomeOverlay, resetMessengerTransientUi]);
+
   const notificationRoomMuteToggle = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
       await updateRoomParticipantState(room.id, { isMuted: !Boolean(room.isMuted) });
@@ -1963,8 +1994,7 @@ export function CommunityMessengerHome({
         chatKindFilter={chatKindFilter}
         onChatListChipChange={onChatListChipChange}
         openChatJoinedItems={openChatJoinedItems}
-        filteredDiscoverableGroups={filteredDiscoverableGroups}
-        onPreviewOpenGroupStable={onPreviewOpenGroupStable}
+        onOpenMeetingFindStable={onOpenMeetingFindStable}
         incomingRequestCount={incomingRequestCount}
         incomingFriendRequestPopup={incomingFriendRequestPopup}
         setIncomingFriendRequestPopup={setIncomingFriendRequestPopup}
@@ -2295,7 +2325,7 @@ export function CommunityMessengerHome({
           />
           <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
-              <p className="sam-text-section-title font-semibold text-sam-fg">오픈채팅 찾기</p>
+              <p className="sam-text-section-title font-semibold text-sam-fg">모임 찾기</p>
               <button
                 type="button"
                 className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted"
@@ -2308,7 +2338,7 @@ export function CommunityMessengerHome({
               <input
                 value={openGroupSearch}
                 onChange={(e) => setOpenGroupSearch(e.target.value)}
-                placeholder="오픈채팅 검색"
+                placeholder="모임 검색"
                 className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
               />
               <div className="mt-3 space-y-2">
@@ -2439,7 +2469,7 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-[#111827]">오픈채팅</p>
+                    <p className="sam-text-body-secondary font-medium text-[#111827]">모임</p>
                     <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">방장 설정형 그룹 만들기</h2>
                   </div>
                   <button
@@ -2454,7 +2484,7 @@ export function CommunityMessengerHome({
                   <input
                     value={openGroupTitle}
                     onChange={(e) => setOpenGroupTitle(e.target.value)}
-                    placeholder="오픈채팅 제목"
+                    placeholder="모임 이름"
                     className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <textarea
@@ -2533,7 +2563,7 @@ export function CommunityMessengerHome({
                   <label className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
                     <div>
                       <p className="sam-text-body font-medium text-sam-fg">목록에 공개</p>
-                      <p className="sam-text-helper text-sam-muted">OFF면 내 목록에는 남지만 오픈채팅 찾기에는 노출되지 않습니다.</p>
+                      <p className="sam-text-helper text-sam-muted">OFF면 채팅방에는 남지만 모임 찾기에는 노출되지 않습니다.</p>
                     </div>
                     <input
                       type="checkbox"
@@ -2619,7 +2649,7 @@ export function CommunityMessengerHome({
                   }
                   className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
-                  {busyId === "create-open-group" ? "생성 중..." : "오픈채팅 생성"}
+                  {busyId === "create-open-group" ? "생성 중..." : "모임 채팅 생성"}
                 </button>
               ) : null}
             </div>
@@ -2628,100 +2658,22 @@ export function CommunityMessengerHome({
       ) : null}
 
       {joinTargetGroup ? (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 px-4 pb-6 pt-10">
-          <div className="w-full max-w-[440px] rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]">
-            <p className="sam-text-body-secondary font-medium text-sam-fg">오픈채팅 입장</p>
-            <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{joinTargetGroup.title}</h2>
-            <p className="mt-2 sam-text-body-secondary leading-5 text-sam-muted">
-              {joinTargetGroup.summary || "입장 정보를 확인하세요."}
-            </p>
-            <div className="mt-4 rounded-ui-rect bg-sam-app px-4 py-3 sam-text-helper text-sam-muted">
-              방장 {joinTargetGroup.ownerLabel} · 현재 {joinTargetGroup.memberCount}명
-              {joinTargetGroup.memberLimit ? ` / 최대 ${joinTargetGroup.memberLimit}명` : ""}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2 sam-text-xxs font-semibold">
-              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sam-muted">
-                {joinTargetGroup.joinPolicy === "password" ? "비밀번호 입장" : "자유 입장"}
-              </span>
-              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 text-sam-muted">
-                {joinTargetGroup.identityPolicy === "alias_allowed" ? "별칭 참여 허용" : "실명 기반"}
-              </span>
-            </div>
-            {joinTargetGroup.joinPolicy === "password" ? (
-              <input
-                value={joinPassword}
-                onChange={(e) => setJoinPassword(e.target.value)}
-                placeholder="비밀번호 입력"
-                className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
-              />
-            ) : null}
-            <div className="mt-4 rounded-ui-rect border border-sam-border-soft px-4 py-4">
-              <p className="sam-text-body-secondary font-semibold text-sam-fg">표시 이름 선택</p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setJoinIdentityMode("real_name")}
-                  className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${joinIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
-                >
-                  실명 프로필
-                </button>
-                {joinTargetGroup.identityPolicy === "alias_allowed" ? (
-                  <button
-                    type="button"
-                    onClick={() => setJoinIdentityMode("alias")}
-                    className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${joinIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
-                  >
-                    방별 별칭
-                  </button>
-                ) : null}
-              </div>
-              {joinIdentityMode === "alias" && joinTargetGroup.identityPolicy === "alias_allowed" ? (
-                <div className="mt-3 grid gap-3">
-                  <input
-                    value={joinAliasName}
-                    onChange={(e) => setJoinAliasName(e.target.value)}
-                    placeholder="별칭 닉네임"
-                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
-                  />
-                  <input
-                    value={joinAliasAvatarUrl}
-                    onChange={(e) => setJoinAliasAvatarUrl(e.target.value)}
-                    placeholder="아바타 URL (선택)"
-                    className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
-                  />
-                  <textarea
-                    value={joinAliasBio}
-                    onChange={(e) => setJoinAliasBio(e.target.value)}
-                    rows={2}
-                    placeholder="소개 (선택)"
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
-                  />
-                </div>
-              ) : null}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={closeJoinOpenGroupModal}
-                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 sam-text-body font-medium text-sam-fg"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => void joinOpenGroup()}
-                disabled={
-                  busyId === `join-open-group:${joinTargetGroup.id}` ||
-                  (joinTargetGroup.joinPolicy === "password" && !joinPassword.trim()) ||
-                  (joinIdentityMode === "alias" && !joinAliasName.trim())
-                }
-                className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-              >
-                {busyId === `join-open-group:${joinTargetGroup.id}` ? "입장 중..." : "이 그룹에 입장"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <MeetingJoinPreviewFullScreen
+          group={joinTargetGroup}
+          busy={busyId === `join-open-group:${joinTargetGroup.id}`}
+          onClose={closeJoinOpenGroupModal}
+          onJoin={() => void joinOpenGroup()}
+          joinPassword={joinPassword}
+          onJoinPasswordChange={setJoinPassword}
+          joinIdentityMode={joinIdentityMode}
+          onJoinIdentityModeChange={setJoinIdentityMode}
+          joinAliasName={joinAliasName}
+          onJoinAliasNameChange={setJoinAliasName}
+          joinAliasAvatarUrl={joinAliasAvatarUrl}
+          onJoinAliasAvatarUrlChange={setJoinAliasAvatarUrl}
+          joinAliasBio={joinAliasBio}
+          onJoinAliasBioChange={setJoinAliasBio}
+        />
       ) : null}
 
       {!loading && !authRequired ? (

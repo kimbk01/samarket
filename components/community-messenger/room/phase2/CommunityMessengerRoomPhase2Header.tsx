@@ -9,6 +9,7 @@ import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realt
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
+import { Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 
@@ -72,7 +73,11 @@ export function CommunityMessengerRoomPhase2Header() {
             type="button"
             onClick={() => {
               markCommunityMessengerHomeReturn();
-              vm.router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
+              const backHref =
+                vm.snapshot.room.roomType === "open_group"
+                  ? SAMARKET_ROUTES.chat.messengerMeetingsHub
+                  : SAMARKET_ROUTES.chat.messengerHub;
+              vm.router.replace(backHref, { scroll: false });
             }}
             className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}
@@ -111,6 +116,19 @@ export function CommunityMessengerRoomPhase2Header() {
             <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
           <div className="flex shrink-0 items-center gap-0 self-center">
+            {vm.isGroupRoom ? (
+              <button
+                type="button"
+                onClick={() => {
+                  vm.setRoomSearchQuery("");
+                  vm.setActiveSheet("search");
+                }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+                aria-label="대화 내 검색"
+              >
+                <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}

@@ -23,7 +23,6 @@ import { AD_TYPE_LABELS } from "@/lib/ads/types";
 import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
-type MeetEntryPolicy = "open" | "password";
 /** 모임 생성 섹션 제목 타이포 통일 */
 const MEETUP_SECTION_LABEL_BASE =
   "px-0 sam-text-body-secondary font-medium leading-snug tracking-normal text-sam-fg";
@@ -65,18 +64,16 @@ export function PhilifeNeighborhoodWriteForm({
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
-  const [meetEntryPolicy, setMeetEntryPolicy] = useState<MeetEntryPolicy>("open");
-  const [meetPassword, setMeetPassword] = useState("");
-  const [allowWaitlist, setAllowWaitlist] = useState(false);
-  const [allowMemberInvite, setAllowMemberInvite] = useState(false);
-  const [meetAllowFeed, setMeetAllowFeed] = useState(true);
-  const [meetAllowAlbumUpload, setMeetAllowAlbumUpload] = useState(true);
 
   /** 서버 기본 모임 피드 주제 slug — UI 비노출 */
   const MEETUP_TOPIC_SLUG = "meetup";
   const [meetIntro, setMeetIntro] = useState("");
   const [ageFeeNote, setAgeFeeNote] = useState("");
-
+  const [meetRegionText, setMeetRegionText] = useState(() => currentRegion?.label?.trim() || "");
+  /** 모임 채팅(오픈그룹) 공개·비밀·숨김 조합 — `messenger_discoverable`·`entry_policy`·비번과 동기 */
+  type MeetAccessMode = "free_public" | "password_public" | "free_hidden" | "password_hidden";
+  const [meetAccessMode, setMeetAccessMode] = useState<MeetAccessMode>("free_public");
+  const [meetPassword, setMeetPassword] = useState("");
   const [promoteAdEnabled, setPromoteAdEnabled] = useState(false);
   const [adProducts, setAdProducts] = useState<AdProduct[]>([]);
   const [adProductsLoading, setAdProductsLoading] = useState(false);
@@ -134,10 +131,10 @@ export function PhilifeNeighborhoodWriteForm({
   }, [initialCategory]);
 
   useEffect(() => {
-    if (category === "meetup" && meetEntryPolicy !== "password") {
-      setMeetPassword("");
+    if (category === "meetup") {
+      setMeetRegionText(currentRegion?.label?.trim() || "");
     }
-  }, [category, meetEntryPolicy]);
+  }, [category, currentRegion]);
 
   useEffect(() => {
     if (!promoteAdEnabled || category === "meetup") {
@@ -169,9 +166,9 @@ export function PhilifeNeighborhoodWriteForm({
     setUploading(true);
     setErr("");
     try {
-      const next = [...imageUrls];
+      const next = category === "meetup" ? [] : [...imageUrls];
       for (const f of Array.from(files)) {
-        if (next.length >= 10) break;
+        if (next.length >= (category === "meetup" ? 1 : 10)) break;
         const fd = new FormData();
         fd.append("file", f);
         const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
@@ -220,12 +217,12 @@ export function PhilifeNeighborhoodWriteForm({
       setErr(category === "meetup" ? "소개를 입력해 주세요." : "내용을 입력해 주세요.");
       return;
     }
-
     if (category === "meetup") {
-      if (meetEntryPolicy === "password") {
+      const needsPw = meetAccessMode === "password_public" || meetAccessMode === "password_hidden";
+      if (needsPw) {
         const p = meetPassword.trim();
         if (p.length < 4 || p.length > 128) {
-          setErr("입장 비밀번호는 4~128자로 입력해 주세요.");
+          setErr("비밀번호 입장·숨김 비밀 모임은 비밀번호를 4~128자로 입력해 주세요.");
           return;
         }
       }
@@ -265,20 +262,31 @@ export function PhilifeNeighborhoodWriteForm({
         payload.meetTopicSlug = MEETUP_TOPIC_SLUG;
         const shortDesc =
           meetIntro.replace(/\s+/g, " ").trim().slice(0, 500) || composedContent.slice(0, 500);
-        /** 장기형 고정 — 일시·장소 UI 없음(API placeholder) */
+        const regionFallback =
+          meetRegionText.trim() || currentRegion?.label?.trim() || locationName || "동네";
+        const needsPassword = meetAccessMode === "password_public" || meetAccessMode === "password_hidden";
+        const messengerDiscoverable = meetAccessMode === "free_public" || meetAccessMode === "password_public";
+        /** 장기형 고정 — Philife 모임 피드·커뮤니티 메신저 오픈그룹 */
         payload.meeting = {
           tenure_type: "long",
-          location_text: "",
+          location_text: regionFallback,
           meeting_date: null,
           max_members: maxMembers,
           description: shortDesc,
-          entry_policy: meetEntryPolicy,
-          ...(meetEntryPolicy === "password" ? { meeting_password: meetPassword.trim() } : {}),
-          allow_waitlist: allowWaitlist,
-          allow_member_invite: allowMemberInvite,
+          entry_policy: needsPassword ? "password" : "open",
+          meeting_password: needsPassword ? meetPassword.trim() : undefined,
+          messenger_discoverable: messengerDiscoverable,
+          allow_waitlist: false,
+          allow_member_invite: false,
           welcome_message: null,
-          allow_feed: meetAllowFeed,
-          allow_album_upload: meetAllowAlbumUpload,
+          allow_feed: true,
+          allow_album_upload: true,
+          cover_image_url: imageUrls[0] ?? null,
+          region_text: regionFallback,
+          category_text: "모임",
+          join_questions: [],
+          use_notices: true,
+          platform_approval_required: false,
         };
       }
       const res = await fetch(philifeNeighborhoodPostsUrl(), {
@@ -287,9 +295,15 @@ export function PhilifeNeighborhoodWriteForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      let j: { ok?: boolean; id?: string; error?: string };
+      let j: { ok?: boolean; id?: string; error?: string; messengerRoomId?: string; meetingId?: string | null };
       try {
-        j = (await res.json()) as { ok?: boolean; id?: string; error?: string };
+        j = (await res.json()) as {
+          ok?: boolean;
+          id?: string;
+          error?: string;
+          messengerRoomId?: string;
+          meetingId?: string | null;
+        };
       } catch {
         setErr("서버 응답을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
         return;
@@ -298,8 +312,13 @@ export function PhilifeNeighborhoodWriteForm({
         setErr(j.error ?? "등록에 실패했습니다.");
         return;
       }
-      /** 본문 등록 직후 상세로 이동 — 광고 API는 체감 대기 없이 백그라운드 (실패해도 글은 이미 생성됨) */
-      router.replace(philifeAppPaths.post(j.id));
+      /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
+      if (category === "meetup") {
+        const mid = typeof j.meetingId === "string" && j.meetingId.trim() ? j.meetingId.trim() : null;
+        router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
+      } else {
+        router.replace(philifeAppPaths.post(j.id));
+      }
       if (category !== "meetup" && promoteAdEnabled && selectedAdProduct) {
         void (async () => {
           try {
@@ -399,6 +418,119 @@ export function PhilifeNeighborhoodWriteForm({
                 />
               </div>
 
+              <div>
+                <label className={MEETUP_SECTION_LABEL_CLASS}>대표 이미지</label>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple={false}
+                  className="hidden"
+                  onChange={(e) => void onPickFiles(e)}
+                />
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                  className="mt-[4pt] rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+                >
+                  {uploading ? "업로드 중…" : imageUrls[0] ? "대표 이미지 변경" : "대표 이미지 추가"}
+                </button>
+                {imageUrls[0] ? (
+                  <div className="mt-[4pt] relative h-36 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                    <img src={imageUrls[0]} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-2 rounded-ui-rect bg-black/50 px-2 py-1 sam-text-xxs text-white"
+                      onClick={() => setImageUrls([])}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-[4pt] sam-text-helper text-sam-muted">모임 목록과 상세에 노출될 대표 이미지를 선택할 수 있습니다.</p>
+                )}
+              </div>
+
+              <div>
+                <label className={MEETUP_SECTION_LABEL_CLASS}>모임 지역</label>
+                <input
+                  value={meetRegionText}
+                  onChange={(e) => setMeetRegionText(e.target.value)}
+                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
+                  placeholder="예: 마카티, BGC, 세부"
+                />
+              </div>
+
+              <div>
+                <label className={MEETUP_SECTION_LABEL_CLASS}>모임 채팅 유형</label>
+                <p className="mt-[4pt] sam-text-helper text-sam-muted">
+                  자유·비밀은 메신저 「모임 찾기」에 노출될 수 있어요. 숨김은 링크로 초대한 사람만 찾을 수 있어요.
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        id: "free_public" as const,
+                        title: "자유 방",
+                        desc: "누구나 입장. 목록에 노출.",
+                      },
+                      {
+                        id: "password_public" as const,
+                        title: "비밀 방",
+                        desc: "비밀번호로 입장. 목록에 노출.",
+                      },
+                      {
+                        id: "free_hidden" as const,
+                        title: "숨김 (자유)",
+                        desc: "목록 비노출. 링크로 입장.",
+                      },
+                      {
+                        id: "password_hidden" as const,
+                        title: "숨김 비밀",
+                        desc: "목록 비노출. 링크 + 비밀번호.",
+                      },
+                    ] as const
+                  ).map((opt) => {
+                    const on = meetAccessMode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setMeetAccessMode(opt.id);
+                          if (opt.id === "free_public" || opt.id === "free_hidden") setMeetPassword("");
+                        }}
+                        className={`rounded-ui-rect border px-3 py-3 text-left transition ${
+                          on
+                            ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600/30"
+                            : "border-sam-border bg-sam-app hover:bg-sam-surface-muted"
+                        }`}
+                      >
+                        <p className="sam-text-body-secondary font-semibold text-sam-fg">{opt.title}</p>
+                        <p className="mt-1 sam-text-helper leading-snug text-sam-muted">{opt.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                {meetAccessMode === "password_public" || meetAccessMode === "password_hidden" ? (
+                  <div className="mt-3">
+                    <label className={MEETUP_SECTION_LABEL_CLASS} htmlFor="meet-room-password">
+                      입장 비밀번호
+                    </label>
+                    <input
+                      id="meet-room-password"
+                      type="password"
+                      value={meetPassword}
+                      onChange={(e) => setMeetPassword(e.target.value)}
+                      autoComplete="new-password"
+                      className="mt-[4pt] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body"
+                      placeholder="4자 이상 입력"
+                    />
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex w-full min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto sm:gap-x-3">
                 <label className={`${MEETUP_SECTION_LABEL_BASE} shrink-0 whitespace-nowrap`} htmlFor="meet-max-members">
                   최대 인원
@@ -426,88 +558,9 @@ export function PhilifeNeighborhoodWriteForm({
                 />
               </div>
 
-              <div className="space-y-[4pt]" role="group" aria-labelledby="meetup-entry-heading">
-                <p id="meetup-entry-heading" className={MEETUP_SECTION_LABEL_CLASS}>
-                  참여 설정
-                </p>
-                <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-[4pt] rounded-ui-rect border border-sam-border-soft bg-sam-app/50 p-3">
-                  {(
-                    [
-                      { policy: "open" as const, label: "즉시 참여" },
-                      { policy: "password" as const, label: "비밀번호 참여" },
-                    ] as const
-                  ).map(({ policy, label }) => (
-                    <label
-                      key={policy}
-                      className="flex min-h-[44px] cursor-pointer items-center gap-[4pt] rounded-ui-rect px-2 py-1.5 sam-text-body-secondary font-normal text-sam-fg hover:bg-sam-surface/80"
-                    >
-                      <input
-                        type="radio"
-                        name="meet_entry"
-                        checked={meetEntryPolicy === policy}
-                        onChange={() => {
-                          setMeetEntryPolicy(policy);
-                          if (policy !== "password") setMeetPassword("");
-                        }}
-                        className="h-4 w-4 shrink-0 border-sam-border text-emerald-600 focus:ring-emerald-500"
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-                {meetEntryPolicy === "password" ? (
-                  <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 p-3">
-                    <label className={MEETUP_SECTION_LABEL_CLASS}>입장 비밀번호</label>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={meetPassword}
-                      onChange={(e) => setMeetPassword(e.target.value)}
-                      className="mt-[4pt] w-full rounded-ui-rect border border-amber-200 px-3 py-2 sam-text-body"
-                      placeholder="4자 이상"
-                    />
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-[4pt] rounded-ui-rect border border-sam-border-soft bg-sam-app/80 p-3 sam-text-body-secondary">
-                <p className={MEETUP_SECTION_LABEL_CLASS}>추가 옵션</p>
-                  <label className="flex cursor-pointer items-center gap-[4pt]">
-                    <input
-                      type="checkbox"
-                      checked={allowWaitlist}
-                      onChange={(e) => setAllowWaitlist(e.target.checked)}
-                      className="h-4 w-4 rounded-ui-rect border-sam-border text-emerald-600"
-                    />
-                    정원 초과 시 대기 허용
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-[4pt]">
-                    <input
-                      type="checkbox"
-                      checked={allowMemberInvite}
-                      onChange={(e) => setAllowMemberInvite(e.target.checked)}
-                      className="h-4 w-4 rounded-ui-rect border-sam-border text-emerald-600"
-                    />
-                    멤버 초대 허용
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-[4pt]">
-                    <input
-                      type="checkbox"
-                      checked={meetAllowFeed}
-                      onChange={(e) => setMeetAllowFeed(e.target.checked)}
-                      className="h-4 w-4 rounded-ui-rect border-sam-border text-emerald-600"
-                    />
-                    피드 글 허용
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-[4pt]">
-                    <input
-                      type="checkbox"
-                      checked={meetAllowAlbumUpload}
-                      onChange={(e) => setMeetAllowAlbumUpload(e.target.checked)}
-                      className="h-4 w-4 rounded-ui-rect border-sam-border text-emerald-600"
-                    />
-                    앨범 업로드 허용
-                  </label>
+              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/60 px-4 py-3 sam-text-body-secondary text-sam-muted">
+                Philife 「모임」 피드에 올라가고, 모임 채팅은 커뮤니티 메신저 오픈그룹으로 연결됩니다. 다른 회원은 모임
+                카드·초대 링크로 들어온 뒤, 비밀·숨김 비밀은 채팅 입장 시 비밀번호를 입력합니다.
               </div>
             </>
           ) : (

@@ -79,8 +79,8 @@ export function MessengerNewConversationSheet({
             }}
           />
           <SheetActionButton
-            label="오픈채팅 찾기"
-            helper="공개방 탐색·입장."
+            label="모임 찾기"
+            helper="커뮤니티 모임 탐색·참여."
             meta="4"
             onClick={() => {
               onClose();

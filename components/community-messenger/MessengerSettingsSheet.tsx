@@ -40,7 +40,7 @@ export type MessengerSettingsSheetProps = {
 };
 
 /**
- * 메신저 설정 — 알림 / 통화·기기 / 친구 / 채팅 / 오픈채팅 다섯 블록만 유지.
+ * 메신저 설정 — 알림 / 통화·기기 / 친구 / 채팅 / 모임 다섯 블록만 유지.
  */
 export function MessengerSettingsSheet({
   onClose,
@@ -241,7 +241,7 @@ export function MessengerSettingsSheet({
             <MessengerSettingsBlock title="채팅">
               <SettingsToggleRow
                 title="입장 전 정보 확인"
-                description="자유 입장 오픈채팅도 먼저 확인"
+                description="모임 채팅도 입장 전 정보를 먼저 확인"
                 checked={localSettings.groupJoinPreviewEnabled}
                 onChange={(next) => updateLocalSetting("groupJoinPreviewEnabled", next)}
               />
@@ -281,10 +281,10 @@ export function MessengerSettingsSheet({
               </div>
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title="오픈채팅">
+            <MessengerSettingsBlock title="모임">
               <SettingsActionRow
-                title="오픈채팅 탐색"
-                description="공개방 목록 열기"
+                title="모임 찾기"
+                description="참여 가능한 모임 목록 열기"
                 actionLabel="열기"
                 onClick={onOpenOpenChatDiscovery}
               />

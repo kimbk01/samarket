@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getMeetingDetail } from "@/lib/neighborhood/queries";
 import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
+import { updateMeetingMessengerRoomInfo } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const { data: meeting } = await sb
     .from("meetings")
-    .select("id, created_by, host_user_id, password_hash")
+    .select("id, created_by, host_user_id, password_hash, community_messenger_room_id")
     .eq("id", id)
     .maybeSingle();
   const m = meeting as {
@@ -69,6 +70,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     created_by?: string | null;
     host_user_id?: string | null;
     password_hash?: string | null;
+    community_messenger_room_id?: string | null;
   } | null;
   if (!m?.id) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
 
@@ -111,6 +113,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
   const { error } = await sb.from("meetings").update(patch).eq("id", id);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  await updateMeetingMessengerRoomInfo({
+    roomId: m.community_messenger_room_id,
+    title: body.title,
+    summary: body.description,
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getNeighborhoodDevSampleMeeting } from "@/lib/neighborhood/dev-sample-data";
+import { removeMeetingMessengerParticipant } from "@/lib/community-messenger/meeting-chat-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +46,16 @@ export async function POST(_req: Request, ctx: Ctx) {
     .eq("meeting_id", id)
     .eq("user_id", auth.userId);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+  const { data: meeting } = await sb
+    .from("meetings")
+    .select("community_messenger_room_id")
+    .eq("id", id)
+    .maybeSingle();
+  await removeMeetingMessengerParticipant({
+    roomId: (meeting as { community_messenger_room_id?: string | null } | null)?.community_messenger_room_id,
+    userId: auth.userId,
+  });
 
   return NextResponse.json({ ok: true });
 }

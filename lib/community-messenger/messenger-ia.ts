@@ -1,12 +1,12 @@
 /**
- * 메신저 1차 정보 구조(IA): 친구 / 채팅 / 오픈채팅 / 보관함.
+ * 메신저 1차 정보 구조(IA): 친구 / 채팅 / 모임 / 보관함.
  * 백엔드 도메인 변경 없이 URL·UI 상태만 정리한다.
  */
 
 export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive";
 
-/** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). */
-export type MessengerChatListContext = "default" | "archive";
+/** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). `open_chat` 은 모임 탭 전용. */
+export type MessengerChatListContext = "default" | "archive" | "open_chat";
 
 export type MessengerArchiveSection =
   | "hidden_friends"
@@ -209,7 +209,7 @@ export function messengerSectionLabel(section: MessengerMainSection): string {
     case "chats":
       return "채팅";
     case "open_chat":
-      return "오픈채팅";
+      return "모임";
     case "archive":
       return "보관함";
     default:

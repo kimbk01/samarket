@@ -1,6 +1,8 @@
+import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import type { MessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
-export type MessengerSwipeListContext = "default" | "archive";
+/** @deprecated `MessengerChatListContext` 사용 권장 */
+export type MessengerSwipeListContext = MessengerChatListContext;
 
 export type MessengerSwipeActionKind = "archive" | "read" | "leave";
 
@@ -11,14 +13,21 @@ export type MessengerSwipeActionDef = {
 };
 
 /**
- * 채팅 목록 스와이프 3종: 보관 · 읽음 · 나가기 (카카오톡 스타일).
+ * 채팅 목록 스와이프: 기본 3종(보관·읽음·나가기), 모임 탭은 카카오 오픈채팅형 2종(읽음·나가기).
  * `roomType`별로 나가기 비활성 등은 여기서만 결정한다.
  */
 export function getSwipeActions(input: {
   policyType: MessengerPolicyRoomType;
-  listContext: MessengerSwipeListContext;
+  listContext: MessengerChatListContext;
 }): MessengerSwipeActionDef[] {
-  const { policyType, listContext } = input;
+  void input.policyType;
+  const { listContext } = input;
+  if (listContext === "open_chat") {
+    return [
+      { kind: "read", label: "읽음", disabled: false },
+      { kind: "leave", label: "나가기", disabled: false },
+    ];
+  }
   const archiveLabel = listContext === "archive" ? "복원" : "보관";
   return [
     { kind: "archive", label: archiveLabel, disabled: false },

@@ -13,6 +13,7 @@ export type MessengerRoomPhase2HeaderViewModel = Pick<
   | "roomUnavailable"
   | "outgoingDialLocked"
   | "setActiveSheet"
+  | "setRoomSearchQuery"
   | "startManagedDirectCall"
 >;
 

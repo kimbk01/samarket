@@ -173,7 +173,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "공동 운영자 지정 실패");
+      else setErr(j.error ?? "운영진 지정 실패");
     } finally {
       setBusy(false);
     }
@@ -191,14 +191,14 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "공동 운영자 해제 실패");
+      else setErr(j.error ?? "운영진 해제 실패");
     } finally {
       setBusy(false);
     }
   };
 
   const onCreateNotice = async () => {
-    if (!isHost) return;
+    if (!canManage) return;
     const title = noticeTitle.trim();
     const body = noticeBody.trim();
     if (!title && !body) {
@@ -226,7 +226,7 @@ export function MeetingHostControls({
   };
 
   const onDeleteNotice = async (noticeId: string) => {
-    if (!isHost) return;
+    if (!canManage) return;
     if (!window.confirm("이 공지를 삭제할까요?")) return;
     setBusy(true);
     setErr("");
@@ -256,7 +256,7 @@ export function MeetingHostControls({
   };
 
   const onSaveNoticeEdit = async () => {
-    if (!isHost || !editingNoticeId) return;
+    if (!canManage || !editingNoticeId) return;
     if (!editingNoticeTitle.trim() && !editingNoticeBody.trim()) {
       setErr("공지 제목 또는 내용을 입력해 주세요.");
       return;
@@ -314,7 +314,7 @@ export function MeetingHostControls({
   };
 
   const onInvite = async (forcedUserId?: string) => {
-    if (!isHost) return;
+    if (!canManage) return;
     const userId = String(forcedUserId ?? inviteUserId).trim();
     if (!userId) {
       setErr("초대할 사용자 ID를 입력해 주세요.");
@@ -401,7 +401,7 @@ export function MeetingHostControls({
 
   return (
     <div className="space-y-3 rounded-ui-rect border border-amber-200 bg-amber-50/80 p-3">
-      <p className="sam-text-body-secondary font-semibold text-amber-900">개설자 관리</p>
+      <p className="sam-text-body-secondary font-semibold text-amber-900">모임 관리</p>
       {isHost ? (
         <button
           type="button"
@@ -453,7 +453,7 @@ export function MeetingHostControls({
             </button>
           </>
         ) : (
-          <p className="sam-text-helper text-sam-muted">공동 운영자는 초대와 승인, 공지 관리만 할 수 있습니다.</p>
+          <p className="sam-text-helper text-sam-muted">운영진은 초대, 가입 승인, 공지 관리만 할 수 있습니다.</p>
         )}
         {entryPolicy === "invite_only" && canManage ? (
           <div
@@ -661,9 +661,9 @@ export function MeetingHostControls({
                   <div className="min-w-0">
                     <p className="truncate font-medium text-sam-fg">{m.label}</p>
                     {m.user_id === createdBy ? (
-                      <p className="sam-text-xxs text-sam-muted">개설자</p>
+                      <p className="sam-text-xxs text-sam-muted">모임장</p>
                     ) : m.role === "co_host" ? (
-                      <p className="sam-text-xxs text-amber-700">공동 운영자</p>
+                      <p className="sam-text-xxs text-amber-700">운영진</p>
                     ) : null}
                   </div>
                   <label className="flex shrink-0 items-center gap-2 sam-text-helper text-sam-muted">
@@ -698,7 +698,7 @@ export function MeetingHostControls({
                 <li key={m.user_id} className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sam-fg">{m.label}</p>
-                    {m.role === "co_host" ? <p className="sam-text-xxs text-amber-700">공동 운영자</p> : null}
+                    {m.role === "co_host" ? <p className="sam-text-xxs text-amber-700">운영진</p> : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                   {m.role === "co_host" ? (
@@ -708,7 +708,7 @@ export function MeetingHostControls({
                       onClick={() => void onDemoteCoHost(m.user_id)}
                       className="text-amber-800 underline"
                     >
-                      운영자 해제
+                      운영진 해제
                     </button>
                   ) : (
                     <button
@@ -717,7 +717,7 @@ export function MeetingHostControls({
                       onClick={() => void onPromoteCoHost(m.user_id)}
                       className="text-amber-800 underline"
                     >
-                      공동 운영자
+                      운영진 지정
                     </button>
                   )}
                   <button
@@ -734,7 +734,7 @@ export function MeetingHostControls({
                     onClick={() => void onBan(m.user_id)}
                     className="text-red-900 underline"
                   >
-                    차단
+                    재참여 차단
                   </button>
                   </div>
                 </li>

@@ -54,10 +54,15 @@ export type NeighborhoodMeetingDetailDTO = {
   notice_count: number;
   last_notice_at: string | null;
   chat_room_id: string | null;
+  community_messenger_room_id?: string | null;
   /** 모임장이 설정한 환영 메시지 */
   welcome_message?: string | null;
   /** 대표 이미지 URL */
   cover_image_url?: string | null;
+  region_text?: string | null;
+  category_text?: string | null;
+  platform_approval_required?: boolean;
+  platform_approval_status?: "pending_approval" | "approved" | "rejected" | null;
   /** 피드 허용 여부 */
   allow_feed?: boolean;
   /** 앨범 업로드 허용 여부 */
@@ -99,6 +104,15 @@ export type NeighborhoodMeetingNoticeDTO = {
   created_at: string;
   updated_at: string;
   author_user_id: string;
+};
+
+export type MeetingMemberListItemDTO = {
+  userId: string;
+  name: string;
+  role: "host" | "co_host" | "member";
+  status: "joined" | "pending" | "left" | "kicked" | "banned" | "rejected";
+  joinedAt: string | null;
+  requestMessage?: string | null;
 };
 
 export type NeighborhoodMeetingEventDTO = {

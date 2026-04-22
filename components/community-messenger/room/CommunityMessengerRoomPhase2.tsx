@@ -80,6 +80,7 @@ function CommunityMessengerRoomClientPhase2Main({
       roomUnavailable: view.roomUnavailable,
       outgoingDialLocked: view.outgoingDialLocked,
       setActiveSheet: view.setActiveSheet,
+      setRoomSearchQuery: view.setRoomSearchQuery,
       startManagedDirectCall: view.startManagedDirectCall,
     }),
     [
@@ -91,6 +92,7 @@ function CommunityMessengerRoomClientPhase2Main({
       view.roomUnavailable,
       view.outgoingDialLocked,
       view.setActiveSheet,
+      view.setRoomSearchQuery,
       view.startManagedDirectCall,
     ]
   );

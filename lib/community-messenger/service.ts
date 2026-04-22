@@ -3212,9 +3212,42 @@ export async function getCommunityMessengerBootstrap(
     discState.byRoomId,
     profileById
   );
+  const meetingMetaByRoomId = new Map<
+    string,
+    { id: string; regionText: string | null; categoryText: string | null; platformApprovalStatus: string | null }
+  >();
+  const discoverableRoomIds = dedupeIds(discSummaries.map((summary) => summary.id));
+  if (discoverableRoomIds.length > 0) {
+    const sbMeet = getSupabaseOrNull();
+    if (sbMeet) {
+      const { data: meetingRows } = await (sbMeet as any)
+        .from("meetings")
+        .select("id, community_messenger_room_id, region_text, category_text, platform_approval_status")
+        .in("community_messenger_room_id", discoverableRoomIds);
+      for (const row of (meetingRows ?? []) as Array<{
+        id?: unknown;
+        community_messenger_room_id?: unknown;
+        region_text?: unknown;
+        category_text?: unknown;
+        platform_approval_status?: unknown;
+      }>) {
+        const roomId = trimText(row.community_messenger_room_id);
+        const meetingId = trimText(row.id);
+        if (!roomId || !meetingId) continue;
+        meetingMetaByRoomId.set(roomId, {
+          id: meetingId,
+          regionText: trimText(row.region_text) || null,
+          categoryText: trimText(row.category_text) || null,
+          platformApprovalStatus: trimText(row.platform_approval_status) || null,
+        });
+      }
+    }
+  }
   const discoverableGroups = discSummaries
     .map((summary) => {
       if (summary.roomType !== "open_group") return null;
+      const meetingMeta = meetingMetaByRoomId.get(summary.id);
+      if (meetingMeta?.platformApprovalStatus === "pending_approval") return null;
       return {
         id: summary.id,
         roomType: "open_group" as const,
@@ -3233,6 +3266,10 @@ export async function getCommunityMessengerBootstrap(
         lastMessage: summary.lastMessage,
         lastMessageAt: summary.lastMessageAt,
         isJoined: discState.joinedRoomIds.has(summary.id),
+        meetingId: meetingMeta?.id ?? null,
+        regionText: meetingMeta?.regionText ?? null,
+        categoryText: meetingMeta?.categoryText ?? null,
+        platformApprovalStatus: meetingMeta?.platformApprovalStatus ?? null,
       };
     })
     .filter(Boolean) as CommunityMessengerDiscoverableGroupSummary[];
@@ -4693,7 +4730,9 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
   if (!fallback.ok) return fallback;
   const dev = getDevState();
   const room = dev.rooms.find((item) => item.id === roomId);
-  if (!room || room.roomType !== "private_group") return { ok: false, error: "not_group_room" };
+  if (!room || (room.roomType !== "private_group" && room.roomType !== "open_group")) {
+    return { ok: false, error: "not_group_room" };
+  }
   const me = dev.participants.find((item) => item.roomId === roomId && item.userId === input.userId);
   if (!me) return { ok: false, error: "forbidden" };
   const canEdit = me.role === "owner" || (me.role === "admin" && room.allowAdminEditNotice !== false);

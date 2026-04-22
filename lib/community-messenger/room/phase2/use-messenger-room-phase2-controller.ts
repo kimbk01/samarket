@@ -529,15 +529,18 @@ export function useMessengerRoomPhase2Controller() {
   );
 
   useEffect(() => {
-    if (!snapshot || !isPrivateGroupRoom) return;
-    setPrivateGroupNoticeDraft(snapshot.room.noticeText ?? "");
+    if (!snapshot) return;
+    if (isPrivateGroupRoom || isOpenGroupRoom) {
+      setPrivateGroupNoticeDraft(snapshot.room.noticeText ?? "");
+    }
+    if (!isPrivateGroupRoom) return;
     setGroupAllowMemberInvite(snapshot.room.allowMemberInvite !== false);
     setGroupAllowAdminInvite(snapshot.room.allowAdminInvite !== false);
     setGroupAllowAdminKick(snapshot.room.allowAdminKick !== false);
     setGroupAllowAdminEditNotice(snapshot.room.allowAdminEditNotice !== false);
     setGroupAllowMemberUpload(snapshot.room.allowMemberUpload !== false);
     setGroupAllowMemberCall(snapshot.room.allowMemberCall !== false);
-  }, [isPrivateGroupRoom, snapshot]);
+  }, [isOpenGroupRoom, isPrivateGroupRoom, snapshot]);
 
   useEffect(() => {
     if (!snapshot || !isOpenGroupRoom) return;
@@ -609,11 +612,14 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
-      router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
+      router.replace(
+        isOpenGroupRoom ? SAMARKET_ROUTES.chat.messengerMeetingsHub : SAMARKET_ROUTES.chat.messengerHub,
+        { scroll: false }
+      );
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, streamRoomId, router, t]);
+  }, [getRoomActionErrorMessage, isOpenGroupRoom, streamRoomId, router, t]);
   const openMembersForOwnerTransfer = useCallback(() => {
     if (activeSheet) {
       setActiveSheet("members");
@@ -1294,7 +1300,7 @@ export function useMessengerRoomPhase2Controller() {
   }, [getRoomActionErrorMessage, inviteIds, refresh, streamRoomId]);
 
   const savePrivateGroupNotice = useCallback(async () => {
-    if (!isPrivateGroupRoom) return;
+    if (!isPrivateGroupRoom && !isOpenGroupRoom) return;
     setBusy("group-notice");
     try {
       const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
@@ -1308,10 +1314,11 @@ export function useMessengerRoomPhase2Controller() {
         return;
       }
       await refresh(true);
+      showMessengerSnackbar(isOpenGroupRoom ? "모임 공지를 저장했습니다." : "공지를 저장했습니다.", { variant: "success" });
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, isPrivateGroupRoom, privateGroupNoticeDraft, refresh, streamRoomId]);
+  }, [getRoomActionErrorMessage, isOpenGroupRoom, isPrivateGroupRoom, privateGroupNoticeDraft, refresh, streamRoomId]);
 
   const savePrivateGroupPermissions = useCallback(async () => {
     if (!isPrivateGroupRoom) return;

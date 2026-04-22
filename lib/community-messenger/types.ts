@@ -188,6 +188,10 @@ export type CommunityMessengerDiscoverableGroupSummary = {
   lastMessage: string;
   lastMessageAt: string;
   isJoined: boolean;
+  meetingId?: string | null;
+  regionText?: string | null;
+  categoryText?: string | null;
+  platformApprovalStatus?: string | null;
 };
 
 export type CommunityMessengerMessage = {

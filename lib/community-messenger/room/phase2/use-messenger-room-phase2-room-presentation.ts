@@ -74,8 +74,9 @@ export function useMessengerRoomPhase2RoomPresentation({
       ? t("nav_messenger_identity_alias")
       : t("nav_messenger_identity_real")
     : null;
+  /** 비공개·오픈그룹(모임) 모두 `notice_text` 기준. 오픈그룹 소개는 `summary`·설정 화면에서 다룸. */
   const roomNotice =
-    snapshot?.room.roomType === "private_group"
+    snapshot?.room.roomType === "private_group" || snapshot?.room.roomType === "open_group"
       ? snapshot?.room.noticeText?.trim() ?? ""
       : roomSummaryHoldsOnlyTradeOrDeliveryMeta
         ? ""
@@ -88,7 +89,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     : "";
   const privateGroupNotice = snapshot?.room.noticeText?.trim() ?? "";
   const canEditGroupNotice = Boolean(
-    isPrivateGroupRoom &&
+    (isPrivateGroupRoom || isOpenGroupRoom) &&
       snapshot &&
       (snapshot.myRole === "owner" || (snapshot.myRole === "admin" && snapshot.room.allowAdminEditNotice))
   );
