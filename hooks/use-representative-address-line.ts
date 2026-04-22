@@ -2,10 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import {
-  buildTradePublicLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -24,15 +21,16 @@ function coerceMaster(raw: unknown): UserAddressDTO | null {
 }
 
 /**
- * 대표(master) 주소 한 줄 — `buildTradePublicLine` 기준.
+ * 대표(master) 주소 — 탐색 헤더용 **지역 한 줄**(도로·번지 제외, `buildExplorationRegionSubtitleLine`).
  * 경로 변경·뒤로 가기(popstate) 시 다시 불러와 주소 관리 반영.
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
   const [state, setState] = useState<RepresentativeAddressLineState>({ status: "loading" });
 
-  const load = useCallback(async () => {
-    setState({ status: "loading" });
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setState({ status: "loading" });
     try {
       const res = await fetch("/api/me/address-defaults", {
         credentials: "include",
@@ -43,7 +41,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
         defaults?: { master?: unknown };
       };
       if (!res.ok || !j.ok) {
-        setState({ status: "ready", line: null });
+        if (!silent) setState({ status: "ready", line: null });
         return;
       }
       const raw = j.defaults?.master;
@@ -52,10 +50,10 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
         setState({ status: "ready", line: null });
         return;
       }
-      const s = stripCountryFromAddressDisplayLine(buildTradePublicLine(m), m.countryName).trim();
+      const s = (buildExplorationRegionSubtitleLine(m) ?? "").trim();
       setState({ status: "ready", line: s || null });
     } catch {
-      setState({ status: "ready", line: null });
+      if (!silent) setState({ status: "ready", line: null });
     }
   }, []);
 
@@ -70,7 +68,8 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   }, [load]);
 
   useEffect(() => {
-    const onAddressesUpdated = () => void load();
+    /** 주소 관리 저장 직후 — 로딩 `…` 없이 갱신(깜빡임 방지) */
+    const onAddressesUpdated = () => void load({ silent: true });
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);

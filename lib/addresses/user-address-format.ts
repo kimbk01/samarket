@@ -22,6 +22,65 @@ export function buildTradeLocationPreviewForPublic(a: UserAddressDTO | null | un
   return line || null;
 }
 
+/** `parseFullAddressThroughCityLine` 등에서 앞 구간이 도로·번지로 남은 경우 제거 */
+function stripStreetLikeLeadingCommaSegments(line: string): string {
+  const parts = line.split(",").map((x) => x.trim()).filter(Boolean);
+  if (parts.length <= 1) return line.trim();
+  const isStreetLike = (p: string) => {
+    const t = p.trim();
+    if (/^\d+[\s-]/.test(t)) return true;
+    if (/^\d+\s/.test(t) && /\b(st|street|ave|avenue|rd|blvd|road|hwy|highway|way|drive|dr)\b/i.test(t)) {
+      return true;
+    }
+    if (/\b(st|street|ave|avenue|rd|blvd|road|hwy|highway|way|drive|dr)\b/i.test(t)) return true;
+    return false;
+  };
+  while (parts.length > 1 && isStreetLike(parts[0])) {
+    parts.shift();
+  }
+  return parts.join(", ").trim();
+}
+
+/**
+ * 필라이프·1단 탐색 헤더 등 — **도로·번지 없이** 바랑가이·시·주 등 지역만.
+ * `buildTradePublicLine` 과 달리 `fullAddress`는 말미 구간만 파싱해 쓰며, 상세 주소는 주소 관리에만 둔다.
+ */
+export function buildExplorationRegionSubtitleLine(a: UserAddressDTO | null | undefined): string | null {
+  if (!a) return null;
+
+  const preview = buildTradeLocationPreviewForPublic(a);
+  if (preview?.trim()) {
+    const s = stripCountryFromAddressDisplayLine(preview.trim(), a.countryName).trim();
+    if (s) return s;
+  }
+
+  const fromIds = tradePublicLineFromAppLocationIds(a);
+  if (fromIds?.trim()) {
+    const s = stripCountryFromAddressDisplayLine(fromIds.trim(), a.countryName).trim();
+    if (s) return s;
+  }
+
+  const fa = a.fullAddress?.trim();
+  if (fa && !isDisplayNullish(fa)) {
+    const parsed = parseFullAddressThroughCityLine(fa);
+    if (parsed?.trim()) {
+      const cleaned = stripStreetLikeLeadingCommaSegments(parsed.trim());
+      const s = stripCountryFromAddressDisplayLine(cleaned, a.countryName).trim();
+      if (s) return s;
+    }
+  }
+
+  const tail = [a.barangay, a.district, a.cityMunicipality, a.province].filter(
+    (x) => x?.trim() && !isDisplayNullish(x),
+  ) as string[];
+  if (tail.length) {
+    const s = stripCountryFromAddressDisplayLine(tail.join(", "), a.countryName).trim();
+    if (s) return s;
+  }
+
+  return null;
+}
+
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
   if (!t) return true;

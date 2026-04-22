@@ -225,3 +225,7 @@ export const BOTTOM_NAV_PHILIFE_TAB_LABEL: string =
 
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.labelKey ?? "nav_bottom_community";
+
+/** 배달 탭(`/stores`) 1단 — 하단 탭 라벨과 동기화 */
+export const BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY: MessageKey =
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "stores")?.labelKey ?? "nav_bottom_delivery";

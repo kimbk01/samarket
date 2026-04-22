@@ -16,7 +16,11 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
-import { BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY, BOTTOM_NAV_TRADE_TAB_LABEL_KEY } from "@/lib/main-menu/bottom-nav-config";
+import {
+  BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY,
+  BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
+  BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
+} from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
@@ -81,7 +85,7 @@ function UnifiedTier1Shell({
   );
 }
 
-/** Main tier-1 chrome: one implementation; trade and Philife use `Tier1ExplorationTitleRow` in a fixed h-12 row. */
+/** Main tier-1 chrome: 커뮤니티(`/philife`)·거래 탐색·배달 루트(`/stores`)는 `Tier1ExplorationTitleRow`(지역 한 줄·`/mypage/addresses`). */
 export function RegionBar({
   embedded,
   /** When `AppStickyHeader` already computed rules, pass to avoid duplicate `getMobileTopTier1RuleSet` calls. */
@@ -140,8 +144,8 @@ export function RegionBar({
             <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="overflow-hidden text-foreground">
-              <span className="block truncate sam-text-section-title font-semibold">{t("common_delivery")}</span>
+            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+              <Tier1ExplorationTitleRow segmentTitle={t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY)} />
             </h1>
           </div>
           <StoresRootTier1Right />

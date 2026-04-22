@@ -32,13 +32,13 @@ export const PHILIFE_DETAIL_COMMENTS_WRAP_CLASS =
   "border-t border-sam-border bg-sam-surface pb-4 pt-4";
 
 /**
- * 글쓰기 FAB — 전역 FloatingAddButton 과 동일(원형 56px·좌하단·z-[21]·shadow-sam-elevated).
- * 색만 브랜드 `bg-signature` 로 거래 FAB 와 동일 계열.
+ * 글쓰기 FAB — 56×56 사각(`rounded-ui-rect`)·우하단·z-[21].
+ * 배경은 시그니처 보라와 대비되는 밝은 면, 테두리·아이콘은 시그니처.
  */
 export function philifeFabComposeClass(): string {
   return [
-    "kasama-quick-add fixed z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated",
+    "kasama-quick-add fixed z-[21] flex h-14 w-14 items-center justify-center rounded-ui-rect border-2 border-signature bg-white text-signature shadow-sam-elevated transition active:scale-[0.98] active:opacity-95",
     BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass,
-    BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass,
+    BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass,
   ].join(" ");
 }
