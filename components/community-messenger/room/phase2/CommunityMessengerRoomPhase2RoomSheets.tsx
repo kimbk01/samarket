@@ -47,6 +47,7 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 import { Sticker } from "lucide-react";
 
@@ -56,7 +57,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
     <>
       {vm.activeSheet ? (
         <div
-          className="fixed inset-0 z-20 flex flex-col justify-end bg-black/30"
+          className="fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
           onClick={() => {
             if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
             else vm.dismissRoomSheet();
@@ -68,7 +69,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               vm.activeSheet === "attach-confirm" ||
               vm.activeSheet === "stickers"
                 ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-                : "mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-5"
+                : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
+                    vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
+                  }`
             }`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -237,7 +240,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               />
             ) : null}
 
-            {vm.activeSheet === "menu" ? (
+            {vm.activeSheet === "menu" && !vm.isGroupRoom ? (
+              <CommunityMessengerRoomPhase2OneToOneDotMenu vm={vm} />
+            ) : null}
+            {vm.activeSheet === "menu" && vm.isGroupRoom ? (
               <>
                 <p className="sam-text-body-secondary font-medium text-sam-fg">채팅방 서랍</p>
                 <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.snapshot.room.title}</h2>

@@ -1,28 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  communityMessengerRoomIsGloballyUsable,
-  type CommunityMessengerRoomContextMetaV1,
-} from "@/lib/community-messenger/types";
-import {
-  BackIcon,
-  MoreIcon,
-  VideoCallIcon,
-  VoiceCallIcon,
-} from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { useMemo } from "react";
+import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
-import {
-  normalizeTradeChatCallPolicy,
-  tradeChatCallPolicyAllowsVideo,
-  tradeChatCallPolicyAllowsVoice,
-} from "@/lib/trade/trade-chat-call-policy";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 
 function formatPresenceLine(
@@ -40,8 +25,6 @@ function formatPresenceLine(
 
 export function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2HeaderView();
-  const [confirmKind, setConfirmKind] = useState<null | "voice" | "video">(null);
-  const peerLabel = vm.snapshot.room.title?.trim() || "상대";
   const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
   /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
   const typingPeerCount = useMessengerTypingStore((state) => {
@@ -75,35 +58,6 @@ export function CommunityMessengerRoomPhase2Header() {
     }
     return vm.roomHeaderStatus;
   }, [peerPresence, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
-
-  /** 거래(product_chats) 브리지 1:1 — 구매자만 판매자 글 `trade_chat_call_policy` 범위로 통화 버튼 표시 */
-  const tradeMessengerCallButtons = useMemo(() => {
-    if (vm.isGroupRoom || !communityMessengerRoomIsGloballyUsable(vm.snapshot.room)) {
-      return { showVoice: false, showVideo: false };
-    }
-    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-    const isTradeBridged =
-      ctx?.kind === "trade" && typeof ctx.productChatId === "string" && ctx.productChatId.trim().length > 0;
-    if (!isTradeBridged) {
-      return { showVoice: true, showVideo: true };
-    }
-    const detail = vm.snapshot.tradeChatRoomDetail;
-    const viewer = (vm.snapshot.viewerUserId ?? "").trim();
-    const buyer = (detail?.buyerId ?? "").trim();
-    if (!detail || !viewer || !buyer || viewer !== buyer) {
-      return { showVoice: false, showVideo: false };
-    }
-    const policy = normalizeTradeChatCallPolicy(detail.product?.tradeChatCallPolicy);
-    return {
-      showVoice: tradeChatCallPolicyAllowsVoice(policy),
-      showVideo: tradeChatCallPolicyAllowsVideo(policy),
-    };
-  }, [
-    vm.isGroupRoom,
-    vm.snapshot.room,
-    vm.snapshot.tradeChatRoomDetail,
-    vm.snapshot.viewerUserId,
-  ]);
 
   return (
     <>
@@ -142,28 +96,6 @@ export function CommunityMessengerRoomPhase2Header() {
             <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
           </div>
           <div className="flex shrink-0 items-center gap-0">
-            {tradeMessengerCallButtons.showVoice ? (
-              <button
-                type="button"
-                onClick={() => setConfirmKind("voice")}
-                disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
-                aria-label={vm.t("nav_voice_call_label")}
-              >
-                <VoiceCallIcon className="h-[18px] w-[18px]" />
-              </button>
-            ) : null}
-            {tradeMessengerCallButtons.showVideo ? (
-              <button
-                type="button"
-                onClick={() => setConfirmKind("video")}
-                disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
-                aria-label={vm.t("nav_video_call_label")}
-              >
-                <VideoCallIcon className="h-[18px] w-[18px]" />
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}
@@ -175,20 +107,6 @@ export function CommunityMessengerRoomPhase2Header() {
           </div>
         </div>
       </MessengerHeader>
-      {confirmKind ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={peerLabel}
-          kind={confirmKind}
-          busy={vm.outgoingDialLocked}
-          onCancel={() => setConfirmKind(null)}
-          onConfirm={() => {
-            const kind = confirmKind;
-            if (!kind) return;
-            if (vm.startManagedDirectCall(kind)) setConfirmKind(null);
-          }}
-        />
-      ) : null}
     </>
   );
 }
