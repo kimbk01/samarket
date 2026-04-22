@@ -24,6 +24,7 @@ import { NeighborFollowButton } from "./NeighborFollowButton";
 import { UserBlockButton } from "./UserBlockButton";
 import {
   philifeNeighborhoodPostUrl,
+  philifePostCommentsUrl,
   philifePostLikeUrl,
   philifePostViewUrl,
 } from "@domain/philife/api";
