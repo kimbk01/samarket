@@ -23,23 +23,26 @@ function cacheId(
   locationKey: string,
   category: string,
   neighborOnly: boolean,
-  viewerSig: string
+  viewerSig: string,
+  /** `recommend*` 탭의 `sort` (그 외는 빈 문자열) */
+  sortKey: string
 ): string {
-  return `${locationKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}\u001f${viewerSig}`;
+  return `${locationKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}\u001f${viewerSig}\u001f${sortKey}`;
 }
 
 export function readPhilifeFeedCache(
   locationKey: string,
   category: string,
   neighborOnly: boolean,
-  viewerSig: string
+  viewerSig: string,
+  sortKey = ""
 ): PhilifeFeedCacheSnapshot | null {
   if (typeof window === "undefined" || !locationKey) return null;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const all = JSON.parse(raw) as StoredShape;
-    const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig)];
+    const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)];
     if (!snap?.posts?.length) return null;
     if (typeof snap.savedAt !== "number" || Date.now() - snap.savedAt > MAX_AGE_MS) return null;
     return snap;
@@ -53,13 +56,14 @@ export function writePhilifeFeedCache(
   category: string,
   neighborOnly: boolean,
   viewerSig: string,
-  snapshot: Omit<PhilifeFeedCacheSnapshot, "savedAt">
+  snapshot: Omit<PhilifeFeedCacheSnapshot, "savedAt">,
+  sortKey = ""
 ): void {
   if (typeof window === "undefined" || !locationKey || !snapshot.posts.length) return;
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     const all: StoredShape = raw ? (JSON.parse(raw) as StoredShape) : {};
-    all[cacheId(locationKey, category, neighborOnly, viewerSig)] = {
+    all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)] = {
       ...snapshot,
       savedAt: Date.now(),
     };

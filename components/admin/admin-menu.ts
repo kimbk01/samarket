@@ -33,9 +33,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "posts-management": "admin_menu_posts_management",
   "jobs-management": "admin_menu_jobs_management",
   regions: "admin_menu_regions",
-  "menu-management": "admin_menu_menu_management",
   "menu-trade": "admin_menu_menu_trade",
-  "menu-community": "admin_menu_menu_community",
   "menu-main-bottom-nav": "admin_menu_main_bottom_nav",
   trade: "admin_menu_trade",
   "trade-products": "admin_menu_trade_products",
@@ -184,15 +182,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         status: "done",
       },
       { key: "regions", title: "지역관리", path: "/admin/regions", pendingRoute: true, status: "todo" },
-      {
-        key: "menu-management",
-        title: "메뉴 관리",
-        path: "/admin/menus",
-        children: [
-          { key: "menu-community", title: "메뉴 (커뮤니티)", path: "/admin/menus/philife", status: "done" },
-          { key: "menu-main-bottom-nav", title: "메인 하단 탭", path: "/admin/menus/main-bottom-nav", status: "done" },
-        ],
-      },
+      { key: "menu-main-bottom-nav", title: "메인 하단 탭", path: "/admin/menus/main-bottom-nav", status: "done" },
       {
         key: "trade",
         title: "거래",

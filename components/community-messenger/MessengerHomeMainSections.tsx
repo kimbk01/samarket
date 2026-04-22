@@ -133,7 +133,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     () => [
       { href: "/community-messenger?section=friends" },
       { href: "/community-messenger?section=chats" },
-      { href: "/philife?category=meetup" },
+      { href: "/community-messenger?section=open_chat" },
       { href: "/community-messenger?section=archive" },
     ],
     []

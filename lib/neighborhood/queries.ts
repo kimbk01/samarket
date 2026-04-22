@@ -1,8 +1,10 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { isCommunityCommentPubliclyVisible, isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import type { CommunityFeedSortMode } from "@/lib/community-feed/constants";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
+import { rankByRecommended } from "@/lib/community-feed/feed-ranking";
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import {
   buildPhilifeTopicColorLookup,
@@ -25,6 +27,7 @@ import type {
 } from "@/lib/neighborhood/types";
 import { fetchBlockedAuthorIdsForViewer, fetchNeighborFollowTargetIds } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
+import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
 
 function summarize(text: string, max = 120): string {
   const t = text.replace(/\s+/g, " ").trim();
@@ -100,6 +103,10 @@ export type NeighborhoodFeedPageResult = {
    * 필터로 반환 건수가 줄어도 offset은 이 값만큼 진행해야 페이지 경계에서 중복이 나지 않음.
    */
   dbScannedCount: number;
+  /**
+   * `nextOffset` = 요청 `offset` + `pagingOffsetAdvance` — `recommended` 랭크 모드는 `posts.length`(랭크 공간)를 쓰고, 그 외는 `dbScannedCount`(SQL 범위).
+   */
+  pagingOffsetAdvance: number;
   /** `NODE_ENV === "development"` 일 때만 채움 — 라우트가 응답 헤더로 노출 */
   serverCommunityPerf?: NeighborhoodFeedServerPerfMs;
 };
@@ -120,6 +127,12 @@ export async function listNeighborhoodFeed(options: {
   viewerUserId?: string | null;
   /** true면 로그인 필수 — 관심이웃 + 본인 글만 */
   neighborOnly?: boolean;
+  /**
+   * 글 정렬(기본 `latest`).
+   * - `popular` — `view_count`·`created_at` 내림차순(인기/조회 많은순).
+   * - `recommended` — `feed-ranking` 점수(풀 max 200행) 후 `offset` 으로 페이지 슬라이스; 추천 탭의 `최신순`은 `latest` 를 쓴다.
+   */
+  feedSort?: CommunityFeedSortMode;
   /** 동네 섹션 주제 행 — 스킨·색·라벨 일치. 없으면 서버에서 로드 */
   topics?: CommunityTopicDTO[];
 }): Promise<NeighborhoodFeedPageResult> {
@@ -127,14 +140,14 @@ export async function listNeighborhoodFeed(options: {
   try {
     sb = getSupabaseServer();
   } catch {
-    return { posts: [], hasMore: false, dbScannedCount: 0 };
+    return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
   }
 
   const pageSize = Math.min(Math.max(options.limit ?? 20, 1), 40);
   const offset = Math.min(Math.max(options.offset ?? 0, 0), 500);
   const allLocations = options.allLocations === true;
   const lid = options.locationId?.trim() ?? "";
-  if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0 };
+  if (!allLocations && !lid) return { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
 
   const collectPerf = process.env.NODE_ENV === "development";
   const blockedMetrics = { supabaseSelectCalls: 0 };
@@ -187,8 +200,13 @@ export async function listNeighborhoodFeed(options: {
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
 
   const fetchCount = pageSize + 1;
-  const cat = options.category?.trim().toLowerCase() || null;
   const authorUserId = options.authorUserId?.trim();
+  const sortIn: CommunityFeedSortMode = options.feedSort ?? "latest";
+  const { filterCategory: filterCat, feedSort: effSort } = resolveNeighborhoodListSort(
+    options.category,
+    sortIn,
+    topics
+  );
 
   const FEED_SELECT_FULL =
     "id, user_id, title, summary, category, topic_slug, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_question, is_meetup, meetup_place, is_deleted, is_hidden, status";
@@ -199,36 +217,52 @@ export async function listNeighborhoodFeed(options: {
   const FEED_SELECT_BASE_NO_TOPIC_SLUG =
     "id, user_id, title, summary, category, images, location_id, region_label, view_count, like_count, comment_count, created_at, meetup_date, is_deleted, is_hidden, status";
 
-  const buildFeedQuery = (selectCols: string, useTopicSlugFilter: boolean) => {
-    let qq = sb
-      .from("community_posts")
-      .select(selectCols)
-      .eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false });
+  const buildFeedQuery = (
+    selectCols: string,
+    useTopicSlugFilter: boolean,
+    rangeFrom: number,
+    rangeToInclusive: number
+  ) => {
+    let qq = sb.from("community_posts").select(selectCols).eq("status", COMMUNITY_POST_FEED_STATUS_ACTIVE);
+    if (effSort === "popular") {
+      qq = qq
+        .order("view_count", { ascending: false })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+    } else {
+      /* 추천(랭크) 풀도 최신 기준 200행만 가져온 뒤 메모리에서 `rankByRecommended` — 추가 페이지는 동일 풀을 슬라이스 */
+      qq = qq.order("created_at", { ascending: false }).order("id", { ascending: false });
+    }
     if (!allLocations) {
       qq = qq.eq("location_id", lid).not("location_id", "is", null);
     }
-    if (cat) {
+    if (filterCat) {
       if (useTopicSlugFilter && selectCols.includes("topic_slug")) {
-        if (cat === "meetup") {
+        if (filterCat === "meetup") {
           qq = qq.eq("category", "meetup");
-        } else if (normalizeNeighborhoodCategory(cat)) {
-          qq = qq.or(`category.eq.${cat},topic_slug.eq.${cat}`);
+        } else if (normalizeNeighborhoodCategory(filterCat)) {
+          qq = qq.or(`category.eq.${filterCat},topic_slug.eq.${filterCat}`);
         } else {
-          qq = qq.eq("topic_slug", cat);
+          qq = qq.eq("topic_slug", filterCat);
         }
       } else {
-        qq = qq.eq("category", cat);
+        qq = qq.eq("category", filterCat);
       }
     }
     if (authorUserId) qq = qq.eq("user_id", authorUserId);
-    return qq.range(offset, offset + fetchCount - 1);
+    return qq.range(rangeFrom, rangeToInclusive);
   };
 
-  const runMainSelect = async (selectCols: string, useTopicSlugFilter: boolean) => {
+  const rangeForPage: [number, number] | null = effSort === "recommended" ? [0, 199] : null;
+  const runMainSelect = async (
+    selectCols: string,
+    useTopicSlugFilter: boolean,
+    range: [number, number] | null
+  ) => {
+    const r0 = range?.[0] ?? offset;
+    const r1 = range?.[1] ?? offset + fetchCount - 1;
     const tPrep = performance.now();
-    const q = buildFeedQuery(selectCols, useTopicSlugFilter);
+    const q = buildFeedQuery(selectCols, useTopicSlugFilter, r0, r1);
     mainPrepareMs += performance.now() - tPrep;
     const tDb = performance.now();
     const res = await q;
@@ -239,10 +273,10 @@ export async function listNeighborhoodFeed(options: {
 
   let useTopicSlug = true;
   let effectiveSelectCols = FEED_SELECT_FULL;
-  let { data, error } = await runMainSelect(FEED_SELECT_FULL, true);
+  let { data, error } = await runMainSelect(FEED_SELECT_FULL, true, rangeForPage);
   if (error && isMissingDbColumnError(error, "topic_slug")) {
     useTopicSlug = false;
-    ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG, false));
+    ({ data, error } = await runMainSelect(FEED_SELECT_FULL_NO_TOPIC_SLUG, false, rangeForPage));
     effectiveSelectCols = FEED_SELECT_FULL_NO_TOPIC_SLUG;
   }
   if (
@@ -252,11 +286,11 @@ export async function listNeighborhoodFeed(options: {
       isMissingDbColumnError(error, "meetup_place"))
   ) {
     effectiveSelectCols = useTopicSlug ? FEED_SELECT_BASE : FEED_SELECT_BASE_NO_TOPIC_SLUG;
-    ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug));
+    ({ data, error } = await runMainSelect(effectiveSelectCols, useTopicSlug, rangeForPage));
   }
 
   if (error || !Array.isArray(data)) {
-    const empty: NeighborhoodFeedPageResult = { posts: [], hasMore: false, dbScannedCount: 0 };
+    const empty: NeighborhoodFeedPageResult = { posts: [], hasMore: false, dbScannedCount: 0, pagingOffsetAdvance: 0 };
     if (collectPerf) {
       const maxSocLeg = Math.max(relatedBlockedFilterMs, relatedNeighborFilterMs);
       const relatedOtherSocial = Math.max(0, socialPreflightMs - maxSocLeg);
@@ -294,7 +328,7 @@ export async function listNeighborhoodFeed(options: {
 
   const tSyncA = performance.now();
   const dbScannedCount = data.length;
-  let rows = (data as unknown as Record<string, unknown>[]).filter((r) => {
+  const rowsAfterPolicy = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
     const loc = r.location_id;
     if (!allLocations && (loc == null || String(loc).trim() === "")) return false;
@@ -303,10 +337,19 @@ export async function listNeighborhoodFeed(options: {
     if (neighborOnlySet && !neighborOnlySet.has(uid)) return false;
     return true;
   });
-
+  let rows: Record<string, unknown>[];
   /** DB 창을 꽉 채웠으면 뒤에 행이 더 있을 수 있음(필터로 이번 페이지가 짧아도 다음 offset 필요) */
-  const hasMore = dbScannedCount === fetchCount;
-  rows = rows.slice(0, pageSize);
+  let hasMore: boolean;
+  if (effSort === "recommended") {
+    const poolCap = 200;
+    const rankedAll = rankByRecommended(rowsAfterPolicy, poolCap);
+    const page = rankedAll.slice(offset, offset + pageSize);
+    hasMore = offset + pageSize < rankedAll.length;
+    rows = page;
+  } else {
+    hasMore = dbScannedCount === fetchCount;
+    rows = rowsAfterPolicy.slice(0, pageSize);
+  }
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
   const postIds = rows.map((r) => String(r.id));
@@ -444,17 +487,27 @@ export async function listNeighborhoodFeed(options: {
     const parts = [`status.eq.${COMMUNITY_POST_FEED_STATUS_ACTIVE}`];
     if (allLocations) parts.push("scope=global");
     else parts.push("scope=location_id+not_null");
-    if (cat) {
-      if (cat === "meetup") parts.push("filter=category.eq.meetup");
-      else if (useTopicSlug && normalizeNeighborhoodCategory(cat))
-        parts.push(`filter=or(category.eq.${cat},topic_slug.eq.${cat})`);
-      else if (useTopicSlug) parts.push(`filter=topic_slug.eq.${cat}`);
-      else parts.push(`filter=category.eq.${cat}`);
+    if (filterCat) {
+      if (filterCat === "meetup") parts.push("filter=category.eq.meetup");
+      else if (useTopicSlug && normalizeNeighborhoodCategory(filterCat))
+        parts.push(`filter=or(category.eq.${filterCat},topic_slug.eq.${filterCat})`);
+      else if (useTopicSlug) parts.push(`filter=topic_slug.eq.${filterCat}`);
+      else parts.push(`filter=category.eq.${filterCat}`);
     } else parts.push("filter=none");
     if (authorUserId) parts.push("user_id.eq");
     return parts.join(";");
   })();
-  const main_query_order_summary = `order=created_at.desc,id.desc;range=${offset}-${offset + fetchCount - 1};window=${fetchCount}`;
+  const r0 = rangeForPage?.[0] ?? offset;
+  const r1 = rangeForPage?.[1] ?? offset + fetchCount - 1;
+  const main_query_order_summary = (() => {
+    const orderKey =
+      effSort === "popular"
+        ? "view_count.desc+created_at.desc+id.desc"
+        : effSort === "recommended"
+          ? "pool.200.created_at+rankByRecommended+slice"
+          : "created_at.desc+id.desc";
+    return `order=${orderKey};range=${r0}-${r1};window=${fetchCount};feedSort=${effSort};rankOffset=${effSort === "recommended" ? offset : 0}`;
+  })();
 
   const maxSocialLeg = Math.max(relatedBlockedFilterMs, relatedNeighborFilterMs);
   const relatedOtherSocial = Math.max(0, socialPreflightMs - maxSocialLeg);
@@ -494,7 +547,8 @@ export async function listNeighborhoodFeed(options: {
       }
     : undefined;
 
-  return { posts, hasMore, dbScannedCount, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
+  const pagingOffsetAdvance = effSort === "recommended" ? posts.length : dbScannedCount;
+  return { posts, hasMore, dbScannedCount, pagingOffsetAdvance, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
 }
 
 /** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */

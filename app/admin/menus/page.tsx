@@ -1,6 +1,6 @@
-import { AdminMenusHub } from "@/components/admin/menus/AdminMenusHub";
+import { redirect } from "next/navigation";
 
-/** 메뉴 관리 진입 — 거래 / 커뮤니티·동네생활 / 하단 탭으로 분리 */
-export default function AdminMenusRoute() {
-  return <AdminMenusHub />;
+/** 구 허브 `/admin/menus` — 사이드바「메뉴 관리」제거 후 하단 탭 설정으로 보냄 */
+export default function AdminMenusIndexRedirect() {
+  redirect("/admin/menus/main-bottom-nav");
 }

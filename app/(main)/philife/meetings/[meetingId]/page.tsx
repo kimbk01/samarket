@@ -25,5 +25,5 @@ export default async function PhilifeMeetingRedirectPage({ params }: Props) {
     /* 서비스 키 없음 등 — 아래 폴백 */
   }
 
-  redirect(`/philife?category=meetup&meetingId=${encodeURIComponent(id)}`);
+  redirect(`/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`);
 }

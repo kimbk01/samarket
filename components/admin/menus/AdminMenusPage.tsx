@@ -12,8 +12,6 @@ import { updateCategory } from "@/lib/categories/updateCategory";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
-export type MenuFormType = "trade" | "community";
-
 async function requestPruneOrphanMarketBottomNav(): Promise<void> {
   try {
     await fetch("/api/admin/main-bottom-nav/prune-orphan-market", {
@@ -25,10 +23,8 @@ async function requestPruneOrphanMarketBottomNav(): Promise<void> {
   }
 }
 
-/**
- * 메뉴 관리 — `/admin/menus/trade` | `/admin/menus/philife` 에서 각각 호출
- */
-export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
+/** 메뉴 관리 (거래) — `/admin/menus/trade` */
+export function AdminMenusPage() {
   const {
     list,
     loading,
@@ -42,15 +38,13 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
   } = useCategoryAdmin();
 
   const menuRows = useMemo(
-    () => list.filter((c) => c.type === menuType && c.parent_id == null),
-    [list, menuType]
+    () => list.filter((c) => c.type === "trade" && c.parent_id == null),
+    [list]
   );
 
-  const title = menuType === "trade" ? "메뉴 관리 (거래)" : "메뉴 관리 (커뮤니티)";
+  const title = "메뉴 관리 (거래)";
   const subtitle =
-    menuType === "trade"
-      ? "거래 종류(일반·중고차·부동산·알바·환전 등)를 관리합니다. 항목을 추가하면 기본으로 홈 상단 칩과 플로팅 글쓰기(+ 메뉴) 주제 목록에 함께 들어갑니다. 런처에서만 빼려면 표의 「글쓰기 런처」를 끄거나, 수정 화면에서 「런처에 표시」를 해제하세요. 「주제」로 2행 칩을 만들 수 있습니다."
-      : "커뮤니티·동네생활 메뉴를 관리합니다. 항목을 추가하면 기본으로 플로팅 글쓰기 런처 주제에도 포함됩니다. 목록에서만 빼려면 「글쓰기 런처」를 끄거나 수정에서 「런처에 표시」를 해제하세요.";
+    "거래 종류(일반·중고차·부동산·알바·환전 등)를 관리합니다. 항목을 추가하면 기본으로 홈 상단 칩과 플로팅 글쓰기(+ 메뉴) 주제 목록에 함께 들어갑니다. 런처에서만 빼려면 표의 「글쓰기 런처」를 끄거나, 수정 화면에서 「런처에 표시」를 해제하세요. 「주제」로 2행 칩을 만들 수 있습니다.";
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -61,10 +55,9 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
 
   /** 거래 메뉴 변경 시: 고아 `/market/…` 탭을 DB에서 제거한 뒤 하단 탭 재조회 */
   const syncTradeMenuToStoredBottomNav = useCallback(async () => {
-    if (menuType !== "trade") return;
     await requestPruneOrphanMarketBottomNav();
     notifyMainBottomNavConfigChanged();
-  }, [menuType]);
+  }, []);
 
   const handleSaveEdit = useCallback(
     async (payload: CategoryFormPayload, settings: CategoryFormSettingsPayload) => {
@@ -157,31 +150,18 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
     <div className="space-y-4">
       <AdminPageHeader title={title} />
       <p className="sam-text-body text-sam-muted">{subtitle}</p>
-      {menuType === "trade" ? (
-        <p className="sam-text-body-secondary text-sam-muted">
-          앱 하단 탭에서 경로를 <span className="font-mono sam-text-helper text-sam-fg">/market/…</span> 로 둔 항목은
-          여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
-          <span className="font-mono sam-text-helper"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
-          <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
-            메인 하단 탭 메뉴
-          </Link>
-          에서 직접 조정하세요.
-        </p>
-      ) : null}
-      {menuType === "community" ? (
-        <p className="sam-text-body-secondary text-sam-muted">
-          커뮤니티 <strong className="font-medium text-sam-fg">게시판 목록</strong>(자유게시판 등)은{" "}
-          <Link href="/admin/boards" className="font-medium text-signature hover:underline">
-            게시판 관리
-          </Link>
-          에서 만들고, 여기서는 글쓰기로 연결되는 <strong className="font-medium text-sam-fg">메뉴·카테고리</strong>를 다룹니다.
-        </p>
-      ) : null}
+      <p className="sam-text-body-secondary text-sam-muted">
+        앱 하단 탭에서 경로를 <span className="font-mono sam-text-helper text-sam-fg">/market/…</span> 로 둔 항목은
+        여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
+        <span className="font-mono sam-text-helper"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
+        <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
+          메인 하단 탭 메뉴
+        </Link>
+        에서 직접 조정하세요.
+      </p>
 
       <div className="flex items-center justify-between">
-        <span className="sam-text-body text-sam-muted">
-          {menuType === "trade" ? "거래 종류 항목" : "커뮤니티 메뉴 항목"}
-        </span>
+        <span className="sam-text-body text-sam-muted">거래 종류 항목</span>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
@@ -217,8 +197,8 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       ) : (
         <MenuManagementTable
           items={menuRows}
-          allCategories={menuType === "trade" ? list : undefined}
-          tradeSubtopicsEnabled={menuType === "trade"}
+          allCategories={list}
+          tradeSubtopicsEnabled
           onToggleShowOnMenu={toggleAndRefresh}
           onToggleQuickLauncher={toggleQuickLauncher}
           onEdit={setEditingId}
@@ -232,7 +212,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       {createOpen && (
         <CategoryFormModal
           mode="menu"
-          forceType={menuType}
+          forceType="trade"
           nextSortOrder={nextSortOrder}
           onSave={handleSaveCreate}
           onClose={() => setCreateOpen(false)}
@@ -242,7 +222,7 @@ export function AdminMenusPage({ menuType }: { menuType: MenuFormType }) {
       {editing && (
         <CategoryFormModal
           mode="menu"
-          forceType={menuType}
+          forceType="trade"
           category={editing}
           onSave={handleSaveEdit}
           onDelete={async () => {

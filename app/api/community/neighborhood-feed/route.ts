@@ -8,6 +8,7 @@ import {
   loadPhilifeDefaultSectionTopics,
   peekLastPhilifeTopicsColdMetrics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
+import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -83,6 +84,7 @@ export async function GET(req: NextRequest) {
       hasMore: false,
       nextOffset: null,
       dbPageLength: 0,
+      pagingOffsetAdvance: 0,
     });
   }
 
@@ -96,6 +98,13 @@ export async function GET(req: NextRequest) {
   }
   const offset = Math.min(Math.max(parseInt(offsetRaw, 10) || 0, 0), 500);
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
+  const sortRaw = req.nextUrl.searchParams.get("sort")?.trim() ?? "";
+  const feedSort: ReturnType<typeof normalizeFeedSort> = (() => {
+    if (!category) return "latest";
+    const c = category.toLowerCase();
+    if ((c === "recommend" || c === "recommended") && !sortRaw) return "recommended";
+    return normalizeFeedSort(sortRaw || undefined);
+  })();
 
   const listQueryKey = [
     "community:neighborhood-feed:list",
@@ -107,6 +116,7 @@ export async function GET(req: NextRequest) {
     neighborOnly ? "neighbor-only" : "all-users",
     String(offset),
     String(limit),
+    feedSort,
   ].join(":");
   const listResult = await runSingleFlight(listQueryKey, async () =>
     listNeighborhoodFeed({
@@ -117,19 +127,21 @@ export async function GET(req: NextRequest) {
       limit,
       viewerUserId,
       neighborOnly,
+      feedSort,
       topics,
     })
   );
-  const { posts, hasMore, dbScannedCount, serverCommunityPerf } = listResult;
+  const { posts, hasMore, dbScannedCount, pagingOffsetAdvance, serverCommunityPerf } = listResult;
 
   const body = {
     ok: true as const,
     locationId: globalFeed ? null : locationId,
     posts,
     hasMore,
-    nextOffset: hasMore ? offset + dbScannedCount : null,
-    /** 필터 전 DB 행 수 — 클라 offset 계산용(`posts.length`와 다를 수 있음) */
-    dbPageLength: dbScannedCount,
+    nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
+    /** SQL·랭크 페이지 진행에 쓰인 건수 — 클라이언트 `nextOffset` 은 `pagingOffsetAdvance` 기준 */
+    dbPageLength: pagingOffsetAdvance,
+    pagingOffsetAdvance,
   };
 
   const headers = new Headers();

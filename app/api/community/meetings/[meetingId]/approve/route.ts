@@ -122,7 +122,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     notification_type: "status",
     title: `${String(m?.title ?? "모임")}에 승인되었습니다`,
     body: "채팅·피드·앨범 탭을 이용할 수 있습니다.",
-    link_url: `/philife?category=meetup&meetingId=${encodeURIComponent(id)}`,
+    link_url: `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`,
   });
 
   await ensureMeetingMessengerParticipant({

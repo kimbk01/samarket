@@ -41,12 +41,9 @@ export function useCommunityMessengerHomeNavigation({
       const nextUrl = `/community-messenger?${qs.toString()}`;
       if (typeof window !== "undefined") {
         const cur = `${window.location.pathname}${window.location.search}`;
-        if (cur !== nextUrl) {
-          window.history.replaceState(window.history.state, "", nextUrl);
-        }
-        return;
+        if (cur === nextUrl) return;
       }
-      router.replace(nextUrl, { scroll: false });
+      void router.replace(nextUrl, { scroll: false });
     },
     [router]
   );

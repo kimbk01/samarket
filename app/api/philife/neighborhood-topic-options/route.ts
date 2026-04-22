@@ -4,7 +4,10 @@
  */
 import { NextResponse } from "next/server";
 import {
-
+  getPhilifeShowAllFeedTabServer,
+  getPhilifeShowNeighborOnlyFilterServer,
+} from "@/lib/community-feed/philife-neighborhood-section";
+import {
   buildPhilifeFeedChipsFromTopics,
   buildPhilifeWriteTopicOptionsFromTopics,
   loadPhilifeDefaultSectionTopics,
@@ -13,12 +16,16 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 브라우저·CDN이 짧게 재사용 — 주제 변경은 수초~분 단위로 반영되면 충분 */
-const TOPIC_OPTIONS_CACHE_CONTROL = "public, max-age=30, s-maxage=45, stale-while-revalidate=300";
+/** 짧은 캐시 — 어드민 `clearPhilifeDefaultSectionTopicsCache` 후에도 엣지가 지나치게 오래 잡지 않게 */
+const TOPIC_OPTIONS_CACHE_CONTROL = "public, max-age=15, s-maxage=20, stale-while-revalidate=120";
 
 export async function GET() {
   try {
-    const topics = await loadPhilifeDefaultSectionTopics();
+    const [topics, showAllFeedTab, showNeighborOnlyFilter] = await Promise.all([
+      loadPhilifeDefaultSectionTopics(),
+      getPhilifeShowAllFeedTabServer(),
+      getPhilifeShowNeighborOnlyFilterServer(),
+    ]);
     const feedChips = topics.length > 0 ? buildPhilifeFeedChipsFromTopics(topics) : [];
     const writeTopics = topics.length > 0 ? buildPhilifeWriteTopicOptionsFromTopics(topics) : [];
     return NextResponse.json(
@@ -26,6 +33,8 @@ export async function GET() {
         ok: true,
         feedChips,
         writeTopics,
+        showAllFeedTab,
+        showNeighborOnlyFilter,
         source: topics.length > 0 ? "community_topics" : "community_topics_empty",
       },
       { headers: { "Cache-Control": TOPIC_OPTIONS_CACHE_CONTROL } }
@@ -36,6 +45,8 @@ export async function GET() {
         ok: false,
         feedChips: [],
         writeTopics: [],
+        showAllFeedTab: true,
+        showNeighborOnlyFilter: true,
         source: "error",
         error: (e as Error).message,
       },

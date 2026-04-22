@@ -13,6 +13,7 @@ import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/ph
 import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
+import { parsePostgresBool } from "./parse-postgres-bool";
 
 /** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
 export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
@@ -24,10 +25,10 @@ export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): Com
     color: row.color != null ? String(row.color) : null,
     icon: row.icon != null ? String(row.icon) : null,
     sort_order: Number(row.sort_order ?? 0),
-    is_visible: !!row.is_visible,
-    is_feed_sort: !!row.is_feed_sort,
-    allow_question: !!row.allow_question,
-    allow_meetup: !!row.allow_meetup,
+    is_visible: parsePostgresBool(row.is_visible, false),
+    is_feed_sort: parsePostgresBool(row.is_feed_sort, false),
+    allow_question: parsePostgresBool(row.allow_question, false),
+    allow_meetup: parsePostgresBool(row.allow_meetup, false),
     feed_list_skin: normalizeCommunityFeedListSkin(row.feed_list_skin),
   }));
 }

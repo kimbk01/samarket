@@ -9,8 +9,8 @@ import {
   philifeNeighborhoodPostsUrl,
   philifeUploadImageUrl,
 } from "@domain/philife/api";
-import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
-import { philifeAppPaths } from "@domain/philife/paths";
+import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
+import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
 import {
   neighborhoodLocationKeyFromRegion,
   neighborhoodLocationMetaFromRegion,
@@ -59,6 +59,8 @@ export function PhilifeNeighborhoodWriteForm({
   const { currentRegion } = useRegion();
   const fileRef = useRef<HTMLInputElement>(null);
   const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>([]);
+  /** `writeTopicOptions.length === 0` 이 로딩 중인지·진짜 비어 있는지 구분 */
+  const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
   const [category, setCategory] = useState<string>(() => (initialCategory === "meetup" ? "meetup" : ""));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -98,8 +100,9 @@ export function PhilifeNeighborhoodWriteForm({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      if (!cancelled) setWriteTopicOptionsLoad("loading");
       try {
-        const j = await fetchPhilifeNeighborhoodTopicOptions();
+        const j = await fetchPhilifeNeighborhoodTopicOptionsForWrite();
         if (cancelled) return;
         if (!j?.ok || !Array.isArray(j.writeTopics)) {
           setWriteTopicOptions([]);
@@ -125,6 +128,8 @@ export function PhilifeNeighborhoodWriteForm({
           setWriteTopicOptions([]);
           setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
         }
+      } finally {
+        if (!cancelled) setWriteTopicOptionsLoad("ready");
       }
     })();
     return () => {
@@ -569,23 +574,49 @@ export function PhilifeNeighborhoodWriteForm({
             <>
               <div>
                 <label className="sam-text-body-secondary font-medium text-sam-fg">카테고리</label>
-                {writeTopicOptions.length === 0 ? (
-                  <p className="mt-[4pt] rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-                    등록된 일반 주제가 없습니다. 어드민 「피드 섹션 관리」에서 동네 피드 섹션을 확인한 뒤, 「피드 주제
-                    관리」에서 같은 섹션으로 일반 주제를 추가해 주세요.
-                  </p>
+                {writeTopicOptionsLoad === "loading" ? (
+                  <p className="mt-[4pt] sam-text-body-secondary text-sam-muted">주제 목록을 불러오는 중…</p>
+                ) : writeTopicOptions.length === 0 ? (
+                  <div className="mt-[4pt] rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-900">
+                    <p>
+                      <strong>일반 게시판</strong>으로 쓸 주제가 없습니다.{" "}
+                      <Link
+                        href={philifeAdminPaths.sections}
+                        className="font-medium text-amber-950 underline decoration-amber-700/40 underline-offset-2"
+                      >
+                        『피드 섹션 관리』
+                      </Link>
+                      에서 동네 섹션이 맞는지 본 뒤,{" "}
+                      <Link
+                        href={philifeAdminPaths.topics}
+                        className="font-medium text-amber-950 underline decoration-amber-700/40 underline-offset-2"
+                      >
+                        『피드 주제 관리』
+                      </Link>
+                      의 <strong>일반 게시판</strong> 탭에서 주제(이름·slug)를 추가·노출해 주세요. 정렬 전용은 제외됩니다.{" "}
+                      <strong>모임 허용(모임 전용)</strong>으로 켜 둔 주제는 이 일반 글 셀렉트(동네 주제)에 뜨지 않습니다. 모임 글은
+                      &nbsp;「모임 만들기」로 작성해 주세요.
+                    </p>
+                  </div>
                 ) : (
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="mt-[4pt] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
-                  >
-                    {writeTopicOptions.map((o) => (
-                      <option key={o.slug} value={o.slug}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <p className="mt-1 max-w-prose leading-snug text-sam-meta sam-text-helper">
+                      표시명·정렬은 어드민 <strong className="text-sam-fg">「피드 주제 관리」</strong>의 일반 주제과 같습니다.
+                      선택한 항목의 <span className="whitespace-nowrap">slug(주제 ID)</span>로 글이 등록·피드에서 주제 탭/필터에 맞게 보입니다.
+                    </p>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="mt-2 w-full appearance-none rounded-[4px] border border-sam-border bg-sam-surface py-2.5 pl-3 pr-9 text-sam-fg sam-text-body [background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23334155%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')][background-position:right_0.5rem_center][background-size:1rem] bg-no-repeat"
+                      aria-label="일반 글 — 게시판 주제(community_topics slug)"
+                    >
+                      {writeTopicOptions.map((o) => (
+                        <option key={o.slug} value={o.slug} title={o.slug}>
+                          {o.name} ({o.slug})
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 )}
               </div>
               <div>
@@ -644,7 +675,7 @@ export function PhilifeNeighborhoodWriteForm({
             </>
           )}
 
-          {category !== "meetup" ? (
+          {category !== "meetup" && writeTopicOptions.length > 0 ? (
             <div className="rounded-ui-rect border border-amber-100 bg-amber-50/50 p-3">
               <label className="flex cursor-pointer items-start gap-3">
                 <input
@@ -777,7 +808,10 @@ export function PhilifeNeighborhoodWriteForm({
           </div>
           <button
             type="submit"
-            disabled={busy}
+            disabled={
+              busy ||
+              (category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
+            }
             className={`relative z-10 w-full rounded-ui-rect py-3.5 sam-text-body-lg font-semibold text-white disabled:opacity-50 ${
               category === "meetup" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-sam-ink hover:bg-sam-surface-dark"
             }`}

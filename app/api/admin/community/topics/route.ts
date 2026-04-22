@@ -5,6 +5,8 @@ import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
+import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
+import { revalidatePath } from "next/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +102,8 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    clearPhilifeDefaultSectionTopicsCache();
+    revalidatePath("/philife", "page");
     return NextResponse.json({ ok: true, topic: data });
   } catch (e) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 503 });

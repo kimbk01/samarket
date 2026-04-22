@@ -21,6 +21,8 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   authorUserId?: string;
   offset?: number;
   limit?: number;
+  /** `community` neighborhood-feed `sort` — `recommend*` 탭의 최신/추천 등 */
+  sort?: "latest" | "popular" | "recommended";
 }): string {
   const p = new URLSearchParams();
   if (input.globalFeed) {
@@ -35,6 +37,7 @@ export function buildPhilifeNeighborhoodFeedClientUrl(input: {
   p.set("limit", String(input.limit ?? NEIGHBORHOOD_FEED_PAGE_SIZE));
   p.set("offset", String(input.offset ?? 0));
   if (input.category) p.set("category", input.category);
+  if (input.sort) p.set("sort", input.sort);
   if (input.neighborOnly) p.set("neighborOnly", "1");
   const aid = input.authorUserId?.trim();
   if (aid) p.set("authorId", aid);

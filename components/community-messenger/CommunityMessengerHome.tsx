@@ -137,7 +137,9 @@ import {
   writeDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
+import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
+import { philifeAppPaths } from "@domain/philife/paths";
 import {
   applyRoomReadEvent,
   seedMessengerRealtimeFromBootstrap,
@@ -172,6 +174,8 @@ export function CommunityMessengerHome({
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
+  const openParam = searchParams.get("open")?.trim() ?? "";
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
   const tRef = useRef(t) as MutableRefObject<(key: string) => string>;
   tRef.current = t as (key: string) => string;
@@ -1281,21 +1285,59 @@ export function CommunityMessengerHome({
     [getMessengerActionErrorMessage, joinOpenGroup, localSettings.groupJoinPreviewEnabled, resetJoinOpenGroupDraft]
   );
 
-  const philifeMeetingRedirectRef = useRef<string | null>(null);
-  /** 모임 딥링크는 Philife 모임 피드에서만 처리(메신저 `open_chat` 의존 제거). */
+  const messengerMeetingDeeplinkSeq = useRef(0);
+  /** `meetingId` 쿼리(모임 딥링크) — Philife를 거치지 않고 메신저에서 방/게시글로 연결 */
   useEffect(() => {
-    const mid = searchParams.get("meetingId")?.trim() ?? "";
-    if (!mid) {
-      philifeMeetingRedirectRef.current = null;
-      return;
+    if (!meetingIdParam) return;
+    const seq = ++messengerMeetingDeeplinkSeq.current;
+    const ac = new AbortController();
+    const strip = () => {
+      void router.replace("/community-messenger?section=open_chat", { scroll: false });
+    };
+    void (async () => {
+      try {
+        const resolved = await fetchMeetingDeeplink(meetingIdParam, ac.signal);
+        if (seq !== messengerMeetingDeeplinkSeq.current) return;
+        if (resolved.kind === "room") {
+          try {
+            await fetch(
+              `/api/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}/meeting-ensure-participant`,
+              { method: "POST", credentials: "include", signal: ac.signal }
+            );
+          } catch {
+            /* */
+          }
+          void router.replace(`/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`);
+          return;
+        }
+        if (resolved.kind === "post") {
+          void router.replace(philifeAppPaths.post(resolved.postId));
+          return;
+        }
+        strip();
+      } catch {
+        if (seq !== messengerMeetingDeeplinkSeq.current || ac.signal.aborted) return;
+        strip();
+      }
+    })();
+    return () => {
+      ac.abort();
+    };
+  }, [meetingIdParam, router]);
+
+  /** 외부 링크 `open=public-group-find` — 모임 찾기/만들기 시트(Philife meetup 글쓰기 대체 진입) */
+  useEffect(() => {
+    if (openParam !== "public-group-find") return;
+    setMainSection("open_chat");
+    openHomeOverlay("public-group-find");
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("open");
+    if (next.get("section") !== "open_chat") {
+      next.set("section", "open_chat");
     }
-    if (philifeMeetingRedirectRef.current === mid) return;
-    philifeMeetingRedirectRef.current = mid;
-    const qs = new URLSearchParams();
-    qs.set("category", "meetup");
-    qs.set("meetingId", mid);
-    router.replace(`/philife?${qs.toString()}`, { scroll: false });
-  }, [router, searchParams]);
+    const qs = next.toString();
+    void router.replace(qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat", { scroll: false });
+  }, [openParam, openHomeOverlay, router, searchParams, setMainSection]);
 
   const {
     favoriteFriendIds,

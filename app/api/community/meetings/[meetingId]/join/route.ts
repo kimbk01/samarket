@@ -360,7 +360,7 @@ export async function POST(req: Request, ctx: Ctx) {
           const rid = String(meeting.community_messenger_room_id ?? "").trim();
           return rid
             ? `/community-messenger/rooms/${encodeURIComponent(rid)}`
-            : `/philife?category=meetup&meetingId=${encodeURIComponent(id)}`;
+            : `/community-messenger?section=open_chat&meetingId=${encodeURIComponent(id)}`;
         })(),
       });
     }
