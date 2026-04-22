@@ -45,16 +45,18 @@ export function FloatingAddButton() {
     setLauncherOpen(true);
   };
 
+  const isCommunityFab =
+    pathname === "/community" || (typeof pathname === "string" && pathname.startsWith("/community/"));
+
+  const fabButtonClass = isCommunityFab
+    ? `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-ui-rect border-2 border-sam-border bg-white text-sam-fg shadow-sam-elevated transition active:scale-[0.98] active:opacity-95`
+    : `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated`;
+
   return (
     <>
       {!launcherOpen ? (
-        <button
-          type="button"
-          onClick={handleClick}
-          className={`kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated`}
-          aria-label={t("nav_write_aria")}
-        >
-          <PlusIcon />
+        <button type="button" onClick={handleClick} className={fabButtonClass} aria-label={t("nav_write_aria")}>
+          {isCommunityFab ? <PencilIcon /> : <PlusIcon />}
         </button>
       ) : null}
       {launcherOpen ? <WriteLauncher onClose={() => setLauncherOpen(false)} /> : null}
@@ -66,6 +68,19 @@ function PlusIcon() {
   return (
     <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+      />
     </svg>
   );
 }
