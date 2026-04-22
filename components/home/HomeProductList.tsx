@@ -116,11 +116,9 @@ export function HomeProductList({
     }
   }, [cachedInitial, initialHomeTradeFeed]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (cachedInitial) return;
-    queueMicrotask(() => {
-      void load();
-    });
+    void load();
   }, [cachedInitial, load]);
 
   useEffect(() => {

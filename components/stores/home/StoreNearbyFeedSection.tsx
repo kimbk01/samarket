@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -159,7 +159,7 @@ export function StoreNearbyFeedSection({
     [fetchSuffix]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void loadFeed();
   }, [loadFeed]);
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-22T18:40:00.000Z",
-  "currentTarget": "community",
+  "updatedAt": "2026-04-23T19:00:00.000Z",
+  "currentTarget": "messenger",
   "inProgress": null,
   "completed": [
     {
@@ -372,6 +372,188 @@
       "before": "refreshComments/useRefetchOnPageShowRestore가 직접 comments GET 호출",
       "after": "deduped 댓글 GET 유틸로 전환하고 POST 성공 시 invalidate + force refresh",
       "completedAt": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_legacy_root_force_dynamic_redundant",
+      "file": "app/(main)/community/page.tsx",
+      "reason": "레거시 /community → /philife 고정 redirect 전용 페이지에 force-dynamic이 선언돼 세그먼트가 불필요하게 명시 동적 처리됨",
+      "before": "export const dynamic = \"force-dynamic\" + redirect(\"/philife\")",
+      "after": "dynamic export 제거, redirect(\"/philife\")만 유지",
+      "completedAt": "2026-04-23T12:00:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "page.tsx는 redirect 단일 호출이며 cookies/headers/searchParams/await fetch 등 동적 API 미사용 — 세그먼트 설정과 실제 의존성 일치 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요한 force-dynamic 표기) 제거됨. app/(main)/layout.tsx async DB await는 유지되나 본 페이지가 단독으로 동적 세그먼트를 추가 선언하지 않음"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "redirect 대상·import 경로 불변, 린트 에러 없음; 다른 커뮤니티 플로우 파일 미변경"
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "target": "trade_home_product_list_no_seed_fetch_effect_phase",
+      "file": "components/home/HomeProductList.tsx",
+      "reason": "RSC 시드·peek 캐시가 없을 때 초기 목록 load가 useEffect+queueMicrotask로만 스케줄되어 페인트 이후에 네트워크가 붙음",
+      "before": "useEffect에서 cachedInitial 없으면 queueMicrotask(() => void load())",
+      "after": "useLayoutEffect에서 cachedInitial 없으면 즉시 void load()",
+      "completedAt": "2026-04-23T12:30:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "파일 상단 useLayoutEffect(prime 캐시)가 선언되고 그 다음이 초기 load용 useLayoutEffect라 동일 커밋 내 실행 순서가 유지됨; cachedInitial 있으면 여전히 early return"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "병목 유형(페인트 이후에만 초기 fetch 스케줄)이 layout-effect로 이전되어 동일 조건에서 GET 시작 타이밍이 이전보다 앞당겨짐"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "load() 시그니처·runSingleFlight·시드 경로 미변경; 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_detail_initial_fetch_effect_phase",
+      "file": "components/stores/StoreDetailPublic.tsx",
+      "reason": "상세 진입 초기 fetch가 paint 이후 실행됨 — loadDetail 트리거가 useEffect에만 걸려 초기 왕복이 한 틱 늦게 붙음",
+      "before": "useEffect([loadDetail])에서 void loadDetail()",
+      "after": "useLayoutEffect([loadDetail])에서 void loadDetail()",
+      "completedAt": "2026-04-23T13:05:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "loadDetail·fetchStorePublicBySlugDeduped(runSingleFlight) 시그니처 불변; 다른 useEffect(타이머·스크롌 등) 분리 유지"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "초기 상세 fetch 스케줄이 layout phase로 이동해 기존 주문상세·홈목록과 동일 패턴으로 정렬됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "silent 복귀 refetch 훅·에러/로딩 분기 미변경; 린트 무이상"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_product_public_initial_fetch_effect_phase",
+      "file": "components/stores/StoreProductPublic.tsx",
+      "reason": "상품 상세(/stores/.../p/...) 진입 시 loadProductPage 초기 GET이 useEffect에만 걸려 브라우저 페인트 이후 effect 단계에서만 시작됨",
+      "before": "useEffect([loadProductPage])에서 void loadProductPage()",
+      "after": "useLayoutEffect([loadProductPage])에서 void loadProductPage()",
+      "completedAt": "2026-04-23T15:00:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "loadProductPage·fetchStoreProductPublicDeduped(runSingleFlight) 본문 불변; prefetch/interval/gallery 등 다른 useEffect 분리 유지"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "초기 상품+매장 페이로드 fetch 트리거가 layout phase로 이동해 StoreDetailPublic·주문상세와 동일 스케줄 패턴"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "useRefetchOnPageShowRestore silent 경로·loading/notFound 분기 동일; 린트 무이상"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_reviews_section_initial_fetch_effect_phase",
+      "file": "components/stores/StoreReviewsSection.tsx",
+      "reason": "매장 리뷰 섹션 초기 GET(load) 트리거가 useEffect에만 걸려 브라우저 페인트 이후 effect 단계에서만 시작됨",
+      "before": "useEffect([load])에서 void load()",
+      "after": "useLayoutEffect([load])에서 void load()",
+      "completedAt": "2026-04-23T16:00:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "load·fetchStoreReviewsPublicDeduped(runSingleFlight) 본문·storeSlug 의존성 불변"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "초기 리뷰 목록 fetch 스케줄이 layout phase로 이동(동일 파일 내 다른 훅 미변경)"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "useRefetchOnPageShowRestore silent 경로 유지; 린트 무이상"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_home_nearby_feed_initial_fetch_effect_phase",
+      "file": "components/stores/home/StoreNearbyFeedSection.tsx",
+      "reason": "스토어 홈 근처 매장 피드 loadFeed 초기 GET이 useEffect에만 걸려 브라우저 페인트 이후 effect 단계에서만 시작됨",
+      "before": "useEffect([loadFeed])에서 void loadFeed()",
+      "after": "useLayoutEffect([loadFeed])에서 void loadFeed()",
+      "completedAt": "2026-04-23T17:00:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "loadFeed·fetchStoresHomeFeedDeduped(runSingleFlight)·fetchSuffix·모듈 스코프 TTL 캐시 로직 불변"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "초기 home-feed fetch 트리거가 layout phase로 이동(캐시 히트 시 setState만 하는 분기 유지)"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "useRefetchOnPageShowRestore silent 경로 유지; 린트 무이상"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_category_explore_invalid_slug_sync_effect_phase",
+      "file": "components/stores/home/StoreCategoryExploreSection.tsx",
+      "reason": "pickedSlug가 primaries에 없을 때 null로 맞추는 동기화가 useEffect에만 걸려 브라우저 페인트 이후에야 실행됨(이 파일은 fetch 없음)",
+      "before": "useEffect([pickedSlug, primaries])에서 무효 slug 시 setPickedSlug(null)",
+      "after": "useLayoutEffect([pickedSlug, primaries])에서 동일 조건 처리",
+      "completedAt": "2026-04-23T18:00:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "파일 내 네트워크 호출 없음 — listBrowsePrimaryIndustries/listBrowseSubIndustries는 useMemo 동기 경로만 사용"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "무효 pickedSlug 정리가 layout phase로 이동해 activeSlug·탭 UI와의 불일치 노출 구간을 줄임"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "조건·setState 대상만 동일; 린트 무이상"
+        }
+      ]
     }
   ],
   "lockedFiles": [
@@ -414,7 +596,14 @@
     "components/community/CommunityMyHubClient.tsx",
     "lib/community/fetch-community-post-comments-deduped.ts",
     "components/community/CommunityDetail.tsx",
-    "components/community/CommunityPostDetailClient.tsx"
+    "components/community/CommunityPostDetailClient.tsx",
+    "app/(main)/community/page.tsx",
+    "components/home/HomeProductList.tsx",
+    "components/stores/StoreDetailPublic.tsx",
+    "components/stores/StoreProductPublic.tsx",
+    "components/stores/StoreReviewsSection.tsx",
+    "components/stores/home/StoreNearbyFeedSection.tsx",
+    "components/stores/home/StoreCategoryExploreSection.tsx"
   ],
   "history": [
     {
@@ -760,6 +949,78 @@
       "file": "components/community/CommunityPostDetailClient.tsx",
       "reason": "구 상세 댓글 갱신/복귀 경로를 deduped 호출로 전환해 중복 GET을 완화",
       "at": "2026-04-22T18:40:00.000Z"
+    },
+    {
+      "at": "2026-04-23T12:00:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "app/(main)/community/page.tsx",
+      "reason": "레거시 /community 경로의 불필요한 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 trade로 전환"
+    },
+    {
+      "at": "2026-04-23T12:30:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/home/HomeProductList.tsx",
+      "reason": "시드 없을 때 홈 상품 목록 초기 fetch를 useLayoutEffect로 스케줄",
+      "result": "3회 점검 pass, currentTarget을 delivery로 전환"
+    },
+    {
+      "at": "2026-04-23T13:05:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreDetailPublic.tsx",
+      "reason": "매장 상세 초기 loadDetail을 useLayoutEffect로 이동(상세 진입 초기 fetch paint 이후 병목)",
+      "result": "3회 점검 pass"
+    },
+    {
+      "at": "2026-04-23T14:00:00.000Z",
+      "domain": "delivery",
+      "action": "correction",
+      "file": "components/stores/StoreCommerceCartPageClient.tsx, components/stores/delivery/RestaurantOrderCompleteClient.tsx",
+      "reason": "동일 라운드에서 3건 처리했으나 유효 1건(StoreDetailPublic)만 인정 — 나머지 코드 롤백 및 completed/locked 정리",
+      "result": "currentTarget delivery로 복귀; cart·order-complete는 미완(별도 라운드)"
+    },
+    {
+      "at": "2026-04-23T15:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreProductPublic.tsx",
+      "reason": "상품 공개 상세 초기 loadProductPage를 useLayoutEffect로 이동",
+      "result": "3회 점검 pass, completed·lockedFiles에 본 파일만 추가"
+    },
+    {
+      "at": "2026-04-23T16:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreReviewsSection.tsx",
+      "reason": "매장 리뷰 섹션 초기 load를 useLayoutEffect로 이동",
+      "result": "3회 점검 pass, completed·lockedFiles에 본 파일만 추가"
+    },
+    {
+      "at": "2026-04-23T17:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/home/StoreNearbyFeedSection.tsx",
+      "reason": "스토어 홈 근처 매장 피드 초기 loadFeed를 useLayoutEffect로 이동",
+      "result": "3회 점검 pass, completed·lockedFiles에 본 파일만 추가"
+    },
+    {
+      "at": "2026-04-23T18:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/home/StoreCategoryExploreSection.tsx",
+      "reason": "업종 탐색 무효 pickedSlug 동기화를 useLayoutEffect로 이동",
+      "result": "3회 점검 pass, completed·lockedFiles에 본 파일만 추가"
+    },
+    {
+      "at": "2026-04-23T19:00:00.000Z",
+      "domain": "delivery",
+      "action": "track_handoff",
+      "file": "",
+      "reason": "delivery 트랙 이번 라운드 종료(계획된 단건 수정·상태 기록까지 반영)",
+      "result": "currentTarget을 messenger로 전환; completed·lockedFiles 기존 항목 미변경"
     }
   ]
 }

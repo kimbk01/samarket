@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";
@@ -132,7 +132,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
     [slug]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void loadDetail();
   }, [loadDetail]);
 

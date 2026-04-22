@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
@@ -29,7 +29,7 @@ export function StoreCategoryExploreSection({
     return primaries[0]?.slug ?? "restaurant";
   }, [pickedSlug, primaries]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (pickedSlug && !primaries.some((p) => p.slug === pickedSlug)) {
       setPickedSlug(null);
     }

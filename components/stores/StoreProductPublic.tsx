@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
@@ -272,7 +272,7 @@ export function StoreProductPublic({
 
   const reloadProduct = useCallback(() => void loadProductPage({ silent: true }), [loadProductPage]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void loadProductPage();
   }, [loadProductPage]);
 

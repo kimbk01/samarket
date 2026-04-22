@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
@@ -61,7 +61,7 @@ export function StoreReviewsSection({
     [storeSlug]
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     void load();
   }, [load]);
 
