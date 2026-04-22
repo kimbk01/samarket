@@ -18,6 +18,11 @@ export type CommunityMessengerRoomRealtimeMessageRow = {
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+  replyToMessageId?: string | null;
+  replyPreviewText?: string | null;
+  replyPreviewType?: string | null;
+  replySenderLabelSnapshot?: string | null;
+  deletedForEveryoneAt?: string | null;
 };
 
 export type CommunityMessengerRoomRealtimeMessageEvent = {

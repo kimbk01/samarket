@@ -38,6 +38,7 @@ import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerMessage,
+  type CommunityMessengerMessageActionOpenState,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
@@ -196,7 +197,11 @@ export function useMessengerRoomClientPhase1({
   /** canonical·raw 채널 이중 발행 시 동일 페이로드로 catch-up 이 두 번 도는 것 방지 */
   const lastRemoteBumpDedupeRef = useRef<string>("");
   const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
+  const hasMoreOlderMessagesRef = useRef(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const [timelineHighlightMessageId, setTimelineHighlightMessageId] = useState<string | null>(null);
+  const timelineHighlightTimerRef = useRef<number | null>(null);
+  const urlDeepLinkMessageHandledRef = useRef<string>("");
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
     /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
     const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
@@ -319,13 +324,26 @@ export function useMessengerRoomClientPhase1({
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [messageActionItem, setMessageActionItem] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
-    null
-  );
+  const [messageActionItem, setMessageActionItem] = useState<CommunityMessengerMessageActionOpenState | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
     null
   );
-  const [callStubSheet, setCallStubSheet] = useState<CommunityMessengerMessage | null>(null);
+  /** 방 이동 시 답장 대상은 이전 방과 섞이지 않도록 초기화 */
+  useEffect(() => {
+    setReplyToMessage(null);
+  }, [roomId]);
+
+  const replyDraftTargetId = replyToMessage?.id ?? null;
+  /** 대상 메시지가 목록에서 사라지면(삭제·나만 숨김·동기화) 답장 바를 비워 고아 상태 방지 */
+  useEffect(() => {
+    if (!replyDraftTargetId) return;
+    if (loading) return;
+    if (!roomMessages.some((m) => m.id === replyDraftTargetId)) {
+      setReplyToMessage(null);
+    }
+  }, [roomMessages, replyDraftTargetId, loading]);
+
+  const [callStubSheet, setCallStubSheet] = useState<CommunityMessengerMessageActionOpenState | null>(null);
   const [hiddenCallStubIds, setHiddenCallStubIds] = useState<Set<string>>(() => new Set());
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [roomPreferences, setRoomPreferences] = useState(() => readCommunityMessengerLocalSettings());
@@ -664,8 +682,8 @@ export function useMessengerRoomClientPhase1({
       latestMessageId,
       loading ? "loading" : "ready",
       activeSheet ?? "no-sheet",
-      messageActionItem?.id ?? "no-message-action",
-      callStubSheet?.id ?? "no-call-stub",
+      messageActionItem?.item.id ?? "no-message-action",
+      callStubSheet?.item.id ?? "no-call-stub",
       infoSheetFocus ?? "no-info-focus",
       memberActionTarget?.id ?? "no-member-action",
     ].join("|");
@@ -676,8 +694,8 @@ export function useMessengerRoomClientPhase1({
     roomMessages,
     loading,
     activeSheet,
-    messageActionItem?.id,
-    callStubSheet?.id,
+    messageActionItem?.item.id,
+    callStubSheet?.item.id,
     infoSheetFocus,
     memberActionTarget?.id,
   ]);
@@ -749,6 +767,7 @@ export function useMessengerRoomClientPhase1({
     loadingOlderMessages,
     setLoadingOlderMessages,
   });
+  hasMoreOlderMessagesRef.current = hasMoreOlderMessages;
 
   useMessengerRoomLoadOlderMessagesIntersection({
     roomId,
@@ -878,6 +897,10 @@ export function useMessengerRoomClientPhase1({
   const chatVirtualizer = useMessengerRoomChatVirtualizer(displayRoomMessages.length, messagesViewportRef);
 
   useEffect(() => {
+    urlDeepLinkMessageHandledRef.current = "";
+  }, [roomId]);
+
+  useEffect(() => {
     const id = roomId?.trim();
     if (!id) {
       setHiddenCallStubIds(new Set());
@@ -936,6 +959,64 @@ export function useMessengerRoomClientPhase1({
     },
     [dismissRoomSheet]
   );
+
+  const clearTimelineMessageHighlight = useCallback(() => {
+    if (timelineHighlightTimerRef.current != null) {
+      clearTimeout(timelineHighlightTimerRef.current);
+      timelineHighlightTimerRef.current = null;
+    }
+    setTimelineHighlightMessageId(null);
+  }, []);
+
+  const flashTimelineMessageHighlight = useCallback(
+    (messageId: string) => {
+      clearTimelineMessageHighlight();
+      setTimelineHighlightMessageId(messageId);
+      timelineHighlightTimerRef.current = window.setTimeout(() => {
+        setTimelineHighlightMessageId(null);
+        timelineHighlightTimerRef.current = null;
+      }, 1800);
+    },
+    [clearTimelineMessageHighlight]
+  );
+
+  const focusTimelineMessage = useCallback(
+    async (messageId: string) => {
+      const mid = messageId.trim();
+      if (!mid) return;
+      dismissRoomSheet();
+      const messageInList = () => roomMessagesRef.current.some((m) => m.id === mid);
+      let guard = 0;
+      while (!messageInList() && hasMoreOlderMessagesRef.current && !olderMessagesExhaustedRef.current && guard < 80) {
+        guard += 1;
+        await loadOlderMessages();
+        for (let i = 0; i < 30; i += 1) {
+          if (messageInList()) break;
+          await new Promise<void>((r) => {
+            window.setTimeout(r, 16);
+          });
+        }
+      }
+      if (!messageInList()) {
+        showMessengerSnackbar("메시지를 찾을 수 없습니다.", { variant: "error" });
+        return;
+      }
+      scrollToRoomMessage(mid);
+      window.requestAnimationFrame(() => {
+        flashTimelineMessageHighlight(mid);
+      });
+    },
+    [dismissRoomSheet, flashTimelineMessageHighlight, loadOlderMessages, scrollToRoomMessage]
+  );
+
+  const urlDeepLinkMessageId = (searchParams.get("msg") ?? "").trim();
+  useEffect(() => {
+    if (!urlDeepLinkMessageId || loading || !snapshot) return;
+    const key = `${streamRoomId}:${urlDeepLinkMessageId}`;
+    if (urlDeepLinkMessageHandledRef.current === key) return;
+    urlDeepLinkMessageHandledRef.current = key;
+    void focusTimelineMessage(urlDeepLinkMessageId);
+  }, [urlDeepLinkMessageId, loading, snapshot, streamRoomId, focusTimelineMessage]);
 
   const loadFriends = useCallback(async () => {
     if (friendsLoaded) return;
@@ -1044,6 +1125,8 @@ export function useMessengerRoomClientPhase1({
   router,
   scrollMessengerToBottom,
   scrollToRoomMessage,
+  timelineHighlightMessageId,
+  focusTimelineMessage,
   searchParams,
   selectedInviteCandidates,
   sessionIdFromUrl,

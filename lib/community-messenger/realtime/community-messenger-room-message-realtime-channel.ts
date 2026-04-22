@@ -1,5 +1,6 @@
 import type { MutableRefObject } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import {
   cmRtLogMapRowSkipped,
   cmRtLogPostgresPayload,
@@ -16,6 +17,22 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
   const id = typeof row.id === "string" ? row.id : "";
   const roomId = typeof row.room_id === "string" ? row.room_id : "";
   if (!id || !roomId) return null;
+  const metadata = typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : {};
+  const deletedForEveryoneAt =
+    typeof row.deleted_for_everyone_at === "string" && row.deleted_for_everyone_at.trim()
+      ? row.deleted_for_everyone_at
+      : null;
+  const rawContent = typeof row.content === "string" ? row.content : "";
+  const replyToMessageId =
+    typeof row.reply_to_message_id === "string" && row.reply_to_message_id.trim() ? row.reply_to_message_id : null;
+  const replyPreviewText =
+    typeof row.reply_preview_text === "string" && row.reply_preview_text.trim() ? row.reply_preview_text : null;
+  const replyPreviewType =
+    typeof row.reply_preview_type === "string" && row.reply_preview_type.trim() ? row.reply_preview_type : null;
+  const replySenderLabelSnapshot =
+    typeof row.reply_sender_label_snapshot === "string" && row.reply_sender_label_snapshot.trim()
+      ? row.reply_sender_label_snapshot
+      : null;
   return {
     id,
     roomId,
@@ -29,9 +46,18 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
       row.message_type === "sticker"
         ? row.message_type
         : "text",
-    content: typeof row.content === "string" ? row.content : "",
-    metadata: typeof row.metadata === "object" && row.metadata !== null ? (row.metadata as Record<string, unknown>) : {},
+    content: deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : rawContent,
+    metadata,
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date().toISOString(),
+    ...(replyToMessageId
+      ? {
+          replyToMessageId,
+          ...(replyPreviewText != null ? { replyPreviewText } : {}),
+          ...(replyPreviewType != null ? { replyPreviewType } : {}),
+          ...(replySenderLabelSnapshot != null ? { replySenderLabelSnapshot } : {}),
+        }
+      : {}),
+    ...(deletedForEveryoneAt ? { deletedForEveryoneAt } : {}),
   };
 }
 

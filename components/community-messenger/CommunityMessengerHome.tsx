@@ -90,6 +90,8 @@ import {
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
@@ -1488,6 +1490,17 @@ export function CommunityMessengerHome({
     },
     []
   );
+  const removeRoomFromBootstrapState = useCallback((roomId: string) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      const drop = (rooms: CommunityMessengerRoomSummary[]) => rooms.filter((room) => room.id !== roomId);
+      return {
+        ...prev,
+        chats: drop(prev.chats),
+        groups: drop(prev.groups),
+      };
+    });
+  }, []);
   const updateRoomParticipantState = useCallback(
     async (roomId: string, patch: { isPinned?: boolean; isMuted?: boolean }) => {
       const actionKey = `room-settings:${roomId}`;
@@ -1853,24 +1866,35 @@ export function CommunityMessengerHome({
   }, []);
 
   const leaveMessengerRoom = useCallback(
-    async (roomId: string) => {
-      if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
+    async (room: CommunityMessengerRoomSummary) => {
+      const policy = toMessengerPolicyRoomType({
+        roomType: room.roomType,
+        contextMeta: room.contextMeta ?? null,
+      });
+      if (!window.confirm(getSwipeLeaveConfirmMessage(policy))) return;
+      const roomId = room.id;
       setBusyId(`room-leave:${roomId}`);
       setActionError(null);
+      removeRoomFromBootstrapState(roomId);
       try {
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, { method: "POST" });
+        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quiet: false }),
+        });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && json.ok) {
           setRoomActionSheet(null);
           void refresh(true);
         } else {
           setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
+          void refresh(true);
         }
       } finally {
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, refresh, t]
+    [getMessengerActionErrorMessage, refresh, removeRoomFromBootstrapState]
   );
 
   const clearLocalRoomPreview = useCallback((roomId: string) => {
@@ -1927,6 +1951,7 @@ export function CommunityMessengerHome({
         handleMessengerHomeToggleMute={handleMessengerHomeToggleMute}
         handleMessengerHomeMarkRoomRead={handleMessengerHomeMarkRoomRead}
         handleMessengerHomeToggleRoomArchive={handleMessengerHomeToggleRoomArchive}
+        handleMessengerHomeLeaveRoom={leaveMessengerRoom}
         openRoomActions={openRoomActions}
         chatInboxFilter={chatInboxFilter}
         chatKindFilter={chatKindFilter}
@@ -2110,15 +2135,11 @@ export function CommunityMessengerHome({
                 }
               : undefined
           }
-          onLeave={
-            roomActionSheet.item.room.roomType === "private_group" || roomActionSheet.item.room.roomType === "open_group"
-              ? () => {
-                  setRoomActionSheet(null);
-                  setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
-                  void leaveMessengerRoom(roomActionSheet.item.room.id);
-                }
-              : undefined
-          }
+          onLeave={() => {
+            setRoomActionSheet(null);
+            setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
+            void leaveMessengerRoom(roomActionSheet.item.room);
+          }}
           onClearLocalPreview={() => clearLocalRoomPreview(roomActionSheet.item.room.id)}
           onReportRoom={() => void reportCommunityRoom(roomActionSheet.item.room.id)}
         />

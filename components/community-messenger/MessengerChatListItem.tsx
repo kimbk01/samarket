@@ -19,6 +19,8 @@ import {
   getRoomTypeBadgeLabel,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { getSwipeActions, type MessengerSwipeListContext } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
@@ -48,6 +50,8 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  /** 비스와이프(compact) 행에서는 호출되지 않음 — 검색 시트 등에서 생략 가능 */
+  onLeaveRoom?: (room: CommunityMessengerRoomSummary) => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -73,6 +77,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onLeaveRoom: onLeaveRoomProp,
   onOpenRoomActions,
   listContext = "default",
   compact = false,
@@ -82,6 +87,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onCloseMenuItem,
   onResetTransientUi,
 }: Props) {
+  const onLeaveRoom = onLeaveRoomProp ?? (() => {});
   bumpMessengerRenderPerf("messenger_room_row_render");
   const router = useRouter();
   const room = item.room;
@@ -110,9 +116,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
       ? [commerceMeta.headline, commerceMeta.priceLabel].filter(Boolean).join(" · ")
       : null;
-  const settingsBusy = _busyId === `room-settings:${room.id}`;
   const archiveBusy = _busyId === `room-archive:${room.id}`;
   const readBusy = _busyId === `room-read:${room.id}`;
+  const leaveBusy = _busyId === `room-leave:${room.id}`;
+  const policyType = toMessengerPolicyRoomType({
+    roomType: room.roomType,
+    contextMeta: room.contextMeta ?? null,
+  });
+  const swipeListCtx: MessengerSwipeListContext = listContext === "archive" ? "archive" : "default";
+  const swipeActions = getSwipeActions({ policyType, listContext: swipeListCtx });
   const swipeItemId = messengerRoomSwipeItemId(room.id, listContext);
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
   const tradeRoleLabel = commerceMeta?.kind === "trade" ? commerceMeta.roleLabel?.trim() || null : null;
@@ -526,32 +538,31 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
         <button
           type="button"
-          onClick={() => runRowAction(() => onTogglePin(room))}
-          disabled={settingsBusy}
-          className="flex w-[78px] items-center justify-center bg-violet-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
-          {room.isPinned ? "고정 해제" : "고정"}
-        </button>
-        <button
-          type="button"
-          onClick={() => runRowAction(() => onToggleMute(room))}
-          disabled={settingsBusy}
-          className="flex w-[78px] items-center justify-center bg-slate-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-        >
-          {room.isMuted ? "알림 켜기" : "알림 끄기"}
-        </button>
-        <button
-          type="button"
           onClick={() =>
             runRowAction(() => {
-              if (room.unreadCount > 0 && !readBusy) onMarkRead(room);
               onToggleArchive(room);
             })
           }
-          disabled={archiveBusy || readBusy}
+          disabled={archiveBusy}
           className="flex w-[78px] items-center justify-center bg-amber-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
         >
-          {listContext === "archive" ? "복원" : "보관"}
+          {swipeActions[0]?.label ?? "보관"}
+        </button>
+        <button
+          type="button"
+          onClick={() => runRowAction(() => onMarkRead(room))}
+          disabled={readBusy || room.unreadCount <= 0}
+          className="flex w-[78px] items-center justify-center bg-sky-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
+        >
+          {swipeActions[1]?.label ?? "읽음"}
+        </button>
+        <button
+          type="button"
+          onClick={() => runRowAction(() => onLeaveRoom(room))}
+          disabled={leaveBusy}
+          className="flex w-[78px] items-center justify-center bg-rose-600 px-2 sam-text-helper font-semibold text-white disabled:opacity-50"
+        >
+          {swipeActions[2]?.label ?? "나가기"}
         </button>
       </div>
       <div

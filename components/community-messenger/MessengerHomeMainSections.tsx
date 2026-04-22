@@ -68,6 +68,7 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -123,6 +124,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onLeaveRoom,
   onOpenRoomActions,
   chatInboxFilter,
   chatKindFilter,
@@ -241,6 +243,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onToggleMute={onToggleMute}
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
+            onLeaveRoom={onLeaveRoom}
             onOpenRoomActions={onOpenRoomActions}
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}
@@ -264,6 +267,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onToggleMute={onToggleMute}
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
+            onLeaveRoom={onLeaveRoom}
             onPreviewGroup={onPreviewOpenGroup}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
@@ -284,6 +288,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onToggleMute={onToggleMute}
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
+            onLeaveRoom={onLeaveRoom}
             onOpenRoomActions={onOpenRoomActions}
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}

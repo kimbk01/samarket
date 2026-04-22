@@ -44,6 +44,7 @@ export function MessengerChatRoomActionSheet({
   onEnterRoom,
   onTogglePin,
   onToggleMute,
+  onMarkRead,
   onToggleArchive,
   onViewFriendProfile,
   onViewGroupInfo,
@@ -57,6 +58,7 @@ export function MessengerChatRoomActionSheet({
   const rid = room.id;
   const isSettingsBusy = busyId === `room-settings:${rid}`;
   const isArchiveBusy = busyId === `room-archive:${rid}`;
+  const isReadBusy = busyId === `room-read:${rid}`;
   const isLeaveBusy = busyId === `room-leave:${rid}`;
   const hidden = communityMessengerRoomIsInboxHidden(room);
   const anyBusy = Boolean(busyId);
@@ -136,14 +138,7 @@ export function MessengerChatRoomActionSheet({
               onClick: onViewOpenChatInfo,
               disabled: anyBusy,
             }
-          : onLeave
-            ? {
-                label: "나가기",
-                icon: <LeaveIcon />,
-                onClick: onLeave,
-                disabled: anyBusy || isLeaveBusy,
-              }
-            : null;
+          : null;
 
   return (
     <div
@@ -178,6 +173,12 @@ export function MessengerChatRoomActionSheet({
             disabled={anyBusy || isSettingsBusy}
           />
           <AnchoredAction
+            label="읽음 처리"
+            icon={<ReadIcon />}
+            onClick={onMarkRead}
+            disabled={anyBusy || isReadBusy || room.unreadCount <= 0}
+          />
+          <AnchoredAction
             label={archiveUi ? archiveLabel : defaultArchiveLabel}
             icon={<ArchiveIcon />}
             onClick={onToggleArchive}
@@ -189,6 +190,14 @@ export function MessengerChatRoomActionSheet({
               icon={contextualAction.icon}
               onClick={contextualAction.onClick}
               disabled={contextualAction.disabled}
+            />
+          ) : null}
+          {onLeave ? (
+            <AnchoredAction
+              label="나가기"
+              icon={<LeaveIcon />}
+              onClick={onLeave}
+              disabled={anyBusy || isLeaveBusy}
             />
           ) : null}
         </nav>
@@ -287,6 +296,15 @@ function InfoIcon() {
       <circle cx="12" cy="12" r="9" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 7h.01" />
+    </svg>
+  );
+}
+
+function ReadIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16v10H4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l2.5 2.5L16 9" />
     </svg>
   );
 }

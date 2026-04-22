@@ -93,6 +93,12 @@ export async function POST(
   if (room.buyer_id === userId && leftRow.buyer_left_at) {
     return NextResponse.json({ ok: false, error: "이미 나간 채팅방입니다." }, { status: 403 });
   }
+  if (room.buyer_id === userId && leftRow.seller_left_at) {
+    return NextResponse.json(
+      { ok: false, error: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다." },
+      { status: 403 }
+    );
+  }
 
   const postId = String((room as { post_id?: string }).post_id ?? "").trim();
   if (

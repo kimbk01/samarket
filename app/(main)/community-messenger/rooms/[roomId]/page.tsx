@@ -23,7 +23,7 @@ async function CommunityMessengerRoomPageLoaded({
   searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
+  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string; msg?: string }>;
 }) {
   const [{ roomId }, { callAction, sessionId }] = await Promise.all([params, searchParams]);
   const rid = String(roomId ?? "").trim();
@@ -108,7 +108,7 @@ export default function CommunityMessengerRoomPage({
   searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string }>;
+  searchParams: Promise<{ callAction?: string; sessionId?: string; cm_ctx?: string; msg?: string }>;
 }) {
   return (
     <Suspense fallback={<CommunityMessengerRoomShellSkeleton />}>

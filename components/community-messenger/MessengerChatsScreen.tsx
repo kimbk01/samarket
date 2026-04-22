@@ -40,6 +40,7 @@ type MessengerRoomRowsProps = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -62,6 +63,7 @@ function MessengerRoomRows({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onLeaveRoom,
   onOpenRoomActions,
   openedSwipeItemId,
   onOpenSwipeItem,
@@ -91,6 +93,7 @@ function MessengerRoomRows({
             onToggleMute={onToggleMute}
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
+            onLeaveRoom={onLeaveRoom}
             listContext={listContext}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
@@ -131,6 +134,7 @@ function MessengerRoomRows({
               onToggleMute={onToggleMute}
               onMarkRead={onMarkRead}
               onToggleArchive={onToggleArchive}
+              onLeaveRoom={onLeaveRoom}
               listContext={listContext}
               onOpenRoomActions={onOpenRoomActions}
               openedSwipeItemId={openedSwipeItemId}
@@ -162,6 +166,7 @@ type Props = {
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -188,6 +193,7 @@ export function MessengerChatsScreen({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onLeaveRoom,
   onOpenRoomActions,
   chatListChip,
   onChatListChipChange,
@@ -290,6 +296,7 @@ export function MessengerChatsScreen({
           onToggleMute={onToggleMute}
           onMarkRead={onMarkRead}
           onToggleArchive={onToggleArchive}
+          onLeaveRoom={onLeaveRoom}
           onOpenRoomActions={onOpenRoomActions}
           openedSwipeItemId={openedSwipeItemId}
           onOpenSwipeItem={onOpenSwipeItem}
@@ -322,6 +329,7 @@ export function MessengerOpenChatScreen({
   onToggleMute,
   onMarkRead,
   onToggleArchive,
+  onLeaveRoom,
   onPreviewGroup,
   onOpenRoomActions,
   openedSwipeItemId,
@@ -346,6 +354,7 @@ export function MessengerOpenChatScreen({
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
+  onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
   onPreviewGroup: (groupId: string) => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
@@ -399,6 +408,7 @@ export function MessengerOpenChatScreen({
             onToggleMute={onToggleMute}
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
+            onLeaveRoom={onLeaveRoom}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}

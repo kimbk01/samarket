@@ -39,7 +39,7 @@ export async function POST(
 
   const { data: row, error: fetchErr } = await sbAny
     .from("product_chats")
-    .select("id, post_id, seller_id, buyer_id, seller_left_at, buyer_left_at")
+    .select("id, post_id, seller_id, buyer_id, seller_left_at, buyer_left_at, community_messenger_room_id")
     .eq("id", roomId)
     .maybeSingle();
   if (fetchErr || !row) {
@@ -52,6 +52,12 @@ export async function POST(
     buyer_id?: string | null;
     seller_left_at?: string | null;
     buyer_left_at?: string | null;
+    community_messenger_room_id?: string | null;
+  };
+  const syncCmParticipant = async () => {
+    const cmrid = String(r.community_messenger_room_id ?? "").trim();
+    if (!cmrid) return;
+    await sbAny.from("community_messenger_participants").delete().eq("room_id", cmrid).eq("user_id", userId);
   };
   const sid = String(r.seller_id ?? "").trim();
   const bid = String(r.buyer_id ?? "").trim();
@@ -63,11 +69,13 @@ export async function POST(
   const patch: Record<string, unknown> = { updated_at: now };
   if (sid === userId) {
     if (r.seller_left_at) {
+      await syncCmParticipant();
       return NextResponse.json({ ok: true, alreadyLeft: true });
     }
     patch.seller_left_at = now;
   } else {
     if (r.buyer_left_at) {
+      await syncCmParticipant();
       return NextResponse.json({ ok: true, alreadyLeft: true });
     }
     patch.buyer_left_at = now;
@@ -80,6 +88,8 @@ export async function POST(
       { status: 500 }
     );
   }
+
+  await syncCmParticipant();
 
   const postId = String(r.post_id ?? "").trim();
   if (postId) {

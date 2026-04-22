@@ -3,8 +3,10 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   deleteCommunityMessengerVoiceMessage,
   getCommunityMessengerRoomMessageById,
+  hideCommunityMessengerMessageForMe,
+  softDeleteCommunityMessengerMessageForEveryone,
 } from "@/lib/community-messenger/service";
-import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk } from "@/lib/http/api-route";
+import { enforceRateLimit, getRateLimitKey, jsonError, jsonOk, parseJsonBody } from "@/lib/http/api-route";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 
 export const runtime = "nodejs";
@@ -50,6 +52,74 @@ export async function GET(
     return jsonError("메시지를 불러오지 못했습니다.", 400, { code: result.error });
   }
   return jsonOk({ message: result.message });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ roomId: string; messageId: string }> }
+) {
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+
+  const rateLimit = await enforceRateLimit({
+    key: `community-messenger:message-patch:${getRateLimitKey(req, auth.userId)}`,
+    limit: 40,
+    windowMs: 60_000,
+    message: "메시지 수정 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
+    code: "community_messenger_message_patch_rate_limited",
+  });
+  if (!rateLimit.ok) return rateLimit.response;
+
+  const parsed = await parseJsonBody<{ action?: string }>(req, "invalid_json");
+  if (!parsed.ok) return parsed.response;
+  const action = String(parsed.value.action ?? "").trim();
+
+  const { roomId: rawRoomId, messageId } = await params;
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  if (!canon.ok) {
+    return canon.response;
+  }
+
+  if (action === "hide_for_me") {
+    const result = await hideCommunityMessengerMessageForMe({
+      userId: auth.userId,
+      roomId: canon.canonicalRoomId,
+      messageId: messageId.trim(),
+    });
+    if (!result.ok) {
+      if (result.error === "not_found") {
+        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      if (result.error === "forbidden") {
+        return jsonError("이 메시지를 숨길 수 없습니다.", 403, { code: result.error });
+      }
+      return jsonError("메시지를 숨기지 못했습니다.", 400, { code: result.error });
+    }
+    return jsonOk({ ok: true });
+  }
+
+  if (action === "delete_for_everyone") {
+    const result = await softDeleteCommunityMessengerMessageForEveryone({
+      userId: auth.userId,
+      roomId: canon.canonicalRoomId,
+      messageId: messageId.trim(),
+    });
+    if (!result.ok) {
+      if (result.error === "not_found") {
+        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      if (result.error === "forbidden") {
+        return jsonError("모두에게 삭제할 수 없습니다.", 403, { code: result.error });
+      }
+      if (result.error === "unsupported_type") {
+        return jsonError("이 메시지는 모두에게 삭제할 수 없습니다.", 400, { code: result.error });
+      }
+      return jsonError("메시지를 삭제하지 못했습니다.", 400, { code: result.error });
+    }
+    return jsonOk({ ok: true });
+  }
+
+  return jsonError("지원하지 않는 action 입니다.", 400, { code: "bad_request" });
 }
 
 export async function DELETE(

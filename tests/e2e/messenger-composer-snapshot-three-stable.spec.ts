@@ -162,8 +162,9 @@ test.describe("messenger composer + snapshot three stable", () => {
 
   test("three runs: new browser context each + fixed room URL (composer_wall_ms)", async ({ browser, baseURL }) => {
     test.setTimeout(300_000);
-    const roomId = process.env.E2E_SNAPSHOT_DIAG_ROOM_ID?.trim();
-    test.skip(!roomId, "E2E_SNAPSHOT_DIAG_ROOM_ID 가 필요합니다.");
+    const roomIdRaw = process.env.E2E_SNAPSHOT_DIAG_ROOM_ID?.trim();
+    test.skip(!roomIdRaw, "E2E_SNAPSHOT_DIAG_ROOM_ID 가 필요합니다.");
+    const roomId = roomIdRaw as string;
 
     const user = process.env.E2E_TEST_USERNAME?.trim() || "aaaa";
     const pass = process.env.E2E_TEST_PASSWORD ?? "1234";
@@ -228,7 +229,7 @@ test.describe("messenger composer + snapshot three stable", () => {
           diag.chatRoomDetailLoad?.fetchPostRowForChatSellerMatch?.fetchPostRelationAdoptedFrom;
         expect(adopted, `RUN ${run}: fetchPostRelationAdoptedFrom`).toBeTruthy();
         expect(typeof adopted).toBe("string");
-        expect(adopted.length).toBeGreaterThan(0);
+        expect(String(adopted).length).toBeGreaterThan(0);
 
         rows.push({
           run,

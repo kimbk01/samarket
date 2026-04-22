@@ -7,6 +7,16 @@ import {
   parseCommunityMessengerRoomContextMeta,
   serializeCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
+import {
+  canDeleteMessageForEveryone,
+  canDeleteMessageForMe,
+} from "@/lib/community-messenger/message-actions/message-delete-policy";
+import { messageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
+import {
+  canReactToMessage,
+  isMessengerQuickReactionKey,
+} from "@/lib/community-messenger/message-actions/message-reaction-policy";
+import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -37,6 +47,11 @@ import {
   type ProductChatRow,
   type ResolveProductChatResult,
 } from "@/lib/trade/resolve-product-chat";
+import {
+  assertMessengerProductChatLinkedSendAllowed,
+  evaluateTradeMessagingForMessengerRoom,
+  loadTradeProductChatExitSnapshotForMessengerRoom,
+} from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
 import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -86,6 +101,7 @@ import {
   CommunityMessengerProfileLite,
   type CommunityMessengerPresenceState,
   CommunityMessengerRoomSnapshot,
+  type CommunityMessengerTradeMessagingSnapshot,
   CommunityMessengerRoomStatus,
   CommunityMessengerRoomSummary,
   CommunityMessengerRoomType,
@@ -192,7 +208,44 @@ type MessageRow = {
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
+  reply_to_message_id?: string | null;
+  reply_preview_text?: string | null;
+  reply_preview_type?: string | null;
+  reply_sender_label_snapshot?: string | null;
+  deleted_for_everyone_at?: string | null;
 };
+
+/** 목록·스냅샷·단건 조회 공통 SELECT — `deleted_at` 필터는 쿼리별로 별도 */
+const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT =
+  "id, room_id, sender_id, message_type, content, metadata, created_at, reply_to_message_id, reply_preview_text, reply_preview_type, reply_sender_label_snapshot, deleted_for_everyone_at";
+
+/** 마이그레이션 미적용 환경에서도 타임라인 조회가 깨지지 않도록 최소 컬럼만 요청 */
+const COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT_LEGACY =
+  "id, room_id, sender_id, message_type, content, metadata, created_at";
+
+function isCommunityMessengerMessageListSelectRecoverableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: string; message?: string };
+  const code = String(e.code ?? "");
+  const msg = String(e.message ?? "").toLowerCase();
+  if (code === "42703") return true;
+  if (msg.includes("42703")) return true;
+  if ((msg.includes("column") || msg.includes("field")) && (msg.includes("does not exist") || msg.includes("not found")))
+    return true;
+  return false;
+}
+
+/**
+ * `reply_*` / `deleted_for_everyone_at` 컬럼이 아직 없는 DB 에서 SELECT 가 실패하면 레거시 컬럼으로 한 번 더 시도한다.
+ */
+async function queryCommunityMessengerMessageRowsWithSelectFallback(
+  run: (selectCols: string) => Promise<{ data: unknown; error: unknown }>
+): Promise<{ data: unknown; error: unknown }> {
+  const first = await run(COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT);
+  if (!first.error) return first;
+  if (!isCommunityMessengerMessageListSelectRecoverableError(first.error)) return first;
+  return run(COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT_LEGACY);
+}
 
 type CallRow = {
   id: string;
@@ -559,6 +612,196 @@ function directKeyFor(userA: string, userB: string): string {
 
 function dedupeIds(values: Iterable<string>): string[] {
   return [...new Set([...values].map((v) => trimText(v)).filter(Boolean))];
+}
+
+async function fetchCommunityMessengerHiddenMessageIdsForUser(
+  sb: SupabaseLike,
+  userId: string,
+  messageIds: string[]
+): Promise<Set<string>> {
+  const ids = dedupeIds(messageIds);
+  if (!ids.length) return new Set();
+  const { data, error } = await (sb as any)
+    .from("community_messenger_message_user_hides")
+    .select("message_id")
+    .eq("user_id", userId)
+    .in("message_id", ids);
+  if (error && !isMissingTableError(error)) return new Set();
+  const set = new Set<string>();
+  for (const row of (data ?? []) as Array<{ message_id?: string }>) {
+    const mid = trimText(row.message_id);
+    if (mid) set.add(mid);
+  }
+  return set;
+}
+
+/** 반응 집계 시 메시지 작성자별로 필터 — 자기 메시지에 단 반응(구스키마·버그)은 UI·카운트에서 제외 */
+function communityMessengerAuthorUserIdByMessageIdForReactions(
+  rows: Array<MessageRow | DevMessage>
+): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const r of rows) {
+    const mid = trimText((r as MessageRow).id);
+    const sid = "sender_id" in r ? trimText((r as MessageRow).sender_id) : trimText((r as DevMessage).senderId);
+    if (mid && sid) m.set(mid, sid);
+  }
+  return m;
+}
+
+async function fetchCommunityMessengerReactionAggregatesForMessages(
+  sb: SupabaseLike,
+  messageIds: string[],
+  viewerUserId: string,
+  options?: { authorUserIdByMessageId?: Map<string, string> | null }
+): Promise<Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>> {
+  const out = new Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>();
+  const ids = dedupeIds(messageIds);
+  if (!ids.length) return out;
+  const authorByMid = options?.authorUserIdByMessageId ?? null;
+  const { data, error } = await (sb as any)
+    .from("community_messenger_message_reactions")
+    .select("message_id, user_id, reaction_key, created_at")
+    .in("message_id", ids);
+  if (error && !isMissingTableError(error)) return out;
+  type RxRow = { message_id?: string; user_id?: string; reaction_key?: string; created_at?: string | null };
+  /** 구 PK (message_id,user_id,reaction_key) 시 동일 유저·메시지에 여러 이모지 행이 있을 수 있음 → 최신 1행만 사용 */
+  const latestByMessageUser = new Map<string, RxRow>();
+  for (const row of (data ?? []) as RxRow[]) {
+    const mid = trimText(row.message_id);
+    const rk = trimText(row.reaction_key);
+    const uid = trimText(row.user_id);
+    if (!mid || !rk || !uid) continue;
+    if (!isMessengerQuickReactionKey(rk)) continue;
+    const authorId = authorByMid?.get(mid);
+    if (authorId && authorId === uid) continue;
+
+    const k = `${mid}\u0000${uid}`;
+    const prev = latestByMessageUser.get(k);
+    if (!prev) {
+      latestByMessageUser.set(k, row);
+      continue;
+    }
+    const curAt = trimText(row.created_at) || "";
+    const prevAt = trimText(prev.created_at) || "";
+    if (curAt >= prevAt) latestByMessageUser.set(k, row);
+  }
+
+  const byMessage = new Map<string, Map<string, { count: number; mine: boolean }>>();
+  for (const row of latestByMessageUser.values()) {
+    const mid = trimText(row.message_id);
+    const rk = trimText(row.reaction_key);
+    const uid = trimText(row.user_id);
+    if (!mid || !rk || !uid) continue;
+    let rkMap = byMessage.get(mid);
+    if (!rkMap) {
+      rkMap = new Map();
+      byMessage.set(mid, rkMap);
+    }
+    const cell = rkMap.get(rk) ?? { count: 0, mine: false };
+    cell.count += 1;
+    if (uid === viewerUserId) cell.mine = true;
+    rkMap.set(rk, cell);
+  }
+  for (const [mid, rkMap] of byMessage) {
+    const list: NonNullable<CommunityMessengerMessage["reactions"]> = [];
+    for (const [reactionKey, cell] of rkMap) {
+      list.push({ reactionKey, count: cell.count, mine: cell.mine });
+    }
+    list.sort((a, b) => a.reactionKey.localeCompare(b.reactionKey));
+    out.set(mid, list);
+  }
+  return out;
+}
+
+function mapCommunityMessengerDbMessageRowToMessage(input: {
+  row: MessageRow;
+  viewerUserId: string;
+  profileById: Map<string, CommunityMessengerProfileLite>;
+  reactions?: CommunityMessengerMessage["reactions"];
+}): CommunityMessengerMessage {
+  const message = input.row;
+  const senderId = trimText(message.sender_id) || null;
+  const metadata = (message.metadata ?? {}) as Record<string, unknown>;
+  const isMine = senderId === input.viewerUserId;
+  const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
+  const safeMt: CommunityMessengerMessage["messageType"] =
+    mt === "image" ||
+    mt === "file" ||
+    mt === "system" ||
+    mt === "call_stub" ||
+    mt === "voice" ||
+    mt === "sticker"
+      ? mt
+      : "text";
+  const dfeAt = trimText(message.deleted_for_everyone_at);
+  const deletedForEveryoneAt = dfeAt || undefined;
+  const contentRaw = trimText(message.content);
+  const contentForUi = deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : contentRaw;
+  const replyToMessageId = trimText(message.reply_to_message_id) || null;
+  const replyPreviewText = trimText(message.reply_preview_text) || null;
+  const replyPreviewTypeRaw = trimText(message.reply_preview_type);
+  const replyPreviewType = replyPreviewTypeRaw.length > 0 ? replyPreviewTypeRaw : null;
+  const replySenderLabelSnapshot = trimText(message.reply_sender_label_snapshot) || null;
+  const clientRaw = metadata.client_message_id;
+  const clientMessageId =
+    typeof clientRaw === "string" && clientRaw.trim()
+      ? clientRaw.trim()
+      : typeof metadata.clientMessageId === "string" && metadata.clientMessageId.trim()
+        ? String(metadata.clientMessageId).trim()
+        : null;
+
+  const voiceExtra =
+    deletedForEveryoneAt || safeMt !== "voice"
+      ? {}
+      : {
+          voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
+          voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
+          voiceMimeType: trimText(metadata.mimeType as string) || null,
+        };
+  const fileExtra =
+    deletedForEveryoneAt || safeMt !== "file"
+      ? {}
+      : {
+          fileName: trimText(metadata.fileName as string) || null,
+          fileMimeType: trimText(metadata.mimeType as string) || null,
+          fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
+        };
+  const imageExtra =
+    deletedForEveryoneAt || safeMt !== "image"
+      ? {}
+      : messengerImageClientFieldsFromMetadata(safeMt, metadata, contentRaw);
+
+  return {
+    id: message.id,
+    roomId: message.room_id,
+    senderId,
+    senderLabel: isMine
+      ? "나"
+      : senderId
+        ? trimText(input.profileById.get(senderId)?.label) || profileLabel(null, senderId)
+        : "시스템",
+    messageType: safeMt,
+    content: contentForUi,
+    createdAt: trimText(message.created_at) || nowIso(),
+    clientMessageId,
+    isMine,
+    callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
+    callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
+    callSessionId: trimText(metadata.sessionId as string) || null,
+    ...(replyToMessageId
+      ? {
+          replyToMessageId,
+          ...(replyPreviewText != null && replyPreviewText.length > 0 ? { replyPreviewText } : {}),
+          ...(replyPreviewType != null ? { replyPreviewType } : {}),
+          ...(replySenderLabelSnapshot != null && replySenderLabelSnapshot.length > 0 ? { replySenderLabelSnapshot } : {}),
+        }
+      : {}),
+    ...(deletedForEveryoneAt ? { deletedForEveryoneAt } : {}),
+    ...(input.reactions?.length ? { reactions: input.reactions } : {}),
+    ...voiceExtra,
+    ...fileExtra,
+    ...imageExtra,
+  };
 }
 
 function invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId: string, recipientUserIds: string[]): void {
@@ -5594,6 +5837,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let room: RoomRow | DevRoom | null = null;
   let participants: Array<ParticipantRow | DevParticipant> = [];
   let messages: Array<MessageRow | DevMessage> = [];
+  let snapshotRoomMessageReactionsById = new Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>();
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
   /** defer seed + Supabase: participants embed 에서 수집한 프로필 — `hydrateProfilesLabelsOnlyWithMap` 의 추가 `fetchProfilesByIds` 를 줄인다. */
@@ -5654,14 +5898,16 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       : Math.min(messageLimit, 20);
     const messagesFetch = (async () => {
       const tMessages0 = performance.now();
-      const messageRes = await (sb as any)
-        .from("community_messenger_messages")
-        .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-        .eq("room_id", id)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
-        .limit(messagesQueryLimit);
+      const messageRes = await queryCommunityMessengerMessageRowsWithSelectFallback(async (cols) =>
+        (sb as any)
+          .from("community_messenger_messages")
+          .select(cols)
+          .eq("room_id", id)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .limit(messagesQueryLimit)
+      );
       messagesFetchMs = performance.now() - tMessages0;
       return messageRes;
     })();
@@ -5711,6 +5957,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants = rawParticipantRows;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
+      const bootstrapHideIds = await fetchCommunityMessengerHiddenMessageIdsForUser(
+        sb as SupabaseLike,
+        userId,
+        messages.map((m) => m.id)
+      );
+      messages = messages.filter((m) => !bootstrapHideIds.has(m.id));
+      snapshotRoomMessageReactionsById = await fetchCommunityMessengerReactionAggregatesForMessages(
+        sb as SupabaseLike,
+        messages.map((m) => m.id),
+        userId,
+        { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(messages) }
+      );
       /** 읽음 처리는 `PATCH ... mark_read`(클라) 단일 경로 — 부트스트랩 GET 은 읽기 전용 */
     }
   }
@@ -5789,6 +6047,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     return "";
   })();
+  /** 스냅샷 말단 직렬 RTT 제거 — `summary` 이전에 `room.summary` 만으로 거래 여부 판별 후 프로필·거래카드와 병렬 */
+  const earlyTradeContextMetaForExitSnapshot = room
+    ? parseCommunityMessengerRoomContextMeta(
+        trimText("room_type" in room ? String(room.summary ?? "") : String((room as DevRoom).summary ?? ""))
+      )
+    : null;
+  const tradeExitSnapshotPromise =
+    sb && earlyTradeContextMetaForExitSnapshot?.kind === "trade"
+      ? loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, earlyTradeContextMetaForExitSnapshot)
+      : Promise.resolve(null);
+  let tradeProductChatExitForSnapshot: Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>> = null;
+
   const roomProfileMapPromise = deferSecondary
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
     : fetchRoomProfilesByRoomIds([id]);
@@ -5802,19 +6072,25 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           return r;
         })
       : Promise.resolve(null);
+  const tradeExitParallelForDeferSeed = deferSecondary ? tradeExitSnapshotPromise : Promise.resolve(null);
   /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/presence·(비거래 defer 시)거래도크 는 아래 2차에서 */
   const tProfileHydration0 = performance.now();
-  const [roomProfileMap, hydratedLabels, tradeDetailFromDeferSeedParallel] = await Promise.all([
-    roomProfileMapPromise,
-    hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
-      includeSelf: true,
-      prefetchedProfiles:
-        deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
-          ? embeddedProfilesFromParticipantRows
-          : undefined,
-    }),
-    tradeDetailParallelForDeferSeed,
-  ]);
+  const [roomProfileMap, hydratedLabels, tradeDetailFromDeferSeedParallel, tradeExitFromDeferSeedParallel] =
+    await Promise.all([
+      roomProfileMapPromise,
+      hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
+        includeSelf: true,
+        prefetchedProfiles:
+          deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
+            ? embeddedProfilesFromParticipantRows
+            : undefined,
+      }),
+      tradeDetailParallelForDeferSeed,
+      tradeExitParallelForDeferSeed,
+    ]);
+  if (deferSecondary) {
+    tradeProductChatExitForSnapshot = tradeExitFromDeferSeedParallel;
+  }
   participantsProfilesFetchMs += performance.now() - tProfileHydration0;
   if (diagnostics) {
     diagnostics.snapshotQueryBProfilesEndMs = Math.round(performance.now() - tBootstrap0);
@@ -5871,6 +6147,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         return r;
       }
     );
+    const pTradeExitSnapshot = tradeExitSnapshotPromise;
     const pPresence = (presenceIds.length > 0
       ? fetchPresenceSnapshotsByUserIds(presenceIds)
       : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>())
@@ -5880,10 +6157,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       }
       return r;
     });
-    const [, phase2] = await Promise.all([enrichPromise, Promise.all([pCall, pTrade, pPresence])]);
+    const [, phase2] = await Promise.all([enrichPromise, Promise.all([pCall, pTrade, pPresence, pTradeExitSnapshot])]);
     activeCall = phase2[0] as CommunityMessengerCallSession | null;
     tradeChatRoomDetail = phase2[1] as ChatRoom | null;
     presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
+    tradeProductChatExitForSnapshot = phase2[3] as Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>>;
     if (diagnostics) {
       diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
       const s = diagnostics.normalizeTimelineSummaryEndMs ?? diagnostics.snapshotNormalizeStartMs ?? 0;
@@ -6050,8 +6328,12 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       mappedMsgAcc.senderLabelResolve += performance.now() - tStep;
       tStep = performance.now();
     }
+    const rowDb = "sender_id" in message;
+    const dfeAt = rowDb ? trimText((message as MessageRow).deleted_for_everyone_at) : "";
+    const deletedForEveryone = dfeAt.length > 0;
+    const rawContent = trimText(message.content);
     let voiceExtra: object;
-    if (safeMt !== "voice") {
+    if (safeMt !== "voice" || deletedForEveryone) {
       voiceExtra = emptyVoiceEnvelopeExtra;
     } else {
       const dur = metadata.durationSeconds;
@@ -6067,14 +6349,29 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       mappedMsgAcc.voiceEnvelopeWhenVoice += performance.now() - tStep;
       tStep = performance.now();
     }
-    const contentTrimmed = trimText(message.content);
+    const contentTrimmed = deletedForEveryone ? resolveDeletedMessagePlaceholder() : rawContent;
     const imageExtra =
-      safeMt === "image"
-        ? messengerImageClientFieldsFromMetadata(safeMt, metadata, contentTrimmed)
+      safeMt === "image" && !deletedForEveryone
+        ? messengerImageClientFieldsFromMetadata(safeMt, metadata, rawContent)
         : {};
     if (mappedMsgAcc) {
       mappedMsgAcc.messengerImageClientFieldsFromMetadata += performance.now() - tStep;
     }
+    const rdb = rowDb ? (message as MessageRow) : null;
+    const replyPieces =
+      rdb && trimText(rdb.reply_to_message_id)
+        ? {
+            replyToMessageId: trimText(rdb.reply_to_message_id) || null,
+            ...(trimText(rdb.reply_preview_text) ? { replyPreviewText: trimText(rdb.reply_preview_text) } : {}),
+            ...(trimText(rdb.reply_preview_type) ? { replyPreviewType: trimText(rdb.reply_preview_type) } : {}),
+            ...(trimText(rdb.reply_sender_label_snapshot)
+              ? { replySenderLabelSnapshot: trimText(rdb.reply_sender_label_snapshot) }
+              : {}),
+          }
+        : {};
+    const rxList = snapshotRoomMessageReactionsById.get(message.id);
+    const reactionPieces = rxList?.length ? { reactions: rxList } : {};
+    const dfeField = deletedForEveryone ? { deletedForEveryoneAt: dfeAt } : {};
     return {
       id: message.id,
       roomId: messageRoomIdByMi[mi],
@@ -6088,8 +6385,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
       callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
       callSessionId: trimText(metadata.sessionId as string) || null,
+      ...replyPieces,
+      ...dfeField,
       ...voiceExtra,
       ...imageExtra,
+      ...reactionPieces,
     };
   });
   if (mappedMsgAcc && diagnostics) {
@@ -6159,6 +6459,39 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   }
 
+  let tradeMessagingForSnapshot: CommunityMessengerTradeMessagingSnapshot | undefined;
+  if (sb) {
+    let tradePc = tradeProductChatExitForSnapshot;
+    if (!tradePc && summary.contextMeta?.kind === "trade") {
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
+    }
+    if (
+      !tradePc &&
+      (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
+    ) {
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
+    }
+    const ev = evaluateTradeMessagingForMessengerRoom({
+      viewerUserId: userId,
+      roomType: summary.roomType,
+      contextMeta: summary.contextMeta ?? null,
+      tradeProductChat: tradePc,
+    });
+    tradeMessagingForSnapshot = {
+      productChat: tradePc
+        ? {
+            sellerId: tradePc.sellerId,
+            buyerId: tradePc.buyerId,
+            sellerLeftAt: tradePc.sellerLeftAt,
+            buyerLeftAt: tradePc.buyerLeftAt,
+          }
+        : null,
+      canSendMessage: ev.canSendMessage,
+      denyCode: ev.denyCode,
+      denyMessage: ev.denyMessage,
+    };
+  }
+
   const snapshot = {
     viewerUserId: userId,
     room: {
@@ -6179,6 +6512,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(peerPresence ? { peerPresence } : {}),
     activeCall,
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
+    ...(tradeMessagingForSnapshot ? { tradeMessaging: tradeMessagingForSnapshot } : {}),
   };
   if (diagnostics) {
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
@@ -6288,61 +6622,6 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
 
   const sb = getSupabaseOrNull();
 
-  const mapDbRows = (
-    rows: MessageRow[],
-    profileById: Map<string, CommunityMessengerProfileLite>
-  ): CommunityMessengerMessage[] => {
-    return rows.map((message) => {
-      const senderId = trimText(message.sender_id) || null;
-      const metadata = (message.metadata ?? {}) as Record<string, unknown>;
-      const isMine = senderId === input.userId;
-      const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
-      const safeMt: CommunityMessengerMessage["messageType"] =
-        mt === "image" ||
-        mt === "file" ||
-        mt === "system" ||
-        mt === "call_stub" ||
-        mt === "voice" ||
-        mt === "sticker"
-          ? mt
-          : "text";
-      return {
-        id: message.id,
-        roomId: message.room_id,
-        senderId,
-        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
-        messageType: safeMt,
-        content: trimText(message.content),
-        createdAt: trimText(message.created_at) || nowIso(),
-        clientMessageId:
-          typeof metadata.client_message_id === "string" && metadata.client_message_id.trim()
-            ? metadata.client_message_id.trim()
-            : null,
-        isMine,
-        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-        callSessionId: trimText(metadata.sessionId as string) || null,
-        ...(safeMt === "voice"
-          ? {
-              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
-              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
-              voiceMimeType: trimText(metadata.mimeType as string) || null,
-            }
-          : {}),
-        ...(safeMt === "file"
-          ? {
-              fileName: trimText(metadata.fileName as string) || null,
-              fileMimeType: trimText(metadata.mimeType as string) || null,
-              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
-            }
-          : {}),
-        ...(safeMt === "image"
-          ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content))
-          : {}),
-      };
-    });
-  };
-
   if (!sb) {
     const fb = ensureCommunityMessengerDevFallbackAllowed();
     if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
@@ -6407,6 +6686,11 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
     .maybeSingle();
   if (!myParticipant) return { ok: false, error: "room_not_found" };
 
+  const anchorHidden = await fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, [
+    beforeMessageId,
+  ]);
+  if (anchorHidden.has(beforeMessageId)) return { ok: false, error: "not_found" };
+
   const { data: anchorRow, error: anchorErr } = await (sb as any)
     .from("community_messenger_messages")
     .select("id, created_at")
@@ -6419,26 +6703,48 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
   const anchorCreatedAt = trimText((anchorRow as { created_at?: string | null }).created_at);
   if (!anchorCreatedAt) return { ok: false, error: "not_found" };
 
-  const { data: rows, error: msgErr } = await (sb as any)
-    .from("community_messenger_messages")
-    .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-    .eq("room_id", roomId)
-    .is("deleted_at", null)
-    .lt("created_at", anchorCreatedAt)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(pageLimit + 1);
+  const { data: rows, error: msgErr } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+    (sb as any)
+      .from("community_messenger_messages")
+      .select(cols)
+      .eq("room_id", roomId)
+      .is("deleted_at", null)
+      .lt("created_at", anchorCreatedAt)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(pageLimit + 1)
+  );
   if (msgErr && !isMissingTableError(msgErr)) {
     return { ok: false, error: "load_failed" };
   }
 
   const raw = (rows ?? []) as MessageRow[];
   const hasMore = raw.length > pageLimit;
-  const pageRows = raw.slice(0, pageLimit).reverse();
-  const senderIds = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const ascRows = raw.slice(0, pageLimit).reverse();
+  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(
+    sb as SupabaseLike,
+    ascRows.map((r) => r.id),
+    input.userId,
+    { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(ascRows) }
+  );
+  const hidden = await fetchCommunityMessengerHiddenMessageIdsForUser(
+    sb as SupabaseLike,
+    input.userId,
+    ascRows.map((r) => r.id)
+  );
+  const visibleRows = ascRows.filter((r) => !hidden.has(r.id));
+  const senderIds = dedupeIds(visibleRows.map((r) => trimText(r.sender_id)).filter(Boolean));
   const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
-  return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
+  const messages = visibleRows.map((row) =>
+    mapCommunityMessengerDbMessageRowToMessage({
+      row,
+      viewerUserId: input.userId,
+      profileById,
+      reactions: rx.get(row.id),
+    })
+  );
+  return { ok: true, messages, hasMore };
 }
 
 /** `afterMessageId` 보다 새 메시지만 (증분 동기·탭 복귀 갭 메우기). 전체 목록 전송 회피 */
@@ -6459,57 +6765,6 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
   if (!roomId || !afterMessageId) return { ok: false, error: "bad_request" };
 
   const sb = getSupabaseOrNull();
-
-  const mapDbRows = (
-    rows: MessageRow[],
-    profileById: Map<string, CommunityMessengerProfileLite>
-  ): CommunityMessengerMessage[] => {
-    return rows.map((message) => {
-      const senderId = trimText(message.sender_id) || null;
-      const metadata = (message.metadata ?? {}) as Record<string, unknown>;
-      const isMine = senderId === input.userId;
-      const mt = trimText(message.message_type) as CommunityMessengerMessage["messageType"];
-      const safeMt: CommunityMessengerMessage["messageType"] =
-        mt === "image" ||
-        mt === "file" ||
-        mt === "system" ||
-        mt === "call_stub" ||
-        mt === "voice" ||
-        mt === "sticker"
-          ? mt
-          : "text";
-      return {
-        id: message.id,
-        roomId: message.room_id,
-        senderId,
-        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
-        messageType: safeMt,
-        content: trimText(message.content),
-        createdAt: trimText(message.created_at) || nowIso(),
-        isMine,
-        callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-        callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-        callSessionId: trimText(metadata.sessionId as string) || null,
-        ...(safeMt === "voice"
-          ? {
-              voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
-              voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
-              voiceMimeType: trimText(metadata.mimeType as string) || null,
-            }
-          : {}),
-        ...(safeMt === "file"
-          ? {
-              fileName: trimText(metadata.fileName as string) || null,
-              fileMimeType: trimText(metadata.mimeType as string) || null,
-              fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
-            }
-          : {}),
-        ...(safeMt === "image"
-          ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(message.content))
-          : {}),
-      };
-    });
-  };
 
   if (!sb) {
     const fb = ensureCommunityMessengerDevFallbackAllowed();
@@ -6572,6 +6827,11 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
     return { ok: true, messages, hasMore };
   }
 
+  const anchorHiddenAfter = await fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, [
+    afterMessageId,
+  ]);
+  if (anchorHiddenAfter.has(afterMessageId)) return { ok: false, error: "not_found" };
+
   const { data: rpcRows, error: rpcErr } = await (sb as any).rpc("community_messenger_room_messages_after", {
     p_user_id: input.userId,
     p_room_id: roomId,
@@ -6587,10 +6847,30 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
   const raw = ((rpcRows ?? []) as MessageRow[]).slice();
   const hasMore = raw.length > pageLimit;
   const pageRows = raw.slice(0, pageLimit);
-  const senderIds = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(
+    sb as SupabaseLike,
+    pageRows.map((r) => r.id),
+    input.userId,
+    { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(pageRows) }
+  );
+  const hidden = await fetchCommunityMessengerHiddenMessageIdsForUser(
+    sb as SupabaseLike,
+    input.userId,
+    pageRows.map((r) => r.id)
+  );
+  const visibleRows = pageRows.filter((r) => !hidden.has(r.id));
+  const senderIds = dedupeIds(visibleRows.map((r) => trimText(r.sender_id)).filter(Boolean));
   const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
-  return { ok: true, messages: mapDbRows(pageRows, profileById), hasMore };
+  const messages = visibleRows.map((row) =>
+    mapCommunityMessengerDbMessageRowToMessage({
+      row,
+      viewerUserId: input.userId,
+      profileById,
+      reactions: rx.get(row.id),
+    })
+  );
+  return { ok: true, messages, hasMore };
 }
 
 /** Broadcast bump 의 `messageId` 힌트로 1건 증분 로드 — 전체 `after` 페이지보다 가볍다. */
@@ -6671,12 +6951,18 @@ export async function getCommunityMessengerRoomMessageById(input: {
     .maybeSingle();
   if (!myParticipant) return { ok: false, error: "room_not_found" };
 
-  const { data: row, error } = await (sb as any)
-    .from("community_messenger_messages")
-    .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-    .eq("id", messageId)
-    .eq("room_id", roomId)
-    .maybeSingle();
+  const hiddenOne = await fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, [messageId]);
+  if (hiddenOne.has(messageId)) return { ok: false, error: "not_found" };
+
+  const { data: row, error } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+    (sb as any)
+      .from("community_messenger_messages")
+      .select(cols)
+      .eq("id", messageId)
+      .eq("room_id", roomId)
+      .is("deleted_at", null)
+      .maybeSingle()
+  );
   if (error && !isMissingTableError(error)) {
     return { ok: false, error: "load_failed" };
   }
@@ -6686,52 +6972,16 @@ export async function getCommunityMessengerRoomMessageById(input: {
   const senderIds = dedupeIds([trimText(r.sender_id)].filter(Boolean));
   const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
   const profileById = new Map(profiles.map((p) => [p.id, p]));
-  const senderId = trimText(r.sender_id) || null;
-  const metadata = (r.metadata ?? {}) as Record<string, unknown>;
-  const isMine = senderId === input.userId;
-  const mt = trimText(r.message_type) as CommunityMessengerMessage["messageType"];
-  const safeMt: CommunityMessengerMessage["messageType"] =
-    mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker"
-      ? mt
-      : "text";
-  const clientRaw = metadata.client_message_id;
-  const clientMessageId =
-    typeof clientRaw === "string" && clientRaw.trim()
-      ? clientRaw.trim()
-      : typeof metadata.clientMessageId === "string" && metadata.clientMessageId.trim()
-        ? String(metadata.clientMessageId).trim()
-        : null;
-  const message: CommunityMessengerMessage = {
-    id: String(r.id ?? ""),
-    roomId: String(r.room_id ?? roomId),
-    senderId,
-    senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
-    messageType: safeMt,
-    content: trimText(r.content),
-    createdAt: trimText(r.created_at) || nowIso(),
-    clientMessageId,
-    isMine,
-    callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
-    callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
-    callSessionId: trimText(metadata.sessionId as string) || null,
-    ...(safeMt === "voice"
-      ? {
-          voiceDurationSeconds: Math.max(0, Math.floor(Number(metadata.durationSeconds ?? 0)) || 0),
-          voiceWaveformPeaks: parseVoiceWaveformPeaksFromMetadata(metadata.waveformPeaks) ?? null,
-          voiceMimeType: trimText(metadata.mimeType as string) || null,
-        }
-      : {}),
-    ...(safeMt === "file"
-      ? {
-          fileName: trimText(metadata.fileName as string) || null,
-          fileMimeType: trimText(metadata.mimeType as string) || null,
-          fileSizeBytes: Math.max(0, Math.floor(Number(metadata.fileSizeBytes ?? 0)) || 0),
-        }
-      : {}),
-    ...(safeMt === "image"
-      ? messengerImageClientFieldsFromMetadata(safeMt, metadata, trimText(r.content))
-      : {}),
-  };
+  const sid = trimText(r.sender_id);
+  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, [messageId], input.userId, {
+    authorUserIdByMessageId: sid ? new Map([[messageId, sid]]) : undefined,
+  });
+  const message = mapCommunityMessengerDbMessageRowToMessage({
+    row: r,
+    viewerUserId: input.userId,
+    profileById,
+    reactions: rx.get(messageId),
+  });
   return { ok: true, message };
 }
 
@@ -6745,22 +6995,25 @@ function communityMessengerTextMessageFromRpcRow(
   userId: string,
   msg: Record<string, unknown>
 ): CommunityMessengerMessage {
-  const metadata = (msg.metadata ?? {}) as Record<string, unknown>;
-  const clientRaw = metadata.client_message_id;
-  const cmid = typeof clientRaw === "string" && clientRaw.trim() ? clientRaw.trim() : null;
-  return {
+  const row: MessageRow = {
     id: String(msg.id ?? ""),
-    roomId: String(msg.room_id ?? roomId),
-    senderId: typeof msg.sender_id === "string" ? msg.sender_id : userId,
-    senderLabel: "나",
-    messageType: "text",
-    content: trimText(String(msg.content ?? "")),
-    createdAt: trimText(String(msg.created_at ?? "")) || nowIso(),
-    clientMessageId: cmid,
-    isMine: true,
-    callKind: null,
-    callStatus: null,
+    room_id: String(msg.room_id ?? roomId),
+    sender_id: typeof msg.sender_id === "string" ? msg.sender_id : userId,
+    message_type: "text",
+    content: typeof msg.content === "string" ? msg.content : "",
+    metadata: typeof msg.metadata === "object" && msg.metadata !== null ? (msg.metadata as Record<string, unknown>) : {},
+    created_at: typeof msg.created_at === "string" ? msg.created_at : null,
+    reply_to_message_id: typeof msg.reply_to_message_id === "string" ? msg.reply_to_message_id : null,
+    reply_preview_text: typeof msg.reply_preview_text === "string" ? msg.reply_preview_text : null,
+    reply_preview_type: typeof msg.reply_preview_type === "string" ? msg.reply_preview_type : null,
+    reply_sender_label_snapshot: typeof msg.reply_sender_label_snapshot === "string" ? msg.reply_sender_label_snapshot : null,
+    deleted_for_everyone_at: typeof msg.deleted_for_everyone_at === "string" ? msg.deleted_for_everyone_at : null,
   };
+  return mapCommunityMessengerDbMessageRowToMessage({
+    row,
+    viewerUserId: userId,
+    profileById: new Map(),
+  });
 }
 
 function isCommunityMessengerSendTextRpcMissing(err: unknown): boolean {
@@ -6773,20 +7026,82 @@ function isCommunityMessengerSendTextRpcMissing(err: unknown): boolean {
   );
 }
 
+async function resolveCommunityMessengerReplyFieldsForFallbackInsert(
+  sb: SupabaseLike,
+  input: { userId: string; roomId: string; replyToMessageId: string }
+): Promise<
+  | {
+      ok: true;
+      fields: {
+        reply_to_message_id: string;
+        reply_preview_text: string;
+        reply_preview_type: string;
+        reply_sender_label_snapshot: string;
+      };
+    }
+  | { ok: false; error: string }
+> {
+  const rid = trimText(input.replyToMessageId);
+  if (!rid) return { ok: false, error: "reply_target_not_found" };
+  const { data: rr, error } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id, sender_id, message_type, content, deleted_at, deleted_for_everyone_at")
+    .eq("id", rid)
+    .eq("room_id", input.roomId)
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return { ok: false, error: "reply_resolve_failed" };
+  if (!rr) return { ok: false, error: "reply_target_not_found" };
+  const mt = trimText((rr as { message_type?: string }).message_type);
+  if (!mt || mt === "system") return { ok: false, error: "reply_target_invalid" };
+  if (trimText((rr as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "reply_target_not_found" };
+  const sender = trimText((rr as { sender_id?: string | null }).sender_id);
+  let label = "사용자";
+  if (sender) {
+    const { data: pr } = await (sb as any).from("profiles").select("nickname, username").eq("id", sender).maybeSingle();
+    const nick = trimText((pr as { nickname?: string } | null)?.nickname);
+    const user = trimText((pr as { username?: string } | null)?.username);
+    label = nick || user || label;
+  }
+  const dfe = trimText((rr as { deleted_for_everyone_at?: string | null }).deleted_for_everyone_at);
+  let preview = "";
+  if (dfe) preview = "삭제된 메시지";
+  else if (mt === "text") preview = trimText((rr as { content?: string }).content).slice(0, 280);
+  else preview = `(${mt})`;
+  return {
+    ok: true,
+    fields: {
+      reply_to_message_id: rid,
+      reply_preview_text: preview,
+      reply_preview_type: mt,
+      reply_sender_label_snapshot: label,
+    },
+  };
+}
+
 async function trySendCommunityMessengerTextAtomic(
   sb: any,
   input: { userId: string },
   roomId: string,
   content: string,
-  clientMessageId: string
+  clientMessageId: string,
+  replyToMessageId?: string | null
 ): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string } | null> {
+  const tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+    viewerUserId: input.userId,
+    messengerRoomId: roomId,
+  });
+  if (!tradeGuard.ok) {
+    return { ok: false, error: tradeGuard.error };
+  }
   const createdAt = nowIso();
+  const replyRpc = trimText(replyToMessageId ?? "");
   const { data: rpcRaw, error: rpcErr } = await sb.rpc("community_messenger_send_text_message", {
     p_room_id: roomId,
     p_sender_id: input.userId,
     p_content: content,
     p_client_message_id: clientMessageId.length > 0 ? clientMessageId : null,
     p_created_at: createdAt,
+    p_reply_to_message_id: replyRpc.length > 0 ? replyRpc : null,
   });
   if (rpcErr) {
     if (isCommunityMessengerSendTextRpcMissing(rpcErr)) return null;
@@ -6797,7 +7112,14 @@ async function trySendCommunityMessengerTextAtomic(
   }
   const payload = rpcRaw as Record<string, unknown>;
   if (payload.ok !== true) {
-    return { ok: false, error: typeof payload.error === "string" ? payload.error : "message_send_failed" };
+    const err = typeof payload.error === "string" ? payload.error : "message_send_failed";
+    if (err === "trade_seller_closed") {
+      return { ok: false, error: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다." };
+    }
+    if (err === "trade_sender_left") {
+      return { ok: false, error: "이미 나간 채팅방입니다." };
+    }
+    return { ok: false, error: err };
   }
   const msgRow = payload.message;
   if (!msgRow || typeof msgRow !== "object") {
@@ -6836,6 +7158,7 @@ export async function sendCommunityMessengerMessage(input: {
   roomId: string;
   content: string;
   clientMessageId?: string;
+  replyToMessageId?: string | null;
   /**
    * `POST .../messages` 가 `messengerRoomCanonicalOrJsonError` 로 참가·방 식별을 마친 뒤 호출할 때 true.
    * 동일 RTT 내 `community_messenger_participants` 존재 조회를 한 번 줄인다.
@@ -6846,10 +7169,18 @@ export async function sendCommunityMessengerMessage(input: {
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
   const clientMessageId = trimText(input.clientMessageId ?? "");
+  const replyToMessageIdOpt = trimText(input.replyToMessageId ?? "");
   const membershipPreflightDone = input.membershipPreflightDone === true;
   const sb = getSupabaseOrNull();
   if (sb) {
-    const atomic = await trySendCommunityMessengerTextAtomic(sb, { userId: input.userId }, roomId, content, clientMessageId);
+    const atomic = await trySendCommunityMessengerTextAtomic(
+      sb,
+      { userId: input.userId },
+      roomId,
+      content,
+      clientMessageId,
+      replyToMessageIdOpt || null
+    );
     if (atomic !== null) {
       if (atomic.ok) return { ok: true, message: atomic.message };
       return { ok: false, error: atomic.error };
@@ -6861,15 +7192,17 @@ export async function sendCommunityMessengerMessage(input: {
       .maybeSingle();
     const dedupeQ =
       clientMessageId !== ""
-        ? (sb as any)
-            .from("community_messenger_messages")
-            .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-            .eq("room_id", roomId)
-            .eq("sender_id", input.userId)
-            .filter("metadata->>client_message_id", "eq", clientMessageId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle()
+        ? queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+            (sb as any)
+              .from("community_messenger_messages")
+              .select(cols)
+              .eq("room_id", roomId)
+              .eq("sender_id", input.userId)
+              .filter("metadata->>client_message_id", "eq", clientMessageId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          )
         : Promise.resolve({ data: null, error: null });
     const participantQ = membershipPreflightDone
       ? Promise.resolve({ data: { id: "_" }, error: null })
@@ -6888,25 +7221,31 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
+    const tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+      viewerUserId: input.userId,
+      messengerRoomId: roomId,
+    });
+    if (!tradeSendGuard.ok) {
+      return { ok: false, error: tradeSendGuard.error };
+    }
     if (clientMessageId) {
       const existingRow = dedupeRes.data;
       const existingError = dedupeRes.error;
       if (!existingError && existingRow) {
+        const rowFull = existingRow as MessageRow;
+        const prof = await hydrateProfiles(
+          input.userId,
+          dedupeIds([trimText(rowFull.sender_id), input.userId].filter(Boolean)),
+          { includeSelf: true }
+        );
+        const profileByIdDedupe = new Map(prof.map((m) => [m.id, m]));
         return {
           ok: true,
-          message: {
-            id: String((existingRow as { id?: unknown }).id ?? ""),
-            roomId,
-            senderId: input.userId,
-            senderLabel: "나",
-            messageType: "text",
-            content: String((existingRow as { content?: unknown }).content ?? content),
-            createdAt: String((existingRow as { created_at?: unknown }).created_at ?? nowIso()),
-            clientMessageId,
-            isMine: true,
-            callKind: null,
-            callStatus: null,
-          },
+          message: mapCommunityMessengerDbMessageRowToMessage({
+            row: rowFull,
+            viewerUserId: input.userId,
+            profileById: profileByIdDedupe,
+          }),
         };
       }
     }
@@ -6916,18 +7255,31 @@ export async function sendCommunityMessengerMessage(input: {
       .select("user_id")
       .eq("room_id", roomId)
       .neq("user_id", input.userId);
-    const insertPromise = (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: input.userId,
-        message_type: "text",
-        content,
-        metadata: clientMessageId ? { client_message_id: clientMessageId } : {},
-        created_at: createdAt,
-      })
-      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
-      .single();
+    let replyInsertFields: Record<string, unknown> = {};
+    if (replyToMessageIdOpt) {
+      const r = await resolveCommunityMessengerReplyFieldsForFallbackInsert(sb as SupabaseLike, {
+        userId: input.userId,
+        roomId,
+        replyToMessageId: replyToMessageIdOpt,
+      });
+      if (!r.ok) return { ok: false, error: r.error };
+      replyInsertFields = r.fields;
+    }
+    const insertPromise = queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+      (sb as any)
+        .from("community_messenger_messages")
+        .insert({
+          room_id: roomId,
+          sender_id: input.userId,
+          message_type: "text",
+          content,
+          metadata: clientMessageId ? { client_message_id: clientMessageId } : {},
+          created_at: createdAt,
+          ...replyInsertFields,
+        })
+        .select(cols)
+        .single()
+    );
     const [{ data: insertedMessage, error: insertError }, { data: recipientRowsPrefetch }] = await Promise.all([
       insertPromise,
       recipientPrefetch,
@@ -6991,25 +7343,21 @@ export async function sendCommunityMessengerMessage(input: {
         hasMention,
       }).catch(() => {});
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+      const insRow = insertedMessage as MessageRow;
+      const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
+      const profileByIdIns = new Map(profIns.map((m) => [m.id, m]));
       return {
         ok: true,
-        message: {
-          id: String((insertedMessage as { id?: unknown }).id ?? ""),
-          roomId,
-          senderId: input.userId,
-          senderLabel: "나",
-          messageType: "text",
-          content,
-          createdAt,
-          clientMessageId: clientMessageId || null,
-          isMine: true,
-          callKind: null,
-          callStatus: null,
-        },
+        message: mapCommunityMessengerDbMessageRowToMessage({
+          row: insRow,
+          viewerUserId: input.userId,
+          profileById: profileByIdIns,
+        }),
       };
     }
     if (!isMissingTableError(insertError)) {
-      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+      const insErr = insertError as { message?: string } | null | undefined;
+      return { ok: false, error: String(insErr?.message ?? "message_send_failed") };
     }
   }
 
@@ -7377,6 +7725,14 @@ export async function sendCommunityMessengerStickerMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
+
+    const stickerTradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+      viewerUserId: input.userId,
+      messengerRoomId: roomId,
+    });
+    if (!stickerTradeGuard.ok) {
+      return { ok: false, error: stickerTradeGuard.error };
+    }
 
     if (clientMessageId) {
       const { data: existingRow, error: existingError } = await (sb as any)
@@ -7810,6 +8166,288 @@ export async function deleteCommunityMessengerVoiceMessage(input: {
     room.lastMessageType = "text";
   }
   return { ok: true };
+}
+
+export async function hideCommunityMessengerMessageForMe(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  const userId = trimText(input.userId);
+  if (!roomId || !messageId || !userId) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    return { ok: true };
+  }
+  const { data: part } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!part) return { ok: false, error: "forbidden" };
+
+  const { data: roomRow } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("room_type, summary")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!roomRow) return { ok: false, error: "room_not_found" };
+
+  const { data: row, error } = await (sb as any)
+    .from("community_messenger_messages")
+    .select(`${COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT}, deleted_at`)
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return { ok: false, error: "load_failed" };
+  if (!row) return { ok: false, error: "not_found" };
+  if (trimText((row as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+
+  const msgRow = row as MessageRow;
+  const roomKind = messageRoomKindForActions({
+    roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
+    contextMeta: parseCommunityMessengerRoomContextMeta(trimText((roomRow as { summary?: string | null }).summary)),
+  });
+  const cm = mapCommunityMessengerDbMessageRowToMessage({
+    row: msgRow,
+    viewerUserId: userId,
+    profileById: new Map(),
+  });
+  if (!canDeleteMessageForMe(cm, roomKind)) return { ok: false, error: "forbidden" };
+
+  const { error: insErr } = await (sb as any).from("community_messenger_message_user_hides").upsert(
+    { user_id: userId, message_id: messageId, hidden_at: nowIso() },
+    { onConflict: "user_id,message_id" }
+  );
+  if (insErr) return { ok: false, error: "hide_failed" };
+  return { ok: true };
+}
+
+export async function softDeleteCommunityMessengerMessageForEveryone(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  const userId = trimText(input.userId);
+  if (!roomId || !messageId || !userId) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    return { ok: false, error: "unsupported_type" };
+  }
+  const { data: part } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!part) return { ok: false, error: "forbidden" };
+
+  const { data: roomRow } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("room_type, summary")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!roomRow) return { ok: false, error: "room_not_found" };
+
+  const { data: msg, error: msgErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select(`${COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT}, deleted_at`)
+    .eq("id", messageId)
+    .maybeSingle();
+  if (msgErr || !msg) return { ok: false, error: "not_found" };
+  if (trimText((msg as { room_id?: string }).room_id) !== roomId) return { ok: false, error: "not_found" };
+  if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+
+  const msgRow = msg as MessageRow;
+  const roomKind = messageRoomKindForActions({
+    roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
+    contextMeta: parseCommunityMessengerRoomContextMeta(trimText((roomRow as { summary?: string | null }).summary)),
+  });
+  const cm = mapCommunityMessengerDbMessageRowToMessage({ row: msgRow, viewerUserId: userId, profileById: new Map() });
+  if (!canDeleteMessageForEveryone(cm, roomKind)) return { ok: false, error: "forbidden" };
+
+  if (trimText(msgRow.deleted_for_everyone_at)) return { ok: true };
+
+  const mt = trimText(msgRow.message_type);
+  const metadata = (msgRow.metadata ?? {}) as Record<string, unknown>;
+  if (mt === "voice") {
+    const contentV = trimText(msgRow.content);
+    let storagePath = trimText(metadata.storagePath as string);
+    if (!storagePath) storagePath = legacyPostImagesPathFromPublicUrl(contentV) ?? "";
+    if (storagePath) {
+      await (sb as any).storage.from("post-images").remove([storagePath]);
+    }
+  }
+
+  const { error: upErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .update({
+      deleted_for_everyone_at: nowIso(),
+      content: "",
+      metadata: {},
+    })
+    .eq("id", messageId)
+    .eq("room_id", roomId);
+  if (upErr) return { ok: false, error: "delete_failed" };
+
+  await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
+  return { ok: true };
+}
+
+export async function toggleCommunityMessengerMessageReaction(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+  reactionKey: string;
+}): Promise<
+  { ok: true; reactions: NonNullable<CommunityMessengerMessage["reactions"]> } | { ok: false; error: string }
+> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  const userId = trimText(input.userId);
+  const reactionKey = trimText(input.reactionKey);
+  if (!roomId || !messageId || !userId || !reactionKey) return { ok: false, error: "bad_request" };
+  if (!isMessengerQuickReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
+
+  const { data: part } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!part) return { ok: false, error: "forbidden" };
+
+  const { data: roomRow } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("room_type, summary")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!roomRow) return { ok: false, error: "room_not_found" };
+
+  const { data: msg, error: msgErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select(`${COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT}, deleted_at`)
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (msgErr || !msg) return { ok: false, error: "not_found" };
+  if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+
+  const msgRow = msg as MessageRow;
+  const authorId = trimText(msgRow.sender_id);
+  if (authorId && authorId === userId) return { ok: false, error: "forbidden" };
+  const roomKind = messageRoomKindForActions({
+    roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
+    contextMeta: parseCommunityMessengerRoomContextMeta(trimText((roomRow as { summary?: string | null }).summary)),
+  });
+  const cm = mapCommunityMessengerDbMessageRowToMessage({ row: msgRow, viewerUserId: userId, profileById: new Map() });
+  if (!canReactToMessage(cm, roomKind)) return { ok: false, error: "forbidden" };
+
+  /** 카카오톡식: 동일 메시지에 사용자당 반응 1개 — 다른 이모지 선택 시 교체, 동일 이모지 재선택 시 해제 */
+  const { data: mineRow } = await (sb as any)
+    .from("community_messenger_message_reactions")
+    .select("reaction_key")
+    .eq("message_id", messageId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const currentKey = trimText((mineRow as { reaction_key?: string } | null)?.reaction_key);
+  const wasOnlyThis = currentKey === reactionKey;
+
+  const { error: delAllE } = await (sb as any)
+    .from("community_messenger_message_reactions")
+    .delete()
+    .eq("message_id", messageId)
+    .eq("user_id", userId);
+  if (delAllE) return { ok: false, error: "reaction_failed" };
+
+  if (!wasOnlyThis) {
+    const { error: insE } = await (sb as any).from("community_messenger_message_reactions").insert({
+      message_id: messageId,
+      user_id: userId,
+      reaction_key: reactionKey,
+    });
+    if (insE) return { ok: false, error: "reaction_failed" };
+  }
+
+  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, [messageId], userId, {
+    authorUserIdByMessageId: authorId ? new Map([[messageId, authorId]]) : undefined,
+  });
+  return { ok: true, reactions: rx.get(messageId) ?? [] };
+}
+
+export async function listCommunityMessengerMessageReactionParticipants(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+  reactionKey: string;
+}): Promise<
+  | { ok: true; users: Array<{ userId: string; label: string }> }
+  | { ok: false; error: "bad_request" | "forbidden" | "not_found" | "messenger_storage_unavailable" }
+> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  const userId = trimText(input.userId);
+  const reactionKey = trimText(input.reactionKey);
+  if (!roomId || !messageId || !userId || !reactionKey) return { ok: false, error: "bad_request" };
+  if (!isMessengerQuickReactionKey(reactionKey)) return { ok: false, error: "bad_request" };
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "messenger_storage_unavailable" };
+
+  const { data: part } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!part) return { ok: false, error: "forbidden" };
+
+  const { data: msg, error: msgErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id, room_id, deleted_at, sender_id")
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (msgErr || !msg) return { ok: false, error: "not_found" };
+  if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+  const messageAuthorId = trimText((msg as { sender_id?: string | null }).sender_id);
+
+  const { data: rxRows, error: rxErr } = await (sb as any)
+    .from("community_messenger_message_reactions")
+    .select("user_id, created_at")
+    .eq("message_id", messageId)
+    .eq("reaction_key", reactionKey)
+    .order("created_at", { ascending: true });
+  if (rxErr) return { ok: false, error: "not_found" };
+
+  type RxPart = { user_id?: string; created_at?: string | null };
+  const bestByUser = new Map<string, RxPart>();
+  for (const row of (rxRows ?? []) as RxPart[]) {
+    const uid = trimText(row.user_id);
+    if (!uid || uid === messageAuthorId) continue;
+    const curAt = trimText(row.created_at) || "";
+    const prev = bestByUser.get(uid);
+    if (!prev || curAt >= (trimText(prev.created_at) || "")) bestByUser.set(uid, row);
+  }
+  const uidList = dedupeIds([...bestByUser.keys()]);
+  if (!uidList.length) return { ok: true, users: [] };
+
+  const members = await hydrateProfilesLabelsOnly(userId, uidList, { includeSelf: true });
+  const labelById = new Map(members.map((m) => [m.id, m.label.trim() || "사용자"] as const));
+  const users = uidList.map((id) => ({ userId: id, label: labelById.get(id) ?? "사용자" }));
+  return { ok: true, users };
 }
 
 function legacyPostImagesPathFromPublicUrl(url: string): string | null {

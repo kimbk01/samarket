@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/voice-waveform";
 import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/lib/community-messenger/measure-voice-blob-duration";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
+import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 
 export type UseMessengerRoomVoiceRecordingParams = {
   roomId: string;
@@ -239,7 +240,7 @@ export function useMessengerRoomVoiceRecording({
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         const confirmedVoice = json.message;

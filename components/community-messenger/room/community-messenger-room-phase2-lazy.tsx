@@ -41,10 +41,3 @@ export {
   SeedTradeChatDetailMemoryFromSnapshot,
 } from "@/components/community-messenger/room/messenger-room-trade-prefetch";
 
-export const CommunityMessengerMessageActionSheet = dynamic(
-  () =>
-    import("@/components/community-messenger/room/CommunityMessengerMessageActionSheet").then((m) => ({
-      default: m.CommunityMessengerMessageActionSheet,
-    })),
-  { ssr: false, loading: () => null }
-);

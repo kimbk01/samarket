@@ -3,6 +3,8 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { leaveCommunityMessengerRoom } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { leaveMessengerRoomUnified } from "@/lib/messenger-policy/leave-chat-room-orchestration.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +30,37 @@ export async function POST(
   if (!canon.ok) {
     return canon.response;
   }
+
+  let quiet = false;
+  try {
+    const body = await req.json();
+    if (body && typeof body === "object" && body.quiet === true) quiet = true;
+  } catch {
+    /* no body */
+  }
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (sb) {
+    const unified = await leaveMessengerRoomUnified(sb as import("@supabase/supabase-js").SupabaseClient<any>, auth.userId, canon.canonicalRoomId, {
+      quiet,
+    });
+    if (unified.ok) {
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+    const err = unified.error ?? "leave_failed";
+    const status =
+      err === "owner_cannot_leave"
+        ? 400
+        : err === "trade_room_not_found"
+          ? 404
+          : err === "forbidden"
+            ? 403
+            : err === "room_not_found" || err === "bad_request"
+              ? 400
+              : 500;
+    return NextResponse.json({ ok: false, error: err }, { status });
+  }
+
   const result = await leaveCommunityMessengerRoom({
     userId: auth.userId,
     roomId: canon.canonicalRoomId,

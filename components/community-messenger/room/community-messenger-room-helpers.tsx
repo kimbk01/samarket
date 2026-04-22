@@ -15,6 +15,7 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
+import type { CommunityMessengerRoomRealtimeMessageRow } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
 
 /** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
@@ -268,17 +269,11 @@ export function communityMessengerMemberAvatar(
 export function mapRealtimeRoomMessage(
   snapshot: CommunityMessengerRoomSnapshot,
   membersForSender: CommunityMessengerProfileLite[],
-  message: {
-    id: string;
-    roomId: string;
-    senderId: string | null;
-    messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
-    content: string;
-    metadata: Record<string, unknown>;
-    createdAt: string;
-  }
+  message: CommunityMessengerRoomRealtimeMessageRow
 ): CommunityMessengerMessage {
   const sender = message.senderId ? membersForSender.find((member) => member.id === message.senderId) : null;
+  const dfeAt = String(message.deletedForEveryoneAt ?? "").trim();
+  const deletedForEveryone = dfeAt.length > 0;
   const callKind =
     message.metadata.callKind === "video" || message.metadata.callKind === "voice"
       ? message.metadata.callKind
@@ -293,19 +288,25 @@ export function mapRealtimeRoomMessage(
       ? message.metadata.callStatus
       : null;
   const voiceDurationSeconds =
-    message.messageType === "voice"
+    message.messageType === "voice" && !deletedForEveryone
       ? Math.max(0, Math.floor(Number(message.metadata.durationSeconds ?? 0)) || 0)
       : undefined;
   const voiceWaveformPeaks =
-    message.messageType === "voice"
+    message.messageType === "voice" && !deletedForEveryone
       ? parseVoiceWaveformPeaksFromMetadata(message.metadata.waveformPeaks) ?? null
       : undefined;
   const voiceMimeType =
-    message.messageType === "voice" ? (String(message.metadata.mimeType ?? "").trim() || null) : undefined;
-  const fileName = message.messageType === "file" ? (String(message.metadata.fileName ?? "").trim() || null) : undefined;
-  const fileMimeType = message.messageType === "file" ? (String(message.metadata.mimeType ?? "").trim() || null) : undefined;
+    message.messageType === "voice" && !deletedForEveryone
+      ? (String(message.metadata.mimeType ?? "").trim() || null)
+      : undefined;
+  const fileName =
+    message.messageType === "file" && !deletedForEveryone ? (String(message.metadata.fileName ?? "").trim() || null) : undefined;
+  const fileMimeType =
+    message.messageType === "file" && !deletedForEveryone ? (String(message.metadata.mimeType ?? "").trim() || null) : undefined;
   const fileSizeBytes =
-    message.messageType === "file" ? Math.max(0, Math.floor(Number(message.metadata.fileSizeBytes ?? 0)) || 0) : undefined;
+    message.messageType === "file" && !deletedForEveryone
+      ? Math.max(0, Math.floor(Number(message.metadata.fileSizeBytes ?? 0)) || 0)
+      : undefined;
   const callSessionIdRaw = message.metadata.sessionId;
   const callSessionId =
     typeof callSessionIdRaw === "string" && callSessionIdRaw.trim() ? callSessionIdRaw.trim() : null;
@@ -314,6 +315,22 @@ export function mapRealtimeRoomMessage(
       ? message.metadata.client_message_id.trim()
       : null;
   const contentTrim = String(message.content ?? "").trim();
+  const replyToMessageId = String(message.replyToMessageId ?? "").trim();
+  const replyPieces =
+    replyToMessageId.length > 0
+      ? {
+          replyToMessageId,
+          ...(String(message.replyPreviewText ?? "").trim()
+            ? { replyPreviewText: String(message.replyPreviewText).trim() }
+            : {}),
+          ...(String(message.replyPreviewType ?? "").trim()
+            ? { replyPreviewType: String(message.replyPreviewType).trim() }
+            : {}),
+          ...(String(message.replySenderLabelSnapshot ?? "").trim()
+            ? { replySenderLabelSnapshot: String(message.replySenderLabelSnapshot).trim() }
+            : {}),
+        }
+      : {};
   return {
     id: message.id,
     roomId: message.roomId,
@@ -327,13 +344,15 @@ export function mapRealtimeRoomMessage(
     callKind,
     callStatus,
     callSessionId,
+    ...replyPieces,
+    ...(deletedForEveryone ? { deletedForEveryoneAt: dfeAt } : {}),
     ...(voiceDurationSeconds !== undefined ? { voiceDurationSeconds } : {}),
     ...(voiceWaveformPeaks !== undefined ? { voiceWaveformPeaks } : {}),
     ...(voiceMimeType !== undefined ? { voiceMimeType } : {}),
     ...(fileName !== undefined ? { fileName } : {}),
     ...(fileMimeType !== undefined ? { fileMimeType } : {}),
     ...(fileSizeBytes !== undefined ? { fileSizeBytes } : {}),
-    ...(message.messageType === "image"
+    ...(message.messageType === "image" && !deletedForEveryone
       ? messengerImageClientFieldsFromMetadata(message.messageType, message.metadata, contentTrim)
       : {}),
   };

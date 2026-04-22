@@ -5,6 +5,17 @@ export type MessengerRoomActionTranslate = (
   vars?: Record<string, string | number>
 ) => string;
 
+/**
+ * `jsonError("한글…", status, { code: "not_found" })` 처럼 내려올 때 클라이언트가 기계용 `code` 를 우선 쓰도록 한다.
+ * (`json.error` 만 넘기면 `getMessengerRoomActionErrorMessage` 가 전부 기본 문구로 떨어짐)
+ */
+export function pickMessengerApiErrorField(json: { error?: unknown; code?: unknown }): string | undefined {
+  const code = typeof json.code === "string" ? json.code.trim() : "";
+  if (code) return code;
+  const err = typeof json.error === "string" ? json.error.trim() : "";
+  return err || undefined;
+}
+
 export function getMessengerRoomActionErrorMessage(
   error: string | undefined,
   t: MessengerRoomActionTranslate
@@ -50,6 +61,16 @@ export function getMessengerRoomActionErrorMessage(
       return "방장은 이 방을 바로 나갈 수 없습니다.";
     case "room_unavailable":
       return t("nav_messenger_room_unavailable");
+    case "trade_product_chat_unlinked":
+      return "거래 정보를 확인할 수 없습니다.";
+    case "trade_not_counterpart":
+      return "참여자만 메시지를 보낼 수 있습니다.";
+    case "trade_viewer_left_as_seller":
+      return "이미 나간 채팅방입니다.";
+    case "trade_viewer_left_as_buyer":
+      return "이미 나간 채팅방입니다.";
+    case "trade_seller_closed_buyer_blocked":
+      return "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.";
     case "peer_not_found":
       return t("nav_messenger_peer_not_found");
     case "forbidden":
@@ -83,6 +104,16 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_voice_upload_failed");
     case "not_found":
       return t("nav_messenger_message_not_found");
+    case "reply_target_not_found":
+      return "답장 대상 메시지를 찾을 수 없습니다.";
+    case "reply_target_invalid":
+      return "답장할 수 없는 메시지입니다.";
+    case "bad_request":
+      return "요청이 올바르지 않습니다.";
+    case "reaction_failed":
+      return "반응을 저장하지 못했습니다.";
+    case "migration_required":
+      return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
     case "unsupported_type":
       return t("nav_messenger_message_type_delete_unsupported");
     case "delete_failed":

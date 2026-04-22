@@ -78,6 +78,7 @@ type Props = {
   handleMessengerHomeToggleMute: (room: CommunityMessengerRoomSummary) => void;
   handleMessengerHomeMarkRoomRead: (room: CommunityMessengerRoomSummary) => void;
   handleMessengerHomeToggleRoomArchive: (room: CommunityMessengerRoomSummary) => void;
+  handleMessengerHomeLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
   openRoomActions: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -204,6 +205,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               onToggleMute={props.handleMessengerHomeToggleMute}
               onMarkRead={props.handleMessengerHomeMarkRoomRead}
               onToggleArchive={props.handleMessengerHomeToggleRoomArchive}
+              onLeaveRoom={props.handleMessengerHomeLeaveRoom}
               onOpenRoomActions={props.openRoomActions}
               chatInboxFilter={props.chatInboxFilter}
               chatKindFilter={props.chatKindFilter}

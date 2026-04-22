@@ -11,7 +11,21 @@ import {
   useRef,
   useState,
 } from "react";
-import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import {
+  communityMessengerRoomIsGloballyUsable,
+  type CommunityMessengerMessageActionAnchorRect,
+} from "@/lib/community-messenger/types";
+
+function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
+  return {
+    top: r.top,
+    left: r.left,
+    right: r.right,
+    bottom: r.bottom,
+    width: r.width,
+    height: r.height,
+  };
+}
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -46,7 +60,6 @@ import {
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
-  CommunityMessengerMessageActionSheet,
   CommunityMessengerTradeProcessSection,
   GroupRoomCallOverlay,
   MessengerTradeChatRoomDetailPrefetch,
@@ -61,6 +74,11 @@ import {
   messengerRoomReadBlockKeyImageLightbox,
   setMessengerRoomReadBlock,
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
+import {
+  formatReplyQuoteForMessage,
+  formatReplyQuoteKakaoHeader,
+} from "@/lib/community-messenger/message-actions/message-reply-policy";
+import { MessageReactionRosterSheet } from "@/components/community-messenger/room/message/MessageReactionRosterSheet";
 
 const MESSENGER_TIMELINE_MESSAGES_CAP = 100;
 
@@ -71,6 +89,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     originals: string[];
     index: number;
   } | null>(null);
+  const [reactionRoster, setReactionRoster] = useState<{
+    messageId: string;
+    reactionKey: string;
+    anchor: CommunityMessengerMessageActionAnchorRect;
+  } | null>(null);
+
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
    * 역순 1회로 mine id 확정 후, 읽음 판별에 필요한 두 id만 단일 순방향 스캔으로 찾는다.
@@ -303,11 +327,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   ? {}
                   : item.messageType === "call_stub"
                     ? {
-                        onPointerDown: (_e: ReactPointerEvent<HTMLDivElement>) => {
+                        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
                           vm.messageLongPressItemRef.current = item;
+                          const el = e.currentTarget;
                           vm.messageLongPressTimerRef.current = window.setTimeout(() => {
                             vm.messageLongPressTimerRef.current = null;
-                            vm.setCallStubSheet(item);
+                            vm.setCallStubSheet({
+                              item,
+                              anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
+                            });
                           }, 520);
                         },
                         onPointerUp: () => {
@@ -326,15 +354,22 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         },
                         onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
                           e.preventDefault();
-                          vm.setCallStubSheet(item);
+                          vm.setCallStubSheet({
+                            item,
+                            anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
+                          });
                         },
                       }
                     : {
-                        onPointerDown: (_e: ReactPointerEvent<HTMLDivElement>) => {
+                        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
                           vm.messageLongPressItemRef.current = item;
+                          const el = e.currentTarget;
                           vm.messageLongPressTimerRef.current = window.setTimeout(() => {
                             vm.messageLongPressTimerRef.current = null;
-                            vm.setMessageActionItem(item);
+                            vm.setMessageActionItem({
+                              item,
+                              anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
+                            });
                           }, 520);
                         },
                         onPointerUp: () => {
@@ -353,9 +388,104 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         },
                         onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
                           e.preventDefault();
-                          vm.setMessageActionItem(item);
+                          vm.setMessageActionItem({
+                            item,
+                            anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
+                          });
                         },
                       };
+
+              const replyQuote =
+                item.messageType !== "system" && item.messageType !== "call_stub"
+                  ? formatReplyQuoteForMessage(item)
+                  : null;
+
+              const longPressMenuOpenOnBubble =
+                (Boolean(vm.messageActionItem) && vm.messageActionItem?.item.id === item.id) ||
+                (Boolean(vm.callStubSheet) && vm.callStubSheet?.item.id === item.id);
+
+              const renderReplyQuoteInsideBubble = () => {
+                if (!replyQuote) return null;
+                const mine = item.isMine;
+                return (
+                  <button
+                    type="button"
+                    className={`w-full min-w-0 max-w-full shrink-0 border-b text-left transition active:opacity-90 ${
+                      mine
+                        ? "border-white/20 bg-black/15 px-3 py-2"
+                        : "border-[color:var(--cm-room-divider)] bg-black/[0.04] px-3 py-2"
+                    }`}
+                    style={{
+                      borderTopLeftRadius: "var(--cm-room-radius-bubble)",
+                      borderTopRightRadius: "var(--cm-room-radius-bubble)",
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void vm.focusTimelineMessage(replyQuote.targetMessageId);
+                    }}
+                    aria-label={`원본 메시지로 이동: ${replyQuote.senderLabel}`}
+                  >
+                    <p
+                      className={`sam-text-xxs font-bold leading-snug ${
+                        mine ? "text-white" : "text-[color:var(--cm-room-primary)]"
+                      }`}
+                    >
+                      {formatReplyQuoteKakaoHeader(vm.tt(replyQuote.senderLabel))}
+                    </p>
+                    <p
+                      className={`mt-0.5 line-clamp-2 sam-text-xxs leading-snug ${
+                        mine ? "text-white/85" : "text-[color:var(--cm-room-text-muted)]"
+                      }`}
+                    >
+                      {replyQuote.previewText}
+                    </p>
+                  </button>
+                );
+              };
+
+              const renderBubbleStack = (bubbleChild: ReactNode) => (
+                <div
+                  className={`inline-flex max-w-full flex-col ${item.isMine ? "items-end" : "items-start"} ${
+                    longPressMenuOpenOnBubble ? "rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-2 ring-offset-[color:var(--cm-room-bg)]" : ""
+                  }`}
+                  {...bindMessageInteraction}
+                >
+                  {bubbleChild}
+                  {(() => {
+                    const hasRx = Boolean(item.reactions && item.reactions.length > 0);
+                    if (!hasRx) return null;
+                    return (
+                      <div
+                        className={`mt-1 flex max-w-full flex-wrap items-center gap-1.5 ${
+                          item.isMine ? "justify-end" : "justify-start"
+                        }`}
+                      >
+                        {(item.reactions ?? []).map((r) => (
+                          <button
+                            key={`${item.id}:${r.reactionKey}`}
+                            type="button"
+                            className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 sam-text-xxs font-medium transition active:opacity-75 ${
+                              item.isMine ? "text-white/95" : "text-[color:var(--cm-room-text)]"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReactionRoster({
+                                messageId: item.id,
+                                reactionKey: r.reactionKey,
+                                anchor: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
+                              });
+                            }}
+                            aria-label={`${r.reactionKey} 반응 ${r.count}명, 누가 눌렀는지 보기`}
+                          >
+                            <span className="text-base leading-none">{r.reactionKey}</span>
+                            {r.count >= 1 ? <span className="tabular-nums opacity-90">{r.count}</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
 
               const systemBubbleClass =
                 "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
@@ -552,6 +682,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })();
 
+              const viberBubble = (
+                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
+                  <div className="flex min-w-0 max-w-full flex-col">
+                    {renderReplyQuoteInsideBubble()}
+                    {item.messageType === "image" || item.messageType === "sticker" ? (
+                      viberInnerBody
+                    ) : (
+                      <div className={replyQuote ? "px-3 pb-2.5 pt-2" : "px-3 py-2.5"}>{viberInnerBody}</div>
+                    )}
+                  </div>
+                </ViberChatBubble>
+              );
+
               return (
                 <div
                   key={item.id}
@@ -560,6 +703,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   id={`cm-room-msg-${item.id}`}
                   className={`absolute left-0 top-0 w-full pb-2.5 flex scroll-mt-24 ${
                     item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
+                  } ${
+                    vm.timelineHighlightMessageId === item.id
+                      ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"
+                      : ""
                   }`}
                   style={{
                     transform: `translateY(${virtualRow.start}px)`,
@@ -622,33 +769,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                                   {peerHasReadMyLatestMessage ? "읽음" : "안읽음"}
                                 </span>
                               ) : null}
-                              <div
-                                className="inline-block w-max max-w-full shrink-0 align-bottom"
-                                {...bindMessageInteraction}
-                              >
-                                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
-                                  {item.messageType === "image" || item.messageType === "sticker" ? (
-                                    viberInnerBody
-                                  ) : (
-                                    <div className="px-3 py-2.5">{viberInnerBody}</div>
-                                  )}
-                                </ViberChatBubble>
-                              </div>
+                              {renderBubbleStack(viberBubble)}
                             </>
                           ) : (
                             <>
-                              <div
-                                className="inline-block w-max max-w-full shrink-0 align-bottom"
-                                {...bindMessageInteraction}
-                              >
-                                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
-                                  {item.messageType === "image" || item.messageType === "sticker" ? (
-                                    viberInnerBody
-                                  ) : (
-                                    <div className="px-3 py-2.5">{viberInnerBody}</div>
-                                  )}
-                                </ViberChatBubble>
-                              </div>
+                              {renderBubbleStack(viberBubble)}
                               <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
@@ -685,9 +810,40 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
-              아직 메시지가 없습니다.
-              <br />
-              <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
+              {(() => {
+                const lastHint = Boolean(vm.snapshot.room.lastMessage?.trim());
+                const snapshotHasMessages = vm.snapshot.messages.length > 0;
+                const showLoadRecovery =
+                  !vm.loading &&
+                  (lastHint || snapshotHasMessages) &&
+                  vm.roomMessages.length === 0;
+                if (showLoadRecovery) {
+                  return (
+                    <>
+                      <p className="sam-text-body font-medium text-[color:var(--cm-room-text)]">
+                        대화 내용을 불러오지 못했습니다.
+                      </p>
+                      <p className="mx-auto mt-2 max-w-sm sam-text-helper leading-relaxed">
+                        방 미리보기에는 최근 메시지가 있는데 목록이 비어 있으면, 로컬 DB 마이그레이션 누락이거나 동기화 오류일 수 있습니다. 다시 불러오기를 눌러 보세요.
+                      </p>
+                      <button
+                        type="button"
+                        className="mt-4 rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-5 py-2.5 sam-text-body font-semibold text-[color:var(--cm-room-primary)] active:bg-[color:var(--cm-room-primary-soft)]"
+                        onClick={() => void vm.refresh(false)}
+                      >
+                        다시 불러오기
+                      </button>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    아직 메시지가 없습니다.
+                    <br />
+                    <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
+                  </>
+                );
+              })()}
             </div>
           )}
           <div ref={vm.messageEndRef} />
@@ -707,6 +863,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             return { ...cur, index: clamped };
           })
         }
+      />
+      <MessageReactionRosterSheet
+        open={reactionRoster}
+        streamRoomId={vm.streamRoomId}
+        onClose={() => setReactionRoster(null)}
       />
     </div>
   );

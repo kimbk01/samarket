@@ -110,7 +110,7 @@ export async function POST(
   if (!auth.ok) return auth.response;
 
   const [parsed, routeParams, rateLimit] = await Promise.all([
-    parseJsonBody<{ content?: string; clientMessageId?: string }>(req, "invalid_json"),
+    parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
     params,
     enforceRateLimit({
       key: `community-messenger:message-send:${getRateLimitKey(req, auth.userId)}`,
@@ -133,6 +133,7 @@ export async function POST(
   const t0 = performance.now();
   const content = String(body.content ?? "");
   const clientMessageId = String(body.clientMessageId ?? "").trim();
+  const replyToMessageId = String(body.replyToMessageId ?? "").trim();
   const key = clientMessageId
     ? `community-messenger:send:${auth.userId}:${canonicalRoomId}:${clientMessageId}`
     : `community-messenger:send:${auth.userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
@@ -152,6 +153,7 @@ export async function POST(
       roomId: canonicalRoomId,
       content,
       clientMessageId: clientMessageId || undefined,
+      replyToMessageId: replyToMessageId || undefined,
       membershipPreflightDone: true,
     });
     // store short TTL response to dedupe rapid retries/double-clicks

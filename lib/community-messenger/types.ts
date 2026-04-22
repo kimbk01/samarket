@@ -201,6 +201,8 @@ export type CommunityMessengerMessage = {
   /** 클라이언트 idempotency 키(전송 중복 방지/ACK 정합성). 서버는 metadata.client_message_id 로 저장 */
   clientMessageId?: string | null;
   isMine: boolean;
+  /** 낙관적 전송 등 — 정책 모듈에서 `pending === true` 이면 일부 액션 비활성 */
+  pending?: boolean;
   callKind?: CommunityMessengerCallKind | null;
   callStatus?: CommunityMessengerCallStatus | null;
   /** call_stub metadata.sessionId — 방 스냅샷 activeCall 과 채팅 로그를 맞추는 데 사용 */
@@ -230,6 +232,30 @@ export type CommunityMessengerMessage = {
   imagePreviewUrl?: string | null;
   /** 단일 이미지: 원본 URL (`metadata.image_original_url`). */
   imageOriginalUrl?: string | null;
+  /** 답장 대상 메시지 id — 서버 `reply_to_message_id` */
+  replyToMessageId?: string | null;
+  replyPreviewText?: string | null;
+  replyPreviewType?: CommunityMessengerMessageType | string | null;
+  replySenderLabelSnapshot?: string | null;
+  /** 전원 삭제 시각(ISO) — 있으면 본문은 placeholder 로만 표시 */
+  deletedForEveryoneAt?: string | null;
+  /** 그룹에서만 count>1 의미가 큼; 직접방은 mine 토글 위주 */
+  reactions?: Array<{ reactionKey: string; count: number; mine: boolean }>;
+};
+
+/** 롱프레스 메뉴(앵커) — `DOMRectReadOnly` 를 직렬화한 값 */
+export type CommunityMessengerMessageActionAnchorRect = {
+  top: number;
+  left: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+};
+
+export type CommunityMessengerMessageActionOpenState = {
+  item: CommunityMessengerMessage & { pending?: boolean };
+  anchorRect: CommunityMessengerMessageActionAnchorRect;
 };
 
 /** `POST .../images` → `sendCommunityMessengerImageMessage` 전달 형식 */
@@ -252,6 +278,19 @@ export type CommunityMessengerPeerPresenceSnapshot = {
   userId: string;
   state: CommunityMessengerPresenceState;
   lastSeenAt: string | null;
+};
+
+/** 거래 CM 방 — `product_chats` 나가기·판매자 종료와 메시지 전송 가능 여부 (스냅샷 단일 진실) */
+export type CommunityMessengerTradeMessagingSnapshot = {
+  productChat: {
+    sellerId: string;
+    buyerId: string;
+    sellerLeftAt: string | null;
+    buyerLeftAt: string | null;
+  } | null;
+  canSendMessage: boolean;
+  denyCode: string | null;
+  denyMessage: string | null;
 };
 
 export type CommunityMessengerRoomSnapshot = {
@@ -282,6 +321,8 @@ export type CommunityMessengerRoomSnapshot = {
    * 메신저 상단 거래 도크가 클라 `GET /api/chat/room/...` 를 다시 기다리지 않도록 RSC·부트스트랩 GET 과 동일 페이로드를 실음.
    */
   tradeChatRoomDetail?: ChatRoom | null;
+  /** `product_chats` 와 연결된 거래 스레드 전송 가드 — 컴포저·전송 API와 동일 규칙 */
+  tradeMessaging?: CommunityMessengerTradeMessagingSnapshot | null;
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */

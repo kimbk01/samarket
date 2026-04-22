@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -10,6 +11,7 @@ import {
   useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -44,7 +46,6 @@ import {
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
-  CommunityMessengerMessageActionSheet,
   CommunityMessengerTradeProcessSection,
   GroupRoomCallOverlay,
   MessengerTradeChatRoomDetailPrefetch,
@@ -63,6 +64,10 @@ import {
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import {
+  buildReplyPreviewSnapshot,
+  formatReplyQuoteKakaoHeader,
+} from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
@@ -84,6 +89,9 @@ export function CommunityMessengerRoomPhase2Composer() {
     notifyComposerTextareaVisibleForSeededBootstrap,
     loading: phase1Loading,
     snapshot: phase1Snapshot,
+    replyToMessage,
+    setReplyToMessage,
+    focusTimelineMessage,
   } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
@@ -145,6 +153,10 @@ export function CommunityMessengerRoomPhase2Composer() {
     draft,
   });
 
+  const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
+  const tradeOnlyBlocked =
+    Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
+
   const commitTextSend = useCallback(() => {
     if (
       vm.roomUnavailable ||
@@ -183,7 +195,63 @@ export function CommunityMessengerRoomPhase2Composer() {
           paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
         }}
       >
+        {replyToMessage && !vm.voiceRecording ? (
+          <div className="relative z-[1] mb-2 flex shrink-0 items-center gap-2 border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2">
+            <button
+              type="button"
+              className="min-w-0 flex-1 border-l-2 border-[color:var(--cm-room-primary)] pl-2 text-left transition active:opacity-90"
+              onClick={() => {
+                void focusTimelineMessage(replyToMessage.id);
+              }}
+              aria-label="답장 대상 메시지로 이동"
+            >
+              <p className="sam-text-xxs font-bold leading-snug text-[color:var(--cm-room-primary)]">
+                {formatReplyQuoteKakaoHeader(replyToMessage.senderLabel)}
+              </p>
+              <p className="mt-0.5 line-clamp-2 sam-text-helper text-[color:var(--cm-room-text-muted)]">
+                {buildReplyPreviewSnapshot(replyToMessage).previewText}
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setReplyToMessage(null)}
+              className="shrink-0 rounded-full px-2 py-1 sam-text-helper font-medium text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
+            >
+              취소
+            </button>
+          </div>
+        ) : null}
         <MessengerInputBar>
+          {tradeOnlyBlocked ? (
+            <div
+              className="mb-2 rounded-[var(--cm-room-radius-input)] border border-amber-200/80 bg-amber-50/90 px-3 py-2 sam-text-helper leading-snug text-amber-950"
+              role="status"
+            >
+              <p className="font-semibold">
+                {vm.snapshot.tradeMessaging?.denyMessage ?? "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다."}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {vm.snapshot.room.peerUserId ? (
+                  <Link
+                    href="/community-messenger?section=friends"
+                    className="inline-flex min-h-9 items-center rounded-full bg-[color:var(--cm-room-primary)] px-3 py-1.5 sam-text-xxs font-semibold text-white"
+                  >
+                    친구 추가
+                  </Link>
+                ) : null}
+                {vm.snapshot.room.contextMeta?.kind === "trade" &&
+                typeof vm.snapshot.room.contextMeta.productChatId === "string" &&
+                vm.snapshot.room.contextMeta.productChatId.trim() ? (
+                  <Link
+                    href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
+                    className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--cm-room-divider)] bg-white px-3 py-1.5 sam-text-xxs font-semibold text-[color:var(--cm-room-text)]"
+                  >
+                    상품 상세보기
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           {!vm.voiceRecording ? (
             <button
               type="button"
@@ -237,13 +305,15 @@ export function CommunityMessengerRoomPhase2Composer() {
                   vm.busy === "send-sticker"
                 }
                 placeholder={
-                  vm.roomUnavailable
-                    ? vm.snapshot.room.isReadonly
-                      ? "읽기 전용 방입니다"
-                      : vm.snapshot.room.roomStatus === "blocked"
-                        ? "차단된 방입니다"
-                        : "보관된 방입니다"
-                    : "메시지"
+                  tradeOnlyBlocked
+                    ? vm.snapshot.tradeMessaging?.denyMessage ?? "메시지를 보낼 수 없습니다"
+                    : vm.roomUnavailable
+                      ? vm.snapshot.room.isReadonly
+                        ? "읽기 전용 방입니다"
+                        : vm.snapshot.room.roomStatus === "blocked"
+                          ? "차단된 방입니다"
+                          : "보관된 방입니다"
+                      : "메시지"
                 }
                 className="max-h-28 min-h-[40px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
               />

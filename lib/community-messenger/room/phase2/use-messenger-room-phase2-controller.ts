@@ -26,10 +26,14 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
-import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import {
+  getMessengerRoomActionErrorMessage,
+  pickMessengerApiErrorField,
+} from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import {
@@ -53,6 +57,7 @@ import {
   messengerRoomReadBlockKeyCallPanel,
   setMessengerRoomReadBlock,
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
+import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-actions/message-reply-policy";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -321,6 +326,9 @@ export function useMessengerRoomPhase2Controller() {
     [t]
   );
 
+  /** 동일 메시지에 대한 반응 POST 중복(연타)만 막는다 — 메시지마다 독립 */
+  const messageReactionToggleBusyIdsRef = useRef<Set<string>>(new Set());
+
   const forgetRoomBootstrapClientFlightsAfterMutation = useCallback(() => {
     const uid = snapshot?.viewerUserId?.trim();
     const route = roomId?.trim();
@@ -394,7 +402,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, isMuted: nextMuted } } : prev));
@@ -415,7 +423,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       setSnapshot((prev) =>
@@ -566,7 +574,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       setOpenGroupPassword("");
@@ -598,7 +606,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false });
@@ -633,11 +641,19 @@ export function useMessengerRoomPhase2Controller() {
   }, [activeSheet, infoSheetFocus]);
 
   const sendRawText = useCallback(
-    async (content: string, restoreOnFail?: string) => {
+    async (
+      content: string,
+      restoreOnFail?: string,
+      replyToMessageId?: string | null,
+      replySourceMessage?: (CommunityMessengerMessage & { pending?: boolean }) | null
+    ) => {
       const trimmed = content.trim();
       if (!trimmed || !snapshot) return;
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      const rid = (replyToMessageId ?? "").trim();
+      const replySnap =
+        rid && replySourceMessage && replySourceMessage.id === rid ? buildReplyPreviewSnapshot(replySourceMessage) : null;
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
         roomId: streamRoomId,
@@ -652,6 +668,14 @@ export function useMessengerRoomPhase2Controller() {
         pending: true,
         callKind: null,
         callStatus: null,
+        ...(replySnap
+          ? {
+              replyToMessageId: replySnap.messageId,
+              replyPreviewText: replySnap.previewText,
+              replyPreviewType: replySnap.messageType,
+              replySenderLabelSnapshot: replySnap.senderLabel,
+            }
+          : {}),
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
@@ -659,10 +683,15 @@ export function useMessengerRoomPhase2Controller() {
       setBusy("send");
       try {
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+        const replyId = rid;
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: trimmed, clientMessageId }),
+          body: JSON.stringify({
+            content: trimmed,
+            clientMessageId,
+            ...(replyId ? { replyToMessageId: replyId } : {}),
+          }),
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -677,7 +706,7 @@ export function useMessengerRoomPhase2Controller() {
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (restoreOnFail !== undefined) setMessage(restoreOnFail);
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
@@ -716,18 +745,13 @@ export function useMessengerRoomPhase2Controller() {
   const sendMessage = useCallback(async (textOverride?: string) => {
     const raw = (textOverride ?? message).trim();
     if (!raw || !snapshot) return;
-    const replyPrefix = replyToMessage
-      ? `[답장: ${replyToMessage.senderLabel}] ${
-          replyToMessage.messageType === "text"
-            ? replyToMessage.content.trim().slice(0, 200)
-            : `(${replyToMessage.messageType})`
-        }\n`
-      : "";
-    const content = `${replyPrefix}${raw}`.trim();
+    if (busy === "send") return;
+    const replyTarget = replyToMessage;
+    const replyId = replyTarget?.id?.trim() ?? "";
     setMessage("");
     setReplyToMessage(null);
-    await sendRawText(content);
-  }, [message, replyToMessage, sendRawText, snapshot]);
+    await sendRawText(raw, undefined, replyId || null, replyId ? replyTarget : null);
+  }, [busy, message, replyToMessage, sendRawText, snapshot]);
 
   const sendSticker = useCallback(
     async (fileUrl: string, stickerItemId?: string) => {
@@ -776,7 +800,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
@@ -890,7 +914,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
@@ -998,7 +1022,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
@@ -1069,6 +1093,7 @@ export function useMessengerRoomPhase2Controller() {
       const { files, previewUrls } = draft;
       setAttachmentConfirmDraft(null);
       dismissRoomSheet();
+      setReplyToMessage(null);
       await sendImageFiles(files, previewUrls);
       return;
     }
@@ -1076,18 +1101,119 @@ export function useMessengerRoomPhase2Controller() {
       const { file } = draft;
       setAttachmentConfirmDraft(null);
       dismissRoomSheet();
+      setReplyToMessage(null);
       await sendFile(file);
       return;
     }
     const { content } = draft;
+    const replyTarget = replyToMessage;
+    const replyId = replyTarget?.id?.trim() ?? "";
     setAttachmentConfirmDraft(null);
     dismissRoomSheet();
-    await sendRawText(content);
-  }, [attachmentConfirmDraft, dismissRoomSheet, sendFile, sendImageFiles, sendRawText]);
+    setReplyToMessage(null);
+    await sendRawText(content, undefined, replyId || null, replyId ? replyTarget : null);
+  }, [attachmentConfirmDraft, dismissRoomSheet, replyToMessage, sendFile, sendImageFiles, sendRawText, setReplyToMessage]);
+
+  const hideRoomMessageForMe = useCallback(
+    async (messageId: string) => {
+      setBusy("hide-message");
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(messageId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "hide_for_me" }),
+          }
+        );
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getRoomActionErrorMessage, setReplyToMessage, setRoomMessages, streamRoomId]
+  );
+
+  const deleteRoomMessageForEveryone = useCallback(
+    async (messageId: string) => {
+      if (!window.confirm("모든 참가자에게서 이 메시지를 삭제할까요?")) return;
+      setBusy("delete-for-everyone");
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(messageId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "delete_for_everyone" }),
+          }
+        );
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
+        void refresh(true);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getRoomActionErrorMessage, refresh, setReplyToMessage, streamRoomId]
+  );
+
+  const toggleMessageReaction = useCallback(
+    async (messageId: string, reactionKey: string) => {
+      const mid = messageId.trim();
+      const rk = reactionKey.trim();
+      if (!mid || !rk) return;
+      const row = roomMessagesRef.current.find((x) => x.id === mid);
+      if (row?.isMine || row?.pending) {
+        showMessengerSnackbar("내 메시지에는 반응할 수 없습니다.", { variant: "error" });
+        return;
+      }
+      const busy = messageReactionToggleBusyIdsRef.current;
+      if (busy.has(mid)) return;
+      busy.add(mid);
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(mid)}/reactions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ reactionKey: rk }),
+          }
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          reactions?: CommunityMessengerMessage["reactions"];
+          error?: string;
+        };
+        if (!res.ok || !json.ok) {
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        if (Array.isArray(json.reactions)) {
+          setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, reactions: json.reactions } : m)));
+        }
+      } finally {
+        busy.delete(mid);
+      }
+    },
+    [getRoomActionErrorMessage, setRoomMessages, streamRoomId]
+  );
 
   const deleteRoomMessage = useCallback(
     async (messageId: string) => {
-      if (!window.confirm("이 메시지를 삭제할까요?")) return;
+      const row = roomMessagesRef.current.find((x) => x.id === messageId);
+      if (row?.messageType !== "voice") return;
+      if (!window.confirm("이 음성 메시지를 삭제할까요?")) return;
       setBusy("delete-message");
       try {
         const res = await fetch(
@@ -1096,16 +1222,17 @@ export function useMessengerRoomPhase2Controller() {
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
+        setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
         setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
         void refresh(true);
       } finally {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, streamRoomId]
+    [getRoomActionErrorMessage, refresh, setReplyToMessage, setRoomMessages, streamRoomId]
   );
 
   const blockPeerFromMessage = useCallback(
@@ -1143,7 +1270,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       setInviteIds([]);
@@ -1165,7 +1292,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       await refresh(true);
@@ -1193,7 +1320,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
       await refresh(true);
@@ -1224,7 +1351,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1248,7 +1375,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1271,7 +1398,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
         if (!res.ok || !json.ok || !json.roomId) {
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1324,7 +1451,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          showMessengerSnackbar(getRoomActionErrorMessage(json.error), { variant: "error" });
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
         setMemberActionTarget(null);
@@ -1445,15 +1572,16 @@ export function useMessengerRoomPhase2Controller() {
       }
       try {
         await navigator.clipboard.writeText(text);
+        showMessengerSnackbar("복사했습니다.", { variant: "success" });
       } catch {
         showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
       }
       setMessageActionItem(null);
     },
-    [getMessageCopyText]
+    [getMessageCopyText, setMessageActionItem]
   );
 
-  const forwardMessage = useCallback(
+  const shareMessageExternally = useCallback(
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
       const payload = text || `[${item.messageType} 메시지]`;
@@ -1474,8 +1602,53 @@ export function useMessengerRoomPhase2Controller() {
       }
       setMessageActionItem(null);
     },
-    [getMessageCopyText, snapshot?.room.title]
+    [getMessageCopyText, setMessageActionItem, snapshot?.room.title]
   );
+
+  const shareMessageCopyDeepLink = useCallback(
+    async (item: CommunityMessengerMessage & { pending?: boolean }) => {
+      const canon = streamRoomId.trim();
+      if (!canon) return;
+      const origin = typeof window !== "undefined" ? window.location.origin : "";
+      const url = `${origin}/community-messenger/rooms/${encodeURIComponent(canon)}?msg=${encodeURIComponent(item.id)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        showMessengerSnackbar("메시지 링크를 복사했습니다.", { variant: "success" });
+      } catch {
+        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+      }
+      setMessageActionItem(null);
+    },
+    [setMessageActionItem, streamRoomId]
+  );
+
+  const shareMessageToOtherRoom = useCallback(
+    async (item: CommunityMessengerMessage & { pending?: boolean }) => {
+      const text = getMessageCopyText(item);
+      const roomTitle = snapshot?.room.title?.trim() || "대화";
+      const preview = text || `[${item.messageType} 메시지]`;
+      const canon = streamRoomId.trim();
+      const block = buildCommunityMessengerInternalShareClipboard({
+        roomTitle,
+        sourceRoomId: canon || item.roomId?.trim() || "",
+        item,
+        previewText: preview,
+      });
+      try {
+        await navigator.clipboard.writeText(block);
+      } catch {
+        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+        return;
+      }
+      setMessageActionItem(null);
+      router.push("/community-messenger?section=chats");
+      showMessengerSnackbar("메시지 카드가 클립보드에 복사되었습니다. 다른 방에서 붙여넣기 하세요.", { variant: "success" });
+    },
+    [getMessageCopyText, router, setMessageActionItem, snapshot?.room.title, streamRoomId]
+  );
+
+  /** @deprecated Prefer shareMessageExternally / shareMessageToOtherRoom / shareMessageCopyDeepLink */
+  const forwardMessage = shareMessageExternally;
 
   const hideCallStubLocally = useCallback(
     (messageId: string) => {
@@ -1683,6 +1856,9 @@ export function useMessengerRoomPhase2Controller() {
     openFilePicker,
     onPickFile,
     deleteRoomMessage,
+    hideRoomMessageForMe,
+    deleteRoomMessageForEveryone,
+    toggleMessageReaction,
     blockPeerFromMessage,
     inviteMembers,
     savePrivateGroupNotice,
@@ -1701,6 +1877,9 @@ export function useMessengerRoomPhase2Controller() {
     getMessageCopyText,
     copyMessageText,
     forwardMessage,
+    shareMessageExternally,
+    shareMessageCopyDeepLink,
+    shareMessageToOtherRoom,
     hideCallStubLocally,
   };
 }

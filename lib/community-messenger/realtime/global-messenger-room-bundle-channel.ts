@@ -245,6 +245,18 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
         c = c.on(
           "postgres_changes",
+          { event: "*", schema: "public", table: "community_messenger_message_reactions" },
+          (payload) => {
+            const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+            const roomKey = normalizeRoomKey(rid);
+            if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+            if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).messageFallback.schedule();
+          }
+        );
+
+        c = c.on(
+          "postgres_changes",
           { event: "*", schema: "public", table: "community_messenger_participants" },
           (payload) => {
             const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;

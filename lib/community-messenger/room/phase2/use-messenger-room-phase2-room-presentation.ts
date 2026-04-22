@@ -32,7 +32,9 @@ export function useMessengerRoomPhase2RoomPresentation({
   t,
   callPanel,
 }: MessengerRoomPhase2RoomPresentationArgs) {
-  const roomUnavailable = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
+  const tradeSendBlocked = Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);
+  const roomGloballyBlocked = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
+  const roomUnavailable = roomGloballyBlocked || tradeSendBlocked;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
   const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {
@@ -172,6 +174,7 @@ export function useMessengerRoomPhase2RoomPresentation({
 
   return {
     roomUnavailable,
+    tradeSendBlocked,
     isGroupRoom,
     roomSummaryHoldsOnlyTradeOrDeliveryMeta,
     tradeProductChatIdForDock,
