@@ -39,6 +39,8 @@ import {
   APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
+import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
+import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
 
 /** 메시지 스크롤·입력창·스티키 하단을 동일 읽기 폭으로 — 거래 허브 전체 페이지 vs 홈 시트 모달 정렬 일치 */
 const CHAT_THREAD_COLUMN_INNER_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
@@ -441,6 +443,15 @@ export function ChatDetailView({
     tradeFlowStatus: room.tradeFlowStatus,
     soldBuyerId: room.soldBuyerId ?? null,
     buyerReviewSubmitted: room.buyerReviewSubmitted === true,
+  });
+
+  const isNarrowChatShell = useMatchMaxWidthMd();
+  const [chatTradeComposerFocused, setChatTradeComposerFocused] = useState(false);
+  const chatTradeKeyboardChromeEnabled =
+    !isStoreOrderChat && !isGeneralPurposeChat && room.chatDomain === "trade" && isNarrowChatShell;
+  const { keyboardChromeOpen: chatTradeKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
+    enabled: chatTradeKeyboardChromeEnabled,
+    composerFocused: chatTradeComposerFocused,
   });
 
   useEffect(() => {
@@ -1794,6 +1805,10 @@ export function ChatDetailView({
         variant={isStoreOrderChat ? "instagram" : "default"}
         onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}
+        onComposerFocusChange={
+          chatTradeKeyboardChromeEnabled ? (focused) => setChatTradeComposerFocused(focused) : undefined
+        }
+        composerDense={Boolean(chatTradeKeyboardChromeOpen && !isStoreOrderChat)}
       />
     </>
   );
@@ -1944,6 +1959,7 @@ export function ChatDetailView({
                   listingError={listingError}
                   listingNotice={listingNotice}
                   sellerListingControlsEnabled={sellerListingControlsEnabled}
+                  layoutVariant={chatTradeKeyboardChromeOpen ? "keyboardCompact" : "default"}
                 />
               )}
               {!isGeneralPurposeChat && adminChatSuspended ? (
@@ -1951,7 +1967,7 @@ export function ChatDetailView({
                   {ADMIN_CHAT_SUSPENDED_MESSAGE}
                 </div>
               ) : null}
-              {room.product && (
+              {room.product && !chatTradeKeyboardChromeOpen ? (
                 <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
                   <ChatProductSummary
                     product={room.product}
@@ -1960,7 +1976,7 @@ export function ChatDetailView({
                     sellerListingStateOverride={postId ? displayListing : undefined}
                   />
                 </div>
-              )}
+              ) : null}
               {showMessengerTradeCta ? (
                 <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
                   <button

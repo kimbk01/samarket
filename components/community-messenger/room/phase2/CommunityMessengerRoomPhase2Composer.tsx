@@ -55,6 +55,7 @@ import {
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import {
   notifyChatInputCommitForPerf,
@@ -175,8 +176,15 @@ export function CommunityMessengerRoomPhase2Composer() {
     void vm.sendMessage(text);
   }, [draft, vm]);
 
-  const { keyboardOverlapSuppressed } = useMessengerRoomMobileViewport();
+  const { keyboardOverlapSuppressed, tradeKeyboardChromeOpen } = useMessengerRoomMobileViewport();
   const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
+  const isNarrowViewport = useMatchMaxWidthMd();
+  const tradeContextMeta = vm.snapshot.room.contextMeta;
+  const isTradeProductRoom =
+    tradeContextMeta?.kind === "trade" &&
+    typeof tradeContextMeta.productChatId === "string" &&
+    tradeContextMeta.productChatId.trim().length > 0;
+  const tradeComposerDense = Boolean(isNarrowViewport && isTradeProductRoom && tradeKeyboardChromeOpen);
   /**
    * - visualViewport 셸을 쓰면 겹침 추정을 끄고 safe-area + 기본 여백만.
    * - 그 외: 키보드 가림이 있으면 inset, 없으면 홈 인디케이터용 10px.
@@ -221,7 +229,13 @@ export function CommunityMessengerRoomPhase2Composer() {
             </button>
           </div>
         ) : null}
-        <MessengerInputBar>
+        <MessengerInputBar
+          className={
+            tradeComposerDense
+              ? "min-h-[44px] grid-cols-[2.5rem_minmax(0,1fr)_2.5rem_2.5rem] gap-1.5"
+              : ""
+          }
+        >
           {tradeOnlyBlocked ? (
             <div
               className="mb-2 rounded-[var(--cm-room-radius-input)] border border-amber-200/80 bg-amber-50/90 px-3 py-2 sam-text-helper leading-snug text-amber-950"
@@ -315,7 +329,11 @@ export function CommunityMessengerRoomPhase2Composer() {
                           : "보관된 방입니다"
                       : "메시지"
                 }
-                className="max-h-28 min-h-[40px] min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)] outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50"
+                className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
+                  tradeComposerDense
+                    ? "min-h-[38px] py-1.5 text-[15px] leading-snug text-[color:var(--cm-room-text)]"
+                    : "min-h-[40px] py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)]"
+                }`}
               />
             ) : vm.voiceHandsFree ? (
               <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">

@@ -1,11 +1,13 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
+import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
 import { useVisualViewportMessengerRoomBox } from "@/lib/ui/use-visual-viewport-messenger-room-box";
+import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
 import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomPhase2HeaderProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -40,12 +42,14 @@ type CommunityMessengerRoomClientPhase2MainProps = {
   };
   keyboardOverlapSuppressed: boolean;
   mobileShellStyle: { maxHeight: number } | undefined;
+  tradeKeyboardChromeOpen: boolean;
 };
 
 function CommunityMessengerRoomClientPhase2Main({
   room,
   keyboardOverlapSuppressed,
   mobileShellStyle,
+  tradeKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const phase2EnterRecordedRef = useRef(false);
@@ -255,7 +259,9 @@ function CommunityMessengerRoomClientPhase2Main({
   }, [room.displayRoomMessages.length]);
 
   return (
-    <MessengerRoomMobileViewportProvider value={{ keyboardOverlapSuppressed }}>
+    <MessengerRoomMobileViewportProvider
+      value={{ keyboardOverlapSuppressed, tradeKeyboardChromeOpen }}
+    >
       <MessengerRoomPhase2ViewProvider value={view}>
         <div
           ref={rootRef}
@@ -299,6 +305,21 @@ export function CommunityMessengerRoomClientPhase2() {
       ? ({ maxHeight: vvBox.heightPx } as const)
       : undefined;
 
+  const showTradeDock = Boolean(room.snapshot && room.showMessengerTradeProcessDock);
+  const composerFocused = useMessengerUIStore((s) => s.composerFocused);
+  const tradeKeyboardChromeEnabled = isNarrowViewport && showTradeDock;
+  const { keyboardChromeOpen: tradeKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
+    enabled: tradeKeyboardChromeEnabled,
+    composerFocused,
+  });
+
+  useEffect(() => {
+    const set = useMessengerUIStore.getState().setTradeMessengerSuppressBottomNavForKeyboard;
+    if (tradeKeyboardChromeEnabled && tradeKeyboardChromeOpen) set(true);
+    else set(false);
+    return () => set(false);
+  }, [tradeKeyboardChromeEnabled, tradeKeyboardChromeOpen]);
+
   if (room.loading && !room.snapshot) {
     return <CommunityMessengerRoomShellSkeleton />;
   }
@@ -324,6 +345,7 @@ export function CommunityMessengerRoomClientPhase2() {
       room={{ ...room, snapshot }}
       keyboardOverlapSuppressed={keyboardOverlapSuppressed}
       mobileShellStyle={mobileShellStyle}
+      tradeKeyboardChromeOpen={tradeKeyboardChromeOpen}
     />
   );
 }

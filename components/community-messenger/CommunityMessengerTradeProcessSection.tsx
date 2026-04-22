@@ -24,6 +24,8 @@ type Props = {
   initialTradeChatRoom?: ChatRoom | null;
   /** 거래 상태 변경 후 메신저 방 스냅샷·목록 동기화 */
   onTradeMetaChanged?: () => void;
+  /** 모바일 키보드 크롬 — 단계 접기·상품 카드 숨김 */
+  keyboardCompact?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function CommunityMessengerTradeProcessSection({
   viewerUserId,
   initialTradeChatRoom = null,
   onTradeMetaChanged,
+  keyboardCompact = false,
 }: Props) {
   const router = useRouter();
   const initialId = productChatId.trim();
@@ -259,8 +262,9 @@ export function CommunityMessengerTradeProcessSection({
         listingError={listingError}
         listingNotice={listingNotice}
         sellerListingControlsEnabled
+        layoutVariant={keyboardCompact ? "keyboardCompact" : "default"}
       />
-      {room.product ? (
+      {room.product && !keyboardCompact ? (
         <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">
           <ChatProductSummary
             product={room.product}

@@ -5,7 +5,11 @@ import { Suspense, useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import {
+  isCommunityMessengerRoomPathname,
+  resolveConditionalAppShellFlags,
+} from "@/lib/layout/conditional-app-shell-flags";
+import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
@@ -39,6 +43,16 @@ export function ConditionalAppShell({
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]
   );
+  const tradeMessengerSuppressBottomNav = useMessengerUIStore((s) => s.tradeMessengerSuppressBottomNavForKeyboard);
+  const messengerRoomKeyboardHidesNav =
+    isCommunityMessengerRoomPathname(pathname) && tradeMessengerSuppressBottomNav;
+  const showBottomNavEffective = f.showBottomNav && !messengerRoomKeyboardHidesNav;
+  const chatDetailUsesZeroBottomPadding =
+    f.isChatRoomDetail && (!f.isCommunityMessengerRoom || f.isCommunityMessengerCallPage);
+  const mainBottomClassEffective =
+    messengerRoomKeyboardHidesNav && !chatDetailUsesZeroBottomPadding
+      ? "pb-0"
+      : f.mainBottomClass;
 
   return (
     <div className={f.appShellRootClass}>
@@ -49,7 +63,7 @@ export function ConditionalAppShell({
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
-        className={`${f.mainBottomClass} min-w-0 overflow-x-hidden ${
+        className={`${mainBottomClassEffective} min-w-0 overflow-x-hidden ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
         }`}
       >
@@ -61,7 +75,7 @@ export function ConditionalAppShell({
           {children}
         </div>
       </main>
-      {f.showBottomNav ? (
+      {showBottomNavEffective ? (
         <Suspense
           fallback={
             <div className={BOTTOM_NAV_SHELL.outerClassName} aria-hidden>
@@ -72,7 +86,7 @@ export function ConditionalAppShell({
           <BottomNav initialTabs={initialMainBottomNavItems} />
         </Suspense>
       ) : null}
-      {f.showBottomNav && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
+      {showBottomNavEffective && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
       {f.showFloat && <FloatingAddButton />}
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
+import { TRADE_LISTING_CHAT_STEPS } from "@/lib/trade/seller-listing-chat-transitions";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
 
@@ -23,6 +24,8 @@ interface TradeFlowBannerProps {
   listingNotice?: string | null;
   /** false면 판매중/문의중 등 단계 버튼 숨김(DB에 seller_listing_state 없을 때) */
   sellerListingControlsEnabled?: boolean;
+  /** 모바일 키보드 시 단계 UI를 한 줄로 접었다가 펼침 */
+  layoutVariant?: "default" | "keyboardCompact";
 }
 
 export function TradeFlowBanner({
@@ -38,9 +41,11 @@ export function TradeFlowBanner({
   listingError,
   listingNotice = null,
   sellerListingControlsEnabled = true,
+  layoutVariant = "default",
 }: TradeFlowBannerProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [diagramExpanded, setDiagramExpanded] = useState(false);
   const dismissStorageKey = `${DISMISS_KEY_PREFIX}${effectiveProductChatId}`;
   const [actionsDismissed, setActionsDismissed] = useState(false);
 
@@ -52,6 +57,13 @@ export function TradeFlowBanner({
       setActionsDismissed(false);
     }
   }, [dismissStorageKey]);
+
+  useEffect(() => {
+    if (layoutVariant !== "keyboardCompact") setDiagramExpanded(false);
+  }, [layoutVariant]);
+
+  const compact = layoutVariant === "keyboardCompact";
+  const compactPad = compact ? "py-1.5" : "py-2.5";
 
   const flow = (room.tradeFlowStatus ?? "chatting") as TradeFlowStatus;
   const mode = room.chatMode ?? "open";
@@ -106,7 +118,9 @@ export function TradeFlowBanner({
 
   if (soldToOther) {
     return (
-      <div className="border-b border-amber-100 bg-amber-50 px-3 py-2.5 sam-text-body-secondary text-amber-900">
+      <div
+        className={`border-b border-amber-100 bg-amber-50 px-3 ${compactPad} sam-text-body-secondary text-amber-900`}
+      >
         이미 다른 구매자와 거래가 완료된 상품입니다. 새 메시지는 제한될 수 있어요.
       </div>
     );
@@ -114,7 +128,9 @@ export function TradeFlowBanner({
 
   if (flow === "archived") {
     return (
-      <div className="border-b border-sam-border bg-sam-surface-muted px-3 py-2.5 sam-text-body-secondary text-sam-fg">
+      <div
+        className={`border-b border-sam-border bg-sam-surface-muted px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}
+      >
         같은 상품의 다른 거래가 완료되어 이 채팅은 종료된 방입니다.
         {mode === "readonly" ? " 읽기 전용이에요." : null}
       </div>
@@ -123,7 +139,7 @@ export function TradeFlowBanner({
 
   if (mode === "readonly") {
     return (
-      <div className="border-b border-sam-border bg-sam-app px-3 py-2.5 sam-text-body-secondary text-sam-fg">
+      <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
         이 채팅은 읽기 전용입니다. 추가 문의는 새 거래·고객센터를 이용해 주세요.
       </div>
     );
@@ -131,7 +147,7 @@ export function TradeFlowBanner({
 
   if (mode === "limited") {
     return (
-      <div className="border-b border-sam-border bg-sam-app px-3 py-2.5 sam-text-body-secondary text-sam-fg">
+      <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
         <p className="sam-text-xxs text-sam-fg">
           일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
         </p>
@@ -148,16 +164,44 @@ export function TradeFlowBanner({
     );
   }
 
+  const listingStepLabel = TRADE_LISTING_CHAT_STEPS.find((s) => s.state === displayListing)?.label ?? "진행";
+
   return (
-    <div className="border-b border-sam-border-soft bg-signature/10 px-3 py-2.5">
+    <div className={`border-b border-sam-border-soft bg-signature/10 px-3 ${compactPad}`}>
       {room.product && postNotSold && flow === "chatting" ? (
-        <TradeSellerListingStepDiagram
-          listing={displayListing}
-          interactive={showSellerListingActions}
-          disabled={!!loading || listingSaving}
-          onPickListing={(next) => void onPersistListing(next)}
-          onCompleteTrade={() => void post(`${base}/seller-complete`, {})}
-        />
+        compact && !diagramExpanded ? (
+          <div className="flex min-h-[40px] items-center justify-between gap-2">
+            <p className="min-w-0 truncate sam-text-helper font-semibold text-sam-fg">
+              거래 단계: <span className="text-signature">{listingStepLabel}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setDiagramExpanded(true)}
+              className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-semibold text-sam-fg active:opacity-90"
+            >
+              펼치기
+            </button>
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <TradeSellerListingStepDiagram
+              listing={displayListing}
+              interactive={showSellerListingActions}
+              disabled={!!loading || listingSaving}
+              onPickListing={(next) => void onPersistListing(next)}
+              onCompleteTrade={() => void post(`${base}/seller-complete`, {})}
+            />
+            {compact && diagramExpanded ? (
+              <button
+                type="button"
+                onClick={() => setDiagramExpanded(false)}
+                className="mt-1.5 w-full rounded-ui-rect border border-sam-border/80 bg-sam-surface/90 py-1 sam-text-xxs font-medium text-sam-muted active:opacity-90"
+              >
+                단계 접기
+              </button>
+            ) : null}
+          </div>
+        )
       ) : null}
 
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (

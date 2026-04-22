@@ -35,6 +35,10 @@ interface ChatInputBarProps {
   imageSending?: boolean;
   /** 거래 채팅 타이핑 등 — 입력창 텍스트가 바뀔 때마다 호출 */
   onComposerTextChange?: (text: string) => void;
+  /** 포커스 상태를 상위(키보드 크롬 UI)로 전달 */
+  onComposerFocusChange?: (focused: boolean) => void;
+  /** 모바일 거래 채팅 — 입력 필·글자 크기 축소 */
+  composerDense?: boolean;
 }
 
 const DEFAULT_MAX_MESSAGE_LENGTH = 1000;
@@ -68,6 +72,8 @@ function ChatInputBarInner({
   onImageFilesSelected,
   imageSending = false,
   onComposerTextChange,
+  onComposerFocusChange,
+  composerDense = false,
 }: ChatInputBarProps) {
   const { t } = useI18n();
   const ig = variant === "instagram";
@@ -363,9 +369,11 @@ function ChatInputBarInner({
             e.preventDefault();
             handleSubmit();
           }}
+          onFocus={() => onComposerFocusChange?.(true)}
+          onBlur={() => onComposerFocusChange?.(false)}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : "min-h-[40px] rounded-ui-rect px-3 py-2.5 sam-text-body font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : composerDense ? "min-h-[38px] rounded-ui-rect px-3 py-1.5 text-[15px] font-normal leading-snug text-[#111111] placeholder:text-[#999999]" : "min-h-[40px] rounded-ui-rect px-3 py-2.5 sam-text-body font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (

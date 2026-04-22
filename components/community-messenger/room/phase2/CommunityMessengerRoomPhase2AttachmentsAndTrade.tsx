@@ -6,9 +6,12 @@ import {
   SeedTradeChatDetailMemoryFromSnapshot,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 
 export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const vm = useMessengerRoomPhase2View();
+  const { tradeKeyboardChromeOpen } = useMessengerRoomMobileViewport();
+  const keyboardCompact = Boolean(tradeKeyboardChromeOpen && !vm.voiceRecording);
   return (
     <>
       <input
@@ -44,6 +47,7 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
             viewerUserId={vm.snapshot.viewerUserId}
             initialTradeChatRoom={vm.snapshot.tradeChatRoomDetail ?? null}
             onTradeMetaChanged={() => void vm.refresh(true)}
+            keyboardCompact={keyboardCompact}
           />
         </>
       ) : null}
