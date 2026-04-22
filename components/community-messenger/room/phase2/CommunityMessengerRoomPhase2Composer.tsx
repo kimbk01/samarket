@@ -56,6 +56,7 @@ import { useMessengerRoomPhase2ComposerView } from "@/components/community-messe
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import {
   notifyChatInputCommitForPerf,
@@ -176,20 +177,29 @@ export function CommunityMessengerRoomPhase2Composer() {
     void vm.sendMessage(text);
   }, [draft, vm]);
 
-  const { keyboardOverlapSuppressed, tradeKeyboardChromeOpen } = useMessengerRoomMobileViewport();
+  const { keyboardOverlapSuppressed, messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
   const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
   const isNarrowViewport = useMatchMaxWidthMd();
-  const tradeContextMeta = vm.snapshot.room.contextMeta;
-  const isTradeProductRoom =
-    tradeContextMeta?.kind === "trade" &&
-    typeof tradeContextMeta.productChatId === "string" &&
-    tradeContextMeta.productChatId.trim().length > 0;
-  const tradeComposerDense = Boolean(isNarrowViewport && isTradeProductRoom && tradeKeyboardChromeOpen);
+  /** 일반·그룹·오픈 포함 — 키보드 크롬 시 입력 줄 높이·여백 통일 */
+  const messengerComposerDense = Boolean(
+    isNarrowViewport && messengerKeyboardChromeOpen && !vm.voiceRecording
+  );
   /**
    * - visualViewport 셸을 쓰면 겹침 추정을 끄고 safe-area + 기본 여백만.
    * - 그 외: 키보드 가림이 있으면 inset, 없으면 홈 인디케이터용 10px.
+   * - iOS + 메신저 키보드 크롬: vv·innerHeight 미세 어긋남 보정용 slack.
    */
-  const footerExtraBottomPx = keyboardInsetPx > 0 ? keyboardInsetPx : 10;
+  const iosMessengerSlack =
+    isLikelyIosWebKit() &&
+    keyboardOverlapSuppressed &&
+    messengerComposerDense &&
+    keyboardInsetPx <= 0;
+  const footerExtraBottomPx =
+    keyboardInsetPx > 0
+      ? keyboardInsetPx + (isLikelyIosWebKit() && messengerComposerDense ? 2 : 0)
+      : iosMessengerSlack
+        ? 14
+        : 10;
   return (
     <>
       <footer
@@ -231,7 +241,7 @@ export function CommunityMessengerRoomPhase2Composer() {
         ) : null}
         <MessengerInputBar
           className={
-            tradeComposerDense
+            messengerComposerDense
               ? "min-h-[44px] grid-cols-[2.5rem_minmax(0,1fr)_2.5rem_2.5rem] gap-1.5"
               : ""
           }
@@ -330,7 +340,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                       : "메시지"
                 }
                 className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
-                  tradeComposerDense
+                  messengerComposerDense
                     ? "min-h-[38px] py-1.5 text-[15px] leading-snug text-[color:var(--cm-room-text)]"
                     : "min-h-[40px] py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)]"
                 }`}

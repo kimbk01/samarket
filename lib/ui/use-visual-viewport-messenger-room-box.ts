@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
+import {
+  readSamarketShellKeyboardBottomInsetCssPx,
+  subscribeSamarketShellKeyboardInsets,
+} from "@/lib/platform/samarket-shell-keyboard";
 
 export type VisualViewportMessengerBox = {
   heightPx: number;
@@ -26,7 +31,20 @@ export function useVisualViewportMessengerRoomBox(enabled: boolean): VisualViewp
     }
 
     const sync = () => {
-      const heightPx = Math.max(120, Math.round(vv.height));
+      const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
+      if (shellInset != null && shellInset > 0) {
+        const heightPx = Math.max(120, Math.round(window.innerHeight - shellInset));
+        const offsetTopPx = 0;
+        setBox((prev) => {
+          if (prev?.heightPx === heightPx && prev.offsetTopPx === offsetTopPx) return prev;
+          return { heightPx, offsetTopPx };
+        });
+        return;
+      }
+
+      /** iOS: 소수 뷰포트 높이를 올림해 푸터·키보드 사이 빈틈을 줄임 */
+      const rawH = vv.height;
+      const heightPx = Math.max(120, isLikelyIosWebKit() ? Math.ceil(rawH) : Math.round(rawH));
       const offsetTopPx = Math.max(0, Math.round(vv.offsetTop));
       setBox((prev) => {
         if (prev?.heightPx === heightPx && prev.offsetTopPx === offsetTopPx) return prev;
@@ -35,10 +53,12 @@ export function useVisualViewportMessengerRoomBox(enabled: boolean): VisualViewp
     };
 
     sync();
+    const unsubShell = subscribeSamarketShellKeyboardInsets(sync);
     vv.addEventListener("resize", sync);
     vv.addEventListener("scroll", sync);
     window.addEventListener("orientationchange", sync);
     return () => {
+      unsubShell();
       vv.removeEventListener("resize", sync);
       vv.removeEventListener("scroll", sync);
       window.removeEventListener("orientationchange", sync);

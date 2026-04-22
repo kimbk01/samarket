@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  readSamarketShellKeyboardBottomInsetCssPx,
+  subscribeSamarketShellKeyboardInsets,
+} from "@/lib/platform/samarket-shell-keyboard";
 
 type UseMobileKeyboardInsetOptions = {
   /**
@@ -37,14 +41,23 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (disableOverlapEstimate) {
-      setInset(0);
-      return;
-    }
     const vv = window.visualViewport;
-    if (!vv) return;
 
     const measure = () => {
+      /** 네이티브·WebView 셸이 있으면 `visualViewport` 보다 우선 (기기별 키보드 정확도) */
+      const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
+      if (shellInset != null) {
+        setInset(shellInset);
+        return;
+      }
+      if (disableOverlapEstimate) {
+        setInset(0);
+        return;
+      }
+      if (!vv) {
+        setInset(0);
+        return;
+      }
       const inner = window.innerHeight;
       const vvBottom = vv.height + vv.offsetTop;
       // 레이아웃이 이미 시각 viewport에 맞춤 → 추가 inset 불필요
@@ -57,13 +70,19 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
     };
 
     measure();
-    vv.addEventListener("resize", measure);
-    vv.addEventListener("scroll", measure);
+    const unsubShell = subscribeSamarketShellKeyboardInsets(measure);
+    if (vv) {
+      vv.addEventListener("resize", measure);
+      vv.addEventListener("scroll", measure);
+    }
     window.addEventListener("resize", measure);
     window.addEventListener("orientationchange", measure);
     return () => {
-      vv.removeEventListener("resize", measure);
-      vv.removeEventListener("scroll", measure);
+      unsubShell();
+      if (vv) {
+        vv.removeEventListener("resize", measure);
+        vv.removeEventListener("scroll", measure);
+      }
       window.removeEventListener("resize", measure);
       window.removeEventListener("orientationchange", measure);
     };

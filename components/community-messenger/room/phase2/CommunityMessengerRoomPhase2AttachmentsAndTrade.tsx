@@ -10,8 +10,8 @@ import { useMessengerRoomMobileViewport } from "@/components/community-messenger
 
 export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const vm = useMessengerRoomPhase2View();
-  const { tradeKeyboardChromeOpen } = useMessengerRoomMobileViewport();
-  const keyboardCompact = Boolean(tradeKeyboardChromeOpen && !vm.voiceRecording);
+  const { messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
+  const keyboardCompact = Boolean(messengerKeyboardChromeOpen && !vm.voiceRecording);
   return (
     <>
       <input

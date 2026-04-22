@@ -42,14 +42,14 @@ type CommunityMessengerRoomClientPhase2MainProps = {
   };
   keyboardOverlapSuppressed: boolean;
   mobileShellStyle: { maxHeight: number } | undefined;
-  tradeKeyboardChromeOpen: boolean;
+  messengerKeyboardChromeOpen: boolean;
 };
 
 function CommunityMessengerRoomClientPhase2Main({
   room,
   keyboardOverlapSuppressed,
   mobileShellStyle,
-  tradeKeyboardChromeOpen,
+  messengerKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const phase2EnterRecordedRef = useRef(false);
@@ -260,7 +260,7 @@ function CommunityMessengerRoomClientPhase2Main({
 
   return (
     <MessengerRoomMobileViewportProvider
-      value={{ keyboardOverlapSuppressed, tradeKeyboardChromeOpen }}
+      value={{ keyboardOverlapSuppressed, messengerKeyboardChromeOpen }}
     >
       <MessengerRoomPhase2ViewProvider value={view}>
         <div
@@ -305,20 +305,20 @@ export function CommunityMessengerRoomClientPhase2() {
       ? ({ maxHeight: vvBox.heightPx } as const)
       : undefined;
 
-  const showTradeDock = Boolean(room.snapshot && room.showMessengerTradeProcessDock);
+  /** 일반·그룹·오픈·거래 1:1 등 모든 메신저 방 — 좁은 화면에서 키보드 크롬·하단 탭 숨김 */
+  const messengerKeyboardChromeEnabled = isNarrowViewport && Boolean(room.snapshot);
   const composerFocused = useMessengerUIStore((s) => s.composerFocused);
-  const tradeKeyboardChromeEnabled = isNarrowViewport && showTradeDock;
-  const { keyboardChromeOpen: tradeKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
-    enabled: tradeKeyboardChromeEnabled,
+  const { keyboardChromeOpen: messengerKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
+    enabled: messengerKeyboardChromeEnabled,
     composerFocused,
   });
 
   useEffect(() => {
-    const set = useMessengerUIStore.getState().setTradeMessengerSuppressBottomNavForKeyboard;
-    if (tradeKeyboardChromeEnabled && tradeKeyboardChromeOpen) set(true);
+    const set = useMessengerUIStore.getState().setMessengerSuppressBottomNavForKeyboard;
+    if (messengerKeyboardChromeEnabled && messengerKeyboardChromeOpen) set(true);
     else set(false);
     return () => set(false);
-  }, [tradeKeyboardChromeEnabled, tradeKeyboardChromeOpen]);
+  }, [messengerKeyboardChromeEnabled, messengerKeyboardChromeOpen]);
 
   if (room.loading && !room.snapshot) {
     return <CommunityMessengerRoomShellSkeleton />;
@@ -345,7 +345,7 @@ export function CommunityMessengerRoomClientPhase2() {
       room={{ ...room, snapshot }}
       keyboardOverlapSuppressed={keyboardOverlapSuppressed}
       mobileShellStyle={mobileShellStyle}
-      tradeKeyboardChromeOpen={tradeKeyboardChromeOpen}
+      messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
     />
   );
 }

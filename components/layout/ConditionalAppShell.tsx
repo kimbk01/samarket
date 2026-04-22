@@ -43,9 +43,9 @@ export function ConditionalAppShell({
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]
   );
-  const tradeMessengerSuppressBottomNav = useMessengerUIStore((s) => s.tradeMessengerSuppressBottomNavForKeyboard);
+  const messengerSuppressBottomNav = useMessengerUIStore((s) => s.messengerSuppressBottomNavForKeyboard);
   const messengerRoomKeyboardHidesNav =
-    isCommunityMessengerRoomPathname(pathname) && tradeMessengerSuppressBottomNav;
+    isCommunityMessengerRoomPathname(pathname) && messengerSuppressBottomNav;
   const showBottomNavEffective = f.showBottomNav && !messengerRoomKeyboardHidesNav;
   const chatDetailUsesZeroBottomPadding =
     f.isChatRoomDetail && (!f.isCommunityMessengerRoom || f.isCommunityMessengerCallPage);
