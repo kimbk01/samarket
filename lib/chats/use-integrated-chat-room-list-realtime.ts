@@ -56,6 +56,28 @@ export function useIntegratedChatRoomListRealtime(args: {
     void (async () => {
       await waitForSupabaseRealtimeAuth(sb);
       if (cancelled) return;
+      /**
+       * 신규 거래방 생성 시 기존 구현은 "이미 알고 있는 room_id" 구독만 있어서
+       * seller 측 목록이 다음 폴링 전까지 갱신되지 않을 수 있었다.
+       * 참가자 행(내 user_id) INSERT/UPDATE를 함께 구독해 신규 방 유입도 즉시 stale 처리한다.
+       */
+      const chParticipants = sb
+        .channel(`integrated-chat-list:participants:${userId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "chat_room_participants",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            if (!cancelled) scheduleStale();
+          }
+        )
+        .subscribe();
+      mountedChannels.push(chParticipants);
+
       const roomIds = fp.split("\0").filter(Boolean);
       for (let offset = 0; offset < roomIds.length; offset += INTEGRATED_CHAT_LIST_IN_FILTER_MAX) {
         if (cancelled) break;

@@ -6,6 +6,7 @@ import {
   CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
   CM_ROOM_BOTTOM_READ_DWELL_MS,
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -53,8 +54,8 @@ function isLatestMessageVisibleEnoughInViewport(root: HTMLElement | null, messag
  * **메시지 리스트가 보이는 상태**에서(unread 0 이어도 타임라인 최신 id 가 바뀌면 상대 읽음 커서 진행)
  * - 탭/창 활성 + 하단 고정 + **최신 말풍선이 뷰포트에 실제로 노출**
  * - 시트·액션·라이트박스·통화 패널 등 **오버레이 없음**
- * - `CM_ROOM_BOTTOM_READ_DWELL_MS` 이상 유지
- * 될 때만 `mark_read` 1회 (presence·방 입장만으로는 읽음 처리하지 않음)
+ * - 기본은 즉시(`CM_ROOM_BOTTOM_READ_DWELL_MS=0`)지만, 필요 시 체류 지연 값을 다시 줄 수 있다.
+ * - 조건이 맞을 때 `mark_read` 1회
  */
 export function useMessengerRoomOpenMarkReadEffect(args: {
   roomId: string;
@@ -250,6 +251,13 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 unreadCount: 0,
                 at: Date.now(),
               });
+              if (snapAfter.room.contextMeta?.kind === "trade") {
+                dispatchTradeChatUnreadUpdated({
+                  source: "community-messenger-room-open-read",
+                  key: snapAfter.room.contextMeta.postId ?? id,
+                  dedupeMs: 0,
+                });
+              }
             }
             requestMessengerHubBadgeResync("room_open_mark_read");
           } else {

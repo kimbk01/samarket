@@ -18,44 +18,52 @@ type CallKind = "voice" | "video";
  */
 export function TradeChatCallHeaderButtons(props: {
   policy: TradeChatCallPolicy;
+  /** `product_chats.id` 또는 브리지에 넘길 거래 스레드 식별자 */
   productChatRoomId: string;
+  /** 서버가 이미 연결한 메신저 직통방이면 브리지 왕복 생략 */
+  communityMessengerRoomId?: string | null;
   onErrorMessage: (message: string) => void;
 }) {
-  const { policy, productChatRoomId, onErrorMessage } = props;
+  const { policy, productChatRoomId, communityMessengerRoomId, onErrorMessage } = props;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   const startCall = useCallback(
     async (kind: CallKind) => {
-      const rid = productChatRoomId.trim();
-      if (!rid || busy) return;
+      const pcRid = productChatRoomId.trim();
+      const cmRid = communityMessengerRoomId?.trim() ?? "";
+      if ((!pcRid && !cmRid) || busy) return;
       setBusy(true);
       try {
-        const res = await fetch("/api/community-messenger/bridge/product-chat", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId: rid }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          roomId?: string;
-          error?: string;
-          code?: string;
-        };
-        if (!res.ok || json.ok !== true || typeof json.roomId !== "string" || !json.roomId.trim()) {
-          const code = typeof json.code === "string" ? json.code : "";
-          onErrorMessage(
-            code === "not_participant"
-              ? "이 채팅에서 통화를 시작할 수 없습니다."
-              : code === "product_chat_not_found"
-                ? "거래 채팅을 찾을 수 없습니다."
-                : "메신저 연결에 실패했습니다. 잠시 후 다시 시도해 주세요."
-          );
-          return;
+        let messengerRoomId = cmRid;
+        if (!messengerRoomId) {
+          const res = await fetch("/api/community-messenger/bridge/product-chat", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomId: pcRid }),
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            roomId?: string;
+            error?: string;
+            code?: string;
+          };
+          if (!res.ok || json.ok !== true || typeof json.roomId !== "string" || !json.roomId.trim()) {
+            const code = typeof json.code === "string" ? json.code : "";
+            onErrorMessage(
+              code === "not_participant"
+                ? "이 채팅에서 통화를 시작할 수 없습니다."
+                : code === "product_chat_not_found"
+                  ? "거래 채팅을 찾을 수 없습니다."
+                  : "메신저 연결에 실패했습니다. 잠시 후 다시 시도해 주세요."
+            );
+            return;
+          }
+          messengerRoomId = json.roomId.trim();
         }
         const result = await startOutgoingCallSessionAndOpen(
-          { roomId: json.roomId.trim(), peerUserId: null, kind },
+          { roomId: messengerRoomId, peerUserId: null, kind },
           router
         );
         if (!result.ok) {
@@ -67,7 +75,7 @@ export function TradeChatCallHeaderButtons(props: {
         setBusy(false);
       }
     },
-    [busy, onErrorMessage, productChatRoomId, router]
+    [busy, communityMessengerRoomId, onErrorMessage, productChatRoomId, router]
   );
 
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;

@@ -120,18 +120,21 @@ export function CommunityMessengerTradeProcessSection({
 
   const postId = (room?.product?.id ?? room?.productId ?? "").trim();
   const propListing = normalizeSellerListingState(room?.product?.sellerListingState, room?.product?.status);
+  const [postStatusFromRealtime, setPostStatusFromRealtime] = useState<string | null>(null);
   const amISeller = room ? room.sellerId === viewerUserId : false;
 
   usePostSellerListingRealtime({
     postId: postId || null,
     enabled: Boolean(postId) && Boolean(viewerUserId?.trim()),
-    onSellerListingState: (raw) => {
-      setListingFromPostRealtime(normalizeSellerListingState(raw, room?.product?.status));
+    onSellerListingState: ({ sellerListingState, postStatus }) => {
+      setPostStatusFromRealtime(postStatus);
+      setListingFromPostRealtime(normalizeSellerListingState(sellerListingState, postStatus ?? room?.product?.status));
     },
   });
 
   useEffect(() => {
     setListingFromPostRealtime(null);
+    setPostStatusFromRealtime(null);
   }, [productChatId, postId]);
 
   useEffect(() => {
@@ -154,6 +157,7 @@ export function CommunityMessengerTradeProcessSection({
     amISeller && pinnedListing != null && pinnedForProductId === postId && postId
       ? pinnedListing
       : listingFromPostRealtime ?? propListing;
+  const displayProductStatus = (postStatusFromRealtime ?? room?.product?.status ?? "").trim();
 
   const effectiveProductChatId = (room?.productChatRoomId || room?.id || productChatId).trim();
 
@@ -221,7 +225,7 @@ export function CommunityMessengerTradeProcessSection({
       currentUserId: viewerUserId,
       roomSellerId: room.sellerId,
       roomBuyerId: room.buyerId,
-      productStatus: room.product?.status,
+        productStatus: displayProductStatus || room.product?.status,
       sellerListingState: room.product?.sellerListingState,
       ...(amISeller && pinnedListing != null && pinnedForProductId === postId && postId
         ? { sellerListingOverride: pinnedListing }
@@ -261,15 +265,18 @@ export function CommunityMessengerTradeProcessSection({
         listingSaving={listingSaving}
         listingError={listingError}
         listingNotice={listingNotice}
+        productStatusOverride={displayProductStatus}
         sellerListingControlsEnabled
         layoutVariant={keyboardCompact ? "keyboardCompact" : "default"}
       />
       {room.product && !keyboardCompact ? (
         <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">
           <ChatProductSummary
+            variant="messengerDock"
             product={room.product}
             hideFavorite={amISeller}
             sellerUserId={room.sellerId}
+            productStatusOverride={displayProductStatus}
             sellerListingStateOverride={postId ? displayListing : undefined}
           />
         </div>

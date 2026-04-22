@@ -18,6 +18,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   ChatRoomMoreMenu,
@@ -125,8 +126,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
 
   const relation: Relation = useMemo(() => mapRelationFromCta(friendAddCta), [friendAddCta]);
 
-  const peerPresence = vm.snapshot.peerPresence;
-  const isOnline = peerPresence?.state === "online";
+  const livePeerPresence = useCommunityMessengerPeerPresence(peerUserId || null, vm.snapshot.peerPresence ?? null);
 
   const mannerScore = useMemo(() => {
     const d = vm.snapshot.tradeChatRoomDetail;
@@ -140,11 +140,11 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       id: peerUserId || "peer",
       nickname: peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || "상대",
       avatarUrl: peerProfile?.avatarUrl?.trim() || vm.snapshot.room.avatarUrl,
-      isOnline,
+      peerPresence: livePeerPresence,
       mannerScore,
     }),
     [
-      isOnline,
+      livePeerPresence,
       mannerScore,
       peerProfile?.avatarUrl,
       peerProfile?.label,
@@ -166,35 +166,13 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     return undefined;
   }, [roomType, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
 
-  /** `product_chats` 브리지 CM 방 — 구매자만 판매자 글 통화 정책 적용(기존 헤더와 동일) */
-  const tradeBridgedOutboundCallsAllowed = useMemo(() => {
-    if (roomType !== "trade") return true;
-    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-    const bridged = ctx?.kind === "trade" && typeof ctx.productChatId === "string" && ctx.productChatId.trim().length > 0;
-    if (!bridged) return true;
-    const detail = vm.snapshot.tradeChatRoomDetail;
-    const viewer = (vm.snapshot.viewerUserId ?? "").trim();
-    const buyer = (detail?.buyerId ?? "").trim();
-    if (!detail || !viewer || !buyer) return false;
-    return viewer === buyer;
-  }, [roomType, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
-
-  const tradeContextForMenu = useMemo(() => {
-    if (!tradeContext) return undefined;
-    if (!tradeBridgedOutboundCallsAllowed) {
-      return { ...tradeContext, product: { ...tradeContext.product, allow_call: false } };
-    }
-    return tradeContext;
-  }, [tradeBridgedOutboundCallsAllowed, tradeContext]);
-
   const tradeVideoCallEnabled = useMemo(() => {
     if (roomType !== "trade") return false;
-    if (!tradeBridgedOutboundCallsAllowed) return false;
     const detail = vm.snapshot.tradeChatRoomDetail;
     if (!detail?.product) return false;
     const policy = normalizeTradeChatCallPolicy(detail.product.tradeChatCallPolicy);
     return tradeChatCallPolicyAllowsVideo(policy);
-  }, [roomType, tradeBridgedOutboundCallsAllowed, vm.snapshot.tradeChatRoomDetail]);
+  }, [roomType, vm.snapshot.tradeChatRoomDetail]);
 
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId) return;
@@ -226,7 +204,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       otherUser={otherUser}
       isMuted={Boolean(vm.snapshot.room.isMuted)}
       isArchived={Boolean(vm.snapshot.room.isArchivedByViewer)}
-      tradeContext={tradeContextForMenu}
+      tradeContext={tradeContext}
       tradeVideoCallEnabled={tradeVideoCallEnabled}
       disableVoiceCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableVideoCall={vm.roomUnavailable || vm.outgoingDialLocked}

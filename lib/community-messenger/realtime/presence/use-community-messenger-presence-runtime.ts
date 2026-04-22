@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
@@ -18,12 +20,12 @@ const ACTIVITY_THROTTLE_MS = 20_000;
 
 let runtimeRefCount = 0;
 let runtimeUserId = "";
-let runtimeSessionId = "";
 let presenceHeartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let presenceCleanup: (() => void) | null = null;
 let lastActivityMs = Date.now();
 let lastActivityThrottleAt = 0;
 let channelSubscribed = false;
+const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
 
 function nowIso() {
   return new Date().toISOString();
@@ -130,37 +132,27 @@ function aggregatePresenceState(raw: Record<string, unknown>) {
   return next;
 }
 
-function sessionKey(userId: string) {
-  return `${userId}:${runtimeSessionId}`;
-}
-
 function ensurePresenceRuntime(userId: string) {
   if (presenceCleanup && runtimeUserId === userId) return;
   presenceCleanup?.();
   const sb = getSupabaseClient();
   if (!sb) return;
   runtimeUserId = userId;
-  runtimeSessionId =
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}`;
   lastActivityMs = Date.now();
   lastActivityThrottleAt = 0;
   channelSubscribed = false;
   const store = useMessengerPresenceStore;
-  const channel = sb.channel("community-messenger:presence", {
-    config: { presence: { key: sessionKey(userId) } },
-  });
+  let activeChannel: RealtimeChannel | null = null;
 
   const syncOwnState = async () => {
-    if (!channelSubscribed) return;
+    if (!channelSubscribed || !activeChannel) return;
     const state = deriveLivePresenceFromSignals({
       nowMs: Date.now(),
       channelSubscribed,
       documentVisible: currentDocumentVisible(),
       lastActivityMs,
     });
-    await channel.track({
+    await activeChannel.track({
       userId,
       state,
       updatedAt: nowIso(),
@@ -182,7 +174,8 @@ function ensurePresenceRuntime(userId: string) {
   };
 
   const onSync = () => {
-    const aggregated = aggregatePresenceState(channel.presenceState());
+    if (!activeChannel) return;
+    const aggregated = aggregatePresenceState(activeChannel.presenceState());
     const previous = store.getState().byUserId;
     const next = { ...previous };
     for (const [id, entry] of Object.entries(aggregated)) {
@@ -204,15 +197,37 @@ function ensurePresenceRuntime(userId: string) {
     store.getState().replacePresenceMap(next);
   };
 
-  channel
-    .on("presence", { event: "sync" }, onSync)
-    .subscribe((status) => {
+  let markRealtimeSignal = () => {};
+  const sub = subscribeWithRetry({
+    sb,
+    name: "community-messenger:presence",
+    scope: PRESENCE_RUNTIME_SCOPE,
+    isCancelled: () => false,
+    silentAfterMs: 18_000,
+    onStatus: (status) => {
       channelSubscribed = status === "SUBSCRIBED";
-      if (status === "SUBSCRIBED") {
+      if (channelSubscribed) {
         void syncOwnState();
         scheduleHeartbeat();
+      } else {
+        clearPresenceHeartbeatTimer();
       }
-    });
+    },
+    build: (channel) => {
+      /**
+       * subscribeWithRetry가 내부적으로 채널을 재생성할 때
+       * 새 채널은 아직 join 이전 상태이므로 즉시 track/untrack를 막는다.
+       */
+      channelSubscribed = false;
+      clearPresenceHeartbeatTimer();
+      activeChannel = channel;
+      return channel.on("presence", { event: "sync" }, () => {
+        markRealtimeSignal();
+        onSync();
+      });
+    },
+  });
+  markRealtimeSignal = sub.markSignal;
 
   const onVisibility = () => {
     if (currentDocumentVisible()) {
@@ -227,7 +242,9 @@ function ensurePresenceRuntime(userId: string) {
     const lastSeenAt = nowIso();
     store.getState().upsertPresence(userId, { state: "offline", lastSeenAt, updatedAt: lastSeenAt });
     persistLastSeenSessionEnd(lastSeenAt);
-    void channel.untrack();
+    if (channelSubscribed && activeChannel) {
+      void activeChannel.untrack();
+    }
   };
 
   const onActivity = () => maybeRecordThrottledActivity();
@@ -250,8 +267,11 @@ function ensurePresenceRuntime(userId: string) {
     document.removeEventListener("pointerdown", onActivity, true);
     document.removeEventListener("keydown", onActivity);
     window.removeEventListener("scroll", onActivity);
-    void channel.untrack();
-    void sb.removeChannel(channel);
+    if (channelSubscribed && activeChannel) {
+      void activeChannel.untrack();
+    }
+    sub.stop();
+    activeChannel = null;
   };
 }
 
@@ -260,7 +280,6 @@ function releasePresenceRuntime() {
   presenceCleanup?.();
   presenceCleanup = null;
   runtimeUserId = "";
-  runtimeSessionId = "";
   channelSubscribed = false;
 }
 

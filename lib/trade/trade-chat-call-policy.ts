@@ -23,3 +23,10 @@ export function tradeChatCallPolicyAllowsVoice(p: TradeChatCallPolicy): boolean 
 export function tradeChatCallPolicyAllowsVideo(p: TradeChatCallPolicy): boolean {
   return p === "voice_and_video";
 }
+
+/** 거래 채팅 메뉴·안내용 짧은 한국어 문구 */
+export function tradeChatCallPolicySummaryKo(p: TradeChatCallPolicy): string {
+  if (p === "voice_and_video") return "이 글에서는 거래 채팅에서 음성·영상 통화가 허용돼요.";
+  if (p === "voice_only") return "이 글에서는 거래 채팅에서 음성 통화만 허용돼요.";
+  return "이 글에서는 거래 채팅 통화가 허용되지 않아요.";
+}

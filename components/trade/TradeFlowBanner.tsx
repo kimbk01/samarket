@@ -22,6 +22,8 @@ interface TradeFlowBannerProps {
   listingError: string | null;
   /** 성공했으나 DB 제한으로 부분 반영만 된 경우(amber) */
   listingNotice?: string | null;
+  /** posts.status Realtime 까지 즉시 반영해 구매자/상대방 UI를 동일하게 맞춤 */
+  productStatusOverride?: string | null;
   /** false면 판매중/문의중 등 단계 버튼 숨김(DB에 seller_listing_state 없을 때) */
   sellerListingControlsEnabled?: boolean;
   /** 모바일 키보드 시 단계 UI를 한 줄로 접었다가 펼침 */
@@ -40,6 +42,7 @@ export function TradeFlowBanner({
   listingSaving,
   listingError,
   listingNotice = null,
+  productStatusOverride = null,
   sellerListingControlsEnabled = true,
   layoutVariant = "default",
 }: TradeFlowBannerProps) {
@@ -69,8 +72,9 @@ export function TradeFlowBanner({
   const mode = room.chatMode ?? "open";
   const amSeller = room.sellerId === currentUserId;
   const amBuyer = room.buyerId === currentUserId;
+  const productStatus = (productStatusOverride ?? room.product?.status ?? "").trim();
   const soldToOther =
-    room.product?.status === "sold" &&
+    productStatus === "sold" &&
     room.soldBuyerId &&
     amBuyer &&
     room.soldBuyerId !== currentUserId;
@@ -108,8 +112,6 @@ export function TradeFlowBanner({
     }
     setActionsDismissed(true);
   };
-
-  const productStatus = room.product?.status ?? "";
 
   const base = `/api/trade/product-chat/${encodeURIComponent(effectiveProductChatId)}`;
   const postNotSold = (productStatus ?? "").toLowerCase() !== "sold";

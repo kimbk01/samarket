@@ -180,6 +180,8 @@ export function CommunityMessengerRoomPhase2Composer() {
   const messengerComposerDense = Boolean(
     isNarrowViewport && messengerKeyboardChromeOpen && !vm.voiceRecording
   );
+  /** 녹음 중에도 그리드 열·간격만 동일하게 유지 (롱프레스 시 마이크 위치 점프 방지) */
+  const messengerComposerBarTight = Boolean(isNarrowViewport && messengerKeyboardChromeOpen);
   /**
    * - visualViewport 셸을 쓰면 겹침 추정을 끄고 safe-area + 기본 여백만.
    * - 그 외: 키보드 가림이 있으면 inset, 없으면 홈 인디케이터용 10px.
@@ -237,8 +239,8 @@ export function CommunityMessengerRoomPhase2Composer() {
         ) : null}
         <MessengerInputBar
           className={
-            messengerComposerDense
-              ? "min-h-[44px] grid-cols-[2.5rem_minmax(0,1fr)_2.5rem_2.5rem] gap-1.5"
+            messengerComposerBarTight
+              ? "!grid-cols-[1.875rem_minmax(0,1fr)_1.875rem_1.875rem] !gap-0.5"
               : ""
           }
         >
@@ -272,20 +274,22 @@ export function CommunityMessengerRoomPhase2Composer() {
               </div>
             </div>
           ) : null}
-          {!vm.voiceRecording ? (
-            <button
-              type="button"
-              data-cm-line-plus-btn
-              onClick={() => vm.setActiveSheet("attach")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
-              aria-label="첨부 메뉴"
-            >
-              <PlusIcon className="h-5 w-5" />
-            </button>
-          ) : (
-            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
-          )}
-          <div className="flex min-h-0 min-w-0 items-center">
+          <div className="flex min-h-[44px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
+            {!vm.voiceRecording ? (
+              <button
+                type="button"
+                data-cm-line-plus-btn
+                onClick={() => vm.setActiveSheet("attach")}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
+                aria-label="첨부 메뉴"
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
+            ) : (
+              <div className="h-8 w-8 shrink-0" aria-hidden />
+            )}
+          </div>
+          <div className="flex min-h-[44px] min-w-0 flex-1 items-center self-stretch">
             {!vm.voiceRecording ? (
               <textarea
                 ref={vm.composerTextareaRef}
@@ -335,48 +339,48 @@ export function CommunityMessengerRoomPhase2Composer() {
                           : "보관된 방입니다"
                       : "메시지"
                 }
-                className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-3 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
+                className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-2 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
                   messengerComposerDense
-                    ? "min-h-[38px] py-1.5 text-[15px] leading-snug text-[color:var(--cm-room-text)]"
-                    : "min-h-[40px] py-2 sam-text-body leading-normal text-[color:var(--cm-room-text)]"
+                    ? "min-h-[34px] py-1.5 text-[calc(15px-1pt)] leading-snug text-[color:var(--cm-room-text)]"
+                    : "min-h-[36px] py-1.5 text-[calc(var(--sam-text-body-size)-1pt)] font-normal leading-normal text-[color:var(--cm-room-text)] sm:py-2"
                 }`}
               />
             ) : vm.voiceHandsFree ? (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums sam-text-body-secondary font-semibold leading-none text-sam-fg sm:sam-text-body">
+              <div className="flex h-[44px] min-h-[44px] max-h-[44px] min-w-0 w-full items-center gap-1.5 rounded-ui-rect border-2 border-sam-border bg-sam-app px-2 py-1 shadow-inner ring-1 ring-sam-border">
+                <span className="flex shrink-0 items-center gap-1 tabular-nums sam-text-body-secondary text-[13px] font-semibold leading-none text-sam-fg">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
                 </span>
-                <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center sam-text-helper font-medium text-sam-fg">잠금 녹음 중</span>
+                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">잠금 녹음 중</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sm ring-1 ring-sam-border"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sm ring-1 ring-sam-border"
                   aria-label="녹음 삭제"
                 >
-                  <TrashVoiceIcon className="h-5 w-5" />
+                  <TrashVoiceIcon className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(true)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sam-ink text-white shadow-md"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-ink text-white shadow-md"
                   aria-label="음성 전송"
                 >
-                  <SendVoiceArrowIcon className="h-5 w-5 text-white" />
+                  <SendVoiceArrowIcon className="h-4 w-4 text-white" />
                 </button>
               </div>
             ) : (
-              <div className="flex min-h-[44px] min-w-0 w-full items-center gap-2 rounded-ui-rect border-2 border-sam-border bg-sam-app px-3 py-2 shadow-inner ring-1 ring-sam-border">
-                <span className="flex shrink-0 items-center gap-1.5 tabular-nums sam-text-body-secondary font-semibold leading-none text-sam-fg sm:sam-text-body">
+              <div className="flex h-[44px] min-h-[44px] max-h-[44px] min-w-0 w-full items-center gap-1.5 rounded-ui-rect border-2 border-sam-border bg-sam-app px-2 py-1 shadow-inner ring-1 ring-sam-border">
+                <span className="flex shrink-0 items-center gap-1 tabular-nums sam-text-body-secondary text-[13px] font-semibold leading-none text-sam-fg">
                   <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
                   {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
                 </span>
                 <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
                 <span
-                  className={`min-w-0 shrink-0 text-center sam-text-body-secondary ${
+                  className={`min-w-0 shrink-0 text-center sam-text-xxs leading-tight ${
                     vm.voiceCancelHint ? "font-semibold text-red-600" : "text-sam-muted"
                   }`}
                 >
@@ -387,7 +391,7 @@ export function CommunityMessengerRoomPhase2Composer() {
           </div>
 
           {!vm.voiceHandsFree ? (
-            <div className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center overflow-visible">
+            <div className="relative z-[1] flex min-h-[44px] w-full items-center justify-center justify-self-stretch self-stretch overflow-visible">
               {vm.voiceRecording && !vm.voiceHandsFree ? (
                 <div
                   className={`absolute bottom-full left-1/2 z-20 mb-1.5 flex -translate-x-1/2 flex-col items-center gap-0.5 rounded-ui-rect px-2.5 py-2 shadow-md ${
@@ -426,11 +430,11 @@ export function CommunityMessengerRoomPhase2Composer() {
                   Boolean(draft.trim()) ||
                   (vm.voiceRecording && vm.voiceHandsFree)
                 }
-                className={`sam-cm-voice-mic-ripple-btn relative z-[5] touch-none flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color,ring-color] duration-200 active:scale-[0.96] disabled:opacity-35 ${
+                className={`sam-cm-voice-mic-ripple-btn relative z-[5] touch-none flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full shadow-md transition-[transform,box-shadow,background-color,ring-color] duration-200 active:scale-[0.96] disabled:opacity-35 ${
                   vm.voiceMicArming && !vm.voiceRecording
-                    ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-[3px] ring-[color:var(--cm-room-primary)]"
+                    ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-[2px] ring-[color:var(--cm-room-primary)]"
                     : vm.voiceRecording && !vm.voiceHandsFree
-                      ? "bg-[color:var(--cm-room-primary)] text-white shadow-[0_10px_28px_rgba(107,61,241,0.38)] ring-[3px] ring-white/60"
+                      ? "bg-[color:var(--cm-room-primary)] text-white shadow-[0_8px_22px_rgba(107,61,241,0.34)] ring-2 ring-white/55"
                       : "bg-sam-border-soft text-sam-fg ring-2 ring-sam-border"
                 }`}
                 aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
@@ -440,35 +444,39 @@ export function CommunityMessengerRoomPhase2Composer() {
                     : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
                 }
               >
-                <MicHoldIcon className="h-6 w-6" />
+                <MicHoldIcon className="h-[18px] w-[18px]" />
               </button>
             </div>
           ) : (
-            <div className="h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
+            <div className="flex min-h-[44px] w-full items-center justify-center justify-self-stretch self-stretch" aria-hidden>
+              <div className="h-8 w-8 shrink-0" />
+            </div>
           )}
 
-          {!vm.voiceRecording ? (
-            <button
-              type="button"
-              onClick={() => commitTextSend()}
-              disabled={
-                vm.roomUnavailable ||
-                !draft.trim() ||
-                vm.busy === "send" ||
-                vm.busy === "send-image" ||
-                vm.busy === "send-file" ||
-                vm.busy === "send-voice" ||
-                vm.busy === "send-sticker" ||
-                vm.busy === "delete-message"
-              }
-              className="flex h-10 w-10 shrink-0 items-center justify-center justify-self-center self-center rounded-full bg-[color:var(--cm-room-primary)] sam-text-body-secondary font-semibold text-white transition active:scale-[0.98] disabled:opacity-40"
-              aria-label="전송"
-            >
-              <SendPlaneIcon className="h-5 w-5 text-white" />
-            </button>
-          ) : (
-            <div className="pointer-events-none h-10 w-10 shrink-0 justify-self-center self-center" aria-hidden />
-          )}
+          <div className="flex min-h-[44px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
+            {!vm.voiceRecording ? (
+              <button
+                type="button"
+                onClick={() => commitTextSend()}
+                disabled={
+                  vm.roomUnavailable ||
+                  !draft.trim() ||
+                  vm.busy === "send" ||
+                  vm.busy === "send-image" ||
+                  vm.busy === "send-file" ||
+                  vm.busy === "send-voice" ||
+                  vm.busy === "send-sticker" ||
+                  vm.busy === "delete-message"
+                }
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary)] text-white transition active:scale-[0.98] disabled:opacity-40"
+                aria-label="전송"
+              >
+                <SendPlaneIcon className="h-4 w-4 text-white" />
+              </button>
+            ) : (
+              <div className="pointer-events-none h-8 w-8 shrink-0" aria-hidden />
+            )}
+          </div>
         </MessengerInputBar>
       </footer>
     </>

@@ -32,6 +32,18 @@
 
 ---
 
+## 메신저 실시간 근본조치 (2026-04-22)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | 메신저 실시간 근본조치 — silent subscription / 거래 상태 단일 전파 / 읽음 배지 계약 통일 |
+| 현재 상태 | **구현 완료 · 검증 대기** |
+| 이번 원인 1개 | `rooms.summary` 거래 메타 파싱에서 **`postId` 누락** + 채널별 각자 다른 `SUBSCRIBED` 해석 때문에, 거래 상태·presence·통화·배지가 같은 날 다시 흔들릴 수 있는 구조였다. |
+| 이번 조치 | 1) 공통 `realtime health` 도입과 silent channel 계측 추가 2) 통화·presence·거래 상태 Realtime을 같은 재시도 축으로 정렬 3) 판매 상태 변경 시 **Community Messenger room summary**를 서버에서 직접 동기화 4) 메신저 방 읽음을 **즉시 mark_read**로 통일하고 거래 배지 해제를 같이 전파 |
+| 관측 포인트 | `realtime.subscription:silent_channel`, `realtime.subscription:presence_snapshot_fallback`, `db.community_messenger:trade_state_summary_sync`, 기존 `chat.unread_sync:badge_list_align` |
+
+---
+
 ## 진행 중 트랙
 
 | 항목 | 내용 |

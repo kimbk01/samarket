@@ -252,6 +252,24 @@ export function messengerMonitorRealtimeSubscriptionOutcome(
   });
 }
 
+/** SUBSCRIBED 상태가 유지돼도 payload가 한동안 안 들어오는 무음 구독 감지 */
+export function messengerMonitorRealtimeSilentScope(
+  scope: string,
+  silentForMs: number,
+  extraLabels?: Record<string, string>
+): void {
+  messengerMonitorRecord({
+    category: "realtime.subscription",
+    metric: "silent_channel",
+    value: silentForMs,
+    unit: "ms",
+    labels: {
+      scope,
+      ...(extraLabels ?? {}),
+    },
+  });
+}
+
 /** 시그널링 HTTP POST (ICE 후보는 트래픽 폭주 방지로 제외) */
 export function messengerMonitorSignalingPost(
   sessionId: string,

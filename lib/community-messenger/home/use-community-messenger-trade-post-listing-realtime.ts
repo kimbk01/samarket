@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 
 const POSTS_LISTING_IN_FILTER_MAX = 90;
 
@@ -57,22 +56,25 @@ export function useCommunityMessengerTradePostListingRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    const mountedChannels: RealtimeChannel[] = [];
-
-    void (async () => {
-      await waitForSupabaseRealtimeAuth(sb);
-      if (cancelled) return;
-      const ids = fp.split("\0").filter(Boolean);
-      for (let offset = 0; offset < ids.length; offset += POSTS_LISTING_IN_FILTER_MAX) {
-        if (cancelled) break;
-        const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
-        const filter = `id=in.(${chunk.join(",")})`;
-        const ch = sb
-          .channel(`cm-home:posts-trade-meta:${userId}:${offset}`)
-          .on(
+    const mountedChannels: Array<{ stop: () => void }> = [];
+    const ids = fp.split("\0").filter(Boolean);
+    for (let offset = 0; offset < ids.length; offset += POSTS_LISTING_IN_FILTER_MAX) {
+      if (cancelled) break;
+      const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
+      const filter = `id=in.(${chunk.join(",")})`;
+      let markRealtimeSignal = () => {};
+      const sub = subscribeWithRetry({
+        sb,
+        name: `cm-home:posts-trade-meta:${userId}:${offset}`,
+        scope: `cm-home:posts-trade-meta:${userId}`,
+        isCancelled: () => cancelled,
+        silentAfterMs: 18_000,
+        build: (ch) =>
+          ch.on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "posts", filter },
             (payload) => {
+              markRealtimeSignal();
               if (cancelled) return;
               try {
                 const n = payload.new as { id?: unknown; seller_listing_state?: unknown; status?: unknown } | undefined;
@@ -94,16 +96,16 @@ export function useCommunityMessengerTradePostListingRealtime(args: {
                 /* ignore */
               }
             }
-          )
-          .subscribe();
-        mountedChannels.push(ch);
-      }
-    })();
+          ),
+      });
+      markRealtimeSignal = sub.markSignal;
+      mountedChannels.push(sub);
+    }
 
     return () => {
       cancelled = true;
       for (const ch of mountedChannels) {
-        void sb.removeChannel(ch);
+        ch.stop();
       }
       mountedChannels.length = 0;
     };

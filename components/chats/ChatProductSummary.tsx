@@ -11,6 +11,12 @@ import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { trimPreviewForChatHeader } from "@/lib/chats/chat-list-preview-trim";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
+import {
+  formatMessengerTradeDockPriceLine,
+  messengerTradeDockLine1,
+  MessengerTradeProductDockRow,
+} from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
+import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
 
 interface ChatProductSummaryProps {
   product: ChatProductSummaryType;
@@ -20,6 +26,10 @@ interface ChatProductSummaryProps {
   sellerUserId?: string;
   /** 채팅방에서 즉시 반영되는 거래 단계(실시간·낙관적) — DB `product` 보다 우선 */
   sellerListingStateOverride?: SellerListingState | string | null;
+  /** posts.status Realtime 도 같이 반영해 sold/reserved 뱃지를 즉시 맞춘다 */
+  productStatusOverride?: string | null;
+  /** 메신저 거래 독: ⋮ 메뉴와 동일한 콤팩트 48px 썸네일·2줄 */
+  variant?: "card" | "messengerDock";
 }
 
 export function ChatProductSummary({
@@ -27,6 +37,8 @@ export function ChatProductSummary({
   hideFavorite = false,
   sellerUserId,
   sellerListingStateOverride,
+  productStatusOverride,
+  variant = "card",
 }: ChatProductSummaryProps) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const detailHref = product.detailHref?.trim() || `/post/${product.id}`;
@@ -39,7 +51,7 @@ export function ChatProductSummary({
 
   const listingPost = {
     seller_listing_state: sellerListingStateOverride ?? product.sellerListingState,
-    status: product.status,
+    status: productStatusOverride ?? product.status,
     type: "trade" as const,
   };
 
@@ -49,6 +61,39 @@ export function ChatProductSummary({
 
   const isExchange = product.isExchangePost === true;
   const exchangePhp = isExchange ? product.exchangePhpAmount : null;
+
+  const listingPhaseLabel = SELLER_LISTING_LABEL[
+    normalizeSellerListingState(sellerListingStateOverride, productStatusOverride ?? product.status)
+  ];
+
+  if (variant === "messengerDock" && !isPhilifeCard) {
+    const line1 = messengerTradeDockLine1(product.title, headerPreview);
+    const line2 = isExchange
+      ? exchangePhp != null && Number.isFinite(exchangePhp)
+        ? formatMessengerTradeDockPriceLine(Number(exchangePhp), "PHP", listingPhaseLabel)
+        : `금액 문의 · ${listingPhaseLabel}`
+      : formatMessengerTradeDockPriceLine(product.price, currency, listingPhaseLabel);
+
+    return (
+      <div className="flex min-w-0 items-stretch justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <MessengerTradeProductDockRow
+            thumbnailUrl={product.thumbnail?.trim() ? product.thumbnail.trim() : null}
+            line1={line1}
+            line2={line2}
+            detailHref={detailHref}
+            productLabel={(product.title || "상품").trim()}
+          />
+        </div>
+        {!hideFavorite ? (
+          <div className="flex shrink-0 items-center self-center border-l border-[color:var(--cm-room-divider)] px-2">
+            <PostFavoriteButton postId={product.id} authorUserId={sellerUserId} iconClassName="h-5 w-5" />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   const exchangeRateLine = isExchange ? product.exchangeRateSubLine : null;
   const useLegacy = !headerPreview;
 

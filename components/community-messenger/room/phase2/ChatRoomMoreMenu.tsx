@@ -12,7 +12,13 @@ import {
   UserPlus,
   Video,
 } from "lucide-react";
-import { formatPrice } from "@/lib/utils/format";
+import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
+import {
+  formatMessengerTradeDockPriceLine,
+  messengerTradeDockLine1,
+  MessengerTradeProductDockRow,
+} from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
+import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 
 export type RoomType = "direct" | "trade";
 
@@ -31,8 +37,11 @@ export type OtherUserProfile = {
   id: string;
   nickname: string;
   avatarUrl?: string | null;
-  isOnline: boolean;
   mannerScore: number;
+  /** 헤더와 동일: `useCommunityMessengerPeerPresence` 결과를 넘기면 실시간 반영 */
+  peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
+  /** @deprecated `peerPresence`가 없을 때만(스토리북 등) */
+  isOnline?: boolean;
 };
 
 export type TradeRoomContext = {
@@ -94,6 +103,19 @@ function mannerFillClass(score0to100: number): string {
   return "bg-emerald-500";
 }
 
+function peerPresenceStatusDotClass(
+  peerPresence: CommunityMessengerPeerPresenceSnapshot | null | undefined,
+  legacyOnline?: boolean
+): string {
+  const state = peerPresence?.state;
+  if (state === "online") return "bg-emerald-500";
+  if (state === "away") return "bg-amber-400";
+  if (state === "offline") return "bg-zinc-400";
+  if (legacyOnline === true) return "bg-emerald-500";
+  if (legacyOnline === false) return "bg-zinc-400";
+  return "bg-zinc-400";
+}
+
 function listRowClass(interactive: boolean): string {
   const base =
     "flex w-full min-h-[48px] items-center gap-3 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5 text-left sam-text-body text-[color:var(--cm-room-text)]";
@@ -127,6 +149,15 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     onLeaveRoom,
   } = props;
 
+  const presenceLine =
+    otherUser.peerPresence != null
+      ? formatMessengerPeerPresenceLine(otherUser.peerPresence)
+      : otherUser.isOnline === true
+        ? "온라인"
+        : otherUser.isOnline === false
+          ? "오프라인"
+          : formatMessengerPeerPresenceLine(null);
+
   const friendLabelNone = roomType === "direct" ? "친구 추가" : "친구 신청";
 
   const showVoice =
@@ -153,12 +184,13 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{otherUser.nickname}</p>
             <div className="mt-0.5 flex items-center gap-1.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
               <span
-                className={`inline-block h-2 w-2 shrink-0 rounded-full ${
-                  otherUser.isOnline ? "bg-emerald-500" : "bg-zinc-400"
-                }`}
+                className={`inline-block h-2 w-2 shrink-0 rounded-full ${peerPresenceStatusDotClass(
+                  otherUser.peerPresence,
+                  otherUser.isOnline
+                )}`}
                 aria-hidden
               />
-              <span>{otherUser.isOnline ? "온라인" : "오프라인"}</span>
+              <span>{presenceLine}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-black/10" aria-hidden>
@@ -180,25 +212,18 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
       </div>
 
       {roomType === "trade" && tradeContext ? (
-        <div className="flex gap-2.5 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)]">
-            {tradeContext.product.thumbnailUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={tradeContext.product.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                상품
-              </div>
+        <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
+          <MessengerTradeProductDockRow
+            thumbnailUrl={tradeContext.product.thumbnailUrl}
+            line1={messengerTradeDockLine1(tradeContext.product.title, undefined)}
+            line2={formatMessengerTradeDockPriceLine(
+              tradeContext.product.price,
+              "PHP",
+              PRODUCT_STATUS_LABEL[tradeContext.product.status]
             )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">
-              {tradeContext.product.title}
-            </p>
-            <p className="mt-0.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-              {formatPrice(tradeContext.product.price, "PHP")} · {PRODUCT_STATUS_LABEL[tradeContext.product.status]}
-            </p>
-          </div>
+            detailHref={`/post/${encodeURIComponent(tradeContext.product.id)}`}
+            productLabel={tradeContext.product.title}
+          />
         </div>
       ) : null}
 

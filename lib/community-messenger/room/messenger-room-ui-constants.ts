@@ -2,10 +2,10 @@
 export const CM_CLUSTER_GAP_MS = 5 * 60 * 1000;
 
 /**
- * 방 하단(최신 말풍선)에 머문 뒤 서버 `mark_read` 를 보내기까지의 최소 체류 시간.
- * 권장 300~800ms — viewport 가시 + 기타 조건이 연속 유지된 시간으로 본다.
+ * 방을 실제로 연 직후 읽음·배지가 즉시 풀려야 하므로 기본 지연을 두지 않는다.
+ * (`useMessengerRoomOpenMarkReadEffect` 는 여전히 가시성/포커스/최신 말풍선 노출 조건은 유지)
  */
-export const CM_ROOM_BOTTOM_READ_DWELL_MS = 500;
+export const CM_ROOM_BOTTOM_READ_DWELL_MS = 0;
 
 /** 최신 말풍선 행이 스크롤 루트 안에서 이만큼 이상(높이 비율) 보일 때만 “읽음 후보” */
 export const CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO = 0.12;

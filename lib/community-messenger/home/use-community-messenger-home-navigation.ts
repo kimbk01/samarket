@@ -30,15 +30,6 @@ export function useCommunityMessengerHomeNavigation({
   setChatInboxFilter,
   setChatKindFilter,
 }: Args) {
-  const navigateToCommunityRoom = useCallback(
-    (roomId: string) => {
-      const id = String(roomId ?? "").trim();
-      if (!id) return;
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
-    },
-    [router]
-  );
-
   const replaceMessengerSectionUrl = useCallback(
     (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
       const qs = new URLSearchParams();
@@ -47,7 +38,24 @@ export function useCommunityMessengerHomeNavigation({
         const extra = messengerChatFiltersToSearchParams(inbox, kind);
         extra.forEach((v, k) => qs.set(k, v));
       }
-      router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
+      const nextUrl = `/community-messenger?${qs.toString()}`;
+      if (typeof window !== "undefined") {
+        const cur = `${window.location.pathname}${window.location.search}`;
+        if (cur !== nextUrl) {
+          window.history.replaceState(window.history.state, "", nextUrl);
+        }
+        return;
+      }
+      router.replace(nextUrl, { scroll: false });
+    },
+    [router]
+  );
+
+  const navigateToCommunityRoom = useCallback(
+    (roomId: string) => {
+      const id = String(roomId ?? "").trim();
+      if (!id) return;
+      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
     },
     [router]
   );
@@ -59,12 +67,10 @@ export function useCommunityMessengerHomeNavigation({
       if (next === "chats") {
         replaceMessengerSectionUrl("chats", chatInboxFilter, chatKindFilter);
       } else {
-        const qs = new URLSearchParams();
-        qs.set("section", next);
-        router.replace(`/community-messenger?${qs.toString()}`, { scroll: false });
+        replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter);
       }
     },
-    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, router, setMainSection]
+    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, setMainSection]
   );
 
   const onChatListChipChange = useCallback(

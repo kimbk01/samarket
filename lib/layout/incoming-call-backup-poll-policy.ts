@@ -12,14 +12,6 @@
 /** 백업 GET 을 쉬는 표면에서 타이머만 이어 갈 때의 간격(HTTP 호출 없음) */
 export const INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS = 60_000;
 
-function isTradeOrMessengerChatSurface(pathname: string): boolean {
-  if (pathname.startsWith("/community-messenger")) return true;
-  if (pathname.startsWith("/chats/") && pathname !== "/chats/new" && pathname !== "/chats/order") return true;
-  if (pathname.startsWith("/mypage/trade/chat/")) return true;
-  if (pathname.startsWith("/group-chat/")) return true;
-  return false;
-}
-
 /**
  * @param pathname 현재 URL pathname
  * @param hasRingingDirectCallee `GlobalCommunityMessengerIncomingCall` 의 ringingDirectCalleeRef 와 동일 의미
@@ -30,6 +22,11 @@ export function shouldRunIncomingCallBackupHttpPoll(
 ): boolean {
   if (hasRingingDirectCallee) return true;
   if (!pathname) return false;
-  if (pathname === "/" || pathname === "/home") return false;
-  return isTradeOrMessengerChatSurface(pathname);
+  if (pathname.startsWith("/login")) return false;
+  /**
+   * "어느 도메인에 있든 수신 통화 알림이 떠야 한다"는 제품 요구에 맞춰
+   * 로그인 화면을 제외한 전 표면에서 백업 HTTP 폴링을 허용한다.
+   * (Realtime 신호 누락·무음 구독 시에도 수신 경로를 끊지 않음)
+   */
+  return true;
 }

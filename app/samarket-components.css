@@ -552,7 +552,7 @@
     background-color: var(--sam-bg-surface-muted);
   }
 
-  /* 음성 녹음 마이크 — 버튼(h-10 w-10)과 동일 중심·지름에서 퍼지는 동심 원 (실제 노드로 겹침) */
+  /* 음성 녹음 마이크 — 버튼(36px 근처) 중심에서 퍼지는 동심 원 (실제 노드로 겹침) */
   @keyframes sam-cm-voice-mic-ripple {
     0% {
       transform: scale(1);
@@ -577,10 +577,10 @@
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 2.5rem;
-    height: 2.5rem;
-    margin-left: -1.25rem;
-    margin-top: -1.25rem;
+    width: 2rem;
+    height: 2rem;
+    margin-left: -1rem;
+    margin-top: -1rem;
     border-radius: 9999px;
     pointer-events: none;
     background: radial-gradient(

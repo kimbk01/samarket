@@ -25,6 +25,11 @@ import { CHAT_ROOM_ID_IN_CHUNK_SIZE, CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT, chunkId
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
 import { tradeListUnreadHintFromCursor } from "@/lib/chats/server/trade-list-unread-hint";
+import {
+  ingestProductChatCompletionRow,
+  shouldOmitTradeRoomFromChatHubList,
+  type TradeHubCompletionTimestamps,
+} from "@/lib/chats/trade-hub-completed-list-expiry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -198,11 +203,7 @@ export async function GET(req: NextRequest) {
 
   const needProductChats = segment === "all" || segment === "trade";
 
-  const [pcRes, partRes] = await Promise.all([
-    needProductChats
-      ? sbAny
-          .from("product_chats")
-          .select(`
+  const PRODUCT_CHATS_LIST_SELECT = `
       id,
       post_id,
       seller_id,
@@ -211,8 +212,16 @@ export async function GET(req: NextRequest) {
       last_message_preview,
       unread_count_seller,
       unread_count_buyer,
-      created_at
-    `)
+      created_at,
+      seller_completed_at,
+      buyer_confirmed_at
+    `;
+
+  const [pcRes, partRes] = await Promise.all([
+    needProductChats
+      ? sbAny
+          .from("product_chats")
+          .select(PRODUCT_CHATS_LIST_SELECT)
           .or(`seller_id.eq.${userId},buyer_id.eq.${userId}`)
           .order("last_message_at", { ascending: false, nullsFirst: false })
           .limit(CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT)
@@ -255,7 +264,14 @@ export async function GET(req: NextRequest) {
     unread_count_seller: number;
     unread_count_buyer: number;
     created_at: string;
+    seller_completed_at?: string | null;
+    buyer_confirmed_at?: string | null;
   }[];
+
+  const completionByTradeTriple = new Map<string, TradeHubCompletionTimestamps>();
+  for (const r of pcRows) {
+    ingestProductChatCompletionRow(completionByTradeTriple, r);
+  }
 
   let allCrRows: Record<string, unknown>[] = [];
   try {
@@ -304,6 +320,29 @@ export async function GET(req: NextRequest) {
       const id = (row as { id?: string }).id;
       const sid = (row as { sender_id?: string }).sender_id;
       if (typeof id === "string" && typeof sid === "string") tradeLastSenderByMsgId.set(id, sid);
+    }
+  }
+
+  const itemIdsForCompletion = [...new Set(crTradeRows.map((r) => r.item_id).filter(Boolean))] as string[];
+  if (itemIdsForCompletion.length > 0 && (segment === "trade" || segment === "all")) {
+    const idChunks = chunkIds(itemIdsForCompletion, CHAT_ROOM_ID_IN_CHUNK_SIZE);
+    const extraRows = await Promise.all(
+      idChunks.map(async (ids) => {
+        const { data } = await sbAny
+          .from("product_chats")
+          .select("post_id, seller_id, buyer_id, seller_completed_at, buyer_confirmed_at")
+          .in("post_id", ids);
+        return (data ?? []) as {
+          post_id: string;
+          seller_id: string;
+          buyer_id: string;
+          seller_completed_at?: string | null;
+          buyer_confirmed_at?: string | null;
+        }[];
+      })
+    );
+    for (const row of extraRows.flat()) {
+      ingestProductChatCompletionRow(completionByTradeTriple, row);
     }
   }
 
@@ -464,7 +503,26 @@ export async function GET(req: NextRequest) {
   }
 
   const mergedRaw = [...listFromProductChats, ...listFromChatRooms, ...listFromStoreOrderRooms];
-  const merged = dedupeTradeChatRoomRows(mergedRaw).sort((a, b) => {
+  const mergedDeduped = dedupeTradeChatRoomRows(mergedRaw);
+  const nowMs = Date.now();
+  const mergedHubFiltered =
+    segment === "order"
+      ? mergedDeduped
+      : mergedDeduped.filter(
+          (room) =>
+            !shouldOmitTradeRoomFromChatHubList({
+              room: {
+                generalChat: room.generalChat,
+                productId: room.productId,
+                buyerId: room.buyerId,
+                sellerId: room.sellerId,
+              },
+              postByProductId: postMap,
+              completionByTriple: completionByTradeTriple,
+              nowMs,
+            })
+        );
+  const merged = mergedHubFiltered.sort((a, b) => {
     const ta = new Date(a.lastMessageAt).getTime();
     const tb = new Date(b.lastMessageAt).getTime();
     return tb - ta;

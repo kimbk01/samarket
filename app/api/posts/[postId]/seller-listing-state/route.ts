@@ -21,9 +21,41 @@ import {
   resolveTradeKindFromCategory,
 } from "@/lib/trade/trade-lifecycle-policy";
 import { insertPostTradeStatusLog } from "@/lib/trade/post-trade-status-log";
-import { insertSellerListingChangeSystemMessagesServer } from "@/lib/trade/insert-seller-listing-change-system-messages";
+import {
+  insertSellerListingChangeSystemMessagesServer,
+  syncCommunityMessengerTradeStateSummariesServer,
+} from "@/lib/trade/insert-seller-listing-change-system-messages";
+import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
+
+async function syncTradeSummaryStateBestEffort(args: {
+  sbAny: import("@supabase/supabase-js").SupabaseClient;
+  postId: string;
+  nextState: SellerListingState;
+  postStatus: string;
+  postTitle: string | null;
+}) {
+  const startedAt = Date.now();
+  await syncCommunityMessengerTradeStateSummariesServer(args.sbAny, {
+    postId: args.postId,
+    nextState: args.nextState,
+    postStatus: args.postStatus,
+    postTitle: args.postTitle,
+  }).catch(() => {});
+  recordMessengerMonitoringEvent({
+    ts: Date.now(),
+    category: "db.community_messenger",
+    metric: "trade_state_summary_sync",
+    source: "server",
+    value: Date.now() - startedAt,
+    unit: "ms",
+    labels: {
+      listingState: args.nextState,
+      postIdSuffix: args.postId.slice(-8),
+    },
+  });
+}
 
 function isMissingDbColumnMessage(message: string, columnHint: string): boolean {
   return (
@@ -258,6 +290,13 @@ export async function POST(
           sellerUserId: userId,
           nextState: nextState as SellerListingState,
         }).catch(() => {});
+        await syncTradeSummaryStateBestEffort({
+          sbAny,
+          postId: postId.trim(),
+          nextState: nextState as SellerListingState,
+          postStatus,
+          postTitle: typeof prevRow.title === "string" ? prevRow.title : null,
+        });
         return NextResponse.json({
           ok: true,
           sellerListingState: nextState,
@@ -295,6 +334,13 @@ export async function POST(
           sellerUserId: userId,
           nextState: nextState as SellerListingState,
         }).catch(() => {});
+        await syncTradeSummaryStateBestEffort({
+          sbAny,
+          postId: postId.trim(),
+          nextState: nextState as SellerListingState,
+          postStatus,
+          postTitle: typeof prevRow.title === "string" ? prevRow.title : null,
+        });
         return NextResponse.json({
           ok: true,
           sellerListingState: nextState,
@@ -344,6 +390,13 @@ export async function POST(
     sellerUserId: userId,
     nextState: nextState as SellerListingState,
   }).catch(() => {});
+  await syncTradeSummaryStateBestEffort({
+    sbAny,
+    postId: postId.trim(),
+    nextState: nextState as SellerListingState,
+    postStatus,
+    postTitle: typeof prevRow.title === "string" ? prevRow.title : null,
+  });
 
   return NextResponse.json({
     ok: true,

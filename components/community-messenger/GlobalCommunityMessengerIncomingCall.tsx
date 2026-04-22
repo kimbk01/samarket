@@ -30,6 +30,7 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
@@ -68,6 +69,8 @@ import {
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
+const INCOMING_CALL_REALTIME_SCOPE = "community-messenger-incoming-call";
+const INCOMING_CALL_REALTIME_SILENT_AFTER_MS = 12_000;
 
 /** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
 const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
@@ -145,8 +148,14 @@ function shouldRunIncomingCallBackupHttpRequest(args: {
 }): boolean {
   if (!shouldRunIncomingCallBackupHttpPoll(args.pathname, args.hasRingingDirectCallee)) return false;
   if (!isIncomingCallWindowForeground()) return false;
+  /**
+   * 수신 통화는 사용자 표면에서 "항상" 보장돼야 하므로
+   * Realtime 정상 여부와 무관하게 백업 HTTP 경로를 유지한다.
+   * (silent subscription / auth race 시에도 수신 누락 방지)
+   */
   if (args.hasRingingDirectCallee) return true;
-  return !args.realtimeOk;
+  void args.realtimeOk;
+  return true;
 }
 
 export function GlobalCommunityMessengerIncomingCall() {
@@ -189,7 +198,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const hardClearedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
-  /** Realtime SUBSCRIBED 여부 — 백업 폴링 간격만 바꿈(폴링 완전 생략은 하지 않음) */
+  /** Realtime health 여부 — silent subscription 감지 포함 */
   const incomingRealtimeOkRef = useRef(false);
   /** 수신 목록에 세션이 처음 잡힌 시각(서버 startedAt 대비) — 발신→수신 체감 지연 */
   const incomingSurfaceLoggedRef = useRef<Set<string>>(new Set());
@@ -360,10 +369,18 @@ export function GlobalCommunityMessengerIncomingCall() {
   /** 폴링·가시성 핸들러에서 최신 `refresh`/`queueVisibilityRefreshBurst` 를 쓰되, effect 의존 배열은 `[userId]` 만 둔다(길이 불변·React 19 런타임 검증 통과). */
   const refreshRef = useRef(refresh);
   const queueVisibilityRefreshBurstRef = useRef(queueVisibilityRefreshBurst);
+  const syncIncomingRealtimeHealth = useCallback(() => {
+    const healthy = isCommunityMessengerRealtimeScopeHealthy(INCOMING_CALL_REALTIME_SCOPE, {
+      silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
+    });
+    incomingRealtimeOkRef.current = healthy;
+    setIncomingRealtimeOk((prev) => (prev === healthy ? prev : healthy));
+  }, []);
   useEffect(() => {
     refreshRef.current = refresh;
     queueVisibilityRefreshBurstRef.current = queueVisibilityRefreshBurst;
-  }, [refresh, queueVisibilityRefreshBurst]);
+    syncIncomingRealtimeHealth();
+  }, [refresh, queueVisibilityRefreshBurst, syncIncomingRealtimeHealth]);
 
   /**
    * 경로가 바뀔 때마다 폴링 effect 전체를 갈아엎지 않고, 가시성 burst 꼬리만 정리 후 필요 시 1회 burst.
@@ -498,6 +515,17 @@ export function GlobalCommunityMessengerIncomingCall() {
   /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
   useEffect(() => {
     if (!userId) return;
+    const timerId = window.setInterval(() => {
+      syncIncomingRealtimeHealth();
+    }, 2000);
+    syncIncomingRealtimeHealth();
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [syncIncomingRealtimeHealth, userId]);
+
+  useEffect(() => {
+    if (!userId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
     let cancelled = false;
@@ -568,15 +596,16 @@ export function GlobalCommunityMessengerIncomingCall() {
     let cancelled = false;
     incomingRealtimeOkRef.current = false;
     setIncomingRealtimeOk(false);
+    let markRealtimeSignal = () => {};
     const sub = subscribeWithRetry({
       sb,
       name: `community-messenger-incoming-call:${userId}`,
-      scope: "community-messenger-incoming-call",
+      scope: INCOMING_CALL_REALTIME_SCOPE,
       isCancelled: () => cancelled,
+      silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
       onStatus: (status) => {
-        const ok = status === "SUBSCRIBED";
-        incomingRealtimeOkRef.current = ok;
-        setIncomingRealtimeOk(ok);
+        void status;
+        syncIncomingRealtimeHealth();
       },
       /** 원격망에서 WS 재연결 실패 시에도 HTTP 로 수신 목록·종료 상태를 맞춤 */
       onAfterSubscribeFailure: () => {
@@ -593,6 +622,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               filter: `recipient_user_id=eq.${userId}`,
             },
             (payload) => {
+              markRealtimeSignal();
               const p = payload as {
                 eventType?: string;
                 new?: Record<string, unknown> | null;
@@ -672,6 +702,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               filter: `to_user_id=eq.${userId}`,
             },
             (payload) => {
+              markRealtimeSignal();
               const row = payload.new as Record<string, unknown> | undefined;
               if (!row) return;
               if (String(row.signal_type ?? "") !== "hangup") return;
@@ -697,10 +728,12 @@ export function GlobalCommunityMessengerIncomingCall() {
               filter: `user_id=eq.${userId}`,
             },
             () => {
+              markRealtimeSignal();
               scheduleRealtimeIncomingRefresh();
             }
           ),
     });
+    markRealtimeSignal = sub.markSignal;
 
     return () => {
       cancelled = true;
@@ -716,7 +749,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       incomingRealtimeOkRef.current = false;
       setIncomingRealtimeOk(false);
     };
-  }, [bumpIncomingListFastSync, scheduleRealtimeIncomingRefresh, userId]);
+  }, [bumpIncomingListFastSync, scheduleRealtimeIncomingRefresh, syncIncomingRealtimeHealth, userId]);
 
   useEffect(() => {
     return () => {

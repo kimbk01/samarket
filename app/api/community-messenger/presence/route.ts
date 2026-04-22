@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { upsertCommunityMessengerPresenceSnapshot } from "@/lib/community-messenger/service";
+import {
+  getCommunityMessengerPresenceSnapshotsByUserIds,
+  upsertCommunityMessengerPresenceSnapshot,
+} from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
+  const auth = await requireAuthenticatedUserId();
+  if (!auth.ok) return auth.response;
+
+  const rawIds = req.nextUrl.searchParams.get("userIds");
+  const ids = [...new Set(String(rawIds ?? "").split(",").map((id) => id.trim()).filter(Boolean))].slice(0, 24);
+  if (ids.length === 0) {
+    return NextResponse.json({ ok: true, snapshots: [] });
+  }
+  const snapshots = await getCommunityMessengerPresenceSnapshotsByUserIds(ids);
+  return NextResponse.json({
+    ok: true,
+    snapshots: ids.map((userId) => snapshots.get(userId) ?? { userId, state: "offline", lastSeenAt: null }),
+  });
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();

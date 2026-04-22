@@ -337,6 +337,13 @@ export function useCommunityMessengerCall(args: {
     locallyClosedSessionIdRef.current = null;
     clearPendingSessionCleanup();
 
+    const st = activeCall.status;
+    if (st === "ended" || st === "cancelled" || st === "rejected" || st === "missed") {
+      cleanupMedia();
+      setPanel(null);
+      return;
+    }
+
     if (activeCall.status === "ringing") {
       setPanel((prev) => {
         if (prev?.sessionId === activeCall.id && (prev.mode === "connecting" || prev.mode === "active")) return prev;
@@ -352,11 +359,18 @@ export function useCommunityMessengerCall(args: {
 
     if (activeCall.status === "active") {
       activeSinceRef.current = new Date(activeCall.answeredAt ?? activeCall.startedAt).getTime();
-      setPanel({
-        kind: activeCall.callKind,
-        mode: transportState === "connected" ? "active" : "connecting",
-        sessionId: activeCall.id,
-        peerLabel: activeCall.peerLabel,
+      const nextMode = transportState === "connected" ? "active" : "connecting";
+      setPanel((prev) => {
+        /** 통화 종료 직전 ICE/WebRTC 가 잠깐 `connecting` 으로 떨어질 때 패널이 '연결 중'으로 깜빡이지 않게 */
+        if (prev?.sessionId === activeCall.id && prev.mode === "active" && nextMode === "connecting") {
+          return prev;
+        }
+        return {
+          kind: activeCall.callKind,
+          mode: nextMode,
+          sessionId: activeCall.id,
+          peerLabel: activeCall.peerLabel,
+        };
       });
     }
   }, [args.activeCall, cleanupMedia, clearPendingSessionCleanup, panel?.mode, panel?.sessionId, transportState]);
@@ -1062,6 +1076,8 @@ export function useCommunityMessengerCall(args: {
               ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
               : json.error === "trade_chat_video_not_allowed"
                 ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                : json.error === "trade_chat_call_friend_required_after_complete"
+                  ? "통화를 원하면 친구를 요청하세요."
                 : "통화 시작에 실패했습니다."
         );
         setPanel(null);
@@ -1310,6 +1326,8 @@ export function useCommunityMessengerCall(args: {
               ? "이 글에서는 음성 통화만 허용되어 있습니다."
               : patchJson.error === "trade_chat_calls_disabled"
                 ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
+                : patchJson.error === "trade_chat_call_friend_required_after_complete"
+                  ? "통화를 원하면 친구를 요청하세요."
                 : "영상 전환 요청에 실패했습니다."
         );
         return false;

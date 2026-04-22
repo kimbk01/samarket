@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
@@ -256,7 +256,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     {
       const href = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
       primeMessengerRoomEntrySnapshot({ viewerUserId, room });
-      void prefetchCommunityMessengerRoomSnapshot(room.id);
+      enqueueRoomPrefetch(room.id);
       void router.prefetch(href);
     }
     dragRef.current = {
@@ -516,7 +516,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         prefetch
         href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
         onPointerDown={() => {
-          void prefetchCommunityMessengerRoomSnapshot(room.id);
+          enqueueRoomPrefetch(room.id);
           void router.prefetch(`/community-messenger/rooms/${encodeURIComponent(room.id)}`);
         }}
         onClick={() =>

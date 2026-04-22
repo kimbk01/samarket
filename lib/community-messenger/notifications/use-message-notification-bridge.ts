@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import type { RealtimeChannel, RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
@@ -24,6 +24,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { applyRoomSummaryPatched } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 
 /** `full`: 사운드·배너·데스크톱 알림. `hub_sync_only`: participants Realtime + 허브/뱃지/room bump 만(비메신저 표면). */
 export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
@@ -55,20 +56,23 @@ export function useMessageNotificationBridge(
 ): void {
   const router = useRouter();
   const routerRef = useRef(router);
-  routerRef.current = router;
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
-  pathnameRef.current = pathname;
   const playbackRef = useRef<MessageNotificationBridgePlayback>(playback);
-  playbackRef.current = playback;
   const surface = useNotificationSurface();
   const surfaceRef = useRef(surface);
-  surfaceRef.current = surface;
   const visibilityRef = useRef<DocumentVisibilityState>(
     typeof document !== "undefined" ? document.visibilityState : "visible"
   );
   const [userId, setUserId] = useState<string | null>(null);
   const roomBumpLastAtRef = useRef<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    routerRef.current = router;
+    pathnameRef.current = pathname;
+    playbackRef.current = playback;
+    surfaceRef.current = surface;
+  }, [pathname, playback, router, surface]);
 
   const navigateToCommunityRoom = useCallback((roomId: string) => {
     const id = String(roomId ?? "").trim();
@@ -116,10 +120,15 @@ export function useMessageNotificationBridge(
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    let channel: RealtimeChannel | null = null;
-    channel = sb
-      .channel(`community-messenger-unread-sound:${userId}`)
-      .on(
+    let markRealtimeSignal = () => {};
+    const sub = subscribeWithRetry({
+      sb,
+      name: `community-messenger-unread-sound:${userId}`,
+      scope: `community-messenger-unread-sound:${userId}`,
+      isCancelled: () => false,
+      silentAfterMs: 18_000,
+      build: (ch) => {
+        return ch.on(
         "postgres_changes",
         {
           event: "*",
@@ -128,6 +137,7 @@ export function useMessageNotificationBridge(
           filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<ParticipantRealtimeRow>) => {
+          markRealtimeSignal();
           const nextRoomId = getRoomId((payload.new ?? null) as ParticipantRealtimeRow | null);
           const nextUnread = getUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
           const prevUnread = getUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
@@ -250,11 +260,13 @@ export function useMessageNotificationBridge(
           });
           requestMessengerHubBadgeResync("participant_unread_changed");
         }
-      )
-      .subscribe();
+      );
+      },
+    });
+    markRealtimeSignal = sub.markSignal;
 
     return () => {
-      if (channel) void sb.removeChannel(channel);
+      sub.stop();
     };
-  }, [enabled, userId]);
+  }, [enabled, navigateToCommunityRoom, userId]);
 }

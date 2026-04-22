@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import {
   computeTradePresenceLiveState,
   type TradePresenceLiveState,
@@ -43,10 +43,12 @@ export function useTradeChatRoomPresence(args: {
   const tabVisRef = useRef(args.aggregatedTabVisible);
   const publishLiveRef = useRef(args.publishLive);
   const readPeerLiveRef = useRef(args.readPeerLive);
-  getLastRef.current = args.getLastActivityAtMs;
-  tabVisRef.current = args.aggregatedTabVisible;
-  publishLiveRef.current = args.publishLive;
-  readPeerLiveRef.current = args.readPeerLive;
+  useEffect(() => {
+    getLastRef.current = args.getLastActivityAtMs;
+    tabVisRef.current = args.aggregatedTabVisible;
+    publishLiveRef.current = args.publishLive;
+    readPeerLiveRef.current = args.readPeerLive;
+  }, [args.aggregatedTabVisible, args.getLastActivityAtMs, args.publishLive, args.readPeerLive]);
 
   const recompute = useCallback(() => {
     const p = peerRef.current;
@@ -85,6 +87,7 @@ export function useTradeChatRoomPresence(args: {
 
     let cancelled = false;
     let channel: RealtimeChannel | null = null;
+    let subscription: { stop: () => void } | null = null;
     let publishTimer: number | null = null;
     let tickTimer: number | null = null;
 
@@ -99,41 +102,45 @@ export function useTradeChatRoomPresence(args: {
       recompute();
     };
 
-    void (async () => {
-      const authOk = await waitForSupabaseRealtimeAuth(sb);
-      if (cancelled || !authOk) return;
-
-      const ch = sb
-        .channel(channelName(roomId), { config: { broadcast: { ack: false } } })
-        .on("broadcast", { event: PRESENCE_EVENT }, (msg) => {
+    const publish = () => {
+      if (cancelled || !publishLiveRef.current || !channel) return;
+      void channel.send({
+        type: "broadcast",
+        event: PRESENCE_EVENT,
+        payload: {
+          fromUserId: viewer,
+          lastActivityAtMs: getLastRef.current(),
+          tabVisible: tabVisRef.current,
+          at: new Date().toISOString(),
+        },
+      });
+    };
+    let markRealtimeSignal = () => {};
+    const sub = subscribeWithRetry({
+      sb,
+      name: channelName(roomId),
+      scope: `trade-chat-presence:${roomId}`,
+      isCancelled: () => cancelled,
+      silentAfterMs: 18_000,
+      onStatus: (status) => {
+        if (cancelled) return;
+        const live = status === "SUBSCRIBED";
+        setChannelLive(live);
+        if (live) publish();
+      },
+      build: (ch) => {
+        channel = ch;
+        return ch.on("broadcast", { event: PRESENCE_EVENT }, (msg) => {
+          markRealtimeSignal();
           const payload = (msg as { payload?: PingPayload }).payload ?? {};
           applyPing(payload);
-        })
-        .subscribe((status) => {
-          if (cancelled) return;
-          const live = status === "SUBSCRIBED";
-          setChannelLive(live);
         });
-
-      channel = ch;
-
-      const publish = () => {
-        if (cancelled || !publishLiveRef.current) return;
-        void ch.send({
-          type: "broadcast",
-          event: PRESENCE_EVENT,
-          payload: {
-            fromUserId: viewer,
-            lastActivityAtMs: getLastRef.current(),
-            tabVisible: tabVisRef.current,
-            at: new Date().toISOString(),
-          },
-        });
-      };
-      publish();
-      publishTimer = window.setInterval(publish, PUBLISH_INTERVAL_MS);
-      tickTimer = window.setInterval(() => recompute(), 2000);
-    })();
+      },
+    });
+    markRealtimeSignal = sub.markSignal;
+    subscription = sub;
+    publishTimer = window.setInterval(publish, PUBLISH_INTERVAL_MS);
+    tickTimer = window.setInterval(() => recompute(), 2000);
 
     return () => {
       cancelled = true;
@@ -142,7 +149,7 @@ export function useTradeChatRoomPresence(args: {
       peerRef.current = null;
       setChannelLive(false);
       setPeerLiveState("offline");
-      if (channel) void sb.removeChannel(channel);
+      subscription?.stop();
     };
   }, [
     args.bootstrapReady,

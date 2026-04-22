@@ -27,6 +27,22 @@ export function canSellerListingTransition(from: SellerListingState, to: SellerL
   return allowed.some(([a, b]) => a === from && b === to);
 }
 
+/** 현재 단계에서 한 단계 앞으로만(목록 순) 갈 수 있는 다음 단계 — UI 힌트용 */
+export function nextSellerListingTradeStepForward(
+  from: SellerListingState
+): { state: SellerListingState; label: string } | null {
+  if (from === "completed") return null;
+  const currentIdx = TRADE_LISTING_CHAT_STEPS.findIndex((s) => s.state === from);
+  if (currentIdx < 0) return null;
+  for (let i = currentIdx + 1; i < TRADE_LISTING_CHAT_STEPS.length; i += 1) {
+    const step = TRADE_LISTING_CHAT_STEPS[i];
+    if (canSellerListingTransition(from, step.state)) {
+      return { state: step.state, label: step.label };
+    }
+  }
+  return null;
+}
+
 export function isReadOnlyTradeListingViewer(viewerId: string, sellerId: string): boolean {
   return viewerId.trim() !== sellerId.trim();
 }

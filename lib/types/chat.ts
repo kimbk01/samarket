@@ -126,6 +126,8 @@ export interface ChatRoom {
   chatRoomId?: string;
   /** 거래/후기 API·후기 저장에 사용 — 없으면 id(product_chats)로 간주 */
   productChatRoomId?: string | null;
+  /** 거래↔메신저 직통방 UUID — 있으면 통화 브리지 API 생략 가능 */
+  communityMessengerRoomId?: string | null;
   tradeFlowStatus?: TradeFlowStatus | string;
   chatMode?: TradeChatMode | string;
   /** posts.sold_buyer_id */

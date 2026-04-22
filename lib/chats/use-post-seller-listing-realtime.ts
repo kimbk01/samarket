@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 
 /** `in` 필터 청크 — 커뮤니티 메신저 홈·통합 채팅 목록과 동일 상한 */
 const POSTS_LISTING_IN_FILTER_MAX = 90;
@@ -26,10 +25,12 @@ function useStableCallback(callback: () => void) {
 export function usePostSellerListingRealtime(args: {
   postId: string | null;
   enabled: boolean;
-  onSellerListingState: (sellerListingState: string | null) => void;
+  onSellerListingState: (next: { sellerListingState: string | null; postStatus: string | null }) => void;
 }): void {
   const onRef = useRef(args.onSellerListingState);
-  onRef.current = args.onSellerListingState;
+  useEffect(() => {
+    onRef.current = args.onSellerListingState;
+  }, [args.onSellerListingState]);
 
   useEffect(() => {
     const pid = args.postId?.trim() ?? "";
@@ -38,39 +39,37 @@ export function usePostSellerListingRealtime(args: {
     if (!sb) return;
 
     let cancelled = false;
-    let channel: RealtimeChannel | null = null;
-
-    void (async () => {
-      const authOk = await waitForSupabaseRealtimeAuth(sb);
-      if (cancelled || !authOk) return;
-      const ch = sb
-        .channel(`post-seller-listing:${pid}`)
-        .on(
+    let markRealtimeSignal = () => {};
+    const sub = subscribeWithRetry({
+      sb,
+      name: `post-seller-listing:${pid}`,
+      scope: `post-seller-listing:${pid}`,
+      isCancelled: () => cancelled,
+      silentAfterMs: 18_000,
+      build: (ch) =>
+        ch.on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "posts", filter: `id=eq.${pid}` },
           (payload) => {
+            markRealtimeSignal();
             try {
-              const n = payload.new as { seller_listing_state?: string | null } | undefined;
+              const n = payload.new as { seller_listing_state?: string | null; status?: string | null } | undefined;
               if (!n) return;
-              onRef.current(n.seller_listing_state ?? null);
+              onRef.current({
+                sellerListingState: n.seller_listing_state ?? null,
+                postStatus: typeof n.status === "string" ? n.status : null,
+              });
             } catch {
               /* ignore */
             }
           }
-        )
-        .subscribe();
-      if (cancelled) {
-        void sb.removeChannel(ch);
-        return;
-      }
-      channel = ch;
-    })();
+        ),
+    });
+    markRealtimeSignal = sub.markSignal;
 
     return () => {
       cancelled = true;
-      if (channel) {
-        void sb.removeChannel(channel);
-      }
+      sub.stop();
     };
   }, [args.postId, args.enabled]);
 }
@@ -96,7 +95,7 @@ export function usePostsSellerListingRealtimeBatch(args: {
 
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const mountedChannels: RealtimeChannel[] = [];
+    const mountedChannels: Array<{ stop: () => void }> = [];
 
     const scheduleStale = () => {
       if (debounceTimer != null) return;
@@ -106,27 +105,31 @@ export function usePostsSellerListingRealtimeBatch(args: {
       }, POSTS_LIST_STALE_DEBOUNCE_MS);
     };
 
-    void (async () => {
-      await waitForSupabaseRealtimeAuth(sb);
-      if (cancelled) return;
-      const ids = fp.split("\0").filter(Boolean);
-      for (let offset = 0; offset < ids.length; offset += POSTS_LISTING_IN_FILTER_MAX) {
-        if (cancelled) break;
-        const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
-        const filter = `id=in.(${chunk.join(",")})`;
-        const ch = sb
-          .channel(`chat-list:posts-listing:${userId}:${offset}`)
-          .on(
+    const ids = fp.split("\0").filter(Boolean);
+    for (let offset = 0; offset < ids.length; offset += POSTS_LISTING_IN_FILTER_MAX) {
+      if (cancelled) break;
+      const chunk = ids.slice(offset, offset + POSTS_LISTING_IN_FILTER_MAX);
+      const filter = `id=in.(${chunk.join(",")})`;
+      let markRealtimeSignal = () => {};
+      const sub = subscribeWithRetry({
+        sb,
+        name: `chat-list:posts-listing:${userId}:${offset}`,
+        scope: `chat-list:posts-listing:${userId}`,
+        isCancelled: () => cancelled,
+        silentAfterMs: 18_000,
+        build: (ch) =>
+          ch.on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "posts", filter },
             () => {
+              markRealtimeSignal();
               if (!cancelled) scheduleStale();
             }
-          )
-          .subscribe();
-        mountedChannels.push(ch);
-      }
-    })();
+          ),
+      });
+      markRealtimeSignal = sub.markSignal;
+      mountedChannels.push(sub);
+    }
 
     return () => {
       cancelled = true;
@@ -135,7 +138,7 @@ export function usePostsSellerListingRealtimeBatch(args: {
         debounceTimer = null;
       }
       for (const ch of mountedChannels) {
-        void sb.removeChannel(ch);
+        ch.stop();
       }
       mountedChannels.length = 0;
     };

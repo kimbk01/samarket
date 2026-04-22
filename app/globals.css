@@ -285,6 +285,74 @@ button {
   }
 }
 
+/* 거래 단계 — 다음 연결: 선이 그려지며 끝 광점이 다음 노드 쪽에 붙는 느낌 */
+/* 짧은 대시(22)가 pathLength 100 기준으로 이동 — 밑 깔린 트랙 위에 “흐름”만 겹침 */
+@keyframes sam-trade-connector-flow-line {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+.sam-trade-connector-flow-line {
+  animation: sam-trade-connector-flow-line 2.2s linear infinite;
+  will-change: stroke-dashoffset;
+}
+@keyframes sam-trade-connector-flow-head {
+  0%,
+  30% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.55;
+  }
+  48%,
+  66% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.sam-trade-connector-flow-head {
+  animation: sam-trade-connector-flow-head 2.65s cubic-bezier(0.42, 0, 0.2, 1) infinite;
+  will-change: opacity;
+}
+@keyframes sam-trade-flow-dest-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent;
+  }
+  44%,
+  60% {
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--sam-primary, #7360f2) 40%, transparent),
+      0 0 16px color-mix(in srgb, var(--sam-primary, #7360f2) 24%, transparent);
+  }
+}
+.sam-trade-step-flow-dest {
+  animation: sam-trade-flow-dest-glow 2.65s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sam-trade-connector-flow-line {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  .sam-trade-connector-flow-head {
+    animation: none;
+    opacity: 0.75;
+  }
+  .sam-trade-step-flow-dest {
+    animation: none;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--sam-primary, #7360f2) 32%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .store-order-stepper-current-circle {
     animation: none;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
@@ -43,33 +43,39 @@ export function useSupabaseNotificationsRealtime(
   options?: SupabaseNotificationsRealtimeOptions
 ) {
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-
   const playSoundOnInsertRef = useRef(options?.playSoundOnInsert ?? false);
-  playSoundOnInsertRef.current = options?.playSoundOnInsert ?? false;
-
   const onInsertSoundRef = useRef(options?.onInsertSound);
-  onInsertSoundRef.current = options?.onInsertSound;
-
   const enabled = options?.enabled !== false;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    playSoundOnInsertRef.current = options?.playSoundOnInsert ?? false;
+    onInsertSoundRef.current = options?.onInsertSound;
+  }, [onChange, options?.onInsertSound, options?.playSoundOnInsert]);
 
   useEffect(() => {
     if (!enabled) return;
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    let ch: RealtimeChannel | null = null;
     let cancelled = false;
+    let currentSub: { stop: () => void; markSignal: () => void } | null = null;
 
     const subscribeForUser = (uid: string) => {
       if (cancelled || !uid) return;
-      if (ch) {
-        void sb.removeChannel(ch);
-        ch = null;
+      if (currentSub) {
+        currentSub.stop();
+        currentSub = null;
       }
-      ch = sb
-        .channel(`notifications-rt:${uid}`)
-        .on(
+      let markRealtimeSignal = () => {};
+      const sub = subscribeWithRetry({
+        sb,
+        name: `notifications-rt:${uid}`,
+        scope: `notifications-rt:${uid}`,
+        isCancelled: () => cancelled,
+        silentAfterMs: 18_000,
+        build: (channel) =>
+          channel.on(
           "postgres_changes",
           {
             event: "*",
@@ -78,6 +84,7 @@ export function useSupabaseNotificationsRealtime(
             filter: `user_id=eq.${uid}`,
           },
           (payload) => {
+            markRealtimeSignal();
             if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
               const row = (payload as { new?: Record<string, unknown> }).new ?? {};
               const onInsertSound = onInsertSoundRef.current;
@@ -125,8 +132,10 @@ export function useSupabaseNotificationsRealtime(
             }
             onChangeRef.current();
           }
-        )
-        .subscribe();
+          ),
+      });
+      markRealtimeSignal = sub.markSignal;
+      currentSub = sub;
     };
 
     const {
@@ -134,10 +143,8 @@ export function useSupabaseNotificationsRealtime(
     } = sb.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
       if (event === "SIGNED_OUT") {
-        if (ch) {
-          void sb.removeChannel(ch);
-          ch = null;
-        }
+        currentSub?.stop();
+        currentSub = null;
         return;
       }
       if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
@@ -149,7 +156,7 @@ export function useSupabaseNotificationsRealtime(
     return () => {
       cancelled = true;
       subscription.unsubscribe();
-      if (ch) void sb.removeChannel(ch);
+      currentSub?.stop();
     };
   }, [enabled]);
 }

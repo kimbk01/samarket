@@ -6,8 +6,13 @@ import {
   cmRtLogTeardown,
   isCommunityMessengerRealtimeDebugEnabled,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
+import {
+  clearCommunityMessengerRealtimeScope,
+  markCommunityMessengerRealtimeScopeSignal,
+  registerCommunityMessengerRealtimeScope,
+} from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { messengerMonitorRealtimeSubscriptionOutcome } from "@/lib/community-messenger/monitoring/client";
-import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
+import { syncSupabaseRealtimeAuthFromSession, waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
 
@@ -38,7 +43,9 @@ export function subscribeWithRetry(args: {
   onStatus?: (status: string) => void;
   /** 실패 시 refresh 스케줄 등(선택) */
   onAfterSubscribeFailure?: (status: string, attempt: number) => void;
-}): { channel: RealtimeChannel; stop: () => void } {
+  /** payload 무음 구독 감지 상한 */
+  silentAfterMs?: number;
+}): { channel: RealtimeChannel; stop: () => void; markSignal: () => void } {
   let attempt = 0;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -67,6 +74,7 @@ export function subscribeWithRetry(args: {
   const stop = () => {
     stopped = true;
     clearTimer();
+    clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
     if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
       cmRtLogTeardown({ reason: "stop", channelName: args.name });
@@ -107,9 +115,19 @@ export function subscribeWithRetry(args: {
      */
     void (async () => {
       if (stopped || args.isCancelled()) return;
+      /**
+       * 초기 쿠키 복원 레이스에서 anon JWT로 붙지 않도록,
+       * 짧은 상한으로 한 번 대기 후 세션 토큰을 다시 맞춘다.
+       */
+      await waitForSupabaseRealtimeAuth(args.sb, 1_500);
       await syncSupabaseRealtimeAuthFromSession(args.sb);
       if (stopped || args.isCancelled()) return;
       channel = channel.subscribe((status) => {
+        registerCommunityMessengerRealtimeScope({
+          scope: args.scope,
+          status,
+          silentAfterMs: args.silentAfterMs,
+        });
         args.onStatus?.(status);
         if (status === "SUBSCRIBED") {
           void syncSupabaseRealtimeAuthFromSession(args.sb);
@@ -149,6 +167,12 @@ export function subscribeWithRetry(args: {
   };
 
   attachSubscribe();
-  return { channel, stop };
+  return {
+    channel,
+    stop,
+    markSignal: () => {
+      markCommunityMessengerRealtimeScopeSignal(args.scope);
+    },
+  };
 }
 

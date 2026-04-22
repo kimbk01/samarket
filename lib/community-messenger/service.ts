@@ -921,7 +921,7 @@ function roomProfileKey(roomId: string, userId: string) {
   return `${roomId}:${userId}`;
 }
 
-async function fetchPresenceSnapshotsByUserIds(
+export async function getCommunityMessengerPresenceSnapshotsByUserIds(
   ids: string[]
 ): Promise<Map<string, CommunityMessengerPeerPresenceSnapshot>> {
   const unique = dedupeIds(ids);
@@ -6149,7 +6149,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     );
     const pTradeExitSnapshot = tradeExitSnapshotPromise;
     const pPresence = (presenceIds.length > 0
-      ? fetchPresenceSnapshotsByUserIds(presenceIds)
+      ? getCommunityMessengerPresenceSnapshotsByUserIds(presenceIds)
       : Promise.resolve(new Map<string, CommunityMessengerPeerPresenceSnapshot>())
     ).then((r) => {
       if (diagnostics) {
@@ -8876,6 +8876,7 @@ export async function startCommunityMessengerCallSession(input: {
       supabase: sb,
       roomId,
       callKind: input.callKind,
+      requesterUserId: input.userId,
     });
     if (!tradeCallGate.ok) {
       return { ok: false, error: tradeCallGate.error };
@@ -9109,6 +9110,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
       supabase: sb,
       roomId: trimText(session.room_id ?? ""),
       callKind: "video",
+      requesterUserId: uid,
     });
     if (!tradeVideoGate.ok) {
       return { ok: false, error: tradeVideoGate.error };

@@ -176,6 +176,11 @@ async function chatProductFromPostEnriched(
   return chatProductSummaryFromPostRow(enrichPostWithAuthorNickname(post ?? undefined, map), postId);
 }
 
+function trimMessengerRoomId(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s.length > 0 ? s : null;
+}
+
 function tradeFieldsFromRows(
   productChatRow: Record<string, unknown> | null | undefined,
   post: Record<string, unknown> | null | undefined
@@ -188,6 +193,7 @@ function tradeFieldsFromRows(
     soldBuyerId: (post?.sold_buyer_id as string) ?? null,
     reservedBuyerId: reservedBuyerIdFromPost(post ?? undefined),
     buyerConfirmSource: (productChatRow?.buyer_confirm_source as string) ?? null,
+    communityMessengerRoomId: trimMessengerRoomId(productChatRow?.community_messenger_room_id),
   };
 }
 
@@ -286,7 +292,7 @@ export async function loadChatRoomDetailForUser(input: {
   const { data: r, error } = await sbAny
     .from("product_chats")
     .select(
-      "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode, buyer_confirm_source"
+      "id, post_id, seller_id, buyer_id, created_at, last_message_at, last_message_preview, unread_count_seller, unread_count_buyer, trade_flow_status, chat_mode, buyer_confirm_source, community_messenger_room_id"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -315,7 +321,7 @@ export async function loadChatRoomDetailForUser(input: {
     const { data: crSameRows } = await sbAny
       .from("chat_rooms")
       .select(
-        "id, item_id, related_post_id, seller_id, buyer_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id"
+        "id, item_id, related_post_id, seller_id, buyer_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, updated_at, is_blocked, blocked_by, is_locked, initiator_id, peer_id, community_messenger_room_id"
       )
       .eq("room_type", "item_trade")
       .eq("item_id", r.post_id)
@@ -375,6 +381,9 @@ export async function loadChatRoomDetailForUser(input: {
         const rowPc = r as Record<string, unknown>;
         scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
         const tradeExtras = tradeFieldsFromRows(rowPc, post2Resolved ?? undefined);
+        const cmFromCrSame = trimMessengerRoomId(
+          (crSame as { community_messenger_room_id?: unknown }).community_messenger_room_id
+        );
         const buyerReviewPromiseCr =
           detailScope === "entry"
             ? Promise.resolve(false)
@@ -431,6 +440,7 @@ export async function loadChatRoomDetailForUser(input: {
           buyerReviewSubmitted,
           adminChatSuspended,
           ...tradeExtras,
+          communityMessengerRoomId: cmFromCrSame ?? tradeExtras.communityMessengerRoomId ?? null,
         } satisfies ChatRoom;
         stampDetail("detailComputeDoneMs");
         if (detailScope === "full") {
@@ -460,7 +470,7 @@ export async function loadChatRoomDetailForUser(input: {
     });
     const pCrLegacy = sbAny
       .from("chat_rooms")
-      .select("id, seller_id, buyer_id, updated_at, related_post_id, item_id")
+      .select("id, seller_id, buyer_id, updated_at, related_post_id, item_id, community_messenger_room_id")
       .eq("room_type", "item_trade")
       .eq("item_id", r.post_id)
       .eq("buyer_id", r.buyer_id)
@@ -507,6 +517,9 @@ export async function loadChatRoomDetailForUser(input: {
     ] as string[];
     scheduleProductChatTransitionsIfCooldownAllows(sbAny, r.id as string);
     const tradeExtrasPc = tradeFieldsFromRows(row, post ?? undefined);
+    const cmFromLinkedCr = trimMessengerRoomId(
+      (crLinked as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id
+    );
     const buyerReviewPromisePc =
       detailScope === "entry"
         ? Promise.resolve(false)
@@ -551,6 +564,7 @@ export async function loadChatRoomDetailForUser(input: {
       adminChatSuspended: adminChatSuspendedPc,
       ...(linkedChatRoomId ? { chatRoomId: linkedChatRoomId } : {}),
       ...tradeExtrasPc,
+      communityMessengerRoomId: cmFromLinkedCr ?? tradeExtrasPc.communityMessengerRoomId ?? null,
     } satisfies ChatRoom;
     stampDetail("detailComputeDoneMs");
     if (detailScope === "full") {
@@ -571,7 +585,7 @@ export async function loadChatRoomDetailForUser(input: {
   const { data: cr, error: crErr } = await sbAny
     .from("chat_rooms")
     .select(
-      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked"
+      "id, room_type, item_id, seller_id, buyer_id, initiator_id, peer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, is_blocked, blocked_by, is_locked, community_messenger_room_id"
     )
     .eq("id", roomId)
     .maybeSingle();
@@ -847,7 +861,7 @@ export async function loadChatRoomDetailForUser(input: {
     fetchPartnerDisplayFieldsMap(sbAny, batchIdsTrade),
     sbAny
       .from("product_chats")
-      .select("id, trade_flow_status, chat_mode, buyer_confirm_source")
+      .select("id, trade_flow_status, chat_mode, buyer_confirm_source, community_messenger_room_id")
       .eq("post_id", resolvedTradePostId)
       .eq("seller_id", crRow.seller_id ?? "")
       .eq("buyer_id", crRow.buyer_id ?? "")
@@ -887,6 +901,9 @@ export async function loadChatRoomDetailForUser(input: {
     initiator_id: crAny.initiator_id,
     peer_id: crAny.peer_id,
   }).suspended;
+  const cmFromItemTradeRoom = trimMessengerRoomId(
+    (cr as { community_messenger_room_id?: unknown }).community_messenger_room_id
+  );
   const payload = {
     id: cr.id,
     productId: resolvedTradePostId,
@@ -912,6 +929,7 @@ export async function loadChatRoomDetailForUser(input: {
     buyerReviewSubmitted: buyerReviewSubmittedFb,
     adminChatSuspended: adminChatSuspendedTrade,
     ...tradeExtrasFb,
+    communityMessengerRoomId: cmFromItemTradeRoom ?? tradeExtrasFb.communityMessengerRoomId ?? null,
   } satisfies ChatRoom;
   stampDetail("detailComputeDoneMs");
   if (detailScope === "full") {

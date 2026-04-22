@@ -106,7 +106,11 @@ import {
 } from "@/lib/chats/use-trade-chat-room-typing";
 import { TradeChatPresenceHeaderRow } from "@/components/chats/TradeChatPresenceHeaderRow";
 import { TradeChatCallHeaderButtons } from "@/components/chats/TradeChatCallHeaderButtons";
-import { normalizeTradeChatCallPolicy, tradeChatCallPolicyAllowsVoice } from "@/lib/trade/trade-chat-call-policy";
+import {
+  normalizeTradeChatCallPolicy,
+  tradeChatCallPolicyAllowsVoice,
+  tradeChatCallPolicySummaryKo,
+} from "@/lib/trade/trade-chat-call-policy";
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -277,6 +281,7 @@ export function ChatDetailView({
   const [sellerListingControlsEnabled, setSellerListingControlsEnabled] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const didAutoOpenReviewRef = useRef(false);
+  const tradeCallBridgePrefetchKeyRef = useRef<string | null>(null);
   const [storeOrderTop, setStoreOrderTop] = useState<StoreOrderBuyerOrderPayload | null>(null);
   const [storeOrderItems, setStoreOrderItems] = useState<StoreOrderBuyerItemPayload[]>([]);
   const [storeOrderLoadErr, setStoreOrderLoadErr] = useState<string | null>(null);
@@ -292,6 +297,7 @@ export function ChatDetailView({
     room.product?.sellerListingState,
     room.product?.status
   );
+  const [postStatusFromRealtime, setPostStatusFromRealtime] = useState<string | null>(null);
   /** DB·상대 동기화(자동 문의중/판매중, 메뉴 변경) — `posts` Realtime */
   const [listingFromPostRealtime, setListingFromPostRealtime] = useState<SellerListingState | null>(null);
   const amISeller = room.sellerId === currentUserId;
@@ -303,13 +309,15 @@ export function ChatDetailView({
       !isStoreOrderChat &&
       !isGeneralPurposeChat &&
       Boolean(currentUserId?.trim()),
-    onSellerListingState: (raw) => {
-      setListingFromPostRealtime(normalizeSellerListingState(raw, room.product?.status));
+    onSellerListingState: ({ sellerListingState, postStatus }) => {
+      setPostStatusFromRealtime(postStatus);
+      setListingFromPostRealtime(normalizeSellerListingState(sellerListingState, postStatus ?? room.product?.status));
     },
   });
 
   useEffect(() => {
     setListingFromPostRealtime(null);
+    setPostStatusFromRealtime(null);
   }, [room.id, postId]);
 
   useEffect(() => {
@@ -373,6 +381,7 @@ export function ChatDetailView({
     amISeller && pinnedListing != null && pinnedForProductId === postId && postId
       ? pinnedListing
       : listingFromPostRealtime ?? propListing;
+  const displayProductStatus = (postStatusFromRealtime ?? room.product?.status ?? "").trim();
 
   const effectiveProductChatId = (room.productChatRoomId || room.id).trim();
   const showMessengerTradeCta = room.chatDomain === "trade" && !isGeneralPurposeChat && Boolean(effectiveProductChatId);
@@ -411,7 +420,7 @@ export function ChatDetailView({
 
   const chatMode = room.chatMode ?? "open";
   const soldToOther =
-    room.product?.status === "sold" &&
+    displayProductStatus === "sold" &&
     room.soldBuyerId &&
     room.buyerId === currentUserId &&
     room.soldBuyerId !== currentUserId;
@@ -432,7 +441,7 @@ export function ChatDetailView({
     currentUserId,
     roomSellerId: room.sellerId,
     roomBuyerId: room.buyerId,
-    productStatus: room.product?.status,
+    productStatus: displayProductStatus || room.product?.status,
     sellerListingState: room.product?.sellerListingState,
     ...(amISeller &&
     pinnedListing != null &&
@@ -478,6 +487,43 @@ export function ChatDetailView({
     !amISeller &&
     Boolean(effectiveProductChatId) &&
     tradeChatCallPolicyAllowsVoice(tradeChatCallPolicyNormalized);
+
+  useEffect(() => {
+    if (!showTradeChatCallInHeader) return;
+    if (room.communityMessengerRoomId?.trim()) return;
+    const pc = effectiveProductChatId.trim();
+    if (!pc) return;
+    const k = `${room.id}:${pc}`;
+    if (tradeCallBridgePrefetchKeyRef.current === k) return;
+    tradeCallBridgePrefetchKeyRef.current = k;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/community-messenger/bridge/product-chat", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId: pc }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string };
+        if (cancelled) return;
+        if (res.ok && json.ok === true && typeof json.roomId === "string" && json.roomId.trim()) {
+          onRoomReload?.();
+        }
+      } catch {
+        tradeCallBridgePrefetchKeyRef.current = null;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    showTradeChatCallInHeader,
+    room.communityMessengerRoomId,
+    room.id,
+    effectiveProductChatId,
+    onRoomReload,
+  ]);
 
   const [chatRealtimeConnState, setChatRealtimeConnState] =
     useState<ChatRoomRealtimeConnectionState>("disabled");
@@ -1626,6 +1672,20 @@ export function ChatDetailView({
 
   const moreMenuPanel = menuOpen ? (
     <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
+      {isChatRoom && room.chatDomain === "trade" && !isGeneralPurposeChat ? (
+        <div className="border-b border-sam-border-soft px-4 py-2.5">
+          <p className="leading-snug sam-text-helper text-sam-muted">{tradeChatCallPolicySummaryKo(tradeChatCallPolicyNormalized)}</p>
+          {amISeller && postId ? (
+            <Link
+              href={`/products/${encodeURIComponent(postId)}/edit`}
+              onClick={() => setMenuOpen(false)}
+              className="mt-2 inline-block sam-text-body font-medium text-signature underline-offset-2 hover:underline"
+            >
+              통화 허용은 글 수정에서 바꿀 수 있어요
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
       {!isStoreOrderBuyer && amISeller && postId && room.product && (room.product.status ?? "").toLowerCase() !== "sold" ? (
                   <>
                     <button
@@ -1769,6 +1829,10 @@ export function ChatDetailView({
           : "상대방 · 이 글의 판매자"
         : "채팅";
 
+  /** 상품 거래 1:1 — 닉네임 줄에 `닉네임 | 구매자` 형태로 넣어 아래 줄과 중복하지 않음 */
+  const showTradePeerRoleInline =
+    Boolean(room.product) && !isStoreOrderChat && room.chatDomain === "trade" && !isGeneralPurposeChat;
+
   const sellerComposerQuickBar =
     isStoreOrderSeller ? (
       <div className="flex flex-wrap gap-2 border-b border-sam-border bg-sam-surface px-3 pb-2 pt-1">
@@ -1882,7 +1946,15 @@ export function ChatDetailView({
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
+                    {showTradePeerRoleInline ? (
+                      <p className="truncate sam-text-xxs leading-snug text-sam-muted">
+                        <span className="font-medium text-sam-fg">{partnerDisplayNickname}</span>
+                        <span aria-hidden> | </span>
+                        <span>{amISeller ? "구매자" : "판매자"}</span>
+                      </p>
+                    ) : (
+                      <p className="truncate sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
+                    )}
                     {isTradeProductPresenceRoom && tradePresenceMeta ? (
                       <>
                         <TradeChatPresenceHeaderRow
@@ -1893,9 +1965,11 @@ export function ChatDetailView({
                             peerTradeLiveState === "offline" ? tradePresenceMeta.peerLastSeenLabel : ""
                           }
                         />
-                        <p className="truncate sam-text-xxs text-sam-muted">{headerRoleLine}</p>
+                        {!showTradePeerRoleInline ? (
+                          <p className="truncate sam-text-xxs text-sam-muted">{headerRoleLine}</p>
+                        ) : null}
                       </>
-                    ) : (
+                    ) : showTradePeerRoleInline ? null : (
                       <p className="truncate sam-text-helper text-sam-fg">{headerRoleLine}</p>
                     )}
                   </div>
@@ -1918,6 +1992,7 @@ export function ChatDetailView({
                   <TradeChatCallHeaderButtons
                     policy={tradeChatCallPolicyNormalized}
                     productChatRoomId={effectiveProductChatId}
+                    communityMessengerRoomId={room.communityMessengerRoomId ?? null}
                     onErrorMessage={notifyMessengerTradeToast}
                   />
                 ) : null}
@@ -1958,6 +2033,7 @@ export function ChatDetailView({
                   listingSaving={listingSaving}
                   listingError={listingError}
                   listingNotice={listingNotice}
+                  productStatusOverride={displayProductStatus}
                   sellerListingControlsEnabled={sellerListingControlsEnabled}
                   layoutVariant={chatTradeKeyboardChromeOpen ? "keyboardCompact" : "default"}
                 />
@@ -1973,6 +2049,7 @@ export function ChatDetailView({
                     product={room.product}
                     hideFavorite={amISeller}
                     sellerUserId={room.sellerId}
+                    productStatusOverride={displayProductStatus}
                     sellerListingStateOverride={postId ? displayListing : undefined}
                   />
                 </div>
@@ -2151,6 +2228,7 @@ export function ChatDetailView({
                     product={room.product}
                     hideFavorite={amISeller}
                     sellerUserId={room.sellerId}
+                    productStatusOverride={displayProductStatus}
                     sellerListingStateOverride={postId ? displayListing : undefined}
                   />
                 </section>

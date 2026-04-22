@@ -185,6 +185,9 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
     if (json.error === "trade_chat_video_not_allowed") {
       return { ok: false, userMessage: "이 글에서는 음성 통화만 허용되어 있습니다." };
     }
+    if (json.error === "trade_chat_call_friend_required_after_complete") {
+      return { ok: false, userMessage: "통화를 원하면 친구를 요청하세요." };
+    }
     return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
   }
   if (json.session.sessionMode === "direct") {
