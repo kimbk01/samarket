@@ -467,6 +467,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         >
           {roomTypeLabel}
         </span>
+        {room.philifeMeetingMemberLabel ? (
+          <span
+            className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"
+            title="Philife 모임"
+          >
+            {room.philifeMeetingMemberLabel}
+          </span>
+        ) : null}
         {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (
           <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
             {tradeItemStateLabel}

@@ -44,7 +44,7 @@ function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummar
   return rooms
     .map(
       (r) =>
-        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}`
+        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}`
     )
     .join("\n");
 }
@@ -75,7 +75,7 @@ function visibleChatListInputKey(
   const rowSig = items
     .map(
       (i) =>
-        `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}`
+        `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
     )
     .join("\n");
   return `${items.length}|${inbox}|${kind}|${kw}|${rowSig}`;
@@ -277,7 +277,9 @@ export function useCommunityMessengerHomeState({
       if (chatKindFilter === "trade" && !communityMessengerRoomIsTrade(room)) return false;
       if (chatKindFilter === "delivery" && !communityMessengerRoomIsDelivery(room)) return false;
       if (!keyword) return true;
-      const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
+      const haystack = [room.title, room.subtitle, room.summary, item.preview, room.philifeMeetingMemberLabel ?? ""]
+        .join(" ")
+        .toLowerCase();
       return haystack.includes(keyword);
     });
     if (visibleChatListByInputKey.size >= VISIBLE_CHAT_LIST_CACHE_MAX) visibleChatListByInputKey.clear();
@@ -291,7 +293,9 @@ export function useCommunityMessengerHomeState({
     return unifiedRooms
       .filter((item) => {
         const room = item.room;
-        const haystack = [room.title, room.subtitle, room.summary, item.preview].join(" ").toLowerCase();
+        const haystack = [room.title, room.subtitle, room.summary, item.preview, room.philifeMeetingMemberLabel ?? ""]
+          .join(" ")
+          .toLowerCase();
         return haystack.includes(keyword);
       })
       .slice(0, 24);

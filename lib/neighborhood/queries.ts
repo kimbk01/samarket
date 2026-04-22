@@ -321,10 +321,17 @@ export async function listNeighborhoodFeed(options: {
           meetingsQueryRounds += 1;
           const t0 = performance.now();
           try {
-            const rMeet = await sb
+            let rMeet = await sb
               .from("meetings")
-              .select("id, post_id, meeting_date, tenure_type, cover_image_url")
+              .select("id, post_id, meeting_date, tenure_type, cover_image_url, community_messenger_room_id")
               .in("post_id", postIds);
+            if (rMeet.error && isMissingDbColumnError(rMeet.error, "community_messenger_room_id")) {
+              const rMeetNarrow = await sb
+                .from("meetings")
+                .select("id, post_id, meeting_date, tenure_type, cover_image_url")
+                .in("post_id", postIds);
+              rMeet = rMeetNarrow as typeof rMeet;
+            }
             return (rMeet.data as unknown[] | null) ?? null;
           } finally {
             if (collectPerf) relatedMeetingsMs = performance.now() - t0;
@@ -349,7 +356,13 @@ export async function listNeighborhoodFeed(options: {
   const tSyncB = performance.now();
   const meetByPost = new Map<
     string,
-    { id: string; meeting_date: string | null; tenure_type?: string | null; cover_image_url?: string | null }
+    {
+      id: string;
+      meeting_date: string | null;
+      tenure_type?: string | null;
+      cover_image_url?: string | null;
+      community_messenger_room_id?: string | null;
+    }
   >();
   if (Array.isArray(meetings)) {
     for (const m of meetings as {
@@ -358,15 +371,21 @@ export async function listNeighborhoodFeed(options: {
       meeting_date?: string | null;
       tenure_type?: string | null;
       cover_image_url?: string | null;
+      community_messenger_room_id?: string | null;
     }[]) {
       const pid = String(m.post_id ?? "");
-      if (pid && m.id)
+      if (pid && m.id) {
+        const roomRaw = m.community_messenger_room_id;
+        const roomId =
+          roomRaw != null && String(roomRaw).trim() ? String(roomRaw).trim() : null;
         meetByPost.set(pid, {
           id: String(m.id),
           meeting_date: m.meeting_date ?? null,
           tenure_type: m.tenure_type ?? null,
           cover_image_url: m.cover_image_url != null && String(m.cover_image_url).trim() ? String(m.cover_image_url).trim() : null,
+          community_messenger_room_id: roomId,
         });
+      }
     }
   }
 
@@ -412,6 +431,7 @@ export async function listNeighborhoodFeed(options: {
       author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
       author_id: uid,
       meeting_id: meet?.id ?? null,
+      community_messenger_room_id: meet?.community_messenger_room_id ?? null,
       meeting_date:
         meet?.tenure_type === "long"
           ? null
@@ -486,16 +506,23 @@ async function fetchMeetingLinkByPostId(
   meeting_date: string | null;
   tenure: "short" | "long";
   cover_image_url?: string | null;
+  community_messenger_room_id?: string | null;
 } | null> {
   const trySelect = async (cols: string) =>
     sb.from("meetings").select(cols).eq("post_id", postId).maybeSingle();
 
-  let { data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url");
+  let { data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url, community_messenger_room_id");
+  if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
+    ({ data, error } = await trySelect("id, meeting_date, tenure_type, cover_image_url"));
+  }
   if (error && isMissingDbColumnError(error, "tenure_type")) {
     ({ data, error } = await trySelect("id, meeting_date, cover_image_url"));
   }
   if (error && isMissingDbColumnError(error, "cover_image_url")) {
-    ({ data, error } = await trySelect("id, meeting_date, tenure_type"));
+    ({ data, error } = await trySelect("id, meeting_date, tenure_type, community_messenger_room_id"));
+    if (error && isMissingDbColumnError(error, "community_messenger_room_id")) {
+      ({ data, error } = await trySelect("id, meeting_date, tenure_type"));
+    }
     if (error && isMissingDbColumnError(error, "tenure_type")) {
       ({ data, error } = await trySelect("id, meeting_date"));
     }
@@ -511,7 +538,11 @@ async function fetchMeetingLinkByPostId(
   const meeting_date = row.meeting_date != null ? String(row.meeting_date) : null;
   const cover =
     row.cover_image_url != null && String(row.cover_image_url).trim() ? String(row.cover_image_url).trim() : null;
-  return { id, meeting_date, tenure, cover_image_url: cover };
+  const messengerRoomId =
+    row.community_messenger_room_id != null && String(row.community_messenger_room_id).trim()
+      ? String(row.community_messenger_room_id).trim()
+      : null;
+  return { id, meeting_date, tenure, cover_image_url: cover, community_messenger_room_id: messengerRoomId };
 }
 
 export async function getNeighborhoodPostDetail(
@@ -616,6 +647,7 @@ export async function getNeighborhoodPostDetail(
     author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
     author_id: uid,
     meeting_id: meetLink?.id ?? null,
+    community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
     meeting_date:
       meetLink?.tenure === "long"
         ? null
@@ -787,8 +819,12 @@ export async function getMeetingDetail(meetingId: string): Promise<NeighborhoodM
     region_text: row.region_text != null ? String(row.region_text) : null,
     category_text: row.category_text != null ? String(row.category_text) : null,
     platform_approval_required: row.platform_approval_required !== false,
-    platform_approval_status:
-      row.platform_approval_status != null ? String(row.platform_approval_status) : null,
+    platform_approval_status: (() => {
+      if (row.platform_approval_status == null) return null;
+      const s = String(row.platform_approval_status);
+      if (s === "pending_approval" || s === "approved" || s === "rejected") return s;
+      return null;
+    })(),
     allow_feed: row.allow_feed !== false,
     allow_album_upload: row.allow_album_upload !== false,
   };

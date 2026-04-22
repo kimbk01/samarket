@@ -2451,6 +2451,10 @@ export async function listCommunityMessengerMyChatsAndGroups(userId: string): Pr
   if (sbList) {
     await enrichMessengerTradeUnreadWithLegacyTrade(sbList as any, userId, mySummaries).catch(() => {});
   }
+  const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
+    "@/lib/community-messenger/philife-meeting-open-group-summaries"
+  );
+  await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
   return { chats, groups };
@@ -3200,6 +3204,10 @@ export async function getCommunityMessengerBootstrap(
       await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
       diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
     }
+    const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
+      "@/lib/community-messenger/philife-meeting-open-group-summaries"
+    );
+    await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
   }
   const tTransformLists = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");

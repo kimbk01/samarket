@@ -142,6 +142,8 @@ export function CommunityFeed() {
   const feedSessionRef = useRef(0);
   /** 첫 페이지 fetch 만 — 세션 불일치 시에도 마지막 요청만 `loading` 해제 */
   const initialFeedLoadTokenRef = useRef(0);
+  /** meetingId 딥링크 effect 중복/StrictMode 대응(항상 ref 는 다른 useEffect 앞에 선언) */
+  const meetingDeepLinkSeq = useRef(0);
 
   const [chips, setChips] = useState<{ slug: string; label: string }[]>(() => [{ slug: "", label: "전체" }]);
 
@@ -150,16 +152,18 @@ export function CommunityFeed() {
     setCategory((prev) => (prev === categoryParam ? prev : categoryParam));
   }, [categoryParam]);
 
-  const meetingDeepLinkSeq = useRef(0);
+  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 effect 가 무한 재실행됨 → 문자열만 의존 */
+  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
+
   useEffect(() => {
-    const mid = searchParams.get("meetingId")?.trim() ?? "";
-    if (!mid) return;
+    if (!meetingIdParam) return;
 
     const seq = ++meetingDeepLinkSeq.current;
     const ac = new AbortController();
 
     const stripMeetingIdFromUrl = () => {
-      const next = new URLSearchParams(searchParams.toString());
+      if (typeof window === "undefined") return;
+      const next = new URLSearchParams(window.location.search);
       next.delete("meetingId");
       if (!next.get("category")) next.set("category", "meetup");
       const qs = next.toString();
@@ -168,7 +172,7 @@ export function CommunityFeed() {
 
     void (async () => {
       try {
-        const res = await fetch(`/api/community/meetings/${encodeURIComponent(mid)}`, {
+        const res = await fetch(`/api/community/meetings/${encodeURIComponent(meetingIdParam)}`, {
           cache: "no-store",
           signal: ac.signal,
         });
@@ -188,6 +192,15 @@ export function CommunityFeed() {
           m?.community_messenger_room_id ?? m?.communityMessengerRoomId ?? ""
         ).trim();
         if (roomId) {
+          try {
+            await fetch(`/api/community-messenger/rooms/${encodeURIComponent(roomId)}/meeting-ensure-participant`, {
+              method: "POST",
+              credentials: "include",
+              signal: ac.signal,
+            });
+          } catch {
+            /* ensure 실패해도 방 진입은 시도(부트스트랩/서버 쪽 정책) */
+          }
           router.replace(`/community-messenger/rooms/${encodeURIComponent(roomId)}`);
           return;
         }
@@ -208,7 +221,7 @@ export function CommunityFeed() {
     return () => {
       ac.abort();
     };
-  }, [router, searchParams]);
+  }, [router, meetingIdParam]);
 
   useEffect(() => {
     let cancelled = false;

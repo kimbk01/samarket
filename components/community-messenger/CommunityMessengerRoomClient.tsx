@@ -35,6 +35,26 @@ export function CommunityMessengerRoomClient(props: {
   const router = useRouter();
   useCommunityMessengerPresenceRuntime(phase1.snapshot?.viewerUserId ?? props.initialServerSnapshot?.viewerUserId ?? null);
   useEffect(() => {
+    const rid = phase1.roomId?.trim() ?? "";
+    if (!rid) return;
+    if (phase1.snapshot?.room?.roomType !== "open_group" && props.initialServerSnapshot?.room?.roomType !== "open_group") {
+      return;
+    }
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        await fetch(`/api/community-messenger/rooms/${encodeURIComponent(rid)}/meeting-ensure-participant`, {
+          method: "POST",
+          credentials: "include",
+          signal: ac.signal,
+        });
+      } catch {
+        /* idempotent: 네트워크만 무시 */
+      }
+    })();
+    return () => ac.abort();
+  }, [phase1.roomId, phase1.snapshot?.room?.roomType, props.initialServerSnapshot?.room?.roomType]);
+  useEffect(() => {
     if (!shouldRunMessengerListRoutePrefetch()) return;
     if (communityMessengerListRoutesPrefetched) return;
     communityMessengerListRoutesPrefetched = true;

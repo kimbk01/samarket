@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Suspense } from "react";
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 
 const PhilifeFeedClient = dynamic(
@@ -12,6 +13,14 @@ const PhilifeFeedClient = dynamic(
   }
 );
 
+/**
+ * `CommunityFeed` 가 `useSearchParams` 를 사용하므로 Suspense 경계 필수(Next: 훅 순서·서스펜스 불일치 방지).
+ * dynamic loading 과 별도로 상위에서 감싼다.
+ */
 export function PhilifeFeedClientEntry() {
-  return <PhilifeFeedClient />;
+  return (
+    <Suspense fallback={<CommunityFeedSkeleton rows={5} />}>
+      <PhilifeFeedClient />
+    </Suspense>
+  );
 }

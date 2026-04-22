@@ -48,6 +48,9 @@ interface PhilifeNeighborhoodWriteFormProps {
 
 type WriteTopicOption = { slug: string; name: string };
 
+/** 모임 오픈그룹: 공개(자유/비번) · 숨김(자유/비번) */
+type PhilifeMeetAccessMode = "free_public" | "password_public" | "free_hidden" | "password_hidden";
+
 /** 동네(필라이프) 일반 글·모임 생성 — `/philife/write` 등에서 사용 */
 export function PhilifeNeighborhoodWriteForm({
   initialCategory,
@@ -70,9 +73,8 @@ export function PhilifeNeighborhoodWriteForm({
   const [meetIntro, setMeetIntro] = useState("");
   const [ageFeeNote, setAgeFeeNote] = useState("");
   const [meetRegionText, setMeetRegionText] = useState(() => currentRegion?.label?.trim() || "");
-  /** 모임 채팅(오픈그룹) 공개·비밀·숨김 조합 — `messenger_discoverable`·`entry_policy`·비번과 동기 */
-  type MeetAccessMode = "free_public" | "password_public" | "free_hidden" | "password_hidden";
-  const [meetAccessMode, setMeetAccessMode] = useState<MeetAccessMode>("free_public");
+  /** 모임 채팅(오픈그룹) — `messenger_discoverable`·`entry_policy`·비번과 동기 */
+  const [meetAccessMode, setMeetAccessMode] = useState<PhilifeMeetAccessMode>("free_public");
   const [meetPassword, setMeetPassword] = useState("");
   const [promoteAdEnabled, setPromoteAdEnabled] = useState(false);
   const [adProducts, setAdProducts] = useState<AdProduct[]>([]);

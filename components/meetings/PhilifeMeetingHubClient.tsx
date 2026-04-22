@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { MeetingRoomHero } from "@/components/meetings/MeetingRoomHero";
 import { MeetingHomeTab, type MeetingDetailTabId } from "@/components/meetings/MeetingHomeTab";
-import { MeetingMembersTab } from "@/components/meetings/MeetingMembersTab";
+import { mapMeetingMemberListToTabRows, MeetingMembersTab } from "@/components/meetings/MeetingMembersTab";
 import { MeetingNoticesTab } from "@/components/meetings/MeetingNoticesTab";
 import { MeetingFeedTab } from "@/components/meetings/MeetingFeedTab";
 import { MeetingAlbumTab } from "@/components/meetings/MeetingAlbumTab";
@@ -208,8 +208,8 @@ export function PhilifeMeetingHubClient({
 
       {activeTab === "members" ? (
         <MeetingMembersTab
-          joinedMembers={joinedMembers}
-          pendingMembers={pendingMembers}
+          joinedMembers={mapMeetingMemberListToTabRows(joinedMembers)}
+          pendingMembers={mapMeetingMemberListToTabRows(pendingMembers)}
           maxMembers={meeting.max_members}
           currentUserId={currentUserId ?? undefined}
           meetingId={meeting.id}

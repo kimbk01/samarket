@@ -25,6 +25,8 @@ export type NeighborhoodFeedPostDTO = {
   author_name: string;
   author_id: string;
   meeting_id: string | null;
+  /** 모임 연결 메신저 오픈그룹 방(있으면 목록에서 바로 `/community-messenger/rooms/...` 링크) */
+  community_messenger_room_id: string | null;
   meeting_date: string | null;
 };
 

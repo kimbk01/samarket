@@ -66,9 +66,11 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
       joinedFromDb;
   }
 
-  if (post.meeting_id && viewerJoinedMeeting) {
-    redirect(philifeAppPaths.meeting(post.meeting_id));
-  }
+  /**
+   * 참가자를 `?meetingId=` 로 보내지 않는다.
+   * `CommunityFeed` 딥링크는 방이 없을 때 `router.replace(/philife/{post_id})` 로 복귀시키는데,
+   * 여기서 다시 `?meetingId=` 로 redirect 하면 **무한 리다이렉트(깜박임)** 가 난다.
+   */
 
   return (
     <Detail

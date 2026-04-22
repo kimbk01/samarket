@@ -7,6 +7,7 @@ import { MeetingReportModal } from "@/components/meetings/MeetingReportModal";
 import { JoinRequestMessagePreview } from "@/components/meetings/JoinRequestMessagePreview";
 import type { ReportTargetType } from "@/components/meetings/MeetingReportModal";
 import { formatKorDate } from "@/lib/ui/format-meeting-date";
+import type { MeetingMemberListItemDTO } from "@/lib/neighborhood/types";
 
 export type MemberStatus =
   | "joined"
@@ -16,14 +17,26 @@ export type MemberStatus =
   | "kicked"
   | "banned";
 
-interface MemberRow {
+export interface MemberRow {
   userId: string;
   name: string;
   role?: "host" | "co_host" | "member";
   status?: MemberStatus;
   joinedAt?: string | null;
-  /** 승인 대기 시 meeting_join_requests.request_message */
+  /** 승인 대기 시 meeting_join_requests.request_message (DTO 의 null 은 undefined 로 정규화) */
   requestMessage?: string;
+}
+
+/** DTO `requestMessage?: string | null` → 탭이 기대하는 `string | undefined`로 맞춤 — `npm run build` 대입 오류 방지 */
+export function mapMeetingMemberListToTabRows(list: MeetingMemberListItemDTO[]): MemberRow[] {
+  return list.map((m) => ({
+    userId: m.userId,
+    name: m.name,
+    role: m.role,
+    status: m.status,
+    joinedAt: m.joinedAt,
+    requestMessage: m.requestMessage == null || m.requestMessage === "" ? undefined : m.requestMessage,
+  }));
 }
 
 interface MeetingMembersTabProps {
