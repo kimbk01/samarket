@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   peekChatRoomDetailMemory,
   updateChatRoomDetailMemory,
@@ -34,6 +34,16 @@ function normalizeBootstrapMessages(_room: ChatRoom, raw: unknown): ChatMessage[
 }
 
 export type ChatRoomBootstrapFetchPhase = "lite" | "full";
+
+/** 부트스트랩 single-flight + 진행 중 Promise 가 오래된 응답을 돌려주는 것을 끊음 */
+export function bustChatRoomBootstrapFlights(roomId: string): void {
+  const key = roomId.trim();
+  if (!key) return;
+  for (const phase of ["lite", "full"] as const) {
+    forgetSingleFlight(`chat:room-bootstrap:${key}:${phase}:network`);
+    forgetSingleFlight(`chat:room-bootstrap:${key}:${phase}:peek`);
+  }
+}
 
 export async function fetchChatRoomBootstrapApi(
   roomId: string,

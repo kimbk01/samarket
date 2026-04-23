@@ -282,7 +282,7 @@ export function ChatRoomScreen({
             elapsedMs: Math.round(perfNow() - startedAt),
           });
         })();
-      }, 1800);
+      }, 650);
       bootstrapFullIdleIdRef.current = idleId;
       return;
     } catch {

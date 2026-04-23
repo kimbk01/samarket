@@ -3,6 +3,7 @@
 import {
   cloneElement,
   isValidElement,
+  useLayoutEffect,
   useMemo,
   type LiHTMLAttributes,
   type ReactElement,
@@ -253,7 +254,7 @@ export function ChatMessageList({
                     className={`flex min-h-[36px] min-w-[44px] items-start justify-start rounded-ui-rect bg-[#F0F0F0] ${IG_DM_BUBBLE_PAD} shadow-none`}
                     onContextMenu={(e) => e.preventDefault()}
                   >
-                    <p className={`w-full whitespace-pre-wrap break-words text-left ${IG_DM_BODY_TEXT} text-foreground`}>
+                    <p className={`w-full whitespace-pre-line break-words text-left ${IG_DM_BODY_TEXT} text-foreground`}>
                       {body}
                     </p>
                   </div>
@@ -269,7 +270,7 @@ export function ChatMessageList({
         } else {
           items.push(
             <li key={block.msg.id} className={`flex justify-center px-3 py-1.5 ${gapFromPrev}`}>
-              <p className="max-w-[90%] rounded-ui-rect bg-black/10 px-3 py-2 text-center sam-text-helper font-medium leading-[16px] text-[#999999]">
+              <p className="max-w-[90%] whitespace-pre-line rounded-ui-rect bg-black/10 px-3 py-2 text-center sam-text-helper font-medium leading-[16px] text-[#999999]">
                 {body}
               </p>
             </li>
@@ -469,6 +470,13 @@ export function ChatMessageList({
     estimateSize: () => 96,
     overscan: 8,
   });
+
+  /** 길이·말미 id 가 바뀌면 총 높이·가시 범위를 다시 잡는다. 안 하면 스크롤/입력 전까지 새 시스템·텍스트 줄이 안 보이는 체감이 난다. */
+  const tailMessageId = uniqueMessages[uniqueMessages.length - 1]?.id ?? "";
+  useLayoutEffect(() => {
+    if (!useVirt) return;
+    rowVirtualizer.measure();
+  }, [useVirt, listItems.length, tailMessageId, rowVirtualizer]);
 
   if (uniqueMessages.length === 0) {
     return (

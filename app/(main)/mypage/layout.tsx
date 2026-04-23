@@ -7,5 +7,5 @@ type MypageLayoutProps = {
 };
 
 export default function MypageLayout({ children }: MypageLayoutProps) {
-  return children;
+  return <div className="sam-domain-shell">{children}</div>;
 }

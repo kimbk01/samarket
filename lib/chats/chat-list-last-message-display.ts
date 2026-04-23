@@ -1,8 +1,8 @@
 import type { ChatRoom } from "@/lib/types/chat";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 
-/** 채팅에서 판매자 단계 변경 시 삽입되는 시스템 안내 접두 */
-const LISTING_CHANGE_NOTICE_RE = /^제품의 상태가 .+으로 변경되었습니다\.?$/;
+/** 채팅에서 판매자 단계 변경 시 삽입되는 시스템 안내(구형 `[날짜] 본문` / 신형 `본문\n날짜`) */
+const LISTING_CHANGE_NOTICE_RE = /^(?:\[[^\]]+\]\s*)?제품의 상태가 .+으로 변경되었습니다\.?(?:\n.+)?$/;
 
 /**
  * 거래 채팅 목록: 글/거래는 완료됐는데 DB last_message_preview 가

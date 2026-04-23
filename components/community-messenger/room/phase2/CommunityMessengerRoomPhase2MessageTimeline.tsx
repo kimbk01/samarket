@@ -111,7 +111,7 @@ const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker({ item
         className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
       />
       {item.pending ? (
-        <span className={`mt-1 sam-text-xxs ${mineLight ? "text-white/85" : "text-sam-muted"}`}>전송 중…</span>
+        <span className="mt-1 sam-text-xxs text-sam-muted">전송 중…</span>
       ) : null}
     </div>
   );
@@ -152,17 +152,17 @@ const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
     <div className="min-w-[200px]">
       <div className="flex items-start gap-3">
         <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${
-            item.isMine ? "bg-sam-surface/20 text-white" : "bg-sam-surface-muted text-sam-fg"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
+            item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-sam-surface-muted text-sam-fg"
           }`}
         >
           <FileIcon className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`truncate font-semibold ${item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"}`}>
+          <p className={`truncate font-semibold ${item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"}`}>
             {item.fileName?.trim() || "첨부 파일"}
           </p>
-          <p className={`mt-1 sam-text-helper ${item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"}`}>
+          <p className={`mt-1 sam-text-helper ${item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}>
             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
           </p>
         </div>
@@ -176,9 +176,9 @@ const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
             target="_blank"
             rel="noopener noreferrer"
             download={mediaAutoSaveEnabled ? item.fileName?.trim() || "community-messenger-file" : undefined}
-            className={`inline-flex rounded-[10px] border px-3 py-2 sam-text-helper font-semibold ${
+            className={`inline-flex rounded-[10px] border px-3 py-1.5 sam-text-helper font-semibold ${
               item.isMine
-                ? "border-sam-surface/40 bg-sam-surface/15 text-white"
+                ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
                 : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
             }`}
           >
@@ -215,11 +215,11 @@ const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallStub({
         e.stopPropagation();
         onOpenOutgoingConfirm(kind);
       }}
-      className="flex w-full max-w-full items-center gap-2.5 rounded-[12px] py-1 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+      className="flex w-full max-w-full items-center gap-2 rounded-[12px] py-0.5 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
     >
       <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-          item.isMine ? "bg-sam-surface/20 text-white" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+          item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
         }`}
         aria-hidden
       >
@@ -229,14 +229,14 @@ const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallStub({
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
           <span
             className={`sam-text-body font-semibold leading-snug ${
-              item.isMine ? "text-white" : "text-[color:var(--cm-room-text)]"
+              item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
             }`}
           >
             {item.callKind === "video" ? videoCallLabel : voiceCallLabel}
           </span>
           <span
             className={`sam-text-xxs font-medium leading-snug ${
-              item.isMine ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"
+              item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
             }`}
           >
             {callStatusLabel}
@@ -262,14 +262,14 @@ const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefaul
       <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
         <p
           className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
-            mineLight ? "text-white" : "text-[color:var(--cm-room-text)]"
+            mineLight ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
           }`}
         >
           {item.content}
         </p>
         {item.pending ? (
           <span
-            className={`shrink-0 sam-text-xxs ${mineLight ? "text-white/70" : "text-[color:var(--cm-room-text-muted)]"}`}
+            className={`shrink-0 sam-text-xxs ${mineLight ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}
           >
             {sendingLabel}
           </span>
@@ -287,7 +287,7 @@ const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefaul
                 rel="noopener noreferrer"
                 className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
                   mineLight
-                    ? "border-sam-surface/35 bg-sam-surface/15 text-white"
+                    ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
                     : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
                 }`}
               >
@@ -663,8 +663,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     type="button"
                     className={`w-full min-w-0 max-w-full shrink-0 border-b text-left transition active:opacity-90 ${
                       mine
-                        ? "border-white/20 bg-black/15 px-3 py-2"
-                        : "border-[color:var(--cm-room-divider)] bg-black/[0.04] px-3 py-2"
+                        ? "border-sam-primary-border bg-sam-surface/55 px-3 py-1.5"
+                        : "border-[color:var(--cm-room-divider)] bg-black/[0.04] px-3 py-1.5"
                     }`}
                     style={{
                       borderTopLeftRadius: "var(--cm-room-radius-bubble)",
@@ -678,14 +678,14 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   >
                     <p
                       className={`sam-text-xxs font-bold leading-snug ${
-                        mine ? "text-white" : "text-[color:var(--cm-room-primary)]"
+                        mine ? "text-sam-fg" : "text-[color:var(--cm-room-primary)]"
                       }`}
                     >
                       {formatReplyQuoteKakaoHeader(vm.tt(replyQuote.senderLabel))}
                     </p>
                     <p
                       className={`mt-0.5 line-clamp-2 sam-text-xxs leading-snug ${
-                        mine ? "text-white/85" : "text-[color:var(--cm-room-text-muted)]"
+                        mine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
                       }`}
                     >
                       {replyQuote.previewText}
@@ -716,7 +716,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                             key={`${item.id}:${r.reactionKey}`}
                             type="button"
                             className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 sam-text-xxs font-medium transition active:opacity-75 ${
-                              item.isMine ? "text-white/95" : "text-[color:var(--cm-room-text)]"
+                              item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
                             }`}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -782,7 +782,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     {item.messageType === "image" || item.messageType === "sticker" ? (
                       viberInnerBody
                     ) : (
-                      <div className={replyQuote ? "px-3 pb-2.5 pt-2" : "px-3 py-2.5"}>{viberInnerBody}</div>
+                      <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-3 py-2"}>{viberInnerBody}</div>
                     )}
                   </div>
                 </ViberChatBubble>

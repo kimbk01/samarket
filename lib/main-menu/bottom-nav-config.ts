@@ -98,24 +98,24 @@ export const BOTTOM_NAV_SHELL = {
   /** 기기 좌우 끝까지 — 가로 패딩 없음 */
   outerClassName:
     "fixed bottom-0 left-0 right-0 z-30 w-full pb-[env(safe-area-inset-bottom,0px)] pt-0 pointer-events-none",
-  /** 진한 보라 바 — 상단 그림자는 약하게(본문과 경계만) */
+  /** 정보형 하단 탭 — 밝은 서피스, 얇은 보더, 과장 없는 그림자 */
   innerBarClassName:
-    "pointer-events-auto flex w-full min-w-0 flex-col overflow-visible rounded-b-[1.875rem] border-t border-[#b8a6e8]/35 bg-gradient-to-b from-[#5d4a9e] to-[#45377a] text-[#faf8ff] antialiased shadow-[0_-6px_20px_rgba(62,48,110,0.22)]",
-  /** 탭 한 줄 최소 높이(본체만; 플로팅 원은 `overflow-visible` 로 상단 밖으로) — 하단 패딩·FAB·calc 는 3.5rem 기준 */
-  heightClass: "min-h-[3.5rem]",
+    "pointer-events-auto flex w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-surface/95 text-sam-fg antialiased shadow-[0_-4px_18px_rgba(15,23,42,0.08)] backdrop-blur-[16px]",
+  /** 탭 한 줄 최소 높이 */
+  heightClass: "min-h-[4rem]",
 } as const;
 
 /** 하단 탭바 기준색(그라데이션 중간 톤) — 배지 링 등 */
-export const BOTTOM_NAV_DARK_BAR_HEX = "#514082";
+export const BOTTOM_NAV_DARK_BAR_HEX = "#ffffff";
 /** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
-export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-[#514082]";
+export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
 
 /**
  * 탭바가 차지하는 뷰포트 하단 높이와 동일한 `bottom` 오프셋(본체 높이 + safe-area).
  * 탭 셸(`BOTTOM_NAV_SHELL`)과 반드시 같은 식을 쓴다.
  */
 export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
-  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
@@ -124,18 +124,18 @@ export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_C
 
 /** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(탭 본체 + 1rem + safe-area) */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
 
 /** 거래 플로팅 다이얼(`/home`·`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.
  * 채팅방 등 `pb-0` 본문 + `100dvh` 직접 쓰면 탭에 가려지므로 이 값으로 줄인다.
  */
 export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
-  "h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]";
+  "h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))]";
 
 /**
  * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
@@ -148,25 +148,25 @@ export const VIEWPORT_HEIGHT_FULL_CLASS = "h-[100dvh] max-h-[100dvh]";
  * (3.5rem 탭 + safe-area + ~4.5rem 띠)
  */
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
-  "pb-[calc(8rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 기본 테마 — 탭별 override 없을 때 사용.
  * Tailwind 임의 값(bg-[#…])도 가능.
  */
 export const BOTTOM_NAV_THEME = {
-  iconSizeClass: "h-6 w-6",
-  iconActiveClass: "text-[#fdfcff]",
-  iconInactiveClass: "text-[#e8e2fc]/88",
-  labelActiveClass: "font-semibold tracking-wide text-[#ebe4ff]",
-  labelInactiveClass: "font-medium tracking-wide text-[#d4c8f8]/78",
+  iconSizeClass: "h-5 w-5",
+  iconActiveClass: "text-sam-primary",
+  iconInactiveClass: "text-sam-muted",
+  labelActiveClass: "font-semibold tracking-normal text-sam-fg",
+  labelInactiveClass: "font-medium tracking-normal text-sam-muted",
   labelSizeClass: "sam-text-xxs",
 } as const;
 
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
   /** 탭 본체 + safe + 여유 — 플로팅 원과 겹침 완화 */
-  bottomOffsetClass: "bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]",
+  bottomOffsetClass: "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]",
   /** 퀵메뉴는 좌측(본문 컬럼 기준) */
   leftOffsetClass: "left-4",
   /** 우측 플로팅 퀵 레일에서 글쓰기 퀵메뉴 열 때 */
@@ -178,15 +178,15 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
-  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+10px)]";
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
-  "pointer-events-auto relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sam-info text-sam-on-primary shadow-sam-elevated transition active:scale-95 [&_svg]:h-[22px] [&_svg]:w-[22px]";
+  "pointer-events-auto relative flex h-12 w-12 shrink-0 items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface text-sam-primary shadow-sam-elevated transition active:scale-95 [&_svg]:h-[22px] [&_svg]:w-[22px]";
 
 /** 다이얼 메인 토글 — 시그니처 블루 */
 export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
-  "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
+  "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-sam-md border border-sam-primary bg-sam-primary text-white shadow-sam-elevated transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
 
 /**
  * 표시 순서 = 배열 순서. 항목을 빼거나 바꾸면 탭 구성이 바뀝니다.
@@ -202,10 +202,9 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
     label: "메신저",
     labelKey: "nav_bottom_messenger",
     icon: "chat",
-    activeShellClass:
-      "bg-gradient-to-b from-[#9b8cf0] to-[#7360ce] shadow-[0_12px_32px_rgba(38,26,88,0.48)] ring-2 ring-[#f0e8ff]/30",
-    iconActiveClass: "text-[#fdfcff]",
-    labelActiveClass: "font-semibold tracking-wide text-[#ebe4ff]",
+    activeShellClass: "bg-sam-primary-soft",
+    iconActiveClass: "text-sam-primary",
+    labelActiveClass: "font-semibold tracking-normal text-sam-fg",
   },
   { id: "my", href: "/mypage", label: "내정보", labelKey: "nav_bottom_my", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때

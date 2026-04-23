@@ -7,32 +7,32 @@
 
 :root {
   /* ----- User requested SM color tokens ----- */
-  --sm-color-primary: #7360f2;
-  --sm-color-primary-strong: #5b46e8;
-  --sm-color-primary-soft: #f3f0ff;
-  --sm-color-bg-page: #f7f8fa;
+  --sm-color-primary: #3f6fd9;
+  --sm-color-primary-strong: #315cc0;
+  --sm-color-primary-soft: #eef4ff;
+  --sm-color-bg-page: #f4f5f7;
   --sm-color-bg-card: #ffffff;
-  --sm-color-text-main: #1f2430;
-  --sm-color-text-sub: #6b7280;
-  --sm-color-text-muted: #9ca3af;
-  --sm-color-border: #e5e7eb;
-  --sm-color-danger: #e25555;
-  --sm-color-success: #1fa971;
+  --sm-color-text-main: #1f2937;
+  --sm-color-text-sub: #667085;
+  --sm-color-text-muted: #8a94a6;
+  --sm-color-border: #d8dee8;
+  --sm-color-danger: #d45252;
+  --sm-color-success: #21885d;
 
   /* ----- User requested SM typography tokens ----- */
-  --sm-font-page-title: 20px;
-  --sm-font-section-title: 17px;
-  --sm-font-card-title: 15px;
-  --sm-font-body: 14px;
+  --sm-font-page-title: 22px;
+  --sm-font-section-title: 18px;
+  --sm-font-card-title: 16px;
+  --sm-font-body: 15px;
   --sm-font-body-compact: 13px;
   --sm-font-meta: 12px;
   --sm-font-caption: 11px;
-  --sm-font-input: 14px;
-  --sm-font-placeholder: 13px;
-  --sm-font-button: 14px;
-  --sm-font-tab: 13px;
-  --sm-font-modal-title: 16px;
-  --sm-font-modal-body: 14px;
+  --sm-font-input: 15px;
+  --sm-font-placeholder: 14px;
+  --sm-font-button: 15px;
+  --sm-font-tab: 14px;
+  --sm-font-modal-title: 18px;
+  --sm-font-modal-body: 15px;
 
   --sm-lh-page-title: 1.3;
   --sm-lh-section-title: 1.35;
@@ -46,16 +46,16 @@
   --sam-primary: var(--sm-color-primary);
   --sam-primary-hover: var(--sm-color-primary-strong);
   --sam-primary-soft: var(--sm-color-primary-soft);
-  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 70%, #ffffff);
-  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 30%, #ffffff);
+  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, #ffffff);
+  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, #ffffff);
 
   /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
   --app-bg: var(--sm-color-bg-page);
   --app-surface: var(--sm-color-bg-card);
-  --app-subtle-bg: color-mix(in srgb, var(--sm-color-bg-page) 86%, #ffffff);
-  --app-subtle-bg-2: color-mix(in srgb, var(--sm-color-bg-page) 72%, #ffffff);
+  --app-subtle-bg: color-mix(in srgb, var(--sm-color-bg-page) 78%, #ffffff);
+  --app-subtle-bg-2: color-mix(in srgb, var(--sm-color-bg-page) 66%, #ffffff);
   --app-border: var(--sm-color-border);
-  --app-border-strong: color-mix(in srgb, var(--sm-color-border) 85%, #cfd6df);
+  --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
   --app-text: var(--sm-color-text-main);
   --app-text-2: var(--sm-color-text-sub);
   --app-text-3: var(--sm-color-text-muted);
@@ -93,8 +93,8 @@
   --sam-bg-surface: var(--app-surface);
   --sam-bg-surface-muted: var(--app-subtle-bg);
   --sam-bg-chat: var(--app-subtle-bg-2);
-  --sam-bg-soft-purple: #f8f7fc;
-  --sam-bg-surface-dark: #1f2937;
+  --sam-bg-soft-purple: #f0f5ff;
+  --sam-bg-surface-dark: #182231;
   --sam-bg-ink: #111827;
 
   /* ----- Text ----- */
@@ -109,16 +109,16 @@
 
   /* ----- State ----- */
   --sam-success: var(--sm-color-success);
-  --sam-success-soft: #ecfdf3;
-  --sam-warning: #f59e0b;
-  --sam-warning-soft: #fff4e5;
+  --sam-success-soft: #ebf8f1;
+  --sam-warning: #b97a17;
+  --sam-warning-soft: #fff5df;
   --sam-danger: var(--sm-color-danger);
-  --sam-danger-soft: #fef2f2;
-  --sam-info: #3b82f6;
-  --sam-info-soft: #eaf4ff;
+  --sam-danger-soft: #fdf0f0;
+  --sam-info: #3f6fd9;
+  --sam-info-soft: #eef4ff;
 
   /* ----- Icon ----- */
-  --sam-icon-default: #555555;
+  --sam-icon-default: #536174;
   --sam-icon-soft: var(--app-text-3);
   --sam-icon-on-primary: #ffffff;
 
@@ -133,7 +133,7 @@
   /* ----- Shadow (기본 없음; 필요 시 1단계만) ----- */
   --sam-shadow-soft: none;
   --sam-shadow-card: none;
-  --sam-shadow-elevated: 0 1px 2px rgba(17, 17, 17, 0.06);
+  --sam-shadow-elevated: 0 4px 12px rgba(16, 24, 40, 0.08);
   --sam-shadow-none: none;
 
   /* ----- Spacing scale ----- */
@@ -146,11 +146,11 @@
 
   /* ----- Layout ----- */
   --sam-screen-padding-x: var(--sam-space-4);
-  --sam-section-gap: var(--sam-space-4);
-  --sam-item-gap: var(--sam-space-2);
-  --sam-header-action-min: 36px;
-  --sam-header-row-height: 52px;
-  --sam-segment-tab-height: 40px;
+  --sam-section-gap: var(--sam-space-5);
+  --sam-item-gap: var(--sam-space-3);
+  --sam-header-action-min: 40px;
+  --sam-header-row-height: 56px;
+  --sam-segment-tab-height: 44px;
 
   --sam-bp-mobile-max: 767px;
   --sam-bp-sm-tablet-min: 768px;
@@ -158,7 +158,7 @@
   --sam-bp-lg-min: 1024px;
 
   /* ----- Typography scale ----- */
-  --sam-text-hero-size: 22px;
+  --sam-text-hero-size: 24px;
   --sam-text-hero-weight: 700;
   --sam-text-page-title-size: var(--sm-font-page-title);
   --sam-text-page-title-weight: 700;
@@ -192,8 +192,8 @@
   --sam-font-meta-line: var(--sm-lh-meta);
   --sam-font-caption-line: var(--sm-lh-caption);
   --sam-tap-min: 44px;
-  --sam-input-min-height: 44px;
-  --sam-button-min-height: 44px;
+  --sam-input-min-height: 46px;
+  --sam-button-min-height: 46px;
 
   /* ----- 레거시 시맨틱 브리지 ----- */
   --ui-page-bg: var(--sam-bg-app);
@@ -268,49 +268,49 @@
   --cm-room-bubble-incoming: var(--messenger-surface-muted);
   /* 연한 발신 말풍선 — 가독은 진한 글자 */
   --cm-room-bubble-outgoing: color-mix(in srgb, var(--sam-primary) 22%, var(--messenger-surface-muted));
-  --cm-room-radius-bubble: var(--sam-radius-sm);
+  --cm-room-radius-bubble: 18px;
   --cm-room-radius-input: var(--sam-radius-sm);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --app-bg: #121318;
-    --app-surface: #1a1b20;
-    --app-subtle-bg: #22232a;
-    --app-subtle-bg-2: #1e1f24;
-    --app-border: #2e3038;
-    --app-border-strong: #3d4049;
-    --app-text: #eceef2;
-    --app-text-2: #9ca3af;
-    --app-text-3: #8b9099;
+    --app-bg: #12161d;
+    --app-surface: #1a2029;
+    --app-subtle-bg: #202734;
+    --app-subtle-bg-2: #1a2230;
+    --app-border: #2d3747;
+    --app-border-strong: #435067;
+    --app-text: #eef2f7;
+    --app-text-2: #b3bfd1;
+    --app-text-3: #93a0b5;
 
-    --sam-bg-soft-purple: #1e1a2e;
-    --sam-bg-surface-dark: #252830;
+    --sam-bg-soft-purple: #162238;
+    --sam-bg-surface-dark: #1e2633;
     --sam-bg-ink: #0c0d10;
 
-    --sam-primary: #8b7cf8;
-    --sam-primary-hover: #7c6af0;
+    --sam-primary: #7ea6ff;
+    --sam-primary-hover: #6b96f7;
     --sam-primary-soft: color-mix(in srgb, var(--sam-primary) 22%, var(--sam-bg-surface));
     --sam-primary-soft-2: color-mix(in srgb, var(--sam-primary) 28%, var(--sam-bg-surface));
-    --sam-primary-border: color-mix(in srgb, var(--sam-primary) 45%, #5b5568);
+    --sam-primary-border: color-mix(in srgb, var(--sam-primary) 42%, #5f6f8e);
 
-    --sam-success: #4ade80;
+    --sam-success: #49c28a;
     --sam-success-soft: color-mix(in srgb, var(--sam-success) 18%, var(--sam-bg-surface));
-    --sam-warning: #fbbf24;
+    --sam-warning: #e0a544;
     --sam-warning-soft: color-mix(in srgb, var(--sam-warning) 20%, var(--sam-bg-surface));
-    --sam-danger: #f87171;
+    --sam-danger: #f07f7f;
     --sam-danger-soft: color-mix(in srgb, var(--sam-danger) 18%, var(--sam-bg-surface));
-    --sam-info: #60a5fa;
+    --sam-info: #7ea6ff;
     --sam-info-soft: color-mix(in srgb, var(--sam-info) 18%, var(--sam-bg-surface));
 
-    --sam-icon-default: #a1a7b3;
+    --sam-icon-default: #b4bfce;
     --sam-icon-soft: var(--sam-text-secondary);
 
     --sam-border-soft: color-mix(in srgb, var(--app-border) 70%, var(--app-surface));
 
     --sam-shadow-soft: none;
     --sam-shadow-card: none;
-    --sam-shadow-elevated: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --sam-shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.28);
 
     --ig-border: var(--sam-border-default);
     --ig-highlight: var(--sam-primary-soft);

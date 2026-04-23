@@ -21,12 +21,18 @@ export function mapProductChatMessageRow(m: Record<string, unknown>): ChatMessag
     imageUrls = parsed.urls.length > 1 ? parsed.urls : undefined;
   }
   const senderId = m.sender_id;
-  if (typeof senderId !== "string") return null;
+  const senderStr =
+    typeof senderId === "string" && senderId.trim()
+      ? senderId.trim()
+      : mt === "system"
+        ? ""
+        : null;
+  if (senderStr === null) return null;
 
   return {
     id,
     roomId: productChatId,
-    senderId,
+    senderId: senderStr,
     message: messageText,
     messageType: mt,
     imageUrl,

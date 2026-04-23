@@ -1986,7 +1986,7 @@ export function CommunityMessengerHome({
     <div
       data-messenger-shell
       data-cm-messenger-home-root
-      className="min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-1 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+      className="min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
     >
       <CommunityMessengerHomeListPane
         loading={loading}

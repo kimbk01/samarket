@@ -12,7 +12,7 @@ import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContex
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
 
 const iconBtnClass =
-  "flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80 disabled:pointer-events-none disabled:opacity-40";
+  "sam-header-action flex h-10 w-10 shrink-0 items-center justify-center text-sam-fg disabled:pointer-events-none disabled:opacity-40";
 
 export type StoreStickyOrderChrome = {
   isOpenForOrder: boolean;
@@ -107,15 +107,15 @@ export function StoreDetailStickyTopRow({
   }, [storeName]);
 
   const segBase =
-    "min-w-0 flex-1 rounded-full px-2 py-1.5 sam-text-xxs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
-  const segOn = "bg-sam-surface text-sam-fg shadow-sm";
+    "min-w-0 flex-1 rounded-sam-sm border border-transparent px-2 py-2 sam-text-xxs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
+  const segOn = "border-sam-primary-border bg-sam-primary-soft text-sam-fg";
   const segOff = "text-sam-muted active:bg-sam-border-soft/60";
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
     <div className="flex w-full min-w-0 max-w-full min-h-[40px] items-center gap-1.5">
       <StoreDetailBackLink fallbackHref={fallbackHref} />
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted">
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface-muted">
         {profileImageUrl?.trim() ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profileImageUrl.trim()} alt="" className="h-full w-full object-cover" />
@@ -171,7 +171,7 @@ export function StoreDetailStickyTopRow({
             fill={viewerFavorited ? "currentColor" : "none"}
             stroke="currentColor"
             strokeWidth="2"
-            className={viewerFavorited ? "text-rose-500" : undefined}
+            className={viewerFavorited ? "text-sam-danger" : undefined}
             aria-hidden
           >
             <path
@@ -210,7 +210,7 @@ export function StoreDetailStickyTopRow({
             <span className="text-lg font-bold leading-none text-sam-muted">⋯</span>
           </summary>
           <div
-            className="absolute right-0 z-[50] mt-1 w-44 rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
+            className="absolute right-0 z-[50] mt-1 w-44 rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
             role="menu"
           >
             {telHref ? (

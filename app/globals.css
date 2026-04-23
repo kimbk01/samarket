@@ -98,6 +98,8 @@ html {
   overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  color-scheme: light;
+  background: var(--sam-bg-app);
 }
 
 body {
@@ -113,6 +115,11 @@ body {
   font-size: var(--sam-text-body-size);
   font-weight: var(--sam-text-body-weight);
   line-height: var(--sam-font-body-line);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--sam-primary) 18%, #ffffff);
+  color: var(--sam-text-primary);
 }
 
 img,
@@ -180,44 +187,19 @@ svg {
 
 button {
   max-width: 100%;
+  font: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* SM strict unification: structure/logic untouched, visual system only */
-body[data-sm-ui="viber"] :is(
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
-      [type="submit"]
-    ):not([type="reset"]):not([type="image"]):not([type="color"]),
-  textarea,
-  select
-) {
-  min-height: var(--sam-input-min-height);
-  border-radius: var(--sam-radius-sm);
-  font-size: var(--sm-font-input);
-  line-height: var(--sm-lh-body);
-}
-
-body[data-sm-ui="viber"] :is(
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
-      [type="submit"]
-    ):not([type="reset"]):not([type="image"]):not([type="color"]),
-  textarea
-)::placeholder {
-  font-size: var(--sm-font-placeholder);
-  font-weight: 400;
-  line-height: var(--sm-lh-body-compact);
-  color: var(--sm-color-text-muted);
-}
-
-body[data-sm-ui="viber"] button {
-  border-radius: var(--sam-radius-sm);
-  font-size: var(--sm-font-button);
-  font-weight: 600;
-  line-height: var(--sm-lh-card-title);
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Avatar-only round exception */
-body[data-sm-ui="viber"] :is([data-avatar], .avatar, [class*="avatar"], [class*="Avatar"]) {
-  border-radius: 9999px !important;
+:is([data-avatar], .avatar, [class*="avatar"], [class*="Avatar"]) {
+  border-radius: 9999px;
 }
 
 /**

@@ -800,25 +800,25 @@ export function CommunityFeed({
         hideCtaStrip
         stickyBelow={
           <>
-            <div className="min-w-0 overflow-x-hidden border-t border-[#E5E7EB] bg-white">
+            <div className="min-w-0 overflow-x-hidden border-t border-sam-border bg-sam-surface">
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
-                  className={`${Sam.tabs.barScroll} flex min-w-0 max-w-full gap-2 bg-white py-2.5`}
+                  className={`${Sam.tabs.barScroll} flex min-w-0 max-w-full bg-sam-surface`}
                   style={{ WebkitOverflowScrolling: "touch" }}
                   role="tablist"
                   aria-label="피드 주제"
                 >
                   {!chipsLoadDone ? (
                     <div className="flex min-h-[40px] items-center gap-2 py-0.5" aria-hidden>
-                      <span className="inline-block h-8 w-14 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
-                      <span className="inline-block h-8 w-20 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
-                      <span className="inline-block h-8 w-24 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
+                      <span className="inline-block h-8 w-14 animate-pulse rounded-sam-sm bg-sam-surface-muted" />
+                      <span className="inline-block h-8 w-20 animate-pulse rounded-sam-sm bg-sam-surface-muted" />
+                      <span className="inline-block h-8 w-24 animate-pulse rounded-sam-sm bg-sam-surface-muted" />
                     </div>
                   ) : (
                     chips.map((c) => {
                       const on = category === c.slug || (c.slug === "" && category === "");
                       const tabBase =
-                        "shrink-0 rounded-[4px] px-3 py-1.5 text-left text-[13px] font-semibold transition-colors";
+                        "shrink-0 rounded-sam-sm px-3 py-1.5 text-left text-[14px] font-semibold transition-colors";
                       if (isRecommendTabDropdownChip(c)) {
                         return (
                           <div
@@ -827,18 +827,18 @@ export function CommunityFeed({
                             ref={recommendMenuRef}
                           >
                             <div
-                              className={`inline-flex min-h-9 max-w-[min(220px,90vw)] items-stretch overflow-hidden rounded-[4px] border ${
+                              className={`inline-flex min-h-[44px] max-w-[min(220px,90vw)] items-stretch overflow-hidden rounded-sam-md border ${
                                 on
-                                  ? "border-[#7360F2] bg-[#F3F0FF] text-[#7360F2]"
-                                  : "border-[#E5E7EB] bg-[#FFFFFF] text-[#1F2430]"
+                                  ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
+                                  : "border-sam-border bg-sam-surface text-sam-fg"
                               }`}
                             >
                               <button
                                 type="button"
                                 role="tab"
                                 aria-selected={on}
-                                className={`max-w-[min(150px,55vw)] shrink-0 truncate px-3 py-1.5 text-left text-[13px] font-semibold ${
-                                  on ? "text-[#7360F2]" : "text-[#1F2430]"
+                                className={`max-w-[min(150px,55vw)] shrink-0 truncate px-3 py-1.5 text-left text-[14px] font-semibold ${
+                                  on ? "text-sam-primary" : "text-sam-fg"
                                 }`}
                                 onClick={() => {
                                   applyCategoryTab(c.slug);
@@ -849,7 +849,7 @@ export function CommunityFeed({
                               </button>
                               <button
                                 type="button"
-                                className={`flex w-9 shrink-0 items-center justify-center border-l ${on ? "border-[#7360F2]/25" : "border-[#E5E7EB]"}`}
+                                className={`flex w-10 shrink-0 items-center justify-center border-l ${on ? "border-sam-primary-border" : "border-sam-border"}`}
                                 aria-label="추천 정렬 메뉴"
                                 aria-expanded={on && recommendMenuOpen}
                                 aria-haspopup="listbox"
@@ -862,7 +862,7 @@ export function CommunityFeed({
                                 }}
                               >
                                 <ChevronDown
-                                  className={`h-4 w-4 ${on ? "text-[#7360F2]" : "text-[#6B7280]"}`}
+                                  className={`h-4 w-4 ${on ? "text-sam-primary" : "text-sam-muted"}`}
                                   strokeWidth={2.5}
                                   aria-hidden
                                 />

@@ -5,10 +5,10 @@ import type { ReactNode } from "react";
 /**
  * **메인 1단**·거래/매장 상단 바 — 전역 토큰(얇은 보더·그림자 없음).
  */
-export const TRADE_PRIMARY_APP_BAR_SHELL_CLASS = "border-b border-sam-border bg-sam-surface";
+export const TRADE_PRIMARY_APP_BAR_SHELL_CLASS = "border-b border-sam-border bg-sam-surface/95 backdrop-blur-[10px]";
 
 /** Philife·플랫 커뮤니티 — 동일 셸(호환 별칭). */
-export const TRADE_PRIMARY_APP_BAR_SHELL_FLAT_CLASS = "border-b border-sam-border bg-sam-surface";
+export const TRADE_PRIMARY_APP_BAR_SHELL_FLAT_CLASS = "border-b border-sam-border bg-sam-surface/95 backdrop-blur-[10px]";
 
 /** @deprecated 하위 호환 — tailwind 클래스로 통일 */
 export const TRADE_PRIMARY_APP_BAR_SHADOW_CLASS = TRADE_PRIMARY_APP_BAR_SHELL_CLASS;

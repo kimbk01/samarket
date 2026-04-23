@@ -257,24 +257,24 @@ export function AddressEditorSheet(props: {
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3 sm:p-4 md:p-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-sam-ink/28 p-3 sm:p-4 md:p-6">
       <div
-        className={`flex max-h-[min(90dvh,92vh)] w-full min-w-0 flex-col overflow-hidden rounded-ui-rect bg-sam-surface text-sam-fg shadow-xl ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+        className={`flex max-h-[min(90dvh,92vh)] w-full min-w-0 flex-col overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface text-sam-fg shadow-sam-elevated ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-editor-title"
       >
-        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-primary-border/50 bg-sam-primary-soft px-3 py-3.5">
+        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border bg-sam-surface px-4 py-4">
           <h2
             id="addr-editor-title"
-            className="sam-text-section-title font-semibold tracking-tight text-signature"
+            className="sam-text-section-title font-semibold tracking-tight text-sam-fg"
           >
             주소상세
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-1 top-1/2 flex h-10 min-w-[44px] -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-icon-soft transition-colors hover:bg-white/60 hover:text-signature"
+            className="sam-header-action absolute right-2 top-1/2 h-10 min-w-[44px] -translate-y-1/2 text-sam-icon-soft hover:text-sam-primary"
             aria-label="닫기"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -292,7 +292,7 @@ export function AddressEditorSheet(props: {
           {latitude != null && longitude != null ? (
             <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] gap-x-3 gap-y-2.5">
               <div className="col-start-1 row-start-1 flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-signature/90">지정 주소</span>
+                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">지정 주소</span>
                 <input
                   value={nickname}
                   onChange={(e) => {
@@ -301,7 +301,7 @@ export function AddressEditorSheet(props: {
                   }}
                   placeholder="비우면 지정안함 입력됨"
                   autoComplete="off"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-signature"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-sam-primary"
                 />
               </div>
               <p className="col-start-1 row-start-2 min-w-0 self-start sam-text-body leading-relaxed text-sam-muted">
@@ -309,22 +309,22 @@ export function AddressEditorSheet(props: {
                   `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
               </p>
               <div className="col-start-1 row-start-3 flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-signature/90">상세주소</span>
+                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">상세주소</span>
                 <input
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
                   placeholder="지번, 건물명, 동·호 등"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-signature"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-sam-primary"
                 />
               </div>
-              <div className="col-start-2 row-span-3 row-start-1 self-start justify-self-end rounded-ui-rect p-0.5 ring-1 ring-sam-primary-border/60">
+              <div className="col-start-2 row-span-3 row-start-1 self-start justify-self-end rounded-sam-md p-0.5 ring-1 ring-sam-primary-border/60">
                 <AddressMapThumb lat={latitude} lng={longitude} sizePx={120} />
               </div>
             </div>
           ) : (
             <>
               <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-signature/90">지정 주소</span>
+                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">지정 주소</span>
                 <input
                   value={nickname}
                   onChange={(e) => {
@@ -333,24 +333,24 @@ export function AddressEditorSheet(props: {
                   }}
                   placeholder="비우면 지정안함 입력됨"
                   autoComplete="off"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-signature"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-sam-primary"
                 />
               </div>
               <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-signature/90">상세주소</span>
+                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">상세주소</span>
                 <input
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
                   placeholder="지번, 건물명, 동·호 등"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-neutral-400/90 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-signature"
+                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-sam-primary"
                 />
               </div>
             </>
           )}
         </div>
 
-        <div className="shrink-0 space-y-2 border-t border-sam-primary-border/35 bg-sam-primary-soft/40 px-4 py-3 safe-area-pb">
-          {err ? <p className="sam-text-body-secondary font-medium text-red-600">{err}</p> : null}
+        <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
+          {err ? <p className="sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
           <div className="flex gap-2.5">
             <button
               type="button"
@@ -362,7 +362,7 @@ export function AddressEditorSheet(props: {
                 );
                 router.push("/address/select");
               }}
-              className="flex-1 rounded-ui-rect border border-sam-primary-border bg-white py-3 sam-text-body font-semibold text-signature shadow-sm transition-colors hover:bg-sam-primary-soft"
+              className="flex-1 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft py-3 sam-text-body font-semibold text-sam-primary transition-colors hover:brightness-[0.99]"
             >
               위치 선택
             </button>
@@ -370,7 +370,7 @@ export function AddressEditorSheet(props: {
               type="button"
               disabled={busy}
               onClick={() => void submit()}
-              className="flex-1 rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-signature/90 disabled:opacity-40"
+              className="flex-1 rounded-sam-md bg-sam-primary py-3 sam-text-body font-semibold text-white transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
             >
               {busy ? "저장 중…" : "저장"}
             </button>

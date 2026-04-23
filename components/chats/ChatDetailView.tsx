@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -53,10 +53,12 @@ import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet
 import {
   dispatchTradeChatUnreadUpdated,
   KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
+  KASAMA_TRADE_CHAT_UNREAD_UPDATED,
 } from "@/lib/chats/chat-channel-events";
 import { ADMIN_CHAT_SUSPENDED_MESSAGE } from "@/lib/chat/chat-room-admin-suspend";
 import {
   bustIntegratedChatMessagesCache,
+  bustLegacyChatMessagesCache,
   fetchIntegratedChatRoomMessages,
   fetchIntegratedChatRoomMessagesPage,
   fetchIntegratedChatRoomMessagesWithMeta,
@@ -73,6 +75,7 @@ import {
   updateIntegratedChatRoomMessagesCache,
   updateLegacyChatRoomMessagesCache,
 } from "@/lib/chats/fetch-chat-room-messages-api";
+import { bustChatRoomBootstrapFlights } from "@/lib/chats/fetch-chat-room-bootstrap-api";
 import {
   bustOrderChatMessagesSingleFlight,
   fetchOrderChatMessagesForUnifiedRoom,
@@ -80,10 +83,21 @@ import {
 } from "@/lib/chats/fetch-order-chat-messages-api";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import {
+  dispatchTradeListingThreadNotices,
+  subscribeTradeListingThreadNotices,
+} from "@/lib/chats/trade-listing-thread-sync";
+import {
+  tradeChatLinkedRoomIdSet,
+  tradeListingNoticesForCurrentRoom,
+} from "@/lib/chats/trade-listing-notices-for-room";
+import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
+import {
   useChatRoomRealtime,
   type ChatRoomRealtimeConnectionState,
 } from "@/lib/chats/use-chat-room-realtime";
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
+import { useTradePostListingBroadcast } from "@/lib/chats/use-trade-post-listing-broadcast";
+import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-listing-broadcast-channel";
 import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
@@ -291,6 +305,15 @@ export function ChatDetailView({
   const buyerOrderChatSoundOnRef = useRef(true);
   /** 폴링 1회차는 입장 직후 동기화 — 알림·소리 없음(빈 응답이어도 2회차부터만 알림) */
   const pollTickCountRef = useRef(0);
+  /** `hardRefreshMessagesAfterSellerListingWrite` 정의 이후 effect 로 연결 — posts Realtime 과 동일 훅 순서 제약 회피 */
+  const hardRefreshTradeMessagesRef = useRef<() => Promise<void>>(async () => {});
+  /** 서버 Realtime Broadcast 페이로드 — `isChatRoom` 정의 이후 effect 에서 연결 */
+  const tradePostListingPayloadRef = useRef<(p: TradePostListingBroadcastPayload) => void>(() => {});
+  /**
+   * `posts` UPDATE Realtime 만용 — **propListing 과 동기화하지 않음**.
+   * room 부트스트랩·리로드로 `propListing`이 먼저 바뀌면 ref까지 새 시그로 맞춰져, 이후 같은 시그의 postgres 이벤트에서 hardRefresh 가 영구 스킵되는 버그가 생김.
+   */
+  const lastPostSellerListingDbSigRef = useRef<string>("");
 
   const postId = (room.product?.id ?? room.productId ?? "").trim();
   const propListing = normalizeSellerListingState(
@@ -302,6 +325,25 @@ export function ChatDetailView({
   const [listingFromPostRealtime, setListingFromPostRealtime] = useState<SellerListingState | null>(null);
   const amISeller = room.sellerId === currentUserId;
 
+  const onPostSellerListingRealtime = useCallback(
+    ({ sellerListingState, postStatus }: { sellerListingState: string | null; postStatus: string | null }) => {
+      const normalized = normalizeSellerListingState(
+        sellerListingState,
+        postStatus ?? room.product?.status
+      );
+      const sig = `${normalized}|${(postStatus ?? "").trim()}`;
+      setPostStatusFromRealtime(postStatus);
+      setListingFromPostRealtime(normalized);
+      if (lastPostSellerListingDbSigRef.current === sig) return;
+      lastPostSellerListingDbSigRef.current = sig;
+      /** Broadcast·threadNotices 가 먼저 오도록 짧게 두고, 누락 시에만 GET 으로 보강 */
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => void hardRefreshTradeMessagesRef.current(), 90);
+      }
+    },
+    [room.product?.status]
+  );
+
   usePostSellerListingRealtime({
     postId: postId || null,
     enabled:
@@ -309,10 +351,7 @@ export function ChatDetailView({
       !isStoreOrderChat &&
       !isGeneralPurposeChat &&
       Boolean(currentUserId?.trim()),
-    onSellerListingState: ({ sellerListingState, postStatus }) => {
-      setPostStatusFromRealtime(postStatus);
-      setListingFromPostRealtime(normalizeSellerListingState(sellerListingState, postStatus ?? room.product?.status));
-    },
+    onSellerListingState: onPostSellerListingRealtime,
   });
 
   useEffect(() => {
@@ -466,7 +505,8 @@ export function ChatDetailView({
   useEffect(() => {
     didAutoOpenReviewRef.current = false;
     pollTickCountRef.current = 0;
-  }, [room.id]);
+    lastPostSellerListingDbSigRef.current = "";
+  }, [room.id, postId]);
 
   useEffect(() => {
     if (!openReviewOnMount || didAutoOpenReviewRef.current) return;
@@ -477,6 +517,57 @@ export function ChatDetailView({
   }, [openReviewOnMount, canOpenReviewSheet, pathname, router]);
 
   const isChatRoom = room.source === "chat_room";
+
+  /** 거래 1:1 — 부트스트랩 `full` 대기 중에도 `postgres_changes` 를 붙여 시스템 메시지·상대 메시지 지연을 줄임 (주문·일반 목적 채팅은 기존 게이트 유지) */
+  const tradeChatRealtimeBootstrapReady = useMemo(
+    () =>
+      tradeChatBootstrapReady ||
+      (room.chatDomain === "trade" && !isStoreOrderChat && !isGeneralPurposeChat),
+    [tradeChatBootstrapReady, room.chatDomain, isStoreOrderChat, isGeneralPurposeChat]
+  );
+
+  /** 판매 단계 API 응답·다른 탭(BroadcastChannel)으로 시스템 메시지를 Realtime 없이 즉시 병합 */
+  useEffect(() => {
+    if (!postId || isStoreOrderChat || isGeneralPurposeChat) return;
+    return subscribeTradeListingThreadNotices((payload) => {
+      if (payload.postId !== postId) return;
+      const mine = tradeListingNoticesForCurrentRoom(room, payload.notices);
+      if (mine.length === 0) return;
+      setMessages((prev) => mergeChatMessagesById(prev, mine));
+    });
+  }, [postId, room.id, room.source, room.chatRoomId, room.productChatRoomId, isStoreOrderChat, isGeneralPurposeChat]);
+
+  /** 서비스 롤 Broadcast — 상대 기기에서도 다이어그램·시스템 메시지 즉시 반영 */
+  useEffect(() => {
+    tradePostListingPayloadRef.current = (p: TradePostListingBroadcastPayload) => {
+      if (!postId || p.postId.trim() !== postId.trim()) return;
+      const normalized = normalizeSellerListingState(
+        p.sellerListingState,
+        p.postStatus ?? room.product?.status
+      );
+      setPostStatusFromRealtime(p.postStatus);
+      setListingFromPostRealtime(normalized);
+      const mine = tradeListingNoticesForCurrentRoom(room, p.threadNotices);
+      if (mine.length > 0) {
+        setMessages((prev) => mergeChatMessagesById(prev, mine));
+      } else {
+        void hardRefreshTradeMessagesRef.current();
+        if (typeof window !== "undefined") {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => void hardRefreshTradeMessagesRef.current());
+          });
+          window.setTimeout(() => void hardRefreshTradeMessagesRef.current(), 180);
+        }
+      }
+    };
+  }, [postId, room.id, room.source, room.chatRoomId, room.productChatRoomId, room.product?.status]);
+
+  useTradePostListingBroadcast({
+    postId: postId || null,
+    enabled:
+      Boolean(postId) && !isStoreOrderChat && !isGeneralPurposeChat && Boolean(currentUserId?.trim()),
+    onPayloadRef: tradePostListingPayloadRef,
+  });
 
   /** 거래 1:1 — 구매자만, 글 `trade_chat_call_policy` 가 음성 이상일 때만 통화 UI 마운트 */
   const showTradeChatCallInHeader =
@@ -581,7 +672,7 @@ export function ChatDetailView({
     mode: "integrated",
     /** store_order 는 order_chat_messages 축 — chat_messages Realtime 과 불일치 */
     enabled: isChatRoom && !isStoreOrderChat && !!currentUserId?.trim(),
-    bootstrapReady: tradeChatBootstrapReady,
+    bootstrapReady: tradeChatRealtimeBootstrapReady,
     onMessage: onIntegratedRealtimeMessage,
     onMessageRemoved: onIntegratedRealtimeRemoved,
     onConnectionState: onIntegratedRealtimeConnectionState,
@@ -591,6 +682,10 @@ export function ChatDetailView({
     roomId: !isChatRoom ? room.id : null,
     mode: "legacy",
     enabled: !isChatRoom && !!currentUserId?.trim(),
+    bootstrapReady:
+      room.chatDomain === "trade" && !isGeneralPurposeChat
+        ? tradeChatRealtimeBootstrapReady
+        : true,
     onMessage: onLegacyRealtimeMessage,
     onMessageRemoved: onLegacyRealtimeRemoved,
     onConnectionState: onLegacyRealtimeConnectionState,
@@ -732,65 +827,6 @@ export function ChatDetailView({
     else updateLegacyChatRoomMessagesCache(room.id, messages);
   }, [isChatRoom, room.id, messages]);
 
-  const persistListingState = useCallback(
-    async (state: SellerListingState) => {
-      if (!postId || state === displayListing) return;
-      const label = SELLER_LISTING_LABEL[state];
-      if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 선택하시겠습니까?`)) {
-        return;
-      }
-      setListingSaving(true);
-      setListingError(null);
-      setListingNotice(null);
-      try {
-        const body: { sellerListingState: SellerListingState; reservedBuyerId?: string } = {
-          sellerListingState: state,
-        };
-        if (state === "reserved" && amISeller && room.buyerId?.trim()) {
-          body.reservedBuyerId = room.buyerId.trim();
-        }
-        const res = await fetch(`/api/posts/${postId}/seller-listing-state`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          sellerListingState?: string;
-          warning?: string;
-        };
-        if (!res.ok || !data.ok || !data.sellerListingState) {
-          const errMsg = String(data.error ?? "저장에 실패했습니다.");
-          const schemaBlock =
-            /seller_listing_state|마이그레이션|schema cache|Could not find|posts\.seller_listing/i.test(
-              errMsg
-            );
-          if (schemaBlock) {
-            setListingError(
-              "판매 단계를 DB에 반영하지 못했습니다. Supabase에 posts.seller_listing_state 컬럼이 있는지 확인한 뒤 다시 시도해 주세요."
-            );
-            return;
-          }
-          setListingError(errMsg);
-          return;
-        }
-        const w = typeof data.warning === "string" ? data.warning.trim() : "";
-        setListingNotice(w || null);
-        setPinnedListing(data.sellerListingState as SellerListingState);
-        setPinnedForProductId(postId);
-        /** 시스템 안내는 서버 `seller-listing-state` API에서 모든 채팅·메신저 스레드에 기록 */
-        dispatchTradeChatUnreadUpdated({ source: "seller-listing-state", key: postId });
-        onRoomReload?.();
-      } catch {
-        setListingError("네트워크 오류로 저장하지 못했습니다.");
-      } finally {
-        setListingSaving(false);
-      }
-    },
-    [postId, currentUserId, displayListing, room, amISeller, onRoomReload]
-  );
-
   // ⋮ 메뉴 밖 클릭 시 닫기
   useEffect(() => {
     if (!menuOpen) return;
@@ -853,6 +889,138 @@ export function ChatDetailView({
     }
     return fetchLegacyChatRoomMessages(room.id);
   }, [room.id, room.buyerId, currentUserId, isChatRoom, isStoreOrderChat, storeOrderId]);
+
+  /** 판매 단계 저장 직후 서버가 넣은 시스템 메시지가 캐시·single-flight 에 걸려 늦게 보이는 것 방지 */
+  const hardRefreshMessagesAfterSellerListingWrite = useCallback(async () => {
+    if (isStoreOrderChat) return;
+    const rid = room.id.trim();
+    if (!rid) return;
+    bustChatRoomBootstrapFlights(rid);
+    if (isChatRoom) {
+      bustIntegratedChatMessagesCache(rid);
+      try {
+        const page = await fetchIntegratedChatRoomMessagesWithMeta(rid);
+        integratedHistoryRef.current = {
+          hasMore: page.hasMore,
+          nextCursor: page.nextCursor,
+        };
+        setMessages((prev) => mergeChatMessagesById(reconcileOptimisticMessages(prev, page.messages), page.messages));
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    bustLegacyChatMessagesCache(rid);
+    try {
+      const page = await fetchLegacyChatRoomMessagesWithMeta(rid);
+      legacyHistoryRef.current = {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+      };
+      setMessages((prev) => mergeChatMessagesById(reconcileOptimisticMessages(prev, page.messages), page.messages));
+    } catch {
+      /* ignore */
+    }
+  }, [isChatRoom, isStoreOrderChat, room.id]);
+
+  useEffect(() => {
+    hardRefreshTradeMessagesRef.current = hardRefreshMessagesAfterSellerListingWrite;
+  }, [hardRefreshMessagesAfterSellerListingWrite]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onUnreadEvt = (e: Event) => {
+      const ce = e as CustomEvent<{
+        source?: string;
+        key?: string;
+        roomId?: string;
+      }>;
+      const d = ce.detail;
+      if (!d || d.source !== "seller-listing-state") return;
+      if (!postId || d.key !== postId) return;
+      const hinted = typeof d.roomId === "string" ? d.roomId.trim() : "";
+      const linked = tradeChatLinkedRoomIdSet(room);
+      if (hinted && !linked.has(hinted)) return;
+      void hardRefreshMessagesAfterSellerListingWrite();
+    };
+    window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnreadEvt as EventListener);
+    return () => window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onUnreadEvt as EventListener);
+  }, [postId, room.id, room.chatRoomId, room.productChatRoomId, hardRefreshMessagesAfterSellerListingWrite]);
+
+  const persistListingState = useCallback(
+    async (state: SellerListingState) => {
+      if (!postId || state === displayListing) return;
+      if (amISeller) {
+        const label = SELLER_LISTING_LABEL[state];
+        if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 변경할까요?`)) {
+          return;
+        }
+      }
+      setListingSaving(true);
+      setListingError(null);
+      setListingNotice(null);
+      try {
+        const body: { sellerListingState: SellerListingState; reservedBuyerId?: string } = {
+          sellerListingState: state,
+        };
+        if (state === "reserved" && amISeller && room.buyerId?.trim()) {
+          body.reservedBuyerId = room.buyerId.trim();
+        }
+        const res = await fetch(`/api/posts/${postId}/seller-listing-state`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          sellerListingState?: string;
+          warning?: string;
+          threadNotices?: TradeListingThreadNotice[];
+        };
+        if (!res.ok || !data.ok || !data.sellerListingState) {
+          const errMsg = String(data.error ?? "저장에 실패했습니다.");
+          const schemaBlock =
+            /seller_listing_state|마이그레이션|schema cache|Could not find|posts\.seller_listing/i.test(
+              errMsg
+            );
+          if (schemaBlock) {
+            setListingError(
+              "판매 단계를 DB에 반영하지 못했습니다. Supabase에 posts.seller_listing_state 컬럼이 있는지 확인한 뒤 다시 시도해 주세요."
+            );
+            return;
+          }
+          setListingError(errMsg);
+          return;
+        }
+        const w = typeof data.warning === "string" ? data.warning.trim() : "";
+        setListingNotice(w || null);
+        setPinnedListing(data.sellerListingState as SellerListingState);
+        setPinnedForProductId(postId);
+        const threadNotices = Array.isArray(data.threadNotices) ? data.threadNotices : [];
+        const forRoom = tradeListingNoticesForCurrentRoom(room, threadNotices);
+        if (forRoom.length > 0) {
+          setMessages((prev) => mergeChatMessagesById(prev, forRoom));
+        }
+        if (threadNotices.length > 0) {
+          dispatchTradeListingThreadNotices({ postId, notices: threadNotices });
+        }
+        await hardRefreshMessagesAfterSellerListingWrite();
+        /** 시스템 안내는 서버 `seller-listing-state` API에서 모든 채팅·메신저 스레드에 기록 */
+        dispatchTradeChatUnreadUpdated({
+          source: "seller-listing-state",
+          key: postId,
+          roomId: room.id?.trim() || undefined,
+        });
+        onRoomReload?.();
+      } catch {
+        setListingError("네트워크 오류로 저장하지 못했습니다.");
+      } finally {
+        setListingSaving(false);
+      }
+    },
+    [postId, displayListing, room, amISeller, onRoomReload, hardRefreshMessagesAfterSellerListingWrite]
+  );
 
   /** 통합 거래방·레거시 product_chat: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
   const onTradeThreadScroll = useCallback(() => {
@@ -929,25 +1097,36 @@ export function ChatDetailView({
       });
   }, [isChatRoom, isStoreOrderChat, room.id]);
 
+  /** `onRoomReload` 등으로 `initialBootstrapMessages` 가 늦게/stale 로 올 때 전체 `setMessages` 치환하면 방금 반영한 시스템 메시지가 사라짐 — 병합 시 prev 가 다른 방이면 버림 */
+  const messagesSnapshotForBootstrapRef = useRef<ChatMessage[]>([]);
+  useEffect(() => {
+    messagesSnapshotForBootstrapRef.current = messages;
+  }, [messages]);
+
   // 초기 로드: API 우선 (테스트 로그인·RLS 시 판매자도 동일하게 메시지 수신)
   useEffect(() => {
     const startedAt = perfNow();
     let cancelled = false;
     if (initialBootstrapMessages != null) {
-      setMessages(initialBootstrapMessages);
+      const rid = room.id.trim();
+      const prev = messagesSnapshotForBootstrapRef.current;
+      const prevSameRoom =
+        prev.length === 0 || prev.every((m) => (m.roomId ?? "").trim() === rid);
+      const merged = mergeChatMessagesById(prevSameRoom ? prev : [], initialBootstrapMessages);
+      setMessages(merged);
       setMessagesLoading(false);
       if (isChatRoom && !isStoreOrderChat) {
-        const g = guessIntegratedHistoryMetaFromMessages(initialBootstrapMessages);
+        const g = guessIntegratedHistoryMetaFromMessages(merged);
         integratedHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
       } else if (!isChatRoom) {
-        const g = guessLegacyHistoryMetaFromMessages(initialBootstrapMessages);
+        const g = guessLegacyHistoryMetaFromMessages(merged);
         legacyHistoryRef.current = { hasMore: g.hasMore, nextCursor: g.nextCursor };
       }
       logClientPerf("chat-detail.messages.initial", {
         roomId: room.id,
         source: isChatRoom ? "chat_room" : "product_chat",
         from: "bootstrap_prop",
-        count: initialBootstrapMessages.length,
+        count: merged.length,
         elapsedMs: Math.round(perfNow() - startedAt),
       });
       return () => {
@@ -1048,6 +1227,17 @@ export function ChatDetailView({
     clearTradeChatEntryMark();
   }, [messages.length, messagesLoading, room.id]);
 
+  /** 하단 근처에 있을 때만 자동 스크롤 — 시스템 메시지·상대 메시지가 엔터 없이도 보이게 */
+  useLayoutEffect(() => {
+    if (isStoreOrderChat || isGeneralPurposeChat || messagesLoading) return;
+    const el = tradeThreadScrollRef.current;
+    if (!el) return;
+    const stickPx = 168;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight <= stickPx) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages, messagesLoading, isStoreOrderChat, isGeneralPurposeChat]);
+
   // 당근형: Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
   useEffect(() => {
     if (!room.id || !currentUserId) return;
@@ -1056,14 +1246,20 @@ export function ChatDetailView({
       ? hasFreshIntegratedChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS)
       : hasFreshLegacyChatRoomMessagesCache(room.id, CHAT_MESSAGE_CLIENT_CACHE_TTL_MS);
 
-    /** Realtime live 시에는 DB/API 재조회를 드물게(삽입 누락·탭 복귀 동기화용). 미연결·주문채팅은 상대적으로 촘촘 */
+    /** 거래 1:1은 시스템 메시지·상대 전송 누락 보강을 위해 백업 폴링을 더 촘촘히 — 그 외 통합 채팅은 기존 간격 유지 */
+    const isTradeProductThread =
+      !isStoreOrderChat && !isGeneralPurposeChat && room.chatDomain === "trade";
     const backupPollMs = isStoreOrderChat
       ? chatRealtimeLive
         ? 120_000
         : 8_000
-      : isChatRoom && chatRealtimeLive
-        ? 180_000
-        : 12_000;
+      : isTradeProductThread
+        ? chatRealtimeLive
+          ? 5_000
+          : 6_000
+        : isChatRoom && chatRealtimeLive
+          ? 25_000
+          : 12_000;
 
     const tick = async () => {
       const next = await fetchMessagesForPolling();
@@ -1139,8 +1335,6 @@ export function ChatDetailView({
 
     if (cacheIsFresh) {
       pollTickCountRef.current = 1;
-    } else if (typeof document === "undefined" || document.visibilityState === "visible") {
-      safeTick();
     }
 
     const onVisibility = () => {
@@ -1154,6 +1348,7 @@ export function ChatDetailView({
     };
 
     if (typeof document === "undefined" || document.visibilityState === "visible") {
+      safeTick();
       startBackupInterval();
     }
     if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisibility);
@@ -1179,6 +1374,8 @@ export function ChatDetailView({
     chatRealtimeLive,
     amISeller,
     room.buyerId,
+    isGeneralPurposeChat,
+    room.chatDomain,
   ]);
 
   // 읽음 처리: API 호출(테스트 로그인 포함) 후 상단 편지 숫자 갱신 이벤트

@@ -38,8 +38,8 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#7360f2" },
-    { media: "(prefers-color-scheme: dark)", color: "#624bef" },
+    { media: "(prefers-color-scheme: light)", color: "#3f6fd9" },
+    { media: "(prefers-color-scheme: dark)", color: "#7ea6ff" },
   ],
 };
 
@@ -50,11 +50,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body
-        className={`${notoSansKr.variable} font-sans antialiased`}
-        data-sm-ui="viber"
-        suppressHydrationWarning
-      >
+      <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
         <AppLanguageProvider>
           <SupabaseAuthSync />
           {children}

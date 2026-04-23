@@ -8,7 +8,7 @@ export default function CommunityMessengerLayout({ children }: { children: React
       <CommunityMessengerRoomClientPrefetch />
       <CommunityMessengerMediaPreflight />
       <MessengerSnackbarHost />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app text-sam-fg">
+      <div className="sam-domain-shell">
         {children}
       </div>
     </>

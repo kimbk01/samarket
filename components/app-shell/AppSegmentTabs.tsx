@@ -17,17 +17,18 @@ export type AppSegmentTabItem = {
 export type AppSegmentTabsProps = {
   tabs: readonly AppSegmentTabItem[];
   className?: string;
+  scroll?: boolean;
 };
 
 /**
  * 2단 세그먼트 탭 — `sam-tabs` / `sam-tab` 단일 규칙(밑줄 활성).
  */
-export function AppSegmentTabs({ tabs, className }: AppSegmentTabsProps) {
+export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTabsProps) {
   const pathname = usePathname() ?? "";
   const norm = pathname.split("?")[0] ?? "";
 
   return (
-    <div className={`${Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
+    <div className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
       {tabs.map((t) => {
         const hrefPath = (t.href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
         const prefix = (t.matchPrefix ?? hrefPath).replace(/\/+$/, "") || "/";

@@ -129,14 +129,14 @@ export function MySubpageHeader({
       );
 
     return (
-      <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-[var(--sub-bg)]">
-        <header className="min-w-0 overflow-x-hidden border-b border-sam-border">
-          <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+      <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]">
+        <header className="min-w-0 overflow-x-hidden border-b border-sam-border bg-sam-surface/95">
+          <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
             <div className="flex w-[44px] shrink-0 justify-start">
               {preferHistoryBack === false && backHref != null ? (
                 <Link
                   href={backHref}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+                  className="sam-header-action h-10 w-10 text-sam-fg"
                   aria-label={resolvedAriaLabel}
                 >
                   <BackChevronIcon />
@@ -145,7 +145,7 @@ export function MySubpageHeader({
                 <button
                   type="button"
                   onClick={() => runHistoryBackWithFallback(router, backHref)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+                  className="sam-header-action h-10 w-10 text-sam-fg"
                   aria-label={resolvedAriaLabel}
                 >
                   <BackChevronIcon />
@@ -153,7 +153,7 @@ export function MySubpageHeader({
               )}
             </div>
             <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-              <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+              <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
                 {typeof translatedTitle === "string" ? (
                   <span className="truncate sam-text-section-title font-semibold">{translatedTitle}</span>
                 ) : (
@@ -164,12 +164,12 @@ export function MySubpageHeader({
                 subtitleHref ? (
                   <Link
                     href={subtitleHref}
-                    className="mt-0.5 block truncate sam-text-xxs leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
+                    className="mt-0.5 block truncate sam-text-xxs leading-tight text-sam-muted hover:text-sam-fg hover:underline"
                   >
                     {translatedSubtitle}
                   </Link>
                 ) : (
-                  <p className="truncate sam-text-xxs leading-tight text-[var(--text-muted)]">{translatedSubtitle}</p>
+                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{translatedSubtitle}</p>
                 )
               ) : null}
             </div>

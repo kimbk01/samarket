@@ -5,11 +5,11 @@ import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 
 export function MyPageHeader() {
   return (
-    <header className="sticky top-0 z-10 flex items-center justify-between border-b border-sam-border bg-[var(--sub-bg)] px-4 py-3">
-      <h1 className="sam-text-section-title font-semibold text-foreground">나의 카마켓</h1>
+    <header className="sticky top-0 z-10 flex min-h-[length:var(--sam-header-row-height)] items-center justify-between border-b border-sam-border bg-sam-surface/95 px-4 py-3 backdrop-blur-[10px]">
+      <h1 className="sam-text-section-title font-semibold text-sam-fg">나의 카마켓</h1>
       <Link
         href={buildMypageInfoHubHref()}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label="설정"
       >
         <SettingsIcon />

@@ -49,8 +49,8 @@ export function FloatingAddButton() {
     pathname === "/community" || (typeof pathname === "string" && pathname.startsWith("/community/"));
 
   const fabButtonClass = isCommunityFab
-    ? `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-ui-rect border-2 border-sam-border bg-white text-sam-fg shadow-sam-elevated transition active:scale-[0.98] active:opacity-95`
-    : `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-full bg-signature text-white shadow-sam-elevated`;
+    ? `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface text-sam-fg shadow-sam-elevated transition active:scale-[0.98] active:opacity-95`
+    : `kasama-quick-add fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} z-[21] flex h-14 w-14 items-center justify-center rounded-sam-md border border-sam-primary bg-sam-primary text-white shadow-sam-elevated transition active:scale-[0.98] active:opacity-95`;
 
   return (
     <>

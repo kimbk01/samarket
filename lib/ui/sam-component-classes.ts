@@ -7,6 +7,9 @@
  */
 export const Sam = {
   page: "sam-page",
+  domainShell: "sam-domain-shell",
+  pageStack: "sam-page-stack",
+  pageSection: "sam-page-section",
   text: {
     hero: "sam-text-hero",
     pageTitle: "sam-text-page-title",
@@ -98,6 +101,7 @@ export const Sam = {
     group: "sam-settings-group",
   },
   divider: "sam-divider",
+  headerAction: "sam-header-action",
   sm: {
     pageTitle: "sm-page-title",
     sectionTitle: "sm-section-title",

@@ -55,7 +55,7 @@ export function ConditionalAppShell({
       : f.mainBottomClass;
 
   return (
-    <div className={f.appShellRootClass}>
+    <div className={`${f.appShellRootClass} min-h-dvh bg-sam-app`}>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CallIncomingChrome />
@@ -63,12 +63,12 @@ export function ConditionalAppShell({
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
-        className={`${mainBottomClassEffective} min-w-0 overflow-x-hidden ${
+        className={`${mainBottomClassEffective} min-w-0 overflow-x-hidden bg-sam-app ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
         }`}
       >
         <div
-          className={`${APP_MAIN_COLUMN_CLASS}${
+          className={`${APP_MAIN_COLUMN_CLASS} ${
             f.isChatRoomDetail ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
           }`}
         >

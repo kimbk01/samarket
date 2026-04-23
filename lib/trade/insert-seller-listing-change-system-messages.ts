@@ -2,9 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatSellerListingChangeNoticeBody } from "@/lib/chat/postSellerListingChangeNotice";
 import { parseCommunityMessengerRoomContextMeta, serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
+import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
+import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 
 function trimMid(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -91,9 +94,10 @@ export async function syncCommunityMessengerTradeStateSummariesServer(
 export async function insertSellerListingChangeSystemMessagesServer(
   sb: SupabaseClient<any>,
   args: { postId: string; sellerUserId: string; nextState: SellerListingState }
-): Promise<void> {
+): Promise<TradeListingThreadNotice[]> {
+  const out: TradeListingThreadNotice[] = [];
   const pid = args.postId.trim();
-  if (!pid) return;
+  if (!pid) return out;
   const label = SELLER_LISTING_LABEL[args.nextState];
   const body = formatSellerListingChangeNoticeBody(label);
   const now = new Date().toISOString();
@@ -110,13 +114,19 @@ export async function insertSellerListingChangeSystemMessagesServer(
     const rid = String((row as { id?: unknown }).id ?? "").trim();
     if (!rid) continue;
     try {
-      await sb.from("chat_messages").insert({
-        room_id: rid,
-        sender_id: args.sellerUserId,
-        message_type: "system",
-        body,
-        metadata: {},
-      });
+      const { data: ins, error } = await sb
+        .from("chat_messages")
+        .insert({
+          room_id: rid,
+          sender_id: null,
+          message_type: "system",
+          body,
+          metadata: {},
+        })
+        .select("id, room_id, sender_id, message_type, body, metadata, created_at, read_at, deleted_by_sender, is_hidden_by_admin, hidden_reason");
+      if (error || !ins?.length) continue;
+      const msg = integratedChatRowToMessage(ins[0] as Record<string, unknown>);
+      if (msg) out.push({ channel: "integrated", message: msg });
     } catch {
       /* ignore: 스키마·RLS */
     }
@@ -134,13 +144,19 @@ export async function insertSellerListingChangeSystemMessagesServer(
     const pcid = String(pc.id ?? "").trim();
     if (pcid) {
       try {
-        await sb.from("product_chat_messages").insert({
-          product_chat_id: pcid,
-          sender_id: args.sellerUserId,
-          message_type: "system",
-          content: body,
-          image_url: null,
-        });
+        const { data: ins, error } = await sb
+          .from("product_chat_messages")
+          .insert({
+            product_chat_id: pcid,
+            sender_id: args.sellerUserId,
+            message_type: "system",
+            content: body,
+            image_url: null,
+          })
+          .select("id, product_chat_id, sender_id, message_type, content, image_url, created_at, read_at, is_hidden");
+        if (error || !ins?.length) continue;
+        const msg = mapProductChatMessageRow(ins[0] as Record<string, unknown>);
+        if (msg) out.push({ channel: "legacy_product_chat", message: msg });
       } catch {
         /* ignore */
       }
@@ -181,4 +197,5 @@ export async function insertSellerListingChangeSystemMessagesServer(
       /* ignore */
     }
   }
+  return out;
 }

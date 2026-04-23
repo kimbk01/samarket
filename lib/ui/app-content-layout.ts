@@ -5,13 +5,14 @@
 
 /** 메인 컬럼 `max-w-*` 체인만 — 고정 하단 바·상세 풀폭 래퍼 등에서 본문과 동일 폭으로 맞출 때 */
 export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
-  "max-w-lg sm:max-w-xl md:max-w-2xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
+  "max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]";
 
 /** 메인 스크롤 영역 최대 폭 + 가운데 정렬 (태블릿·가로 모드에서 점진적으로 넓힘) */
 export const APP_MAIN_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`;
 
 /** 본문·헤더 내부 좌우 여백 */
 export const APP_MAIN_GUTTER_X_CLASS = "px-3 sm:px-4 md:px-5";
+export const APP_MAIN_GUTTER_X_COMFY_CLASS = "px-4 sm:px-5 md:px-6";
 
 /** 상위에 GUTTER_X가 있을 때 자식을 가로 풀폭으로 맞추기(스티키 바 등) */
 export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-3 sm:-mx-4 md:-mx-5";

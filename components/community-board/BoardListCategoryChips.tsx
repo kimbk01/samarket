@@ -17,8 +17,10 @@ export function BoardListCategoryChips({ baseHref, categorySlug, categories }: B
       <span className="w-full sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">카테고리</span>
       <Link
         href={baseHref}
-        className={`rounded-full px-3 py-1 sam-text-helper font-medium ${
-          !categorySlug ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
+        className={`rounded-sam-sm border px-3 py-1.5 sam-text-helper font-medium ${
+          !categorySlug
+            ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
+            : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
         }`}
       >
         전체
@@ -27,8 +29,10 @@ export function BoardListCategoryChips({ baseHref, categorySlug, categories }: B
         <Link
           key={c.slug}
           href={`${baseHref}?category=${encodeURIComponent(c.slug)}`}
-          className={`rounded-full px-3 py-1 sam-text-helper font-medium ${
-            categorySlug === c.slug ? "bg-emerald-700 text-white" : "bg-emerald-50 text-emerald-900 hover:bg-emerald-100"
+          className={`rounded-sam-sm border px-3 py-1.5 sam-text-helper font-medium ${
+            categorySlug === c.slug
+              ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
+              : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
           }`}
         >
           {c.name}

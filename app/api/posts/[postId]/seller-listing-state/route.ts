@@ -25,6 +25,8 @@ import {
   insertSellerListingChangeSystemMessagesServer,
   syncCommunityMessengerTradeStateSummariesServer,
 } from "@/lib/trade/insert-seller-listing-change-system-messages";
+import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
+import { publishTradePostListingUpdateFromServer } from "@/lib/trade/trade-post-listing-broadcast-server";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
@@ -285,11 +287,22 @@ export async function POST(
         } catch {
           /* ignore */
         }
-        await insertSellerListingChangeSystemMessagesServer(sbAny, {
+        let threadNotices: TradeListingThreadNotice[] = [];
+        try {
+          threadNotices = await insertSellerListingChangeSystemMessagesServer(sbAny, {
+            postId: postId.trim(),
+            sellerUserId: userId,
+            nextState: nextState as SellerListingState,
+          });
+        } catch {
+          threadNotices = [];
+        }
+        await publishTradePostListingUpdateFromServer({
           postId: postId.trim(),
-          sellerUserId: userId,
-          nextState: nextState as SellerListingState,
-        }).catch(() => {});
+          sellerListingState: nextState,
+          postStatus,
+          threadNotices,
+        });
         await syncTradeSummaryStateBestEffort({
           sbAny,
           postId: postId.trim(),
@@ -302,6 +315,7 @@ export async function POST(
           sellerListingState: nextState,
           status: postStatus,
           reservedBuyerId: nextState === "reserved" ? reservedBuyerRaw : null,
+          threadNotices,
           warning:
             "예약 구매자 ID 컬럼(reserved_buyer_id)이 없어 예약자만 DB에 고정되지 않을 수 있습니다. 마이그레이션 적용을 권장합니다.",
         });
@@ -329,11 +343,22 @@ export async function POST(
         } catch {
           /* ignore */
         }
-        await insertSellerListingChangeSystemMessagesServer(sbAny, {
+        let threadNoticesFb: TradeListingThreadNotice[] = [];
+        try {
+          threadNoticesFb = await insertSellerListingChangeSystemMessagesServer(sbAny, {
+            postId: postId.trim(),
+            sellerUserId: userId,
+            nextState: nextState as SellerListingState,
+          });
+        } catch {
+          threadNoticesFb = [];
+        }
+        await publishTradePostListingUpdateFromServer({
           postId: postId.trim(),
-          sellerUserId: userId,
-          nextState: nextState as SellerListingState,
-        }).catch(() => {});
+          sellerListingState: nextState,
+          postStatus,
+          threadNotices: threadNoticesFb,
+        });
         await syncTradeSummaryStateBestEffort({
           sbAny,
           postId: postId.trim(),
@@ -346,6 +371,7 @@ export async function POST(
           sellerListingState: nextState,
           status: postStatus,
           reservedBuyerId: nextState === "reserved" ? reservedBuyerRaw : null,
+          threadNotices: threadNoticesFb,
           warning:
             "판매 단계 전용 컬럼(seller_listing_state)이 없어 글 상태(status)와 채팅방 거래단계만 반영했습니다. 목록·새로고침 후 «판매중/문의중» 표시가 어긋날 수 있어요. Supabase에 마이그레이션(예: web/supabase/migrations/*seller_listing_state*)을 적용하면 해결됩니다.",
         });
@@ -385,11 +411,22 @@ export async function POST(
     /* chat_rooms 없거나 컬럼 불일치 시 무시 */
   }
 
-  await insertSellerListingChangeSystemMessagesServer(sbAny, {
+  let threadNoticesMain: TradeListingThreadNotice[] = [];
+  try {
+    threadNoticesMain = await insertSellerListingChangeSystemMessagesServer(sbAny, {
+      postId: postId.trim(),
+      sellerUserId: userId,
+      nextState: nextState as SellerListingState,
+    });
+  } catch {
+    threadNoticesMain = [];
+  }
+  await publishTradePostListingUpdateFromServer({
     postId: postId.trim(),
-    sellerUserId: userId,
-    nextState: nextState as SellerListingState,
-  }).catch(() => {});
+    sellerListingState: nextState,
+    postStatus,
+    threadNotices: threadNoticesMain,
+  });
   await syncTradeSummaryStateBestEffort({
     sbAny,
     postId: postId.trim(),
@@ -403,5 +440,6 @@ export async function POST(
     sellerListingState: nextState,
     status: postStatus,
     reservedBuyerId: nextState === "reserved" ? reservedBuyerRaw : null,
+    threadNotices: threadNoticesMain,
   });
 }

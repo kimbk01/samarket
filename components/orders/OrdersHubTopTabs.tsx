@@ -104,7 +104,7 @@ export function OrdersHubTopTabs({
           })}
         </div>
         <div
-          className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-sam-ink transition-[left,width] duration-300 ease-out"
+          className="pointer-events-none absolute bottom-0 h-[3px] rounded-full bg-sam-primary transition-[left,width] duration-300 ease-out"
           style={{ left: indicator.left, width: indicator.width }}
           aria-hidden
         />

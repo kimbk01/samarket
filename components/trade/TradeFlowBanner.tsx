@@ -121,7 +121,7 @@ export function TradeFlowBanner({
   if (soldToOther) {
     return (
       <div
-        className={`border-b border-amber-100 bg-amber-50 px-3 ${compactPad} sam-text-body-secondary text-amber-900`}
+        className={`border-b border-sam-warning/20 bg-sam-warning-soft px-3 ${compactPad} sam-text-body-secondary text-sam-warning`}
       >
         이미 다른 구매자와 거래가 완료된 상품입니다. 새 메시지는 제한될 수 있어요.
       </div>
@@ -157,7 +157,7 @@ export function TradeFlowBanner({
           <button
             type="button"
             onClick={() => onOpenReview()}
-            className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
+            className="mt-2 rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
           >
             후기 보내기
           </button>
@@ -169,17 +169,17 @@ export function TradeFlowBanner({
   const listingStepLabel = TRADE_LISTING_CHAT_STEPS.find((s) => s.state === displayListing)?.label ?? "진행";
 
   return (
-    <div className={`border-b border-sam-border-soft bg-signature/10 px-3 ${compactPad}`}>
+    <div className={`border-b border-sam-primary-border bg-sam-primary-soft px-3 ${compactPad}`}>
       {room.product && postNotSold && flow === "chatting" ? (
         compact && !diagramExpanded ? (
           <div className="flex min-h-[40px] items-center justify-between gap-2">
             <p className="min-w-0 truncate sam-text-helper font-semibold text-sam-fg">
-              거래 단계: <span className="text-signature">{listingStepLabel}</span>
+              거래 단계: <span className="text-sam-primary">{listingStepLabel}</span>
             </p>
             <button
               type="button"
               onClick={() => setDiagramExpanded(true)}
-              className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-semibold text-sam-fg active:opacity-90"
+              className="shrink-0 rounded-sam-sm border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-semibold text-sam-fg active:opacity-90"
             >
               펼치기
             </button>
@@ -197,7 +197,7 @@ export function TradeFlowBanner({
               <button
                 type="button"
                 onClick={() => setDiagramExpanded(false)}
-                className="mt-1.5 w-full rounded-ui-rect border border-sam-border/80 bg-sam-surface/90 py-1 sam-text-xxs font-medium text-sam-muted active:opacity-90"
+                className="mt-1.5 w-full rounded-sam-sm border border-sam-border bg-sam-surface py-1.5 sam-text-xxs font-medium text-sam-muted active:opacity-90"
               >
                 단계 접기
               </button>
@@ -217,7 +217,7 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-confirm`, {})}
-              className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
+              className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
             >
               {loading === `${base}/buyer-confirm` ? "처리 중…" : "거래완료 확인"}
             </button>
@@ -225,14 +225,14 @@ export function TradeFlowBanner({
               type="button"
               disabled={!!loading}
               onClick={() => post(`${base}/buyer-issue`, {})}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
+              className="rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
             >
               문제있어요
             </button>
             <button
               type="button"
               onClick={dismissBuyerActions}
-              className="rounded-ui-rect border border-transparent px-3 py-1.5 sam-text-helper font-medium text-signature underline-offset-2 hover:underline"
+              className="rounded-sam-sm border border-transparent px-3 py-1.5 sam-text-helper font-medium text-sam-primary underline-offset-2 hover:underline"
             >
               나중에
             </button>
@@ -260,7 +260,7 @@ export function TradeFlowBanner({
                 <button
                   type="button"
                   onClick={() => onOpenReview()}
-                  className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white"
+                  className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white"
                 >
                   평가·후기 보내기
                 </button>
@@ -276,12 +276,12 @@ export function TradeFlowBanner({
       )}
 
       {flow === "dispute" && (
-        <p className="mt-2 sam-text-xxs text-amber-900">문제가 접수되어 운영팀이 확인 중이에요.</p>
+        <p className="mt-2 sam-text-xxs text-sam-warning">문제가 접수되어 운영팀이 확인 중이에요.</p>
       )}
 
-      {listingNotice ? <p className="mt-1.5 sam-text-xxs text-amber-800">{listingNotice}</p> : null}
-      {listingError ? <p className="mt-1.5 sam-text-xxs text-red-600">{listingError}</p> : null}
-      {msg && <p className="mt-2 sam-text-helper text-red-600">{msg}</p>}
+      {listingNotice ? <p className="mt-1.5 sam-text-xxs text-sam-warning">{listingNotice}</p> : null}
+      {listingError ? <p className="mt-1.5 sam-text-xxs text-sam-danger">{listingError}</p> : null}
+      {msg && <p className="mt-2 sam-text-helper text-sam-danger">{msg}</p>}
     </div>
   );
 }

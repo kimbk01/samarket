@@ -21,7 +21,7 @@ export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
   return (
     <div
       data-cm-primary-nav
-      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface-muted`}
+      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface`}
     >
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
         <HorizontalDragScroll

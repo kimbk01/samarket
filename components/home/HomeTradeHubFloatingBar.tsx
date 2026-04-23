@@ -44,7 +44,7 @@ function slugFromPath(pathname: string): string | null {
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
-  "max-w-[11rem] truncate rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg shadow-sm";
+  "max-w-[11rem] truncate rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2 text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg shadow-sam-elevated";
 
 const SLIDE_MS = 320;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
@@ -211,7 +211,7 @@ export function HomeTradeHubFloatingBar() {
       {menuOpen && !launcherOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-[20] bg-black/30 backdrop-blur-[3px]"
+          className="fixed inset-0 z-[20] bg-sam-ink/20 backdrop-blur-[1px]"
           aria-label={t("nav_menu_close")}
           onClick={onBackdropClick}
         />
@@ -220,7 +220,7 @@ export function HomeTradeHubFloatingBar() {
       {launcherOpen ? (
         <WriteLauncherOverlay
           onClose={closeAll}
-          className="fixed inset-0 z-[32] bg-black/30 backdrop-blur-[3px]"
+          className="fixed inset-0 z-[32] bg-sam-ink/20 backdrop-blur-[1px]"
         />
       ) : null}
 
@@ -233,12 +233,12 @@ export function HomeTradeHubFloatingBar() {
         >
           <button
             type="button"
-            className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${hubSheetEntered ? "opacity-100" : "opacity-0"}`}
+            className={`absolute inset-0 bg-sam-ink/28 transition-opacity duration-200 ${hubSheetEntered ? "opacity-100" : "opacity-0"}`}
             aria-label={`${t("nav_trade_history_title")} ${t("nav_close")}`}
             onClick={closeHubSheet}
           />
           <div
-            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
+            className={`relative z-[1] flex max-h-[min(88dvh,900px)] w-full flex-col rounded-t-sam-md border border-sam-border border-b-0 bg-sam-surface shadow-sam-elevated transition-transform ease-out ${hubSheetEntered ? "translate-y-0" : "translate-y-full"}`}
             style={{ transitionDuration: `${SHEET_MS}ms`, transitionTimingFunction: SHEET_EASE }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -382,7 +382,7 @@ function HubSheetCloseButton({ onClick, ariaLabel }: { onClick: () => void; aria
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground transition-[transform,background-color] active:scale-95 hover:bg-black/[0.06] md:h-10 md:min-w-[44px] md:rounded-lg md:px-2 md:text-signature"
+      className="sam-header-action flex h-11 w-11 shrink-0 items-center justify-center text-sam-fg transition-[transform,background-color] active:scale-95 md:h-10 md:min-w-[44px] md:px-2 md:text-sam-primary"
     >
       <span
         className="flex h-[26px] w-[26px] items-center justify-center sam-text-hero font-light leading-none md:hidden"

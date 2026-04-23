@@ -92,20 +92,7 @@ function shouldBottomNavTapScrollOnlyNoNavigate(
 }
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
-  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,transform,background-color] duration-150 ease-out active:scale-[0.96]";
-
-/** 활성 탭 플로팅 원 — `activeShellClass` 로 탭별 덮어쓰기 */
-const BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS =
-  "bg-gradient-to-b from-[#9485eb] to-[#6b5ac6] shadow-[0_12px_32px_rgba(38,26,88,0.5)] ring-2 ring-white/20";
-
-const BOTTOM_NAV_ORB_HOVER_CLASS =
-  "transition-[box-shadow,filter] duration-200 ease-out group-hover:shadow-[0_14px_36px_rgba(30,18,82,0.52)] group-hover:brightness-[1.04]";
-
-/** 비활성 탭 링크 */
-const BOTTOM_NAV_LINK_INACTIVE_SURFACE = "rounded-2xl hover:bg-white/[0.08] active:bg-white/[0.11]";
-
-/** 선택 탭 아이콘 — 비활성(h-6 w-6)보다 한 단계 크게, 원 중심에 맞춤 */
-const BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS = "h-7 w-7";
+  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98]";
 
 function triggerLightTapFeedback(): void {
   try {
@@ -189,14 +176,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       .join(" ");
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
-  const activeOrbClass = tab.activeShellClass ?? BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS;
-  const activeIconClass = tab.iconSizeClass ? iconSize : BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS;
   const className = [
-    "group relative flex min-h-0 flex-1 flex-col items-center justify-end",
-    "gap-0.5 px-0.5 pb-1 pt-0",
+    "group relative flex min-h-0 flex-1 flex-col items-center justify-center",
+    "gap-1 border-t-2 px-1 pb-2 pt-2",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddd6fe]/50 rounded-2xl",
-    isActive ? "z-[2]" : BOTTOM_NAV_LINK_INACTIVE_SURFACE,
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary/35 rounded-sam-sm",
+    isActive ? "border-sam-primary bg-sam-primary-soft/50" : "border-transparent bg-transparent active:bg-sam-surface-muted",
     hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
@@ -209,40 +194,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const inner = (
     <>
-      {isActive ? (
-        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-          <div className="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center">
-            <span
-              className={[
-                "pointer-events-none absolute inset-0 rounded-full",
-                BOTTOM_NAV_ORB_HOVER_CLASS,
-                activeOrbClass,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              aria-hidden
-            />
-            <span className={`relative z-[1] inline-flex items-center justify-center ${iconActive}`}>
-              <span className="relative inline-flex">
-                <Icon className={activeIconClass} />
-                <BottomNavHubBadgeDot count={tabBadgeCount} />
-              </span>
-            </span>
-          </div>
-        </div>
-      ) : null}
-      <div className="relative flex h-8 w-full shrink-0 items-end justify-center">
-        {isActive ? (
-          <span className="pointer-events-none inline-flex opacity-0" aria-hidden>
-            <Icon className={activeIconClass} />
-            <BottomNavHubBadgeDot count={tabBadgeCount} />
-          </span>
-        ) : (
-          <span className={`relative inline-flex pb-0.5 ${iconInactive}`}>
-            <Icon className={iconSize} />
-            <BottomNavHubBadgeDot count={tabBadgeCount} />
-          </span>
-        )}
+      <div className="relative flex h-6 w-full shrink-0 items-center justify-center">
+        <span className={`relative inline-flex ${isActive ? iconActive : iconInactive}`}>
+          <Icon className={iconSize} />
+          <BottomNavHubBadgeDot count={tabBadgeCount} />
+        </span>
       </div>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
     </>
@@ -317,18 +273,16 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const storesTabOwnerLite = !!ownerStore;
 
-  const activeOrbClass = tab.activeShellClass ?? BOTTOM_NAV_DEFAULT_ACTIVE_ORB_CLASS;
-  const activeIconClass = tab.iconSizeClass ? iconSize : BOTTOM_NAV_ACTIVE_ICON_SIZE_CLASS;
   const inactiveSurface =
     isActive || !storesTabOwnerLite
       ? ""
-      : "bg-white/[0.08] shadow-none ring-1 ring-[#ebe4ff]/14 hover:bg-white/[0.12] hover:ring-[#ebe4ff]/22 active:bg-white/[0.15]";
+      : "bg-transparent";
   const className = [
-    "group relative flex min-h-0 flex-1 flex-col items-center justify-end",
-    "gap-0.5 px-0.5 pb-1 pt-0",
+    "group relative flex min-h-0 flex-1 flex-col items-center justify-center",
+    "gap-1 border-t-2 px-1 pb-2 pt-2",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ddd6fe]/50 rounded-2xl",
-    isActive ? "z-[2]" : inactiveSurface ? inactiveSurface : BOTTOM_NAV_LINK_INACTIVE_SURFACE,
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary/35 rounded-sam-sm",
+    isActive ? "border-sam-primary bg-sam-primary-soft/50" : inactiveSurface ? inactiveSurface : "border-transparent bg-transparent active:bg-sam-surface-muted",
   ]
     .filter(Boolean)
     .join(" ");
@@ -342,40 +296,11 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const inner = (
     <>
-      {isActive ? (
-        <div className="absolute left-1/2 top-0 z-[2] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center">
-          <div className="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center">
-            <span
-              className={[
-                "pointer-events-none absolute inset-0 rounded-full",
-                BOTTOM_NAV_ORB_HOVER_CLASS,
-                activeOrbClass,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              aria-hidden
-            />
-            <span className={`relative z-[1] inline-flex items-center justify-center ${iconActive}`}>
-              <span className="relative inline-flex">
-                <Icon className={activeIconClass} />
-                <BottomNavHubBadgeDot count={tabBadgeCount} />
-              </span>
-            </span>
-          </div>
-        </div>
-      ) : null}
-      <div className="relative flex h-8 w-full shrink-0 items-end justify-center">
-        {isActive ? (
-          <span className="pointer-events-none inline-flex opacity-0" aria-hidden>
-            <Icon className={activeIconClass} />
-            <BottomNavHubBadgeDot count={tabBadgeCount} />
-          </span>
-        ) : (
-          <span className={`relative inline-flex pb-0.5 ${iconInactive}`}>
-            <Icon className={iconSize} />
-            <BottomNavHubBadgeDot count={tabBadgeCount} />
-          </span>
-        )}
+      <div className="relative flex h-6 w-full shrink-0 items-center justify-center">
+        <span className={`relative inline-flex ${isActive ? iconActive : iconInactive}`}>
+          <Icon className={iconSize} />
+          <BottomNavHubBadgeDot count={tabBadgeCount} />
+        </span>
       </div>
       <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
     </>
@@ -617,7 +542,7 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
     <>
     <nav className={BOTTOM_NAV_SHELL.outerClassName} aria-label={t("nav_bottom_bar_aria")}>
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
         {tabs.map((tab) =>
           tab.icon === "stores" ? (
             <BottomNavTabStores

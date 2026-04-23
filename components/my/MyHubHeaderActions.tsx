@@ -84,7 +84,7 @@ function MyHubHeaderActionsInner() {
     <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
       <button
         type="button"
-        className={`relative flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft disabled:opacity-60 ${!soundOn && loaded ? "opacity-70" : ""}`}
+        className={`sam-header-action relative h-10 w-10 text-sam-fg disabled:opacity-60 ${!soundOn && loaded ? "opacity-70" : ""}`}
         onClick={() => void onToggleSound()}
         aria-pressed={soundOn}
         disabled={busy}
@@ -94,7 +94,7 @@ function MyHubHeaderActionsInner() {
       </button>
       <Link
         href={buildMypageInfoHubHref()}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label={t("hub_settings_aria")}
       >
         <SettingsIcon />
@@ -108,14 +108,14 @@ function MyHubHeaderActionsFallback() {
   return (
     <div className="flex w-[88px] shrink-0 items-center justify-end gap-0.5">
       <span
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground opacity-70"
+        className="sam-header-action h-10 w-10 text-sam-fg opacity-70"
         aria-hidden
       >
         <BellIcon />
       </span>
       <Link
         href={buildMypageInfoHubHref()}
-        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label={t("hub_settings_aria")}
       >
         <SettingsIcon />

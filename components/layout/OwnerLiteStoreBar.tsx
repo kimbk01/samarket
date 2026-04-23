@@ -74,7 +74,7 @@ export function OwnerLiteStoreBar() {
             onClick={(e) => {
               if (openBlockedModalIfNeeded()) e.preventDefault();
             }}
-            className="inline-flex min-h-[36px] items-center rounded-full border border-sam-surface/80 bg-sam-surface/60 px-3 sam-text-helper font-medium text-sam-fg"
+            className="inline-flex min-h-[36px] items-center rounded-sam-sm border border-sam-border bg-sam-surface px-3 sam-text-helper font-medium text-sam-fg"
           >
             전체
           </Link>
@@ -101,17 +101,17 @@ function ShortcutLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`inline-flex min-h-[36px] items-center rounded-full px-3 sam-text-helper font-semibold ${
+      className={`inline-flex min-h-[36px] items-center rounded-sam-sm border px-3 sam-text-helper font-semibold ${
         strong
-          ? "bg-sam-ink text-white shadow-sm"
-          : "border border-sam-surface/80 bg-sam-surface/80 text-sam-fg"
+          ? "border-sam-primary-border bg-sam-primary-soft text-sam-primary"
+          : "border-sam-border bg-sam-surface text-sam-fg"
       }`}
     >
       <span>{label}</span>
       {badge && badge > 0 ? (
         <span
           className={`ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 sam-text-xxs font-bold ${
-            strong ? "bg-sam-surface/20 text-white" : "bg-red-600 text-white"
+            strong ? "bg-sam-primary text-white" : "bg-sam-danger text-white"
           }`}
         >
           {badge > 99 ? "99+" : badge}

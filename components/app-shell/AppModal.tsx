@@ -30,16 +30,15 @@ export function AppModal({ open, onClose, title, children, footer, className }: 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
       <div className="sam-sheet-backdrop" role="presentation" onClick={onClose} />
-      <div
-        className={`relative z-[60] mx-auto w-full max-w-lg rounded-t-sam-lg border border-sam-border bg-sam-surface sm:rounded-sam-md ${className ?? ""}`.trim()}
-      >
+      <div className={`sam-sheet-panel relative z-[60] mx-auto w-full max-w-lg border-b sm:rounded-sam-md ${className ?? ""}`.trim()}>
+        <div className="sam-sheet-handle sm:hidden" aria-hidden />
         {title != null ? (
-          <div className="border-b border-sam-border px-4 py-3">
+          <div className="sam-sheet-header">
             <h2 className="sam-text-section-title">{title}</h2>
           </div>
         ) : null}
-        <div className="max-h-[min(70dvh,560px)] overflow-y-auto px-4 py-3">{children}</div>
-        {footer != null ? <div className="border-t border-sam-border px-4 py-3">{footer}</div> : null}
+        <div className="sam-sheet-body max-h-[min(70dvh,560px)]">{children}</div>
+        {footer != null ? <div className="sam-sheet-footer">{footer}</div> : null}
       </div>
     </div>
   );

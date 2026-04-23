@@ -1,3 +1,3 @@
 export default function StoresLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <div className="sam-domain-shell">{children}</div>;
 }

@@ -159,7 +159,18 @@ function writeMessageCache(cache: Map<string, MessageCacheEntry>, roomId: string
 
 /** POST 직후 캐시된 GET 결과가 남아 내 메시지가 안 보이는 현상 방지 */
 export function bustIntegratedChatMessagesCache(roomId: string): void {
-  forgetSingleFlight(integratedMessagesKey(roomId));
+  const id = roomId.trim();
+  if (!id) return;
+  forgetSingleFlight(integratedMessagesKey(id));
+  integratedMessageCache.delete(id);
+}
+
+/** 통합 외 레거시 product_chat — 전송·상태 변경 직후 동일 */
+export function bustLegacyChatMessagesCache(roomId: string): void {
+  const id = roomId.trim();
+  if (!id) return;
+  forgetSingleFlight(`chat:legacy-messages:${id}`);
+  legacyMessageCache.delete(id);
 }
 
 export function peekIntegratedChatRoomMessagesCache(roomId: string): ChatMessage[] | null {

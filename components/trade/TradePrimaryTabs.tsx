@@ -109,14 +109,14 @@ export function TradePrimaryTabs({
 
   if (embedInAppHeader) {
     return (
-      <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface-muted">
+      <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface">
         <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface-muted py-1">
+    <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
     </div>
   );

@@ -42,7 +42,7 @@ function StoresRootTier1Right() {
     <div className="flex shrink-0 items-center gap-0.5">
       <Link
         href="/search"
-        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label={t("nav_search_aria")}
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -55,7 +55,7 @@ function StoresRootTier1Right() {
       </Link>
       <Link
         href={cartHref}
-        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg"
         aria-label={cartLineKindCount > 0 ? t("nav_cart_aria") : t("common_delivery")}
       >
         <StoreCommerceCartStrokeIcon className="h-5 w-5" />
@@ -78,7 +78,7 @@ function UnifiedTier1Shell({
 }) {
   return (
     <header
-      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface ${embedded ? "" : "border-b border-sam-border"}`}
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px] ${embedded ? "" : "border-b border-sam-border"}`}
     >
       {children}
     </header>
@@ -123,10 +123,10 @@ export function RegionBar({
       <UnifiedTier1Shell embedded={embedded}>
         <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
           <div className="flex w-[44px] shrink-0 justify-start" aria-hidden>
-            <div className="h-9 w-9" />
+            <div className="h-10 w-10" />
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
               <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
             </h1>
           </div>
@@ -144,7 +144,7 @@ export function RegionBar({
             <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
           </div>
           <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-foreground">
+            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
               <Tier1ExplorationTitleRow segmentTitle={t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY)} />
             </h1>
           </div>
@@ -218,18 +218,18 @@ export function RegionBar({
           )}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-          <h1 className="flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-foreground">
+          <h1 className="flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg">
             {centerNode}
             {subtitle ? (
               subtitleHref ? (
                 <Link
                   href={subtitleHref}
-                  className="mt-0.5 block truncate sam-text-xxs leading-tight text-[var(--text-muted)] hover:text-foreground hover:underline"
+                  className="mt-0.5 block truncate sam-text-xxs leading-tight text-sam-muted hover:text-sam-fg hover:underline"
                 >
                   {subtitle}
                 </Link>
               ) : (
-                <p className="truncate sam-text-xxs leading-tight text-[var(--text-muted)]">{subtitle}</p>
+                <p className="truncate sam-text-xxs leading-tight text-sam-muted">{subtitle}</p>
               )
             ) : null}
           </h1>

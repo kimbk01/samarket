@@ -48,7 +48,7 @@ export function TradeHubTopTabs() {
       className="mt-0 w-full min-w-0 max-w-full overflow-x-hidden"
     >
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
-        <AppSegmentTabs tabs={tabs} />
+        <AppSegmentTabs tabs={tabs} scroll />
       </div>
     </div>
   );

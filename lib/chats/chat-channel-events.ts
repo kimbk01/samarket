@@ -19,6 +19,8 @@ export const KASAMA_MAIN_BOTTOM_NAV_UPDATED = "kasama:main-bottom-nav-updated";
 type ChatChannelDispatchDetail = {
   source?: string;
   key?: string;
+  /** 동일 postId·다른 방에서 중복 갱신을 줄이기 위한 힌트(옵션) */
+  roomId?: string;
   at: number;
 };
 
@@ -27,7 +29,8 @@ const recentEventDispatchAt = new Map<string, number>();
 
 function dispatchDedupedWindowEvent(eventName: string, detail: ChatChannelDispatchDetail, dedupeMs: number): void {
   if (typeof window === "undefined") return;
-  const sig = `${eventName}:${detail.source ?? "unknown"}:${detail.key ?? "global"}`;
+  const room = typeof detail.roomId === "string" && detail.roomId.trim() ? detail.roomId.trim() : "";
+  const sig = `${eventName}:${detail.source ?? "unknown"}:${detail.key ?? "global"}${room ? `:room:${room}` : ""}`;
   const now = Date.now();
   const prev = recentEventDispatchAt.get(sig) ?? 0;
   if (now - prev < dedupeMs) return;
@@ -38,6 +41,7 @@ function dispatchDedupedWindowEvent(eventName: string, detail: ChatChannelDispat
 export function dispatchTradeChatUnreadUpdated(args?: {
   source?: string;
   key?: string;
+  roomId?: string;
   dedupeMs?: number;
 }): void {
   dispatchDedupedWindowEvent(
@@ -45,6 +49,7 @@ export function dispatchTradeChatUnreadUpdated(args?: {
     {
       source: args?.source,
       key: args?.key,
+      roomId: args?.roomId,
       at: Date.now(),
     },
     args?.dedupeMs ?? EVENT_DISPATCH_DEFAULT_DEDUPE_MS

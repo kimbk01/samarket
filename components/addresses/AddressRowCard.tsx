@@ -36,7 +36,7 @@ export function AddressRowCard(props: {
         type="button"
         disabled={rowBusy}
         onClick={() => onSetAsRepresentative?.()}
-        className="min-w-0 flex-1 rounded-ui-rect px-0 py-0 pr-1 text-left disabled:opacity-50 sm:pr-0"
+        className="min-w-0 flex-1 rounded-sam-sm px-0 py-0 pr-1 text-left disabled:opacity-50 sm:pr-0"
         aria-label={
           row.isDefaultMaster
             ? `${title}, 현재 대표 주소, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
@@ -46,7 +46,7 @@ export function AddressRowCard(props: {
         <div className="flex flex-wrap items-center gap-1.5">
           <span className={ADDR_ROW_TITLE}>{title}</span>
           {row.isDefaultMaster ? (
-            <span className="rounded-full bg-signature px-2 py-0.5 sam-text-xxs font-bold text-white shadow-sm">
+            <span className="rounded-full bg-sam-primary px-2 py-0.5 sam-text-xxs font-bold text-white">
               대표
             </span>
           ) : (
@@ -56,7 +56,7 @@ export function AddressRowCard(props: {
         <p className={`mt-0.5 ${ADDR_BODY} sam-text-body-secondary`}>{sub || "—"}</p>
         {detailLine ? (
           <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
-            <span className="shrink-0 pb-0.5 sam-text-helper font-semibold text-signature/90">상세주소</span>
+            <span className="shrink-0 pb-0.5 sam-text-helper font-semibold text-sam-primary">상세주소</span>
             <span
               className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left sam-text-body-secondary text-sam-fg"
               translate="no"
@@ -71,7 +71,7 @@ export function AddressRowCard(props: {
           type="button"
           onClick={onEdit}
           disabled={rowBusy}
-          className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-sam-muted transition-colors hover:bg-sam-primary-soft/50 hover:text-signature disabled:opacity-40"
+          className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-muted transition-colors hover:text-sam-primary disabled:opacity-40"
           aria-label="수정"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -88,7 +88,7 @@ export function AddressRowCard(props: {
           type="button"
           onClick={onDelete}
           disabled={rowBusy}
-          className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-sam-muted transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+          className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-muted transition-colors hover:text-sam-danger disabled:opacity-40"
           aria-label="삭제"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>

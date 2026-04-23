@@ -13,9 +13,22 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-page {
-    @apply bg-sam-app text-sam-fg;
+    @apply min-w-0 bg-sam-app text-sam-fg;
     padding-left: var(--sam-screen-padding-x);
     padding-right: var(--sam-screen-padding-x);
+  }
+
+  .sam-domain-shell {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app text-sam-fg;
+  }
+
+  .sam-page-stack {
+    @apply flex min-h-0 min-w-0 flex-1 flex-col gap-5;
+  }
+
+  .sam-page-section {
+    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    box-shadow: var(--sam-shadow-none);
   }
 
   .sam-text-hero {
@@ -90,22 +103,22 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-card {
-    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    @apply overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface;
     box-shadow: var(--sam-shadow-none);
   }
 
   .sam-card--elevated {
-    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    @apply overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface;
     box-shadow: var(--sam-shadow-elevated);
   }
 
   .sam-card--flat {
-    @apply rounded-sam-md border border-sam-border bg-sam-surface;
+    @apply overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface;
     box-shadow: var(--sam-shadow-none);
   }
 
   .sam-card--muted {
-    @apply rounded-sam-md border border-sam-border bg-sam-surface-muted;
+    @apply overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface-muted;
     box-shadow: var(--sam-shadow-none);
   }
 
@@ -120,8 +133,9 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-btn {
-    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md px-4 font-semibold transition-[background-color,border-color,color,opacity,filter] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border px-4 font-semibold transition-[background-color,border-color,color,opacity,filter] duration-150;
     font-size: var(--sm-font-button);
+    box-shadow: var(--sam-shadow-none);
   }
 
   .sam-btn:disabled {
@@ -129,7 +143,7 @@
   }
 
   .sam-btn--primary {
-    @apply border border-transparent bg-sam-primary text-sam-on-primary;
+    @apply border-transparent bg-sam-primary text-sam-on-primary;
   }
 
   .sam-btn--primary:not(:disabled):active {
@@ -137,7 +151,7 @@
   }
 
   .sam-btn--secondary {
-    @apply border border-sam-primary-border bg-sam-primary-soft text-sam-primary;
+    @apply border-sam-primary-border bg-sam-primary-soft text-sam-primary;
   }
 
   .sam-btn--secondary:not(:disabled):active {
@@ -145,7 +159,7 @@
   }
 
   .sam-btn--ghost {
-    @apply border border-transparent bg-transparent text-sam-fg;
+    @apply border-transparent bg-transparent text-sam-fg;
   }
 
   .sam-btn--ghost:not(:disabled):active {
@@ -153,7 +167,7 @@
   }
 
   .sam-btn--danger {
-    @apply border border-transparent bg-sam-danger-soft text-sam-danger;
+    @apply border-sam-danger/15 bg-sam-danger-soft text-sam-danger;
   }
 
   .sam-btn--outline {
@@ -182,7 +196,7 @@
 
   /* 단일 클래스 (레거시 / 빠른 사용) */
   .sam-btn-primary {
-    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 font-semibold text-sam-on-primary transition-[background-color,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 font-semibold text-sam-on-primary transition-[background-color,opacity] duration-150;
     font-size: var(--sam-text-body-size);
   }
 
@@ -195,7 +209,7 @@
   }
 
   .sam-btn-secondary {
-    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 font-semibold text-sam-primary transition-[filter,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 font-semibold text-sam-primary transition-[filter,opacity] duration-150;
     font-size: var(--sam-text-body-size);
   }
 
@@ -208,7 +222,7 @@
   }
 
   .sam-btn-ghost {
-    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 font-semibold text-sam-fg transition-colors duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 font-semibold text-sam-fg transition-colors duration-150;
     font-size: var(--sam-text-body-size);
   }
 
@@ -217,7 +231,7 @@
   }
 
   .sam-btn-danger {
-    @apply inline-flex min-h-[length:var(--sam-tap-min)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-danger-soft px-4 font-semibold text-sam-danger transition-opacity duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-4 font-semibold text-sam-danger transition-opacity duration-150;
     font-size: var(--sam-text-body-size);
   }
 
@@ -230,7 +244,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-input {
-    @apply box-border min-h-[length:var(--sam-input-min-height)] w-full rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    @apply box-border min-h-[length:var(--sam-input-min-height)] w-full rounded-sam-md border border-sam-border bg-sam-surface px-3.5 py-3 text-sam-fg outline-none transition-[border-color,box-shadow,background-color] duration-150;
     font-size: var(--sam-text-body-size);
     line-height: var(--sam-font-body-line);
   }
@@ -239,16 +253,17 @@
     @apply text-sam-meta;
     font-size: var(--sam-text-placeholder-size);
     font-weight: var(--sam-fw-regular);
-    line-height: var(--sam-font-body-compact-line);
+    line-height: var(--sam-font-body-line);
   }
 
   .sam-input:focus {
     @apply border-sam-primary;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+    background-color: var(--sam-bg-surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 18%, transparent);
   }
 
   .sam-input--soft {
-    @apply border-sam-border bg-sam-primary-soft;
+    @apply border-sam-border bg-sam-surface-muted;
   }
 
   .sam-input--soft:focus {
@@ -257,7 +272,7 @@
 
   /* 레거시 별칭 (= sam-input sam-input--soft) */
   .sam-input-surface-soft {
-    @apply w-full rounded-sam-md border border-sam-border bg-sam-primary-soft px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    @apply w-full rounded-sam-md border border-sam-border bg-sam-surface-muted px-3.5 py-3 text-sam-fg outline-none transition-[border-color,box-shadow,background-color] duration-150;
     font-size: var(--sam-text-body-size);
     line-height: var(--sam-font-body-line);
   }
@@ -266,16 +281,16 @@
     @apply text-sam-meta;
     font-size: var(--sam-text-placeholder-size);
     font-weight: var(--sam-fw-regular);
-    line-height: var(--sam-font-body-compact-line);
+    line-height: var(--sam-font-body-line);
   }
 
   .sam-input-surface-soft:focus {
     @apply border-sam-primary bg-sam-surface;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 18%, transparent);
   }
 
   .sam-textarea {
-    @apply w-full min-h-[96px] resize-y rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    @apply w-full min-h-[112px] resize-y rounded-sam-md border border-sam-border bg-sam-surface px-3.5 py-3 text-sam-fg outline-none transition-[border-color,box-shadow,background-color] duration-150;
     font-size: var(--sam-text-body-size);
     line-height: var(--sam-font-body-line);
   }
@@ -284,23 +299,23 @@
     @apply text-sam-meta;
     font-size: var(--sam-text-placeholder-size);
     font-weight: var(--sam-fw-regular);
-    line-height: var(--sam-font-body-compact-line);
+    line-height: var(--sam-font-body-line);
   }
 
   .sam-textarea:focus {
     @apply border-sam-primary;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 18%, transparent);
   }
 
   .sam-select {
-    @apply min-h-[length:var(--sam-input-min-height)] w-full appearance-none rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2.5 pr-9 text-sam-fg outline-none transition-[border-color,box-shadow] duration-150;
+    @apply min-h-[length:var(--sam-input-min-height)] w-full appearance-none rounded-sam-md border border-sam-border bg-sam-surface px-3.5 py-3 pr-9 text-sam-fg outline-none transition-[border-color,box-shadow,background-color] duration-150;
     font-size: var(--sam-text-body-size);
     line-height: var(--sam-font-body-line);
   }
 
   .sam-select:focus {
     @apply border-sam-primary;
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--sam-primary) 18%, transparent);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -308,7 +323,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-tabs {
-    @apply flex w-full border-b border-sam-border bg-sam-surface-muted;
+    @apply flex w-full items-stretch gap-5 border-b border-sam-border bg-sam-surface;
   }
 
   .sam-tab {
@@ -316,15 +331,17 @@
     min-width: 0;
     flex: 1 1 0%;
     min-height: var(--sam-segment-tab-height);
-    padding-left: var(--sam-space-1);
-    padding-right: var(--sam-space-1);
+    padding-left: 0;
+    padding-right: 0;
     padding-top: var(--sam-space-2);
     padding-bottom: var(--sam-space-2);
     text-align: center;
     font-size: var(--sm-font-tab);
-    font-weight: var(--sam-fw-semi);
+    font-weight: var(--sam-fw-medium);
     color: var(--sam-text-secondary);
-    transition: color 150ms;
+    transition:
+      color 150ms,
+      opacity 150ms;
   }
 
   .sam-tab[aria-selected="true"],
@@ -338,9 +355,9 @@
     content: "";
     position: absolute;
     bottom: 0;
-    left: var(--sam-space-3);
-    right: var(--sam-space-3);
-    height: 2px;
+    left: 0;
+    right: 0;
+    height: 3px;
     border-radius: var(--sam-radius-sm);
     background-color: var(--sam-primary);
   }
@@ -355,6 +372,7 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    gap: 0;
   }
 
   .sam-tabs--scroll::-webkit-scrollbar {
@@ -364,8 +382,8 @@
   .sam-tabs--scroll .sam-tab {
     flex: 0 0 auto;
     min-width: max-content;
-    padding-left: var(--sam-space-3);
-    padding-right: var(--sam-space-3);
+    padding-left: var(--sam-space-4);
+    padding-right: var(--sam-space-4);
   }
 
   /** 리스트·거래 카드 썸네일 공통 비율 */
@@ -379,16 +397,16 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-chip {
-    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm px-3 font-medium;
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm border border-sam-border bg-sam-surface px-3 font-medium text-sam-muted;
     font-size: var(--sam-text-xxs-size);
   }
 
   .sam-chip--active {
-    @apply bg-sam-primary text-sam-on-primary;
+    @apply border-sam-primary-border bg-sam-primary-soft text-sam-primary;
   }
 
   .sam-chip--inactive {
-    @apply bg-sam-primary-soft text-sam-muted;
+    @apply border-sam-border bg-sam-surface text-sam-muted;
   }
 
   .sam-chip--neutral {
@@ -396,12 +414,12 @@
   }
 
   .sam-chip-active {
-    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm bg-sam-primary px-3 font-semibold text-sam-on-primary;
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm border border-sam-primary-border bg-sam-primary-soft px-3 font-semibold text-sam-primary;
     font-size: var(--sam-text-xxs-size);
   }
 
   .sam-chip-inactive {
-    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm bg-sam-primary-soft px-3 font-medium text-sam-muted;
+    @apply inline-flex min-h-8 items-center justify-center rounded-sam-sm border border-sam-border bg-sam-surface px-3 font-medium text-sam-muted;
     font-size: var(--sam-text-xxs-size);
   }
 
@@ -410,11 +428,11 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-list-row {
-    @apply border-b border-sam-border bg-sam-surface;
+    @apply border-b border-sam-border bg-sam-surface transition-colors duration-150;
   }
 
   .sam-list-row--interactive:active {
-    @apply bg-sam-primary-soft;
+    @apply bg-sam-surface-muted;
   }
 
   .sam-list-row--selected {
@@ -426,7 +444,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-sheet-backdrop {
-    @apply fixed inset-0 z-40 bg-sam-ink/40 backdrop-blur-[2px];
+    @apply fixed inset-0 z-40 bg-sam-ink/28 backdrop-blur-[1px];
   }
 
   .sam-sheet-panel {
@@ -435,19 +453,19 @@
   }
 
   .sam-sheet-handle {
-    @apply mx-auto mt-2 h-1 w-10 rounded-full bg-sam-border;
+    @apply mx-auto mt-2 h-1 w-10 rounded-full bg-sam-border-soft;
   }
 
   .sam-sheet-header {
-    @apply flex shrink-0 items-center justify-between border-b border-sam-border-soft px-3 py-2.5;
+    @apply flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3;
   }
 
   .sam-sheet-body {
-    @apply min-h-0 flex-1 overflow-y-auto bg-sam-app px-3 py-3;
+    @apply min-h-0 flex-1 overflow-y-auto bg-sam-surface px-4 py-4;
   }
 
   .sam-sheet-footer {
-    @apply shrink-0 border-t border-sam-border-soft bg-sam-surface px-3 py-2.5;
+    @apply shrink-0 border-t border-sam-border-soft bg-sam-surface px-4 py-3;
   }
 
   /* -------------------------------------------------------------------------- */
@@ -456,31 +474,31 @@
 
   .sam-badge {
     font-size: var(--sam-text-xxs-size);
-    @apply inline-flex max-w-full items-center rounded-sam-sm px-2 py-0.5 font-medium leading-tight;
+    @apply inline-flex max-w-full items-center rounded-sam-sm border px-2 py-0.5 font-medium leading-tight;
   }
 
   .sam-badge--neutral {
-    @apply bg-sam-surface-muted text-sam-muted;
+    @apply border-sam-border bg-sam-surface-muted text-sam-muted;
   }
 
   .sam-badge--primary {
-    @apply bg-sam-primary-soft text-sam-primary;
+    @apply border-sam-primary-border bg-sam-primary-soft text-sam-primary;
   }
 
   .sam-badge--success {
-    @apply bg-sam-success-soft text-sam-success;
+    @apply border-sam-success/15 bg-sam-success-soft text-sam-success;
   }
 
   .sam-badge--warning {
-    @apply bg-sam-warning-soft text-sam-warning;
+    @apply border-sam-warning/15 bg-sam-warning-soft text-sam-warning;
   }
 
   .sam-badge--danger {
-    @apply bg-sam-danger-soft text-sam-danger;
+    @apply border-sam-danger/15 bg-sam-danger-soft text-sam-danger;
   }
 
   .sam-badge--info {
-    @apply bg-sam-info-soft text-sam-info;
+    @apply border-sam-info/15 bg-sam-info-soft text-sam-info;
   }
 
   /* -------------------------------------------------------------------------- */
@@ -638,6 +656,15 @@
 
   .sam-divider {
     @apply h-px w-full bg-sam-border;
+  }
+
+  .sam-header-action {
+    @apply inline-flex min-h-[length:var(--sam-header-action-min)] min-w-[length:var(--sam-header-action-min)] items-center justify-center rounded-sam-sm border border-transparent bg-transparent text-sam-fg transition-colors duration-150;
+  }
+
+  .sam-header-action:not(:disabled):active,
+  .sam-header-action:hover {
+    @apply bg-sam-surface-muted text-sam-primary;
   }
 
   /* -------------------------------------------------------------------------- */

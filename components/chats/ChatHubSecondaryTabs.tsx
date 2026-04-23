@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type ChatHubSecondaryTabItem = {
   href: string;
@@ -22,7 +23,8 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
   const { t, tt } = useI18n();
   return (
     <div className="border-b border-sam-border bg-sam-surface">
-      <div className={`mx-auto flex w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4`}>
+      <div className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4`}>
+        <div className={Sam.tabs.bar}>
         {items.map((item) => (
           <Link
             key={`${item.href}-${item.label}`}
@@ -30,16 +32,14 @@ export function ChatHubSecondaryTabs({ items }: { items: ChatHubSecondaryTabItem
             prefetch={false}
             scroll={item.scroll !== false}
             aria-current={item.active ? "page" : undefined}
-            className={[
-              "flex-1 border-b-2 px-2 py-3 text-center sam-text-body-lg transition-colors duration-200",
-              item.active
-                ? "border-signature font-semibold text-signature"
-                : "border-transparent font-medium text-muted hover:text-foreground",
-            ].join(" ")}
+            aria-selected={item.active}
+            role="tab"
+            className={item.active ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             {item.labelKey ? t(item.labelKey) : tt(item.label)}
           </Link>
         ))}
+        </div>
       </div>
     </div>
   );

@@ -41,9 +41,9 @@ export function AppStickyHeader() {
   const stickyBelow = extras?.stickyBelow ?? null;
 
   return (
-    <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface">
+    <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]">
       {categorySticky ? (
-          <div className="border-b border-sam-border bg-sam-surface">
+          <div className="border-b border-sam-border bg-sam-surface/95">
             <RegionBar embedded tier1RuleSet={topTier1RuleSet} />
             <CategoryListSubheader
               backHref={categorySticky.backHref}

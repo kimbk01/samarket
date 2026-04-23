@@ -134,7 +134,7 @@ export const PostCard = memo(function PostCard({
               e.stopPropagation();
               setMenuOpen(true);
             }}
-            className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
+            className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
             aria-label="메뉴"
           >
             <span className="text-[18px] leading-none">⋮</span>
@@ -145,7 +145,7 @@ export const PostCard = memo(function PostCard({
           onClick={() => beginRouteEntryPerf("product_detail", `/post/${post.id}`)}
           className="flex min-w-0 flex-1 gap-3"
         >
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-sam-md bg-sam-surface-muted">
             {thumbnailUrl ? (
               <img
                 ref={isFirstCard ? imageRef : undefined}
@@ -165,7 +165,7 @@ export const PostCard = memo(function PostCard({
                 }}
               />
             ) : isExchangeThumb ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
+              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-sam-primary-soft text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
             )}

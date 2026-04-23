@@ -58,8 +58,8 @@ type AppBackButtonProps = {
 };
 
 const structuralClass =
-  "flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full";
-const defaultToneClass = "text-sam-fg hover:bg-sam-surface-muted";
+  "sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center";
+const defaultToneClass = "text-sam-fg";
 
 export function AppBackButton({
   backHref,

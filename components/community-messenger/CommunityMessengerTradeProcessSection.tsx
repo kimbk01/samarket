@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChatProductSummary } from "@/components/chats/ChatProductSummary";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
@@ -14,6 +14,10 @@ import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
+import { dispatchTradeListingThreadNotices } from "@/lib/chats/trade-listing-thread-sync";
+import { useTradePostListingBroadcast } from "@/lib/chats/use-trade-post-listing-broadcast";
+import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-listing-broadcast-channel";
+import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
 
@@ -123,6 +127,27 @@ export function CommunityMessengerTradeProcessSection({
   const [postStatusFromRealtime, setPostStatusFromRealtime] = useState<string | null>(null);
   const amISeller = room ? room.sellerId === viewerUserId : false;
 
+  const tradePostListingPayloadRef = useRef<(p: TradePostListingBroadcastPayload) => void>(() => {});
+
+  useEffect(() => {
+    tradePostListingPayloadRef.current = (p: TradePostListingBroadcastPayload) => {
+      if (!postId || p.postId.trim() !== postId.trim()) return;
+      const normalized = normalizeSellerListingState(
+        p.sellerListingState,
+        p.postStatus ?? room?.product?.status
+      );
+      setPostStatusFromRealtime(p.postStatus);
+      setListingFromPostRealtime(normalized);
+      void reload();
+    };
+  }, [postId, room?.product?.status, reload]);
+
+  useTradePostListingBroadcast({
+    postId: postId || null,
+    enabled: Boolean(postId) && Boolean(viewerUserId?.trim()),
+    onPayloadRef: tradePostListingPayloadRef,
+  });
+
   usePostSellerListingRealtime({
     postId: postId || null,
     enabled: Boolean(postId) && Boolean(viewerUserId?.trim()),
@@ -164,9 +189,11 @@ export function CommunityMessengerTradeProcessSection({
   const persistListingState = useCallback(
     async (state: SellerListingState) => {
       if (!room || !postId || state === displayListing) return;
-      const label = SELLER_LISTING_LABEL[state];
-      if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 선택하시겠습니까?`)) {
-        return;
+      if (amISeller) {
+        const label = SELLER_LISTING_LABEL[state];
+        if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 변경할까요?`)) {
+          return;
+        }
       }
       setListingSaving(true);
       setListingError(null);
@@ -188,6 +215,7 @@ export function CommunityMessengerTradeProcessSection({
           error?: string;
           sellerListingState?: string;
           warning?: string;
+          threadNotices?: TradeListingThreadNotice[];
         };
         if (!res.ok || !data.ok || !data.sellerListingState) {
           setListingError(String(data.error ?? "저장에 실패했습니다."));
@@ -197,9 +225,17 @@ export function CommunityMessengerTradeProcessSection({
         setListingNotice(w || null);
         setPinnedListing(data.sellerListingState as SellerListingState);
         setPinnedForProductId(postId);
+        const threadNotices = Array.isArray(data.threadNotices) ? data.threadNotices : [];
+        if (threadNotices.length > 0) {
+          dispatchTradeListingThreadNotices({ postId, notices: threadNotices });
+        }
         await reload();
         onTradeMetaChanged?.();
-        dispatchTradeChatUnreadUpdated({ source: "seller-listing-state", key: postId });
+        dispatchTradeChatUnreadUpdated({
+          source: "seller-listing-state",
+          key: postId,
+          roomId: room.id?.trim() || undefined,
+        });
       } catch {
         setListingError("네트워크 오류로 저장하지 못했습니다.");
       } finally {

@@ -2,6 +2,7 @@
 
 import type { MemberOrderTab } from "@/lib/member-orders/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 const TABS: { key: MemberOrderTab; labelKey: "common_all" | "common_in_progress" | "common_done" | "common_cancel_refund" }[] = [
   { key: "all", labelKey: "common_all" },
@@ -25,7 +26,7 @@ export function MemberOrderTabs({
   const { t } = useI18n();
   if (variant === "feed") {
     return (
-      <div className="flex min-w-0">
+      <div className={Sam.tabs.bar}>
         {TABS.map(({ key, labelKey }) => {
           const on = active === key;
           return (
@@ -33,17 +34,13 @@ export function MemberOrderTabs({
               key={key}
               type="button"
               onClick={() => onChange(key)}
-              className={`min-w-0 flex-1 border-b-2 py-2.5 text-center sam-text-body-secondary font-semibold transition sm:py-3 sm:text-sm ${
-                on
-                  ? "border-signature text-signature"
-                  : "border-transparent text-[#65676B] hover:bg-[#F0F2F5]/80 dark:hover:bg-sam-surface/5"
-              }`}
+              aria-selected={on}
+              role="tab"
+              className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
             >
               <span className="block truncate px-0.5">
                 {t(labelKey)}
-                <span
-                  className={`ml-0.5 tabular-nums font-semibold ${on ? "text-signature/80" : "text-[#8A8D91]"}`}
-                >
+                <span className={`ml-0.5 tabular-nums font-semibold ${on ? "text-sam-primary" : "text-sam-meta"}`}>
                   {counts[key]}
                 </span>
               </span>
@@ -55,7 +52,7 @@ export function MemberOrderTabs({
   }
 
   return (
-    <div className="flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className={`${Sam.tabs.barScroll} [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
       {TABS.map(({ key, labelKey }) => {
         const on = active === key;
         return (
@@ -63,14 +60,12 @@ export function MemberOrderTabs({
             key={key}
             type="button"
             onClick={() => onChange(key)}
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              on
-                ? "bg-sam-ink text-white shadow-sm"
-                : "bg-sam-surface text-sam-fg ring-1 ring-sam-border hover:bg-sam-app"
-            }`}
+            aria-selected={on}
+            role="tab"
+            className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             {t(labelKey)}
-            <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-sam-meta"}`}>
+            <span className={`ml-1 tabular-nums ${on ? "text-sam-primary" : "text-sam-meta"}`}>
               {counts[key]}
             </span>
           </button>
