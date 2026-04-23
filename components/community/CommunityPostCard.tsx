@@ -29,6 +29,9 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
     skin === "location_pin" ? post.meetup_place?.trim() || post.region_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
 
+  /** 섹션 피드 DTO에는 `images` 배열이 없고 `thumbnail_url`만 있으므로 다중 이미지 뱃지는 1(썸 있음)/0. */
+  const imageCount = thumbnailUrl ? 1 : 0;
+
   return {
     href: philifeAppPaths.post(post.id),
     topicLabel: post.topic_name,
@@ -44,6 +47,7 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
     isQuestion: post.is_question,
     isMeetup: post.is_meetup,
     thumbnailUrl,
+    imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
     hashtagTags,
   };

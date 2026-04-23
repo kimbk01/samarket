@@ -9,8 +9,12 @@ import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messen
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
+import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
+import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { createMessengerRoomPageRscTimers } from "@/lib/community-messenger/server/messenger-room-page-rsc-timers";
+import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 
 async function CommunityMessengerRoomPageLoaded({
   params,
@@ -32,9 +36,24 @@ async function CommunityMessengerRoomPageLoaded({
       (hdrs.get("x-samarket-e2e-room-diag") ?? "").trim() === "1");
   const rscTimers = createMessengerRoomPageRscTimers(rid);
   rscTimers.mark("server_entry");
-  rscTimers.mark("bootstrap_start");
-  rscTimers.mark("bootstrap_end");
   const viewerUserId = await getOptionalAuthenticatedUserId();
+  const uid = viewerUserId?.trim() ?? "";
+  /** `GET .../bootstrap?mode=lite` 와 동일한 시드 한도 — RSC HTML 에 메시지·메타를 붙여 첫 페인트 전 클라이언트 대기를 줄임 */
+  const roomBootstrapSeedMessageLimit = Math.min(20, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
+  let initialServerSnapshot: Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>> = null;
+  rscTimers.mark("bootstrap_start");
+  if (uid) {
+    const canon = await messengerRoomCanonicalOrJsonError(uid, rid);
+    if (canon.ok) {
+      const readPort = createSupabaseCommunityMessengerReadPort();
+      initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, uid, canon.canonicalRoomId, {
+        initialMessageLimit: roomBootstrapSeedMessageLimit,
+        hydrateFullMemberList: false,
+        deferSnapshotSecondary: true,
+      });
+    }
+  }
+  rscTimers.mark("bootstrap_end");
   rscTimers.mark("pre_return");
   rscTimers.scheduleResponseAfter();
   return (
@@ -55,7 +74,7 @@ async function CommunityMessengerRoomPageLoaded({
         roomId={rid}
         initialCallAction={callAction}
         initialCallSessionId={sessionId}
-        initialServerSnapshot={null}
+        initialServerSnapshot={initialServerSnapshot}
         initialViewerUserId={viewerUserId ?? undefined}
       />
     </>

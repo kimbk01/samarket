@@ -10,6 +10,8 @@ import type {
 } from "./types";
 import { normalizeSectionSlug, type CommunityFeedSortMode } from "./constants";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
+import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
+import { fetchLikedCommentIdsSetForUser } from "@/lib/community/comment-likes.query";
 import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
@@ -394,43 +396,107 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   };
 }
 
-export async function listCommunityPostComments(postId: string): Promise<CommunityCommentDTO[]> {
+export async function listCommunityPostComments(
+  postId: string,
+  viewerUserId?: string | null
+): Promise<CommunityCommentDTO[]> {
+  const v = viewerUserId?.trim() ?? "";
   try {
     const sb = getSupabaseServer();
-    const r1 = await sb
-      .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted")
-      .eq("post_id", postId)
-      .eq("is_hidden", false)
-      .order("created_at", { ascending: true });
-    let data = r1.data;
-    let error = r1.error;
-    if (error && isMissingDbColumnError(error, "is_hidden")) {
-      const r2 = await sb
-        .from("community_comments")
-        .select("id, post_id, user_id, parent_id, content, created_at, is_deleted")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: true });
-      data = r2.data;
-      error = r2.error;
+    const run = (sel: string, useHidden: boolean) =>
+      (useHidden
+        ? sb
+            .from("community_comments")
+            .select(sel)
+            .eq("post_id", postId)
+            .eq("is_hidden", false)
+        : sb.from("community_comments").select(sel).eq("post_id", postId)
+      ).order("created_at", { ascending: true });
+    const attempts: { sel: string; useHidden: boolean }[] = [
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count",
+        useHidden: true,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count",
+        useHidden: false,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count",
+        useHidden: true,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count",
+        useHidden: false,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status",
+        useHidden: true,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status",
+        useHidden: false,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status, like_count",
+        useHidden: true,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status, like_count",
+        useHidden: false,
+      },
+      {
+        sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status",
+        useHidden: true,
+      },
+      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted, status", useHidden: false },
+      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted", useHidden: true },
+      { sel: "id, post_id, user_id, parent_id, content, created_at, is_deleted", useHidden: false },
+    ];
+    let data: unknown[] | null = null;
+    for (const a of attempts) {
+      const { data: d, error: e } = await run(a.sel, a.useHidden);
+      if (e) continue;
+      if (d && d.length) {
+        data = d as unknown[];
+        break;
+      }
+      if (d && d.length === 0) {
+        return [];
+      }
     }
-    if (error || !data?.length) return [];
+    if (!data) return [];
 
-    const rows = (data as Record<string, unknown>[]).filter((r) => r.is_deleted !== true);
+    let rows = (data as Record<string, unknown>[]).filter(
+      (r) => isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true
+    );
     if (rows.length === 0) return [];
     const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-    const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
+    const commentIds = rows.map((r) => String(r.id));
+    const [nickMap, likedSet] = await Promise.all([
+      fetchNicknamesForUserIds(sb as never, uids),
+      v && commentIds.length > 0 ? fetchLikedCommentIdsSetForUser(sb, v, commentIds) : Promise.resolve(new Set<string>()),
+    ]);
 
     return rows.map((r) => {
       const u = String(r.user_id ?? "");
+      const id = String(r.id);
+      const created = String(r.created_at ?? "");
+      const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
+      const t0 = new Date(created).getTime();
+      const t1 = new Date(upd).getTime();
       return {
-        id: String(r.id),
+        id,
         post_id: String(r.post_id ?? ""),
         user_id: u,
         parent_id: r.parent_id != null ? String(r.parent_id) : null,
         content: String(r.content ?? ""),
-        created_at: String(r.created_at ?? ""),
+        created_at: created,
         author_name: nickMap.get(u) ?? u.slice(0, 8),
+        like_count: Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)),
+        liked_by_viewer: v.length > 0 && likedSet.has(id),
+        updated_at: upd,
+        is_edited: !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
       };
     });
   } catch {

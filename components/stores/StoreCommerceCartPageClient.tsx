@@ -1362,7 +1362,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             value={buyerNote}
             disabled={busy}
             onChange={(e) => setBuyerNote(e.target.value)}
-            className="mt-2 w-full resize-none rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
+            className="sam-textarea mt-2 w-full min-h-[96px] resize-none"
             maxLength={500}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
@@ -1393,7 +1393,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           type="button"
           disabled={busy || !meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
           onClick={() => void submitOrder()}
-          className="w-full rounded bg-signature py-3.5 sam-text-body font-bold text-white shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
+          className="sam-btn-primary w-full shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
         >
           {busy ? t("common_processing") : t("common_order_action")}
         </button>
@@ -1408,13 +1408,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           }}
         >
           <div
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded sm:p-5"
+            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-ui-rect border border-sam-border bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_8px_24px_rgba(31,36,48,0.14)] sm:rounded-ui-rect sm:p-5"
             role="dialog"
             aria-modal
             aria-labelledby="cart-addr-modal-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="cart-addr-modal-title" className="text-base font-bold text-sam-fg">
+            <h2 id="cart-addr-modal-title" className="text-[16px] font-bold leading-[1.35] text-sam-fg">
               {`${t("common_delivery_label")}지 추가`}
             </h2>
             <p className="mt-1 sam-text-helper leading-snug text-sam-muted">
@@ -1457,7 +1457,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       disabled={busy}
                       onChange={(e) => setModalFreeLine(e.target.value)}
                       placeholder={STORE_ADDRESS_STREET_PLACEHOLDER}
-                      className="mt-1.5 w-full rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
+                      className="sam-input mt-1.5"
                       maxLength={300}
                     />
                   </div>
@@ -1475,7 +1475,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       value={modalDetail}
                       disabled={busy}
                       onChange={(e) => setModalDetail(e.target.value)}
-                      className="mt-1.5 w-full rounded border border-sam-border px-3 py-2 text-sm text-sam-fg"
+                      className="sam-input mt-1.5"
                       maxLength={500}
                     />
                   </div>
@@ -1490,7 +1490,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 type="button"
                 disabled={busy}
                 onClick={closeAddressModal}
-                className="flex-1 rounded border border-sam-border py-3 text-sm font-semibold text-sam-fg"
+                className="sam-btn-secondary flex-1"
               >
                 취소
               </button>
@@ -1498,7 +1498,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 type="button"
                 disabled={busy}
                 onClick={saveAddressModal}
-                className="flex-1 rounded bg-signature py-3 text-sm font-bold text-white"
+                className="sam-btn-primary flex-1"
               >
                 저장
               </button>

@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  COMMUNITY_BUTTON_PRIMARY_CLASS,
+  COMMUNITY_BUTTON_SECONDARY_CLASS,
+  COMMUNITY_MODAL_PANEL_CLASS,
+  COMMUNITY_OVERLAY_BACKDROP_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 
 /**
  * 발신 전 확인 — 취소 / 통화 2버튼. `busy` 시 연결 진행 중임을 표시한다.
@@ -34,42 +40,46 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-5 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[80] flex items-center justify-center px-5"
       role="dialog"
       aria-modal="true"
       aria-labelledby="outgoing-call-confirm-title"
       aria-busy={busy}
       aria-label={dialogLabel}
-      onClick={() => {
-        if (!busy) onCancel();
-      }}
     >
+      <button
+        type="button"
+        className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
+        aria-label="닫기"
+        onClick={() => {
+          if (!busy) onCancel();
+        }}
+      />
       <div
-        className="w-full max-w-[320px] overflow-hidden rounded-[16px] bg-[linear-gradient(180deg,#f5f2ff_0%,#ede7ff_100%)] shadow-[0_20px_60px_rgba(20,10,52,0.35)]"
+        className={`relative z-50 w-full max-w-[320px] overflow-hidden ${COMMUNITY_MODAL_PANEL_CLASS}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 pt-6 pb-5 text-center">
-          <h2 id="outgoing-call-confirm-title" className="sam-text-section-title font-semibold tracking-tight text-[#2d1d55]">
+          <h2 id="outgoing-call-confirm-title" className="text-[16px] font-bold tracking-tight text-[#1F2430]">
             {title}
           </h2>
-          <p className="mt-1 sam-text-body-secondary font-medium text-[#2d1d55]/85">{peer}</p>
-          <p className="mt-2 sam-text-body leading-snug text-[#2d1d55]">통화를 시작하시겠습니까?</p>
+          <p className="mt-1 text-[13px] font-normal text-[#6B7280]">{peer}</p>
+          <p className="mt-2 text-[14px] font-normal leading-[1.5] text-[#1F2430]">통화를 시작하시겠습니까?</p>
         </div>
-        <div className="flex border-t border-[#2d1d55]/10">
+        <div className="flex gap-2 border-t border-[#E5E7EB] px-4 pb-4 pt-3">
           <button
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className="min-h-[48px] flex-1 bg-transparent sam-text-body-lg font-medium text-[#2d1d55] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
+            className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
           >
             취소
           </button>
-          <div className="w-px bg-[#2d1d55]/10" aria-hidden />
           <button
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="min-h-[48px] flex-1 bg-transparent sam-text-body-lg font-semibold text-[#6b3df1] transition active:bg-[#2d1d55]/5 disabled:opacity-50"
+            className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
           >
             통화
           </button>

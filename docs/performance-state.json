@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-23T19:00:00.000Z",
-  "currentTarget": "messenger",
+  "updatedAt": "2026-04-24T12:00:00.000Z",
+  "currentTarget": "trade",
   "inProgress": null,
   "completed": [
     {
@@ -554,6 +554,110 @@
           "note": "조건·setState 대상만 동일; 린트 무이상"
         }
       ]
+    },
+    {
+      "domain": "messenger",
+      "target": "messenger_room_rsc_initial_snapshot_null",
+      "file": "app/(main)/community-messenger/rooms/[roomId]/page.tsx",
+      "reason": "방 RSC가 initialServerSnapshot=null 고정이라 시드 없는 진입에서 클라이언트 RAF 이후 refresh 경로로만 첫 스냅샷이 채워짐",
+      "before": "CommunityMessengerRoomClient에 initialServerSnapshot={null} 전달, bootstrap_start/end가 실제 로드 없이 연속 mark",
+      "after": "로그인+canonical 성공 시 loadCommunityMessengerRoomBootstrap(lite: deferSnapshotSecondary, 20msg cap)로 시드 생성 후 전달; RSC 타이머가 실제 부트스트랩 구간을 sandwich",
+      "completedAt": "2026-04-23T21:15:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "page.tsx: API bootstrap/route.ts와 동일 포트·canonical·옵션 축(deferSnapshotSecondary·hydrateFullMemberList false·seed limit); 비로그인·canonical 실패 시 null 유지로 기존 클라 경로 보존"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(시드 없는 방 RSC) 완화: CommunityMessengerRoomClient/useMessengerRoomBootstrapLifecycle 주석·시드 분기와 정합 — initialServerSnapshot 있으면 loadedRef·Realtime 준비가 즉시 true 경로로 진입"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "CommunityMessengerRoomClient props·E2E·Probe JSX 불변; eslint 해당 파일 0 warning; roomId URL vs canonical은 phase1 streamRoomId 기존 규칙으로 이미 처리"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "target": "philife_feed_dynamic_ssr_false_csr_only",
+      "file": "components/community/PhilifeFeedClientEntry.tsx",
+      "reason": "필라이프 피드(CommunityFeed)가 next/dynamic ssr:false로만 마운트돼 초기 HTML에 피드 셸이 비고 JS 청크 이후에야 실제 트리가 붙음",
+      "before": "dynamic(..., { ssr: false }) — 서버가 Feed 번들을 렌더하지 않음",
+      "after": "dynamic(..., { ssr: true }) — Suspense 경계 유지, SSR 첫 패스에서 CommunityFeed 초기 렌더(헤더·칩·스켈레톤 분기) 가능",
+      "completedAt": "2026-04-23T22:45:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "PhilifeFeedClientEntry: 상위 Suspense가 CommunityFeed를 감싸 useSearchParams 요구와 정합; app/(main)/philife/page.tsx → PhilifeFeedClientEntry 경로 불변"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(SSR 없음→CSR 전용 피드 청크) 완화: ssr:true로 변경되어 HomeContent 실험 피드와 동일 패턴"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "loading 폴백·dynamic import 대상(Feed) 불변; eslint components/community/PhilifeFeedClientEntry.tsx 0 warning"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "target": "community_detail_meta_comment_count_tree_walk_each_render",
+      "file": "components/community/CommunityDetail.tsx",
+      "reason": "메타 '댓글 N' 표기를 위해 flatCommentCount가 매 렌더마다 댓글 전체 트리를 재순회해 조회/좋아요/조회수 갱신 등 잦은 setState마다 O(댓글 수) 비용이 누적됨",
+      "before": "useCallback(flatCommentCount)로 walk를 두고도 JSX에서 매번 flatCommentCount(comments) 호출",
+      "after": "모듈 함수 countNeighborhoodCommentNodesFlat + useMemo([comments])로 `displayCommentCount`만 메타에 사용",
+      "completedAt": "2026-04-23T23:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "구조: `comments` 배열 identity가 `setComments`/동기 effect로만 바뀌고 메타는 displayCommentCount 단일 소스; refreshComments·초기 props 경로 동일"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "병목 유형(반복 map/트리 순회) 제거: viewCount/likeCount 등이 comments와 무관한 setState에선 walk 미실행"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "댓글·신고·삭제 분기 등 다른 JSX 미변경; read_lints 해당 파일 신규 진단 0(기존 @next/no-img `<img>` 경고는 본 diff 외)"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "target": "community_comment_item_time_format_each_render",
+      "file": "components/community/CommentItem.tsx",
+      "reason": "댓글·대댓 전체에 CommentItem이 재귀되는데, 상세 상단 메타(조회수·공감 등) setState로 부모가 다시 그려질 때마다 모든 노드에서 formatTimeAgo(날짜 파싱+포맷)를 매 렌더 반복",
+      "before": "const time = node.created_at ? formatTimeAgo(...) : '' — deps 없이 함수 본문 매 렌더 실행",
+      "after": "useMemo(() => ..., [node.created_at])로 동일 timestamp에서는 포맷 결과 재사용",
+      "completedAt": "2026-04-24T00:05:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "CommentList→CommentItem 재귀 구조·JSX·답글 핸들러 시그니처 유지; Date.parse 가드(기존과 동일 논리) 유지"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "병목(같은 created_at에 대해 잦은 포맷 재호출) 완화: 부모 리렌더만 있는 경우 time 문자열 메모 hit"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "eslint components/community/CommentItem.tsx 0 warning; import 한 줄 추가·표시만 변경"
+        }
+      ]
     }
   ],
   "lockedFiles": [
@@ -596,6 +700,7 @@
     "components/community/CommunityMyHubClient.tsx",
     "lib/community/fetch-community-post-comments-deduped.ts",
     "components/community/CommunityDetail.tsx",
+    "components/community/CommentItem.tsx",
     "components/community/CommunityPostDetailClient.tsx",
     "app/(main)/community/page.tsx",
     "components/home/HomeProductList.tsx",
@@ -603,7 +708,9 @@
     "components/stores/StoreProductPublic.tsx",
     "components/stores/StoreReviewsSection.tsx",
     "components/stores/home/StoreNearbyFeedSection.tsx",
-    "components/stores/home/StoreCategoryExploreSection.tsx"
+    "components/stores/home/StoreCategoryExploreSection.tsx",
+    "app/(main)/community-messenger/rooms/[roomId]/page.tsx",
+    "components/community/PhilifeFeedClientEntry.tsx"
   ],
   "history": [
     {
@@ -1021,6 +1128,54 @@
       "file": "",
       "reason": "delivery 트랙 이번 라운드 종료(계획된 단건 수정·상태 기록까지 반영)",
       "result": "currentTarget을 messenger로 전환; completed·lockedFiles 기존 항목 미변경"
+    },
+    {
+      "at": "2026-04-23T21:15:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "app/(main)/community-messenger/rooms/[roomId]/page.tsx",
+      "reason": "방 RSC lite room bootstrap 시드 주입",
+      "result": "3회 점검 pass, currentTarget을 myinfo로 전환"
+    },
+    {
+      "at": "2026-04-23T22:30:00.000Z",
+      "domain": "community",
+      "action": "track_priority",
+      "file": "",
+      "reason": "사용자 요청: 커뮤니티 우선·게시물 보기 체감 저하",
+      "result": "currentTarget을 community로 고정 후 philife 피드 ssr:true 단건 진행"
+    },
+    {
+      "at": "2026-04-23T22:45:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/PhilifeFeedClientEntry.tsx",
+      "reason": "PhilifeFeedClientEntry dynamic ssr:true 전환",
+      "result": "3회 점검 pass; currentTarget community 유지(연속 커뮤니티 트랙)"
+    },
+    {
+      "at": "2026-04-23T23:20:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityDetail.tsx",
+      "reason": "게시 상세 댓글 총개수(flat) 트리 순회를 useMemo로 제한",
+      "result": "3회 점검 pass; currentTarget community 유지"
+    },
+    {
+      "at": "2026-04-24T00:05:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommentItem.tsx",
+      "reason": "댓글 노드별 formatTimeAgo useMemo",
+      "result": "3회 점검 pass; currentTarget community 유지"
+    },
+    {
+      "at": "2026-04-24T12:00:00.000Z",
+      "domain": "community",
+      "action": "track_handoff",
+      "file": "",
+      "reason": "사용자 요청으로 커뮤니티 성능 우선 라운드 종료(필라이프 피드 SSR·상세·댓글 항목 반영 완료)",
+      "result": "inProgress null 유지, currentTarget을 trade로 전환(자동 순서: community → trade → …)"
     }
   ]
 }

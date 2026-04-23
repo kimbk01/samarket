@@ -22,19 +22,19 @@ export function RejectOrderModal({
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
-      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect">
-        <h2 className="text-base font-bold text-sam-fg">{title}</h2>
+      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] border border-sam-border bg-sam-surface p-4 shadow-[0_8px_24px_rgba(31,36,48,0.14)] sm:rounded-ui-rect">
+        <h2 className="text-[16px] font-bold leading-[1.35] text-sam-fg">{title}</h2>
         {warnAccepted ? (
-          <p className="mt-2 rounded-ui-rect bg-amber-50 px-3 py-2 text-xs text-amber-950 ring-1 ring-amber-200">
+          <p className="mt-2 rounded-ui-rect bg-amber-50 px-3 py-2 text-[13px] font-normal text-amber-950 ring-1 ring-amber-200">
             이미 접수한 주문입니다. 거절 시 고객 불만·환불 이슈가 생길 수 있습니다.
           </p>
         ) : null}
-        <label className="mt-3 block text-xs font-medium text-sam-muted">거절 사유 (필수)</label>
+        <label className="mt-3 block text-[13px] font-semibold text-sam-fg">거절 사유 (필수)</label>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={4}
-          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
+          className="sam-textarea mt-1 min-h-[96px]"
           placeholder="예: 재고 소진, 준비 불가 등"
         />
         <div className="mt-4 flex justify-end gap-2">
@@ -44,7 +44,7 @@ export function RejectOrderModal({
               setText("");
               onClose();
             }}
-            className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg"
+            className="sam-btn-secondary px-4"
           >
             닫기
           </button>
@@ -56,7 +56,7 @@ export function RejectOrderModal({
               setText("");
               onClose();
             }}
-            className="rounded-ui-rect bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+            className="sam-btn-danger px-4"
           >
             거절 확정
           </button>

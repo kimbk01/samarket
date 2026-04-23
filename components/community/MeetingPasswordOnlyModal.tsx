@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  COMMUNITY_BUTTON_PRIMARY_CLASS,
+  COMMUNITY_MODAL_PANEL_CLASS,
+  COMMUNITY_OVERLAY_BACKDROP_CLASS,
+  PHILIFE_FB_INPUT_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 
 /** 모임 비밀번호 입력 전용 팝업 */
 export function MeetingPasswordOnlyModal({
@@ -34,19 +40,20 @@ export function MeetingPasswordOnlyModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="m-pwd-title"
     >
-      <div className="w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:rounded-ui-rect">
-        <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 id="m-pwd-title" className="sam-text-body-lg font-bold text-sam-fg">
+      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label="닫기" onClick={onClose} />
+      <div className={`relative z-50 ${COMMUNITY_MODAL_PANEL_CLASS}`}>
+        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-3">
+          <h2 id="m-pwd-title" className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">
             {title}
           </h2>
           <button
             type="button"
-            className="rounded-ui-rect px-2 py-1 sam-text-body-secondary text-sam-muted hover:bg-sam-surface-muted disabled:opacity-40"
+            className="rounded-[4px] px-2 py-1 text-[12px] text-[#6B7280] hover:bg-[#F7F8FA] disabled:opacity-40"
             onClick={onClose}
             disabled={busy}
           >
@@ -54,22 +61,22 @@ export function MeetingPasswordOnlyModal({
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
-          {hint ? <p className="sam-text-helper leading-relaxed text-sam-muted">{hint}</p> : null}
-          <label className="block sam-text-helper font-semibold text-sam-fg">비밀번호</label>
+          {hint ? <p className="text-[13px] font-normal leading-[1.45] text-[#6B7280]">{hint}</p> : null}
+          <label className="block text-[13px] font-semibold text-[#1F2430]">비밀번호</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="off"
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-emerald-500"
+            className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
             placeholder="비밀번호 입력"
             disabled={busy}
           />
-          {error ? <p className="sam-text-helper text-red-600">{error}</p> : null}
+          {error ? <p className="text-[12px] text-[#E25555]">{error}</p> : null}
           <button
             type="button"
             disabled={busy || !password.trim()}
-            className="w-full rounded-ui-rect bg-emerald-600 py-3 sam-text-body font-bold text-white disabled:opacity-45"
+            className={`w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
             onClick={() => onSubmit(password.trim())}
           >
             {busy ? "확인 중…" : submitLabel}

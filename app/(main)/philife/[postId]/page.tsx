@@ -11,6 +11,7 @@ import {
   isNeighborhoodMeetingId,
   isViewerJoinedNeighborhoodMeeting,
   listNeighborhoodComments,
+  listNeighborhoodSimilarPosts,
 } from "@/lib/neighborhood/queries";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { isUuidString } from "@/lib/shared/uuid-string";
@@ -50,11 +51,12 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
     notFound();
   }
 
-  const [meeting, joinedFromDb] = await Promise.all([
+  const [meeting, joinedFromDb, similarPosts] = await Promise.all([
     post.meeting_id ? getMeetingDetail(post.meeting_id) : Promise.resolve(null),
     post.meeting_id && viewerId
       ? isViewerJoinedNeighborhoodMeeting(post.meeting_id, viewerId)
       : Promise.resolve(false),
+    listNeighborhoodSimilarPosts(post, { viewerUserId: viewerId, limit: 6 }),
   ]);
 
   let viewerJoinedMeeting = false;
@@ -80,6 +82,7 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
       initialCommentsLoaded
       viewerJoinedMeeting={viewerJoinedMeeting}
       initialRouteTotalMs={Math.round(performance.now() - t0)}
+      similarPosts={similarPosts}
     />
   );
 }

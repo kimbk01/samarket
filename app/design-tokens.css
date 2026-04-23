@@ -6,23 +6,59 @@
  */
 
 :root {
+  /* ----- User requested SM color tokens ----- */
+  --sm-color-primary: #7360f2;
+  --sm-color-primary-strong: #5b46e8;
+  --sm-color-primary-soft: #f3f0ff;
+  --sm-color-bg-page: #f7f8fa;
+  --sm-color-bg-card: #ffffff;
+  --sm-color-text-main: #1f2430;
+  --sm-color-text-sub: #6b7280;
+  --sm-color-text-muted: #9ca3af;
+  --sm-color-border: #e5e7eb;
+  --sm-color-danger: #e25555;
+  --sm-color-success: #1fa971;
+
+  /* ----- User requested SM typography tokens ----- */
+  --sm-font-page-title: 20px;
+  --sm-font-section-title: 17px;
+  --sm-font-card-title: 15px;
+  --sm-font-body: 14px;
+  --sm-font-body-compact: 13px;
+  --sm-font-meta: 12px;
+  --sm-font-caption: 11px;
+  --sm-font-input: 14px;
+  --sm-font-placeholder: 13px;
+  --sm-font-button: 14px;
+  --sm-font-tab: 13px;
+  --sm-font-modal-title: 16px;
+  --sm-font-modal-body: 14px;
+
+  --sm-lh-page-title: 1.3;
+  --sm-lh-section-title: 1.35;
+  --sm-lh-card-title: 1.4;
+  --sm-lh-body: 1.5;
+  --sm-lh-body-compact: 1.45;
+  --sm-lh-meta: 1.4;
+  --sm-lh-caption: 1.3;
+
   /* ----- Brand / Primary (기존 사마켓 포인트 유지) ----- */
-  --sam-primary: #7360f2;
-  --sam-primary-hover: #624bef;
-  --sam-primary-soft: #f1eeff;
-  --sam-primary-soft-2: #e9e3ff;
-  --sam-primary-border: #d9ccff;
+  --sam-primary: var(--sm-color-primary);
+  --sam-primary-hover: var(--sm-color-primary-strong);
+  --sam-primary-soft: var(--sm-color-primary-soft);
+  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 70%, #ffffff);
+  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 30%, #ffffff);
 
   /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
-  --app-bg: #ffffff;
-  --app-surface: #ffffff;
-  --app-subtle-bg: #f7f7f8;
-  --app-subtle-bg-2: #f2f3f5;
-  --app-border: #e7e7ea;
-  --app-border-strong: #d8d8dd;
-  --app-text: #111111;
-  --app-text-2: #555555;
-  --app-text-3: #888888;
+  --app-bg: var(--sm-color-bg-page);
+  --app-surface: var(--sm-color-bg-card);
+  --app-subtle-bg: color-mix(in srgb, var(--sm-color-bg-page) 86%, #ffffff);
+  --app-subtle-bg-2: color-mix(in srgb, var(--sm-color-bg-page) 72%, #ffffff);
+  --app-border: var(--sm-color-border);
+  --app-border-strong: color-mix(in srgb, var(--sm-color-border) 85%, #cfd6df);
+  --app-text: var(--sm-color-text-main);
+  --app-text-2: var(--sm-color-text-sub);
+  --app-text-3: var(--sm-color-text-muted);
   --app-primary: var(--sam-primary);
   --app-primary-soft: var(--sam-primary-soft);
 
@@ -72,11 +108,11 @@
   --sam-border-soft: color-mix(in srgb, var(--app-border) 65%, var(--app-surface));
 
   /* ----- State ----- */
-  --sam-success: #16a34a;
+  --sam-success: var(--sm-color-success);
   --sam-success-soft: #ecfdf3;
   --sam-warning: #f59e0b;
   --sam-warning-soft: #fff4e5;
-  --sam-danger: #e5484d;
+  --sam-danger: var(--sm-color-danger);
   --sam-danger-soft: #fef2f2;
   --sam-info: #3b82f6;
   --sam-info-soft: #eaf4ff;
@@ -87,11 +123,11 @@
   --sam-icon-on-primary: #ffffff;
 
   /* ----- Radius (8~16만 사용; pill 만 full) ----- */
-  --sam-radius-xs: 6px;
-  --sam-radius-sm: 8px;
-  --sam-radius-md: 12px;
-  --sam-radius-lg: 16px;
-  --sam-radius-xl: 16px;
+  --sam-radius-xs: 4px;
+  --sam-radius-sm: 4px;
+  --sam-radius-md: 4px;
+  --sam-radius-lg: 4px;
+  --sam-radius-xl: 4px;
   --sam-radius-pill: 999px;
 
   /* ----- Shadow (기본 없음; 필요 시 1단계만) ----- */
@@ -124,34 +160,40 @@
   /* ----- Typography scale ----- */
   --sam-text-hero-size: 22px;
   --sam-text-hero-weight: 700;
-  --sam-text-page-title-size: 20px;
+  --sam-text-page-title-size: var(--sm-font-page-title);
   --sam-text-page-title-weight: 700;
-  --sam-text-section-title-size: 17px;
-  --sam-text-section-title-weight: 600;
-  --sam-text-card-title-size: 16px;
+  --sam-text-section-title-size: var(--sm-font-section-title);
+  --sam-text-section-title-weight: 700;
+  --sam-text-card-title-size: var(--sm-font-card-title);
   --sam-text-card-title-weight: 600;
-  --sam-text-body-lg-size: 16px;
-  --sam-text-body-lg-weight: 500;
-  --sam-text-body-size: 12px;
+  --sam-text-body-lg-size: var(--sm-font-modal-body);
+  --sam-text-body-lg-weight: 400;
+  --sam-text-body-size: var(--sm-font-body);
   --sam-text-body-weight: 400;
-  --sam-text-body-secondary-size: 13px;
+  --sam-text-body-secondary-size: var(--sm-font-body-compact);
   --sam-text-body-secondary-weight: 400;
-  --sam-text-helper-size: 12px;
+  --sam-text-helper-size: var(--sm-font-meta);
   --sam-text-helper-weight: 400;
-  --sam-text-xxs-size: 11px;
-  --sam-text-xxs-weight: 400;
+  --sam-text-xxs-size: var(--sm-font-caption);
+  --sam-text-xxs-weight: 500;
   /** placeholder 전용(입력 본문은 --sam-text-body-size 유지) */
-  --sam-text-placeholder-size: 11px;
+  --sam-text-placeholder-size: var(--sm-font-placeholder);
 
   --sam-fw-bold: 700;
   --sam-fw-semi: 600;
   --sam-fw-medium: 500;
   --sam-fw-regular: 400;
 
-  --sam-font-body-line: 1.45;
-  --sam-tap-min: 48px;
-  --sam-input-min-height: 48px;
-  --sam-button-min-height: 48px;
+  --sam-font-body-line: var(--sm-lh-body);
+  --sam-font-page-title-line: var(--sm-lh-page-title);
+  --sam-font-section-title-line: var(--sm-lh-section-title);
+  --sam-font-card-title-line: var(--sm-lh-card-title);
+  --sam-font-body-compact-line: var(--sm-lh-body-compact);
+  --sam-font-meta-line: var(--sm-lh-meta);
+  --sam-font-caption-line: var(--sm-lh-caption);
+  --sam-tap-min: 44px;
+  --sam-input-min-height: 44px;
+  --sam-button-min-height: 44px;
 
   /* ----- 레거시 시맨틱 브리지 ----- */
   --ui-page-bg: var(--sam-bg-app);

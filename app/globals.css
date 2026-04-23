@@ -161,7 +161,7 @@ svg {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  font-size: 1rem;
+  font-size: var(--sam-text-body-size);
 }
 
 /* placeholder만 본문(12px 등)보다 작게 — typed text는 인풋 font-size 유지 */
@@ -172,10 +172,52 @@ svg {
   textarea
 )::placeholder {
   font-size: var(--sam-text-placeholder-size);
+  font-weight: var(--sam-fw-regular);
+  line-height: var(--sam-font-body-compact-line);
+  color: var(--sam-text-muted);
+  letter-spacing: normal;
 }
 
 button {
   max-width: 100%;
+}
+
+/* SM strict unification: structure/logic untouched, visual system only */
+body[data-sm-ui="viber"] :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
+      [type="submit"]
+    ):not([type="reset"]):not([type="image"]):not([type="color"]),
+  textarea,
+  select
+) {
+  min-height: var(--sam-input-min-height);
+  border-radius: var(--sam-radius-sm);
+  font-size: var(--sm-font-input);
+  line-height: var(--sm-lh-body);
+}
+
+body[data-sm-ui="viber"] :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
+      [type="submit"]
+    ):not([type="reset"]):not([type="image"]):not([type="color"]),
+  textarea
+)::placeholder {
+  font-size: var(--sm-font-placeholder);
+  font-weight: 400;
+  line-height: var(--sm-lh-body-compact);
+  color: var(--sm-color-text-muted);
+}
+
+body[data-sm-ui="viber"] button {
+  border-radius: var(--sam-radius-sm);
+  font-size: var(--sm-font-button);
+  font-weight: 600;
+  line-height: var(--sm-lh-card-title);
+}
+
+/* Avatar-only round exception */
+body[data-sm-ui="viber"] :is([data-avatar], .avatar, [class*="avatar"], [class*="Avatar"]) {
+  border-radius: 9999px !important;
 }
 
 /**

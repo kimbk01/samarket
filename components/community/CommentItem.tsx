@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { formatTimeAgo } from "@/lib/utils/format";
 
@@ -12,10 +13,10 @@ export function CommentItem({
   depth?: number;
   onReply?: (id: string) => void;
 }) {
-  const time =
-    node.created_at && !Number.isNaN(Date.parse(node.created_at))
-      ? formatTimeAgo(node.created_at, "ko-KR")
-      : "";
+  const time = useMemo(() => {
+    if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
+    return formatTimeAgo(node.created_at, "ko-KR");
+  }, [node.created_at]);
 
   return (
     <div className={depth > 0 ? "ml-4 border-l border-sam-border-soft pl-3" : ""}>

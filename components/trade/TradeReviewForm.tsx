@@ -131,7 +131,7 @@ export function TradeReviewForm({
               key={o.key}
               type="button"
               onClick={() => toggle(pos, o.key, setPos)}
-              className={`rounded-full border px-2.5 py-1 sam-text-xxs ${
+              className={`rounded-ui-rect border px-2.5 py-1 text-[11px] font-medium ${
                 pos.has(o.key)
                   ? "border-signature bg-signature/5 text-sam-fg"
                   : "border-sam-border bg-sam-surface text-sam-fg"
@@ -151,7 +151,7 @@ export function TradeReviewForm({
               key={o.key}
               type="button"
               onClick={() => toggle(neg, o.key, setNeg)}
-              className={`rounded-full border px-2.5 py-1 sam-text-xxs ${
+              className={`rounded-ui-rect border px-2.5 py-1 text-[11px] font-medium ${
                 neg.has(o.key)
                   ? "border-amber-500 bg-amber-50 text-amber-900"
                   : "border-sam-border bg-sam-surface text-sam-fg"
@@ -169,7 +169,7 @@ export function TradeReviewForm({
           value={comment}
           onChange={(e) => setComment(e.target.value.slice(0, 200))}
           rows={2}
-          className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body-secondary"
+          className="sam-textarea mt-1 min-h-[96px] w-full"
           placeholder="짧게 남겨 주세요"
         />
       </div>
@@ -193,14 +193,14 @@ export function TradeReviewForm({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
+            className="sam-btn-secondary flex-1"
           >
             취소
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
+            className="sam-btn-primary flex-1 disabled:opacity-50"
           >
             {loading ? "등록 중..." : "후기 등록"}
           </button>

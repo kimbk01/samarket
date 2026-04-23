@@ -102,14 +102,14 @@ function SearchActionsSheet({
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
 }) {
   const row =
-    "w-full rounded-[var(--messenger-radius-md)] px-4 py-3 text-left sam-text-body text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
+    "w-full rounded-ui-rect px-4 py-3 text-left text-[14px] font-normal leading-[1.5] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
     <div className="fixed inset-0 z-[44] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onDismiss} />
       <div
         data-messenger-shell
-        className="rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--messenger-shadow-soft)]"
+        className="rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--messenger-shadow-soft)]"
       >
         {action.kind === "recent" ? (
           <nav className="flex flex-col p-1" aria-label="최근 검색 작업">
@@ -226,7 +226,7 @@ function SearchActionsSheet({
         ) : null}
         <button
           type="button"
-          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 sam-text-body text-[color:var(--messenger-text-secondary)]"
+          className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 text-[14px] font-semibold text-[color:var(--messenger-text-secondary)]"
           onClick={onDismiss}
         >
           취소
@@ -254,7 +254,7 @@ function RecentChip({
         if (consumeClickSuppression()) return;
         onApply();
       }}
-      className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 sam-text-helper active:bg-[color:var(--messenger-primary-soft)]"
+      className="rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2.5 py-1.5 text-[12px] font-normal leading-[1.4] active:bg-[color:var(--messenger-primary-soft)]"
       style={{ color: "var(--messenger-text)" }}
     >
       {term}
@@ -293,16 +293,16 @@ function FriendSearchRow({
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
-          <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-semibold text-[color:var(--messenger-primary)]">
+          <span className="rounded-ui-rect bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-primary)]">
             친구
           </span>
           {friend.isFavoriteFriend ? (
-            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 sam-text-xxs text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
               ★
             </span>
           ) : null}
           {friend.isHiddenFriend ? (
-            <span className="rounded-full bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 sam-text-xxs text-[color:var(--messenger-text-secondary)]">
+            <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
               숨김
             </span>
           ) : null}

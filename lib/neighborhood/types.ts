@@ -141,6 +141,11 @@ export type NeighborhoodCommentNode = {
   parent_id: string | null;
   content: string;
   created_at: string;
+  updated_at: string;
+  /** `updated_at`가 생성 시각과 의미 있게 달릴 때 */
+  is_edited: boolean;
   author_name: string;
+  like_count: number;
+  liked_by_viewer: boolean;
   children: NeighborhoodCommentNode[];
 };

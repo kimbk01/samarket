@@ -94,7 +94,7 @@ export function PhoneVerificationRequestForm() {
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-sam-border bg-signature/5 px-4 py-3">
-        <p className="text-sm font-semibold text-sam-fg">필리핀 전화번호 인증</p>
+        <p className="text-[17px] font-bold leading-[1.35] text-sam-fg">필리핀 전화번호 인증</p>
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           {status?.full_member_access_ok && !status.phone_verified ? (
             <>
@@ -110,7 +110,7 @@ export function PhoneVerificationRequestForm() {
         </p>
       </div>
 
-      <div className="rounded-ui-rect bg-sam-surface p-4 shadow-sm">
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-[0_1px_2px_rgba(31,36,48,0.05)]">
         <p className="sam-text-body-secondary text-sam-muted">현재 상태</p>
         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
           {status?.phone_verified
@@ -126,20 +126,20 @@ export function PhoneVerificationRequestForm() {
         ) : null}
       </div>
 
-      <form onSubmit={submit} className="space-y-4 rounded-ui-rect bg-sam-surface p-4 shadow-sm">
+      <form onSubmit={submit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-[0_1px_2px_rgba(31,36,48,0.05)]">
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">닉네임</label>
+          <label className="block text-[13px] font-semibold text-sam-fg">닉네임</label>
           <input
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={20}
             required
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+            className="sam-input mt-1"
           />
         </div>
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">필리핀 전화번호</label>
+          <label className="block text-[13px] font-semibold text-sam-fg">필리핀 전화번호</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -148,7 +148,7 @@ export function PhoneVerificationRequestForm() {
             onChange={(e) => setPhoneDigits(parsePhMobileInput(e.target.value))}
             placeholder={PH_MOBILE_PLACEHOLDER}
             required
-            className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+            className="sam-input mt-1"
           />
         </div>
         {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
@@ -156,7 +156,7 @@ export function PhoneVerificationRequestForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50"
+          className="sam-btn-primary w-full disabled:opacity-50"
         >
           {submitting ? "저장 중…" : "전화번호 인증 요청 저장"}
         </button>

@@ -14,6 +14,7 @@ import {
   FeedListLayoutPlace,
   FeedListLayoutTags,
   FeedListLayoutTextOnly,
+  normalizeFeedListBodyPreview,
   type FeedListCardViewModel,
 } from "./feed-list-layouts";
 
@@ -31,6 +32,10 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   const placeLineRaw =
     skin === "location_pin" ? post.meetup_place?.trim() || post.location_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
+  const summaryBase = (post.summary ?? "").trim() || (post.content ?? "");
+  const summaryForList = post.is_meetup ? stripMeetupPostMetaFromContent(summaryBase) : summaryBase;
+  const imageUrls = Array.isArray(post.images) ? post.images.filter((u) => (u ?? "").trim()) : [];
+  const imageCount = imageUrls.length;
 
   const messengerRoom = post.community_messenger_room_id?.trim() ?? "";
   return {
@@ -43,7 +48,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
     topicLabel: post.category_label,
     topicColor: post.topic_color,
     title: post.title?.trim() || "제목 없음",
-    summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
+    summary: normalizeFeedListBodyPreview(summaryForList),
     timeLabel: time,
     authorName: post.author_name,
     secondaryMeta: post.location_label?.trim() ?? "",
@@ -53,6 +58,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
     isQuestion: post.is_question,
     isMeetup: post.is_meetup,
     thumbnailUrl,
+    imageCount,
     placeLine: placeLineRaw ? placeLineRaw : null,
     hashtagTags,
   };

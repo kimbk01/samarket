@@ -25,6 +25,7 @@ import {
   PHILIFE_DETAIL_BODY_CLASS,
   PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
   PHILIFE_DETAIL_META_CLASS,
+  PHILIFE_DETAIL_PAGE_ROOT_CLASS,
   PHILIFE_DETAIL_POST_SLAB_CLASS,
   PHILIFE_DETAIL_TITLE_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
@@ -156,7 +157,7 @@ export function CommunityPostDetailClient({
       : "";
 
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
+    <div className={`${PHILIFE_DETAIL_PAGE_ROOT_CLASS} pb-24`}>
       <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} p-4`}>
           <div className="flex flex-wrap items-center gap-2">

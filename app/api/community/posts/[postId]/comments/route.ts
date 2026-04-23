@@ -83,7 +83,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
       return jsonError("not_found", 404);
     }
   }
-  const list = await listCommunityPostComments(id);
+  const list = await listCommunityPostComments(id, viewerUserId);
   logServerPerf("community-comments.get", {
     postId: id,
     branch: "db",

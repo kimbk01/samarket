@@ -30,7 +30,13 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
-import { PHILIFE_PAGE_ROOT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import {
+  COMMUNITY_BUTTON_SECONDARY_CLASS,
+  PHILIFE_FB_CARD_CLASS,
+  PHILIFE_FB_INPUT_CLASS,
+  PHILIFE_FB_TEXTAREA_CLASS,
+  PHILIFE_PAGE_ROOT_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { AD_TYPE_LABELS } from "@/lib/ads/types";
@@ -38,8 +44,7 @@ import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 /** 모임 생성 섹션 제목 타이포 통일 */
-const MEETUP_SECTION_LABEL_BASE =
-  "px-0 sam-text-body-secondary font-medium leading-snug tracking-normal text-sam-fg";
+const MEETUP_SECTION_LABEL_BASE = "px-0 text-[13px] font-normal leading-[1.45] text-[#6B7280]";
 /** 세로 스택 블록용(왼쪽 열 정렬) */
 const MEETUP_SECTION_LABEL_CLASS = `${MEETUP_SECTION_LABEL_BASE} block w-full max-w-full`;
 
@@ -674,7 +679,7 @@ export function PhilifeNeighborhoodWriteForm({
         <div className="mb-3">
           <Link
             href={philifeAppPaths.write}
-            className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
+            className={`inline-flex items-center px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
           >
             ← 일반 글쓰기로
           </Link>
@@ -683,7 +688,7 @@ export function PhilifeNeighborhoodWriteForm({
 
       <form
         onSubmit={onSubmit}
-        className="space-y-[4pt] rounded-ui-rect border border-sam-border bg-sam-surface p-4"
+        className={`space-y-4 p-4 sm:p-5 ${PHILIFE_FB_CARD_CLASS}`}
       >
         {category === "meetup" ? (
             <>
@@ -692,8 +697,8 @@ export function PhilifeNeighborhoodWriteForm({
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
-                  placeholder="예: 필리핀 ooooo 방"
+                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  placeholder="모임 이름을 입력하세요"
                   autoComplete="off"
                 />
               </div>
@@ -703,8 +708,8 @@ export function PhilifeNeighborhoodWriteForm({
                   value={meetIntro}
                   onChange={(e) => setMeetIntro(e.target.value)}
                   rows={4}
-                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body placeholder:text-sam-meta"
-                  placeholder="이 모임에 대한 간단한 소개를 작성해 주세요."
+                  className={`mt-2 !min-h-[7rem] ${PHILIFE_FB_TEXTAREA_CLASS}`}
+                  placeholder="모임 소개를 입력하세요…"
                 />
               </div>
 
@@ -722,12 +727,12 @@ export function PhilifeNeighborhoodWriteForm({
                   type="button"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className="mt-[4pt] rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+                  className={`mt-2 px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
                 >
                   {uploading ? "업로드 중…" : imageUrls[0] ? "대표 이미지 변경" : "대표 이미지 추가"}
                 </button>
                 {imageUrls[0] ? (
-                  <div className="mt-[4pt] relative h-36 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                  <div className="mt-2 relative h-36 overflow-hidden rounded-[4px] bg-[#F7F8FA] ring-1 ring-[#E5E7EB]">
                     <img src={imageUrls[0]} alt="" className="h-full w-full object-cover" />
                     <button
                       type="button"
@@ -738,7 +743,7 @@ export function PhilifeNeighborhoodWriteForm({
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-[4pt] sam-text-helper text-sam-muted">모임 목록과 상세에 노출될 대표 이미지를 선택할 수 있습니다.</p>
+                <p className="mt-2 text-[13px] font-normal leading-[1.45] text-[#6B7280]">모임 목록과 상세에 노출될 대표 이미지를 선택할 수 있습니다.</p>
                 )}
               </div>
 
@@ -747,14 +752,14 @@ export function PhilifeNeighborhoodWriteForm({
                 <input
                   value={meetRegionText}
                   onChange={(e) => setMeetRegionText(e.target.value)}
-                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
-                  placeholder="예: 마카티, BGC, 세부"
+                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  placeholder="지역을 입력하세요 (예: 마카티)"
                 />
               </div>
 
               <div>
                 <label className={MEETUP_SECTION_LABEL_CLASS}>모임 채팅 유형</label>
-                <p className="mt-[4pt] sam-text-helper text-sam-muted">
+                <p className="mt-2 text-[13px] font-normal leading-[1.45] text-[#6B7280]">
                   자유·비밀은 메신저 「모임 찾기」에 노출될 수 있어요. 숨김은 링크로 초대한 사람만 찾을 수 있어요.
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -791,14 +796,14 @@ export function PhilifeNeighborhoodWriteForm({
                           setMeetAccessMode(opt.id);
                           if (opt.id === "free_public" || opt.id === "free_hidden") setMeetPassword("");
                         }}
-                        className={`rounded-ui-rect border px-3 py-3 text-left transition ${
+                        className={`rounded-[4px] border px-3 py-3 text-left transition ${
                           on
-                            ? "border-emerald-600 bg-emerald-50 ring-1 ring-emerald-600/30"
-                            : "border-sam-border bg-sam-app hover:bg-sam-surface-muted"
+                            ? "border-[#7360F2] bg-[#F3F0FF] ring-1 ring-[#7360F2]/30"
+                            : "border-[#E5E7EB] bg-white hover:bg-[#F7F8FA]"
                         }`}
                       >
-                        <p className="sam-text-body-secondary font-semibold text-sam-fg">{opt.title}</p>
-                        <p className="mt-1 sam-text-helper leading-snug text-sam-muted">{opt.desc}</p>
+                        <p className="text-[14px] font-semibold text-[#1F2430]">{opt.title}</p>
+                        <p className="mt-1 text-[13px] font-normal leading-[1.45] text-[#6B7280]">{opt.desc}</p>
                       </button>
                     );
                   })}
@@ -814,8 +819,8 @@ export function PhilifeNeighborhoodWriteForm({
                       value={meetPassword}
                       onChange={(e) => setMeetPassword(e.target.value)}
                       autoComplete="new-password"
-                      className="mt-[4pt] w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body"
-                      placeholder="4자 이상 입력"
+                      className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                      placeholder="비밀번호 (4자 이상)"
                     />
                   </div>
                 ) : null}
@@ -832,23 +837,23 @@ export function PhilifeNeighborhoodWriteForm({
                   max={500}
                   value={maxMembers}
                   onChange={(e) => setMaxMembers(Number(e.target.value))}
-                  className="w-[4.25rem] shrink-0 rounded-ui-rect border border-sam-border px-2 py-1.5 text-center sam-text-body tabular-nums"
+                  className="h-11 w-[4.25rem] shrink-0 rounded-[4px] border border-[#E5E7EB] bg-white px-2 py-2 text-center text-[14px] font-semibold text-[#1F2430] tabular-nums outline-none focus:border-[#7360F2] focus:ring-1 focus:ring-[#7360F2]/20"
                 />
                 <label className={`${MEETUP_SECTION_LABEL_BASE} shrink-0 whitespace-nowrap`} htmlFor="meet-age-fee">
-                  연령 / 가입비 <span className="font-normal text-sam-muted">(선택)</span>
+                  연령 / 가입비 <span className="font-normal text-[#8A8D91]">(선택)</span>
                 </label>
                 <input
                   id="meet-age-fee"
                   type="text"
                   value={ageFeeNote}
                   onChange={(e) => setAgeFeeNote(e.target.value)}
-                  className="min-w-[7rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-body placeholder:text-sam-meta"
-                  placeholder="예: 만 20세 이상, 월 500페소"
+                  className={`min-w-[7rem] flex-1 ${PHILIFE_FB_INPUT_CLASS}`}
+                  placeholder="연령·가입비 (선택)"
                   autoComplete="off"
                 />
               </div>
 
-              <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/60 px-4 py-3 sam-text-body-secondary text-sam-muted">
+              <div className="rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-4 py-3 text-[13px] font-normal leading-[1.45] text-[#6B7280]">
                 Philife 「모임」 피드에 올라가고, 모임 채팅은 커뮤니티 메신저 오픈그룹으로 연결됩니다. 다른 회원은 모임
                 카드·초대 링크로 들어온 뒤, 비밀·숨김 비밀은 채팅 입장 시 비밀번호를 입력합니다.
               </div>
@@ -856,11 +861,11 @@ export function PhilifeNeighborhoodWriteForm({
           ) : (
             <>
               <div>
-                <label className="sam-text-body-secondary font-medium text-sam-fg">카테고리</label>
+                <label className="text-[13px] font-normal text-[#6B7280]">카테고리</label>
                 {writeTopicOptionsLoad === "loading" ? (
-                  <p className="mt-[4pt] sam-text-body-secondary text-sam-muted">주제 목록을 불러오는 중…</p>
+                  <p className="mt-2 text-[14px] font-normal text-[#6B7280]">주제 목록을 불러오는 중…</p>
                 ) : writeTopicOptions.length === 0 ? (
-                  <div className="mt-[4pt] rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-900">
+                  <div className="mt-2 rounded-[4px] border border-amber-200 bg-amber-50 px-3 py-3 text-[14px] text-amber-950">
                     <p>
                       쓸 수 있는 <strong>일반 주제</strong>가 없습니다.{" "}
                       <Link
@@ -892,7 +897,7 @@ export function PhilifeNeighborhoodWriteForm({
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="mt-2 w-full appearance-none rounded-[4px] border border-sam-border bg-sam-surface py-2.5 pl-3 pr-9 text-sam-fg sam-text-body [background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23334155%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')][background-position:right_0.5rem_center][background-size:1rem] bg-no-repeat"
+                      className="mt-2 h-11 w-full appearance-none rounded-[4px] border border-[#E5E7EB] bg-white py-2.5 pl-3 pr-10 text-[14px] font-normal text-[#1F2430] outline-none focus:border-[#7360F2] focus:ring-1 focus:ring-[#7360F2]/20 [background-image:url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%236B7280%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')][background-position:right_0.75rem_center][background-size:1rem] bg-no-repeat"
                       aria-label="일반 글 — 게시판 주제(community_topics slug)"
                     >
                       {writeTopicOptions.map((o) => (
@@ -905,24 +910,24 @@ export function PhilifeNeighborhoodWriteForm({
                 )}
               </div>
               <div>
-                <label className="sam-text-body-secondary font-medium text-sam-fg">제목</label>
+                <label className="text-[13px] font-normal text-[#6B7280]">제목</label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                  placeholder="제목을 입력하세요"
+                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  placeholder="제목을 입력하세요…"
                 />
               </div>
               <div>
-                <label className="sam-text-body-secondary font-medium text-sam-fg">내용</label>
+                <label className="text-[13px] font-normal text-[#6B7280]">내용</label>
                 <textarea
                   ref={contentTextareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onPaste={(e) => void onContentPaste(e)}
                   rows={8}
-                  className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                  placeholder="내용을 입력 하세요"
+                  className={`mt-2 ${PHILIFE_FB_TEXTAREA_CLASS}`}
+                  placeholder="내용을 입력하세요…"
                 />
               </div>
               <div>
@@ -938,14 +943,14 @@ export function PhilifeNeighborhoodWriteForm({
                   type="button"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+                  className={`px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
                 >
                   {uploading ? "업로드 중…" : "사진 추가"}
                 </button>
                 {imageUrls.length > 0 ? (
                   <ul className="mt-[4pt] flex flex-wrap gap-[4pt]">
                     {imageUrls.map((url, i) => (
-                      <li key={url} className="relative h-16 w-16 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                      <li key={url} className="relative h-16 w-16 overflow-hidden rounded-[4px] bg-[#F7F8FA] ring-1 ring-[#E5E7EB]">
                         <img src={url} alt="" className="h-full w-full object-cover" />
                         <button
                           type="button"
@@ -963,7 +968,7 @@ export function PhilifeNeighborhoodWriteForm({
           )}
 
           {category !== "meetup" && writeTopicOptions.length > 0 ? (
-            <div className="rounded-ui-rect border border-amber-100 bg-amber-50/50 p-3">
+            <div className="rounded-[4px] border border-amber-200/80 bg-amber-50/60 p-3">
               <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
@@ -978,22 +983,22 @@ export function PhilifeNeighborhoodWriteForm({
                       setAdPaymentMethod("points");
                     }
                   }}
-                  className="mt-1 h-4 w-4 shrink-0 rounded border-amber-300 text-amber-600"
+                  className="mt-1 h-4 w-4 shrink-0 rounded-[4px] border-amber-300 text-amber-600"
                 />
                 <span className="min-w-0">
-                  <span className="block sam-text-body font-semibold text-sam-fg">피드 상단 광고로 노출하기 (선택)</span>
+                  <span className="block text-[14px] font-semibold text-[#1F2430]">피드 상단 광고로 노출하기 (선택)</span>
                 </span>
               </label>
               {promoteAdEnabled ? (
-                <div className="mt-3 space-y-3 border-t border-amber-100 pt-3">
-                  <div className="flex items-center justify-between rounded-ui-rect bg-sam-surface/80 px-3 py-2 sam-text-body-secondary">
-                    <span className="text-sky-800">내 포인트</span>
-                    <span className="font-bold text-sky-900">{pointBalance.toLocaleString()}P</span>
+                <div className="mt-3 space-y-3 border-t border-amber-200/60 pt-3">
+                  <div className="flex items-center justify-between rounded-[4px] bg-white/90 px-3 py-2 text-[14px]">
+                    <span className="text-[#7360F2]">내 포인트</span>
+                    <span className="font-bold text-[#1F2430]">{pointBalance.toLocaleString()}P</span>
                   </div>
                   {adProductsLoading ? (
-                    <p className="py-2 text-center sam-text-body-secondary text-sam-muted">광고 상품 불러오는 중…</p>
+                    <p className="py-2 text-center text-[15px] text-[#65676B]">광고 상품 불러오는 중…</p>
                   ) : adProducts.length === 0 ? (
-                    <p className="sam-text-helper text-sam-muted">현재 신청 가능한 광고 상품이 없습니다.</p>
+                    <p className="text-[13px] text-[#65676B]">현재 신청 가능한 광고 상품이 없습니다.</p>
                   ) : (
                     <div className="space-y-2" role="radiogroup" aria-label="광고 상품">
                       {adProducts.map((p) => {
@@ -1004,25 +1009,25 @@ export function PhilifeNeighborhoodWriteForm({
                             key={p.id}
                             type="button"
                             onClick={() => setSelectedAdProduct(p)}
-                            className={`w-full rounded-ui-rect border px-3 py-2.5 text-left transition-colors ${
+                            className={`w-full rounded-[4px] border px-3 py-2.5 text-left transition-colors ${
                               isSelected
                                 ? "border-amber-400 bg-amber-50"
-                                : "border-sam-border bg-sam-surface hover:bg-sam-app"
+                                : "border-[#E5E7EB] bg-white hover:bg-[#F7F8FA]"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="sam-text-body-secondary font-semibold text-sam-fg">{p.name}</p>
-                                <p className="mt-0.5 sam-text-xxs text-sam-muted">
+                                <p className="text-[14px] font-semibold text-[#1F2430]">{p.name}</p>
+                                <p className="mt-0.5 text-[12px] text-[#6B7280]">
                                   {AD_TYPE_LABELS[p.adType]} · {p.durationDays}일
                                 </p>
                               </div>
                               <div className="shrink-0 text-right">
-                                <p className="sam-text-body font-bold text-sam-fg">{p.pointCost.toLocaleString()}P</p>
+                                <p className="text-[14px] font-bold text-[#1F2430]">{p.pointCost.toLocaleString()}P</p>
                                 {lacking > 0 ? (
-                                  <p className="sam-text-xxs text-red-500">{lacking.toLocaleString()}P 부족</p>
+                                  <p className="text-[12px] text-red-500">{lacking.toLocaleString()}P 부족</p>
                                 ) : (
-                                  <p className="sam-text-xxs text-emerald-600">사용 가능</p>
+                                  <p className="text-[12px] text-emerald-600">사용 가능</p>
                                 )}
                               </div>
                             </div>
@@ -1033,17 +1038,17 @@ export function PhilifeNeighborhoodWriteForm({
                   )}
                   {selectedAdProduct ? (
                     <div className="space-y-2">
-                      <p className="sam-text-helper font-semibold text-sam-fg">결제 방식</p>
+                      <p className="text-[13px] font-semibold text-[#6B7280]">결제 방식</p>
                       <div className="flex gap-2">
                         {(["points", "bank_transfer"] as AdPaymentMethod[]).map((m) => (
                           <button
                             key={m}
                             type="button"
                             onClick={() => setAdPaymentMethod(m)}
-                            className={`flex-1 rounded-ui-rect border py-2 sam-text-helper font-medium ${
+                            className={`flex-1 rounded-[4px] border py-2 text-[14px] font-semibold ${
                               adPaymentMethod === m
-                                ? "border-emerald-400 bg-emerald-50 text-emerald-800"
-                                : "border-sam-border bg-sam-surface text-sam-fg"
+                                ? "border-[#7360F2] bg-[#F3F0FF] text-[#7360F2]"
+                                : "border-[#E5E7EB] bg-white text-[#1F2430]"
                             }`}
                           >
                             {m === "points" ? "포인트" : "계좌 입금"}
@@ -1051,7 +1056,7 @@ export function PhilifeNeighborhoodWriteForm({
                         ))}
                       </div>
                       {adPaymentMethod === "points" && adShortfall > 0 ? (
-                        <p className="sam-text-helper text-red-600">
+                        <p className="text-[13px] text-red-600">
                           포인트가 {adShortfall.toLocaleString()}P 부족합니다. 충전하거나 계좌 입금을 선택해 주세요.
                         </p>
                       ) : null}
@@ -1062,14 +1067,14 @@ export function PhilifeNeighborhoodWriteForm({
                             value={adDepositorName}
                             onChange={(e) => setAdDepositorName(e.target.value)}
                             placeholder="입금자명 (필수)"
-                            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                            className={`w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
                           />
                           <input
                             type="text"
                             value={adMemo}
                             onChange={(e) => setAdMemo(e.target.value)}
                             placeholder="메모 (선택)"
-                            className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                            className={`w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
                           />
                         </div>
                       ) : null}
@@ -1083,7 +1088,7 @@ export function PhilifeNeighborhoodWriteForm({
           <div ref={submitErrorAnchorRef} className="min-h-0 scroll-mt-24">
             {err ? (
               <p
-                className="rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 sam-text-body text-red-700"
+                className="rounded-[4px] border border-red-200 bg-red-50 px-3 py-2 text-[14px] text-red-800"
                 role="alert"
               >
                 {err}
@@ -1096,8 +1101,8 @@ export function PhilifeNeighborhoodWriteForm({
               busy ||
               (category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
             }
-            className={`relative z-10 w-full rounded-ui-rect py-3.5 sam-text-body-lg font-semibold text-white disabled:opacity-50 ${
-              category === "meetup" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-sam-ink hover:bg-sam-surface-dark"
+            className={`relative z-10 w-full rounded-[4px] py-3 text-[14px] font-semibold text-white shadow-sm transition disabled:opacity-50 ${
+              category === "meetup" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-[#7360F2] hover:bg-[#5B46E8]"
             }`}
           >
             {busy ? "등록 중…" : "등록하기"}

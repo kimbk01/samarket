@@ -76,8 +76,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     vm.activeSheet === "attach" ||
                     vm.activeSheet === "attach-confirm" ||
                     vm.activeSheet === "stickers"
-                      ? "rounded-t-[14px] border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
-                      : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
+                      ? "rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                      : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
                           vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
                         }`
                   }`
@@ -152,7 +152,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("menu")}
-                    className="w-full rounded-[10px] bg-[color:var(--cm-room-chat-bg)] px-3 py-2.5 text-center sam-text-helper font-medium text-[color:var(--cm-room-text-muted)] active:opacity-90"
+                    className="w-full rounded-ui-rect bg-[color:var(--cm-room-chat-bg)] px-3 py-2.5 text-center text-[13px] font-normal text-[color:var(--cm-room-text-muted)] active:opacity-90"
                   >
                     사진·파일 모아보기 · 채팅방 정보는 서랍에서
                   </button>
@@ -183,7 +183,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             key={`${src}-${idx}`}
                             src={src}
                             alt=""
-                            className="aspect-square w-full rounded-[6px] object-cover"
+                            className="aspect-square w-full rounded-ui-rect object-cover"
                           />
                         ))}
                       </div>
@@ -218,7 +218,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   <button
                     type="button"
                     onClick={vm.cancelAttachmentConfirm}
-                    className="min-h-[48px] flex-1 rounded-[10px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] sam-text-body font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
+                    className="min-h-[44px] flex-1 rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] text-[14px] font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
                   >
                     취소
                   </button>
@@ -233,7 +233,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       vm.busy === "send-voice" ||
                       vm.busy === "delete-message"
                     }
-                    className="min-h-[48px] flex-[1.15] rounded-[10px] bg-[color:var(--cm-room-primary)] sam-text-body font-semibold text-white shadow-sm active:opacity-90 disabled:opacity-40"
+                    className="min-h-[44px] flex-[1.15] rounded-ui-rect bg-[color:var(--cm-room-primary)] text-[14px] font-semibold text-white shadow-sm active:opacity-90 disabled:opacity-40"
                   >
                     보내기
                   </button>

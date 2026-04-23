@@ -10,7 +10,11 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
+  COMMUNITY_DROPDOWN_PANEL_CLASS,
+  COMMUNITY_TAB_ACTIVE_CLASS,
+  COMMUNITY_TAB_IDLE_CLASS,
   PHILIFE_FEED_FILTER_STRIP_CLASS,
+  PHILIFE_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
   philifeFabComposeClass,
 } from "@/lib/philife/philife-flat-ui-classes";
@@ -23,6 +27,7 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
+import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
 import { ChevronDown } from "lucide-react";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import {
@@ -151,7 +156,11 @@ function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): Neighborho
   return out;
 }
 
-export function CommunityFeed() {
+export function CommunityFeed({
+  initialGlobalFeedRsc = null,
+}: {
+  initialGlobalFeedRsc?: PhilifeGlobalFeedInitialRsc | null;
+} = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -602,6 +611,59 @@ export function CommunityFeed() {
     nextOffsetRef.current = 0;
     loadMoreLockRef.current = false;
 
+    /** RSC `전체` 시드: URL뿐 아니라 **선택한 주제 칩(state)**이 비어 있을 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
+    const canUseDefaultGlobalSeed =
+      initialGlobalFeedRsc &&
+      !categoryParam.trim() &&
+      !category.trim() &&
+      !neighborOnly &&
+      !isPhilifeRecommendSortCategory(category) &&
+      !recSortKey;
+
+    if (
+      initialGlobalFeedRsc &&
+      canUseDefaultGlobalSeed &&
+      viewerSig === "_anon" &&
+      initialGlobalFeedRsc.viewerKey !== "_anon"
+    ) {
+      setLoading(true);
+      return () => {
+        feedAbortRef.current?.abort();
+      };
+    }
+
+    if (
+      initialGlobalFeedRsc &&
+      canUseDefaultGlobalSeed &&
+      viewerSig === initialGlobalFeedRsc.viewerKey
+    ) {
+      const s = initialGlobalFeedRsc;
+      const merged = mergeNeighborhoodFeedById([], s.posts, false);
+      setPosts(merged);
+      setHasMore(s.hasMore);
+      const resolvedNext = typeof s.nextOffset === "number" ? s.nextOffset : 0;
+      nextOffsetRef.current = resolvedNext;
+      setErr("");
+      if (merged.length) {
+        writePhilifeFeedCache(
+          PHILIFE_GLOBAL_FEED_SESSION_KEY,
+          category,
+          neighborOnly,
+          viewerSig,
+          {
+            posts: merged,
+            hasMore: s.hasMore,
+            nextOffset: resolvedNext,
+          },
+          recSortKey
+        );
+      }
+      setLoading(false);
+      return () => {
+        feedAbortRef.current?.abort();
+      };
+    }
+
     const snap = readPhilifeFeedCache(
       PHILIFE_GLOBAL_FEED_SESSION_KEY,
       category,
@@ -623,7 +685,7 @@ export function CommunityFeed() {
     return () => {
       feedAbortRef.current?.abort();
     };
-  }, [category, neighborOnly, viewerSig, recSortKey, fetchPage]);
+  }, [category, categoryParam, neighborOnly, viewerSig, recSortKey, fetchPage, initialGlobalFeedRsc]);
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
@@ -687,6 +749,12 @@ export function CommunityFeed() {
 
   const postsForList = posts;
   const searchKeyForNav = searchParams.toString();
+  const philifeComposeHref = (() => {
+    if (category === "meetup") return philifeAppPaths.writeMeeting;
+    const c = category.trim();
+    if (!c || isPhilifeRecommendSortCategory(c)) return philifeAppPaths.write;
+    return `${philifeAppPaths.write}?category=${encodeURIComponent(c)}`;
+  })();
   const setPhilifeRecommendSort = useCallback(
     (mode: "latest" | "recommended") => {
       const sp = new URLSearchParams(searchKeyForNav);
@@ -704,6 +772,20 @@ export function CommunityFeed() {
     [setPhilifeRecommendSort]
   );
 
+  /** 주제 탭: 상태 + `?category=` 동기화 — 새로고침·공유 시에도 동일 주제, 시드/캐시 키와도 맞음 */
+  const applyCategoryTab = useCallback(
+    (nextSlug: string) => {
+      setCategory(nextSlug);
+      const sp = new URLSearchParams(searchKeyForNav);
+      const t = nextSlug.trim();
+      if (t) sp.set("category", t);
+      else sp.delete("category");
+      const next = sp.toString();
+      void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchKeyForNav]
+  );
+
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS}>
       <MySubpageHeader
@@ -711,23 +793,25 @@ export function CommunityFeed() {
         hideCtaStrip
         stickyBelow={
           <>
-            <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface-muted">
+            <div className="min-w-0 overflow-x-hidden border-t border-[#E5E7EB] bg-white">
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <HorizontalDragScroll
-                  className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+                  className={`${Sam.tabs.barScroll} flex min-w-0 max-w-full gap-2 bg-white py-2.5`}
                   style={{ WebkitOverflowScrolling: "touch" }}
                   role="tablist"
                   aria-label="피드 주제"
                 >
                   {!chipsLoadDone ? (
                     <div className="flex min-h-[40px] items-center gap-2 py-0.5" aria-hidden>
-                      <span className="inline-block h-5 w-12 animate-pulse rounded bg-sam-border-soft" />
-                      <span className="inline-block h-5 w-16 animate-pulse rounded bg-sam-border-soft" />
-                      <span className="inline-block h-5 w-20 animate-pulse rounded bg-sam-border-soft" />
+                      <span className="inline-block h-8 w-14 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
+                      <span className="inline-block h-8 w-20 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
+                      <span className="inline-block h-8 w-24 animate-pulse rounded-[4px] bg-[#EEF0F4]" />
                     </div>
                   ) : (
                     chips.map((c) => {
                       const on = category === c.slug || (c.slug === "" && category === "");
+                      const tabBase =
+                        "shrink-0 rounded-[4px] px-3 py-1.5 text-left text-[13px] font-semibold transition-colors";
                       if (isRecommendTabDropdownChip(c)) {
                         return (
                           <div
@@ -738,19 +822,19 @@ export function CommunityFeed() {
                             <div
                               className={`inline-flex min-h-9 max-w-[min(220px,90vw)] items-stretch overflow-hidden rounded-[4px] border ${
                                 on
-                                  ? "border-signature/30 bg-signature text-white shadow-sm"
-                                  : "border-sam-border bg-sam-surface"
+                                  ? "border-[#7360F2] bg-[#F3F0FF] text-[#7360F2]"
+                                  : "border-[#E5E7EB] bg-[#FFFFFF] text-[#1F2430]"
                               }`}
                             >
                               <button
                                 type="button"
                                 role="tab"
                                 aria-selected={on}
-                                className={`max-w-[min(150px,55vw)] shrink-0 truncate px-2.5 py-1.5 text-left text-sm font-medium ${
-                                  on ? "text-white" : "text-sam-fg"
+                                className={`max-w-[min(150px,55vw)] shrink-0 truncate px-3 py-1.5 text-left text-[13px] font-semibold ${
+                                  on ? "text-[#7360F2]" : "text-[#1F2430]"
                                 }`}
                                 onClick={() => {
-                                  setCategory(c.slug);
+                                  applyCategoryTab(c.slug);
                                   setRecommendMenuOpen(false);
                                 }}
                               >
@@ -758,20 +842,20 @@ export function CommunityFeed() {
                               </button>
                               <button
                                 type="button"
-                                className="flex w-8 shrink-0 items-center justify-center"
+                                className={`flex w-9 shrink-0 items-center justify-center border-l ${on ? "border-[#7360F2]/25" : "border-[#E5E7EB]"}`}
                                 aria-label="추천 정렬 메뉴"
                                 aria-expanded={on && recommendMenuOpen}
                                 aria-haspopup="listbox"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (!on) {
-                                    setCategory(c.slug);
+                                    applyCategoryTab(c.slug);
                                   }
                                   setRecommendMenuOpen((v) => !v);
                                 }}
                               >
                                 <ChevronDown
-                                  className={`h-3.5 w-3.5 ${on ? "text-white" : "text-sam-muted"}`}
+                                  className={`h-4 w-4 ${on ? "text-[#7360F2]" : "text-[#6B7280]"}`}
                                   strokeWidth={2.5}
                                   aria-hidden
                                 />
@@ -786,8 +870,10 @@ export function CommunityFeed() {
                           type="button"
                           role="tab"
                           aria-selected={on}
-                          onClick={() => setCategory(c.slug === "" ? "" : c.slug)}
-                          className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
+                          onClick={() => applyCategoryTab(c.slug === "" ? "" : c.slug)}
+                          className={
+                            on ? `${tabBase} ${COMMUNITY_TAB_ACTIVE_CLASS}` : `${tabBase} ${COMMUNITY_TAB_IDLE_CLASS}`
+                          }
                         >
                           {c.label}
                         </button>
@@ -800,16 +886,16 @@ export function CommunityFeed() {
             {showNeighborOnlyStrip ? (
               <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
                 <div className={`min-w-0 space-y-1 ${APP_MAIN_HEADER_INNER_CLASS}`}>
-                  <label className="sam-text-helper flex cursor-pointer items-center gap-2 px-0 text-sam-muted">
+                  <label className="flex cursor-pointer items-center gap-2 px-0 text-[14px] text-[#1F2430]">
                     <input
                       type="checkbox"
                       checked={neighborOnly}
                       onChange={(e) => setNeighborOnly(e.target.checked)}
-                      className="rounded border-sam-border"
+                      className="h-4 w-4 rounded-[4px] border-[#E5E7EB] text-[#7360F2] focus:ring-[#7360F2]/30"
                     />
                     관심이웃 글만 보기
                   </label>
-                  <p className="sam-text-xxs leading-snug text-sam-meta">
+                  <p className="text-[13px] leading-[1.45] text-[#6B7280]">
                     글은 지역과 무관하게 모두 보이며, 상단 주제 탭으로 나눠 볼 수 있어요.
                   </p>
                 </div>
@@ -828,7 +914,7 @@ export function CommunityFeed() {
             ref={recommendMenuPanelRef}
             role="listbox"
             aria-label="추천 탭 정렬"
-            className="min-w-[10rem] rounded-ui-rect border border-sam-border bg-sam-surface py-1 text-left shadow-md"
+            className={`min-w-[10rem] text-left ${COMMUNITY_DROPDOWN_PANEL_CLASS}`}
             style={{
               position: "fixed",
               top: recommendMenuPos.top,
@@ -841,7 +927,7 @@ export function CommunityFeed() {
                 type="button"
                 role="option"
                 aria-selected={effectiveRecSort === "latest"}
-                className="block w-full px-3.5 py-2.5 text-left text-sam-fg text-sm transition hover:bg-sam-surface-muted"
+                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
                 onClick={() => applyRecommendSort("latest")}
               >
                 최신순
@@ -852,7 +938,7 @@ export function CommunityFeed() {
                 type="button"
                 role="option"
                 aria-selected={effectiveRecSort === "recommended"}
-                className="block w-full px-3.5 py-2.5 text-left text-sam-fg text-sm transition hover:bg-sam-surface-muted"
+                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
                 onClick={() => applyRecommendSort("recommended")}
               >
                 추천순
@@ -865,16 +951,22 @@ export function CommunityFeed() {
       <div className="relative min-w-0">
         {loading && postsForList.length > 0 ? (
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-signature/50"
+            className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-[#7360F2]/60"
             aria-hidden
           />
         ) : null}
 
-        {topAds.length > 0 ? topAds.map((ad) => <AdPostCard key={ad.adId} ad={ad} />) : null}
+        {topAds.length > 0 ? (
+          <div className="space-y-2 px-2 pt-2">
+            {topAds.map((ad) => (
+              <AdPostCard key={ad.adId} ad={ad} />
+            ))}
+          </div>
+        ) : null}
 
         {err ? (
           <div className="px-3 py-3 sm:px-4">
-            <div className={`rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 sam-text-body`}>
+            <div className="rounded-[4px] border border-amber-200/90 bg-amber-50 px-4 py-3 text-[14px] text-amber-950">
               {err}
             </div>
           </div>
@@ -882,22 +974,17 @@ export function CommunityFeed() {
         {loading && postsForList.length === 0 ? (
           <CommunityFeedSkeleton />
         ) : !err && postsForList.length === 0 ? (
-          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-sam-muted sam-text-body`}>
+          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-[#6B7280]`}>
             아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-              <Link
-                href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
-                className="font-semibold text-signature"
-              >
+              <Link href={philifeComposeHref} className="font-semibold text-[#7360F2]">
                 {category === "meetup" ? "모임 글 쓰기" : "첫 글 쓰기"}
               </Link>
             </div>
           </div>
         ) : (
           <>
-            <ul
-              className={`m-0 list-none divide-y divide-sam-border p-0 ${APP_MAIN_GUTTER_X_CLASS} pt-2 pb-1 ${topAds.length > 0 ? "mt-2" : ""}`}
-            >
+            <ul className={`${PHILIFE_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-2" : ""}`}>
               {postsForList.map((p) => (
                 <li key={p.id} className="list-none">
                   <CommunityCard post={p} />
@@ -905,16 +992,18 @@ export function CommunityFeed() {
               ))}
             </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
-            {loadingMore ? <p className="py-4 text-center sam-text-body-secondary text-sam-meta">더 불러오는 중…</p> : null}
+            {loadingMore ? (
+              <p className="py-4 text-center text-[13px] text-[#65676B]">더 불러오는 중…</p>
+            ) : null}
             {!hasMore && postsForList.length > 0 ? (
-              <p className="pb-8 pt-2 text-center sam-text-helper text-sam-meta">모든 글을 불러왔어요</p>
+              <p className="pb-8 pt-2 text-center text-[13px] text-[#8A8D91]">모든 글을 불러왔어요</p>
             ) : null}
           </>
         )}
       </div>
 
       <Link
-        href={category === "meetup" ? philifeAppPaths.writeMeeting : philifeAppPaths.write}
+        href={philifeComposeHref}
         className={philifeFabComposeClass()}
         aria-label={category === "meetup" ? "모임 글쓰기" : "커뮤니티 글쓰기"}
       >

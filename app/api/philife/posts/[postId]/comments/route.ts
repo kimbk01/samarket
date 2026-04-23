@@ -26,6 +26,10 @@ function flattenNeighborhoodComments(
         content: item.content,
         created_at: item.created_at,
         author_name: item.author_name,
+        like_count: item.like_count,
+        liked_by_viewer: item.liked_by_viewer,
+        updated_at: item.updated_at,
+        is_edited: item.is_edited,
       });
       if (item.children.length > 0) walk(item.children);
     }

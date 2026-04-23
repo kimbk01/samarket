@@ -70,4 +70,9 @@ export type CommunityCommentDTO = {
   content: string;
   created_at: string;
   author_name: string;
+  like_count: number;
+  /** 로그인 시: 현재 보는 사람이 눌렀는지 (비로그인/조회 전은 false) */
+  liked_by_viewer: boolean;
+  updated_at: string;
+  is_edited: boolean;
 };

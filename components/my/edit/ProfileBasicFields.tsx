@@ -42,36 +42,37 @@ export function ProfileBasicFields({
   onPreferredCountryChange,
   errors = {},
 }: ProfileBasicFieldsProps) {
-  const controlClass =
-    "mt-1 w-full rounded border border-sam-border px-2.5 py-1.5 sam-text-body-secondary leading-snug";
+  const inputClass = "sam-input mt-1";
+  const textareaClass = "sam-textarea mt-1 min-h-[96px]";
+  const selectClass = "sam-select mt-1";
 
   return (
     <div className="space-y-3">
       <div>
-        <label className="sam-text-body-secondary font-medium text-sam-fg">닉네임 *</label>
+        <label className="text-[13px] font-semibold text-sam-fg">닉네임 *</label>
         <input
           type="text"
           value={nickname}
           onChange={(e) => onNicknameChange(e.target.value)}
           placeholder="닉네임"
-          className={controlClass}
+          className={inputClass}
         />
         {errors.nickname && (
           <p className="mt-0.5 sam-text-xxs text-red-600">{errors.nickname}</p>
         )}
       </div>
       <div>
-        <label className="sam-text-body-secondary font-medium text-sam-fg">나의 상태</label>
+        <label className="text-[13px] font-semibold text-sam-fg">나의 상태</label>
         <textarea
           value={bio}
           onChange={(e) => onBioChange(e.target.value)}
           placeholder="한 줄로 상태를 입력해 보세요"
           rows={2}
-          className={`${controlClass} min-h-0 resize-y`}
+          className={textareaClass}
         />
       </div>
       <div>
-        <label className="sam-text-body-secondary font-medium text-sam-fg">연락처</label>
+        <label className="text-[13px] font-semibold text-sam-fg">연락처</label>
         <input
           type="tel"
           inputMode="numeric"
@@ -80,16 +81,16 @@ export function ProfileBasicFields({
           value={formatPhMobileDisplay(phone)}
           onChange={(e) => onPhoneChange(parsePhMobileInput(e.target.value))}
           placeholder={PH_MOBILE_PLACEHOLDER}
-          className={controlClass}
+          className={inputClass}
         />
         {errors.phone ? <p className="mt-0.5 sam-text-xxs text-red-600">{errors.phone}</p> : null}
       </div>
       <div>
-        <label className="sam-text-body-secondary font-medium text-sam-fg">선호 언어</label>
+        <label className="text-[13px] font-semibold text-sam-fg">선호 언어</label>
         <select
           value={preferredLanguage}
           onChange={(e) => onPreferredLanguageChange(e.target.value)}
-          className={controlClass}
+          className={selectClass}
         >
           {LANG_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
@@ -99,11 +100,11 @@ export function ProfileBasicFields({
         </select>
       </div>
       <div>
-        <label className="sam-text-body-secondary font-medium text-sam-fg">선호 국가</label>
+        <label className="text-[13px] font-semibold text-sam-fg">선호 국가</label>
         <select
           value={preferredCountry}
           onChange={(e) => onPreferredCountryChange(e.target.value)}
-          className={controlClass}
+          className={selectClass}
         >
           {COUNTRY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>

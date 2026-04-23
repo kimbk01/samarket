@@ -1,9 +1,10 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { isCommunityCommentPubliclyVisible, isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import { fetchLikedCommentIdsSetForUser } from "@/lib/community/comment-likes.query";
+import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import type { CommunityFeedSortMode } from "@/lib/community-feed/constants";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
-import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { rankByRecommended } from "@/lib/community-feed/feed-ranking";
 import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import {
@@ -714,6 +715,55 @@ export async function getNeighborhoodPostDetail(
   };
 }
 
+/**
+ * 상세 하단「이 글과 비슷한 게시글」— 동일 지역 + 동일 주제(slug) 우선, 부족 시 동일 지역 전체.
+ */
+export async function listNeighborhoodSimilarPosts(
+  current: NeighborhoodFeedPostDTO,
+  options?: { viewerUserId?: string | null; limit?: number }
+): Promise<NeighborhoodFeedPostDTO[]> {
+  const cap = Math.min(Math.max(options?.limit ?? 6, 1), 10);
+  const v = options?.viewerUserId ?? null;
+  const lid = (current.location_id ?? "").trim();
+  if (!lid) return [];
+
+  const primary = await listNeighborhoodFeed({
+    allLocations: false,
+    locationId: lid,
+    category: current.category || null,
+    limit: 20,
+    offset: 0,
+    viewerUserId: v,
+    feedSort: "latest",
+  });
+  const out: NeighborhoodFeedPostDTO[] = [];
+  const seen = new Set<string>([current.id]);
+  for (const p of primary.posts) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+    if (out.length >= cap) return out;
+  }
+  if (out.length >= cap) return out;
+
+  const fill = await listNeighborhoodFeed({
+    allLocations: false,
+    locationId: lid,
+    category: null,
+    limit: 25,
+    offset: 0,
+    viewerUserId: v,
+    feedSort: "latest",
+  });
+  for (const p of fill.posts) {
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
 export async function listNeighborhoodComments(postId: string, viewerUserId?: string | null): Promise<NeighborhoodCommentNode[]> {
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -723,16 +773,34 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
   }
 
   const v = viewerUserId?.trim() ?? "";
-  const [{ data, error }, blockExclude] = await Promise.all([
+  const [blockExclude, r1] = await Promise.all([
+    v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     sb
       .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status")
+      .select("id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count")
       .eq("post_id", postId)
       .order("created_at", { ascending: true }),
-    v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
   ]);
-
-  if (error || !Array.isArray(data)) return [];
+  let data: unknown[] | null = (r1.data as unknown[] | null) ?? null;
+  let err = r1.error;
+  if (err && isMissingDbColumnError(err, "like_count")) {
+    const r2 = await sb
+      .from("community_comments")
+      .select("id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    data = (r2.data as unknown[] | null) ?? null;
+    err = r2.error;
+  } else if (err && isMissingDbColumnError(err, "updated_at")) {
+    const r2b = await sb
+      .from("community_comments")
+      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
+    data = (r2b.data as unknown[] | null) ?? null;
+    err = r2b.error;
+  }
+  if (err || !Array.isArray(data)) return [];
 
   let rows = (data as Record<string, unknown>[]).filter((r) => isCommunityCommentPubliclyVisible(r as never));
 
@@ -741,18 +809,34 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
   }
 
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-  const nickMap = await fetchNicknamesForUserIds(sb as never, uids);
+  const commentIds = rows.map((r) => String(r.id));
+  const [nickMap, likedSet] = await Promise.all([
+    fetchNicknamesForUserIds(sb as never, uids),
+    v && commentIds.length > 0 ? fetchLikedCommentIdsSetForUser(sb, v, commentIds) : Promise.resolve(new Set<string>()),
+  ]);
 
-  const nodes: NeighborhoodCommentNode[] = rows.map((r) => ({
-    id: String(r.id),
-    post_id: String(r.post_id ?? ""),
-    user_id: String(r.user_id ?? ""),
-    parent_id: r.parent_id != null ? String(r.parent_id) : null,
-    content: String(r.content ?? ""),
-    created_at: String(r.created_at ?? ""),
-    author_name: nickMap.get(String(r.user_id ?? "")) ?? String(r.user_id ?? "").slice(0, 8),
-    children: [],
-  }));
+  const nodes: NeighborhoodCommentNode[] = rows.map((r) => {
+    const uid = String(r.user_id ?? "");
+    const id = String(r.id);
+    const created = String(r.created_at ?? "");
+    const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
+    const t0 = new Date(created).getTime();
+    const t1 = new Date(upd).getTime();
+    return {
+      id,
+      post_id: String(r.post_id ?? ""),
+      user_id: uid,
+      parent_id: r.parent_id != null ? String(r.parent_id) : null,
+      content: String(r.content ?? ""),
+      created_at: created,
+      updated_at: upd,
+      is_edited: !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
+      author_name: nickMap.get(uid) ?? uid.slice(0, 8),
+      like_count: Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)),
+      liked_by_viewer: v.length > 0 && likedSet.has(id),
+      children: [],
+    };
+  });
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const roots: NeighborhoodCommentNode[] = [];

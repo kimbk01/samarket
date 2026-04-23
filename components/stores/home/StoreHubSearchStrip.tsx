@@ -19,7 +19,7 @@ export function StoreHubSearchStrip({
         className={`flex items-center gap-2 px-3 py-2 ${FB.searchWell}`}
       >
         <svg
-          className="h-5 w-5 shrink-0 text-[#65676B] dark:text-[#B0B3B8]"
+          className="h-4 w-4 shrink-0 text-sam-muted dark:text-[#B0B3B8]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -35,7 +35,7 @@ export function StoreHubSearchStrip({
           placeholder="매장 검색"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent sam-text-body text-[#050505] placeholder:text-[#65676B] focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"
+          className="min-w-0 flex-1 bg-transparent text-[14px] font-normal leading-[1.5] text-sam-fg placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-sam-meta focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"
         />
       </div>
     </div>

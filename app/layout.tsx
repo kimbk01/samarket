@@ -52,6 +52,7 @@ export default function RootLayout({
     <html lang="ko" suppressHydrationWarning>
       <body
         className={`${notoSansKr.variable} font-sans antialiased`}
+        data-sm-ui="viber"
         suppressHydrationWarning
       >
         <AppLanguageProvider>

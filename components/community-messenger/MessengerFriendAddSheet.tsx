@@ -87,7 +87,7 @@ export function MessengerFriendAddSheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
       <div
         data-messenger-shell
-        className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+        className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
@@ -95,7 +95,7 @@ export function MessengerFriendAddSheet({
           </p>
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft)]"
+            className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft)]"
             aria-label="닫기"
             onClick={onClose}
           >
@@ -188,7 +188,7 @@ export function MessengerFriendAddSheet({
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full rounded-[var(--messenger-radius-sm)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 sam-text-body outline-none transition-[border,box-shadow] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+                  className="w-full rounded-ui-rect border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[14px] font-normal leading-[1.5] outline-none transition-[border,box-shadow] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
                   style={{ color: "var(--messenger-text)" }}
                 />
                 <p className="mt-1.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -198,12 +198,12 @@ export function MessengerFriendAddSheet({
                   type="button"
                   onClick={() => void onSearchUsers()}
                   disabled={busyId === "user-search"}
-                  className="mt-3 w-full rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] py-2.5 sam-text-body font-semibold text-white disabled:opacity-50 active:opacity-90"
+                  className="mt-3 w-full rounded-ui-rect bg-[color:var(--messenger-primary)] py-2.5 text-[14px] font-semibold text-white disabled:opacity-50 active:opacity-90"
                 >
                   {busyId === "user-search" ? "검색 중…" : "검색"}
                 </button>
               </div>
-              <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+              <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
                 {searchResults.length === 0 ? (
                   <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
                     {!friendUserSearchAttempted ? "검색어를 입력한 뒤 검색을 눌러 주세요." : "검색 결과가 없습니다."}

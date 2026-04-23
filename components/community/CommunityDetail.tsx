@@ -2,44 +2,32 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import {
-  getCurrentUser,
-  getHydrationSafeCurrentUser,
-} from "@/lib/auth/get-current-user";
+import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode, NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
-import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import {
   fetchCommunityPostCommentsDeduped,
   invalidateCommunityPostCommentsDeduped,
 } from "@/lib/community/fetch-community-post-comments-deduped";
-import { CommentList } from "./CommentList";
-import { MeetingCard } from "./MeetingCard";
 import { NeighborFollowButton } from "./NeighborFollowButton";
 import { UserBlockButton } from "./UserBlockButton";
 import {
   philifeNeighborhoodPostUrl,
+  philifePostCommentLikeUrl,
+  philifePostCommentUrl,
   philifePostCommentsUrl,
   philifePostLikeUrl,
   philifePostViewUrl,
 } from "@domain/philife/api";
+import { updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { philifeAppPaths } from "@domain/philife/paths";
-import {
-  PHILIFE_DETAIL_BODY_CLASS,
-  PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
-  PHILIFE_DETAIL_META_CLASS,
-  PHILIFE_DETAIL_POST_SLAB_CLASS,
-  PHILIFE_DETAIL_TITLE_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
-import { hasInterleavedMarkdownImageSyntax } from "@/lib/philife/interleaved-body-markdown";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
-import { NeighborhoodInterleavedContent } from "@/components/community/NeighborhoodInterleavedContent";
 import {
   recordRouteEntryFetchNetworkFromResources,
   recordRouteEntryFirstContentRender,
@@ -49,24 +37,45 @@ import {
   recordRouteEntryRouteTotalMs,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { extractPostDetailHashtagsForDisplay } from "./post-detail/post-detail-utils";
+import { CommunityPostDetailHeader } from "./post-detail/CommunityPostDetailHeader";
+import { CommunityPostCategoryRow } from "./post-detail/CommunityPostCategoryRow";
+import { CommunityPostDetailAuthorRow } from "./post-detail/CommunityPostDetailAuthorRow";
+import { CommunityPostDetailBody } from "./post-detail/CommunityPostDetailBody";
+import { CommunityPostDetailTags } from "./post-detail/CommunityPostDetailTags";
+import {
+  CommunityPostDetailStatsActions,
+} from "./post-detail/CommunityPostDetailStatsActions";
+import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
+import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
+import { CommunityInlineAdCard } from "./post-detail/CommunityInlineAdCard";
+import { CommunitySimilarPostsSection } from "./post-detail/CommunitySimilarPostsSection";
+import { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import {
+  COMMUNITY_BUTTON_PRIMARY_CLASS,
+  COMMUNITY_BUTTON_SECONDARY_CLASS,
+  COMMUNITY_MODAL_PANEL_CLASS,
+  COMMUNITY_OVERLAY_BACKDROP_CLASS,
+  PHILIFE_DETAIL_PAGE_ROOT_CLASS,
+  PHILIFE_DETAIL_POST_SLAB_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 
-function CommentLockIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="5" y="11" width="14" height="10" rx="1" />
-      <path d="M8 11V7a4 4 0 018 0v4" />
-    </svg>
-  );
+function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
+  let n = 0;
+  const walk = (arr: NeighborhoodCommentNode[]) => {
+    for (const x of arr) {
+      n += 1;
+      if (x.children.length) walk(x.children);
+    }
+  };
+  walk(nodes);
+  return n;
 }
+
+const meetingToolbarBtn =
+  "flex min-h-[44px] w-full items-center justify-center rounded-[4px] border border-[#E5E7EB] bg-[#FFFFFF] px-1 py-2 text-center text-[14px] font-semibold leading-[1.4] text-[#1F2430] disabled:opacity-50";
+const meetingToolbarWrap =
+  "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-[4px] [&>button]:border [&>button]:border-[#E5E7EB] [&>button]:bg-[#FFFFFF] [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[14px] [&>button]:font-semibold [&>button]:leading-[1.4] [&>button]:text-[#1F2430]";
 
 export function CommunityDetail({
   post,
@@ -75,17 +84,19 @@ export function CommunityDetail({
   initialCommentsLoaded = false,
   viewerJoinedMeeting = false,
   initialRouteTotalMs,
+  similarPosts = [],
 }: {
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
   initialComments: NeighborhoodCommentNode[];
-  /** 서버에서 댓글 조회를 이미 완료했는지 표시해 빈 배열일 때의 중복 GET 을 막는다. */
   initialCommentsLoaded?: boolean;
-  /** 모임 글: 참여(또는 호스트)일 때만 댓글 작성·목록 허용 */
   viewerJoinedMeeting?: boolean;
   initialRouteTotalMs?: number;
+  similarPosts?: NeighborhoodFeedPostDTO[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [postUrl, setPostUrl] = useState("");
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
@@ -96,7 +107,6 @@ export function CommunityDetail({
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
   const [commentText, setCommentText] = useState("");
-  const [parentId, setParentId] = useState<string | null>(null);
   const [scrollSig, setScrollSig] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
@@ -110,27 +120,21 @@ export function CommunityDetail({
     setMounted(true);
   }, []);
 
-  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setPostUrl(`${window.location.origin}${pathname || ""}`);
+  }, [pathname]);
+
   const tier1Title = meeting ? "모임" : post.category_label?.trim() || "커뮤니티";
+  const hashtags = useMemo(
+    () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
+    [post.title, post.content, meeting, post.is_meetup]
+  );
 
   useEffect(() => {
     setComments(initialComments);
     setCommentsLoading(!initialCommentsLoaded && initialComments.length === 0);
   }, [initialComments, initialCommentsLoaded, post.id]);
-
-  useLayoutEffect(() => {
-    if (!setMainTier1Extras) return;
-    setMainTier1Extras({
-      tier1: {
-        titleText: tier1Title,
-        backHref: philifeAppPaths.home,
-        preferHistoryBack: true,
-        ariaLabel: "피드로",
-        showHubQuickActions: true,
-      },
-    });
-    return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, tier1Title]);
 
   useLayoutEffect(() => {
     recordRouteEntryRouteTotalMs("community_detail", initialRouteTotalMs);
@@ -149,7 +153,7 @@ export function CommunityDetail({
       recordRouteEntryFirstContentRender("community_detail");
       scheduleRouteEntryToPaint("community_detail");
     }
-    const interactiveTarget = root.querySelector("button, textarea, a[href]");
+    const interactiveTarget = root.querySelector("button, input, a[href]");
     if (interactiveTarget instanceof HTMLElement && !interactiveTarget.hasAttribute("disabled")) {
       recordRouteEntryFirstInteractive("community_detail");
     }
@@ -160,9 +164,8 @@ export function CommunityDetail({
     try {
       if (window.sessionStorage.getItem(viewedKey) === "1") return;
     } catch {
-      /* ignore storage read errors */
+      /* ignore */
     }
-
     const run = () => {
       void (async () => {
         try {
@@ -173,7 +176,7 @@ export function CommunityDetail({
             try {
               window.sessionStorage.setItem(viewedKey, "1");
             } catch {
-              /* ignore storage write errors */
+              /* ignore */
             }
           }
         } catch {
@@ -181,35 +184,25 @@ export function CommunityDetail({
         }
       })();
     };
-
-    const ric = (
-      globalThis as typeof globalThis & {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
-      }
-    ).requestIdleCallback;
+    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number })
+      .requestIdleCallback;
     if (typeof ric === "function") {
       const id = ric(run, { timeout: 2200 });
       return () => {
-        const cancel = (globalThis as typeof globalThis & { cancelIdleCallback?: (n: number) => void })
-          .cancelIdleCallback;
-        if (typeof cancel === "function") cancel(id);
+        const c = (globalThis as { cancelIdleCallback?: (n: number) => void }).cancelIdleCallback;
+        if (typeof c === "function") c(id);
       };
     }
     const t = window.setTimeout(run, 1);
     return () => window.clearTimeout(t);
   }, [post.id]);
 
-  const flatCommentCount = useCallback((nodes: NeighborhoodCommentNode[]): number => {
-    let n = 0;
-    const walk = (arr: NeighborhoodCommentNode[]) => {
-      for (const x of arr) {
-        n += 1;
-        if (x.children.length) walk(x.children);
-      }
-    };
-    walk(nodes);
-    return n;
-  }, []);
+  const displayCommentCount = useMemo(() => countNeighborhoodCommentNodesFlat(comments), [comments]);
+
+  const meForComposer = useMemo(
+    () => (me ? { name: me.nickname || "나", avatarUrl: me.avatar_url ?? null } : null),
+    [me]
+  );
 
   const refreshComments = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -217,9 +210,7 @@ export function CommunityDetail({
       const silent = opts?.silent === true;
       if (!silent) setCommentsLoading(true);
       try {
-        const result = await fetchCommunityPostCommentsDeduped(post.id, {
-          force: opts?.force === true,
-        });
+        const result = await fetchCommunityPostCommentsDeduped(post.id, { force: opts?.force === true });
         const data = result.json as {
           ok?: boolean;
           tree?: NeighborhoodCommentNode[];
@@ -231,6 +222,10 @@ export function CommunityDetail({
             content: string;
             created_at: string;
             author_name: string;
+            like_count?: number;
+            liked_by_viewer?: boolean;
+            updated_at?: string;
+            is_edited?: boolean;
           }[];
         };
         if (result.status < 200 || result.status >= 300 || !data.ok) return;
@@ -238,16 +233,29 @@ export function CommunityDetail({
           ? data.tree
           : Array.isArray(data.comments)
             ? (() => {
-                const nodes: NeighborhoodCommentNode[] = data.comments!.map((r) => ({
-                  id: r.id,
-                  post_id: r.post_id,
-                  user_id: r.user_id,
-                  parent_id: r.parent_id,
-                  content: r.content,
-                  created_at: r.created_at,
-                  author_name: r.author_name,
-                  children: [],
-                }));
+                const nodes: NeighborhoodCommentNode[] = data.comments!.map((r) => {
+                  const created = r.created_at;
+                  const upd = (r as { updated_at?: string }).updated_at ?? created;
+                  const t0 = new Date(created).getTime();
+                  const t1 = new Date(upd).getTime();
+                  return {
+                    id: r.id,
+                    post_id: r.post_id,
+                    user_id: r.user_id,
+                    parent_id: r.parent_id,
+                    content: r.content,
+                    created_at: created,
+                    updated_at: upd,
+                    is_edited:
+                      typeof r.is_edited === "boolean"
+                        ? r.is_edited
+                        : !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
+                    author_name: r.author_name,
+                    like_count: Math.max(0, Number(r.like_count ?? 0)),
+                    liked_by_viewer: Boolean(r.liked_by_viewer),
+                    children: [],
+                  };
+                });
                 const byId = new Map(nodes.map((x) => [x.id, x]));
                 const builtRoots: NeighborhoodCommentNode[] = [];
                 for (const x of nodes) {
@@ -294,11 +302,10 @@ export function CommunityDetail({
   useEffect(() => {
     const root = articleRef.current;
     if (!root || commentsLoading) return;
-    const commentsVisible = true;
     const firstImage = root.querySelector("img");
     const imageReady =
       !firstImage || (firstImage instanceof HTMLImageElement && firstImage.complete && firstImage.naturalWidth > 0);
-    if (commentsVisible && imageReady) {
+    if (imageReady) {
       recordRouteEntryFullRender("community_detail");
     }
     if (firstImage instanceof HTMLImageElement && !imageReady) {
@@ -306,7 +313,6 @@ export function CommunityDetail({
       firstImage.addEventListener("load", onLoad, { once: true });
       return () => firstImage.removeEventListener("load", onLoad);
     }
-    return;
   }, [commentsLoading, comments.length, post.images.length]);
 
   const onLike = async () => {
@@ -328,8 +334,77 @@ export function CommunityDetail({
     }
   };
 
-  const onSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onCommentLike = useCallback(
+    async (commentId: string) => {
+      if (!me?.id) {
+        const n = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+        void router.push(`/login?next=${encodeURIComponent(n)}`);
+        return;
+      }
+      try {
+        const res = await fetch(philifePostCommentLikeUrl(post.id, commentId), { method: "POST" });
+        const data = (await res.json()) as { ok?: boolean; liked?: boolean; like_count?: number };
+        if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
+          setComments((cur) => updateCommentInTree(cur, commentId, { liked_by_viewer: data.liked, like_count: data.like_count }));
+        } else {
+          invalidateCommunityPostCommentsDeduped(post.id);
+          await refreshComments({ silent: true, force: true });
+        }
+      } catch {
+        invalidateCommunityPostCommentsDeduped(post.id);
+        await refreshComments({ silent: true, force: true });
+      }
+    },
+    [me?.id, post.id, refreshComments, router]
+  );
+
+  const onCommentEdit = useCallback(
+    async (commentId: string, nextContent: string) => {
+      if (!me?.id) return;
+      const t = nextContent.trim();
+      if (!t) return;
+      setBusy(true);
+      try {
+        const res = await fetch(philifePostCommentUrl(post.id, commentId), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: t }),
+        });
+        const data = (await res.json()) as { ok?: boolean };
+        if (res.ok && data.ok) {
+          const now = new Date().toISOString();
+          setComments((cur) => updateCommentInTree(cur, commentId, { content: t, is_edited: true, updated_at: now }));
+        } else {
+          invalidateCommunityPostCommentsDeduped(post.id);
+          await refreshComments({ silent: true, force: true });
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [me?.id, post.id, refreshComments]
+  );
+
+  const onCommentDelete = useCallback(
+    async (commentId: string) => {
+      if (!me?.id) return;
+      if (!window.confirm("이 댓글을 삭제할까요?")) return;
+      setBusy(true);
+      try {
+        const res = await fetch(philifePostCommentUrl(post.id, commentId), { method: "DELETE" });
+        const data = (await res.json()) as { ok?: boolean };
+        if (res.ok && data.ok) {
+          invalidateCommunityPostCommentsDeduped(post.id);
+          await refreshComments({ silent: true, force: true });
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [me?.id, post.id, refreshComments]
+  );
+
+  const submitComment = useCallback(async () => {
     const t = commentText.trim();
     if (!t) return;
     setBusy(true);
@@ -337,12 +412,11 @@ export function CommunityDetail({
       const res = await fetch(philifePostCommentsUrl(post.id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: t, parentId: parentId ?? undefined }),
+        body: JSON.stringify({ content: t }),
       });
       const data = (await res.json()) as { ok?: boolean };
       if (data.ok) {
         setCommentText("");
-        setParentId(null);
         invalidateCommunityPostCommentsDeduped(post.id);
         await refreshComments({ silent: true, force: true });
         setScrollSig((s) => s + 1);
@@ -350,7 +424,31 @@ export function CommunityDetail({
     } finally {
       setBusy(false);
     }
-  };
+  }, [commentText, post.id, refreshComments]);
+
+  const submitReplyComment = useCallback(
+    async (parentId: string, content: string) => {
+      const t = content.trim();
+      if (!t) return;
+      setBusy(true);
+      try {
+        const res = await fetch(philifePostCommentsUrl(post.id), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: t, parentId }),
+        });
+        const data = (await res.json()) as { ok?: boolean };
+        if (data.ok) {
+          invalidateCommunityPostCommentsDeduped(post.id);
+          await refreshComments({ silent: true, force: true });
+          setScrollSig((s) => s + 1);
+        }
+      } finally {
+        setBusy(false);
+      }
+    },
+    [post.id, refreshComments]
+  );
 
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
@@ -381,15 +479,9 @@ export function CommunityDetail({
     }
   };
 
-  const time =
-    post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at, "ko-KR")
-      : "";
-
   const meetingHostDisplay =
     meeting &&
-    (isSameUserId(post.author_id, meeting.host_user_id) ||
-      isSameUserId(post.author_id, meeting.created_by))
+    (isSameUserId(post.author_id, meeting.host_user_id) || isSameUserId(post.author_id, meeting.created_by))
       ? post.author_name
       : meeting
         ? meeting.host_user_id.slice(0, 8)
@@ -397,82 +489,64 @@ export function CommunityDetail({
 
   const commentsLocked = Boolean(meeting && !viewerJoinedMeeting);
 
-  const meetingToolbarBtn =
-    "flex min-h-[44px] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-1 py-2 text-center sam-text-xxs font-medium leading-tight text-sam-fg sm:sam-text-helper disabled:opacity-50";
-  const meetingToolbarWrap =
-    "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:sam-text-xxs [&>button]:font-medium [&>button]:leading-tight [&>button]:text-sam-fg sm:[&>button]:sam-text-helper";
+  const openReport = useCallback(() => {
+    if (me?.id && me.id === post.author_id) return;
+    setReportErr("");
+    setReportOpen(true);
+  }, [me, post.author_id]);
 
-  const isInterleavedBody =
-    !meeting && hasInterleavedMarkdownImageSyntax(post.content);
+  const authorSubline = meeting
+    ? `조회 ${viewCount.toLocaleString("ko-KR")} · 댓글 ${displayCommentCount}`
+    : undefined;
 
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
-      <article ref={articleRef} className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-        <div className={PHILIFE_DETAIL_POST_SLAB_CLASS}>
-          {!isInterleavedBody && post.images.length > 0 ? (
-            <div className="grid grid-cols-1 gap-px bg-sam-surface-muted sm:grid-cols-2">
-              {post.images.map((url, i) =>
-                url ? (
-                  <a
-                    key={`${url}-${i}`}
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`block overflow-hidden bg-sam-surface-muted ${i === 0 ? "sm:col-span-2" : ""}`}
-                  >
-                    <img
-                      src={url}
-                      alt=""
-                      className={`w-full bg-black/[0.03] ${
-                        i === 0
-                          ? "max-h-[min(32vh,260px)] object-contain sm:max-h-[280px]"
-                          : "h-36 object-cover sm:h-44"
-                      }`}
-                      loading={i === 0 ? "eager" : "lazy"}
-                      decoding="async"
-                    />
-                  </a>
-                ) : null
-              )}
-            </div>
+    <div className={`${PHILIFE_DETAIL_PAGE_ROOT_CLASS} ${MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS}`}>
+      <CommunityPostDetailHeader
+        titleText={tier1Title}
+        onOpenReport={openReport}
+        onDelete={onDeletePost}
+        canDelete={!!me?.id && me.id === post.author_id}
+        canReport={!me?.id || me.id !== post.author_id}
+        postUrl={postUrl}
+      />
+
+      <article
+        ref={articleRef}
+        className={`w-full min-w-0 ${PHILIFE_DETAIL_POST_SLAB_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`}
+      >
+        <div className="max-w-3xl">
+          <CommunityPostCategoryRow
+            label={meeting ? "모임" : post.category_label}
+            isQuestion={post.is_question && !meeting}
+          />
+          <CommunityPostDetailAuthorRow
+            authorName={post.author_name}
+            locationLabel={post.location_label}
+            createdAt={post.created_at}
+            subline={authorSubline}
+          />
+          <CommunityPostDetailBody
+            post={post}
+            meeting={meeting}
+            meetingHostDisplay={meetingHostDisplay}
+            viewerJoinedMeeting={viewerJoinedMeeting}
+          />
+
+          {!meeting ? <CommunityPostDetailTags tags={hashtags} /> : null}
+          {!meeting ? (
+            <CommunityPostDetailStatsActions
+              postId={post.id}
+              viewCount={viewCount}
+              likeCount={likeCount}
+              busy={busy}
+              onLike={onLike}
+              showSocialActions={!!me?.id && me.id !== post.author_id}
+              socialTargetUserId={!meeting ? post.author_id : null}
+            />
           ) : null}
 
-          <div className="p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-ui-rect bg-sky-600 px-2 py-0.5 sam-text-xxs font-semibold text-white">
-                {meeting ? "모임" : post.category_label}
-              </span>
-            </div>
-            <h1 className={PHILIFE_DETAIL_TITLE_CLASS}>{post.title}</h1>
-            <div className={PHILIFE_DETAIL_META_CLASS}>
-              <span>{post.author_name}</span>
-              {post.location_label ? <span>{post.location_label}</span> : null}
-              <span>{time}</span>
-              <span>조회 {viewCount}</span>
-              <span>댓글 {flatCommentCount(comments)}</span>
-            </div>
-            {meeting ? (
-              <div className={PHILIFE_DETAIL_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
-            ) : isInterleavedBody ? (
-              <NeighborhoodInterleavedContent content={post.content} />
-            ) : (
-              <div className={PHILIFE_DETAIL_BODY_CLASS}>{post.content}</div>
-            )}
-
-            {meeting ? (
-              <div className="mt-5">
-                <MeetingCard
-                  meeting={meeting}
-                  variant="postEmbed"
-                  hostDisplayName={meetingHostDisplay}
-                  viewerStatus={viewerJoinedMeeting ? "joined" : null}
-                />
-              </div>
-            ) : null}
-          </div>
-
           {meeting ? (
-            <div className="grid grid-cols-3 gap-2 border-t border-sam-border-soft px-4 py-4 sm:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 border-b border-[#E5E7EB] bg-[#F7F8FA] px-4 py-4 sm:grid-cols-6">
               <button type="button" disabled={busy} onClick={() => void onLike()} className={meetingToolbarBtn}>
                 공감 {likeCount}
               </button>
@@ -493,7 +567,7 @@ export function CommunityDetail({
               {me?.id ? (
                 <Link
                   href={philifeAppPaths.meeting(meeting.id)}
-                  className={`${meetingToolbarBtn} border-transparent bg-signature text-white`}
+                  className={`${meetingToolbarBtn} border-[#7360F2] bg-[#7360F2] text-white hover:bg-[#5B46E8]`}
                 >
                   문의
                 </Link>
@@ -509,174 +583,115 @@ export function CommunityDetail({
                     setReportErr("");
                     setReportOpen(true);
                   }}
-                  className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-red-800`}
+                  className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[#E25555]`}
                 >
                   신고
                 </button>
               ) : (
                 <div className="min-h-[44px]" aria-hidden />
               )}
-              <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} text-sam-fg`}>
+              <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} bg-white`}>
                 목록
               </Link>
             </div>
-          ) : (
-            <div className="flex flex-wrap gap-2 border-t border-sam-border-soft px-4 py-4">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onLike()}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
-              >
-                공감 {likeCount}
-              </button>
-              {me?.id && me.id !== post.author_id ? <NeighborFollowButton targetUserId={post.author_id} /> : null}
-              {me?.id && me.id !== post.author_id ? <UserBlockButton targetUserId={post.author_id} /> : null}
-              {me?.id && me.id !== post.author_id ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setReportErr("");
-                    setReportOpen(true);
-                  }}
-                  className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body-secondary font-medium text-red-800"
-                >
-                  신고
-                </button>
-              ) : null}
-              <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body-secondary text-sam-muted">
-                목록
-              </Link>
-              {me?.id && me.id === post.author_id ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onDeletePost()}
-                  className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
-                >
-                  삭제
-                </button>
-              ) : null}
-            </div>
-          )}
+          ) : null}
           {meeting && me?.id && me.id === post.author_id ? (
-            <div className="border-t border-sam-border-soft px-4 pb-4">
+            <div className="border-b border-[#E5E7EB] px-4 py-3">
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void onDeletePost()}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
+                className={COMMUNITY_BUTTON_SECONDARY_CLASS}
               >
                 삭제
               </button>
             </div>
           ) : null}
-          {deleteErr ? <p className="px-4 pb-2 sam-text-helper text-red-600">{deleteErr}</p> : null}
 
-          {/* 내 글일 때: 광고 신청 버튼 */}
           {me?.id && me.id === post.author_id && (
-            <div className="border-t border-sam-border-soft px-4 py-4">
-              <p className="mb-2 sam-text-helper font-semibold text-sam-muted">내 게시글 광고</p>
-              <AdApplyButton
-                postId={post.id}
-                postTitle={post.title}
-                boardKey="plife"
-              />
+            <div className="border-b border-[#E5E7EB] px-4 py-4">
+              <p className="mb-2 text-[12px] font-normal text-[#6B7280]">내 게시글 광고</p>
+              <AdApplyButton postId={post.id} postTitle={post.title} boardKey="plife" />
             </div>
           )}
-        </div>
+          {deleteErr ? <p className="px-4 pb-2 text-[12px] text-[#E25555]">{deleteErr}</p> : null}
 
-        {reportOpen ? (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
-            <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4 ring-1 ring-black/[0.08]">
-              <p className="sam-text-body font-semibold text-sam-fg">게시글 신고</p>
-              <textarea
-                value={reportText}
-                onChange={(e) => setReportText(e.target.value)}
-                rows={4}
-                className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-              />
-              {reportErr ? <p className="mt-1 sam-text-helper text-red-600">{reportErr}</p> : null}
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setReportOpen(false)}
-                  className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  disabled={busy || !reportText.trim()}
-                  onClick={() => void onReport()}
-                  className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-40"
-                >
-                  접수
-                </button>
-              </div>
+          <CommunityCommentSection
+            roots={comments}
+            scrollToBottomSignal={scrollSig}
+            commentsLoading={commentsLoading}
+            locked={commentsLocked}
+            lockMessage={
+              !me?.id
+                ? "로그인 후 모임에 참여하면 댓글을 작성할 수 있어요."
+                : "모임 참여 후 댓글을 작성할 수 있어요."
+            }
+            viewerUserId={me?.id ?? null}
+            onCommentLike={onCommentLike}
+            onCommentEdit={onCommentEdit}
+            onCommentDelete={onCommentDelete}
+            onSubmitReply={submitReplyComment}
+            commentBusy={busy}
+            composer={
+              !commentsLocked
+                ? {
+                    value: commentText,
+                    onChange: setCommentText,
+                    onSubmit: () => void submitComment(),
+                    busy,
+                    disabled: !me?.id || busy,
+                    isLoggedIn: !!me?.id,
+                    placeholder: "댓글을 남겨보세요…",
+                    me: meForComposer,
+                  }
+                : null
+            }
+          />
+
+          {!meeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
+          {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
+          <CommunityInlineAdCard />
+          <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
+        </div>
+      </article>
+
+      {reportOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog">
+          <button
+            type="button"
+            className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
+            aria-label="닫기"
+            onClick={() => setReportOpen(false)}
+          />
+          <div className={`${COMMUNITY_MODAL_PANEL_CLASS} relative z-50`}>
+            <p className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">게시글 신고</p>
+            <textarea
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+              rows={4}
+              className="mt-3 min-h-[96px] w-full rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2.5 text-[14px] font-normal leading-[1.5] text-[#1F2430] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[#9CA3AF] outline-none focus:border-[#7360F2] focus:ring-1 focus:ring-[#7360F2]/20"
+            />
+            {reportErr ? <p className="mt-1 text-[12px] text-[#E25555]">{reportErr}</p> : null}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setReportOpen(false)}
+                className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                disabled={busy || !reportText.trim()}
+                onClick={() => void onReport()}
+                className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+              >
+                접수
+              </button>
             </div>
           </div>
-        ) : null}
-
-        <section className={`${PHILIFE_DETAIL_COMMENTS_WRAP_CLASS} mt-4`} id="comments">
-          <h2 className="sam-text-body font-semibold text-sam-fg">댓글</h2>
-          {commentsLocked ? (
-            <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-ui-rect bg-sam-surface-muted px-4 py-4 sam-text-body-secondary text-sam-muted">
-              <CommentLockIcon className="h-5 w-5 shrink-0 text-sam-meta" />
-              <span>
-                {!me?.id
-                  ? "로그인 후 모임에 참여하면 댓글을 작성할 수 있어요."
-                  : "모임 참여 후 댓글을 작성할 수 있어요."}
-              </span>
-            </div>
-          ) : (
-            <>
-              {parentId ? (
-                <p className="mt-1 sam-text-helper text-sam-muted">
-                  대댓글 작성 중 ·{" "}
-                  <button type="button" className="text-sky-700 underline" onClick={() => setParentId(null)}>
-                    취소
-                  </button>
-                </p>
-              ) : null}
-              <div className="max-h-[420px] overflow-y-auto pr-1">
-                {commentsLoading ? (
-                  <div className="py-6 text-center sam-text-body-secondary text-sam-meta">댓글 불러오는 중…</div>
-                ) : (
-                  <CommentList
-                    roots={comments}
-                    scrollToBottomSignal={scrollSig}
-                    onReply={(id) => setParentId(id)}
-                  />
-                )}
-              </div>
-
-              <form onSubmit={onSubmitComment} className="mt-4 border-t border-sam-border-soft pt-4">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder={me?.id ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있어요"}
-                  disabled={!me?.id || busy}
-                  rows={3}
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body outline-none"
-                />
-                {me?.id ? (
-                  <p className="mt-1 sam-text-xxs text-sam-muted">
-                    특정 댓글에 답장하려면 아래 댓글의「답글」을 누르세요.
-                  </p>
-                ) : null}
-                <button
-                  type="submit"
-                  disabled={!me?.id || busy || !commentText.trim()}
-                  className="mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-40"
-                >
-                  등록
-                </button>
-              </form>
-            </>
-          )}
-        </section>
-      </article>
+        </div>
+      ) : null}
     </div>
   );
 }

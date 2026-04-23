@@ -57,6 +57,14 @@ export function philifePostCommentsUrl(postId: string): string {
   return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments`;
 }
 
+export function philifePostCommentUrl(postId: string, commentId: string): string {
+  return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`;
+}
+
+export function philifePostCommentLikeUrl(postId: string, commentId: string): string {
+  return `${PHILIFE_API}/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/like`;
+}
+
 export function philifeMeetingApi(meetingId: string) {
   const b = `${PHILIFE_API}/meetings/${encodeURIComponent(meetingId)}`;
   return {

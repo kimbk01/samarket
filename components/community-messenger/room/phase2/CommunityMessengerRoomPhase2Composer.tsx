@@ -231,7 +231,7 @@ export function CommunityMessengerRoomPhase2Composer() {
             <button
               type="button"
               onClick={() => setReplyToMessage(null)}
-              className="shrink-0 rounded-full px-2 py-1 sam-text-helper font-medium text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
+              className="shrink-0 rounded-ui-rect px-2 py-1 text-[12px] font-semibold text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
             >
               취소
             </button>
@@ -256,7 +256,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 {vm.snapshot.room.peerUserId ? (
                   <Link
                     href="/community-messenger?section=friends"
-                    className="inline-flex min-h-9 items-center rounded-full bg-[color:var(--cm-room-primary)] px-3 py-1.5 sam-text-xxs font-semibold text-white"
+                    className="inline-flex min-h-9 items-center rounded-ui-rect bg-[color:var(--cm-room-primary)] px-3 py-1.5 text-[14px] font-semibold text-white"
                   >
                     친구 추가
                   </Link>
@@ -266,7 +266,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 vm.snapshot.room.contextMeta.productChatId.trim() ? (
                   <Link
                     href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
-                    className="inline-flex min-h-9 items-center rounded-full border border-[color:var(--cm-room-divider)] bg-white px-3 py-1.5 sam-text-xxs font-semibold text-[color:var(--cm-room-text)]"
+                    className="inline-flex min-h-9 items-center rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-white px-3 py-1.5 text-[14px] font-semibold text-[color:var(--cm-room-text)]"
                   >
                     상품 상세보기
                   </Link>
@@ -280,7 +280,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 type="button"
                 data-cm-line-plus-btn
                 onClick={() => vm.setActiveSheet("attach")}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] transition active:opacity-90"
                 aria-label="첨부 메뉴"
               >
                 <PlusIcon className="h-4 w-4" />
@@ -339,10 +339,10 @@ export function CommunityMessengerRoomPhase2Composer() {
                           : "보관된 방입니다"
                       : "메시지"
                 }
-                className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-2 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
+                className={`max-h-28 min-w-0 w-full resize-none rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-2 outline-none ring-1 ring-transparent placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[color:var(--cm-room-text-muted)] focus:border-[color:var(--cm-room-primary)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
                   messengerComposerDense
-                    ? "min-h-[34px] py-1.5 text-[calc(12px-1pt)] leading-snug text-[color:var(--cm-room-text)]"
-                    : "min-h-[36px] py-1.5 text-[calc(var(--sam-text-body-size)-1pt)] font-normal leading-normal text-[color:var(--cm-room-text)] sm:py-2"
+                    ? "min-h-[34px] py-1.5 text-[14px] font-normal leading-[1.5] text-[color:var(--cm-room-text)]"
+                    : "min-h-[36px] py-1.5 text-[14px] font-normal leading-[1.5] text-[color:var(--cm-room-text)] sm:py-2"
                 }`}
               />
             ) : vm.voiceHandsFree ? (
