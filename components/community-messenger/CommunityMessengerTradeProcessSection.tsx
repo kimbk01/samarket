@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChatProductSummary } from "@/components/chats/ChatProductSummary";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
 import {
@@ -9,7 +9,8 @@ import {
   invalidateChatRoomDetailCache,
   peekChatRoomDetailMemory,
 } from "@/lib/chats/fetch-chat-room-detail-api";
-import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { bustChatRoomBootstrapFlights } from "@/lib/chats/fetch-chat-room-bootstrap-api";
+import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
@@ -20,6 +21,16 @@ import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-li
 import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listing-realtime";
 import type { ChatRoom } from "@/lib/types/chat";
+import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+
+function bustTradeCachesAfterReview(productChatId: string) {
+  const k = productChatId.trim();
+  if (!k) return;
+  invalidateChatRoomDetailCache(k);
+  forgetSingleFlight(`chat:room-detail:${k}`);
+  bustChatRoomBootstrapFlights(k);
+}
 
 type Props = {
   productChatId: string;
@@ -43,6 +54,10 @@ export function CommunityMessengerTradeProcessSection({
   keyboardCompact = false,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  const didAutoOpenReviewRef = useRef(false);
   const initialId = productChatId.trim();
   const [room, setRoom] = useState<ChatRoom | null>(() => {
     if (initialTradeChatRoom) return initialTradeChatRoom;
@@ -250,11 +265,6 @@ export function CommunityMessengerTradeProcessSection({
     onTradeMetaChanged?.();
   }, [reload, onTradeMetaChanged]);
 
-  const openReviewOnChatsShell = useCallback(() => {
-    if (!effectiveProductChatId) return;
-    router.push(tradeHubChatRoomHref(effectiveProductChatId, "product_chat", { review: true }));
-  }, [router, effectiveProductChatId]);
-
   const canOpenReview =
     room &&
     canOpenTradeReviewSheet({
@@ -270,6 +280,18 @@ export function CommunityMessengerTradeProcessSection({
       soldBuyerId: room.soldBuyerId ?? null,
       buyerReviewSubmitted: room.buyerReviewSubmitted === true,
     });
+
+  const partnerId = room ? (room.buyerId === viewerUserId ? room.sellerId : room.buyerId) : "";
+  const partnerLabel = room?.partnerNickname?.trim() || partnerId.slice(0, 8);
+
+  useEffect(() => {
+    if (searchParams.get("review") !== "1") return;
+    if (!room || !canOpenReview || viewerUserId !== room.buyerId) return;
+    if (didAutoOpenReviewRef.current) return;
+    didAutoOpenReviewRef.current = true;
+    setReviewSheetOpen(true);
+    if (pathname) router.replace(pathname, { scroll: false });
+  }, [searchParams, room, canOpenReview, viewerUserId, pathname, router]);
 
   if (loading) {
     return (
@@ -294,7 +316,9 @@ export function CommunityMessengerTradeProcessSection({
         currentUserId={viewerUserId}
         effectiveProductChatId={effectiveProductChatId}
         onActionDone={() => void onActionDone()}
-        onOpenReview={openReviewOnChatsShell}
+        onOpenReview={() => {
+          if (viewerUserId === room.buyerId) setReviewSheetOpen(true);
+        }}
         canOpenReviewSheet={Boolean(canOpenReview)}
         displayListing={displayListing}
         onPersistListing={persistListingState}
@@ -315,6 +339,36 @@ export function CommunityMessengerTradeProcessSection({
             productStatusOverride={displayProductStatus}
             sellerListingStateOverride={postId ? displayListing : undefined}
           />
+        </div>
+      ) : null}
+
+      {reviewSheetOpen && room ? (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
+              <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 작성</h2>
+              <button type="button" onClick={() => setReviewSheetOpen(false)} className="sam-text-body text-sam-muted">
+                닫기
+              </button>
+            </div>
+            <TradeReviewForm
+              effectiveProductChatId={effectiveProductChatId}
+              productId={room.productId}
+              revieweeId={partnerId}
+              revieweeLabel={partnerLabel}
+              roleType="buyer_to_seller"
+              onSuccess={() => {
+                setReviewSheetOpen(false);
+                bustTradeCachesAfterReview(effectiveProductChatId);
+                void reload();
+                onTradeMetaChanged?.();
+                router.refresh();
+              }}
+              onCancel={() => setReviewSheetOpen(false)}
+            />
+          </div>
         </div>
       ) : null}
     </div>

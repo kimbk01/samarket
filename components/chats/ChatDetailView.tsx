@@ -76,6 +76,8 @@ import {
   updateLegacyChatRoomMessagesCache,
 } from "@/lib/chats/fetch-chat-room-messages-api";
 import { bustChatRoomBootstrapFlights } from "@/lib/chats/fetch-chat-room-bootstrap-api";
+import { invalidateChatRoomDetailCache } from "@/lib/chats/fetch-chat-room-detail-api";
+import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import {
   bustOrderChatMessagesSingleFlight,
   fetchOrderChatMessagesForUnifiedRoom,
@@ -125,6 +127,14 @@ import {
   tradeChatCallPolicyAllowsVoice,
   tradeChatCallPolicySummaryKo,
 } from "@/lib/trade/trade-chat-call-policy";
+
+function bustRoomClientCachesAfterTradeMutation(roomId: string) {
+  const k = roomId.trim();
+  if (!k) return;
+  invalidateChatRoomDetailCache(k);
+  forgetSingleFlight(`chat:room-detail:${k}`);
+  bustChatRoomBootstrapFlights(k);
+}
 
 interface ChatDetailViewProps {
   room: ChatRoom;
@@ -469,13 +479,22 @@ export function ChatDetailView({
     room.buyerId !== room.reservedBuyerId &&
     displayListing === "reserved";
   const adminChatSuspended = room.adminChatSuspended === true;
+  /** `trade_flow_status !== chatting` 이면 판매자 거래완료 처리 이후 등 — 구매자·판매자 모두 일반 메시지 전송 불가(메신저 `tradeMessaging` 과 동일) */
+  const tradeFlowLocksTradeMessaging =
+    !isGeneralPurposeChat &&
+    room.chatDomain === "trade" &&
+    (() => {
+      const f = String(room.tradeFlowStatus ?? "chatting").trim() || "chatting";
+      return f !== "chatting";
+    })();
   const canWriteTradeMessage = isGeneralPurposeChat
     ? chatMode !== "readonly" && chatMode !== "limited"
     : !adminChatSuspended &&
       !soldToOther &&
       !blockedByReservation &&
       chatMode !== "readonly" &&
-      chatMode !== "limited";
+      chatMode !== "limited" &&
+      !tradeFlowLocksTradeMessaging;
   const canOpenReviewSheet = !isGeneralPurposeChat && canOpenTradeReviewSheet({
     currentUserId,
     roomSellerId: room.sellerId,
@@ -2030,6 +2049,10 @@ export function ChatDetailView({
   const showTradePeerRoleInline =
     Boolean(room.product) && !isStoreOrderChat && room.chatDomain === "trade" && !isGeneralPurposeChat;
 
+  /** `/chats` 거래 1:1 — 커뮤니티 메신저와 같은 첫 슬롯(+첨부). 나가기는 상단 ⋮ 메뉴만 사용 */
+  const messengerAlignedTradeComposer =
+    !isStoreOrderChat && !isGeneralPurposeChat && room.chatDomain === "trade";
+
   const sellerComposerQuickBar =
     isStoreOrderSeller ? (
       <div className="flex flex-wrap gap-2 border-b border-sam-border bg-sam-surface px-3 pb-2 pt-1">
@@ -2058,12 +2081,25 @@ export function ChatDetailView({
       )}
       <ChatInputBar
         draftStorageKey={room.id}
+        disabled={!canWriteTradeMessage}
         onComposerTextChange={isTradeProductPresenceRoom ? setTradeComposerDraft : undefined}
         onSend={handleSend}
-        onLeave={isStoreOrderBuyer ? undefined : handleLeave}
-        placeholder={isStoreOrderBuyer ? "메세지를 입력해주세요" : undefined}
-        showEmojiButton={!isStoreOrderBuyer}
-        variant={isStoreOrderChat ? "instagram" : "default"}
+        onLeave={
+          messengerAlignedTradeComposer
+            ? undefined
+            : isStoreOrderBuyer
+              ? undefined
+              : handleLeave
+        }
+        placeholder={
+          isStoreOrderBuyer
+            ? "메세지를 입력해주세요"
+            : messengerAlignedTradeComposer
+              ? t("nav_trade_chat_composer_placeholder")
+              : undefined
+        }
+        showEmojiButton={!isStoreOrderBuyer && !messengerAlignedTradeComposer}
+        variant={isStoreOrderChat || messengerAlignedTradeComposer ? "instagram" : "default"}
         onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}
         onComposerFocusChange={
@@ -2318,49 +2354,30 @@ export function ChatDetailView({
             </div>
           </div>
         )
-      ) : !canWriteTradeMessage ? (
-        isStoreOrderSeller ? (
-          <div
-            className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"}`}
-            style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
-          >
-            {sellerComposerQuickBar}
-            <div className="px-4 py-3 text-center">
-              <p className="sam-text-body-secondary text-sam-muted">
-                {adminChatSuspended
-                  ? ADMIN_CHAT_SUSPENDED_MESSAGE
-                  : soldToOther
-                    ? t("nav_trade_sold_to_other")
-                    : blockedByReservation
-                      ? t("nav_trade_reserved_with_other")
-                      : chatMode === "limited" || chatMode === "readonly"
-                        ? t("nav_trade_cannot_message_here")
-                        : t("nav_trade_cannot_send_message")}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="shrink-0 border-t border-sam-border bg-sam-surface safe-area-pb">
-            <div className="px-4 py-3 text-center">
-              <p className="sam-text-body-secondary text-sam-muted">
-                {adminChatSuspended
-                  ? ADMIN_CHAT_SUSPENDED_MESSAGE
-                  : soldToOther
-                    ? t("nav_trade_sold_to_other")
-                    : blockedByReservation
-                      ? t("nav_trade_reserved_with_other")
-                      : chatMode === "limited" || chatMode === "readonly"
-                        ? t("nav_trade_cannot_message_here")
-                        : t("nav_trade_cannot_send_message")}
-              </p>
-            </div>
-          </div>
-        )
       ) : (
         <div
-          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface pt-3 safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"}`}
+          className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"} ${!canWriteTradeMessage ? "pt-2" : "pt-3"}`}
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
         >
+          {!canWriteTradeMessage ? (
+            <div className="rounded-t-lg border-x border-t border-sam-border-soft bg-sam-primary-soft/35 px-4 pb-2 pt-1.5 text-center">
+              <p className="sam-text-body-secondary font-medium text-sam-fg">
+                {adminChatSuspended
+                  ? ADMIN_CHAT_SUSPENDED_MESSAGE
+                  : soldToOther
+                    ? t("nav_trade_sold_to_other")
+                    : blockedByReservation
+                      ? t("nav_trade_reserved_with_other")
+                      : String(room.tradeFlowStatus ?? "").trim() === "review_completed"
+                        ? t("nav_trade_after_review_readonly_hint")
+                        : tradeFlowLocksTradeMessaging
+                          ? t("nav_trade_messaging_locked_by_flow")
+                          : chatMode === "limited" || chatMode === "readonly"
+                          ? t("nav_trade_cannot_message_here")
+                          : t("nav_trade_cannot_send_message")}
+              </p>
+            </div>
+          ) : null}
           {chatComposerInner}
         </div>
       )}
@@ -2512,6 +2529,7 @@ export function ChatDetailView({
               roleType="buyer_to_seller"
               onSuccess={() => {
                 setReviewSheetOpen(false);
+                bustRoomClientCachesAfterTradeMutation(room.id);
                 onRoomReload?.();
                 router.refresh();
               }}

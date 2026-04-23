@@ -4,11 +4,20 @@ import { getRoomUiStateAfterLeave, leavePolicyMetaForRoom } from "@/lib/messenge
 import { getSwipeActions, getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
-const pc = (over: Partial<{ sellerLeftAt: string | null; buyerLeftAt: string | null }> = {}) => ({
+const pc = (
+  over: Partial<{
+    sellerLeftAt: string | null;
+    buyerLeftAt: string | null;
+    tradeFlowStatus: string | null;
+    chatMode: string | null;
+  }> = {}
+) => ({
   sellerId: "seller-1",
   buyerId: "buyer-1",
   sellerLeftAt: over.sellerLeftAt ?? null,
   buyerLeftAt: over.buyerLeftAt ?? null,
+  tradeFlowStatus: over.tradeFlowStatus ?? null,
+  chatMode: over.chatMode ?? null,
 });
 
 describe("toMessengerPolicyRoomType", () => {
@@ -65,6 +74,23 @@ describe("canSendMessageInRoom (trade matrix)", () => {
     const r = canSendMessageInRoom({ policyType: "trade", viewerUserId: "stranger", tradeProductChat: pc() });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe("trade_not_counterpart");
+  });
+  it("blocks seller and buyer when trade_flow_status is not chatting", () => {
+    const snap = pc({ tradeFlowStatus: "seller_marked_done" });
+    for (const uid of ["seller-1", "buyer-1"]) {
+      const r = canSendMessageInRoom({ policyType: "trade", viewerUserId: uid, tradeProductChat: snap });
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.code).toBe("trade_flow_not_chatting");
+    }
+  });
+  it("blocks both when chat_mode is limited", () => {
+    const r = canSendMessageInRoom({
+      policyType: "trade",
+      viewerUserId: "seller-1",
+      tradeProductChat: pc({ chatMode: "limited" }),
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("trade_chat_mode_locked");
   });
 });
 

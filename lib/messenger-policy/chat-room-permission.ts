@@ -5,7 +5,9 @@ export type TradeMessagingDenyCode =
   | "trade_not_counterpart"
   | "trade_viewer_left_as_seller"
   | "trade_viewer_left_as_buyer"
-  | "trade_seller_closed_buyer_blocked";
+  | "trade_seller_closed_buyer_blocked"
+  | "trade_chat_mode_locked"
+  | "trade_flow_not_chatting";
 
 export type CanSendMessageResult =
   | { ok: true }
@@ -17,6 +19,10 @@ export type TradeProductChatExitSnapshot = {
   buyerId: string;
   sellerLeftAt: string | null;
   buyerLeftAt: string | null;
+  /** 없으면 `chatting` 으로 간주 */
+  tradeFlowStatus?: string | null;
+  /** 없으면 `open` 으로 간주 */
+  chatMode?: string | null;
 };
 
 /**
@@ -40,6 +46,22 @@ export function canSendMessageInRoom(input: {
   const buyer = pc.buyerId.trim();
   if (uid !== seller && uid !== buyer) {
     return { ok: false, code: "trade_not_counterpart", message: "참여자만 메시지를 보낼 수 있습니다." };
+  }
+  const mode = String(pc.chatMode ?? "open").trim().toLowerCase() || "open";
+  if (mode === "limited" || mode === "readonly") {
+    return {
+      ok: false,
+      code: "trade_chat_mode_locked",
+      message: "이 채팅에서는 메시지를 보낼 수 없습니다.",
+    };
+  }
+  const flow = String(pc.tradeFlowStatus ?? "chatting").trim().toLowerCase() || "chatting";
+  if (flow !== "chatting") {
+    return {
+      ok: false,
+      code: "trade_flow_not_chatting",
+      message: "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.",
+    };
   }
   if (uid === seller && pc.sellerLeftAt) {
     return { ok: false, code: "trade_viewer_left_as_seller", message: "이미 나간 채팅방입니다." };

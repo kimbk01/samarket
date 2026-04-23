@@ -14,8 +14,7 @@ function appendTradeHubRoomSourceQuery(
  * 거래채팅(상품·중고거래) 표면 — 문구·경로·API `segment=trade` 단일 출처.
  *
  * - **목록**: 메신저 `messengerListHref`.
- * - **방 상세(일반)**: `TRADE_CHAT_MESSENGER_ROOM_BASE/[roomId]` — 커뮤니티 메신저 셸.
- * - **후기 자동 오픈(`?review=1`)**: `ChatDetailView` 전용이라 `/chats/[roomId]` 유지 (`tradeHubChatRoomHref` 의 `review` 옵션).
+ * - **방 상세·후기(`?review=1`)**: 전부 `TRADE_CHAT_MESSENGER_ROOM_BASE/[roomId]` — 레거시 `/chats` 거래 UI는 사용하지 않음.
  * - **compose**: `composePath` (거래 허브 하위).
  */
 
@@ -52,7 +51,7 @@ export function tradeMessengerRoomHref(roomId: string, sourceHint?: ChatRoomSour
 }
 
 /**
- * 거래 채팅 방 진입 — 기본은 메신저 방. `review: true` 는 후기 시트 자동 오픈용으로 `/chats` + `ChatRoomScreen` 유지.
+ * 거래 채팅 방 진입 — 항상 메신저 1:1 방. `review: true` 는 `?review=1`(후기 시트 자동 오픈).
  * `source` 는 부트스트랩 힌트(거래 어댑터·프리웜 등)로 URL 에 실을 수 있음.
  */
 export function tradeHubChatRoomHref(
@@ -62,14 +61,29 @@ export function tradeHubChatRoomHref(
 ): string {
   const id = roomId.trim();
   if (!id) return TRADE_CHAT_MESSENGER_LIST_HREF;
+  let href = tradeMessengerRoomHref(id, sourceHint);
   if (opts?.review) {
-    const base = `/chats/${encodeURIComponent(id)}`;
-    const href = appendTradeHubRoomSourceQuery(base, sourceHint);
     const u = new URL(href, "https://samarket.local");
     u.searchParams.set("review", "1");
-    return `${u.pathname}${u.search}`;
+    href = `${u.pathname}${u.search}`;
   }
-  return tradeMessengerRoomHref(id, sourceHint);
+  return href;
+}
+
+/** 상품 거래방이 메신저와 연결돼 있으면 `/chats` 대신 열 URL — 없으면 null (레거시만 `/chats` 유지) */
+export function tradeItemChatMessengerHrefIfLinked(
+  room: { chatDomain?: string; generalChat?: unknown; communityMessengerRoomId?: string | null },
+  opts?: { sourceHint?: ChatRoomSource | null; openReview?: boolean }
+): string | null {
+  const cmId = room.communityMessengerRoomId?.trim();
+  if (!cmId || room.chatDomain !== "trade" || room.generalChat != null) return null;
+  let href = tradeMessengerRoomHref(cmId, opts?.sourceHint ?? null);
+  if (opts?.openReview) {
+    const u = new URL(href, "https://samarket.local");
+    u.searchParams.set("review", "1");
+    href = `${u.pathname}${u.search}`;
+  }
+  return href;
 }
 
 export function tradeHubChatComposeHref(input: {

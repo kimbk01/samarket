@@ -7166,6 +7166,15 @@ async function trySendCommunityMessengerTextAtomic(
     if (err === "trade_sender_left") {
       return { ok: false, error: "이미 나간 채팅방입니다." };
     }
+    if (err === "trade_chat_mode_locked" || err === "trade_flow_not_chatting") {
+      return {
+        ok: false,
+        error:
+          err === "trade_chat_mode_locked"
+            ? "이 채팅에서는 메시지를 보낼 수 없습니다."
+            : "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.",
+      };
+    }
     return { ok: false, error: err };
   }
   const msgRow = payload.message;

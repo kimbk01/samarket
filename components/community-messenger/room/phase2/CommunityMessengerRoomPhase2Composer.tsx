@@ -237,6 +237,36 @@ export function CommunityMessengerRoomPhase2Composer() {
             </button>
           </div>
         ) : null}
+        {tradeOnlyBlocked ? (
+          <div
+            className="mb-2 rounded-[var(--cm-room-radius-input)] border border-amber-200/80 bg-amber-50/90 px-3 py-2 sam-text-helper leading-snug text-amber-950"
+            role="status"
+          >
+            <p className="font-semibold break-words">
+              {vm.snapshot.tradeMessaging?.denyMessage ?? "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다."}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {vm.snapshot.room.peerUserId ? (
+                <Link
+                  href="/community-messenger?section=friends"
+                  className="inline-flex min-h-9 items-center rounded-ui-rect bg-[color:var(--cm-room-primary)] px-3 py-1.5 text-[14px] font-semibold text-white"
+                >
+                  친구 추가
+                </Link>
+              ) : null}
+              {vm.snapshot.room.contextMeta?.kind === "trade" &&
+              typeof vm.snapshot.room.contextMeta.productChatId === "string" &&
+              vm.snapshot.room.contextMeta.productChatId.trim() ? (
+                <Link
+                  href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
+                  className="inline-flex min-h-9 items-center rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-white px-3 py-1.5 text-[14px] font-semibold text-[color:var(--cm-room-text)]"
+                >
+                  상품 상세보기
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <MessengerInputBar
           className={
             messengerComposerBarTight
@@ -244,36 +274,6 @@ export function CommunityMessengerRoomPhase2Composer() {
               : ""
           }
         >
-          {tradeOnlyBlocked ? (
-            <div
-              className="mb-2 rounded-[var(--cm-room-radius-input)] border border-amber-200/80 bg-amber-50/90 px-3 py-2 sam-text-helper leading-snug text-amber-950"
-              role="status"
-            >
-              <p className="font-semibold">
-                {vm.snapshot.tradeMessaging?.denyMessage ?? "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다."}
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {vm.snapshot.room.peerUserId ? (
-                  <Link
-                    href="/community-messenger?section=friends"
-                    className="inline-flex min-h-9 items-center rounded-ui-rect bg-[color:var(--cm-room-primary)] px-3 py-1.5 text-[14px] font-semibold text-white"
-                  >
-                    친구 추가
-                  </Link>
-                ) : null}
-                {vm.snapshot.room.contextMeta?.kind === "trade" &&
-                typeof vm.snapshot.room.contextMeta.productChatId === "string" &&
-                vm.snapshot.room.contextMeta.productChatId.trim() ? (
-                  <Link
-                    href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
-                    className="inline-flex min-h-9 items-center rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-white px-3 py-1.5 text-[14px] font-semibold text-[color:var(--cm-room-text)]"
-                  >
-                    상품 상세보기
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
           <div className="flex min-h-[44px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
             {!vm.voiceRecording ? (
               <button

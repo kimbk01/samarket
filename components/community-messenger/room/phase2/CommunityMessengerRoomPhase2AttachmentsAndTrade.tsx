@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import {
   CommunityMessengerTradeProcessSection,
   MessengerTradeChatRoomDetailPrefetch,
@@ -42,13 +43,15 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
           ) : (
             <MessengerTradeChatRoomDetailPrefetch productChatId={vm.tradeProductChatIdForDock} />
           )}
-          <CommunityMessengerTradeProcessSection
-            productChatId={vm.tradeProductChatIdForDock}
-            viewerUserId={vm.snapshot.viewerUserId}
-            initialTradeChatRoom={vm.snapshot.tradeChatRoomDetail ?? null}
-            onTradeMetaChanged={() => void vm.refresh(true)}
-            keyboardCompact={keyboardCompact}
-          />
+          <Suspense fallback={null}>
+            <CommunityMessengerTradeProcessSection
+              productChatId={vm.tradeProductChatIdForDock}
+              viewerUserId={vm.snapshot.viewerUserId}
+              initialTradeChatRoom={vm.snapshot.tradeChatRoomDetail ?? null}
+              onTradeMetaChanged={() => void vm.refresh(true)}
+              keyboardCompact={keyboardCompact}
+            />
+          </Suspense>
         </>
       ) : null}
     </>

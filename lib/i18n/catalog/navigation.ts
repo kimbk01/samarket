@@ -224,10 +224,16 @@ export const navigationMessages = {
     nav_trade_direct_chat: "1:1 채팅",
     nav_trade_connected_product: "연결된 상품",
     nav_trade_chat_info_desc: "{nickname}과의 대화 정보를 확인합니다.",
+    /** 거래 1:1 `/chats` 입력창 — 커뮤니티 메신저 거래방과 동일한 짧은 플레이스홀더 */
+    nav_trade_chat_composer_placeholder: "메시지",
     nav_trade_blocked_no_message: "차단된 사용자와는 메시지를 보낼 수 없습니다",
     nav_trade_sold_to_other: "이 상품은 다른 구매자와 거래가 완료되었습니다.",
     nav_trade_reserved_with_other: "판매자가 다른 분과 예약 중입니다. 이 채팅에서는 새 메시지를 보낼 수 없어요.",
     nav_trade_cannot_message_here: "이 채팅에서는 메시지를 보낼 수 없습니다.",
+    nav_trade_after_review_readonly_hint:
+      "거래 후기까지 완료되었어요. 아래 입력란은 비활성화되어 있으며, 이전 대화는 그대로 볼 수 있어요.",
+    nav_trade_messaging_locked_by_flow:
+      "거래 단계가 바뀌어 이 방에서는 새 메시지를 보낼 수 없어요. 상단 거래 안내를 확인해 주세요.",
     nav_trade_cannot_send_message: "메시지를 보낼 수 없습니다.",
     nav_trade_leave_confirm: "이 채팅방에서 나가시겠어요? 나가면 목록에서 사라집니다.",
     nav_trade_hide_confirm: "채팅방을 삭제(숨김)하시겠어요? 내 목록에서만 제거됩니다.",
@@ -526,10 +532,15 @@ export const navigationMessages = {
     nav_trade_direct_chat: "1:1 chat",
     nav_trade_connected_product: "Connected product",
     nav_trade_chat_info_desc: "Check conversation details with {nickname}.",
+    nav_trade_chat_composer_placeholder: "Message",
     nav_trade_blocked_no_message: "You cannot send messages to blocked users.",
     nav_trade_sold_to_other: "This item has been traded with another buyer.",
     nav_trade_reserved_with_other: "The seller is reserved with another person. You cannot send a new message in this chat.",
     nav_trade_cannot_message_here: "You cannot send messages in this chat.",
+    nav_trade_after_review_readonly_hint:
+      "The trade review is complete. The composer below is disabled, but you can still read the history.",
+    nav_trade_messaging_locked_by_flow:
+      "This trade step no longer allows new messages. Check the trade notice at the top.",
     nav_trade_cannot_send_message: "Unable to send a message.",
     nav_trade_leave_confirm: "Leave this chat room? It will disappear from your list.",
     nav_trade_hide_confirm: "Delete (hide) this chat room? It will only be removed from your list.",
@@ -824,10 +835,15 @@ export const navigationMessages = {
     nav_trade_direct_chat: "1对1聊天",
     nav_trade_connected_product: "关联商品",
     nav_trade_chat_info_desc: "查看与 {nickname} 的对话信息。",
+    nav_trade_chat_composer_placeholder: "消息",
     nav_trade_blocked_no_message: "无法向已屏蔽的用户发送消息",
     nav_trade_sold_to_other: "该商品已与其他买家完成交易。",
     nav_trade_reserved_with_other: "卖家正在与他人预约中，本聊天无法发送新消息。",
     nav_trade_cannot_message_here: "此聊天中无法发送消息。",
+    nav_trade_after_review_readonly_hint:
+      "交易评价已完成。下方输入框已禁用，仍可查看之前的对话。",
+    nav_trade_messaging_locked_by_flow:
+      "交易阶段已变更，此房间无法发送新消息。请查看顶部交易说明。",
     nav_trade_cannot_send_message: "无法发送消息。",
     nav_trade_leave_confirm: "要退出这个聊天房间吗？退出后会从列表中消失。",
     nav_trade_hide_confirm: "要删除（隐藏）这个聊天房间吗？它只会从我的列表中移除。",

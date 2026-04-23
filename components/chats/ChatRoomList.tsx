@@ -33,7 +33,7 @@ export function ChatRoomList({
   onSelectRoom,
 }: {
   segment: ChatRoomsListSegment;
-  /** 미지정 시 `/chats/[roomId]` — 두 번째 인자로 `source` 쿼리(부트스트랩 힌트)에 사용 */
+  /** 미지정 시 호출부 기본 href — `source` 는 부트스트랩 힌트(거래는 메신저 방 URL 권장) */
   getRoomHref?: (roomId: string, room: ChatRoom) => string;
   /** 지정 시 링크 이동 대신 콜백(홈 거래 채팅 시트 등) */
   onSelectRoom?: (roomId: string) => void;

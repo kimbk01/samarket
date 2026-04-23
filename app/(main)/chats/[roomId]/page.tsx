@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
+import { redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
 import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
-import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { TRADE_CHAT_SURFACE, tradeItemChatMessengerHrefIfLinked } from "@/lib/chats/surfaces/trade-chat-surface";
 
 const ChatRoomPageClient = dynamic(
   () => import("./ChatRoomPageClient").then((m) => m.ChatRoomPageClient),
@@ -62,6 +63,13 @@ async function ChatRoomPageBody({
     });
     if (boot.ok) {
       serverBootstrap = { room: boot.room, messages: boot.messages };
+      const toMessenger = tradeItemChatMessengerHrefIfLinked(boot.room, {
+        sourceHint: chatRoomSourceHint,
+        openReview: openReviewOnMount,
+      });
+      if (toMessenger) {
+        redirect(toMessenger);
+      }
     }
   }
 

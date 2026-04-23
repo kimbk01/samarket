@@ -71,6 +71,10 @@ export function getMessengerRoomActionErrorMessage(
       return "이미 나간 채팅방입니다.";
     case "trade_seller_closed_buyer_blocked":
       return "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.";
+    case "trade_chat_mode_locked":
+      return "이 채팅에서는 메시지를 보낼 수 없습니다.";
+    case "trade_flow_not_chatting":
+      return "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.";
     case "peer_not_found":
       return t("nav_messenger_peer_not_found");
     case "forbidden":

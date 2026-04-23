@@ -26,7 +26,7 @@ export async function loadTradeProductChatExitSnapshotForMessengerRoom(
   if (pcid) {
     const { data } = await sb
       .from("product_chats")
-      .select("id, seller_id, buyer_id, seller_left_at, buyer_left_at")
+      .select("id, seller_id, buyer_id, seller_left_at, buyer_left_at, trade_flow_status, chat_mode")
       .eq("id", pcid)
       .maybeSingle();
     const mapped = mapPcRow(data);
@@ -34,7 +34,7 @@ export async function loadTradeProductChatExitSnapshotForMessengerRoom(
   }
   const { data } = await sb
     .from("product_chats")
-    .select("id, seller_id, buyer_id, seller_left_at, buyer_left_at")
+    .select("id, seller_id, buyer_id, seller_left_at, buyer_left_at, trade_flow_status, chat_mode")
     .eq("community_messenger_room_id", rid)
     .maybeSingle();
   return mapPcRow(data);
@@ -51,6 +51,8 @@ function mapPcRow(data: unknown): TradeProductChatExitSnapshot | null {
     buyerId,
     sellerLeftAt: r.seller_left_at ? String(r.seller_left_at) : null,
     buyerLeftAt: r.buyer_left_at ? String(r.buyer_left_at) : null,
+    tradeFlowStatus: r.trade_flow_status != null ? String(r.trade_flow_status) : null,
+    chatMode: r.chat_mode != null ? String(r.chat_mode) : null,
   };
 }
 
@@ -91,7 +93,7 @@ export async function assertMessengerProductChatLinkedSendAllowed(
   if (!rid) return { ok: true };
   const { data } = await sb
     .from("product_chats")
-    .select("seller_id, buyer_id, seller_left_at, buyer_left_at")
+    .select("seller_id, buyer_id, seller_left_at, buyer_left_at, trade_flow_status, chat_mode")
     .eq("community_messenger_room_id", rid)
     .maybeSingle();
   const snap = mapPcRow(data);

@@ -139,7 +139,8 @@ export function TradeFlowBanner({
     );
   }
 
-  if (mode === "readonly") {
+  /** 상품 거래방은 히스토리·단계 확인을 위해 다이어그램을 유지해야 하므로, 읽기 제한 배너만 단독으로 두지 않음 */
+  if (mode === "readonly" && !room.product) {
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
         이 채팅은 읽기 전용입니다. 추가 문의는 새 거래·고객센터를 이용해 주세요.
@@ -147,7 +148,7 @@ export function TradeFlowBanner({
     );
   }
 
-  if (mode === "limited") {
+  if (mode === "limited" && !room.product) {
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
         <p className="sam-text-xxs text-sam-fg">
@@ -167,11 +168,34 @@ export function TradeFlowBanner({
   }
 
   const listingStepLabel = TRADE_LISTING_CHAT_STEPS.find((s) => s.state === displayListing)?.label ?? "진행";
+  const diagramCompactOneLine = Boolean(room.product && postNotSold && flow === "chatting" && compact && !diagramExpanded);
 
   return (
     <div className={`border-b border-sam-primary-border bg-sam-primary-soft px-3 ${compactPad}`}>
-      {room.product && postNotSold && flow === "chatting" ? (
-        compact && !diagramExpanded ? (
+      {mode === "readonly" && room.product ? (
+        <p className="mb-2 sam-text-xxs text-sam-fg">
+          이 채팅은 읽기 전용입니다. 이전 대화는 계속 확인할 수 있어요.
+        </p>
+      ) : null}
+      {mode === "limited" && room.product ? (
+        <div className="mb-2 space-y-2">
+          <p className="sam-text-xxs text-sam-fg">
+            일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
+          </p>
+          {canOpenReviewSheet && onOpenReview ? (
+            <button
+              type="button"
+              onClick={() => onOpenReview()}
+              className="rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
+            >
+              후기 보내기
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {room.product ? (
+        diagramCompactOneLine ? (
           <div className="flex min-h-[40px] items-center justify-between gap-2">
             <p className="min-w-0 truncate sam-text-helper font-semibold text-sam-fg">
               거래 단계: <span className="text-sam-primary">{listingStepLabel}</span>
@@ -191,7 +215,15 @@ export function TradeFlowBanner({
               interactive={showSellerListingActions}
               disabled={!!loading || listingSaving}
               onPickListing={(next) => void onPersistListing(next)}
-              onCompleteTrade={() => void post(`${base}/seller-complete`, {})}
+              onCompleteTrade={() => {
+                if (typeof window !== "undefined") {
+                  const ok = window.confirm(
+                    "판매 완료로 처리할까요? 완료 후에는 이 채팅에서 단계를 다시 바꾸기 어려울 수 있어요.",
+                  );
+                  if (!ok) return;
+                }
+                void post(`${base}/seller-complete`, {});
+              }}
             />
             {compact && diagramExpanded ? (
               <button
