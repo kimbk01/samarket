@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-22 |
+| Last updated | 2026-04-23 |
 | Owner | (선택) |
 
 ---
@@ -48,9 +48,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| 트랙 이름 | 메신저·앱 체감 — **클라이언트 gate / hydration / route 전환 blocking** 병목 **1개 특정**(탐색 단계) |
-| **트랙 상태** | **진행 중** — 라운드 **Q**(2026-04-22) 측정 반영. **Q 판정 무효**(warm 역행); 동일 파일 내 **다음 후보(타임라인 JSON 축)**로 이어갈 수 있음. |
-| 한 줄 요약 | **라운드 Q:** `viberInnerBody` **IIFE → 타입별 `memo` 소컴포넌트** + 이미지 라이트박스 **`useCallback`**. winner **13/19/24ms**, warm(런2–3) **21.5ms** → **직전 P warm 19ms 대비 역행** → **[5-보조] 무효**·코드는 **유지**. |
+| 트랙 이름 | 메신저·앱 체감 + 서버 부하 — **고빈도 API 반복 비용(스냅샷/뱃지) 상위 병목** |
+| **트랙 상태** | **진행 중** — 라운드 **V-fix**(2026-04-23) 코드 반영: 잘못된 핫패스 회수 + 근본 병목만 유지. |
+| 한 줄 요약 | **라운드 U:** 커뮤니티(`/philife`) RSC 시드·초기 부팅. **라운드 V(교정):** 근본 병목은 `community_messenger_participants` → `applyRoomSummaryPatched` 가 **`unreadCount`만 바뀌는데도 매번 `sortRoomOrder(전체 방)`**을 호출한 점(코드로 확정). `lastMessageAt`(피드 정렬 키)이 바뀔 때만 전체 정렬. `applyIncomingMessageEvent`는 새 객체 때문에 `===`로 **항상 정렬**되던 분기를 동일 규칙으로 교정. 키 상한(280) 가지치기는 **초과 시에만** `seedBootstrap`/`seedRoomSnapshot`에서 실행(핫 Realtime 경로에서 매 패치 정렬·가지치기 제거). |
 
 ---
 
@@ -408,4 +408,4 @@
 
 ## 다음 후보 1개 (헌장 [8] 순서)
 
-**재개 시(라운드 R):** 라운드 **Q** 직후 — **`MESSENGER_ROOM_ENTRY_TIMELINE_JSON`**(E2E 출력) 기준 **`route_start_to_rsc_done_ms` / `composer_mount_to_textarea_visible_ms` / `phase1_done_to_composer_mount_ms`** 중 **1축만** 골라 원인 1개·수정 1건(측정 동일 스펙). (**금지:** composer 본문, `overscan`/`estimateSize` **숫자만** 변경, Q에서 이미 시도한 **동일 `viberInnerBody` IIFE 복원**만 하는 되돌리기.)
+**다음 라운드(라운드 T) 후보 1개:** `GET /api/community-messenger/rooms/[roomId]/bootstrap`의 `room_silent` 경로(로그 **2.4~2.8s**)에서 **minimal 부트스트랩 쿼리 왕복(rooms/participants/profile hydrate) 1축**을 분리·축소하는 구조 개선 1건.

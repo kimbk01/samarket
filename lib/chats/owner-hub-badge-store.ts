@@ -48,6 +48,8 @@ const EVENT_FORCE_REFRESH_DEBOUNCE_MS = 120;
 /** 가시 탭 주기 폴링 — 포커스·이벤트 갱신과 별도 (`docs/messenger-realtime-policy.md`) */
 const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 180_000;
 const MIN_VISIBILITY_FETCH_GAP_MS = 45_000;
+/** 메신저 참가자 이벤트(source=community_messenger) 강제 갱신 최소 간격 */
+const MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS = 5_000;
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
 const listeners = new Set<() => void>();
@@ -63,6 +65,7 @@ let lastEventRefreshAt = 0;
 let eventForceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 /** 메신저 `community_messenger_participants` unread — 5초 이벤트 갭·일반 허브 스케줄과 분리해 탭 배지 즉시성 */
 let messengerHubBadgeCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
+let lastMessengerParticipantForceRefreshAt = 0;
 
 function emit() {
   for (const l of listeners) l();
@@ -214,16 +217,33 @@ function onTradeUnreadUpdated() {
 type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; at?: number };
 
 function scheduleMessengerParticipantHubBadgeRefresh() {
-  if (eventForceRefreshTimer != null) {
-    clearTimeout(eventForceRefreshTimer);
-    eventForceRefreshTimer = null;
+  /**
+   * source=community_messenger 는 이벤트 빈도가 높아, 이전 구현처럼 매번 `force`를 때리면
+   * 하단 탭 왕복 시 `/api/me/store-owner-hub-badge?cmFresh=1` 가 연속 호출되어 체감 전환을 갉아먹는다.
+   * 첫 이벤트는 즉시 반영하고, 이후 5초 창에서는 trailing 1회만 허용한다.
+   */
+  const now = Date.now();
+  const elapsed = now - lastMessengerParticipantForceRefreshAt;
+  if (elapsed >= MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS) {
+    lastMessengerParticipantForceRefreshAt = now;
+    if (messengerHubBadgeCoalesceTimer != null) {
+      clearTimeout(messengerHubBadgeCoalesceTimer);
+      messengerHubBadgeCoalesceTimer = null;
+    }
+    /**
+     * community_messenger 이벤트는 빈도가 높아 `cmFresh=1` 강제 우회가 누적되면
+     * 탭 전환 시점에 허브 배지 계산이 본문 API와 경쟁한다.
+     * 여기서는 서버 단기 캐시를 활용한 일반 갱신으로 수렴시킨다.
+     */
+    void fetchOwnerHubBadgeNow(false);
+    return;
   }
-  if (messengerHubBadgeCoalesceTimer != null) {
-    clearTimeout(messengerHubBadgeCoalesceTimer);
+  if (messengerHubBadgeCoalesceTimer != null) return;
+  messengerHubBadgeCoalesceTimer = setTimeout(() => {
     messengerHubBadgeCoalesceTimer = null;
-  }
-  /** `runSingleFlight`+`MIN_FORCE_FETCH_GAP` 가 폭주를 막음 — 80ms coalesce 는 탭 배지 체감 지연만 만듦 */
-  void fetchOwnerHubBadgeNow(true);
+    lastMessengerParticipantForceRefreshAt = Date.now();
+    void fetchOwnerHubBadgeNow(false);
+  }, MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS - elapsed);
 }
 
 function onOwnerHubRefresh(ev?: Event) {
@@ -303,6 +323,7 @@ function stopHub() {
     clearTimeout(messengerHubBadgeCoalesceTimer);
     messengerHubBadgeCoalesceTimer = null;
   }
+  lastMessengerParticipantForceRefreshAt = 0;
   detachGlobalEvents();
   teardownOwnerHubLeaderAndSync();
 }

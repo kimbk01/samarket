@@ -118,7 +118,8 @@ export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> 
 
 /**
  * 허브·대시보드까지 포함한 전체 — 동일 요청 내 `loadMypageCoreCached` 는 한 번만 실행된다.
- * (현재 `(main)/mypage` 라우트는 `loadMypageServerShell` 만 사용; 전체가 필요한 서버 경로용으로 유지)
+ * `(main)/mypage` 루트·섹션 진입은 `loadMypageServerShell` — 허브·홈 대시보드 숫자는 `useMypageHubModel`·`MyPageHomeDashboard` 가 클라에서 채움.
+ * 전체(`loadMypageServer`)는 다른 서버 전용 경로가 필요할 때만 사용한다.
  */
 export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
   const row = await loadMypageCoreCached();

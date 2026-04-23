@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 export type RepresentativeAddressLineState =
@@ -28,23 +29,16 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
   const [state, setState] = useState<RepresentativeAddressLineState>({ status: "loading" });
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
-      const res = await fetch("/api/me/address-defaults", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        defaults?: { master?: unknown };
-      };
-      if (!res.ok || !j.ok) {
+      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      if (!snapshot?.ok || !snapshot.defaults) {
         if (!silent) setState({ status: "ready", line: null });
         return;
       }
-      const raw = j.defaults?.master;
+      const raw = snapshot.defaults.master;
       const m = coerceMaster(raw);
       if (!m?.id) {
         setState({ status: "ready", line: null });
@@ -69,7 +63,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
 
   useEffect(() => {
     /** 주소 관리 저장 직후 — 로딩 `…` 없이 갱신(깜빡임 방지) */
-    const onAddressesUpdated = () => void load({ silent: true });
+    const onAddressesUpdated = () => void load({ silent: true, force: true });
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);

@@ -11,6 +11,7 @@ import {
 import { usePathname } from "next/navigation";
 import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import { fetchMeNotificationSettingsSnapshot } from "@/lib/me/fetch-me-notification-settings-client";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
   shouldPlayInAppSoundFromGate,
@@ -98,13 +99,9 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
 
   const refreshUserNotificationSettings = useCallback(async () => {
     try {
-      const res = await fetch("/api/me/notification-settings", { credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        settings?: Partial<UserNotificationSettingsState>;
-      };
-      if (j?.ok && j.settings && typeof j.settings === "object") {
-        setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...j.settings });
+      const snapshot = await fetchMeNotificationSettingsSnapshot();
+      if (snapshot?.ok && snapshot.settings && typeof snapshot.settings === "object") {
+        setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...snapshot.settings });
       }
     } catch {
       /* ignore */

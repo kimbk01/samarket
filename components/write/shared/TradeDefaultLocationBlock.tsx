@@ -13,6 +13,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 
 const ADDRESSES_HREF = "/mypage/addresses";
 
@@ -67,22 +68,15 @@ export function TradeDefaultLocationBlock({
   const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameEffectFirstRef = useRef(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     try {
-      const res = await fetch("/api/me/address-defaults", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        defaults?: { master?: unknown; trade?: unknown };
-      };
-      if (!res.ok || !j.ok) {
+      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      if (!snapshot?.ok || !snapshot.defaults) {
         setDisplayLine(null);
         setReady(true);
         return;
       }
-      const addr = pickAddressForTradeWrite(j.defaults);
+      const addr = pickAddressForTradeWrite(snapshot.defaults);
       if (!addr?.id) {
         setDisplayLine(null);
         setReady(true);
@@ -142,7 +136,7 @@ export function TradeDefaultLocationBlock({
   }, [load]);
 
   useEffect(() => {
-    const onAddressesUpdated = () => void load();
+    const onAddressesUpdated = () => void load({ force: true });
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);

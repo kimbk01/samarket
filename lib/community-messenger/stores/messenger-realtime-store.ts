@@ -16,6 +16,11 @@ import {
   seedRoomSnapshotFromSummary,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { applyCommunityMessengerUnreadOptimistic } from "@/lib/chats/owner-hub-badge-store";
+import {
+  MESSENGER_REALTIME_TRACKED_ROOMS_CAP,
+  pruneSeenIncomingMessageIdsByRoom,
+  pruneTrackedRoomMaps,
+} from "@/lib/community-messenger/stores/messenger-realtime-prune";
 
 type IncomingMessageEventInput = {
   viewerUserId?: string | null;
@@ -76,6 +81,41 @@ function sortRoomOrder(roomSummariesById: Record<string, CommunityMessengerRoomS
   return Object.values(roomSummariesById)
     .sort((a, b) => String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? "")))
     .map((room) => room.id);
+}
+
+/** `sortRoomOrder` 기준 키 — 이 값이 안 바뀌면 목록 순서 재계산 불필요 */
+function feedOrderKey(summary: CommunityMessengerRoomSummary | null | undefined): string {
+  return String(summary?.lastMessageAt ?? "");
+}
+
+function countTrackedRoomUnionKeys(args: {
+  roomSummariesById: Record<string, CommunityMessengerRoomSummary>;
+  unreadByRoomId: Record<string, number>;
+  messagesByRoomId: Record<string, CommunityMessengerMessage[]>;
+}): number {
+  return new Set([
+    ...Object.keys(args.roomSummariesById),
+    ...Object.keys(args.unreadByRoomId),
+    ...Object.keys(args.messagesByRoomId),
+  ]).size;
+}
+
+function maybePruneWhenOverCap(args: {
+  roomSummariesById: Record<string, CommunityMessengerRoomSummary>;
+  unreadByRoomId: Record<string, number>;
+  lastReadByRoomId: Record<string, string | null>;
+  messagesByRoomId: Record<string, CommunityMessengerMessage[]>;
+  activeRoomId: string | null;
+}): typeof args {
+  if (countTrackedRoomUnionKeys(args) <= MESSENGER_REALTIME_TRACKED_ROOMS_CAP) return args;
+  const pruned = pruneTrackedRoomMaps(args);
+  const keepIds = new Set<string>([
+    ...Object.keys(pruned.roomSummariesById),
+    ...Object.keys(pruned.unreadByRoomId),
+    ...Object.keys(pruned.messagesByRoomId),
+  ]);
+  pruneSeenIncomingMessageIdsByRoom(keepIds, seenIncomingMessageIdsByRoom);
+  return pruned;
 }
 
 function recomputeTotalUnread(unreadByRoomId: Record<string, number>): number {
@@ -187,14 +227,29 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       nextUnreadByRoomId[room.id] = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
     }
     set((state) => {
-      const merged = { ...state.roomSummariesById, ...nextSummaries };
-      const unreadByRoomId = { ...state.unreadByRoomId, ...nextUnreadByRoomId };
+      let roomSummariesById = { ...state.roomSummariesById, ...nextSummaries };
+      let unreadByRoomId = { ...state.unreadByRoomId, ...nextUnreadByRoomId };
+      let messagesByRoomId = state.messagesByRoomId;
+      let lastReadByRoomId = state.lastReadByRoomId;
+      const pr = maybePruneWhenOverCap({
+        roomSummariesById,
+        unreadByRoomId,
+        lastReadByRoomId,
+        messagesByRoomId,
+        activeRoomId: state.activeRoomId,
+      });
+      roomSummariesById = pr.roomSummariesById;
+      unreadByRoomId = pr.unreadByRoomId;
+      messagesByRoomId = pr.messagesByRoomId;
+      lastReadByRoomId = pr.lastReadByRoomId;
       const totalUnread = recomputeTotalUnread(unreadByRoomId);
       applyCommunityMessengerUnreadOptimistic(totalUnread);
       return {
         viewerUserId: bootstrap.me?.id?.trim() || state.viewerUserId,
-        roomSummariesById: merged,
-        roomOrder: sortRoomOrder(merged),
+        roomSummariesById,
+        roomOrder: sortRoomOrder(roomSummariesById),
+        messagesByRoomId,
+        lastReadByRoomId,
         unreadByRoomId,
         totalUnread,
       };
@@ -205,15 +260,30 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     const rid = normalizeRoomId(snapshot.room.id);
     if (!rid) return;
     set((state) => {
-      const roomSummariesById = { ...state.roomSummariesById, [rid]: snapshot.room };
-      const messagesByRoomId = {
+      let roomSummariesById = { ...state.roomSummariesById, [rid]: snapshot.room };
+      let messagesByRoomId = {
         ...state.messagesByRoomId,
         [rid]: snapshot.messages ?? state.messagesByRoomId[rid] ?? [],
       };
-      const unreadByRoomId = {
+      let unreadByRoomId = {
         ...state.unreadByRoomId,
         [rid]: Math.max(0, Math.floor(Number(snapshot.room.unreadCount) || 0)),
       };
+      let lastReadByRoomId = {
+        ...state.lastReadByRoomId,
+        [rid]: snapshot.readReceipt?.lastReadMessageId ?? state.lastReadByRoomId[rid] ?? null,
+      };
+      const pr = maybePruneWhenOverCap({
+        roomSummariesById,
+        unreadByRoomId,
+        lastReadByRoomId,
+        messagesByRoomId,
+        activeRoomId: state.activeRoomId,
+      });
+      roomSummariesById = pr.roomSummariesById;
+      messagesByRoomId = pr.messagesByRoomId;
+      unreadByRoomId = pr.unreadByRoomId;
+      lastReadByRoomId = pr.lastReadByRoomId;
       const totalUnread = recomputeTotalUnread(unreadByRoomId);
       applyCommunityMessengerUnreadOptimistic(totalUnread);
       return {
@@ -223,10 +293,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         messagesByRoomId,
         unreadByRoomId,
         totalUnread,
-        lastReadByRoomId: {
-          ...state.lastReadByRoomId,
-          [rid]: snapshot.readReceipt?.lastReadMessageId ?? state.lastReadByRoomId[rid] ?? null,
-        },
+        lastReadByRoomId,
       };
     });
   },
@@ -264,14 +331,16 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       );
       const nextUnread = shouldIncrementUnread ? baseUnread + 1 : baseUnread;
 
-      const roomSummariesById = currentSummary
-        ? {
-            ...state.roomSummariesById,
-            [rid]: patchSummaryFromPreview(currentSummary, preview, nextUnread),
-          }
+      const patchedSummary = currentSummary
+        ? patchSummaryFromPreview(currentSummary, preview, nextUnread)
+        : null;
+      const roomSummariesById = patchedSummary
+        ? { ...state.roomSummariesById, [rid]: patchedSummary }
         : state.roomSummariesById;
       const unreadByRoomId = { ...state.unreadByRoomId, [rid]: nextUnread };
-      const roomOrder = roomSummariesById === state.roomSummariesById ? state.roomOrder : sortRoomOrder(roomSummariesById);
+      const needsRoomReorder =
+        Boolean(patchedSummary) && feedOrderKey(currentSummary) !== feedOrderKey(patchedSummary);
+      const roomOrder = needsRoomReorder ? sortRoomOrder(roomSummariesById) : state.roomOrder;
       const messagesByRoomId =
         fallbackMessage == null
           ? state.messagesByRoomId
@@ -356,6 +425,8 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       };
       const roomSummariesById = { ...state.roomSummariesById, [rid]: next };
       const unreadByRoomId = { ...state.unreadByRoomId, [rid]: nextUnread };
+      const needsRoomReorder = feedOrderKey(current) !== feedOrderKey(next);
+      const roomOrder = needsRoomReorder ? sortRoomOrder(roomSummariesById) : state.roomOrder;
       const totalUnread = recomputeTotalUnread(unreadByRoomId);
       if (viewer) {
         patchRoomSummaryInSnapshotCache({
@@ -376,7 +447,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       return {
         viewerUserId: viewer,
         roomSummariesById,
-        roomOrder: sortRoomOrder(roomSummariesById),
+        roomOrder,
         unreadByRoomId,
         totalUnread,
         lastReadByRoomId:

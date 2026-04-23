@@ -4,10 +4,11 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
-import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  fetchMeNotificationSettingsSnapshot,
+  invalidateMeNotificationSettingsGetFlight,
+} from "@/lib/me/fetch-me-notification-settings-client";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
-
-const HUB_IN_APP_SOUND_SETTINGS_FLIGHT = "me:notification-settings:hub-header";
 
 /**
  * 전역 1단 헤더 우측: 인앱 알림음 on/off + 톱니(설정 허브).
@@ -29,18 +30,10 @@ function MyHubHeaderActionsInner() {
 
   const loadSound = useCallback(async () => {
     try {
-      const soundOnNext = await runSingleFlight(HUB_IN_APP_SOUND_SETTINGS_FLIGHT, async () => {
-        const res = await fetch("/api/me/notification-settings", { credentials: "include" });
-        const j = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          settings?: { sound_enabled?: boolean };
-        };
-        if (res.ok && j?.ok && j.settings) {
-          return j.settings.sound_enabled !== false;
-        }
-        return null;
-      });
-      if (soundOnNext != null) setSoundOn(soundOnNext);
+      const snapshot = await fetchMeNotificationSettingsSnapshot();
+      if (snapshot?.ok && snapshot.settings) {
+        setSoundOn(snapshot.settings.sound_enabled !== false);
+      }
     } catch {
       /* ignore */
     } finally {
@@ -54,7 +47,7 @@ function MyHubHeaderActionsInner() {
 
   useEffect(() => {
     const onCustom = () => {
-      forgetSingleFlight(HUB_IN_APP_SOUND_SETTINGS_FLIGHT);
+      invalidateMeNotificationSettingsGetFlight();
       void loadSound();
     };
     if (typeof window === "undefined") return;
@@ -79,7 +72,7 @@ function MyHubHeaderActionsInner() {
         if (next && typeof window !== "undefined") {
           primeNotificationSoundAudio();
         }
-        forgetSingleFlight(HUB_IN_APP_SOUND_SETTINGS_FLIGHT);
+        invalidateMeNotificationSettingsGetFlight();
         window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
       }
     } finally {

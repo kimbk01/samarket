@@ -29,11 +29,7 @@ export type OwnerHubBadgeApiPayload = {
   storeDeepLink: string | null;
 };
 
-type SalesPerm = { allowed_to_sell: boolean; sales_status: string };
-
-function computeCanSell(sales: SalesPerm | null | undefined): boolean {
-  return !!sales && sales.allowed_to_sell === true && sales.sales_status === "approved";
-}
+type HubStoreLiteRow = { id: string; slug?: string | null };
 
 export type OwnerHubBadgeUnreadPartial = {
   chatUnread: number;
@@ -69,55 +65,61 @@ export async function buildOwnerHubBadgeUnreadSegment(
   };
 }
 
-/** store list 조회 결과로 허브 매장·접수/환불·문의·딥링크(허브 내부 storeOrder 분기만) */
-export async function resolveOwnerHubBadgeStoreAttentionFromStoreList(
+async function findOwnerHubStore(
   storesSb: SupabaseClient<any> | null,
-  userId: string,
-  storeListRes: { data: unknown; error: unknown },
+  userId: string
+): Promise<HubStoreLiteRow | null> {
+  if (!storesSb) return null;
+  /**
+   * 이전 구현은 owner의 stores 전체 + store_sales_permissions 전체를 읽은 뒤
+   * 클라이언트에서 허브 매장 1개를 선별했다.
+   * 매장 수가 늘수록 O(n)으로 커지므로, DB에서 조건 일치 1건만 직접 조회한다.
+   */
+  const { data, error } = await storesSb
+    .from("stores")
+    .select("id,slug,store_sales_permissions!inner(allowed_to_sell,sales_status)")
+    .eq("owner_user_id", userId)
+    .eq("approval_status", "approved")
+    .eq("is_visible", true)
+    .eq("store_sales_permissions.allowed_to_sell", true)
+    .eq("store_sales_permissions.sales_status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error || !Array.isArray(data) || data.length <= 0) return null;
+  const row = data[0] as { id?: unknown; slug?: unknown };
+  if (typeof row.id !== "string" || !row.id.trim()) return null;
+  return {
+    id: row.id.trim(),
+    slug: typeof row.slug === "string" ? row.slug : null,
+  };
+}
+
+/** 허브 매장 1건 기준 접수/환불·문의·딥링크 계산 */
+export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
+  storesSb: SupabaseClient<any> | null,
+  hubStore: HubStoreLiteRow | null,
   storeOrderChatUnread: number
 ): Promise<OwnerHubBadgeStorePartial> {
   let orderAttention = 0;
   let inquiryAttention = 0;
   let storeDeepLink: string | null = null;
 
-  if (!storesSb || storeListRes.error || !Array.isArray(storeListRes.data) || !storeListRes.data.length) {
+  if (!storesSb || !hubStore) {
     return { orderAttention, inquiryAttention, storeDeepLink };
   }
-
-  const storeRows = storeListRes.data;
-  const ids = (storeRows as { id: string }[]).map((s) => s.id);
-  const { data: perms } = await storesSb
-    .from("store_sales_permissions")
-    .select("store_id, allowed_to_sell, sales_status")
-    .in("store_id", ids);
-  const permByStore = new Map(
-    (perms ?? []).map((p: { store_id: string; allowed_to_sell?: boolean; sales_status?: string }) => [
-      p.store_id,
-      { allowed_to_sell: !!p.allowed_to_sell, sales_status: String(p.sales_status ?? "") },
-    ])
-  );
-  const hubStore = (
-    storeRows as { id: string; slug?: string | null; approval_status?: string; is_visible?: boolean }[]
-  ).find((s) => {
-    const sales = permByStore.get(s.id);
-    return String(s.approval_status) === "approved" && s.is_visible === true && computeCanSell(sales);
-  });
-
-  if (hubStore) {
-    const [refund, pending, openInq] = await Promise.all([
-      countRefundRequestedForStore(storesSb, hubStore.id),
-      countPendingAcceptForStore(storesSb, hubStore.id),
-      countOpenStoreInquiriesForStore(storesSb, hubStore.id),
-    ]);
-    orderAttention = Math.max(0, refund) + Math.max(0, pending);
-    inquiryAttention = Math.max(0, openInq);
-    if (inquiryAttention > 0) {
-      storeDeepLink = `/my/business/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
-    } else if (orderAttention > 0) {
-      storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
-    } else if (storeOrderChatUnread > 0) {
-      storeDeepLink = SAMARKET_ROUTES.orders.storeOrders;
-    }
+  const [refund, pending, openInq] = await Promise.all([
+    countRefundRequestedForStore(storesSb, hubStore.id),
+    countPendingAcceptForStore(storesSb, hubStore.id),
+    countOpenStoreInquiriesForStore(storesSb, hubStore.id),
+  ]);
+  orderAttention = Math.max(0, refund) + Math.max(0, pending);
+  inquiryAttention = Math.max(0, openInq);
+  if (inquiryAttention > 0) {
+    storeDeepLink = `/my/business/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
+  } else if (orderAttention > 0) {
+    storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
+  } else if (storeOrderChatUnread > 0) {
+    storeDeepLink = SAMARKET_ROUTES.orders.storeOrders;
   }
 
   return { orderAttention, inquiryAttention, storeDeepLink };
@@ -129,15 +131,8 @@ export async function buildOwnerHubBadgeStoreAttentionSegment(
   userId: string,
   storeOrderChatUnread: number
 ): Promise<OwnerHubBadgeStorePartial> {
-  if (!storesSb) {
-    return { orderAttention: 0, inquiryAttention: 0, storeDeepLink: null };
-  }
-  const storeListRes = await storesSb
-    .from("stores")
-    .select("id, slug, approval_status, is_visible")
-    .eq("owner_user_id", userId)
-    .order("created_at", { ascending: false });
-  return resolveOwnerHubBadgeStoreAttentionFromStoreList(storesSb, userId, storeListRes, storeOrderChatUnread);
+  const hubStore = await findOwnerHubStore(storesSb, userId);
+  return resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, storeOrderChatUnread);
 }
 
 export function mergeOwnerHubBadgeUnreadAndStore(
@@ -177,15 +172,9 @@ export async function buildOwnerHubBadgePayloadMerged(
   storesSb: SupabaseClient<any> | null,
   userId: string
 ): Promise<OwnerHubBadgeApiPayload> {
-  const [unreadParts, storeListRes] = await Promise.all([
+  const [unreadParts, hubStore] = await Promise.all([
     getCachedUserChatUnreadParts(sbAny, userId),
-    storesSb
-      ? storesSb
-          .from("stores")
-          .select("id, slug, approval_status, is_visible")
-          .eq("owner_user_id", userId)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: null as unknown, error: { message: "no_stores_sb" } }),
+    findOwnerHubStore(storesSb, userId),
   ]);
 
   const [storeOrderChatUnread, communityMessengerUnread] = await Promise.all([
@@ -201,11 +190,6 @@ export async function buildOwnerHubBadgePayloadMerged(
     storeOrderChatUnread,
   };
 
-  const store = await resolveOwnerHubBadgeStoreAttentionFromStoreList(
-    storesSb,
-    userId,
-    storeListRes as { data: unknown; error: unknown },
-    storeOrderChatUnread
-  );
+  const store = await resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, storeOrderChatUnread);
   return mergeOwnerHubBadgeUnreadAndStore(unread, store);
 }

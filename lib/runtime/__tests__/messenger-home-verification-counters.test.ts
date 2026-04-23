@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
@@ -14,6 +15,7 @@ import {
 
 describe("messenger home verification counters (실행 횟수)", () => {
   beforeEach(() => {
+    clearBootstrapCache();
     resetMessengerHomeVerificationStateForTests();
     forgetSingleFlight("community-messenger:client:bootstrap:lite");
     forgetSingleFlight("community-messenger:client:bootstrap:full");
@@ -34,6 +36,7 @@ describe("messenger home verification counters (실행 횟수)", () => {
   });
 
   afterEach(() => {
+    clearBootstrapCache();
     vi.unstubAllGlobals();
     forgetSingleFlight("community-messenger:client:bootstrap:lite");
     forgetSingleFlight("community-messenger:client:bootstrap:full");
@@ -60,6 +63,31 @@ describe("messenger home verification counters (실행 횟수)", () => {
     expect(snap.bootstrapClientNetworkFetchTotal).toBe(2);
   });
 
+  it("bootstrap(lite): 캐시가 있으면 네트워크를 다시 호출하지 않는다", async () => {
+    primeBootstrapCache({
+      me: null,
+      tabs: { friends: 0, chats: 1, groups: 0, calls: 0 },
+      friends: [],
+      following: [],
+      hidden: [],
+      blocked: [],
+      requests: [],
+      chats: [],
+      groups: [],
+      discoverableGroups: [],
+      calls: [],
+    });
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    const res = await fetchCommunityMessengerBootstrapClient("lite");
+    const json = (await res.json()) as { ok?: boolean; tabs?: { chats?: number } };
+    expect(json.ok).toBe(true);
+    expect(json.tabs?.chats).toBe(1);
+    expect(fetchMock.mock.calls.length).toBe(0);
+    const snap = getMessengerHomeVerificationSnapshot();
+    expect(snap.bootstrapClientNetworkFetch.lite).toBe(0);
+    expect(snap.bootstrapClientNetworkFetchTotal).toBe(0);
+  });
+
   it("warm + bootstrap(lite): 동시 호출 → lite 네트워크 1회(내부 동일 단일 비행 키)", async () => {
     vi.stubGlobal("window", {});
     const warmP = new Promise<void>((resolve) => {
@@ -71,6 +99,31 @@ describe("messenger home verification counters (실행 횟수)", () => {
     expect(snap.warmCallSiteInvocations).toBe(1);
     expect(snap.bootstrapClientNetworkFetch.lite).toBe(1);
     expect(snap.bootstrapClientNetworkFetchTotal).toBe(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("warm: 캐시가 이미 있으면 네트워크를 다시 호출하지 않는다", async () => {
+    vi.stubGlobal("window", {});
+    primeBootstrapCache({
+      me: null,
+      tabs: { friends: 0, chats: 0, groups: 0, calls: 0 },
+      friends: [],
+      following: [],
+      hidden: [],
+      blocked: [],
+      requests: [],
+      chats: [],
+      groups: [],
+      discoverableGroups: [],
+      calls: [],
+    });
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    warmMessengerListBootstrapClient();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchMock.mock.calls.length).toBe(0);
+    const snap = getMessengerHomeVerificationSnapshot();
+    expect(snap.warmCallSiteInvocations).toBe(0);
+    expect(snap.bootstrapClientNetworkFetchTotal).toBe(0);
     vi.unstubAllGlobals();
   });
 

@@ -81,6 +81,16 @@ function isPhilifeRecommendSortCategory(slug: string): boolean {
   return s === "recommend" || s === "recommended";
 }
 
+function resolvePhilifeFeedSortForQuery(
+  categoryRaw: string,
+  sortRaw: string
+): "latest" | "popular" | "recommended" {
+  const c = categoryRaw.trim().toLowerCase();
+  if (!c) return "latest";
+  if (isPhilifeRecommendSortCategory(c) && !sortRaw.trim()) return "recommended";
+  return normalizeFeedSort(sortRaw || undefined);
+}
+
 type PhilifeFeedTopicChip = {
   slug: string;
   label: string;
@@ -167,16 +177,30 @@ export function CommunityFeed({
   const viewerSig = usePhilifeFeedViewerSig();
   const categoryParam = searchParams.get("category")?.trim() ?? "";
   const sortParam = searchParams.get("sort")?.trim() ?? "";
+  const categoryParamNorm = categoryParam.trim().toLowerCase();
+  const sortForCurrentQuery = resolvePhilifeFeedSortForQuery(categoryParamNorm, sortParam);
+  const canBootFromInitialGlobalFeed =
+    !!initialGlobalFeedRsc &&
+    initialGlobalFeedRsc.seededCategory === categoryParamNorm &&
+    initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
+  const bootPosts = canBootFromInitialGlobalFeed
+    ? mergeNeighborhoodFeedById([], initialGlobalFeedRsc?.posts ?? [], false)
+    : [];
+  const bootHasMore = canBootFromInitialGlobalFeed ? !!initialGlobalFeedRsc?.hasMore : false;
+  const bootNextOffset =
+    canBootFromInitialGlobalFeed && typeof initialGlobalFeedRsc?.nextOffset === "number"
+      ? initialGlobalFeedRsc.nextOffset
+      : 0;
   const [category, setCategory] = useState<string>(categoryParam);
   const [neighborOnly, setNeighborOnly] = useState(false);
-  const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);
+  const [hasMore, setHasMore] = useState(bootHasMore);
+  const [loading, setLoading] = useState(!bootPosts.length);
   const [loadingMore, setLoadingMore] = useState(false);
   const [err, setErr] = useState("");
   const [topAds, setTopAds] = useState<AdFeedPost[]>([]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const nextOffsetRef = useRef(0);
+  const nextOffsetRef = useRef(bootNextOffset);
   const loadMoreLockRef = useRef(false);
   const feedAbortRef = useRef<AbortController | null>(null);
   const adsAbortRef = useRef<AbortController | null>(null);
@@ -612,31 +636,14 @@ export function CommunityFeed({
     loadMoreLockRef.current = false;
 
     /** RSC `전체` 시드: URL뿐 아니라 **선택한 주제 칩(state)**이 비어 있을 때만(칩만 바꾸고 URL이 안 맞는 경우가 있었음). */
-    const canUseDefaultGlobalSeed =
+    const canUseRscSeedForCurrentQuery =
       initialGlobalFeedRsc &&
-      !categoryParam.trim() &&
-      !category.trim() &&
+      initialGlobalFeedRsc.seededCategory === category.trim().toLowerCase() &&
+      initialGlobalFeedRsc.seededSort === resolvePhilifeFeedSortForQuery(category, sortParam) &&
       !neighborOnly &&
-      !isPhilifeRecommendSortCategory(category) &&
-      !recSortKey;
+      (!isPhilifeRecommendSortCategory(category) || !!sortParam || initialGlobalFeedRsc.seededSort === "recommended");
 
-    if (
-      initialGlobalFeedRsc &&
-      canUseDefaultGlobalSeed &&
-      viewerSig === "_anon" &&
-      initialGlobalFeedRsc.viewerKey !== "_anon"
-    ) {
-      setLoading(true);
-      return () => {
-        feedAbortRef.current?.abort();
-      };
-    }
-
-    if (
-      initialGlobalFeedRsc &&
-      canUseDefaultGlobalSeed &&
-      viewerSig === initialGlobalFeedRsc.viewerKey
-    ) {
+    if (initialGlobalFeedRsc && canUseRscSeedForCurrentQuery && viewerSig === initialGlobalFeedRsc.viewerKey) {
       const s = initialGlobalFeedRsc;
       const merged = mergeNeighborhoodFeedById([], s.posts, false);
       setPosts(merged);

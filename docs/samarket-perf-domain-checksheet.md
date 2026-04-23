@@ -53,7 +53,7 @@
 
 ## 2) 메신저 (카카오톡 수준)
 
-> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지. **추가(2026-04-23):** 라운드 M — `messenger-room-entry-perf-breakdown` 3회 **CTV→input 0ms**, FMR−CTV **~18ms**대(H 대비 개선); 전체 **즉시 입력**·`composer_wall` SLO 합의 전까지 `[ ]` 유지. (연동표: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 메신저」.)
+> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지. **추가(2026-04-23):** 라운드 M — `messenger-room-entry-perf-breakdown` 3회 **CTV→input 0ms**, FMR−CTV **~18ms**대(H 대비 개선). 라운드 R — `home-sync`(2.0~2.1s 반복)·`store-owner-hub-badge`(~974ms) 서버 병목 구조 수정 반영. 라운드 S — 전역 unread 브리지의 `list_prefetch(force)` 남발 제거(메신저 허브 전용 + TTL 재사용 + 방별 20s 쿨다운)로 탭 전환 경합 완화(실측 3회 전/후 대기). 라운드 U — 커뮤니티 `/philife`의 **주제/정렬 쿼리 진입도 RSC 시드**하도록 확장하고 `CommunityFeed`를 시드 상태로 직접 부팅해 스켈레톤 빈화면 구간 축소(실측 3회 전/후 대기). 전체 **즉시 입력**·`composer_wall` SLO 합의 전까지 `[ ]` 유지. (연동표: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 메신저」.)
 
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|

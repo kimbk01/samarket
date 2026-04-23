@@ -30,6 +30,7 @@ export type MessengerHomeDebugEvent =
   | "messenger_home_refresh_success"
   | "messenger_home_refresh_skip_non_silent_inflight"
   | "messenger_home_warm_start"
+  | "messenger_home_warm_skip_cached"
   | "messenger_home_warm_success"
   | "messenger_home_badge_resync"
   | "messenger_home_subscribe_create"

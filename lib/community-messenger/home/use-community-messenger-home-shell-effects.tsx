@@ -17,7 +17,7 @@ import {
   readDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 import {
-  fetchMeNotificationSettingsGet,
+  fetchMeNotificationSettingsSnapshot,
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { resolveMessengerChatFilters, resolveMessengerSection, type MessengerChatInboxFilter, type MessengerChatKindFilter, type MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import type {
@@ -167,20 +167,16 @@ export function useCommunityMessengerHomeShellEffects({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetchMeNotificationSettingsGet();
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          settings?: Partial<MessengerNotificationSettings>;
-        };
-        if (!cancelled && res.ok && json.ok && json.settings) {
+        const snapshot = await fetchMeNotificationSettingsSnapshot();
+        if (!cancelled && snapshot?.ok && snapshot.settings) {
           setNotificationSettings((prev) => ({
             ...prev,
-            trade_chat_enabled: json.settings?.trade_chat_enabled !== false,
-            community_chat_enabled: json.settings?.community_chat_enabled !== false,
-            order_enabled: json.settings?.order_enabled !== false,
-            store_enabled: json.settings?.store_enabled !== false,
-            sound_enabled: json.settings?.sound_enabled !== false,
-            vibration_enabled: json.settings?.vibration_enabled !== false,
+            trade_chat_enabled: snapshot.settings?.trade_chat_enabled !== false,
+            community_chat_enabled: snapshot.settings?.community_chat_enabled !== false,
+            order_enabled: snapshot.settings?.order_enabled !== false,
+            store_enabled: snapshot.settings?.store_enabled !== false,
+            sound_enabled: snapshot.settings?.sound_enabled !== false,
+            vibration_enabled: snapshot.settings?.vibration_enabled !== false,
           }));
         }
       } catch {

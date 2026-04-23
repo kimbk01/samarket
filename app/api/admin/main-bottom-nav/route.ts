@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
+import { MAIN_BOTTOM_NAV_SERVER_CACHE_TAG } from "@/lib/main-menu/load-main-bottom-nav-items-server";
 import { MAIN_BOTTOM_NAV_SETTINGS_KEY } from "@/lib/main-menu/main-bottom-nav-key";
 import {
   getDefaultMainBottomNavAdminRows,
@@ -109,6 +111,7 @@ export async function PUT(req: NextRequest) {
     ip: rm.ip,
     user_agent: rm.userAgent,
   });
+  revalidateTag(MAIN_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
 
   return NextResponse.json({
     ok: true as const,
@@ -158,6 +161,7 @@ export async function DELETE(req: NextRequest) {
     ip: rm.ip,
     user_agent: rm.userAgent,
   });
+  revalidateTag(MAIN_BOTTOM_NAV_SERVER_CACHE_TAG, "default");
 
   const defaults = getDefaultMainBottomNavAdminRows();
   return NextResponse.json({

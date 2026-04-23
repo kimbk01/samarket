@@ -22,6 +22,7 @@ import {
   syncUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 
 export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
   const hub0 = initialMyPageData?.hubServerExtras;
@@ -62,22 +63,17 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     [data]
   );
 
-  const loadAddressDefaults = useCallback(async () => {
+  const loadAddressDefaults = useCallback(async (opts?: { force?: boolean }) => {
     try {
-      const res = await fetch("/api/me/address-defaults", { credentials: "include" });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        defaults?: { master?: unknown; life?: unknown; trade?: unknown; delivery?: unknown };
-        neighborhoodFromLife?: LifeDefaultLocationSummary;
-      };
-      if (res.ok && json.ok && json.defaults) {
+      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      if (snapshot?.ok && snapshot.defaults) {
         setAddressDefaults({
-          master: json.defaults.master != null,
-          life: json.defaults.life != null,
-          trade: json.defaults.trade != null,
-          delivery: json.defaults.delivery != null,
+          master: snapshot.defaults.master != null,
+          life: snapshot.defaults.life != null,
+          trade: snapshot.defaults.trade != null,
+          delivery: snapshot.defaults.delivery != null,
         });
-        const n = json.neighborhoodFromLife;
+        const n = snapshot.neighborhoodFromLife;
         setNeighborhoodFromLife(
           n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
             ? n
@@ -136,10 +132,10 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     if (typeof window === "undefined") return;
     const onProfileUpdated = () => {
       void load({ silent: true });
-      void loadAddressDefaultsRef.current();
+      void loadAddressDefaultsRef.current({ force: true });
     };
     const onAddressesUpdated = () => {
-      void loadAddressDefaultsRef.current();
+      void loadAddressDefaultsRef.current({ force: true });
     };
     window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);

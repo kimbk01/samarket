@@ -7,6 +7,15 @@ import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/s
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS = 5_000;
+
+type CommunityMessengerHomeSyncCacheEntry = {
+  payload: Awaited<ReturnType<typeof getCommunityMessengerHomeSyncBundle>>;
+  expiresAt: number;
+};
+
+const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSyncCacheEntry>();
+
 /**
  * 홈 사일런트 갱신 전용 — `rooms` + `friend-requests` + `friends` 를 한 HTTP 왕복으로 묶어
  * 클라 RTT·Next 핸들러 반복을 줄인다 (`list_bootstrap_align` 측정 구간).
@@ -25,7 +34,23 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const bundle = await getCommunityMessengerHomeSyncBundle(auth.userId);
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
+  for (const [key, entry] of communityMessengerHomeSyncCache) {
+    if (entry.expiresAt <= Date.now()) {
+      communityMessengerHomeSyncCache.delete(key);
+    }
+  }
+
+  const cacheKey = auth.userId;
+  let bundle = !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
+  if (!bundle) {
+    bundle = await getCommunityMessengerHomeSyncBundle(auth.userId);
+    communityMessengerHomeSyncCache.set(cacheKey, {
+      payload: bundle,
+      expiresAt: Date.now() + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+    });
+  }
+
   recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);
   return jsonOkWithRequest(req, bundle);
 }

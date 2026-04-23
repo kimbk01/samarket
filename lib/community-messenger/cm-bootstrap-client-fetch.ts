@@ -5,6 +5,7 @@
  * @see docs/trade-lightweight-design.md — `SAMARKET_LIGHTWEIGHT_GOALS.fetchOnceOnServer` 의 클라이언트 대응(단일 비행).
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
   beginMessengerBootstrapClientPhase,
   bumpAppWidePerf,
@@ -60,6 +61,21 @@ function captureResponseSizeBytes(response: Response, requestUrl: string): void 
 export function fetchCommunityMessengerBootstrapClient(
   mode: CommunityMessengerClientBootstrapMode
 ): Promise<Response> {
+  /**
+   * 빠른 탭 왕복(거래 ↔ 커뮤니티)에서는 최근 부트스트랩이 이미 session/memory cache에 있다.
+   * 이 경우 lite 네트워크를 다시 호출하면 탭 전환 체감만 느려지므로, 즉시 캐시 응답으로 단락한다.
+   */
+  if (mode === "lite") {
+    const cached = peekBootstrapCache();
+    if (cached) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: true, ...cached }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+  }
   const url =
     mode === "fresh"
       ? "/api/community-messenger/bootstrap?fresh=1"
