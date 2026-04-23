@@ -6,6 +6,7 @@ import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { resolveCommunityFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
+import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import {
   FeedListLayoutCarrotThumbLeft,
   FeedListLayoutCarrotThumbRight,
@@ -21,7 +22,9 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveCommunityFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
-  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource;
+  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(
+    post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource,
+  );
   const placeLineRaw =
     skin === "location_pin" ? post.meetup_place?.trim() || post.region_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
@@ -31,7 +34,7 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
     topicLabel: post.topic_name,
     topicColor: post.topic_color,
     title: post.title?.trim() || "제목 없음",
-    summary: (post.summary ?? "").trim(),
+    summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
     timeLabel: time,
     authorName: post.author_name,
     secondaryMeta: post.region_label?.trim() ?? "",

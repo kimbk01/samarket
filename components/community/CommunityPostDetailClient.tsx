@@ -19,6 +19,8 @@ import {
 } from "@/lib/community/fetch-community-post-comments-deduped";
 import { philifePostCommentsUrl, philifePostLikeUrl, philifePostViewUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { NeighborhoodInterleavedContent } from "@/components/community/NeighborhoodInterleavedContent";
+import { hasInterleavedMarkdownImageSyntax } from "@/lib/philife/interleaved-body-markdown";
 import {
   PHILIFE_DETAIL_BODY_CLASS,
   PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
@@ -176,27 +178,39 @@ export function CommunityPostDetailClient({
             <span>조회 {viewCount}</span>
             <span>댓글 {comments.length}</span>
           </div>
-          <div className={PHILIFE_DETAIL_BODY_CLASS}>
-            {post.is_meetup ? stripMeetupPostMetaFromContent(post.content) : post.content}
-          </div>
-          {post.images.length > 0 ? (
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {post.images.map((im) =>
-                im.url ? (
-                  <a key={im.id} href={im.url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                    <img
-                      src={im.url}
-                      alt=""
-                      className="h-40 w-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                      fetchPriority="low"
-                    />
-                  </a>
-                ) : null
-              )}
-            </div>
-          ) : null}
+          {post.is_meetup ? (
+            <div className={PHILIFE_DETAIL_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
+          ) : hasInterleavedMarkdownImageSyntax(post.content) ? (
+            <NeighborhoodInterleavedContent content={post.content} />
+          ) : (
+            <>
+              <div className={PHILIFE_DETAIL_BODY_CLASS}>{post.content}</div>
+              {post.images.length > 0 ? (
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {post.images.map((im) =>
+                    im.url ? (
+                      <a
+                        key={im.id}
+                        href={im.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block overflow-hidden rounded-ui-rect bg-sam-surface-muted"
+                      >
+                        <img
+                          src={im.url}
+                          alt=""
+                          className="h-40 w-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
+                        />
+                      </a>
+                    ) : null
+                  )}
+                </div>
+              ) : null}
+            </>
+          )}
 
           {post.is_meetup && (post.meetup_date || post.meetup_place) ? (
             <div className="mt-4 rounded-ui-rect bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">

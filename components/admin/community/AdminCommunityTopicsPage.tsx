@@ -14,17 +14,37 @@ import {
 } from "@/lib/community-feed/topic-feed-skin";
 import { isPhilifeGeneralOnlyTopicSlug } from "@/lib/neighborhood/philife-topic-slug-rules";
 import {
-  qualifiesForPhilifeGeneralAdminList,
   qualifiesForPhilifeMeetupAdminList,
   topicBelongsToPhilifeNeighborhoodSection,
 } from "@/lib/neighborhood/meetup-feed-topics";
 
 /**
- * 커뮤니티 피드 주제 구조와 동일하게 나눔:
- * - general: 일반 게시판 글 (`allow_meetup` false) — 피드·댓글만, 작성자 1:1 문의(DM) 허용
- * - meetup: 모임 (`allow_meetup` true) — 모임방 단체 채팅, 게시글 문의 DM 비허용
+ * - 일반 게시판: 운영자가 만드는 주제(slug·이름) — '추가' 폼은 이것만.
+ * - 인기(조회)·추천(랭킹) 탭: is_feed_sort 시드(기본) — 여기서 신규 "게시판"으로 추가하지 않음.
+ * - 최신/추천(정렬): URL·피드 `sort` 등(보는 방식).
+ * - 모임: allow_meetup + 모임 API
  */
 type TopicsMenuTab = "general" | "meetup";
+
+function labelAdminFeedTopicRow(
+  t: CommunityTopicAdminRow,
+  philifeNeighborhoodSectionSlug: string
+): string {
+  if (
+    qualifiesForPhilifeMeetupAdminList(
+      t.allow_meetup,
+      t.slug,
+      t.section_slug,
+      philifeNeighborhoodSectionSlug
+    )
+  ) {
+    return "모임";
+  }
+  if (t.is_feed_sort) {
+    return t.feed_sort_mode === "recommended" ? "추천" : "인기";
+  }
+  return "일반";
+}
 
 export function AdminCommunityTopicsPage({
   sections,
@@ -84,7 +104,6 @@ export function AdminCommunityTopicsPage({
   const [sortOrder, setSortOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
-  const [isFeedSort, setIsFeedSort] = useState(false);
   const [allowQuestion, setAllowQuestion] = useState(true);
   const [color, setColor] = useState("");
   const [feedListSkin, setFeedListSkin] = useState<CommunityFeedListSkin>("compact_media");
@@ -102,9 +121,17 @@ export function AdminCommunityTopicsPage({
         qualifiesForPhilifeMeetupAdminList(t.allow_meetup, t.slug, t.section_slug, philifeNeighborhoodSectionSlug)
       );
     }
-    return topics.filter((t) =>
-      qualifiesForPhilifeGeneralAdminList(t.allow_meetup, t.slug, t.section_slug, philifeNeighborhoodSectionSlug)
-    );
+    return topics.filter((t) => {
+      if (!topicBelongsToPhilifeNeighborhoodSection(t.section_slug, philifeNeighborhoodSectionSlug)) {
+        return false;
+      }
+      return !qualifiesForPhilifeMeetupAdminList(
+        t.allow_meetup,
+        t.slug,
+        t.section_slug,
+        philifeNeighborhoodSectionSlug
+      );
+    });
   }, [topics, menuTab, philifeNeighborhoodSectionSlug]);
 
   useEffect(() => {
@@ -115,13 +142,10 @@ export function AdminCommunityTopicsPage({
       edit.section_slug,
       philifeNeighborhoodSectionSlug
     );
-    const inGeneralTab = qualifiesForPhilifeGeneralAdminList(
-      edit.allow_meetup,
-      edit.slug,
-      edit.section_slug,
-      philifeNeighborhoodSectionSlug
-    );
-    const inTab = menuTab === "meetup" ? inMeetupTab : inGeneralTab;
+    const inGeneralArea =
+      topicBelongsToPhilifeNeighborhoodSection(edit.section_slug, philifeNeighborhoodSectionSlug) &&
+      !inMeetupTab;
+    const inTab = menuTab === "meetup" ? inMeetupTab : inGeneralArea;
     if (!inTab) setEdit(null);
   }, [menuTab, edit, philifeNeighborhoodSectionSlug]);
 
@@ -167,7 +191,8 @@ export function AdminCommunityTopicsPage({
           sort_order: sortOrder,
           is_active: isActive,
           is_visible: isVisible,
-          is_feed_sort: isFeedSort,
+          is_feed_sort: false,
+          feed_sort_mode: null,
           allow_question: allowQuestion,
           allow_meetup: menuTab === "meetup",
           color: color.trim() || null,
@@ -188,7 +213,6 @@ export function AdminCommunityTopicsPage({
       setSortOrder(0);
       setIsActive(true);
       setIsVisible(true);
-      setIsFeedSort(false);
       setAllowQuestion(true);
       setColor("");
       setFeedListSkin("compact_media");
@@ -227,6 +251,7 @@ export function AdminCommunityTopicsPage({
           is_active: edit.is_active,
           is_visible: edit.is_visible,
           is_feed_sort: edit.is_feed_sort,
+          feed_sort_mode: edit.is_feed_sort ? edit.feed_sort_mode ?? "popular" : null,
           allow_question: edit.allow_question,
           allow_meetup: edit.allow_meetup,
           color: edit.color,
@@ -275,8 +300,8 @@ export function AdminCommunityTopicsPage({
 
   const headerDescription =
     menuTab === "meetup"
-      ? `동네 피드 섹션(${philifeNeighborhoodSectionSlug})만 표시·저장 가능. 목록은 모임 만들기 폼 피드 주제(API)와 동일합니다. 일반 전용 slug·다른 섹션 주제는 제외.`
-      : `동네 피드 섹션(${philifeNeighborhoodSectionSlug})의 일반 게시판 주제만 표시합니다. 커뮤니티 동네 피드 칩·글쓰기 주제·게시판 주제 필터는 여기서 보이는 주제(노출·비모임·정렬칩 제외)와 동기됩니다.`;
+      ? `섹션: ${philifeNeighborhoodSectionSlug} · 모임 만들기와 동일 목록`
+      : `섹션: ${philifeNeighborhoodSectionSlug} · 일반(추가) / 아래는 전체`;
 
   async function saveShowAllFeedTab() {
     setBusy(true);
@@ -404,26 +429,24 @@ export function AdminCommunityTopicsPage({
         <button
           type="button"
           onClick={() => setMenuTab("general")}
-          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect px-4 py-2 sam-text-body font-semibold leading-tight transition-colors sm:flex-none sm:px-8 ${
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect px-3 py-2 sam-text-body font-semibold leading-tight transition-colors sm:flex-none sm:px-5 ${
             menuTab === "general"
               ? "bg-sam-ink text-white shadow-sm"
               : "bg-transparent text-sam-muted hover:bg-sam-app"
           }`}
         >
-          <span>일반 게시판</span>
-          <span className="font-normal leading-tight text-[11px] opacity-80">문의 DM 가능</span>
+          <span>일반·피드</span>
         </button>
         <button
           type="button"
           onClick={() => setMenuTab("meetup")}
-          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect px-4 py-2 sam-text-body font-semibold leading-tight transition-colors sm:flex-none sm:px-8 ${
+          className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect px-3 py-2 sam-text-body font-semibold leading-tight transition-colors sm:flex-none sm:px-5 ${
             menuTab === "meetup"
               ? "bg-emerald-600 text-white shadow-sm"
               : "bg-transparent text-sam-muted hover:bg-sam-app"
           }`}
         >
           <span>모임</span>
-          <span className="font-normal leading-tight text-[11px] opacity-80">모임방 채팅</span>
         </button>
       </div>
 
@@ -493,23 +516,9 @@ export function AdminCommunityTopicsPage({
               노출
             </label>
             <label className="flex cursor-pointer items-center gap-1.5 self-end pb-1.5 text-sam-fg sam-text-body-secondary">
-              <input type="checkbox" checked={isFeedSort} onChange={(e) => setIsFeedSort(e.target.checked)} />
-              정렬칩
-            </label>
-            <label className="flex cursor-pointer items-center gap-1.5 self-end pb-1.5 text-sam-fg sam-text-body-secondary">
               <input type="checkbox" checked={allowQuestion} onChange={(e) => setAllowQuestion(e.target.checked)} />
               질문
             </label>
-            <div className="flex flex-col justify-end pb-1.5">
-              <span className="sam-text-xxs font-medium text-sam-muted">
-                분류: {menuTab === "meetup" ? "모임 피드" : "일반 게시판"}
-              </span>
-              <span className="max-w-[220px] sam-text-xxs leading-tight text-sam-meta">
-                {menuTab === "meetup"
-                  ? "동네 섹션 + 모임 API와 같은 목록만 여기에 표시됩니다."
-                  : "동네 섹션 일반 주제만 여기에 표시됩니다."}
-              </span>
-            </div>
             <label className="flex min-w-0 flex-col gap-0.5">
               <span className="text-sam-muted sam-text-helper">색(hex 등)</span>
               <input
@@ -541,20 +550,11 @@ export function AdminCommunityTopicsPage({
               추가
             </button>
           </div>
-          <p className="text-sam-muted leading-relaxed sam-text-helper">
-            정렬칩(<code className="rounded bg-sam-surface-muted px-1">is_feed_sort</code>)은 정렬/탭·필터에도 쓰입니다.{" "}
-            <strong>노출 Y</strong>이면 필라이프 홈 <strong>상단 가로탭(칩)</strong>에도 나갑니다(모임·글쓰기 제외 규칙은 그대로). 목록
-            스킨은 주제별 피드 카드 레이아웃을 바꿉니다.
-          </p>
         </form>
       </AdminCard>
       <AdminCard
         titleClassName="sam-text-section-title text-sam-fg"
-        title={
-          menuTab === "meetup"
-            ? "모임 피드 주제 목록 (community_topics)"
-            : "일반 게시판 주제 목록 (community_topics)"
-        }
+        title={menuTab === "meetup" ? "모임 주제 (community_topics)" : "주제 (community_topics)"}
       >
         {topics.length === 0 ? (
           <div className="space-y-2 sam-text-body-secondary text-amber-900">
@@ -583,7 +583,7 @@ export function AdminCommunityTopicsPage({
           <p className="sam-text-body-secondary text-sam-muted">
             {menuTab === "meetup"
               ? `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 모임 피드 주제가 없습니다. 위에서 해당 섹션을 고르고 추가하거나, 일반 전용이 아닌 slug로 allow_meetup을 켠 주제를 넣어 주세요.`
-              : `동네 피드 섹션(${philifeNeighborhoodSectionSlug})에 일반 게시판 주제가 없습니다. 위 폼에서 추가하세요.`}
+              : `필터에 맞는 주제가 없습니다. 위에서 추가하거나, 마이그레이션을 확인하세요.`}
           </p>
         ) : (
           <div className="overflow-x-auto">
@@ -596,9 +596,8 @@ export function AdminCommunityTopicsPage({
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">목록 스킨</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">정렬</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">노출</th>
-                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">정렬칩</th>
+                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">구분</th>
                   <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">활성</th>
-                  <th className="px-0 py-2.5 pr-2 text-left font-medium sam-text-helper">분류 전환</th>
                   <th className="px-0 py-2.5 text-left font-medium sam-text-helper">작업</th>
                 </tr>
               </thead>
@@ -663,12 +662,61 @@ export function AdminCommunityTopicsPage({
                           onChange={(e) => setEdit({ ...edit, is_visible: e.target.checked })}
                         />
                       </td>
-                      <td className="py-2.5 pr-2">
-                        <input
-                          type="checkbox"
-                          checked={edit.is_feed_sort}
-                          onChange={(e) => setEdit({ ...edit, is_feed_sort: e.target.checked })}
-                        />
+                      <td className="max-w-[11rem] py-2.5 pr-2 align-top">
+                        {edit.is_feed_sort ? (
+                          <select
+                            className="w-full rounded border px-1 py-1.5 sam-text-xxs"
+                            value={edit.feed_sort_mode ?? "popular"}
+                            onChange={(e) =>
+                              setEdit({
+                                ...edit,
+                                feed_sort_mode: e.target.value as "popular" | "recommended",
+                                is_feed_sort: true,
+                                allow_meetup: false,
+                              })
+                            }
+                            aria-label="피드 인기·추천"
+                          >
+                            <option value="popular">인기</option>
+                            <option value="recommended">추천</option>
+                          </select>
+                        ) : (
+                          <select
+                            className="w-full rounded border px-1 py-1.5 sam-text-xxs"
+                            value={edit.allow_meetup ? "meetup" : "general"}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (v === "general") {
+                                if (isPhilifeGeneralOnlyTopicSlug(edit.slug)) {
+                                  setEdit((cur) =>
+                                    cur
+                                      ? { ...cur, is_feed_sort: false, feed_sort_mode: null, allow_meetup: true }
+                                      : null
+                                  );
+                                } else {
+                                  setEdit((cur) =>
+                                    cur
+                                      ? { ...cur, is_feed_sort: false, feed_sort_mode: null, allow_meetup: false }
+                                      : null
+                                  );
+                                }
+                              } else if (v === "meetup") {
+                                if (isPhilifeGeneralOnlyTopicSlug(edit.slug)) {
+                                  alert("이 slug는 일반 전용입니다. 모임으로 쓰려면 모임에 맞는 slug로 바꾸세요.");
+                                  return;
+                                }
+                                setEdit((cur) =>
+                                  cur
+                                    ? { ...cur, is_feed_sort: false, feed_sort_mode: null, allow_meetup: true }
+                                    : null
+                                );
+                              }
+                            }}
+                          >
+                            <option value="general">일반 게시판(주제)</option>
+                            <option value="meetup">모임 피드</option>
+                          </select>
+                        )}
                       </td>
                       <td className="py-2.5 pr-2">
                         <input
@@ -676,17 +724,6 @@ export function AdminCommunityTopicsPage({
                           checked={edit.is_active}
                           onChange={(e) => setEdit({ ...edit, is_active: e.target.checked })}
                         />
-                      </td>
-                      <td className="py-2.5 pr-2">
-                        <label className="flex cursor-pointer items-center gap-1 sam-text-xxs text-sam-fg">
-                          <input
-                            type="checkbox"
-                            title="모임 피드로 전환"
-                            checked={edit.allow_meetup}
-                            onChange={(e) => setEdit({ ...edit, allow_meetup: e.target.checked })}
-                          />
-                          모임
-                        </label>
                       </td>
                       <td className="py-2.5">
                         <button
@@ -718,11 +755,10 @@ export function AdminCommunityTopicsPage({
                       </td>
                       <td className="py-2.5 pr-2">{t.sort_order}</td>
                       <td className="py-2.5 pr-2">{t.is_visible ? "Y" : "N"}</td>
-                      <td className="py-2.5 pr-2">{t.is_feed_sort ? "Y" : "N"}</td>
-                      <td className="py-2.5 pr-2">{t.is_active ? "Y" : "N"}</td>
-                      <td className="py-2.5 pr-2 sam-text-xxs text-sam-muted">
-                        {t.allow_meetup ? "모임" : "일반"}
+                      <td className="max-w-[10rem] py-2.5 pr-2 sam-text-xxs text-sam-fg">
+                        {labelAdminFeedTopicRow(t, philifeNeighborhoodSectionSlug)}
                       </td>
+                      <td className="py-2.5 pr-2">{t.is_active ? "Y" : "N"}</td>
                       <td className="py-2.5">
                         <button
                           type="button"
@@ -733,7 +769,9 @@ export function AdminCommunityTopicsPage({
                         </button>
                         <button
                           type="button"
-                          className="text-red-600 hover:underline"
+                          className="text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={t.is_feed_sort}
+                          title={t.is_feed_sort ? "기본 피드 항목 — 삭제 대신 비활성·노출 조정 권장" : undefined}
                           onClick={() => removeRow(t.id)}
                         >
                           삭제

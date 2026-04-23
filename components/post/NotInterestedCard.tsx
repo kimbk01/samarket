@@ -68,7 +68,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[15px] font-semibold text-sam-fg">
+        <p className="text-[12px] font-semibold text-sam-fg">
           관심 없는 이유가 있나요?
         </p>
         <button

@@ -231,6 +231,7 @@
 
   .sam-input::placeholder {
     @apply text-sam-meta;
+    font-size: var(--sam-text-placeholder-size);
   }
 
   .sam-input:focus {
@@ -255,6 +256,7 @@
 
   .sam-input-surface-soft::placeholder {
     @apply text-sam-meta;
+    font-size: var(--sam-text-placeholder-size);
   }
 
   .sam-input-surface-soft:focus {
@@ -270,6 +272,7 @@
 
   .sam-textarea::placeholder {
     @apply text-sam-meta;
+    font-size: var(--sam-text-placeholder-size);
   }
 
   .sam-textarea:focus {

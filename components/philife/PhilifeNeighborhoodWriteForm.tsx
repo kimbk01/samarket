@@ -2,13 +2,27 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
+  philifeArticleOgImageUrl,
   philifeNeighborhoodPostsUrl,
+  philifeUploadImageFromUrl,
   philifeUploadImageUrl,
 } from "@domain/philife/api";
+import { normalizeHttpUrlString } from "@/lib/philife/http-url-string";
+import {
+  applyInterleavedImageUrlReplacements,
+  extractImageUrlsFromInterleavedContent,
+  hasInterleavedMarkdownImageSyntax,
+  interleavedMarkdownFromPastedHtml,
+  workItemsFromInterleavedMd,
+} from "@/lib/philife/interleaved-body-markdown";
+import {
+  extractOrderedPastedImageSources,
+  firstLikelyArticlePageUrl,
+} from "@/lib/philife/neighborhood-write-paste";
 import { fetchPhilifeNeighborhoodTopicOptionsForWrite } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { philifeAdminPaths, philifeAppPaths } from "@domain/philife/paths";
 import {
@@ -61,12 +75,15 @@ export function PhilifeNeighborhoodWriteForm({
   const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>([]);
   /** `writeTopicOptions.length === 0` 이 로딩 중인지·진짜 비어 있는지 구분 */
   const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
+  /** `ok: false` 또는 catch 시 서버/네트워크 힌트(설정·데이터 0이 아닐 수 있음) */
+  const [writeTopicOptionsFetchErr, setWriteTopicOptionsFetchErr] = useState<string | null>(null);
   const [category, setCategory] = useState<string>(() => (initialCategory === "meetup" ? "meetup" : ""));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const imageUrlsCountRef = useRef(0);
   const [uploading, setUploading] = useState(false);
   const [maxMembers, setMaxMembers] = useState(30);
 
@@ -87,6 +104,8 @@ export function PhilifeNeighborhoodWriteForm({
   const [adMemo, setAdMemo] = useState("");
 
   const submitErrorAnchorRef = useRef<HTMLDivElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingContentCaretRef = useRef<number | null>(null);
   /** setState 전에 연속 제출이 들어오는 경우(더블 탭 등) 동기적으로 막음 */
   const submitLockRef = useRef(false);
   const me = getCurrentUser();
@@ -98,22 +117,44 @@ export function PhilifeNeighborhoodWriteForm({
   }, [err]);
 
   useEffect(() => {
+    imageUrlsCountRef.current = imageUrls.length;
+  }, [imageUrls.length]);
+
+  useLayoutEffect(() => {
+    if (pendingContentCaretRef.current == null) return;
+    const p = pendingContentCaretRef.current;
+    pendingContentCaretRef.current = null;
+    const ta = contentTextareaRef.current;
+    if (!ta) return;
+    ta.setSelectionRange(p, p);
+    ta.focus();
+  }, [content]);
+
+  useEffect(() => {
     let cancelled = false;
     void (async () => {
       if (!cancelled) setWriteTopicOptionsLoad("loading");
+      if (!cancelled) setWriteTopicOptionsFetchErr(null);
       try {
         const j = await fetchPhilifeNeighborhoodTopicOptionsForWrite();
         if (cancelled) return;
         if (!j?.ok || !Array.isArray(j.writeTopics)) {
+          setWriteTopicOptionsFetchErr(
+            j && typeof (j as { error?: string }).error === "string" && (j as { error?: string }).error?.trim()
+              ? (j as { error: string }).error
+              : null
+          );
           setWriteTopicOptions([]);
           setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
           return;
         }
         if (j.writeTopics.length === 0) {
+          setWriteTopicOptionsFetchErr(null);
           setWriteTopicOptions([]);
           setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
           return;
         }
+        setWriteTopicOptionsFetchErr(null);
         setWriteTopicOptions(j.writeTopics);
         setCategory((prev) => {
           if (prev === "meetup" || initialCategory === "meetup") return "meetup";
@@ -125,6 +166,7 @@ export function PhilifeNeighborhoodWriteForm({
         });
       } catch {
         if (!cancelled) {
+          setWriteTopicOptionsFetchErr("네트워크 오류이거나 JSON이 아닙니다.");
           setWriteTopicOptions([]);
           setCategory((prev) => (prev === "meetup" || initialCategory === "meetup" ? "meetup" : ""));
         }
@@ -167,6 +209,13 @@ export function PhilifeNeighborhoodWriteForm({
     };
   }, [promoteAdEnabled, category]);
 
+  const postMultipartFile = useCallback(async (f: File) => {
+    const fd = new FormData();
+    fd.append("file", f);
+    const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
+    return (await res.json()) as { ok?: boolean; url?: string; error?: string };
+  }, []);
+
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
@@ -176,10 +225,7 @@ export function PhilifeNeighborhoodWriteForm({
       const next = category === "meetup" ? [] : [...imageUrls];
       for (const f of Array.from(files)) {
         if (next.length >= (category === "meetup" ? 1 : 10)) break;
-        const fd = new FormData();
-        fd.append("file", f);
-        const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
-        const j = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+        const j = await postMultipartFile(f);
         if (j.ok && j.url) next.push(j.url);
         else setErr(j.error ?? "이미지 업로드 실패");
       }
@@ -187,6 +233,249 @@ export function PhilifeNeighborhoodWriteForm({
     } finally {
       setUploading(false);
       e.target.value = "";
+    }
+  };
+
+  const onContentPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (category === "meetup") return;
+    const cd = e.clipboardData;
+    if (!cd) return;
+
+    const fromFiles = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"));
+    let imageFiles: File[] = fromFiles;
+    if (imageFiles.length === 0) {
+      for (const it of Array.from(cd.items)) {
+        if (it.kind === "file" && it.type.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) imageFiles.push(f);
+        }
+      }
+    }
+
+    const insertPlainAtSelection = (plain: string) => {
+      const el = e.currentTarget;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      setContent((prev) => prev.slice(0, start) + plain + prev.slice(end));
+      pendingContentCaretRef.current = start + plain.length;
+    };
+
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      const t = cd.getData("text/plain");
+      if (t) {
+        insertPlainAtSelection(t);
+      }
+      setUploading(true);
+      setErr("");
+      try {
+        const cap = Math.max(0, 10 - imageUrlsCountRef.current);
+        const newUrls: string[] = [];
+        for (const f of imageFiles) {
+          if (newUrls.length >= cap) break;
+          const j = await postMultipartFile(f);
+          if (j.ok && j.url) newUrls.push(j.url);
+          else if (j.error) setErr(j.error);
+        }
+        if (newUrls.length) {
+          setImageUrls((prev) => [...newUrls, ...prev].slice(0, 10));
+        }
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    const plain0 = cd.getData("text/plain") || "";
+    const html = cd.getData("text/html") || "";
+    const richMd = html.trim() ? interleavedMarkdownFromPastedHtml(html, plain0) : null;
+    const useInterleaved = Boolean(richMd && richMd.includes("!["));
+    let work = useInterleaved && richMd
+      ? workItemsFromInterleavedMd(richMd)
+      : html.trim()
+        ? extractOrderedPastedImageSources(html, plain0)
+        : [];
+    const pageRef = firstLikelyArticlePageUrl(plain0) ?? undefined;
+
+    if (work.length === 0 && !pageRef) {
+      return;
+    }
+
+    e.preventDefault();
+    const el = e.currentTarget;
+    const sa = el.selectionStart;
+    const sb = el.selectionEnd;
+    const value = el.value;
+    const before = value.slice(0, sa);
+    const after = value.slice(sb);
+    const middle = useInterleaved && richMd ? richMd : plain0;
+    setContent(before + middle + after);
+    pendingContentCaretRef.current = sa + middle.length;
+    setUploading(true);
+    setErr("");
+
+    let usedOgForInitialWork = false;
+    if (work.length === 0 && pageRef) {
+      const res = await fetch(philifeArticleOgImageUrl(), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageUrl: pageRef }),
+      });
+      const jg = (await res.json()) as { ok?: boolean; imageUrl?: string; error?: string };
+      if (jg.ok && jg.imageUrl) {
+        work = [{ kind: "http" as const, value: jg.imageUrl }];
+        usedOgForInitialWork = true;
+      } else {
+        setErr(jg.error ?? "기사·페이지에서 대표 이미지(og)를 가져오지 못했습니다.");
+        setUploading(false);
+        return;
+      }
+    }
+
+    const MAX_PASTE_BYTES = 8 * 1024 * 1024;
+    const pasteFormats = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+    const embeddable = (s: string) => {
+      try {
+        const u = new URL(normalizeHttpUrlString(s));
+        return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.length > 0;
+      } catch {
+        return false;
+      }
+    };
+    const tryRehostFromHttp = async (rawUrl: string) => {
+      let res: Response;
+      try {
+        res = await fetch(philifeUploadImageFromUrl(), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: rawUrl, pageReferer: pageRef || undefined }),
+        });
+      } catch {
+        return { kind: "error" as const, message: "네트워크 오류" };
+      }
+      let j: { ok?: boolean; url?: string; error?: string } = {};
+      try {
+        j = (await res.json()) as { ok?: boolean; url?: string; error?: string };
+      } catch {
+        return { kind: "error" as const, message: "응답 파싱 실패" };
+      }
+      if (res.ok && j.ok && j.url) {
+        return { kind: "hosted" as const, url: j.url };
+      }
+      return { kind: "error" as const, message: j.error };
+    };
+    const tryRehostDataUrl = async (dataUrl: string) => {
+      const r0 = await fetch(dataUrl);
+      const blob = await r0.blob();
+      if (!blob.type.startsWith("image/") || !pasteFormats.has(blob.type)) {
+        return { kind: "none" as const };
+      }
+      if (blob.size > MAX_PASTE_BYTES) {
+        return { kind: "err" as const, message: "이미지는 8MB 이하만 가능합니다." };
+      }
+      const ext =
+        blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : blob.type === "image/gif" ? "gif" : "jpg";
+      const f = new File([blob], `paste.${ext}`, { type: blob.type });
+      const j = await postMultipartFile(f);
+      if (j.ok && j.url) return { kind: "hosted" as const, url: j.url };
+      return { kind: "err" as const, message: j.error ?? "이미지 업로드 실패" };
+    };
+
+    const urlPairs: { from: string; to: string }[] = [];
+    try {
+      const cap = Math.max(0, 10 - imageUrlsCountRef.current);
+      const out: string[] = [];
+      let i = 0;
+      let placedPrimary = false;
+
+      while (i < work.length && out.length < cap) {
+        const item = work[i]!;
+        if (!placedPrimary) {
+          if (item.kind === "data") {
+            const r = await tryRehostDataUrl(item.value);
+            if (r.kind === "hosted") {
+              out.push(r.url);
+              urlPairs.push({ from: item.value, to: r.url });
+              placedPrimary = true;
+            } else if (r.kind === "err" && r.message) {
+              setErr(r.message);
+            }
+            i += 1;
+            continue;
+          }
+          const raw = normalizeHttpUrlString(item.value);
+          if (embeddable(raw)) {
+            const rh = await tryRehostFromHttp(raw);
+            if (rh.kind === "hosted") {
+              out.push(rh.url);
+              urlPairs.push({ from: raw, to: rh.url });
+              placedPrimary = true;
+            } else if (rh.kind === "error" && raw) {
+              out.push(raw);
+              urlPairs.push({ from: raw, to: raw });
+              placedPrimary = true;
+            }
+          }
+          i += 1;
+          continue;
+        }
+        if (item.kind === "data") {
+          i += 1;
+          continue;
+        }
+        const ex = normalizeHttpUrlString(item.value);
+        if (embeddable(ex) && out.length < cap) {
+          out.push(ex);
+          urlPairs.push({ from: ex, to: ex });
+        }
+        i += 1;
+      }
+
+      if (out.length === 0 && pageRef && !usedOgForInitialWork) {
+        const res2 = await fetch(philifeArticleOgImageUrl(), {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageUrl: pageRef }),
+        });
+        const j2 = (await res2.json()) as { ok?: boolean; imageUrl?: string; error?: string };
+        if (j2.ok && j2.imageUrl) {
+          const rh = await tryRehostFromHttp(j2.imageUrl);
+          const n = normalizeHttpUrlString(j2.imageUrl);
+          if (rh.kind === "hosted") {
+            out.push(rh.url);
+            urlPairs.push({ from: n, to: rh.url });
+          } else if (embeddable(j2.imageUrl)) {
+            out.push(n);
+            urlPairs.push({ from: n, to: n });
+          } else {
+            setErr("썸네일을 서버에 올리지 못했습니다. 잠시 후 다시 붙여 넣어 주세요.");
+          }
+        } else {
+          setErr(
+            j2.error ??
+              "기사에서 대표 이미지(og)를 가져오지 못했습니다. 주소·차단·형식을 확인해 주세요."
+          );
+        }
+      }
+      if (out.length) {
+        setImageUrls((prev) => [...out, ...prev].slice(0, 10));
+        if (useInterleaved && richMd && urlPairs.length) {
+          const newMid = applyInterleavedImageUrlReplacements(middle, urlPairs);
+          if (newMid !== middle) {
+            setContent(before + newMid + after);
+            pendingContentCaretRef.current = sa + newMid.length;
+          }
+        }
+      } else if (!pageRef) {
+        setErr("이미지를 맞추지 못했습니다. 첫 장은 서버 저장, 추가는 외부 링크만 씁니다. JPEG, PNG, WebP, GIF, 8MB 이하.");
+      } else if (usedOgForInitialWork) {
+        setErr("썸네일 주소는 찾았으나 서버·외부 표시에 모두 실패했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -263,7 +552,17 @@ export function PhilifeNeighborhoodWriteForm({
         category,
         title: title.trim(),
         content: composedContent,
-        images: category === "meetup" ? [] : imageUrls,
+        images:
+          category === "meetup"
+            ? []
+            : (() => {
+                const t = content.trim();
+                if (hasInterleavedMarkdownImageSyntax(t)) {
+                  const u = extractImageUrlsFromInterleavedContent(t);
+                  return u.length > 0 ? u : imageUrls;
+                }
+                return imageUrls;
+              })(),
       };
       if (category === "meetup") {
         payload.meetTopicSlug = MEETUP_TOPIC_SLUG;
@@ -364,30 +663,14 @@ export function PhilifeNeighborhoodWriteForm({
       ? Math.max(0, selectedAdProduct.pointCost - pointBalance)
       : 0;
 
-  const tier1Title = category === "meetup" ? title.trim() || "모임 만들기" : "커뮤니티 글쓰기";
-  const tier1Subtitle =
-    category === "meetup"
-      ? "새 모임을 만들고 참여자를 모집할 수 있어요."
-      : "일상, 정보, 질문 글을 자유롭게 작성할 수 있어요.";
+  const tier1Title =
+    category === "meetup" ? title.trim() || "모임 만들기" : "커뮤니티 글쓰기";
 
   return (
     <div className={`${PHILIFE_PAGE_ROOT_CLASS} pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-      <WriteScreenTier1Sync
-        backHref={philifeAppPaths.home}
-        title={tier1Title}
-        subtitle={tier1Subtitle}
-      />
+      <WriteScreenTier1Sync backHref={philifeAppPaths.home} title={tier1Title} />
 
-      {category !== "meetup" ? (
-        <div className="mb-2">
-          <Link
-            href={philifeAppPaths.writeMeeting}
-            className="flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body-secondary font-medium text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
-          >
-            모임 만들기
-          </Link>
-        </div>
-      ) : (
+      {category === "meetup" ? (
         <div className="mb-3">
           <Link
             href={philifeAppPaths.write}
@@ -396,7 +679,7 @@ export function PhilifeNeighborhoodWriteForm({
             ← 일반 글쓰기로
           </Link>
         </div>
-      )}
+      ) : null}
 
       <form
         onSubmit={onSubmit}
@@ -579,31 +862,33 @@ export function PhilifeNeighborhoodWriteForm({
                 ) : writeTopicOptions.length === 0 ? (
                   <div className="mt-[4pt] rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-900">
                     <p>
-                      <strong>일반 게시판</strong>으로 쓸 주제가 없습니다.{" "}
-                      <Link
-                        href={philifeAdminPaths.sections}
-                        className="font-medium text-amber-950 underline decoration-amber-700/40 underline-offset-2"
-                      >
-                        『피드 섹션 관리』
-                      </Link>
-                      에서 동네 섹션이 맞는지 본 뒤,{" "}
+                      쓸 수 있는 <strong>일반 주제</strong>가 없습니다.{" "}
                       <Link
                         href={philifeAdminPaths.topics}
                         className="font-medium text-amber-950 underline decoration-amber-700/40 underline-offset-2"
                       >
-                        『피드 주제 관리』
+                        피드 주제 관리
                       </Link>
-                      의 <strong>일반 게시판</strong> 탭에서 주제(이름·slug)를 추가·노출해 주세요. 정렬 전용은 제외됩니다.{" "}
-                      <strong>모임 허용(모임 전용)</strong>으로 켜 둔 주제는 이 일반 글 셀렉트(동네 주제)에 뜨지 않습니다. 모임 글은
-                      &nbsp;「모임 만들기」로 작성해 주세요.
+                      에서 동네 섹션에 맞는 주제를 추가·노출하거나,{" "}
+                      <Link
+                        href={philifeAdminPaths.sections}
+                        className="font-medium text-amber-950 underline decoration-amber-700/40 underline-offset-2"
+                      >
+                        피드 섹션
+                      </Link>
+                      을 확인하세요.
                     </p>
+                    {writeTopicOptionsFetchErr ? (
+                      <p className="mt-2 font-mono text-xs text-red-800">
+                        API: {writeTopicOptionsFetchErr}
+                        <span className="ml-1 text-amber-900/90">
+                          (이 메시지가 뜨면 .env·Supabase 연결·서버 오류를 확인하세요.)
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <>
-                    <p className="mt-1 max-w-prose leading-snug text-sam-meta sam-text-helper">
-                      표시명·정렬은 어드민 <strong className="text-sam-fg">「피드 주제 관리」</strong>의 일반 주제과 같습니다.
-                      선택한 항목의 <span className="whitespace-nowrap">slug(주제 ID)</span>로 글이 등록·피드에서 주제 탭/필터에 맞게 보입니다.
-                    </p>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
@@ -631,11 +916,13 @@ export function PhilifeNeighborhoodWriteForm({
               <div>
                 <label className="sam-text-body-secondary font-medium text-sam-fg">내용</label>
                 <textarea
+                  ref={contentTextareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  onPaste={(e) => void onContentPaste(e)}
                   rows={8}
                   className="mt-[4pt] w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                  placeholder="동네 이웃과 나누고 싶은 이야기를 적어 주세요"
+                  placeholder="내용을 입력 하세요"
                 />
               </div>
               <div>
@@ -695,9 +982,6 @@ export function PhilifeNeighborhoodWriteForm({
                 />
                 <span className="min-w-0">
                   <span className="block sam-text-body font-semibold text-sam-fg">피드 상단 광고로 노출하기 (선택)</span>
-                  <span className="mt-0.5 block sam-text-helper leading-snug text-sam-muted">
-                    대부분의 글은 일반 등록만으로도 피드에 올라가요. 더 많은 이웃에게 보이게 하려면 아래에서 상품을 고른 뒤 등록하면 됩니다.
-                  </span>
                 </span>
               </label>
               {promoteAdEnabled ? (

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 /** 동네생활 글 이미지 — post-images 버킷, 사용자 폴더 하위 community/ */
 export async function POST(req: NextRequest) {
@@ -41,10 +41,11 @@ export async function POST(req: NextRequest) {
   }
   const mime = (file.type || "").toLowerCase();
   if (!ALLOWED.has(mime)) {
-    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP만 가능합니다." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "JPEG, PNG, WebP, GIF만 가능합니다." }, { status: 400 });
   }
 
-  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  const ext =
+    mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : mime === "image/gif" ? "gif" : "jpg";
   const uid = auth.userId;
   const path = `${uid}/community/${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());

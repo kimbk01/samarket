@@ -1,4 +1,5 @@
 import type { CommunityFeedSortMode } from "@/lib/community-feed/constants";
+import { resolveTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 
 export type PhilifeListSortResolved = {
@@ -28,15 +29,15 @@ export function resolveNeighborhoodListSort(
   }
   const tr = topics.find((t) => t.slug.trim().toLowerCase() === raw);
   if (tr?.is_feed_sort) {
-    if (raw === "popular") {
+    const mode = resolveTopicFeedSortMode(tr);
+    if (mode === "popular") {
       return { filterCategory: null, feedSort: "popular", isSortOnlyTopicChip: true };
     }
-    if (raw === "recommend" || raw === "recommended") {
+    if (mode === "recommended") {
       const fs: CommunityFeedSortMode =
         sortIn === "latest" || sortIn === "recommended" ? sortIn : "recommended";
       return { filterCategory: null, feedSort: fs, isSortOnlyTopicChip: true };
     }
-    return { filterCategory: null, feedSort: "latest", isSortOnlyTopicChip: true };
   }
   return { filterCategory: raw, feedSort: sortIn, isSortOnlyTopicChip: false };
 }

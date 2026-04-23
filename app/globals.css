@@ -164,6 +164,16 @@ svg {
   font-size: 1rem;
 }
 
+/* placeholder만 본문(12px 등)보다 작게 — typed text는 인풋 font-size 유지 */
+:is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not(
+      [type="submit"]
+    ):not([type="reset"]):not([type="image"]):not([type="color"]),
+  textarea
+)::placeholder {
+  font-size: var(--sam-text-placeholder-size);
+}
+
 button {
   max-width: 100%;
 }
@@ -173,7 +183,7 @@ button {
  */
 .ui-doc-root {
   color: var(--sam-text-primary);
-  font-size: 15px;
+  font-size: 12px;
   line-height: var(--sam-font-body-line);
 }
 .ui-doc-root h1,

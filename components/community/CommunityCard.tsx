@@ -7,6 +7,7 @@ import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
+import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import {
   FeedListLayoutCarrotThumbLeft,
   FeedListLayoutCarrotThumbRight,
@@ -24,7 +25,9 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
-  const contentForTags = post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource;
+  const contentForTags = stripMarkdownImageSyntaxForFeedPreview(
+    post.is_meetup ? stripMeetupPostMetaFromContent(previewSource) : previewSource,
+  );
   const placeLineRaw =
     skin === "location_pin" ? post.meetup_place?.trim() || post.location_label?.trim() || "" : "";
   const hashtagTags = skin === "hashtags_below" ? extractHashtagPreview(`${post.title}\n${contentForTags}`, 3) : [];
@@ -40,7 +43,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
     topicLabel: post.category_label,
     topicColor: post.topic_color,
     title: post.title?.trim() || "제목 없음",
-    summary: (post.summary ?? "").trim(),
+    summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
     timeLabel: time,
     authorName: post.author_name,
     secondaryMeta: post.location_label?.trim() ?? "",

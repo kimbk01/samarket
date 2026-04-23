@@ -3,7 +3,7 @@
  */
 export const MYPAGE_TYPO = {
   /** 페이지/패널 제목 */
-  title: "text-[15px] font-semibold leading-snug text-sam-fg sm:text-base",
+  title: "text-[12px] font-semibold leading-snug text-sam-fg sm:text-base",
   /** 섹션 부제·설명 */
   description: "text-[13px] leading-snug text-sam-muted sm:text-sm",
   /** 사이드바 그룹 라벨 */

@@ -57,7 +57,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[15px] font-semibold text-sam-fg">글을 숨겼어요</p>
+          <p className="text-[12px] font-semibold text-sam-fg">글을 숨겼어요</p>
           <p className="mt-0.5 text-[13px] text-sam-muted">이유를 알려주세요.</p>
         </div>
         <button

@@ -40,6 +40,31 @@ export function qualifiesForPhilifeGeneralAdminList(
   return !allowMeetup || isPhilifeGeneralOnlyTopicSlug(topicSlug);
 }
 
+/**
+ * 어드민「일반 게시판」·`/philife/write` 일반 주제 — `is_feed_sort`(인기/추천 등) 제외.
+ * (같지 않음: 관리 UI는 `feed_sort_mode` + 한 목록에서「역할」로 조정.)
+ */
+export function qualifiesForPhilifeGeneralWriteTab(
+  isFeedSort: boolean,
+  allowMeetup: boolean,
+  topicSlug: string,
+  sectionSlug: string | null | undefined,
+  philifeNeighborhoodSectionSlug: string
+): boolean {
+  if (isFeedSort) return false;
+  return qualifiesForPhilifeGeneralAdminList(allowMeetup, topicSlug, sectionSlug, philifeNeighborhoodSectionSlug);
+}
+
+/** 어드민「피드 정렬」탭 — `is_feed_sort` 전용(동네 필라이프 섹션만) */
+export function qualifiesForPhilifeFeedSortAdminTab(
+  isFeedSort: boolean,
+  sectionSlug: string | null | undefined,
+  philifeNeighborhoodSectionSlug: string
+): boolean {
+  if (!isFeedSort) return false;
+  return topicBelongsToPhilifeNeighborhoodSection(sectionSlug, philifeNeighborhoodSectionSlug);
+}
+
 export type MeetupFeedTopicRow = {
   id: string;
   name: string;

@@ -15,6 +15,12 @@ export const PHILIFE_DETAIL_TITLE_CLASS =
 /** 본문 */
 export const PHILIFE_DETAIL_BODY_CLASS = "sam-text-body mt-4 whitespace-pre-wrap leading-relaxed";
 
+/**
+ * 인터리브(이미지·문단 섞인) 본문의 **문단(텍스트) 조각** — `mt-4` 없음(컨테이너에 한 번만).
+ */
+export const PHILIFE_DETAIL_INTERLEAVED_TEXT_CLASS =
+  "min-w-0 break-words sam-text-body whitespace-pre-wrap [word-spacing:normal]";
+
 /** 메타 줄 */
 export const PHILIFE_DETAIL_META_CLASS =
   "sam-text-helper mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sam-muted";

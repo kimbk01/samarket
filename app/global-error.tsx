@@ -35,7 +35,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
         <div>
           <p
             style={{
-              fontSize: "15px",
+              fontSize: "12px",
               fontWeight: 600,
               color: "#111827",
               margin: 0,

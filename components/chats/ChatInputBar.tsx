@@ -373,7 +373,7 @@ function ChatInputBarInner({
           onBlur={() => onComposerFocusChange?.(false)}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(15px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : composerDense ? "min-h-[38px] rounded-ui-rect px-3 py-1.5 text-[15px] font-normal leading-snug text-[#111111] placeholder:text-[#999999]" : "min-h-[40px] rounded-ui-rect px-3 py-2.5 sam-text-body font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-full px-2.5 py-2.5 text-[calc(12px-1pt)] font-normal leading-[1.35] tracking-[-0.01em] text-foreground placeholder:text-muted` : composerDense ? "min-h-[38px] rounded-ui-rect px-3 py-1.5 text-[12px] font-normal leading-snug text-[#111111] placeholder:text-[#999999]" : "min-h-[40px] rounded-ui-rect px-3 py-2.5 sam-text-body font-normal leading-[1.35] text-[#111111] placeholder:text-[#999999]"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (

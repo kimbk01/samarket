@@ -14,6 +14,8 @@ import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
 import { parsePostgresBool } from "./parse-postgres-bool";
+import { parseCommunityTopicFeedSortMode } from "./feed-sort-mode";
+import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 
 /** `community_topics` 행 → DTO (RPC·리스트 조회 공통) */
 export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): CommunityTopicDTO[] {
@@ -29,6 +31,7 @@ export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): Com
     is_feed_sort: parsePostgresBool(row.is_feed_sort, false),
     allow_question: parsePostgresBool(row.allow_question, false),
     allow_meetup: parsePostgresBool(row.allow_meetup, false),
+    feed_sort_mode: parseCommunityTopicFeedSortMode(row.feed_sort_mode),
     feed_list_skin: normalizeCommunityFeedListSkin(row.feed_list_skin),
   }));
 }
@@ -96,41 +99,38 @@ export async function listTopicsForSectionSlug(
       sectionId = (sec as { id: string }).id;
     }
 
-    const selWith =
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin";
-    const selNo =
-      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup";
+    const selectAttempts = [
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, feed_sort_mode",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_sort_mode",
+      "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup",
+    ] as const;
     const tq1 = tim ? performance.now() : 0;
-    const r1 = await sb
-      .from("community_topics")
-      .select(selWith)
-      .eq("section_id", sectionId)
-      .eq("is_active", true)
-      .eq("is_visible", true)
-      .order("sort_order", { ascending: true });
-    if (tim) {
-      tim.topics_topics_query_ms += performance.now() - tq1;
-      tim.communityTopicsQueryRounds = 1;
-    }
-    let topicRows: unknown = r1.data;
-    let error = r1.error;
-    if (error && isMissingDbColumnError(error, "feed_list_skin")) {
-      const tq2 = tim ? performance.now() : 0;
-      const r2 = await sb
+    let topicRows: unknown[] | null = null;
+    for (let i = 0; i < selectAttempts.length; i++) {
+      const tRound = tim ? performance.now() : 0;
+      const r = await sb
         .from("community_topics")
-        .select(selNo)
+        .select(selectAttempts[i])
         .eq("section_id", sectionId)
         .eq("is_active", true)
         .eq("is_visible", true)
         .order("sort_order", { ascending: true });
       if (tim) {
-        tim.topics_topics_fallback_ms += performance.now() - tq2;
-        tim.communityTopicsQueryRounds = 2;
+        tim.communityTopicsQueryRounds = (tim.communityTopicsQueryRounds ?? 0) + 1;
+        if (i > 0) {
+          tim.topics_topics_fallback_ms += performance.now() - tRound;
+        }
       }
-      topicRows = r2.data;
-      error = r2.error;
+      if (!r.error && Array.isArray(r.data)) {
+        topicRows = r.data;
+        break;
+      }
     }
-    if (error || !Array.isArray(topicRows)) return [];
+    if (tim) {
+      tim.topics_topics_query_ms += performance.now() - tq1;
+    }
+    if (!topicRows) return [];
     return mapCommunityTopicRowsToDto(topicRows as Record<string, unknown>[]);
   } catch {
     return [];
@@ -138,7 +138,7 @@ export async function listTopicsForSectionSlug(
 }
 
 function summarize(text: string, max = 120): string {
-  const t = text.replace(/\s+/g, " ").trim();
+  const t = stripMarkdownImageSyntaxForFeedPreview(text);
   if (t.length <= max) return t;
   return `${t.slice(0, max)}…`;
 }

@@ -35,6 +35,7 @@
   --fs-sm: var(--sam-text-body-secondary-size);
   --fs-xs: var(--sam-text-helper-size);
   --fs-xxs: var(--sam-text-xxs-size);
+  --fs-placeholder: var(--sam-text-placeholder-size);
   --fw-bold: var(--sam-fw-bold);
   --fw-semi: var(--sam-fw-semi);
   --fw-medium: var(--sam-fw-medium);
@@ -131,7 +132,7 @@
   --sam-text-card-title-weight: 600;
   --sam-text-body-lg-size: 16px;
   --sam-text-body-lg-weight: 500;
-  --sam-text-body-size: 15px;
+  --sam-text-body-size: 12px;
   --sam-text-body-weight: 400;
   --sam-text-body-secondary-size: 13px;
   --sam-text-body-secondary-weight: 400;
@@ -139,6 +140,8 @@
   --sam-text-helper-weight: 400;
   --sam-text-xxs-size: 11px;
   --sam-text-xxs-weight: 400;
+  /** placeholder 전용(입력 본문은 --sam-text-body-size 유지) */
+  --sam-text-placeholder-size: 11px;
 
   --sam-fw-bold: 700;
   --sam-fw-semi: 600;

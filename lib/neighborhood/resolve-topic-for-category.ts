@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
+import { isPhilifeNeighborhoodWriteEligibleRow } from "@/lib/neighborhood/philife-topic-slug-rules";
 
 /**
- * 동네 일반 글 — `community_topics` 와 동기(어드민 피드 주제).
- * 모임 전용 주제(`allow_meetup`)·정렬 전용(`is_feed_sort`) 행은 제외.
+ * 동네 일반 글 — `community_topics` 와 동기(어드민「일반 게시판」+ `buildPhilifeWriteTopicOptionsFromTopics`).
+ * 모임 전용·정렬 전용은 제외, 일반 전용 slug(자유·질문 등)는 allow_meetup이어도 허용.
  */
 export async function resolveTopicForNeighborhoodCategory(
   sb: SupabaseClient<any>,
@@ -30,15 +31,21 @@ export async function resolveTopicForNeighborhoodCategory(
 
   const { data: topic } = await sb
     .from("community_topics")
-    .select("id, slug")
+    .select("id, slug, allow_meetup, is_feed_sort")
     .eq("section_id", sid)
     .eq("slug", slug)
     .eq("is_active", true)
     .eq("is_visible", true)
-    .eq("allow_meetup", false)
-    .eq("is_feed_sort", false)
     .maybeSingle();
-  const t = topic as { id?: string; slug?: string } | null;
+  const t = topic as {
+    id?: string;
+    slug?: string;
+    allow_meetup?: boolean;
+    is_feed_sort?: boolean;
+  } | null;
   if (!t?.id) return null;
+  const am = Boolean(t.allow_meetup);
+  const fs = Boolean(t.is_feed_sort);
+  if (!isPhilifeNeighborhoodWriteEligibleRow(am, fs, t.slug ?? slug)) return null;
   return { topicId: String(t.id), topicSlug: String(t.slug ?? slug) };
 }

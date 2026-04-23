@@ -91,7 +91,16 @@ export async function POST(req: NextRequest) {
     .trim()
     .toLowerCase();
   const images = Array.isArray(body.images)
-    ? body.images.filter((u): u is string => typeof u === "string" && u.trim().length > 0).slice(0, 10)
+    ? body.images
+        .map((u) => (typeof u === "string" ? u.trim() : ""))
+        .filter(
+          (u) =>
+            u.length > 0 &&
+            u.length < 2048 &&
+            (u.startsWith("https://") || u.startsWith("http://")) &&
+            !/\s|["'<>]/.test(u)
+        )
+        .slice(0, 10)
     : [];
 
   if (!locationKey) {

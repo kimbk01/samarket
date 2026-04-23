@@ -341,7 +341,7 @@ export function CommunityMessengerRoomPhase2Composer() {
                 }
                 className={`max-h-28 min-w-0 w-full resize-none rounded-[var(--cm-room-radius-input)] border-0 bg-[color:var(--cm-room-primary-soft)] px-2 outline-none ring-1 ring-transparent placeholder:text-[color:var(--cm-room-text-muted)] focus:ring-[color:var(--cm-room-primary)] disabled:opacity-50 ${
                   messengerComposerDense
-                    ? "min-h-[34px] py-1.5 text-[calc(15px-1pt)] leading-snug text-[color:var(--cm-room-text)]"
+                    ? "min-h-[34px] py-1.5 text-[calc(12px-1pt)] leading-snug text-[color:var(--cm-room-text)]"
                     : "min-h-[36px] py-1.5 text-[calc(var(--sam-text-body-size)-1pt)] font-normal leading-normal text-[color:var(--cm-room-text)] sm:py-2"
                 }`}
               />

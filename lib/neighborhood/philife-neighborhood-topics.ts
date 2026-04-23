@@ -5,6 +5,7 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   getPhilifeNeighborhoodSectionResolvedServer,
+  type PhilifeNeighborhoodSectionResolved,
   type PhilifeSectionResolveTimings,
 } from "@/lib/community-feed/philife-neighborhood-section";
 import {
@@ -17,7 +18,9 @@ import {
   normalizeCommunityFeedListSkin,
   type CommunityFeedListSkin,
 } from "@/lib/community-feed/topic-feed-skin";
+import { resolveTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import { NEIGHBORHOOD_CATEGORY_LABELS } from "@/lib/neighborhood/categories";
+import { isPhilifeNeighborhoodWriteEligibleRow } from "@/lib/neighborhood/philife-topic-slug-rules";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type PhilifeNeighborhoodFeedChip = {
@@ -106,11 +109,24 @@ async function tryLoadPhilifeDefaultTopicsViaDbRpc(): Promise<{
     const t0 = performance.now();
     const { data, error } = await sb.rpc("philife_list_default_section_topics_for_feed");
     const rpcMs = performance.now() - t0;
-    if (error || data == null) return null;
-    const root = data as PhilifeTopicsRpcPayload;
+    if (error) return null;
+    if (data == null) return null;
+    let root: PhilifeTopicsRpcPayload;
+    if (typeof data === "string") {
+      try {
+        root = JSON.parse(data) as PhilifeTopicsRpcPayload;
+      } catch {
+        return null;
+      }
+    } else if (data && typeof data === "object") {
+      root = data as PhilifeTopicsRpcPayload;
+    } else {
+      return null;
+    }
     const raw = root.topics;
-    if (!Array.isArray(raw)) return null;
-    const topics = mapCommunityTopicRowsToDto(raw as Record<string, unknown>[]);
+    if (raw != null && !Array.isArray(raw)) return null;
+    const rawArr: unknown[] = Array.isArray(raw) ? raw : [];
+    const topics = mapCommunityTopicRowsToDto(rawArr as Record<string, unknown>[]);
     return {
       topics,
       rpcMs,
@@ -140,8 +156,66 @@ export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicD
     const tInner0 = performance.now();
     const rpcPack = await tryLoadPhilifeDefaultTopicsViaDbRpc();
     let topics: CommunityTopicDTO[];
+
+    const sectionTimings: PhilifeSectionResolveTimings = {
+      topics_settings_lookup_ms: 0,
+      topics_section_resolve_ms: 0,
+    };
+    const listTimings: PhilifeTopicsListQueryTimings = {
+      topics_topics_query_ms: 0,
+      topics_topics_fallback_ms: 0,
+      communityTopicsQueryRounds: 0,
+    };
+    const loadViaList = async (): Promise<{
+      topics: CommunityTopicDTO[];
+      resolved: PhilifeNeighborhoodSectionResolved;
+    }> => {
+      const resolved = await getPhilifeNeighborhoodSectionResolvedServer(
+        undefined,
+        collectTopicsDiag ? sectionTimings : undefined
+      );
+      const listed = await listTopicsForSectionSlug(
+        resolved.slug,
+        {
+          sectionId: resolved.sectionId ? resolved.sectionId : undefined,
+          timings: collectTopicsDiag ? listTimings : undefined,
+        }
+      );
+      return {
+        topics: onlyVisibleForFeedSectionTopics(listed),
+        resolved,
+      };
+    };
+
     if (rpcPack) {
       topics = onlyVisibleForFeedSectionTopics(rpcPack.topics);
+      /** RPC가 []인데 SQL·TS 섹션 해석이 달랐을 때(또는 구버전 함수) `listTopics` 쪽이 살아 있으면 맞춤 */
+      if (topics.length === 0) {
+        const r = await loadViaList();
+        if (r.topics.length > 0) {
+          topics = r.topics;
+          if (collectTopicsDiag) {
+            lastPhilifeTopicsColdMetrics = {
+              topics_cache_hit: false,
+              section_slug_candidate: r.resolved.topicsAdminCandidateSlug,
+              resolved_slug: r.resolved.slug,
+              section_id_lookup_skipped: Boolean(r.resolved.sectionId),
+              community_topics_query_rounds: listTimings.communityTopicsQueryRounds,
+              topics_settings_lookup_ms: Math.round(sectionTimings.topics_settings_lookup_ms),
+              topics_section_resolve_ms: Math.round(sectionTimings.topics_section_resolve_ms),
+              topics_topics_query_ms: Math.round(listTimings.topics_topics_query_ms),
+              topics_topics_fallback_ms: Math.round(listTimings.topics_topics_fallback_ms),
+              topics_total_ms: Math.round(performance.now() - tInner0),
+              topics_unified_rpc: false,
+            };
+          }
+          philifeSectionTopicsCache = {
+            topics,
+            expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
+          };
+          return topics;
+        }
+      }
       philifeSectionTopicsCache = {
         topics,
         expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
@@ -164,45 +238,28 @@ export async function loadPhilifeDefaultSectionTopics(): Promise<CommunityTopicD
       return topics;
     }
 
-    const sectionTimings: PhilifeSectionResolveTimings = {
-      topics_settings_lookup_ms: 0,
-      topics_section_resolve_ms: 0,
-    };
-    const listTimings: PhilifeTopicsListQueryTimings = {
-      topics_topics_query_ms: 0,
-      topics_topics_fallback_ms: 0,
-      communityTopicsQueryRounds: 0,
-    };
-    const resolved = await getPhilifeNeighborhoodSectionResolvedServer(
-      undefined,
-      collectTopicsDiag ? sectionTimings : undefined
-    );
-    const listed = await listTopicsForSectionSlug(
-      resolved.slug,
-      {
-        sectionId: resolved.sectionId ? resolved.sectionId : undefined,
-        timings: collectTopicsDiag ? listTimings : undefined,
-      }
-    );
-    topics = onlyVisibleForFeedSectionTopics(listed);
-    philifeSectionTopicsCache = {
-      topics,
-      expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
-    };
-    if (collectTopicsDiag) {
-      lastPhilifeTopicsColdMetrics = {
-        topics_cache_hit: false,
-        section_slug_candidate: resolved.topicsAdminCandidateSlug,
-        resolved_slug: resolved.slug,
-        section_id_lookup_skipped: Boolean(resolved.sectionId),
-        community_topics_query_rounds: listTimings.communityTopicsQueryRounds,
-        topics_settings_lookup_ms: Math.round(sectionTimings.topics_settings_lookup_ms),
-        topics_section_resolve_ms: Math.round(sectionTimings.topics_section_resolve_ms),
-        topics_topics_query_ms: Math.round(listTimings.topics_topics_query_ms),
-        topics_topics_fallback_ms: Math.round(listTimings.topics_topics_fallback_ms),
-        topics_total_ms: Math.round(performance.now() - tInner0),
-        topics_unified_rpc: false,
+    {
+      const r = await loadViaList();
+      topics = r.topics;
+      philifeSectionTopicsCache = {
+        topics,
+        expiresAt: Date.now() + PHILIFE_SECTION_TOPICS_TTL_MS,
       };
+      if (collectTopicsDiag) {
+        lastPhilifeTopicsColdMetrics = {
+          topics_cache_hit: false,
+          section_slug_candidate: r.resolved.topicsAdminCandidateSlug,
+          resolved_slug: r.resolved.slug,
+          section_id_lookup_skipped: Boolean(r.resolved.sectionId),
+          community_topics_query_rounds: listTimings.communityTopicsQueryRounds,
+          topics_settings_lookup_ms: Math.round(sectionTimings.topics_settings_lookup_ms),
+          topics_section_resolve_ms: Math.round(sectionTimings.topics_section_resolve_ms),
+          topics_topics_query_ms: Math.round(listTimings.topics_topics_query_ms),
+          topics_topics_fallback_ms: Math.round(listTimings.topics_topics_fallback_ms),
+          topics_total_ms: Math.round(performance.now() - tInner0),
+          topics_unified_rpc: false,
+        };
+      }
     }
     return topics;
   });
@@ -269,11 +326,10 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
       continue;
     }
     if (t.is_visible) {
-      const sl = t.slug.trim().toLowerCase();
       let sort_slot: "recommend" | "popular" | null = null;
       if (t.is_feed_sort) {
-        if (sl === "recommend" || sl === "recommended") sort_slot = "recommend";
-        else if (sl === "popular") sort_slot = "popular";
+        const mode = resolveTopicFeedSortMode(t);
+        sort_slot = mode === "recommended" ? "recommend" : mode === "popular" ? "popular" : null;
       }
       chips.push({
         slug: t.slug,
@@ -288,13 +344,13 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
 
 /**
  * `/philife/write` 일반(동네) 글 — `POST /api/.../neighborhood-posts` + `resolveTopicForNeighborhoodCategory` 와 동일.
- * - `is_visible` + `!is_feed_sort` + **`allow_meetup === false`** (모임 전용·정렬칩 제외)
+ * - `is_visible` + `isPhilifeNeighborhoodWriteEligibleRow` — 정렬 **탭 slug**(`popular`·`recommend*`)만 제외. `is_feed_sort` DB 오류로 일반 주제를 막지 않음.
  */
 export function buildPhilifeWriteTopicOptionsFromTopics(
   topics: CommunityTopicDTO[]
 ): PhilifeNeighborhoodWriteTopicOption[] {
   return topics
-    .filter((t) => t.is_visible && !t.is_feed_sort && !t.allow_meetup)
+    .filter((t) => t.is_visible && isPhilifeNeighborhoodWriteEligibleRow(t.allow_meetup, t.is_feed_sort, t.slug))
     .sort(
       (a, b) =>
         (a.sort_order ?? 0) - (b.sort_order ?? 0) ||

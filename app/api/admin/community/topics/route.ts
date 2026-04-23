@@ -3,6 +3,7 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { listAllCommunityTopicsForAdmin } from "@/lib/community-topics/server";
 import { normalizeFeedSlug } from "@/lib/community-feed/constants";
+import { parseCommunityTopicFeedSortMode } from "@/lib/community-feed/feed-sort-mode";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { isCommunityFeedListSkin, normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-skin";
 import { clearPhilifeDefaultSectionTopicsCache } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     is_active?: boolean;
     is_visible?: boolean;
     is_feed_sort?: boolean;
+    feed_sort_mode?: string | null;
     allow_question?: boolean;
     allow_meetup?: boolean;
     color?: string | null;
@@ -55,6 +57,13 @@ export async function POST(req: NextRequest) {
   const is_active = body.is_active !== false;
   const is_visible = body.is_visible !== false;
   const is_feed_sort = !!body.is_feed_sort;
+  const feedSortParsed = parseCommunityTopicFeedSortMode(body.feed_sort_mode);
+  const feed_sort_mode: "popular" | "recommended" | null =
+    is_feed_sort
+      ? feedSortParsed === "recommended" || feedSortParsed === "popular"
+        ? feedSortParsed
+        : "popular"
+      : null;
   const allow_question = body.allow_question !== false;
   const allow_meetup = !!body.allow_meetup;
   const color = body.color != null && String(body.color).trim() ? String(body.color).trim().slice(0, 32) : null;
@@ -64,9 +73,9 @@ export async function POST(req: NextRequest) {
     : normalizeCommunityFeedListSkin(body.feed_list_skin);
 
   const selectWithSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin";
   const selectNoSkin =
-    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup";
+    "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup";
   const baseRow = {
     section_id,
     name,
@@ -75,6 +84,7 @@ export async function POST(req: NextRequest) {
     is_active,
     is_visible,
     is_feed_sort,
+    feed_sort_mode: is_feed_sort ? feed_sort_mode : null,
     allow_question,
     allow_meetup,
     color,
@@ -88,12 +98,28 @@ export async function POST(req: NextRequest) {
       .insert({ ...baseRow, feed_list_skin })
       .select(selectWithSkin)
       .single();
+    if (error && isMissingDbColumnError(error, "feed_sort_mode")) {
+      const sub = { ...baseRow, feed_list_skin } as Record<string, unknown>;
+      delete sub.feed_sort_mode;
+      const r0 = await sb
+        .from("community_topics")
+        .insert(sub)
+        .select(
+          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin"
+        )
+        .single();
+      data = r0.data as typeof data;
+      error = r0.error;
+      if (data && typeof data === "object" && "feed_sort_mode" in baseRow) {
+        data = { ...data, feed_sort_mode: baseRow.feed_sort_mode } as typeof data;
+      }
+    }
     if (error && isMissingDbColumnError(error, "feed_list_skin")) {
       const retry = await sb.from("community_topics").insert(baseRow).select(selectNoSkin).single();
       data = retry.data as typeof data;
       error = retry.error;
       if (data && typeof data === "object") {
-        data = { ...data, feed_list_skin } as typeof data;
+        data = { ...data, feed_list_skin, feed_sort_mode: baseRow.feed_sort_mode } as typeof data;
       }
     }
     if (error) {

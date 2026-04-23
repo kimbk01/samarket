@@ -28,9 +28,10 @@ import type {
 import { fetchBlockedAuthorIdsForViewer, fetchNeighborFollowTargetIds } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
+import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 
 function summarize(text: string, max = 120): string {
-  const t = text.replace(/\s+/g, " ").trim();
+  const t = stripMarkdownImageSyntaxForFeedPreview(text);
   if (t.length <= max) return t;
   return `${t.slice(0, max)}…`;
 }

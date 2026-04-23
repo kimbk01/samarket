@@ -23,7 +23,7 @@ function buildNotificationEmailHtml(out: NotificationSideEffectPayloadOut): stri
   const title = escapeHtml(out.title);
   const body = (out.body ?? "").trim();
   const bodyHtml = body
-    ? `<p style="margin:16px 0 0;color:#374151;font-size:15px;line-height:1.6;">${escapeHtml(body).replace(/\n/g, "<br/>")}</p>`
+    ? `<p style="margin:16px 0 0;color:#374151;font-size:12px;line-height:1.6;">${escapeHtml(body).replace(/\n/g, "<br/>")}</p>`
     : "";
   const link = (out.link_url_absolute ?? out.link_url ?? "").trim();
   const linkSafe = escapeHtml(link);

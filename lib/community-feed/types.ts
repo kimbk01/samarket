@@ -22,6 +22,11 @@ export type CommunityTopicDTO = {
   sort_order: number;
   is_visible: boolean;
   is_feed_sort: boolean;
+  /**
+   * `is_feed_sort` 일 때만: `popular` = 조회수 정렬, `recommended` = 추천 랭킹(·URL sort와 하위정렬).
+   * null/미설정·레거시는 slug(인기/추천)로 `resolveTopicFeedSortMode` 가 보강.
+   */
+  feed_sort_mode: "popular" | "recommended" | null;
   allow_question: boolean;
   allow_meetup: boolean;
   /** 피드 목록 카드 레이아웃 */

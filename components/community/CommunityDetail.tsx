@@ -37,7 +37,9 @@ import {
   PHILIFE_DETAIL_TITLE_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
+import { hasInterleavedMarkdownImageSyntax } from "@/lib/philife/interleaved-body-markdown";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
+import { NeighborhoodInterleavedContent } from "@/components/community/NeighborhoodInterleavedContent";
 import {
   recordRouteEntryFetchNetworkFromResources,
   recordRouteEntryFirstContentRender,
@@ -400,11 +402,14 @@ export function CommunityDetail({
   const meetingToolbarWrap =
     "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-ui-rect [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:sam-text-xxs [&>button]:font-medium [&>button]:leading-tight [&>button]:text-sam-fg sm:[&>button]:sam-text-helper";
 
+  const isInterleavedBody =
+    !meeting && hasInterleavedMarkdownImageSyntax(post.content);
+
   return (
     <div className="min-h-screen bg-sam-app pb-24">
       <article ref={articleRef} className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
         <div className={PHILIFE_DETAIL_POST_SLAB_CLASS}>
-          {post.images.length > 0 ? (
+          {!isInterleavedBody && post.images.length > 0 ? (
             <div className="grid grid-cols-1 gap-px bg-sam-surface-muted sm:grid-cols-2">
               {post.images.map((url, i) =>
                 url ? (
@@ -446,9 +451,13 @@ export function CommunityDetail({
               <span>조회 {viewCount}</span>
               <span>댓글 {flatCommentCount(comments)}</span>
             </div>
-            <div className={PHILIFE_DETAIL_BODY_CLASS}>
-              {meeting ? stripMeetupPostMetaFromContent(post.content) : post.content}
-            </div>
+            {meeting ? (
+              <div className={PHILIFE_DETAIL_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
+            ) : isInterleavedBody ? (
+              <NeighborhoodInterleavedContent content={post.content} />
+            ) : (
+              <div className={PHILIFE_DETAIL_BODY_CLASS}>{post.content}</div>
+            )}
 
             {meeting ? (
               <div className="mt-5">

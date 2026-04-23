@@ -8,6 +8,16 @@ export function philifeUploadImageUrl(): string {
   return `${PHILIFE_API}/upload-image`;
 }
 
+/** 클립보드 HTML `img` 등 외부 URL → 서버 fetch 후 `post-images` 저장 */
+export function philifeUploadImageFromUrl(): string {
+  return `${PHILIFE_API}/upload-image-from-url`;
+}
+
+/** 기사 URL → og:image(대표 썸네일) URL, 서버에서 HTML 파싱 */
+export function philifeArticleOgImageUrl(): string {
+  return `${PHILIFE_API}/article-og-image`;
+}
+
 export function philifeNeighborhoodPostsUrl(): string {
   return `${PHILIFE_API}/neighborhood-posts`;
 }
