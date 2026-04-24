@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
@@ -16,6 +24,7 @@ import {
   invalidateMeNotificationsListDedupedCache,
 } from "@/lib/me/fetch-me-notifications-deduped";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 import {
   buildInboxGroupItems,
   type InboxGroupItem,
@@ -95,7 +104,19 @@ export function PhilifeHeaderNotificationInbox() {
   const [soundBusy, setSoundBusy] = useState(false);
 
   const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
-  const totalUnread = useMemo(() => countUnread(rows), [rows]);
+  const rowUnread = useMemo(() => countUnread(rows), [rows]);
+  const storeUnread = useSyncExternalStore(
+    myGeneralNotificationUnreadStore.subscribe,
+    myGeneralNotificationUnreadStore.getSnapshot,
+    myGeneralNotificationUnreadStore.getServerSnapshot
+  );
+  /** 패널 닫힘: 경량 전역 배지. 열림: 목록 기준(로딩 중에는 배지 0으로 깜빡이지 않도록 store와 병합). */
+  const totalUnread = useMemo(() => {
+    const su = storeUnread ?? 0;
+    if (!open) return su;
+    if (loading) return Math.max(su, rowUnread);
+    return rowUnread;
+  }, [open, loading, rowUnread, storeUnread]);
 
   useEffect(() => {
     setDomReady(true);
@@ -114,8 +135,9 @@ export function PhilifeHeaderNotificationInbox() {
     }
   }, []);
 
-  const loadInbox = useCallback(async (force: boolean) => {
-    setLoading(true);
+  const loadInbox = useCallback(async (force: boolean, opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     try {
       if (force) {
         invalidateMeNotificationsListDedupedCache();
@@ -130,7 +152,7 @@ export function PhilifeHeaderNotificationInbox() {
     } catch {
       setRows([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -144,18 +166,17 @@ export function PhilifeHeaderNotificationInbox() {
       invalidateMeNotificationSettingsGetFlight();
       void loadSound();
     };
-    const onInbox = () => void loadInbox(true);
+    const onInbox = () => {
+      if (!open) return;
+      void loadInbox(true, { silent: true });
+    };
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
     window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onInbox);
     return () => {
       window.removeEventListener("kasama:user-notification-settings-changed", onCustom);
       window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onInbox);
     };
-  }, [loadInbox, loadSound]);
-
-  useEffect(() => {
-    void loadInbox(false);
-  }, [loadInbox]);
+  }, [loadInbox, loadSound, open]);
 
   useEffect(() => {
     if (open) {
@@ -242,7 +263,7 @@ export function PhilifeHeaderNotificationInbox() {
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && j?.ok) {
         invalidateMeNotificationsListDedupedCache();
-        void loadInbox(true);
+        void loadInbox(true, { silent: true });
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
         }
