@@ -1,45 +1,21 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { KASAMA_NOTIFICATIONS_UPDATED, NOTIFICATION_SYNC_POLL_MS } from "@/lib/notifications/notification-events";
 import {
-  commerceMetaKindLabel,
-  notificationTypeLabel,
-} from "@/lib/notifications/notification-display-labels";
-import {
-  KASAMA_NOTIFICATIONS_UPDATED,
-  NOTIFICATION_SYNC_POLL_MS,
-} from "@/lib/notifications/notification-events";
-import { fetchMeNotificationsListDeduped } from "@/lib/me/fetch-me-notifications-deduped";
-import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+  fetchMeNotificationsListDeduped,
+  invalidateMeNotificationsListDedupedCache,
+} from "@/lib/me/fetch-me-notifications-deduped";
 import {
   prewarmChatRouteData,
   shouldWarmChatRoute,
 } from "@/lib/chats/prewarm-chat-room-route";
-
-/** 구매자 매장 주문 알림: 저장된 링크가 상세/채팅이어도 목록으로 통일 */
-function resolveNotificationShortcutHref(r: Row): string | null {
-  const u = r.link_url?.trim();
-  if (!u) return null;
-  if (r.notification_type !== "commerce") return u;
-  if (isOwnerStoreCommerceNotificationRow(r)) return u;
-  let path = u;
-  if (u.startsWith("http://") || u.startsWith("https://")) {
-    try {
-      path = new URL(u).pathname;
-    } catch {
-      return u;
-    }
-  }
-  if (path === "/my/store-orders" || path.startsWith("/my/store-orders/")) {
-    return "/my/store-orders";
-  }
-  return u;
-}
+import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
+import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
+import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 
 type Row = {
   id: string;
@@ -50,26 +26,22 @@ type Row = {
   is_read: boolean;
   created_at: string;
   meta?: Record<string, unknown> | null;
+  domain?: string | null;
 };
 
 export function MyNotificationsView() {
   const router = useRouter();
   const { language, t } = useI18n();
-  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const prewarmShortcutRoute = useCallback(
-    (hrefRaw: string | null | undefined) => {
-      const href = hrefRaw?.trim();
-      if (!href || !shouldWarmChatRoute(href)) return;
-      router.prefetch(href);
-      prewarmChatRouteData(href);
-    },
-    [router]
-  );
+  const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<InboxGroupItem | null>(null);
+  const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
+  useEffect(() => {
+    pendingDeleteRef.current = pendingDelete;
+  }, [pendingDelete]);
 
   const load = useCallback(async (silent = false, forceFetch = false) => {
     if (!silent) {
@@ -177,6 +149,7 @@ export function MyNotificationsView() {
   }
 
   async function markAllRead() {
+    if (!rows.some((r) => !r.is_read)) return;
     setBusy(true);
     setError(null);
     try {
@@ -191,6 +164,7 @@ export function MyNotificationsView() {
         setError(typeof j?.error === "string" ? j.error : "failed");
         return;
       }
+      invalidateMeNotificationsListDedupedCache();
       broadcastNotificationsUpdated();
       await load(true, true);
     } catch {
@@ -199,6 +173,62 @@ export function MyNotificationsView() {
       setBusy(false);
     }
   }
+
+  const requestDeleteGroup = useCallback((item: InboxGroupItem) => {
+    setPendingDelete(item);
+  }, []);
+
+  const runDeleteGroup = useCallback(
+    async (item: InboxGroupItem) => {
+      setDeleteBusyKey(item.key);
+      try {
+        const res = await fetch("/api/me/notifications", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ delete_ids: item.ids }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!res.ok || !j?.ok) {
+          setError(typeof (j as { error?: string }).error === "string" ? (j as { error: string }).error : "delete_failed");
+          return;
+        }
+        setRows((prev) => prev.filter((r) => !item.ids.includes(r.id)));
+        setError(null);
+        invalidateMeNotificationsListDedupedCache();
+        broadcastNotificationsUpdated();
+      } catch {
+        setError("network_error");
+      } finally {
+        setDeleteBusyKey(null);
+        setPendingDelete(null);
+      }
+    },
+    [broadcastNotificationsUpdated]
+  );
+
+  const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
+
+  const pendingDeleteMessage = useMemo(() => {
+    if (!pendingDelete) return "";
+    return pendingDelete.ids.length > 1
+      ? t("notif_inbox_delete_group_confirm", { n: pendingDelete.ids.length })
+      : t("notif_inbox_delete_confirm");
+  }, [pendingDelete, t]);
+
+  const prewarmIfChat = (href: string) => {
+    if (!shouldWarmChatRoute(href)) return;
+    void router.prefetch(href);
+    prewarmChatRouteData(href);
+  };
+
+  const onActivate = async (item: InboxGroupItem) => {
+    if (item.unreadCount > 0) {
+      await markIdsRead(item.ids);
+    }
+    prewarmIfChat(item.href);
+    router.push(item.href);
+  };
 
   if (loading) {
     return <p className="text-sm text-sam-muted">불러오는 중…</p>;
@@ -209,94 +239,40 @@ export function MyNotificationsView() {
   }
 
   return (
-    <div className="space-y-4">
-      {hubBlockedModal}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="sam-text-helper text-sam-muted">
-          채팅·거래·배달 주문 알림 등입니다. <strong>배달 입점 사장님용 새 주문 알림</strong>은{" "}
+    <div className="space-y-2">
+      {rows.length > 0 ? (
+        <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => goBusinessHubOrModal("/my/business")}
-            className="font-medium text-signature underline"
-          >
-            내 매장 관리
-          </button>
-          헤더 종 아이콘과{" "}
-          <button
-            type="button"
-            onClick={() => goBusinessHubOrModal("/my/business")}
-            className="font-medium text-signature underline"
-          >
-            주문 관리
-          </button>
-          에서만 뱃지로 안내됩니다. 바로가기를 누르면 읽음 처리됩니다.
-        </p>
-        {rows.some((r) => !r.is_read) ? (
-          <button
-            type="button"
-            disabled={busy}
+            disabled={busy || !rows.some((r) => !r.is_read)}
+            title={!rows.some((r) => !r.is_read) ? t("notif_inbox_mark_all_disabled_hint") : undefined}
             onClick={() => void markAllRead()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg disabled:opacity-50"
+            className="shrink-0 rounded-ui-rect border-0 bg-sam-surface-muted px-3 py-1.5 text-[12px] font-medium text-sam-fg disabled:opacity-50"
           >
-            {busy ? t("common_processing") : t("common_mark_all_read")}
+            {busy ? t("common_processing") : t("notif_tier1_mark_read")}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {error ? <p className="text-sm text-red-600">({error})</p> : null}
-      {rows.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">{t("common_notifications_empty")}</p>
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((r) => {
-            const typeLbl = notificationTypeLabel(r.notification_type, language);
-            const kindLbl =
-              r.notification_type === "commerce" ? commerceMetaKindLabel(r.meta?.kind, language) : null;
-            const shortcutHref = resolveNotificationShortcutHref(r) ?? r.link_url ?? "";
-            return (
-              <li
-                key={r.id}
-                className={`rounded-ui-rect border px-3 py-3 shadow-sm ${
-                  r.is_read ? "border-sam-border-soft bg-sam-surface" : "border-signature/25 bg-signature/5"
-                }`}
-              >
-                <div className="flex flex-wrap justify-between gap-1 sam-text-xxs text-sam-meta">
-                  <span>
-                    {typeLbl}
-                    {kindLbl ? (
-                      <span className="text-sam-meta"> · {kindLbl}</span>
-                    ) : null}
-                  </span>
-                  <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
-                </div>
-                <p className="mt-1 sam-text-body font-semibold text-sam-fg">{r.title}</p>
-                {r.body ? <p className="mt-1 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
-                {r.link_url ? (
-                  <Link
-                    href={shortcutHref}
-                    className="mt-2 inline-block sam-text-body-secondary text-signature underline"
-                    onMouseEnter={() => prewarmShortcutRoute(shortcutHref)}
-                    onTouchStart={() => prewarmShortcutRoute(shortcutHref)}
-                    onClick={() => {
-                      if (!r.is_read) void markIdsRead([r.id]);
-                      prewarmShortcutRoute(shortcutHref);
-                    }}
-                  >
-                    바로가기
-                  </Link>
-                ) : !r.is_read ? (
-                  <button
-                    type="button"
-                    className="mt-2 sam-text-body-secondary text-signature underline"
-                    onClick={() => void markIdsRead([r.id])}
-                  >
-                    읽음 처리
-                  </button>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <NotificationInboxByDateSections
+        items={grouped}
+        onActivate={(item) => void onActivate(item)}
+        onDelete={(item) => requestDeleteGroup(item)}
+        deleteBusyKey={deleteBusyKey}
+        emptyLabel={t("common_notifications_empty")}
+      />
+      <NotificationDeleteConfirmDialog
+        open={pendingDelete != null}
+        message={pendingDeleteMessage}
+        cancelLabel={t("notif_inbox_delete_dialog_cancel")}
+        confirmLabel={t("common_delete")}
+        busy={pendingDelete != null && deleteBusyKey === pendingDelete.key}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          const item = pendingDeleteRef.current;
+          if (item) void runDeleteGroup(item);
+        }}
+      />
     </div>
   );
 }

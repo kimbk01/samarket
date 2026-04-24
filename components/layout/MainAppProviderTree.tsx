@@ -11,6 +11,7 @@ import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
+import { MypageInfoHubPanelProvider } from "@/contexts/MypageInfoHubPanelContext";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
@@ -21,6 +22,10 @@ import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceA
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
+import { PhilifeWriteBottomSheet } from "@/components/philife/PhilifeWriteBottomSheet";
+import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMessengerFromHeaderStack";
+import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { PhilifeWriteSheetProvider } from "@/contexts/PhilifeWriteSheetContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 /** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
@@ -89,6 +94,7 @@ export function MainAppProviderTree({
 }) {
   return (
     <RegionProvider>
+      <MypageInfoHubPanelProvider>
       <AppWideRuntimePerfHooks />
       <SessionLostRedirect />
       <MessengerBootstrapEarlyWarm />
@@ -100,24 +106,34 @@ export function MainAppProviderTree({
           <WriteCategoryProvider>
             <CategoryListHeaderProvider>
               <StoreCommerceCartMaybeProvider>
-                <MainTier1ChromeProvider>
-                  <TradePresenceActivityProvider>
-                    <AppTitle />
-                    <AppStickyHeader />
-                    <ConditionalAppShell
-                      regionBarInLayout={true}
-                      initialMainBottomNavItems={initialMainBottomNavItems}
-                    >
-                      {children}
-                    </ConditionalAppShell>
-                    <TradeChatEntryCreatingOverlay />
-                  </TradePresenceActivityProvider>
-                </MainTier1ChromeProvider>
+                <PhilifeWriteSheetProvider>
+                  <PhilifeHeaderMessengerStackProvider>
+                  <MainTier1ChromeProvider>
+                    <TradePresenceActivityProvider>
+                      <AppTitle />
+                      <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
+                        <AppStickyHeader />
+                        <PhilifeMessengerFromHeaderStack>
+                          <ConditionalAppShell
+                            regionBarInLayout={true}
+                            initialMainBottomNavItems={initialMainBottomNavItems}
+                          >
+                            {children}
+                          </ConditionalAppShell>
+                        </PhilifeMessengerFromHeaderStack>
+                      </div>
+                      <TradeChatEntryCreatingOverlay />
+                      <PhilifeWriteBottomSheet />
+                    </TradePresenceActivityProvider>
+                  </MainTier1ChromeProvider>
+                  </PhilifeHeaderMessengerStackProvider>
+                </PhilifeWriteSheetProvider>
               </StoreCommerceCartMaybeProvider>
             </CategoryListHeaderProvider>
           </WriteCategoryProvider>
         </NotificationSurfaceProvider>
       </FavoriteProvider>
+      </MypageInfoHubPanelProvider>
     </RegionProvider>
   );
 }

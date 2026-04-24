@@ -58,3 +58,10 @@ export const APP_MAIN_HEADER_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_
 
 /** 매장 스티키 바 등 — `APP_MAIN_HEADER_INNER_CLASS`와 동일 토큰 */
 export const APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS = APP_MAIN_HEADER_INNER_CLASS;
+
+/**
+ * 거래 허브 구매·판매 카드(`PurchaseHistoryCard`·`SalesHistoryCard` 등)와 동일한 **목록 행** 표면.
+ * 알림 인박스 등에서 좌우·모서리·그림자를 거래 탭과 맞출 때 사용.
+ */
+export const TRADE_HUB_LIST_ITEM_CARD_CLASS =
+  "relative overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm";

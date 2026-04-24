@@ -1,18 +1,16 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useLayoutEffect } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
+import { getBottomNavAdjacentHref } from "@/lib/main-menu/bottom-nav-config";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
-import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { TRADE_GAP_MENU_TO_POSTS_CLASS } from "@/lib/trade/ui/post-spacing";
-
+import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 const HomeFeedViewExperimental = dynamic(
   () =>
     import("@/components/home-feed/HomeFeedViewExperimental").then((m) => ({
@@ -44,6 +42,60 @@ export function HomeContent({
   const router = useRouter();
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
+  const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
+  const [feedSwipeOn, setFeedSwipeOn] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const go = () => {
+      setFeedSwipeOn(mq.matches);
+    };
+    go();
+    mq.addEventListener("change", go);
+    return () => mq.removeEventListener("change", go);
+  }, []);
+
+  const canSwipeNext = useMemo(() => {
+    if (tabs.length === 0 || activeIndex < 0) return false;
+    if (activeIndex < tabs.length - 1) return true;
+    return getBottomNavAdjacentHref("home", "next") != null;
+  }, [tabs.length, activeIndex]);
+
+  const canSwipePrev = useMemo(() => {
+    if (tabs.length === 0 || activeIndex < 0) return false;
+    if (activeIndex > 0) return true;
+    return getBottomNavAdjacentHref("home", "prev") != null;
+  }, [tabs.length, activeIndex]);
+
+  const swipeToNext = useCallback(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (activeIndex < tabs.length - 1) {
+      void router.push(tabs[activeIndex + 1]!.href, { scroll: false });
+      return;
+    }
+    const h = getBottomNavAdjacentHref("home", "next");
+    if (h) void router.push(h, { scroll: false });
+  }, [tabs, activeIndex, router]);
+
+  const swipeToPrev = useCallback(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (activeIndex > 0) {
+      void router.push(tabs[activeIndex - 1]!.href, { scroll: false });
+      return;
+    }
+    const h = getBottomNavAdjacentHref("home", "prev");
+    if (h) void router.push(h, { scroll: false });
+  }, [tabs, activeIndex, router]);
+
+  const { setSwipeableEl: setHomeFeedSwipeable } = useMobileHorizontalSwipePanel({
+    enabled: feedSwipeOn,
+    swipeableRef: feedSwipeableRef,
+    onCommitNext: swipeToNext,
+    onCommitPrev: swipeToPrev,
+    canGoNext: canSwipeNext,
+    canGoPrev: canSwipePrev,
+  });
+
   useLayoutEffect(() => {
     recordTradeListMetricOnce("trade_list_home_content_render_end_ms");
   }, []);
@@ -58,21 +110,13 @@ export function HomeContent({
   useEffect(() => {
     recordTradeListMetricOnce("trade_list_hydration_complete_ms");
   }, []);
-  const onNavigate = useCallback(
-    (href: string) => {
-      router.push(href, { scroll: false });
-    },
-    [router]
-  );
-  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onNavigate);
 
+  // `HomeProductList` `<ul>` — `PHILIFE_FEED_LIST_WRAP`만으로 탭~첫 카드 간격(커뮤니티 `CommunityFeed`와 동일, `TRADE_GAP_MENU_TO_POSTS` 없음)
   return (
-    <div
-      className={`touch-pan-y min-w-0 w-full max-w-full ${APP_MAIN_GUTTER_X_CLASS} ${TRADE_GAP_MENU_TO_POSTS_CLASS}`}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-    >
-      <HomeTradeFeedBody initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />
+    <div className="min-w-0 w-full max-w-full">
+      <div ref={setHomeFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
+        <HomeTradeFeedBody initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />
+      </div>
     </div>
   );
 }

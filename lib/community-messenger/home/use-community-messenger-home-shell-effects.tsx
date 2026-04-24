@@ -52,6 +52,8 @@ type Args = {
   data: CommunityMessengerBootstrap | null;
   incomingFriendRequestPopup: CommunityMessengerFriendRequest | null;
   setIncomingFriendRequestPopup: Dispatch<SetStateAction<CommunityMessengerFriendRequest | null>>;
+  /** `/philife` 헤더 푸시 스택: URL `section` 동기화·1단 `rightSlot` 은 별도 처리 */
+  fromPhilifeHeaderStack?: boolean;
 };
 
 export function useCommunityMessengerHomeShellEffects({
@@ -77,6 +79,7 @@ export function useCommunityMessengerHomeShellEffects({
   data,
   incomingFriendRequestPopup,
   setIncomingFriendRequestPopup,
+  fromPhilifeHeaderStack = false,
 }: Args): void {
   useEffect(() => {
     consumeCommunityMessengerHomeReturn();
@@ -133,6 +136,7 @@ export function useCommunityMessengerHomeShellEffects({
   }, [recentSearches]);
 
   useEffect(() => {
+    if (fromPhilifeHeaderStack) return;
     const tab = searchParams.get("tab");
     if (tab === "settings") {
       openSettingsSheet();
@@ -151,9 +155,18 @@ export function useCommunityMessengerHomeShellEffects({
     const { inbox, kind: nextKind } = resolveMessengerChatFilters(filter ?? undefined, kind ?? undefined, tab ?? undefined);
     setChatInboxFilter(inbox);
     setChatKindFilter(nextKind);
-  }, [searchParams, router, openSettingsSheet, setChatInboxFilter, setChatKindFilter, setMainSection]);
+  }, [
+    searchParams,
+    router,
+    openSettingsSheet,
+    setChatInboxFilter,
+    setChatKindFilter,
+    setMainSection,
+    fromPhilifeHeaderStack,
+  ]);
 
   useLayoutEffect(() => {
+    if (fromPhilifeHeaderStack) return;
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       tier1: {
@@ -161,7 +174,7 @@ export function useCommunityMessengerHomeShellEffects({
       },
     });
     return () => setMainTier1Extras(null);
-  }, [headerActionsNode, incomingRequestCount, setMainTier1Extras]);
+  }, [headerActionsNode, incomingRequestCount, setMainTier1Extras, fromPhilifeHeaderStack]);
 
   useEffect(() => {
     let cancelled = false;

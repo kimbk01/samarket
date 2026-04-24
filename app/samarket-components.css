@@ -4,7 +4,7 @@
  *
  * 네이밍: `sam-<영역>--<변형>` (BEM 스타일 `--` 변형).
  * 버튼은 보통 `sam-btn sam-btn--primary` 를 함께 쓰거나, 레거시 단일 클래스 `sam-btn-primary`.
- * 관리자(`data-admin`)는 동일 토큰을 쓰되 레이아웃은 별도 컴포넌트에서 처리.
+ * 관리자(`data-admin`)는 `design-tokens.css`에서 별도 `--app-*`·`--sam-*`로 대비·톤을 맞추고, 레이아웃은 Admin 전용 컴포넌트.
  */
 
 @layer components {

@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -139,6 +138,9 @@ import {
 import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
+import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { philifeAppPaths } from "@domain/philife/paths";
 import {
   applyRoomReadEvent,
@@ -163,17 +165,21 @@ export function CommunityMessengerHome({
    * 클라이언트는 `peekBootstrapCache`·`GET /api/community-messenger/bootstrap`(lite/full) 단일 경로로 동기화한다.
    */
   initialServerBootstrap = null,
+  /** `/philife` 헤더 메신저 푸시 스택(하단 탭과 별도) */
+  fromPhilifeHeaderStack = false,
 }: {
   initialTab?: string;
   initialSection?: string;
   initialFilter?: string;
   initialKind?: string;
   initialServerBootstrap?: CommunityMessengerBootstrap | null;
+  fromPhilifeHeaderStack?: boolean;
 }) {
   bumpMessengerRenderPerf("messenger_home_render");
   const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { requestClose: closePhilifeHeaderMessenger } = usePhilifeHeaderMessengerStack();
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
   const openParam = searchParams.get("open")?.trim() ?? "";
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
@@ -537,6 +543,7 @@ export function CommunityMessengerHome({
     data,
     incomingFriendRequestPopup,
     setIncomingFriendRequestPopup,
+    fromPhilifeHeaderStack,
   });
 
   /**
@@ -1986,8 +1993,31 @@ export function CommunityMessengerHome({
     <div
       data-messenger-shell
       data-cm-messenger-home-root
-      className="min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+      className={
+        fromPhilifeHeaderStack
+          ? "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+          : "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+      }
     >
+      {fromPhilifeHeaderStack ? (
+        <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#f6f6f6)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
+          <div
+            className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)] ${APP_MAIN_HEADER_INNER_CLASS}`}
+          >
+            <div className="flex w-10 min-w-10 shrink-0 justify-start">
+              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel="뒤로" />
+            </div>
+            <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+              <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)]">
+                <span className="truncate sam-text-section-title font-semibold">{t("nav_bottom_messenger")}</span>
+              </h1>
+            </div>
+            <div className="flex min-w-0 max-w-[min(200px,50vw)] shrink-0 items-center justify-end pr-0.5">
+              {headerActionsNode}
+            </div>
+          </div>
+        </header>
+      ) : null}
       <CommunityMessengerHomeListPane
         loading={loading}
         authRequired={authRequired}

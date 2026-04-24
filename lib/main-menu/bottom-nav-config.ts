@@ -211,6 +211,15 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
   // { id: "home", href: "/home", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
 ];
 
+/** `BOTTOM_NAV_ITEMS` 순 — 스와이프/인접 이동용 (해당 `id` 기준) */
+export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next" | "prev"): string | null {
+  const i = BOTTOM_NAV_ITEMS.findIndex((t) => t.id === tabId);
+  if (i < 0) return null;
+  if (direction === "next") return i < BOTTOM_NAV_ITEMS.length - 1 ? BOTTOM_NAV_ITEMS[i + 1]!.href : null;
+  if (direction === "prev") return i > 0 ? BOTTOM_NAV_ITEMS[i - 1]!.href : null;
+  return null;
+}
+
 /** 거래 탐색(/home·/market·/home/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */
 export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "거래";

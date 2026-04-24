@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 
 async function shouldSkipDueToCooldown(
@@ -52,6 +53,8 @@ export async function notifyCommunityChatInAppForRecipients(
   if (!roomId || !recipientUserIds.length) return;
 
   const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "community_chat");
+  const nickMap = await fetchNicknamesForUserIds(sb, [senderUserId]);
+  const senderLabel = nickMap.get(senderUserId.trim())?.trim() || null;
   const title = hasMention ? "멘션 알림" : "새 메시지";
   const body = preview.slice(0, 200) || "메시지가 도착했습니다.";
   const linkUrl = ROOM_HREF(roomId);
@@ -74,6 +77,7 @@ export async function notifyCommunityChatInAppForRecipients(
         room_id: roomId,
         sender_id: senderUserId,
         mention: hasMention === true,
+        ...(senderLabel ? { sender_label: senderLabel } : {}),
       },
     });
   }

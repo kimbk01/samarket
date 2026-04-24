@@ -38,7 +38,10 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
   }
   const sortRaw = input?.sort?.trim() ?? "";
   const feedSort: "latest" | "popular" | "recommended" = (() => {
-    if (!category) return "latest";
+    if (!category) {
+      if (!sortRaw) return "latest";
+      return normalizeFeedSort(sortRaw);
+    }
     if ((category === "recommend" || category === "recommended") && !sortRaw) return "recommended";
     return normalizeFeedSort(sortRaw || undefined);
   })();

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 
@@ -48,6 +49,8 @@ export async function notifyTradeChatInAppForRecipients(
   if (!roomId || !recipientUserIds.length) return;
 
   const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "trade_chat");
+  const nickMap = await fetchNicknamesForUserIds(sb, [senderUserId]);
+  const senderLabel = nickMap.get(senderUserId.trim())?.trim() || null;
   const title = "새 메시지";
   const body = preview.slice(0, 200) || "메시지가 도착했습니다.";
   const linkUrl = tradeChatNotificationHref(roomId, "chat_room");
@@ -69,6 +72,7 @@ export async function notifyTradeChatInAppForRecipients(
         kind: "trade_chat",
         room_id: roomId,
         sender_id: senderUserId,
+        ...(senderLabel ? { sender_label: senderLabel } : {}),
       },
     });
   }

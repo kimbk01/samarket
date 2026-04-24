@@ -37,6 +37,7 @@ import {
   PHILIFE_FB_INPUT_CLASS,
   PHILIFE_FB_TEXTAREA_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
+  COMMUNITY_FONT_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
@@ -80,6 +81,19 @@ function buildMeetupPostContent(parts: { intro: string; ageFee: string }): strin
 
 interface PhilifeNeighborhoodWriteFormProps {
   initialCategory?: string;
+  /**
+   * true이면 `WriteScreenTier1Sync`를 쓰지 않음 — 필라이프 피드 **시트**에서 전역 1단(RegionBar·주제 탭)을 유지할 때.
+   */
+  suppressWriteScreenTier1?: boolean;
+  /** 풀페이지 제출 직전(`router` 이동 전) — 시트 닫기 등 */
+  onWillNavigateAfterSuccess?: () => void;
+  /**
+   * 시트 전용: 제출 성공 직전 — 아래로 닫힘 애니메이션·`close()` 후 `await` 끝나고 `router.replace` 실행
+   * (`onWillNavigateAfterSuccess` 대체)
+   */
+  onSheetExitBeforeNavigate?: () => Promise<void>;
+  /** 시트 전용: 「취소하기」 — 아래로 닫힘 애니메이션 후 닫힘(동기 또는 Promise) */
+  onSheetClose?: () => void | Promise<void>;
 }
 
 type WriteTopicOption = { slug: string; name: string };
@@ -90,6 +104,10 @@ type PhilifeMeetAccessMode = "free_public" | "password_public" | "free_hidden" |
 /** 동네(필라이프) 일반 글·모임 생성 — `/philife/write` 등에서 사용 */
 export function PhilifeNeighborhoodWriteForm({
   initialCategory,
+  suppressWriteScreenTier1 = false,
+  onWillNavigateAfterSuccess,
+  onSheetExitBeforeNavigate,
+  onSheetClose,
 }: PhilifeNeighborhoodWriteFormProps) {
   const router = useRouter();
   const { currentRegion } = useRegion();
@@ -641,6 +659,11 @@ export function PhilifeNeighborhoodWriteForm({
         return;
       }
       /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
+      if (onSheetExitBeforeNavigate) {
+        await onSheetExitBeforeNavigate();
+      } else {
+        onWillNavigateAfterSuccess?.();
+      }
       if (category === "meetup") {
         const mid = typeof j.meetingId === "string" && j.meetingId.trim() ? j.meetingId.trim() : null;
         router.replace(mid ? philifeAppPaths.meeting(mid) : philifeAppPaths.meetingsFeed);
@@ -685,12 +708,74 @@ export function PhilifeNeighborhoodWriteForm({
       ? Math.max(0, selectedAdProduct.pointCost - pointBalance)
       : 0;
 
+  const sheetHasDraft = useCallback((): boolean => {
+    if (category === "meetup") {
+      return Boolean(
+        title.trim() ||
+          content.trim() ||
+          meetIntro.trim() ||
+          imageUrls.length > 0 ||
+          meetPassword.trim() ||
+          ageFeeNote.trim() ||
+          (meetRegionText.trim() &&
+            meetRegionText.trim() !== (currentRegion?.label ?? "").trim())
+      );
+    }
+    return Boolean(
+      title.trim() ||
+        content.trim() ||
+        imageUrls.length > 0 ||
+        promoteAdEnabled ||
+        selectedAdProduct != null ||
+        adDepositorName.trim() ||
+        adMemo.trim()
+    );
+  }, [
+    category,
+    title,
+    content,
+    meetIntro,
+    imageUrls.length,
+    meetPassword,
+    ageFeeNote,
+    meetRegionText,
+    currentRegion?.label,
+    promoteAdEnabled,
+    selectedAdProduct,
+    adDepositorName,
+    adMemo,
+  ]);
+
+  const handleSheetCancel = useCallback(async () => {
+    if (!onSheetClose) return;
+    if (sheetHasDraft()) {
+      if (!window.confirm("입력한 내용이 저장되지 않습니다.\n취소하고 닫을까요?")) return;
+    }
+    try {
+      await Promise.resolve(onSheetClose());
+    } catch {
+      /* no-op */
+    }
+  }, [onSheetClose, sheetHasDraft]);
+
   const tier1Title =
     category === "meetup" ? title.trim() || "모임 만들기" : "커뮤니티 글쓰기";
 
+  const rootClass = suppressWriteScreenTier1
+    ? [
+        "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden",
+        COMMUNITY_FONT_CLASS,
+        "bg-sam-app text-sam-fg",
+        "pt-2",
+        APP_MAIN_GUTTER_X_CLASS,
+      ].join(" ")
+    : `${PHILIFE_PAGE_ROOT_CLASS} pt-2 ${APP_MAIN_GUTTER_X_CLASS}`;
+
   return (
-    <div className={`${PHILIFE_PAGE_ROOT_CLASS} pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
-      <WriteScreenTier1Sync backHref={philifeAppPaths.home} title={tier1Title} />
+    <div className={rootClass}>
+      {suppressWriteScreenTier1 ? null : (
+        <WriteScreenTier1Sync backHref={philifeAppPaths.home} title={tier1Title} />
+      )}
 
       {category === "meetup" ? (
         <div className="mb-3">
@@ -1108,16 +1193,40 @@ export function PhilifeNeighborhoodWriteForm({
               </p>
             ) : null}
           </div>
-          <button
-            type="submit"
-            disabled={
-              busy ||
-              (category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
-            }
-            className={`relative z-10 w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
-          >
-            {busy ? "등록 중…" : "등록하기"}
-          </button>
+          {suppressWriteScreenTier1 && onSheetClose ? (
+            <div className="flex w-full min-w-0 flex-row flex-nowrap items-stretch gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={handleSheetCancel}
+                disabled={busy}
+                className={`relative z-10 min-h-[2.75rem] min-w-0 flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+              >
+                취소하기
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  (category !== "meetup" &&
+                    (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
+                }
+                className={`relative z-10 min-h-[2.75rem] min-w-0 flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+              >
+                {busy ? "등록 중…" : "등록하기"}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="submit"
+              disabled={
+                busy ||
+                (category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
+              }
+              className={`relative z-10 w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+            >
+              {busy ? "등록 중…" : "등록하기"}
+            </button>
+          )}
       </form>
     </div>
   );

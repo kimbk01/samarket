@@ -9,6 +9,11 @@ import {
   isCommunityMessengerRoomPathname,
   resolveConditionalAppShellFlags,
 } from "@/lib/layout/conditional-app-shell-flags";
+import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import {
+  resolveBottomNavScrollHideEnabled,
+  useBottomNavScrollHide,
+} from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
@@ -43,10 +48,18 @@ export function ConditionalAppShell({
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]
   );
+  const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
+  const pathNoQuery = pathname?.split("?")[0] ?? "";
+  const isPhilifeFeedRoot = pathNoQuery === "/philife";
   const messengerSuppressBottomNav = useMessengerUIStore((s) => s.messengerSuppressBottomNavForKeyboard);
   const messengerRoomKeyboardHidesNav =
     isCommunityMessengerRoomPathname(pathname) && messengerSuppressBottomNav;
-  const showBottomNavEffective = f.showBottomNav && !messengerRoomKeyboardHidesNav;
+  const showBottomNavBase = f.showBottomNav && !messengerRoomKeyboardHidesNav;
+  const showBottomNavEffective =
+    showBottomNavBase && !(isPhilifeFeedRoot && headerMessengerFromPhilife);
+  const bottomNavScrollHideEnabled =
+    showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
+  const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
   const chatDetailUsesZeroBottomPadding =
     f.isChatRoomDetail && (!f.isCommunityMessengerRoom || f.isCommunityMessengerCallPage);
   const mainBottomClassEffective =
@@ -83,7 +96,17 @@ export function ConditionalAppShell({
             </div>
           }
         >
-          <BottomNav initialTabs={initialMainBottomNavItems} />
+          <BottomNav
+            initialTabs={initialMainBottomNavItems}
+            bodyPortal={isPhilifeFeedRoot}
+            extraOuterClassName={
+              bottomNavScrollHideEnabled
+                ? bottomNavHiddenByScroll
+                  ? "translate-y-full"
+                  : "translate-y-0"
+                : ""
+            }
+          />
         </Suspense>
       ) : null}
       {showBottomNavEffective && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}

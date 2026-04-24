@@ -25,6 +25,7 @@ import {
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
+import { PHILIFE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -255,8 +256,8 @@ export function HomeProductList({
   const showError = listState === "error";
   const showLoading = listState === "loading";
   const rootClass = "min-w-0 w-full max-w-full";
-  const listClass =
-    "m-0 min-w-0 w-full max-w-full list-none divide-y divide-sam-border p-0";
+  /** `/philife` 피드 `<ul>`과 동일 — 가로 `px-2` 한 겹(부모 `HomeContent`는 가로 패딩 없음) */
+  const listClass = PHILIFE_FEED_LIST_WRAP_CLASS;
   const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
 
   if (!showLoading && !showError && !showEmpty) {

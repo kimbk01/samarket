@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
-import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -31,7 +30,7 @@ export function TradePrimaryTabs({
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const { loading, error, tabs, activeIndex } = useTradeTabs(pathname);
+  const { loading, error, tabs } = useTradeTabs(pathname);
 
   useEffect(() => {
     if (loading || tabs.length < 2) return;
@@ -46,14 +45,6 @@ export function TradePrimaryTabs({
     }, 450);
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [loading, tabs, router]);
-
-  const onSelectTab = useCallback(
-    (href: string) => {
-      router.push(href, { scroll: false });
-    },
-    [router]
-  );
-  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onSelectTab);
 
   useLayoutEffect(() => {
     const activeTab = tabs.find((t) => t.isActive);
@@ -86,8 +77,6 @@ export function TradePrimaryTabs({
         style={{ WebkitOverflowScrolling: "touch" }}
         role="tablist"
         aria-label="TRADE 메뉴"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
       >
         {tabs.map((tab) => (
           <Link
@@ -101,7 +90,7 @@ export function TradePrimaryTabs({
             prefetch={tab.key !== "all"}
             className={tab.isActive ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
-            {tab.label}
+            <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{tab.label}</span>
           </Link>
         ))}
       </HorizontalDragScroll>

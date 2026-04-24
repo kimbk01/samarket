@@ -44,8 +44,9 @@ export function AdminSidebarItem({
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
   const baseLinkClass = `block rounded-ui-rect py-2 pr-3 sam-text-body whitespace-nowrap ${padding}`;
+  /** `text-signature`는 OS 다크에서 밝은 파랑+연한 배경 대비가 무너짐 — 본문색+프라이머리 틴트로 통일 */
   const activeClass =
-    "bg-signature/25 font-bold text-signature shadow-sm ring-1 ring-inset ring-signature/15";
+    "bg-sam-primary/14 font-semibold text-sam-fg shadow-sm ring-1 ring-inset ring-sam-primary/20";
   const inactiveClass = pending
     ? "font-medium text-sam-meta hover:bg-sam-app hover:text-sam-muted"
     : "font-medium text-sam-fg hover:bg-sam-surface-muted hover:text-sam-fg";
@@ -59,7 +60,7 @@ export function AdminSidebarItem({
 
   const groupLabelClass = `flex-1 sam-text-body whitespace-nowrap min-w-0 text-left ${
     isActive || childActive
-      ? "font-bold text-signature"
+      ? "font-bold text-sam-fg"
       : pending
         ? "font-medium text-sam-meta"
         : "font-medium text-sam-fg"
@@ -67,7 +68,7 @@ export function AdminSidebarItem({
 
   const groupRowClass =
     isActive || childActive
-      ? "bg-signature/22 shadow-sm ring-1 ring-inset ring-signature/12"
+      ? "bg-sam-primary/12 shadow-sm ring-1 ring-inset ring-sam-primary/18"
       : "hover:bg-sam-surface-muted";
 
   const toggleOpen = () => setOpen((o) => !o);

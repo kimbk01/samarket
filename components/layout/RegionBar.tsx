@@ -15,7 +15,10 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
-import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
+import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
+import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
+import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
+import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import {
   BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY,
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
@@ -104,7 +107,6 @@ export function RegionBar({
   const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
-
   if (!ruleSet.showRegionBar) {
     return null;
   }
@@ -117,20 +119,41 @@ export function RegionBar({
     pathNoQuery === "/philife";
 
   if (isUnifiedExplorationTier1) {
+    const isPhilifeFeed = pathNoQuery === "/philife";
     const segmentTitle =
-      pathNoQuery === "/philife" ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
+      isPhilifeFeed ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
     return (
       <UnifiedTier1Shell embedded={embedded}>
         <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-          <div className="flex w-[44px] shrink-0 justify-start" aria-hidden>
-            <div className="h-10 w-10" />
-          </div>
-          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
-              <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
-            </h1>
-          </div>
-          <MyHubHeaderActions />
+          {isPhilifeFeed ? (
+            <>
+              <div className="flex w-10 shrink-0 justify-start">
+                <MyHubHeaderInfoHubTrigger />
+              </div>
+              <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+                <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
+                  <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
+                </h1>
+              </div>
+              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
+                <PhilifeHeaderComposeButton />
+                <PhilifeHeaderMessengerButton />
+                <PhilifeHeaderNotificationInbox />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex w-[44px] shrink-0 justify-start" aria-hidden>
+                <div className="h-10 w-10" />
+              </div>
+              <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
+                <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
+                  <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
+                </h1>
+              </div>
+              <MyHubHeaderActions />
+            </>
+          )}
         </div>
       </UnifiedTier1Shell>
     );

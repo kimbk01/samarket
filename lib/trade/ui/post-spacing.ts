@@ -9,7 +9,11 @@
  * (이 파일이 간격의 단일 출처가 되도록).
  */
 
-/** TRADE 메뉴 탭만 있을 때(2단 없음): 탭 하단 ~ 첫 게시물 — 필라이프 피드 리스트 `pt-2` 와 맞춤 */
+/**
+ * TRADE 메뉴 탭만 있을 때(2단 없음): 탭 하단 ~ 첫 콘텐츠.
+ * `/home`의 `HomeProductList`는 `PHILIFE_FEED_LIST_WRAP`(`pt-1`)이 있으므로 **추가하지 않음**; 마켓
+ * `MarketCategoryFeed` 등 리스트 상단 패딩이 없는 셸은 이 값으로 간격을 맞춤.
+ */
 export const TRADE_GAP_MENU_TO_POSTS_CLASS = "pt-2";
 
 /** 2단 카테고리 앱바 있을 때: 앱바 ~ 첫 게시물 = spacing 3 */

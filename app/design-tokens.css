@@ -272,6 +272,47 @@
   --cm-room-radius-input: var(--sam-radius-sm);
 }
 
+/**
+ * 관리자 콘솔 — 소비자/피드 `var(--app-*)` 와 분리해 배경·본문 대비를 고정.
+ * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).
+ */
+[data-admin] {
+  --app-bg: #e4eaf3;
+  --app-surface: #ffffff;
+  --app-subtle-bg: #d2dce9;
+  --app-subtle-bg-2: #c6d0df;
+  --app-border: #9aa9bc;
+  --app-border-strong: #7a8ba0;
+  --app-text: #0b1220;
+  --app-text-2: #1e2a3d;
+  --app-text-3: #4a5a70;
+
+  --sam-text-primary: var(--app-text);
+  --sam-text-secondary: var(--app-text-2);
+  --sam-text-muted: var(--app-text-3);
+  --sam-bg-app: var(--app-bg);
+  --sam-bg-surface: var(--app-surface);
+  --sam-bg-surface-muted: var(--app-subtle-bg);
+  --sam-bg-chat: var(--app-subtle-bg-2);
+  --sam-border-default: var(--app-border);
+  --sam-border-soft: color-mix(in srgb, var(--app-border) 52%, var(--app-surface));
+
+  --ui-page-bg: var(--sam-bg-app);
+  --ui-surface: var(--sam-bg-surface);
+  --ui-text-primary: var(--sam-text-primary);
+  --ui-text-secondary: var(--sam-text-secondary);
+  --ui-text-meta: var(--sam-text-muted);
+  --ui-border: var(--sam-border-default);
+  --ui-hover-surface: color-mix(in srgb, var(--sam-primary) 12%, var(--app-surface));
+
+  --background: var(--sam-bg-app);
+  --foreground: var(--sam-text-primary);
+  --text-muted: var(--sam-text-secondary);
+  --text-meta: var(--sam-text-muted);
+  --ig-border: var(--sam-border-default);
+  --ig-highlight: var(--sam-primary-soft);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --app-bg: #12161d;
@@ -322,5 +363,40 @@
     --messenger-badge-trade-bg: var(--sam-success-soft);
     --messenger-badge-delivery-bg: var(--sam-warning-soft);
     --messenger-badge-openchat-bg: var(--sam-info-soft);
+  }
+
+  [data-admin] {
+    --app-bg: #0b0f16;
+    --app-surface: #141a24;
+    --app-subtle-bg: #1a222e;
+    --app-subtle-bg-2: #111822;
+    --app-border: #2e3a4d;
+    --app-text: #f0f4fb;
+    --app-text-2: #a9b8d0;
+    --app-text-3: #7d8fa8;
+
+    --sam-text-primary: var(--app-text);
+    --sam-text-secondary: var(--app-text-2);
+    --sam-text-muted: var(--app-text-3);
+    --sam-bg-app: var(--app-bg);
+    --sam-bg-surface: var(--app-surface);
+    --sam-bg-surface-muted: var(--app-subtle-bg);
+    --sam-bg-chat: var(--app-subtle-bg-2);
+    --sam-border-default: var(--app-border);
+    --sam-border-soft: color-mix(in srgb, var(--app-border) 55%, var(--app-surface));
+
+    --ui-page-bg: var(--sam-bg-app);
+    --ui-surface: var(--sam-bg-surface);
+    --ui-text-primary: var(--sam-text-primary);
+    --ui-text-secondary: var(--sam-text-secondary);
+    --ui-text-meta: var(--sam-text-muted);
+    --ui-border: var(--sam-border-default);
+    --ui-hover-surface: color-mix(in srgb, var(--sam-primary) 18%, var(--app-surface));
+
+    --background: var(--sam-bg-app);
+    --foreground: var(--sam-text-primary);
+    --text-muted: var(--sam-text-secondary);
+    --text-meta: var(--sam-text-muted);
+    --ig-border: var(--sam-border-default);
   }
 }

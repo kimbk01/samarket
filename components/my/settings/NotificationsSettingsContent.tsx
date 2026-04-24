@@ -136,10 +136,10 @@ export function NotificationsSettingsContent() {
 
   return (
     <div className="space-y-2">
-      <SettingsSection title={t("common_notifications")}>
-        <div className="border-b border-sam-border-soft px-4 py-3">
+      <SettingsSection title={t("common_notifications")} titleClassName="!text-[12px] !font-semibold">
+        <div className="border-b border-sam-border-soft px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="sam-text-body text-sam-fg">{t("notifications_all")}</span>
+            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_all")}</span>
             <button
               type="button"
               role="switch"
@@ -157,9 +157,9 @@ export function NotificationsSettingsContent() {
             </button>
           </div>
         </div>
-        <div className="border-b border-sam-border-soft px-4 py-3">
+        <div className="border-b border-sam-border-soft px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="sam-text-body text-sam-fg">{t("notifications_chat")}</span>
+            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_chat")}</span>
             <button
               type="button"
               role="switch"
@@ -177,9 +177,9 @@ export function NotificationsSettingsContent() {
             </button>
           </div>
         </div>
-        <div className="border-b border-sam-border-soft px-4 py-3">
+        <div className="border-b border-sam-border-soft px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="sam-text-body text-sam-fg">{t("notifications_marketing")}</span>
+            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_marketing")}</span>
             <button
               type="button"
               role="switch"
@@ -199,7 +199,7 @@ export function NotificationsSettingsContent() {
         </div>
         <WebPushSettingsRow pushEnabled={settings.push_enabled !== false} />
         {!commerceEmailLoaded ? (
-          <div className="border-b border-sam-border-soft px-4 py-3">
+          <div className="border-b border-sam-border-soft px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="h-4 w-28 rounded bg-sam-surface-muted" />
@@ -210,21 +210,21 @@ export function NotificationsSettingsContent() {
           </div>
         ) : null}
         {commerceEmailLoaded && commerceEmailShowRow ? (
-          <div className="border-b border-sam-border-soft px-4 py-3">
+          <div className="border-b border-sam-border-soft px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <span className="sam-text-body text-sam-fg">{t("notifications_commerce_email")}</span>
-                <p className="mt-0.5 sam-text-helper leading-snug text-sam-muted">
+                <span className="text-[14px] font-medium text-sam-fg">{t("notifications_commerce_email")}</span>
+                <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
                   {t("notifications_commerce_email_desc")}
                   {commerceEmailColumnMissing ? (
-                    <span className="mt-1 block text-amber-700">
+                    <span className="mt-1 block text-[11px] leading-snug text-amber-700">
                       DB에 컬럼이 없어 저장할 수 없습니다.{" "}
                       <code className="rounded bg-sam-surface-muted px-0.5">manual-apply-notifications-full.sql</code> 을 적용해
                       주세요.
                     </span>
                   ) : null}
                   {commerceEmailPatchError ? (
-                    <span className="mt-1 block text-red-600">{commerceEmailPatchError}</span>
+                    <span className="mt-1 block text-[11px] leading-snug text-red-600">{commerceEmailPatchError}</span>
                   ) : null}
                 </p>
               </div>
@@ -281,12 +281,12 @@ export function NotificationsSettingsContent() {
         ) : null}
         {domainLoaded ? (
           <>
-            <div className="border-b border-sam-border-soft px-4 py-3">
-              <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
+              <p className="mb-2 text-[11px] leading-snug text-sam-muted">
                 인앱 알림 (거래/커뮤니티/주문/매장) — 채팅방을 보고 있을 때는 같은 방 알림음이 울리지 않습니다.
               </p>
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">인앱 알림음</span>
+                <span className="text-[14px] font-medium text-sam-fg">인앱 알림음</span>
                 <button
                   type="button"
                   role="switch"
@@ -308,9 +308,9 @@ export function NotificationsSettingsContent() {
                 </button>
               </div>
             </div>
-            <div className="border-b border-sam-border-soft px-4 py-3">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">거래 채팅 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">거래 채팅 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -332,9 +332,9 @@ export function NotificationsSettingsContent() {
                 </button>
               </div>
             </div>
-            <div className="border-b border-sam-border-soft px-4 py-3">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">커뮤니티·모임 채팅</span>
+                <span className="text-[14px] font-medium text-sam-fg">커뮤니티·모임 채팅</span>
                 <button
                   type="button"
                   role="switch"
@@ -356,9 +356,9 @@ export function NotificationsSettingsContent() {
                 </button>
               </div>
             </div>
-            <div className="border-b border-sam-border-soft px-4 py-3">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">주문·배달 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">주문·배달 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -380,9 +380,9 @@ export function NotificationsSettingsContent() {
                 </button>
               </div>
             </div>
-            <div className="border-b border-sam-border-soft px-4 py-3">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">매장·상점 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">매장·상점 알림</span>
                 <button
                   type="button"
                   role="switch"
@@ -404,9 +404,9 @@ export function NotificationsSettingsContent() {
                 </button>
               </div>
             </div>
-            <div className="border-b border-sam-border-soft px-4 py-3">
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="sam-text-body text-sam-fg">진동 (지원 기기)</span>
+                <span className="text-[14px] font-medium text-sam-fg">진동 (지원 기기)</span>
                 <button
                   type="button"
                   role="switch"
@@ -431,10 +431,10 @@ export function NotificationsSettingsContent() {
           </>
         ) : null}
       </SettingsSection>
-      <SettingsSection title={t("notifications_dnd")}>
-        <div className="space-y-3 px-4 py-3">
+      <SettingsSection title={t("notifications_dnd")} titleClassName="!text-[12px] !font-semibold">
+        <div className="space-y-3 px-3 py-2.5">
           <div className="flex items-center justify-between">
-            <span className="sam-text-body text-sam-fg">{t("notifications_use")}</span>
+            <span className="text-[14px] font-medium text-sam-fg">{t("notifications_use")}</span>
             <button
               type="button"
               role="switch"
@@ -457,14 +457,14 @@ export function NotificationsSettingsContent() {
                 type="time"
                 value={settings.do_not_disturb_start ?? "22:00"}
                 onChange={(e) => update({ do_not_disturb_start: e.target.value })}
-                className="rounded border border-sam-border px-3 py-2 sam-text-body"
+                className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
               />
               <span className="text-sam-muted">~</span>
               <input
                 type="time"
                 value={settings.do_not_disturb_end ?? "08:00"}
                 onChange={(e) => update({ do_not_disturb_end: e.target.value })}
-                className="rounded border border-sam-border px-3 py-2 sam-text-body"
+                className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
               />
             </div>
           )}

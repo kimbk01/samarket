@@ -41,25 +41,22 @@ export const POST_LIST_CHIP_GRAY_SM = POST_LIST_CHIP_GRAY;
 export const POST_LIST_CHIP_AMBER = `${POST_LIST_ROW1_CHIP_BASE} bg-amber-100 text-amber-800`;
 export const POST_LIST_CHIP_BLUE = `${POST_LIST_ROW1_CHIP_BASE} bg-blue-50 text-blue-700`;
 
-/** 피드 카드 본문 타이포 — 알바·환전·부동산 등(제목 강조) */
+/** 피드 카드 본문 타이포 — 커뮤니티 `ListTitleOnly`와 정렬(15px semibold #050505) */
 export const POST_LIST_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 sam-text-body-lg font-bold leading-snug tracking-tight text-gray-900";
+  "mt-0.5 line-clamp-2 text-left text-[15px] font-semibold leading-snug text-[#050505]";
 /**
- * 일반 중고 2단(제목)·부동산 3단(스펙)·환전 환율(`POST_LIST_SUBLINE_CLASS`) 등
- * 본문 보조 줄 공통 — 13~14px Regular(400) #4E4E4E; 단 사이는 `mt-0.5`(리스트 밀도)
+ * 일반 중고 2단(제목) 등 — 커뮤니티 카드 제목과 동일
  */
-export const POST_LIST_TRADE_TITLE_CLASS =
-  "mt-0.5 line-clamp-2 sam-text-body font-normal leading-snug text-[#4E4E4E]";
+export const POST_LIST_TRADE_TITLE_CLASS = POST_LIST_TITLE_CLASS;
 /**
- * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일 타이포(마진 없음)
+ * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일(마진 없음)
  */
 export const POST_LIST_EXCHANGE_HEADLINE_CLASS =
-  "line-clamp-2 shrink-0 sam-text-body font-normal leading-snug text-[#4E4E4E]";
+  "line-clamp-2 shrink-0 text-left text-[15px] font-semibold leading-snug text-[#050505]";
 /**
- * 중고차 리스트 2단(차량명·연식) — 일반 중고와 동일 `mt-0.5` 간격
+ * 중고차 리스트 2단(차량명·연식) — `POST_LIST_TRADE_TITLE_CLASS`와 동일
  */
-export const POST_LIST_USED_CAR_SPEC_CLASS =
-  "mt-0.5 line-clamp-2 sam-text-body font-normal leading-snug text-[#4E4E4E]";
+export const POST_LIST_USED_CAR_SPEC_CLASS = POST_LIST_TRADE_TITLE_CLASS;
 /**
  * 리스트 3단 금액 본문(마진 없음) — 15~16px Bold(700) `#1A1A1A`.
  * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
@@ -69,16 +66,16 @@ export const POST_LIST_PRICE_TEXT_CLASS =
 
 /** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
-/** 부동산 3단(스펙)·환전 환율 줄 — `POST_LIST_TRADE_TITLE_CLASS`와 동일 타이포 */
-export const POST_LIST_SUBLINE_CLASS = POST_LIST_TRADE_TITLE_CLASS;
-/** 환전 리스트 3단(환율) — 13~14px Regular(400) #4E4E4E (`POST_LIST_SUBLINE_CLASS`와 동일) */
+/** 부동산 3단(스pec)·보조 본문 — 커뮤니티 `ListBodyPreview`(13px #6B7280) */
+export const POST_LIST_SUBLINE_CLASS =
+  "mt-0.5 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[#6B7280]";
+/** 환전 리스트 3단(환율) — `POST_LIST_SUBLINE_CLASS`와 동일 */
 export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
 /**
- * 리스트 4단 메타 본문(마진 없음) — 11~12px Regular(400) `#9E9E9E`.
- * 알바(근무지|시간)·부동산(위치|시간)·환전(위치|시간)·중고 푸터 `ul` 등 공통.
+ * 리스트 4단 메타 본문(마진 없음) — 커뮤니티 `ListMetaKarrot`(12px #6B7280)
  */
 export const POST_LIST_META_LINE_CLASS =
-  "sam-text-helper font-normal leading-snug text-[#9E9E9E]";
+  "text-[12px] font-normal leading-[1.4] text-[#6B7280]";
 
 /** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;
@@ -382,7 +379,7 @@ export function buildPostListPreviewModel(
         : "";
     const row4 = `${workAddressLabel || "위치 미입력"}${timePart ? ` | ${timePart}` : ""}`.trim();
 
-    /** 2단 공고 제목 — 13~14px Regular #4E4E4E (`POST_LIST_TRADE_TITLE_CLASS`) */
+    /** 2단 공고 제목 — 15px semibold #050505 (`POST_LIST_TRADE_TITLE_CLASS`) */
     const blocks: PostListBodyBlock[] = [
       {
         className: POST_LIST_TRADE_TITLE_CLASS,
@@ -432,7 +429,7 @@ export function buildPostListPreviewModel(
         ""
       );
 
-    /** 1단 `페소 팝니다|삽니다` — 13~14px Regular(400) #4E4E4E */
+    /** 1단 `페소 팝니다|삽니다` — 15px semibold #050505 */
     const titleStr = str(post.title);
     const isBuy = exchangeListingIsBuy(meta, titleStr);
     const exchangeHeadline = titleStr || (isBuy ? "페소 삽니다" : "페소 팝니다");
@@ -449,7 +446,7 @@ export function buildPostListPreviewModel(
         className: POST_LIST_PRICE_CLASS,
         text: phpText,
       },
-      /** 3단 환율 — 13~14px Regular #4E4E4E (`POST_LIST_EXCHANGE_RATE_CLASS`) */
+      /** 3단 환율 — 13px #6B7280 (`POST_LIST_EXCHANGE_RATE_CLASS`) */
       {
         className: POST_LIST_EXCHANGE_RATE_CLASS,
         text: rateText,

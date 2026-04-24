@@ -3,8 +3,6 @@
  * - 기능/구조는 유지하고 시각 규칙만 통일한다.
  * - 모바일 우선: 본문 14px, placeholder 13px, radius 4px 고정.
  */
-import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
-
 /** 시스템 산세리프 */
 export const COMMUNITY_FONT_CLASS =
   "font-sans antialiased [font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Helvetica,Arial,sans-serif]";
@@ -42,8 +40,11 @@ export const PHILIFE_PAGE_ROOT_CLASS = [
   "bg-sam-app text-sam-fg",
 ].join(" ");
 
+/** /philife·/home 공통 — 리스트 영역 좌우 인셋(가로) — `HomeContent`와 `PHILIFE_FEED_LIST` 정렬 */
+export const PHILIFE_FEED_INSET_X_CLASS = "px-2";
+
 /** 피드 글 목록 바깥 래퍼 — 카드 간격 (`<ul>` 용) */
-export const PHILIFE_FEED_LIST_WRAP_CLASS = "m-0 list-none space-y-2 p-0 px-2 pt-2 pb-1 [&>li]:list-none";
+export const PHILIFE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1 [&>li]:list-none`;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =
@@ -133,13 +134,3 @@ export const PHILIFE_DETAIL_PAGE_ROOT_CLASS = [
   COMMUNITY_FONT_CLASS,
 ].join(" ");
 
-/**
- * 글쓰기 FAB — Viber 보라.
- */
-export function philifeFabComposeClass(): string {
-  return [
-    "kasama-quick-add fixed z-[21] flex h-14 w-14 items-center justify-center rounded-sam-md border border-sam-primary bg-sam-primary text-white shadow-sam-elevated transition active:scale-[0.98] active:opacity-95",
-    BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass,
-    BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass,
-  ].join(" ");
-}

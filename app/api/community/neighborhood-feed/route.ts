@@ -100,7 +100,10 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(parseInt(limitRaw, 10) || 20, 1), 40);
   const sortRaw = req.nextUrl.searchParams.get("sort")?.trim() ?? "";
   const feedSort: ReturnType<typeof normalizeFeedSort> = (() => {
-    if (!category) return "latest";
+    if (!category) {
+      if (!sortRaw) return "latest";
+      return normalizeFeedSort(sortRaw);
+    }
     const c = category.toLowerCase();
     if ((c === "recommend" || c === "recommended") && !sortRaw) return "recommended";
     return normalizeFeedSort(sortRaw || undefined);

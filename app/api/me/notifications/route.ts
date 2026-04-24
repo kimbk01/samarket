@@ -205,6 +205,8 @@ export async function GET(req: NextRequest) {
 }
 
 type PatchBody = {
+  /** 해당 id들만 삭제 (본인 알림만, 최대 200건) */
+  delete_ids?: string[];
   mark_all_read?: boolean;
   /** /my/notifications 목록에 맞춰, 매장 오너 전용 매장주문 알림은 읽음 처리하지 않음 */
   mark_my_notifications_read_excluding_owner_commerce?: boolean;
@@ -212,6 +214,8 @@ type PatchBody = {
   mark_all_owner_store_commerce_read?: boolean;
   ids?: string[];
 };
+
+const DELETE_IDS_CAP = 200;
 
 /** 읽음 처리 */
 export async function PATCH(req: NextRequest) {
@@ -230,6 +234,26 @@ export async function PATCH(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const rawDelete =
+    Array.isArray(body.delete_ids) ? body.delete_ids.map((x) => String(x).trim()).filter(Boolean) : [];
+  const deleteIds = [...new Set(rawDelete)].slice(0, DELETE_IDS_CAP);
+  if (deleteIds.length > 0) {
+    const { data: deletedRows, error } = await sb
+      .from("notifications")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", deleteIds)
+      .select("id");
+    if (error) {
+      if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
+        return NextResponse.json({ ok: true, deleted: 0 });
+      }
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    invalidateNotificationUnreadCountCache(userId);
+    return NextResponse.json({ ok: true, deleted: deletedRows?.length ?? 0 });
   }
 
   if (body.mark_all_read === true) {

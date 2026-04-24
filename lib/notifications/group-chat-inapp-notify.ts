@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 
 function groupChatHref(roomId: string): string {
@@ -57,6 +58,8 @@ export async function notifyGroupChatMessageRecipients(
   if (error || !members?.length) return;
 
   const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "community_chat");
+  const nickMap = await fetchNicknamesForUserIds(sb, [args.senderUserId]);
+  const senderLabel = nickMap.get(args.senderUserId.trim())?.trim() || null;
   const title = "그룹 메시지";
   const body = (args.preview || "새 메시지").slice(0, 200);
   const link = groupChatHref(roomId);
@@ -79,6 +82,8 @@ export async function notifyGroupChatMessageRecipients(
       meta: {
         kind: "group_chat",
         room_id: roomId,
+        sender_id: args.senderUserId,
+        ...(senderLabel ? { sender_label: senderLabel } : {}),
       },
     });
   }

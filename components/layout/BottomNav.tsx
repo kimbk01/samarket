@@ -12,6 +12,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -349,7 +350,20 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
   my: MyIcon,
 };
 
-export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemConfig[] | null }) {
+/** 필라이프(포털) · 거래·스토어 하단 탭 `translate` 전환 */
+const BOTTOM_NAV_OUTER_MOTION =
+  "transition-transform duration-300 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
+
+export function BottomNav({
+  initialTabs = null,
+  bodyPortal = false,
+  extraOuterClassName = "",
+}: {
+  initialTabs?: BottomNavItemConfig[] | null;
+  /** `transform` 이 걸린 조상 밖(뷰포트 `fixed`) — 필라이프 헤더 메신저 슬라이드 스택 */
+  bodyPortal?: boolean;
+  extraOuterClassName?: string;
+}) {
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
   const { t } = useI18n();
   const pathname = usePathname();
@@ -538,37 +552,55 @@ export function BottomNav({ initialTabs = null }: { initialTabs?: BottomNavItemC
 
   if (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname)) return null;
 
-  return (
-    <>
-    <nav className={BOTTOM_NAV_SHELL.outerClassName} aria-label={t("nav_bottom_bar_aria")}>
+  const [portalToBody, setPortalToBody] = useState(false);
+  useLayoutEffect(() => {
+    if (bodyPortal) setPortalToBody(true);
+  }, [bodyPortal]);
+
+  const outerClass = [
+    BOTTOM_NAV_SHELL.outerClassName,
+    bodyPortal || (extraOuterClassName.length > 0 && extraOuterClassName.includes("translate-y"))
+      ? BOTTOM_NAV_OUTER_MOTION
+      : "",
+    extraOuterClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const nav = (
+    <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
-        {tabs.map((tab) =>
-          tab.icon === "stores" ? (
-            <BottomNavTabStores
-              key={tab.id}
-              tab={tab}
-              pathname={pathname}
-              navSearch={navSearch}
-              optimisticActive={pendingActiveTabId === tab.id}
-              onNavigationIntent={markBottomNavIntent}
-            />
-          ) : (
-            <BottomNavTabStandard
-              key={tab.id}
-              tab={tab}
-              pathname={pathname}
-              navSearch={navSearch}
-              optimisticActive={pendingActiveTabId === tab.id}
-              onNavigationIntent={markBottomNavIntent}
-            />
-          )
-        )}
+          {tabs.map((tab) =>
+            tab.icon === "stores" ? (
+              <BottomNavTabStores
+                key={tab.id}
+                tab={tab}
+                pathname={pathname}
+                navSearch={navSearch}
+                optimisticActive={pendingActiveTabId === tab.id}
+                onNavigationIntent={markBottomNavIntent}
+              />
+            ) : (
+              <BottomNavTabStandard
+                key={tab.id}
+                tab={tab}
+                pathname={pathname}
+                navSearch={navSearch}
+                optimisticActive={pendingActiveTabId === tab.id}
+                onNavigationIntent={markBottomNavIntent}
+              />
+            )
+          )}
         </div>
       </div>
     </nav>
-    </>
   );
+
+  if (bodyPortal && portalToBody && typeof document !== "undefined") {
+    return createPortal(nav, document.body);
+  }
+  return <>{nav}</>;
 }
 
 function HomeIcon({ className }: { className?: string }) {

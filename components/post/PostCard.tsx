@@ -13,7 +13,7 @@ import {
 } from "@/components/post/PostListMenuBottomSheet";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
-import { APP_FEED_LIST_ROW_SHELL } from "@/lib/ui/app-feed-card";
+import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
   bumpTradeListProductCardRenderCount,
@@ -108,7 +108,7 @@ export const PostCard = memo(function PostCard({
 
   return (
     <div
-      className={`flex flex-col ${APP_FEED_LIST_ROW_SHELL}`}
+      className={`flex flex-col ${PHILIFE_FB_CARD_CLASS}`}
     >
       <div className="relative flex gap-3 p-3">
         <div

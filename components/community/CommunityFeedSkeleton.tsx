@@ -20,7 +20,7 @@ function SkeletonRow() {
 /** 첫 페인트·캐시 미스 시 — 텍스트 한 줄 대신 카드 골격으로 가벼운 인상 */
 export function CommunityFeedSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="space-y-2 px-2 pt-2 pb-1" aria-busy aria-label="피드 불러오는 중">
+    <div className="space-y-1 px-2 pt-1 pb-1" aria-busy aria-label="피드 불러오는 중">
       {Array.from({ length: rows }, (_, i) => (
         <SkeletonRow key={i} />
       ))}
