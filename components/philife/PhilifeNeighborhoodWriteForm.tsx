@@ -806,7 +806,7 @@ export function PhilifeNeighborhoodWriteForm({
 
       <form
         onSubmit={onSubmit}
-        className={`space-y-4 p-4 sm:p-5 ${PHILIFE_FB_CARD_CLASS}`}
+        className={`space-y-4 sam-card-pad ${PHILIFE_FB_CARD_CLASS}`}
       >
         {category === "meetup" ? (
             <>

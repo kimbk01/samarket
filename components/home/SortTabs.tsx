@@ -14,11 +14,11 @@ interface SortTabsProps {
   onChange: (key: SortKey) => void;
 }
 
-/** 동네생활 상단 섹션 탭과 동일 pill·타이포 */
+/** 전역 underline 탭 규격 */
 export function SortTabs({ value, onChange }: SortTabsProps) {
   const { t, tt } = useI18n();
   return (
-    <div className="sticky top-24 z-10 flex flex-nowrap gap-1 overflow-x-auto border-b border-sam-border-soft bg-sam-surface px-2 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+    <div className="sam-tabs sam-tabs--scroll top-24">
       {SORT_OPTIONS.map((opt) => {
         const on = value === opt.key;
         return (

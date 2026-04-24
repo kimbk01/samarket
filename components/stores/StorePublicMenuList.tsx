@@ -14,7 +14,7 @@ const SECTION_HEAD = "mb-3 sam-text-body font-bold text-sam-fg";
 
 /** 피드형 메뉴 카드 — 좌 썸네일 · 우 텍스트 · 우하단 + */
 const CARD_WRAP =
-  "flex w-full gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left shadow-sm transition-shadow active:shadow-md";
+  "flex w-full gap-3 rounded-sam-md border border-sam-border bg-sam-surface sam-card-pad text-left shadow-sm transition-shadow active:shadow-md";
 
 export function StorePublicMenuList({
   storeSlug,
@@ -43,7 +43,7 @@ export function StorePublicMenuList({
   if (!canSell) {
     return (
       <div className={`${STORE_DETAIL_GUTTER} mt-4`}>
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4 text-center sam-text-body-secondary font-normal leading-relaxed text-sam-muted shadow-sm">
+        <p className="rounded-sam-md border border-sam-border bg-sam-surface sam-card-pad text-center sam-text-body-secondary font-normal leading-relaxed text-sam-muted shadow-sm">
           이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.
         </p>
       </div>
@@ -54,7 +54,7 @@ export function StorePublicMenuList({
   if (flatCount === 0) {
     return (
       <div className={`${STORE_DETAIL_GUTTER} mt-4`}>
-        <p className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4 text-center sam-text-body-secondary font-normal leading-relaxed text-sam-muted shadow-sm">
+        <p className="rounded-sam-md border border-sam-border bg-sam-surface sam-card-pad text-center sam-text-body-secondary font-normal leading-relaxed text-sam-muted shadow-sm">
           {sections.length === 0 ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
         </p>
       </div>
@@ -64,7 +64,7 @@ export function StorePublicMenuList({
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 space-y-6 pb-4`}>
       {menuSelectBlocked ? (
-        <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950 shadow-sm">
+        <p className="rounded-sam-md border border-amber-200 bg-amber-50 sam-card-pad sam-text-helper font-medium leading-snug text-amber-950 shadow-sm">
           {menuSelectHint?.trim() ||
             "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."}
         </p>

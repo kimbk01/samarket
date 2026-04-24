@@ -29,7 +29,7 @@ export function StoreCommerceCartEntryFallback({
         : "삭제·비공개되었거나 주소가 바뀌었을 수 있습니다.";
 
   return (
-    <div className="min-h-[50vh] bg-[#F7F7F7] px-4 py-10">
+    <div className="min-h-[50vh] bg-sam-app px-4 py-10">
       <p className="text-center sam-text-body font-semibold text-sam-fg">{title}</p>
       <p className="mt-2 text-center text-sm text-sam-muted">{sub}</p>
       {hint === "network" && onRetry ? (

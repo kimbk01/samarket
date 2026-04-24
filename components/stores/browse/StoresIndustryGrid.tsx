@@ -35,7 +35,7 @@ export function StoresIndustryGrid({
             <li key={p.id}>
               <Link
                 href={href}
-                className="flex flex-col items-center justify-center gap-1 rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] px-2 py-4 text-center shadow-sm active:bg-sam-surface-muted"
+                className="flex flex-col items-center justify-center gap-1 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-2 py-4 text-center shadow-sm active:bg-sam-surface-muted"
               >
                 <span className="text-2xl leading-none" aria-hidden>
                   {p.symbol}

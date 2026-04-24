@@ -21,14 +21,14 @@ async function StoreOwnerNotificationSettingsPageBody({ params }: PageProps) {
 
   if (!storeId) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-fg">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-fg">
         등록된 매장을 찾을 수 없습니다. 주소(slug)를 확인해 주세요.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-10">
+    <div className="min-h-screen bg-sam-app pb-10">
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <AppBackButton backHref={`/stores/${encodeURIComponent(safe)}/owner/notifications`} />

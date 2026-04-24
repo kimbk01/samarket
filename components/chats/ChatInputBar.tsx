@@ -217,14 +217,14 @@ function ChatInputBarInner({
   return (
     <>
     <div
-      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
+      className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center bg-sam-surface safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
       style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${composerBottomPadPx}px)` }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
       {showEmojiButton && emojiOpen && (
         <div
           ref={emojiPanelRef}
-          className={`absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-sam-md border bg-sam-surface shadow-sam-elevated sm:max-h-[min(48dvh,380px)] md:mx-auto md:max-w-lg ${ig ? "border-sam-border" : "border-sam-border"}`}
+          className="absolute bottom-full left-0 right-0 z-20 mb-1 flex max-h-[min(42dvh,300px)] flex-col overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface shadow-none sm:max-h-[min(48dvh,380px)] md:mx-auto md:max-w-lg"
         >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border-soft px-2.5 py-2">
             <span className="sam-text-body-secondary font-semibold text-sam-fg">{t("common_emoji")}</span>
@@ -311,12 +311,12 @@ function ChatInputBarInner({
           {!preferMobileImageSheet && attachOpen ? (
             <div
               role="menu"
-              className={`absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-sam-md py-1 shadow-sam-elevated ring-1 ring-black/10 ${ig ? "border border-sam-border bg-sam-surface" : "border border-sam-border bg-sam-surface"}`}
+              className="absolute bottom-full left-0 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-none"
             >
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
                 onClick={() => {
                   setAttachOpen(false);
                   cameraInputRef.current?.click();
@@ -328,7 +328,7 @@ function ChatInputBarInner({
               <button
                 type="button"
                 role="menuitem"
-                className={`flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium ${ig ? "text-foreground hover:bg-black/[0.04]" : "text-sam-fg hover:bg-sam-app"}`}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
                 onClick={() => {
                   setAttachOpen(false);
                   galleryInputRef.current?.click();
@@ -346,7 +346,7 @@ function ChatInputBarInner({
         </button>
       )}
       <div
-        className={`flex min-h-[46px] min-w-0 flex-1 items-center border ${ig ? "rounded-sam-md border-sam-border bg-sam-surface px-1.5" : "rounded-sam-md border-sam-border bg-sam-surface-muted px-1.5"}`}
+        className="flex min-h-[46px] min-w-0 flex-1 items-center rounded-sam-md border border-sam-border bg-sam-surface px-1.5"
       >
         <textarea
           ref={inputRef}
@@ -373,7 +373,7 @@ function ChatInputBarInner({
           onBlur={() => onComposerFocusChange?.(false)}
           placeholder={placeholder}
           rows={1}
-          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent focus:outline-none focus:ring-0 ${ig ? `min-h-[40px] rounded-sam-md px-2.5 py-2.5 text-[14px] font-normal leading-[1.45] tracking-[-0.01em] text-sam-fg placeholder:text-sam-muted` : composerDense ? "min-h-[38px] rounded-sam-md px-3 py-1.5 text-[13px] font-normal leading-snug text-sam-fg placeholder:text-sam-meta" : "min-h-[40px] rounded-sam-md px-3 py-2.5 sam-text-body font-normal leading-[1.45] text-sam-fg placeholder:text-sam-meta"}`}
+          className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent text-sam-fg placeholder:text-sam-meta focus:outline-none focus:ring-0 ${composerDense ? "min-h-[38px] rounded-sam-md px-3 py-1.5 sam-text-body-secondary" : "min-h-[40px] rounded-sam-md px-3 py-2.5 sam-text-body"}`}
           disabled={inputLocked}
         />
         {showEmojiButton ? (
@@ -393,7 +393,7 @@ function ChatInputBarInner({
         type="button"
         onClick={handleSubmit}
         disabled={inputLocked || !hasText}
-        className="flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-sam-md bg-sam-primary sam-text-body font-semibold text-white hover:bg-sam-primary-hover disabled:opacity-50"
+        className="flex h-11 w-11 min-w-[44px] shrink-0 items-center justify-center rounded-sam-md bg-sam-primary sam-text-body font-medium text-sam-on-primary hover:bg-sam-primary-hover disabled:opacity-50"
         aria-label={t("common_send")}
       >
         <SendIcon className="h-5 w-5" />

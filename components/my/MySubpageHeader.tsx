@@ -155,7 +155,7 @@ export function MySubpageHeader({
             <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
               <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
                 {typeof translatedTitle === "string" ? (
-                  <span className="truncate sam-text-section-title font-semibold">{translatedTitle}</span>
+                  <span className="truncate sam-text-page-title">{translatedTitle}</span>
                 ) : (
                   translatedTitle
                 )}
@@ -164,12 +164,12 @@ export function MySubpageHeader({
                 subtitleHref ? (
                   <Link
                     href={subtitleHref}
-                    className="mt-0.5 block truncate sam-text-xxs leading-tight text-sam-muted hover:text-sam-fg hover:underline"
+                    className="mt-0.5 block truncate sam-text-helper leading-tight text-sam-muted hover:text-sam-fg hover:underline"
                   >
                     {translatedSubtitle}
                   </Link>
                 ) : (
-                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{translatedSubtitle}</p>
+                  <p className="truncate sam-text-helper leading-tight text-sam-muted">{translatedSubtitle}</p>
                 )
               ) : null}
             </div>

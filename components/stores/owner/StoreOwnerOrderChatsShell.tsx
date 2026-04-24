@@ -93,7 +93,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   if (state.kind === "loading") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-sam-muted">
+      <div className="min-h-screen bg-sam-app px-4 py-10 text-center text-sm text-sam-muted">
         불러오는 중…
       </div>
     );
@@ -101,7 +101,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   if (state.kind === "unauth") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-sam-muted">
+      <div className="min-h-screen bg-sam-app px-4 py-10 text-center text-sm text-sam-muted">
         로그인 후 주문 채팅과 주문 현황을 바로 확인할 수 있습니다.
         <Link href={loginHref} className="mt-4 inline-flex rounded-ui-rect bg-violet-700 px-4 py-2 font-semibold text-white">
           로그인하고 주문 보기
@@ -112,7 +112,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   if (state.kind === "error") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-red-600">
+      <div className="min-h-screen bg-sam-app px-4 py-10 text-center text-sm text-red-600">
         {state.message}
         <button type="button" onClick={() => void loadStore({ silent: false })} className="mt-4 block w-full text-violet-700 underline">
           다시 시도
@@ -123,7 +123,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   if (state.kind === "no_store") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-10 text-center text-sm text-sam-muted">
+      <div className="min-h-screen bg-sam-app px-4 py-10 text-center text-sm text-sam-muted">
         이 주소의 매장을 찾을 수 없거나 권한이 없습니다.
         <Link href="/my/business/store-orders" className="mt-4 block text-violet-700 underline">
           사업자 주문함
@@ -135,7 +135,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
   const storeId = state.storeId;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-10">
+    <div className="min-h-screen bg-sam-app pb-10">
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <AppBackButton backHref={ordersHref} />

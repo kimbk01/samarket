@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageReviewsHubPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title="후기 관리"
         subtitle="작성·받은 거래 후기"
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-6`}>
+      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+        <div className="flex min-w-0 flex-col gap-4 py-4">
         <p className="sam-text-body leading-relaxed text-sam-muted">
           <strong className="text-sam-fg">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
           <Link href="/mypage/purchases" className="font-medium text-signature underline">
@@ -41,6 +42,7 @@ export default function MypageReviewsHubPage() {
               </Link>
             </li>
           </ul>
+        </div>
         </div>
       </div>
     </div>

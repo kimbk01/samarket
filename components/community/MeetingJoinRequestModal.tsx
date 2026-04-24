@@ -65,16 +65,16 @@ export function MeetingJoinRequestModal({
     <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="join-req-title">
       <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label="닫기" onClick={onClose} />
       <div className={`relative z-50 max-h-[92vh] overflow-y-auto ${COMMUNITY_MODAL_PANEL_CLASS}`}>
-        <div className="sticky top-0 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-4 py-3">
-          <h2 id="join-req-title" className="text-[16px] font-bold text-[#1F2430]">
+        <div className="sticky top-0 flex items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
+          <h2 id="join-req-title" className="sam-text-page-title">
             모임 참여 요청
           </h2>
-          <button type="button" onClick={onClose} className="rounded-[4px] px-2 py-1 text-[12px] text-[#6B7280] hover:bg-[#F7F8FA]" disabled={busy}>
+          <button type="button" onClick={onClose} className="sam-header-action px-2 py-1 sam-text-helper" disabled={busy}>
             닫기
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
-          <p className="text-[13px] font-normal leading-[1.45] text-[#6B7280]">
+          <p className="sam-text-body-secondary">
             모임장에게 전달됩니다. 승인 후 모임 참여 상태가 갱신됩니다.
           </p>
           <Field label="이름" required hint="운영자가 확인할 수 있는 이름을 적어 주세요.">
@@ -133,12 +133,12 @@ export function MeetingJoinRequestModal({
             </Field>
           ) : null}
           {submitError ? (
-            <p className="rounded-[4px] bg-red-50 px-3 py-2 text-[13px] leading-relaxed text-red-700" role="alert">
+            <p className="rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-3 py-2 sam-text-body-secondary text-sam-danger" role="alert">
               {submitError}
             </p>
           ) : null}
         </div>
-        <div className="sticky bottom-0 flex gap-2 border-t border-[#E5E7EB] bg-white px-4 py-3">
+        <div className="sticky bottom-0 flex gap-2 border-t border-sam-border bg-sam-surface px-4 py-3">
           <button type="button" onClick={onClose} className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`} disabled={busy}>
             취소
           </button>
@@ -176,12 +176,12 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <label className="text-[13px] font-semibold text-[#1F2430]">
+    <div className="sam-form-field">
+      <label className="sam-form-label">
         {label}
-        {required ? <span className="text-red-500"> *</span> : null}
+        {required ? <span className="sam-form-required"> *</span> : null}
       </label>
-      {hint ? <p className="mt-0.5 text-[11px] text-[#9CA3AF]">{hint}</p> : null}
+      {hint ? <p className="sam-form-description">{hint}</p> : null}
       {children}
     </div>
   );

@@ -31,10 +31,7 @@ export function AdminSidebar() {
     <aside className="sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r border-sam-border bg-sam-surface">
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center border-b border-sam-border-soft px-3 py-3">
-          <Link
-            href="/admin"
-            className="sam-text-section-title font-bold text-sam-fg"
-          >
+          <Link href="/admin" className="sam-text-section-title text-sam-fg">
             {t("admin_brand")}
           </Link>
         </div>

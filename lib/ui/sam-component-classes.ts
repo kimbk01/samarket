@@ -10,6 +10,7 @@ export const Sam = {
   domainShell: "sam-domain-shell",
   pageStack: "sam-page-stack",
   pageSection: "sam-page-section",
+  section: "sam-section",
   text: {
     hero: "sam-text-hero",
     pageTitle: "sam-text-page-title",
@@ -21,9 +22,13 @@ export const Sam = {
     helper: "sam-text-helper",
     xxs: "sam-text-xxs",
     appHeaderTitle: "sam-app-header-title",
+    profileDisplay: "sam-text-profile-display",
   },
   card: {
     base: "sam-card",
+    body: "sam-card__body",
+    pad: "sam-card-pad",
+    padX: "sam-card-pad-x",
     elevated: "sam-card--elevated",
     elevatedLegacy: "sam-card-elevated",
     flat: "sam-card--flat",
@@ -73,6 +78,12 @@ export const Sam = {
     interactive: "sam-list-row sam-list-row--interactive",
     selected: "sam-list-row sam-list-row--selected",
   },
+  listItem: {
+    base: "sam-list-item",
+    interactive: "sam-list-item sam-list-item--interactive",
+    thumb: "sam-list-item__thumb",
+    body: "sam-list-item__body",
+  },
   sheet: {
     backdrop: "sam-sheet-backdrop",
     panel: "sam-sheet-panel",
@@ -99,6 +110,12 @@ export const Sam = {
   settings: {
     sectionTitle: "sam-settings-section-title",
     group: "sam-settings-group",
+  },
+  form: {
+    field: "sam-form-field",
+    label: "sam-form-label",
+    description: "sam-form-description",
+    required: "sam-form-required",
   },
   divider: "sam-divider",
   headerAction: "sam-header-action",

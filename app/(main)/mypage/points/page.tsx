@@ -10,7 +10,7 @@ import { PointExpiringCard } from "@/components/points/PointExpiringCard";
 import { PointChargeRequestList } from "@/components/points/PointChargeRequestList";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
-import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 function PointsBackendNotice() {
   const { t } = useI18n();
@@ -92,14 +92,15 @@ export default function MypagePointsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title={t("common_points")}
         subtitle={t("points_subtitle")}
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-6 py-4`}>
+      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+        <div className="flex min-w-0 flex-col gap-6 py-4">
         <PointsBackendNotice />
         {loadError ? (
           <div className="rounded-ui-rect border border-red-100 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
@@ -147,6 +148,7 @@ export default function MypagePointsPage() {
           ) : (
             <PointChargeRequestList requests={requests} />
           )}
+        </div>
         </div>
       </div>
     </div>

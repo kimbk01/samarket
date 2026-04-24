@@ -390,10 +390,10 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         storeInfoHref={storeInfoHref}
       />
 
-      <div id="store-menu-panel" className="bg-[#f3f4f6] pb-4">
+      <div id="store-menu-panel" className="bg-sam-app pb-4">
         <div
           ref={menuStickyMeasureRef}
-          className={`sticky z-[33] border-b border-sam-border/90 bg-[#f3f4f6]/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
+          className={`sticky z-[33] border-b border-sam-border/90 bg-sam-app/95 px-3 py-2 backdrop-blur-md ${STORE_DETAIL_MENU_STICKY_TOP_CLASS}`}
         >
           <div className="mb-2 grid grid-cols-2 gap-2 rounded-ui-rect bg-sam-surface p-1">
             <button

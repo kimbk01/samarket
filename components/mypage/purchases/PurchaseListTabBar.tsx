@@ -18,8 +18,7 @@ export function PurchaseListTabBar({
   onChange: (tab: PurchaseListTabId) => void;
 }) {
   return (
-    <div className="-mx-1 mb-3 overflow-x-auto pb-1">
-      <div className="flex min-w-max gap-1.5 px-1">
+    <div className="sam-tabs sam-tabs--scroll mb-3">
         {PURCHASE_LIST_TABS.map(({ id, label }) => {
           const n = counts[id];
           const isActive = active === id;
@@ -37,7 +36,6 @@ export function PurchaseListTabBar({
             </button>
           );
         })}
-      </div>
     </div>
   );
 }

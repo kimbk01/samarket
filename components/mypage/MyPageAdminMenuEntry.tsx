@@ -5,9 +5,14 @@ import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenu
 
 /**
  * `isRouteAdmin()` 과 동일 — `/api/admin/access-check` (AdminGuard 와 공유).
- * 관리자로 지정된 계정에만 설정 섹션 목록 하단에 표시.
+ * 관리자로 지정된 계정에만 표시 (설정 섹션 목록 하단·내정보 홈 하단 등).
  */
-export function MyPageAdminMenuEntry() {
+export function MyPageAdminMenuEntry({
+  /** 홈 대시보드 `<ul>` 안에서만 `true` — 유효한 마크업(`<li>`) */
+  asListItem = false,
+  /** @deprecated `asListItem` 사용 */
+  wrapInStandaloneCard = false,
+}: { asListItem?: boolean; wrapInStandaloneCard?: boolean } = {}) {
   const [show, setShow] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -29,5 +34,9 @@ export function MyPageAdminMenuEntry() {
 
   if (!ready || !show) return null;
 
-  return <MyPageMobileMenuRow href="/admin" title="관리자 접속" />;
+  const row = <MyPageMobileMenuRow href="/admin" title="관리자 접속" surface={asListItem || wrapInStandaloneCard ? "card" : "grouped"} />;
+  if (asListItem) {
+    return <li className="list-none">{row}</li>;
+  }
+  return row;
 }

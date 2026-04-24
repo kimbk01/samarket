@@ -18,10 +18,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface-muted">
+    <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-sam-app">
       {sidebarExpanded && <AdminSidebar />}
       <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
-        <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-sam-border bg-sam-surface px-3 py-2 md:px-4">
+        <header className="sticky top-0 z-20 flex min-w-0 max-w-full shrink-0 items-center gap-3 overflow-x-hidden border-b border-sam-border bg-sam-surface px-4 py-2">
           <h1 className="min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg">
             {t("admin_brand")}
           </h1>
@@ -34,13 +34,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminTestSwitcher />
             <Link
               href="/home"
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app hover:border-sam-border"
+              className="sam-btn sam-btn--outline sam-btn--sm"
             >
               {t("common_homepage")}
             </Link>
           </div>
         </header>
-        <main className="min-h-0 w-full min-w-0 flex-1 px-3 py-4 md:px-4 md:py-4">
+        <main className="min-h-0 w-full min-w-0 flex-1 px-4 py-4">
           {children}
         </main>
       </div>

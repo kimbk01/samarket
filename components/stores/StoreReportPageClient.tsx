@@ -15,14 +15,14 @@ export function StoreReportPageClient({
 
   if (!safeSlug) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] p-4">
+      <div className="min-h-screen bg-sam-app p-4">
         <p className="text-sm text-sam-muted">잘못된 주소입니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F7F7]">
+    <div className="min-h-screen bg-sam-app">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
         <h1 className="truncate text-center sam-text-body-lg font-semibold text-sam-fg">
           {mode === "product" ? "상품 신고" : "매장 신고"}

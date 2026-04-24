@@ -87,8 +87,8 @@ function RowSkeletonList() {
           <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]" />
           <div className="flex flex-1 flex-col gap-2 py-0.5">
             <div className="h-4 w-3/5 animate-pulse rounded bg-[#E4E6EB] dark:bg-[#3A3B3C]" />
-            <div className="h-3 w-full animate-pulse rounded bg-[#F0F2F5] dark:bg-[#3A3B3C]" />
-            <div className="h-3 w-4/5 animate-pulse rounded bg-[#F0F2F5] dark:bg-[#3A3B3C]" />
+            <div className="h-3 w-full animate-pulse rounded bg-sam-surface-muted dark:bg-[#3A3B3C]" />
+            <div className="h-3 w-4/5 animate-pulse rounded bg-sam-surface-muted dark:bg-[#3A3B3C]" />
           </div>
         </li>
       ))}

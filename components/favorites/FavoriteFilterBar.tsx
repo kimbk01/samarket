@@ -29,7 +29,7 @@ export function FavoriteFilterBar({
   const { tt, t } = useI18n();
   return (
     <div className="space-y-3 border-b border-sam-border-soft bg-sam-surface px-4 py-3">
-      <div className="flex gap-1 overflow-x-auto">
+      <div className="sam-tabs sam-tabs--scroll">
         {FAVORITE_STATUS_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -48,7 +48,7 @@ export function FavoriteFilterBar({
         <select
           value={sortKey}
           onChange={(e) => onSortKeyChange(e.target.value as FavoriteSortKey)}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-body-secondary font-semibold text-sam-fg"
+          className="sam-select min-h-0 py-1"
         >
           {FAVORITE_SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>

@@ -11,20 +11,18 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
 
   return (
     <MyPageStackShell title={section.label} backHref="/mypage">
-      <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {section.items.map((it) => (
-          <MyPageMobileMenuRow
-            key={it.id}
-            href={buildMypageItemHref(section.id, it.id)}
-            title={it.label}
-          />
+          <li key={it.id} className="list-none">
+            <MyPageMobileMenuRow
+              href={buildMypageItemHref(section.id, it.id)}
+              title={it.label}
+              surface="card"
+            />
+          </li>
         ))}
-        {showAdminEntry ? (
-          <div className="border-t border-sam-border bg-ui-page">
-            <MyPageAdminMenuEntry />
-          </div>
-        ) : null}
-      </div>
+        {showAdminEntry ? <MyPageAdminMenuEntry asListItem /> : null}
+      </ul>
     </MyPageStackShell>
   );
 }

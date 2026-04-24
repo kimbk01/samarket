@@ -9,7 +9,11 @@ import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
 import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
 import { mapLegacyMyPageItemSlug } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  PHILIFE_FB_CARD_CLASS,
+  PHILIFE_FEED_INSET_X_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
@@ -58,10 +62,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
         <MyPageHeader backFallbackHref="/home" />
-        <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
-          <div className="rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-10 text-center sam-text-body text-[var(--text-muted)]">
+        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             내정보를 불러오는 중이에요.
           </div>
         </div>
@@ -71,10 +75,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
         <MyPageHeader backFallbackHref="/home" />
-        <div className={`${APP_MAIN_COLUMN_CLASS} space-y-4 px-4 pt-4 pb-8`}>
-          <div className="rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-10 text-center sam-text-body text-[var(--text-muted)]">
+        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             로그인이 필요합니다.
           </div>
         </div>
@@ -86,9 +90,11 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const showBanner = banner && !bannerHidden;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background pb-8">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MyPageHeader centerTitle="내정보" centerSubtitle={null} backFallbackHref="/home" />
-      <div className="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col">
+      <div
+        className={`${APP_MAIN_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col`}
+      >
         {profile ? (
           <MyPageHomeDashboard
             profile={profile}
@@ -101,8 +107,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
             }
           />
         ) : (
-          <div className="mx-4 mt-4 rounded-ui-rect border border-sam-border bg-[var(--sub-bg)] px-4 py-10 text-center sam-text-body text-[var(--text-muted)] sm:mx-0">
-            프로필을 불러오지 못했어요. 다시 로그인해 주세요.
+          <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1`}>
+            <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
+              프로필을 불러오지 못했어요. 다시 로그인해 주세요.
+            </div>
           </div>
         )}
       </div>

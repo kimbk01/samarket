@@ -443,7 +443,7 @@ export function StoresBrowsePrimaryView({
   }
 
   return (
-    <div className="min-h-[50vh] bg-[#F0F2F5] pb-8 dark:bg-[#18191A]">
+    <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
       <section className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} space-y-4 pt-2`}>
         {remoteLoading && !listLoaded ?
           <p className="py-4 text-center text-sm text-sam-muted">실매장 연동 확인 중…</p>
@@ -470,7 +470,7 @@ export function StoresBrowsePrimaryView({
                     <Link
                       key={p.id}
                       href={storesBrowsePrimaryPath(p.slug)}
-                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-[#F7F7F7] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
+                      className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
                     >
                       <span aria-hidden>{p.symbol}</span>
                       {p.nameKo}

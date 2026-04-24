@@ -111,7 +111,7 @@ export function TradeHistoryStackPanel() {
           </TradeHubSectionShell>
         ) : null}
         {tab === "chat" ? (
-          <div className={`${PHILIFE_FB_CARD_CLASS} px-3 py-8 text-center sm:px-4`}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card-pad py-8 text-center`}>
             <p className="sam-text-body text-sam-muted">{t("nav_trade_hub_chat")}</p>
             <Link
               href={TRADE_CHAT_SURFACE.messengerListHref}

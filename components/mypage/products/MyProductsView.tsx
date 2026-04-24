@@ -326,7 +326,7 @@ export function MyProductsView() {
   );
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 px-4 pb-24">
+    <div className="flex min-w-0 flex-col gap-4">
       <TradeBuyerPickerModal
         open={buyerPicker != null}
         title={buyerPicker?.mode === "reserve" ? "예약할 구매자 선택" : "거래완료할 구매자 선택"}

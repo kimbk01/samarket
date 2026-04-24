@@ -6,7 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 function MypageNotificationSettingsLink() {
   return (
@@ -29,7 +29,7 @@ export default function MypageNotificationsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title={t("common_notifications")}
         subtitle={t("tier1_notifications_subtitle")}
@@ -46,7 +46,8 @@ export default function MypageNotificationsPage() {
           </Link>
         }
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS} space-y-10 py-4`}>
+      <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+        <div className="flex min-w-0 flex-col gap-10 py-4">
         <section id="notification-inbox" className="min-w-0 scroll-mt-4" aria-label={t("common_notifications")}>
           <MyNotificationsView />
         </section>
@@ -64,6 +65,7 @@ export default function MypageNotificationsPage() {
           <p className="mb-4 sam-text-helper text-sam-muted">{t("notifications_settings_subtitle")}</p>
           <NotificationsSettingsContent />
         </section>
+        </div>
       </div>
     </div>
   );

@@ -82,7 +82,7 @@ export function StoreMyBusinessHubBanner({
           {listed && primary.slug ?
             <Link
               href={`/stores/${encodeURIComponent(primary.slug)}`}
-              className={`inline-flex items-center justify-center rounded-full border border-[#E4E6EB] bg-[#F0F2F5] px-4 py-2 sam-text-helper font-semibold text-[#050505] dark:border-[#3E4042] dark:bg-[#3A3B3C] dark:text-[#E4E6EB]`}
+              className={`inline-flex items-center justify-center rounded-full border border-[#E4E6EB] bg-sam-surface-muted px-4 py-2 sam-text-helper font-semibold text-[#050505] dark:border-[#3E4042] dark:bg-[#3A3B3C] dark:text-[#E4E6EB]`}
             >
               공개 페이지
             </Link>

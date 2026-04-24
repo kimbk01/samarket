@@ -117,6 +117,12 @@ body {
   line-height: var(--sam-font-body-line);
 }
 
+/* Pages Router/포털 루트(있을 때) — 캔버스는 --sam-bg-app 와 동일 */
+#__next,
+#root {
+  background: var(--sam-bg-app);
+}
+
 ::selection {
   background: color-mix(in srgb, var(--sam-primary) 18%, #ffffff);
   color: var(--sam-text-primary);

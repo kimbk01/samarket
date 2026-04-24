@@ -10,7 +10,8 @@
   --sm-color-primary: #3f6fd9;
   --sm-color-primary-strong: #315cc0;
   --sm-color-primary-soft: #eef4ff;
-  --sm-color-bg-page: #f4f5f7;
+  /* 앱 캔버스 — 전역 흰색(카드·리스트 뮤트는 app-subtle-* ) */
+  --sm-color-bg-page: #ffffff;
   --sm-color-bg-card: #ffffff;
   --sm-color-text-main: #1f2937;
   --sm-color-text-sub: #667085;
@@ -20,22 +21,25 @@
   --sm-color-success: #21885d;
 
   /* ----- User requested SM typography tokens ----- */
-  --sm-font-page-title: 22px;
-  --sm-font-section-title: 18px;
-  --sm-font-card-title: 16px;
-  --sm-font-body: 15px;
+  --sm-font-page-title: 17px;
+  --sm-font-section-title: 14px;
+  --sm-font-card-title: 15px;
+  /** 본문 기본 — 리스트 설명 등은 --sm-font-body-compact */
+  --sm-font-body: 14px;
   --sm-font-body-compact: 13px;
-  --sm-font-meta: 12px;
-  --sm-font-caption: 11px;
+  --sm-font-meta: 13px;
+  --sm-font-caption: 12px;
   --sm-font-input: 15px;
   --sm-font-placeholder: 14px;
-  --sm-font-button: 15px;
+  --sm-font-button: 14px;
   --sm-font-tab: 14px;
-  --sm-font-modal-title: 18px;
-  --sm-font-modal-body: 15px;
+  --sm-font-modal-title: 17px;
+  --sm-font-modal-body: 14px;
+  /** 내정보 프로필 카드 닉네임 */
+  --sm-font-profile-display: 16px;
 
   --sm-lh-page-title: 1.3;
-  --sm-lh-section-title: 1.35;
+  --sm-lh-section-title: 1.4;
   --sm-lh-card-title: 1.4;
   --sm-lh-body: 1.5;
   --sm-lh-body-compact: 1.45;
@@ -52,8 +56,9 @@
   /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
   --app-bg: var(--sm-color-bg-page);
   --app-surface: var(--sm-color-bg-card);
-  --app-subtle-bg: color-mix(in srgb, var(--sm-color-bg-page) 78%, #ffffff);
-  --app-subtle-bg-2: color-mix(in srgb, var(--sm-color-bg-page) 66%, #ffffff);
+  /* 페이지가 흰색이므로 뮤트톤은 border 기준(회색 캔버스 단색 금지) */
+  --app-subtle-bg: color-mix(in srgb, var(--app-border) 4.5%, #ffffff);
+  --app-subtle-bg-2: color-mix(in srgb, var(--app-border) 8.5%, #ffffff);
   --app-border: var(--sm-color-border);
   --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
   --app-text: var(--sm-color-text-main);
@@ -147,6 +152,13 @@
   /* ----- Layout ----- */
   --sam-screen-padding-x: var(--sam-space-4);
   --sam-section-gap: var(--sam-space-5);
+  /** 카드 ↔ 카드 세로 간격(메인 스택) */
+  --sam-stack-gap-y: 12px;
+  /**
+   * 카드·섹션·리스트 행 등 **내부** 패딩(좌·우·상·하 동일, 기본 16px).
+   * `p-3` / `px-3` 등으로 화면마다 어긋나지 않도록 이 값만 참조한다.
+   */
+  --sam-card-padding: var(--sam-space-4);
   --sam-item-gap: var(--sam-space-3);
   --sam-header-action-min: 40px;
   --sam-header-row-height: 56px;
@@ -158,15 +170,15 @@
   --sam-bp-lg-min: 1024px;
 
   /* ----- Typography scale ----- */
-  --sam-text-hero-size: 24px;
-  --sam-text-hero-weight: 700;
+  --sam-text-hero-size: 18px;
+  --sam-text-hero-weight: 600;
   --sam-text-page-title-size: var(--sm-font-page-title);
-  --sam-text-page-title-weight: 700;
+  --sam-text-page-title-weight: 600;
   --sam-text-section-title-size: var(--sm-font-section-title);
-  --sam-text-section-title-weight: 700;
+  --sam-text-section-title-weight: 600;
   --sam-text-card-title-size: var(--sm-font-card-title);
   --sam-text-card-title-weight: 600;
-  --sam-text-body-lg-size: var(--sm-font-modal-body);
+  --sam-text-body-lg-size: var(--sm-font-body);
   --sam-text-body-lg-weight: 400;
   --sam-text-body-size: var(--sm-font-body);
   --sam-text-body-weight: 400;
@@ -175,7 +187,7 @@
   --sam-text-helper-size: var(--sm-font-meta);
   --sam-text-helper-weight: 400;
   --sam-text-xxs-size: var(--sm-font-caption);
-  --sam-text-xxs-weight: 500;
+  --sam-text-xxs-weight: 400;
   /** placeholder 전용(입력 본문은 --sam-text-body-size 유지) */
   --sam-text-placeholder-size: var(--sm-font-placeholder);
 
@@ -194,6 +206,9 @@
   --sam-tap-min: 44px;
   --sam-input-min-height: 46px;
   --sam-button-min-height: 46px;
+  /** 내정보 프로필 표시명 */
+  --sam-text-profile-display-size: var(--sm-font-profile-display);
+  --sam-text-profile-display-weight: 600;
 
   /* ----- 레거시 시맨틱 브리지 ----- */
   --ui-page-bg: var(--sam-bg-app);

@@ -13,7 +13,7 @@ function SearchFallback() {
 
 export default function SearchPageClient() {
   return (
-    <div className="min-h-screen bg-[#F7F7F7]">
+    <div className="min-h-screen bg-sam-app">
       <Suspense fallback={<SearchFallback />}>
         <SearchView />
       </Suspense>

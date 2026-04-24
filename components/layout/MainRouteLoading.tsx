@@ -1,23 +1,24 @@
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 
 /**
- * 하단 고정 탭·safe-area 와 맞춘 패딩 — `BOTTOM_NAV_SHELL` 높이와 동일 식.
+ * Bottom padding for full-height loading shells: tab bar height + safe-area
+ * (aligned with main shell / bottom nav spacing).
  */
 export const MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS =
   "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
 
-/** 피드형(거래·커뮤니티·필라이프 등) — 카드 행 골격 */
+/** Philife / trade-style feed routes: card skeleton list */
 export function MainFeedRouteLoading({ rows = 5 }: { rows?: number }) {
   return (
     <div
-      className={`min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background ${MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS}`}
+      className={`min-h-screen min-w-0 max-w-full overflow-x-hidden bg-sam-app ${MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS}`}
     >
       <CommunityFeedSkeleton rows={rows} />
     </div>
   );
 }
 
-/** 폼·설정형 — 글쓰기·마이 등 */
+/** Form-heavy routes (settings, mypage forms): block skeleton */
 export function MainFormRouteLoading() {
   return (
     <div
@@ -33,7 +34,7 @@ export function MainFormRouteLoading() {
   );
 }
 
-/** 홈 — 칩/탭 한 줄 + 2컬럼 피드 레이아웃 골격 */
+/** Home trade shell: feed column + optional wide-layout side column */
 export function MainHomeShellLoading() {
   return (
     <div

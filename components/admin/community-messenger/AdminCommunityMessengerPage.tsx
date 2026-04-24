@@ -2014,7 +2014,7 @@ function getTopHeatmapSlots(matrix: number[][]) {
 
 function getHeatmapCellStyle(count: number, maxCount: number, tone: "red" | "amber") {
   if (count <= 0 || maxCount <= 0) {
-    return { backgroundColor: "#f3f4f6" };
+    return { backgroundColor: "var(--sam-bg-surface-muted)" };
   }
   const alpha = 0.18 + (count / maxCount) * 0.72;
   return {

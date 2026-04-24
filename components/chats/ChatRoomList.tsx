@@ -169,9 +169,9 @@ export function ChatRoomList({
 
   if (sessionDenied) {
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-sam-muted`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center sam-text-body-secondary`}>
         <p>{t("common_login_required_for_chat_list")}</p>
-        <Link href="/login" className="mt-3 inline-block font-medium text-signature underline">
+        <Link href="/login" className="mt-3 inline-block font-medium text-sam-primary underline">
           {t("common_login")}
         </Link>
       </div>
@@ -180,12 +180,12 @@ export function ChatRoomList({
 
   if (error) {
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-red-600`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center sam-text-body-secondary text-sam-danger`}>
         {error}
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-3 block w-full font-medium text-signature underline"
+          className="mt-3 block w-full font-medium text-sam-primary underline"
         >
           {t("common_retry")}
         </button>
@@ -209,9 +209,9 @@ export function ChatRoomList({
             label: t(TRADE_CHAT_SURFACE.emptyCtaLabelKey),
           };
     return (
-      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center text-sm text-muted`}>
+      <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center sam-text-body-secondary`}>
         <p>{emptyCopy}</p>
-        <Link href={emptyCta.href} className="mt-4 inline-block font-medium text-signature underline">
+        <Link href={emptyCta.href} className="mt-4 inline-block font-medium text-sam-primary underline">
           {emptyCta.label}
         </Link>
       </div>
@@ -239,7 +239,7 @@ export function ChatRoomList({
   if (!useVirt) {
     return (
       <ul
-        className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} space-y-0 divide-y divide-sam-border bg-sam-surface`}
+        className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} sam-card divide-y divide-sam-border`}
       >
         {rooms.map((room) => (
           <li key={room.id}>{renderRoomRow(room)}</li>
@@ -251,7 +251,7 @@ export function ChatRoomList({
   return (
     <div
       role="list"
-      className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} relative bg-sam-surface`}
+      className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} sam-card relative`}
       style={{ height: rowVirtualizer.getTotalSize() }}
     >
       {rowVirtualizer.getVirtualItems().map((vi) => {

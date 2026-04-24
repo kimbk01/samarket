@@ -12,7 +12,7 @@ import {
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
 const itemClass =
-  "relative flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect py-2 text-[#050505] active:bg-[#F0F2F5] dark:text-[#E4E6EB] dark:active:bg-[#3A3B3C]";
+  "relative flex min-h-[48px] flex-1 flex-col items-center justify-center gap-0.5 rounded-ui-rect py-2 text-[#050505] active:bg-sam-surface-muted dark:text-[#E4E6EB] dark:active:bg-[#3A3B3C]";
 
 /** 상단 한 줄 — 배달앱 상단 유틸과 유사 (검색·장바구니·주문) */
 export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeStoreOrderCount?: number }) {

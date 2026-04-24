@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { TradeHubPageBody } from "@/components/mypage/trade/TradeHubPageBody";
 import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
-import { COMMUNITY_FONT_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { APP_MAIN_FEED_STACK_CLASS } from "@/lib/ui/app-content-layout";
 
 /** `/philife` 피드와 동일: 커뮤니티 폰트·하단 `pb-28`·본문 가로 `px-2` */
 const TRADE_HUB_PAGE_ROOT_CLASS = [
@@ -20,9 +21,7 @@ export default function TradeHubLayout({ children }: { children: ReactNode }) {
         registerMainTier1={false}
         stickyBelow={<TradeHubTopTabs />}
       />
-      <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col gap-1 pt-1 ${PHILIFE_FEED_INSET_X_CLASS} w-full max-w-none`}
-      >
+      <div className={`flex-1 ${APP_MAIN_FEED_STACK_CLASS} max-w-none`}>
         <TradeHubPageBody>{children}</TradeHubPageBody>
       </div>
     </div>

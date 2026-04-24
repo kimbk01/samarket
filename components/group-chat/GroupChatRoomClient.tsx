@@ -174,7 +174,7 @@ export function GroupChatRoomClient({
   );
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[#F7F7F7]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sam-app">
       <header className="shrink-0 border-b border-sam-border bg-sam-surface px-3 py-2">
         <div className={`flex items-center gap-2 ${THREAD_INNER}`}>
           <AppBackButton backHref={listHref} preferHistoryBack={false} />

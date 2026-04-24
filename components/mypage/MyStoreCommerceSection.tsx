@@ -73,7 +73,7 @@ export function MyStoreCommerceSection() {
         <div className="mt-3 flex flex-col gap-2">
           <Link
             href="/my/business/apply"
-            className="rounded-ui-rect border border-sam-border bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
           >
             매장 등록 신청
           </Link>
@@ -109,19 +109,19 @@ export function MyStoreCommerceSection() {
         </Link>
         <Link
           href={inquiriesHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           받은 문의
         </Link>
         <Link
           href={hubHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           운영 허브
         </Link>
         <Link
           href={productsHref}
-          className="rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
+          className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           상품 관리
         </Link>
@@ -131,7 +131,7 @@ export function MyStoreCommerceSection() {
               ? `/my/business/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
               : "/my/business/settlements"
           }
-          className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-[#F7F7F7] py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
+          className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
           정산 내역
         </Link>

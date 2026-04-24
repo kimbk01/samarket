@@ -394,7 +394,7 @@ export function StoreProductAddSheet({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#F0F2F5]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-app">
           {loading ? (
             <p className="py-10 text-center text-sm text-sam-muted">불러오는 중…</p>
           ) : notFound || !product || !store ? (

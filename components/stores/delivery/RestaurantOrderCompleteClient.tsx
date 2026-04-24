@@ -88,7 +88,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
       const showReviewCta =
         o.order_status === "completed" && canSubmitReview && !hasReview;
       return (
-        <div className="min-h-screen bg-[#f3f4f6] px-4 py-8 pb-16">
+        <div className="min-h-screen bg-sam-app px-4 py-8 pb-16">
           <div className="mx-auto max-w-md rounded-ui-rect border border-emerald-100 bg-sam-surface p-6 shadow-sm">
             <p className="text-center text-sm font-semibold text-emerald-700">
               {o.order_status === "completed" ? "주문이 완료되었습니다" : "주문이 접수되었습니다"}

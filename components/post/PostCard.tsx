@@ -110,9 +110,9 @@ export const PostCard = memo(function PostCard({
     <div
       className={`flex flex-col ${PHILIFE_FB_CARD_CLASS}`}
     >
-      <div className="relative flex gap-3 p-3">
+      <div className="relative flex gap-3 sam-card-pad">
         <div
-          className="absolute right-3 top-3 z-[1] flex items-center gap-1"
+          className="absolute right-[var(--sam-card-padding)] top-[var(--sam-card-padding)] z-[1] flex items-center gap-1"
           onClick={(e) => e.preventDefault()}
           role="presentation"
         >
@@ -182,7 +182,7 @@ export const PostCard = memo(function PostCard({
         </Link>
       </div>
       {footer ? (
-        <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2.5">{footer}</div>
+        <div className="border-t border-sam-border-soft bg-sam-surface sam-card-pad-x py-3">{footer}</div>
       ) : null}
       {menuOpen ? (
         <PostListMenuBottomSheet

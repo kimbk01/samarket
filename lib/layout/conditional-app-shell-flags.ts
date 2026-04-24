@@ -99,9 +99,9 @@ export function resolveConditionalAppShellFlags(
   const isAnyChatRoomDetail = isViewportLockedChatDetail || isCommunityMessengerCallPage;
   const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
-      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
-      : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-[#F7F7F7]"
-    : "min-h-[100dvh] min-w-0 max-w-full overflow-x-clip bg-[#F7F7F7]";
+      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
+      : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
+    : "min-h-[100dvh] min-w-0 max-w-full overflow-x-clip bg-sam-app";
   const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);

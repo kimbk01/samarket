@@ -72,12 +72,12 @@ export function StoreReportForm({
 
   if (ok) {
     return (
-      <div className="rounded-ui-rect border border-emerald-100 bg-emerald-50/80 p-4 text-[14px] text-emerald-900">
-        <p className="font-semibold">신고가 접수되었습니다.</p>
-        <p className="mt-1 text-[13px] font-normal text-emerald-800/90">검토 후 필요 시 조치합니다. 허위 신고는 제재 대상이 될 수 있습니다.</p>
+      <div className="rounded-ui-rect border border-sam-success/15 bg-sam-success-soft p-4 sam-text-body text-sam-success">
+        <p className="font-medium">신고가 접수되었습니다.</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-success">검토 후 필요 시 조치합니다. 허위 신고는 제재 대상이 될 수 있습니다.</p>
         <button
           type="button"
-          className="mt-4 text-[14px] font-semibold text-emerald-800 underline"
+          className="mt-4 sam-text-body-secondary font-medium text-sam-success underline"
           onClick={() => router.push(`/stores/${encodeURIComponent(storeSlug)}`)}
         >
           매장으로 돌아가기
@@ -88,13 +88,13 @@ export function StoreReportForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <p className="text-[12px] font-normal text-sam-muted">
+      <p className="sam-text-helper">
         {mode === "store"
           ? "이 매장에 대한 신고입니다."
           : "선택한 상품에 대한 신고입니다."}
       </p>
-      <label className="block">
-        <span className="text-[13px] font-semibold text-sam-fg">사유</span>
+      <label className="sam-form-field block">
+        <span className="sam-form-label">사유</span>
         <select
           className="sam-select mt-1"
           value={reason}
@@ -107,8 +107,8 @@ export function StoreReportForm({
           ))}
         </select>
       </label>
-      <label className="block">
-        <span className="text-[13px] font-semibold text-sam-fg">상세 내용 (최대 2000자)</span>
+      <label className="sam-form-field block">
+        <span className="sam-form-label">상세 내용 (최대 2000자)</span>
         <textarea
           className="sam-textarea mt-1 min-h-[96px]"
           value={message}
@@ -117,7 +117,7 @@ export function StoreReportForm({
           placeholder="구체적으로 적어 주시면 검토에 도움이 됩니다."
         />
       </label>
-      {err ? <p className="text-[12px] text-red-600">{err}</p> : null}
+      {err ? <p className="sam-text-helper text-sam-danger">{err}</p> : null}
       <button
         type="submit"
         disabled={busy}

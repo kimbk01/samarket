@@ -24,11 +24,9 @@ export function StoreMenuCategoryChips({
   if (sections.length <= 1) return null;
 
   return (
-    <div
-      className={`${plainBackground ? "px-0 py-0" : "bg-transparent px-4 py-2.5"} ${omitTopBorder || plainBackground ? "" : "border-t border-sam-border/80"}`}
-    >
+    <div className={`${plainBackground ? "px-0 py-0" : "bg-sam-surface px-4"} ${omitTopBorder || plainBackground ? "" : "border-t border-sam-border"}`}>
       <HorizontalDragScroll
-        className="-mx-4 flex gap-0 overflow-x-auto pb-0.5 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="sam-tabs sam-tabs--scroll -mx-4"
         role="tablist"
         aria-label="메뉴 카테고리"
       >
@@ -41,11 +39,7 @@ export function StoreMenuCategoryChips({
               role="tab"
               aria-selected={on}
               onClick={() => onSelect(i)}
-              className={`shrink-0 border-b-[3px] px-4 py-2.5 sam-text-body-secondary transition-colors ${
-                on
-                  ? "border-sam-primary font-semibold text-sam-fg"
-                  : "border-transparent font-medium text-sam-muted active:bg-sam-surface-muted"
-              }`}
+              className={`sam-tab ${on ? "sam-tab--active" : ""}`}
             >
               {s.label}
             </button>

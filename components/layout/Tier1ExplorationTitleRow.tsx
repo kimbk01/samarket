@@ -35,7 +35,7 @@ export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitle
 
   return (
     <span className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
-      <span className="sam-text-section-title shrink-0 leading-none">{segmentTitle}</span>
+      <span className="sam-text-page-title shrink-0 leading-none">{segmentTitle}</span>
       <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
         ·
       </span>

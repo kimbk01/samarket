@@ -1,11 +1,11 @@
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyStoreOrderDetailView } from "@/components/mypage/MyStoreOrderDetailView";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageStoreOrderDetailPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title="주문 상세"
         subtitle="배달, 픽업 주문 상세"
@@ -15,7 +15,7 @@ export default function MypageStoreOrderDetailPage() {
         hideCtaStrip
         rightSlot={<CommerceCartHeaderLink />}
       />
-      <div className={`w-full min-w-0 py-4 ${APP_MAIN_GUTTER_X_CLASS}`}>
+      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} py-4`}>
         <MyStoreOrderDetailView />
       </div>
     </div>

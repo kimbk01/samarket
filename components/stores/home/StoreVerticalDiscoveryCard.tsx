@@ -127,7 +127,7 @@ export function StoreVerticalDiscoveryCard({
   return (
     <li className={`overflow-hidden ${FB.card}`}>
       <Link href={storeHref} className="block active:bg-[#F2F3F5] dark:active:bg-[#2F3031]">
-        <div className="relative aspect-[5/3] w-full overflow-hidden bg-[#F0F2F5] dark:bg-[#3A3B3C]">
+        <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?
             <img
               src={store.profileImageUrl}
@@ -195,7 +195,7 @@ export function StoreVerticalDiscoveryCard({
               {flags.map((f) => (
                 <span
                   key={f}
-                  className="rounded-ui-rect bg-[#F0F2F5] px-2 py-0.5 sam-text-xxs font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]"
+                  className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]"
                 >
                   {f}
                 </span>
@@ -211,7 +211,7 @@ export function StoreVerticalDiscoveryCard({
             <li key={it.productId}>
               <Link
                 href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(it.productId)}`}
-                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary active:bg-[#F0F2F5] dark:active:bg-[#3A3B3C]`}
+                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary active:bg-sam-surface-muted dark:active:bg-[#3A3B3C]`}
                 onClick={(e) => e.stopPropagation()}
               >
                 <span className={`truncate ${FB.link}`}>{it.name}</span>

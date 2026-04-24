@@ -512,10 +512,10 @@ export function ChatRoomScreen({
     const igDmOuter = isStoreOrderChat || !room.generalChat;
     const outerClassReady =
       embedded && embeddedFill
-        ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"}`
+        ? `flex min-h-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-sam-app"}`
         : tradeHubColumnLayout && !embedded
-          ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"}`
-          : `${igDmOuter ? "bg-sam-surface" : "bg-[#e8e4df]"} ${
+          ? `flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${igDmOuter ? "bg-sam-surface" : "bg-sam-app"}`
+          : `${igDmOuter ? "bg-sam-surface" : "bg-sam-app"} ${
               embedded ? "overflow-hidden rounded-ui-rect border border-sam-border-soft shadow-sm" : viewportClass
             }`;
 

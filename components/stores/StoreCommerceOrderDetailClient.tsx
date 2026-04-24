@@ -123,7 +123,7 @@ export function StoreCommerceOrderDetailClient({
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] px-4 py-4 pb-12">
+    <div className="min-h-screen bg-sam-app px-4 py-4 pb-12">
       <div className="mb-4">
         <HistoryBackTextLink
           fallbackHref={`/stores/${encodeURIComponent(storeSlug)}`}

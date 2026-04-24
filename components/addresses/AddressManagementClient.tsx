@@ -13,7 +13,7 @@ import {
   consumeMapAddressPickContext,
   writeMapAddressPickContext,
 } from "@/lib/map/map-address-pick-storage";
-import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
 import { readCachedMeAddressList, writeCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 
@@ -181,62 +181,97 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   return (
     <div
       className={
-        embedded ? "" : "min-h-screen w-full min-w-0 max-w-[100dvw] overflow-x-clip bg-background"
+        embedded ? "" : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
       }
     >
       {!embedded ? (
         <MySubpageHeader title={tt("주소 관리")} backHref="/mypage" hideCtaStrip />
       ) : null}
-      <div
-        className={
-          embedded
-            ? "mx-auto max-w-none space-y-4 px-0 py-0 pb-0"
-            : `${APP_MYPAGE_SUBPAGE_BODY_CLASS} space-y-4 py-4 pb-28`
-        }
-      >
-        {loadErr ? (
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-            {loadErr}
-            <p className="mt-2 sam-text-helper text-amber-900/90">
-              Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
-              확인해 주세요.
-            </p>
+      {embedded ? (
+        <div className="mx-auto max-w-none space-y-4 px-0 py-0 pb-0">
+          {loadErr ? (
+            <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
+              {loadErr}
+              <p className="mt-2 sam-text-helper text-amber-900/90">
+                Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
+                확인해 주세요.
+              </p>
+            </div>
+          ) : null}
+
+          <div>
+            {list.length === 0 && !loadErr && listBootstrapping ? (
+              <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+                불러오는 중…
+              </p>
+            ) : list.length === 0 && !loadErr ? (
+              <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+                {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
+              </p>
+            ) : (
+              <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
+                {list.map((row) => (
+                  <AddressRowCard
+                    key={row.id}
+                    row={row}
+                    busyId={busyId}
+                    onSetAsRepresentative={() => void setAsRepresentative(row.id)}
+                    onEdit={() => openEdit(row)}
+                    onDelete={() => void removeRow(row.id)}
+                  />
+                ))}
+              </ul>
+            )}
           </div>
-        ) : null}
 
-        <div>
-          {list.length === 0 && !loadErr && listBootstrapping ? (
-            <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-              불러오는 중…
-            </p>
-          ) : list.length === 0 && !loadErr ? (
-            <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-              {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
-            </p>
-          ) : (
-            <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
-              {list.map((row) => (
-                <AddressRowCard
-                  key={row.id}
-                  row={row}
-                  busyId={busyId}
-                  onSetAsRepresentative={() => void setAsRepresentative(row.id)}
-                  onEdit={() => openEdit(row)}
-                  onDelete={() => void removeRow(row.id)}
-                />
-              ))}
-            </ul>
-          )}
+          <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
+            {tt("+ 주소 추가")}
+          </button>
         </div>
+      ) : (
+        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+          <div className="flex min-w-0 flex-col gap-4 py-4">
+            {loadErr ? (
+              <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
+                {loadErr}
+                <p className="mt-2 sam-text-helper text-amber-900/90">
+                  Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
+                  확인해 주세요.
+                </p>
+              </div>
+            ) : null}
 
-        <button
-          type="button"
-          onClick={openCreate}
-          className={ADDR_ADD_CTA}
-        >
-          {tt("+ 주소 추가")}
-        </button>
-      </div>
+            <div>
+              {list.length === 0 && !loadErr && listBootstrapping ? (
+                <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+                  불러오는 중…
+                </p>
+              ) : list.length === 0 && !loadErr ? (
+                <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+                  {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
+                </p>
+              ) : (
+                <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
+                  {list.map((row) => (
+                    <AddressRowCard
+                      key={row.id}
+                      row={row}
+                      busyId={busyId}
+                      onSetAsRepresentative={() => void setAsRepresentative(row.id)}
+                      onEdit={() => openEdit(row)}
+                      onDelete={() => void removeRow(row.id)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
+              {tt("+ 주소 추가")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <AddressEditorSheet
         open={editorOpen}

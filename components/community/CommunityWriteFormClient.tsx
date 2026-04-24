@@ -130,15 +130,15 @@ export function CommunityWriteFormClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-[#E5E7EB] bg-white px-2 py-2">
+    <div className="min-h-screen bg-sam-app pb-10">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-sam-border bg-sam-surface px-4 py-2">
         <AppBackButton backHref={philifeAppPaths.home} ariaLabel="닫기" />
-        <h1 className="text-[17px] font-bold leading-[1.35] text-[#1F2430]">커뮤니티 글쓰기</h1>
+        <h1 className="sam-app-header-title">커뮤니티 글쓰기</h1>
       </header>
 
-      <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-4 px-4 py-4">
-        <div>
-          <label className="text-[13px] font-normal text-[#6B7280]">주제 (필수)</label>
+      <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-3 px-4 py-4">
+        <div className="sam-form-field">
+          <label className="sam-form-label">주제 <span className="sam-form-required">*</span></label>
           <select
             value={topicSlug}
             onChange={(e) => setTopicSlug(e.target.value)}
@@ -152,9 +152,9 @@ export function CommunityWriteFormClient({
             ))}
           </select>
         </div>
-        {skinHint ? <p className="rounded-[4px] bg-sky-50 px-3 py-2 text-[13px] font-normal leading-[1.45] text-sky-900">{skinHint}</p> : null}
-        <div>
-          <label className="text-[13px] font-normal text-[#6B7280]">제목</label>
+        {skinHint ? <p className="rounded-sam-md border border-sam-info/15 bg-sam-info-soft px-3 py-2 sam-text-body-secondary text-sam-info">{skinHint}</p> : null}
+        <div className="sam-form-field">
+          <label className="sam-form-label">제목</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -163,8 +163,8 @@ export function CommunityWriteFormClient({
             maxLength={200}
           />
         </div>
-        <div>
-          <label className="text-[13px] font-normal text-[#6B7280]">내용</label>
+        <div className="sam-form-field">
+          <label className="sam-form-label">내용</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -174,10 +174,10 @@ export function CommunityWriteFormClient({
           />
         </div>
         {selectedTopic?.allow_meetup ? (
-          <div className="space-y-3 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-3">
-            <p className="text-[13px] font-semibold text-[#6B7280]">모임·장소 (선택)</p>
-            <div>
-              <label className="text-[12px] font-normal text-[#6B7280]">장소명 · 상호</label>
+          <div className="sam-section space-y-3">
+            <p className="sam-form-label">모임·장소 (선택)</p>
+            <div className="sam-form-field">
+              <label className="sam-form-description">장소명 · 상호</label>
               <input
                 value={meetupPlace}
                 onChange={(e) => setMeetupPlace(e.target.value)}
@@ -186,8 +186,8 @@ export function CommunityWriteFormClient({
                 maxLength={200}
               />
             </div>
-            <div>
-              <label className="text-[12px] font-normal text-[#6B7280]">일정 (선택)</label>
+            <div className="sam-form-field">
+              <label className="sam-form-description">일정 (선택)</label>
               <input
                 type="datetime-local"
                 value={meetupDate}
@@ -197,17 +197,17 @@ export function CommunityWriteFormClient({
             </div>
           </div>
         ) : null}
-        <div>
-          <label className="text-[13px] font-normal text-[#6B7280]">사진 (최대 10장)</label>
+        <div className="sam-form-field">
+          <label className="sam-form-label">사진 (최대 10장)</label>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={onPickFiles} />
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
-              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-[4px] bg-[#F7F8FA]">
+              <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface-muted">
                 <img src={url} alt="" className="h-full w-full object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(idx)}
-                  className="absolute right-0 top-0 rounded-bl-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] text-white"
+                  className="absolute right-0 top-0 rounded-bl-sam-md bg-sam-ink/70 px-1.5 py-0.5 sam-text-xxs text-sam-on-primary"
                 >
                   삭제
                 </button>
@@ -218,7 +218,7 @@ export function CommunityWriteFormClient({
                 type="button"
                 disabled={uploading || busy}
                 onClick={() => fileRef.current?.click()}
-                className="flex h-20 w-20 items-center justify-center rounded-[4px] border border-dashed border-[#E5E7EB] text-[13px] font-normal text-[#6B7280]"
+                className="flex h-20 w-20 items-center justify-center rounded-sam-md border border-dashed border-sam-border sam-text-body-secondary"
               >
                 {uploading ? "…" : "+ 추가"}
               </button>
@@ -226,12 +226,12 @@ export function CommunityWriteFormClient({
           </div>
         </div>
         {selectedTopic?.allow_question ? (
-          <label className="flex items-center gap-2 text-[14px] font-normal text-[#1F2430]">
+          <label className="flex items-center gap-2 sam-text-body">
             <input type="checkbox" checked={isQuestion} onChange={(e) => setIsQuestion(e.target.checked)} />
             질문글로 올리기
           </label>
         ) : null}
-        {err ? <p className="text-[12px] font-normal text-[#E25555]">{err}</p> : null}
+        {err ? <p className="sam-text-helper text-sam-danger">{err}</p> : null}
         <button
           type="submit"
           disabled={busy || !title.trim() || !content.trim()}

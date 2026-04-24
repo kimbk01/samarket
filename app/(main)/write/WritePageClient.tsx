@@ -153,7 +153,7 @@ export default function WritePageClient() {
       >
         <div
           ref={panelRef}
-          className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-[#F7F7F7] text-sam-fg shadow-[0_-10px_26px_rgba(0,0,0,0.12)] transition-transform ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+          className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-app text-sam-fg shadow-[0_-10px_26px_rgba(0,0,0,0.12)] transition-transform ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
             panelOpen ? "translate-y-0" : "translate-y-full"
           }`}
           style={{ transitionDuration: `${WRITE_SHEET_TRANSITION_MS}ms` }}

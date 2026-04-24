@@ -48,12 +48,12 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
 
   if (gate.kind === "loading" || gate.kind === "idle") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-muted">불러오는 중…</div>
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-muted">불러오는 중…</div>
     );
   }
   if (gate.kind === "unauth") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-fg">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-fg">
         <Link href="/login" className="font-semibold text-signature underline">
           로그인
         </Link>
@@ -62,7 +62,7 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
   }
   if (gate.kind === "not_owner") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-fg">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-fg">
         오너 권한이 없습니다.
         <Link href={`/stores/${encodeURIComponent(safeSlug)}`} className="mt-4 block text-signature underline">
           매장으로
@@ -72,7 +72,7 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
   }
   if (gate.kind === "error") {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-rose-800">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-rose-800">
         {gate.message}
       </div>
     );
@@ -84,13 +84,13 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center text-sm text-sam-muted">주문 불러오는 중…</div>
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-muted">주문 불러오는 중…</div>
     );
   }
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] px-4 py-16 text-center">
+      <div className="min-h-screen bg-sam-app px-4 py-16 text-center">
         <p className="text-sm text-sam-muted">{error ?? "주문을 찾을 수 없습니다."}</p>
         <Link
           href={buildStoreOrdersHref({ storeId: gate.store.id })}

@@ -757,7 +757,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (storeLoadFailed || !store) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7]">
+      <div className="min-h-screen bg-sam-app">
         <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
         <div className="px-4 text-center">
           <Link href="/stores" className="text-sm font-medium text-signature">
@@ -770,7 +770,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (lines.length === 0 && lastOrderId) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] pb-8">
+      <div className="min-h-screen bg-sam-app pb-8">
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
           <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
@@ -813,7 +813,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (lines.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] pb-8">
+      <div className="min-h-screen bg-sam-app pb-8">
         <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
           <div className="w-full border-b border-sam-border-soft bg-sam-surface">
             <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
@@ -887,7 +887,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+    <div className="min-h-screen bg-sam-app pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
         <div className="w-full border-b border-sam-border-soft bg-sam-surface">
           <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>

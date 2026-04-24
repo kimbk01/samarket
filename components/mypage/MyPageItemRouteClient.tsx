@@ -5,7 +5,6 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
 export function MyPageItemRouteClient({
   initialMyPageData,
@@ -41,9 +40,7 @@ export function MyPageItemRouteClient({
   if (loading) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center sam-text-body text-sam-muted sm:px-4`}>
-          불러오는 중…
-        </div>
+        <div className="py-6 text-center sam-text-body text-sam-muted">불러오는 중…</div>
       </MyPageStackShell>
     );
   }
@@ -51,9 +48,7 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} px-3 pt-6 text-center sam-text-body text-sam-muted sm:px-4`}>
-          로그인이 필요합니다.
-        </div>
+        <div className="py-6 text-center sam-text-body text-sam-muted">로그인이 필요합니다.</div>
       </MyPageStackShell>
     );
   }
@@ -62,24 +57,22 @@ export function MyPageItemRouteClient({
 
   return (
     <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-      <div className="px-3 sm:px-4">
-        <MyPageItemScreen
-          section={section}
-          item={item}
-          profile={profile}
-          mannerScore={mannerScore}
-          isBusinessMember={isBusinessMember}
-          hasOwnerStore={hs}
-          ownerHubStoreId={ownerHubStoreId}
-          isAdmin={isAdmin}
-          addressDefaults={addressDefaults}
-          neighborhoodFromLife={neighborhoodFromLife}
-          overviewCounts={overviewCounts}
-          favoriteBadge={favoriteBadge}
-          notificationBadge={notificationBadge}
-          storeAttentionSummary={storeAttentionSummary}
-        />
-      </div>
+      <MyPageItemScreen
+        section={section}
+        item={item}
+        profile={profile}
+        mannerScore={mannerScore}
+        isBusinessMember={isBusinessMember}
+        hasOwnerStore={hs}
+        ownerHubStoreId={ownerHubStoreId}
+        isAdmin={isAdmin}
+        addressDefaults={addressDefaults}
+        neighborhoodFromLife={neighborhoodFromLife}
+        overviewCounts={overviewCounts}
+        favoriteBadge={favoriteBadge}
+        notificationBadge={notificationBadge}
+        storeAttentionSummary={storeAttentionSummary}
+      />
     </MyPageStackShell>
   );
 }

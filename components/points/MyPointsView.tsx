@@ -67,7 +67,7 @@ export function MyPointsView() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-28">
+    <div className="min-h-screen bg-sam-app pb-28">
       {/* 잔액 헤더 카드 */}
       <div className="bg-gradient-to-br from-sky-600 to-sky-700 px-5 pb-8 pt-6">
         <p className="sam-text-body-secondary font-medium text-sky-200">내 포인트 잔액</p>

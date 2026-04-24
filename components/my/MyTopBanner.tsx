@@ -23,9 +23,9 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
   };
 
   const content = (
-    <div className="relative flex min-h-[72px] items-center gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm">
+    <div className="sam-card relative flex min-h-[72px] items-center gap-3 sam-card-pad">
       {banner.image_url && (
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-sam-md bg-sam-surface-muted">
           <Image src={banner.image_url} alt="" fill className="object-cover" sizes="48px" />
         </div>
       )}

@@ -2000,7 +2000,7 @@ export function CommunityMessengerHome({
       }
     >
       {fromPhilifeHeaderStack ? (
-        <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#f6f6f6)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
+        <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
           <div
             className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)] ${APP_MAIN_HEADER_INNER_CLASS}`}
           >

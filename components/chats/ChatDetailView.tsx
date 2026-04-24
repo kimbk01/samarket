@@ -2112,7 +2112,7 @@ export function ChatDetailView({
 
   return (
     <div
-      className={`flex flex-col ${isStoreOrderChat ? "bg-sam-surface" : "bg-[#e8e4df]"} ${rootHeightClass}`}
+      className={`flex flex-col ${isStoreOrderChat ? "bg-sam-surface" : "bg-sam-app"} ${rootHeightClass}`}
     >
       {isStoreOrderBuyer ? (
         <header className="shrink-0 border-b border-sam-border bg-sam-surface">
@@ -2308,7 +2308,7 @@ export function ChatDetailView({
         <div
           ref={tradeThreadScrollRef}
           onScroll={onTradeThreadScroll}
-          className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-[#F7F7F7] py-1"}`}
+          className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-sam-app py-1"}`}
         >
           <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
             {integratedHistoryLoading && !isStoreOrderChat ? (

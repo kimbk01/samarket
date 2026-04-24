@@ -73,9 +73,9 @@ function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): nu
 }
 
 const meetingToolbarBtn =
-  "flex min-h-[44px] w-full items-center justify-center rounded-[4px] border border-[#E5E7EB] bg-[#FFFFFF] px-1 py-2 text-center text-[14px] font-semibold leading-[1.4] text-[#1F2430] disabled:opacity-50";
+  "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
 const meetingToolbarWrap =
-  "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-[4px] [&>button]:border [&>button]:border-[#E5E7EB] [&>button]:bg-[#FFFFFF] [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[14px] [&>button]:font-semibold [&>button]:leading-[1.4] [&>button]:text-[#1F2430]";
+  "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-sam-md [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[length:var(--sam-text-body-size)] [&>button]:font-medium [&>button]:leading-[var(--sam-font-body-line)] [&>button]:text-sam-fg";
 
 export function CommunityDetail({
   post,

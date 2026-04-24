@@ -15,7 +15,7 @@ interface MyProductFilterProps {
 
 export function MyProductFilter({ value, onChange }: MyProductFilterProps) {
   return (
-    <div className="flex gap-1 overflow-x-auto pb-2">
+    <div className="sam-tabs sam-tabs--scroll mb-3">
       {MY_PRODUCT_FILTER_OPTIONS.map((opt) => (
         <button
           key={opt.value}

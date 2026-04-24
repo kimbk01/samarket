@@ -284,7 +284,7 @@ export function StoreProductPublic({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
+      <div className="min-h-screen bg-sam-app px-4 py-8">
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       </div>
     );
@@ -292,7 +292,7 @@ export function StoreProductPublic({
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#F7F7F7] px-4 py-8">
+      <div className="min-h-screen bg-sam-app px-4 py-8">
         <p className="text-sm text-sam-muted">{t("common_product_not_found")}</p>
         <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
           {t("common_back_to_store")}
@@ -583,7 +583,7 @@ export function StoreProductPublic({
   const profileUrl = store.profile_image_url?.trim() || "";
 
   return (
-    <div className="min-h-screen bg-[#F7F7F7] pb-28">
+    <div className="min-h-screen bg-sam-app pb-28">
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
         <h1 className="truncate text-center sam-text-body font-semibold text-sam-fg">{product.title}</h1>
       </header>

@@ -73,8 +73,8 @@ export function CommunityWriteForm({
     <div
       className={
         embeddedTier1 || suppressTier1Chrome
-          ? "flex w-full min-w-0 flex-col bg-[#F7F8FA] pb-24"
-          : "min-h-screen bg-[#F7F8FA] pb-24"
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
+          : "min-h-screen bg-sam-app pb-24"
       }
     >
       {!suppressTier1Chrome ? (
@@ -87,12 +87,12 @@ export function CommunityWriteForm({
       ) : null}
       <form
         onSubmit={handleSubmit}
-        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+        className="mx-auto w-full max-w-[480px] space-y-3 px-4 py-4 md:max-w-2xl lg:max-w-3xl"
       >
         <ImageUploader value={images} onChange={setImages} label="사진 (선택)" />
-        <section className="border-b border-[#E5E7EB] bg-white px-4 py-4">
-          <label className="mb-2 block text-[14px] font-semibold text-[#1F2430]">
-            제목 <span className="text-red-500">*</span>
+        <section className="sam-section">
+          <label className="sam-form-label mb-2 block">
+            제목 <span className="sam-form-required">*</span>
           </label>
           <input
             type="text"
@@ -103,11 +103,11 @@ export function CommunityWriteForm({
             className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
             aria-invalid={!!errors.title}
           />
-          {errors.title && <p className="mt-1 text-[12px] text-[#E25555]">{errors.title}</p>}
+          {errors.title && <p className="mt-1 sam-text-helper text-sam-danger">{errors.title}</p>}
         </section>
-        <section className="border-b border-[#E5E7EB] bg-white px-4 py-4">
-          <label className="mb-2 block text-[14px] font-semibold text-[#1F2430]">
-            내용 <span className="text-red-500">*</span>
+        <section className="sam-section">
+          <label className="sam-form-label mb-2 block">
+            내용 <span className="sam-form-required">*</span>
           </label>
           <textarea
             value={content}
@@ -117,10 +117,10 @@ export function CommunityWriteForm({
             className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
             aria-invalid={!!errors.content}
           />
-          {errors.content && <p className="mt-1 text-[12px] text-[#E25555]">{errors.content}</p>}
+          {errors.content && <p className="mt-1 sam-text-helper text-sam-danger">{errors.content}</p>}
         </section>
         {errors.submit && (
-          <p className="px-4 py-2 text-[12px] text-[#E25555]">{errors.submit}</p>
+          <p className="sam-text-helper px-4 py-2 text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton label="등록하기" submitting={submitting} onCancel={onCancel} />
       </form>

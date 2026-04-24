@@ -40,7 +40,7 @@ export function OwnerOrderDetail({
   const terminal = ["completed", "cancelled", "refunded", "refund_requested"].includes(order.order_status);
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] pb-44">
+    <div className="min-h-screen bg-sam-app pb-44">
       <header className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface px-3 py-3">
         <div className="mx-auto flex max-w-lg items-center gap-2">
           <HistoryBackTextLink

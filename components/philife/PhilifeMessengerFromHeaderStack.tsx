@@ -115,7 +115,7 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
   const panel = showPortal
     ? createPortal(
         <div
-          className="pointer-events-auto fixed inset-y-0 right-0 z-50 flex max-h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden bg-[color:var(--messenger-bg,#f6f6f6)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-[env(safe-area-inset-top,0px)] text-[color:var(--messenger-fg,#0f0f0f)] will-change-transform [overscroll-behavior:contain]"
+          className="pointer-events-auto fixed inset-y-0 right-0 z-50 flex max-h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden bg-[color:var(--messenger-bg,#ffffff)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-[env(safe-area-inset-top,0px)] text-[color:var(--messenger-fg,#0f0f0f)] will-change-transform [overscroll-behavior:contain]"
           style={{
             transform: panelX,
             transition: `transform ${PANEL_MS}ms ${PANEL_EASE}`,

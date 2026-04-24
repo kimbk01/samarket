@@ -3,7 +3,7 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
-import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +30,14 @@ async function MypageBusinessRouteBody({ searchParams }: PageProps) {
   const initialServerState = await loadMyBusinessServer(storeId);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title="매장 운영"
         subtitle="주문, 상품, 운영 상태, 정산 관리"
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} pt-2 pb-8`}>
+      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} pt-2 pb-8`}>
         <MyBusinessPage initialServerState={initialServerState} />
       </div>
     </div>

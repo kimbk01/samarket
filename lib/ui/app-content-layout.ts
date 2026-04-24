@@ -3,6 +3,8 @@
  * (ConditionalAppShell·BottomNav·피드 등 본문 컬럼에서 동일 토큰 사용)
  */
 
+import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+
 /** 메인 컬럼 `max-w-*` 체인만 — 고정 하단 바·상세 풀폭 래퍼 등에서 본문과 동일 폭으로 맞출 때 */
 export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
   "max-w-[42rem] sm:max-w-[46rem] md:max-w-[52rem] lg:max-w-[60rem] xl:max-w-[66rem]";
@@ -10,21 +12,38 @@ export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
 /** 메인 스크롤 영역 최대 폭 + 가운데 정렬 (태블릿·가로 모드에서 점진적으로 넓힘) */
 export const APP_MAIN_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`;
 
-/** 본문·헤더 내부 좌우 여백 */
-export const APP_MAIN_GUTTER_X_CLASS = "px-3 sm:px-4 md:px-5";
-export const APP_MAIN_GUTTER_X_COMFY_CLASS = "px-4 sm:px-5 md:px-6";
+/** 본문·헤더 내부 좌우 여백 — 모바일 기준 16px 고정, 태블릿 이상만 점진 확장 */
+export const APP_MAIN_GUTTER_X_CLASS = "px-4 md:px-5";
+export const APP_MAIN_GUTTER_X_COMFY_CLASS = "px-4 md:px-6";
 
 /** 상위에 GUTTER_X가 있을 때 자식을 가로 풀폭으로 맞추기(스티키 바 등) */
-export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-3 sm:-mx-4 md:-mx-5";
+export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-4 md:-mx-5";
 
-/** 내정보 하위 페이지 기본 본문 폭 — 피드·1단과 동일 `max-w` 체인(가로 태블릿까지) */
-export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
+/**
+ * 내정보 하위 페이지 본문 — 메인 컬럼 폭 + **거래 홈 피드와 동일** 가로 인셋(`PHILIFE_FEED_INSET_X`).
+ */
+export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${PHILIFE_FEED_INSET_X_CLASS}`;
 
 /**
  * 설정·알림 등 폼형 하위 페이지 — **메인 본문과 동일** max-w·거터(좌우 여밉 통일).
  * 과도한 가로 확장은 메인 컬럼 체인으로만 제한.
  */
 export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS = APP_MYPAGE_SUBPAGE_BODY_CLASS;
+
+/**
+ * 메인 탭 앱 본문 스크롤 영역 — 거래 홈·`/mypage/trade`·내정보 홈과 동일:
+ * 가로 `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` + 상단 `pt-1`.
+ * (이미 `APP_MAIN_COLUMN` 안에 있을 때만 래핑; 컬럼 클래스는 중복하지 않는다.)
+ */
+export const APP_MAIN_FEED_STACK_CLASS = `min-h-0 min-w-0 w-full max-w-full flex flex-col gap-1 pt-1 ${PHILIFE_FEED_INSET_X_CLASS}`;
+
+/**
+ * 메인 하단 탭이 있는 화면 본문 — 컬럼 + 피드 인셋만.
+ * 하단 탭 위 `padding-bottom`은 `ConditionalAppShell`의 `<main>`(mainBottomClass)에서 이미
+ * `MAIN_SCROLL_PADDING` 으로 한 번만 적용되므로, 여기서는 중복하지 않는다.
+ * (`MyPageStackShell`·거래/내정보 서브페이지. **앱 셸 밖**에 단독 쓰는 경로는 별도로 pb 를 준다.)
+ */
+export const APP_MAIN_TAB_SCROLL_BODY_CLASS = `${APP_MAIN_COLUMN_CLASS} min-h-0 flex-1 ${APP_MAIN_FEED_STACK_CLASS}`;
 
 /**
  * 본문이 `APP_MAIN_COLUMN_CLASS`(좁은 컬럼) 안에 있을 때, 1단 바 배경만 뷰포트 전폭으로 맞출 때 사용.
@@ -36,7 +55,7 @@ export const APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS =
 
 /** safe-area와 본문 거터(12/16/20px) 중 큰 값 — 좌·우 패딩만 */
 const APP_TIER1_SAFE_X_PAD =
-  "pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))] md:pl-[max(1.25rem,env(safe-area-inset-left,0px))] md:pr-[max(1.25rem,env(safe-area-inset-right,0px))]";
+  "pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] md:pl-[max(1.25rem,env(safe-area-inset-left,0px))] md:pr-[max(1.25rem,env(safe-area-inset-right,0px))]";
 
 /**
  * 뷰포트 풀폭 1단 앱바 **내부** — 기기 좌우·노치(safe-area)와 본문 거터 단계 중 큰 값.
@@ -64,4 +83,4 @@ export const APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS = APP_MAIN_HEADER_INNER
  * 알림 인박스 등에서 좌우·모서리·그림자를 거래 탭과 맞출 때 사용.
  */
 export const TRADE_HUB_LIST_ITEM_CARD_CLASS =
-  "relative overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm";
+  "relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-none";

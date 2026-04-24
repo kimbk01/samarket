@@ -19,13 +19,12 @@ export function TradeManagementTabBar<T extends string>({
   active: T;
   counts: Record<T, number>;
   onChange: (tab: T) => void;
-  /** 기본: 둥근 pill. 구매 내역 등은 `APP_TOP_MENU_ROW1_BASE_RADIUS_4` */
+  /** 전역 underline 탭 클래스 */
   tabBaseClassName?: string;
 }) {
   const { t, tt } = useI18n();
   return (
-    <div className="-mx-1 mb-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <div className="flex min-w-max gap-1.5 px-1">
+    <div className="sam-tabs sam-tabs--scroll mb-3">
         {tabs.map(({ id, label, labelKey }) => {
           const n = counts[id] ?? 0;
           const isActive = active === id;
@@ -43,7 +42,6 @@ export function TradeManagementTabBar<T extends string>({
             </button>
           );
         })}
-      </div>
     </div>
   );
 }

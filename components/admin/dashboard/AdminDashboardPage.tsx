@@ -67,15 +67,15 @@ export function AdminDashboardPage({
   const loading = loadState === "loading";
 
   return (
-    <div className="space-y-6">
+    <div className="sam-page-stack">
       <AdminPageHeader title="대시보드" />
 
       {loadState === "error" && (
         <div
-          className="rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
+          className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning"
           role="alert"
         >
-          <p className="font-medium text-amber-900 dark:text-amber-100">
+          <p className="font-medium">
             운영 지표를 불러오지 못했습니다.
           </p>
           <p className="mt-1 text-sam-muted">
@@ -85,7 +85,7 @@ export function AdminDashboardPage({
           <button
             type="button"
             onClick={() => load({ showLoading: true })}
-            className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-app"
+            className="sam-btn sam-btn--outline sam-btn--sm mt-3"
           >
             다시 불러오기
           </button>

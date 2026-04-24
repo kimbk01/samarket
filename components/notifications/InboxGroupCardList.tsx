@@ -40,8 +40,8 @@ export function InboxGroupCardList({
   if (items.length === 0) {
     return <p className="text-[12px] leading-snug text-sam-muted">{emptyLabel}</p>;
   }
-  const pad = compact ? "px-2.5 py-2" : "p-3";
-  const railPad = compact ? "px-2 py-2" : "px-2 py-3";
+  const pad = compact ? "px-2.5 py-2" : "sam-card-pad";
+  const railPad = compact ? "px-2 py-2" : "sam-card-pad-x py-3";
   return (
     <ul className="min-w-0 space-y-2">
       {items.map((item) => {

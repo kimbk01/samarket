@@ -144,7 +144,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   if (loadErr && (!stores || stores.length === 0)) {
     return (
-      <div className="min-h-screen bg-[#F0F2F5] px-4 py-8">
+      <div className="min-h-screen bg-sam-app px-4 py-8">
         <p className="text-sm text-red-600">매장 정보를 불러오지 못했습니다. ({loadErr})</p>
         <button
           type="button"
@@ -159,7 +159,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   if (!selectedRow) {
     return (
-      <div className="min-h-screen bg-[#F0F2F5] px-4 py-8">
+      <div className="min-h-screen bg-sam-app px-4 py-8">
         <p className="text-sm text-sam-muted">매장을 불러오는 중…</p>
       </div>
     );
@@ -213,7 +213,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <BusinessAdminStoreProvider value={ctxValue}>
-      <div className="flex min-h-screen flex-col bg-[#F0F2F5] lg:flex-row">
+      <div className="flex min-h-screen flex-col bg-sam-app lg:flex-row">
         {drawerOpen ? (
           <button
             type="button"

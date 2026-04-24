@@ -17,34 +17,34 @@ function daysLeft(endAt: string): string {
   return `${days}일 남음`;
 }
 
-/** 필라이프 피드 스폰서 카드 — Viber 톤 */
+/** 필라이프 피드 스폰서 카드 — 전역 카드/리스트 규격 */
 export function AdPostCard({ ad, href }: AdPostCardProps) {
   const linkHref = href ?? `/philife/${ad.postId}`;
 
   return (
     <article className={PHILIFE_FB_CARD_CLASS}>
-      <Link href={linkHref} className="block active:bg-[#F7F8FA]/80">
-        <div className="flex items-center gap-2.5 px-3 py-3 sm:px-4">
+      <Link href={linkHref} className="block active:bg-sam-surface-muted">
+        <div className="flex items-center gap-2.5 sam-card-pad-x py-3">
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[4px] bg-[#F3F0FF] text-[11px] font-medium uppercase text-[#7360F2]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sam-md border border-sam-primary-border bg-sam-primary-soft sam-text-xxs uppercase text-sam-primary"
             aria-hidden
           >
             AD
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-[#1F2430]">{ad.advertiserName}</p>
-            <p className="text-[12px] text-[#6B7280]">
+            <p className="truncate sam-text-card-title">{ad.advertiserName}</p>
+            <p className="sam-text-helper">
               스폰서 · {ad.locationLabel ? `${ad.locationLabel} · ` : ""}
               {daysLeft(ad.endAt)}
             </p>
           </div>
         </div>
-        <div className="space-y-1.5 border-t border-[#E5E7EB] px-3 pb-3 pt-2 sm:px-4">
-          <p className="text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{ad.postTitle}</p>
+        <div className="space-y-1.5 border-t border-sam-border-soft sam-card-pad-x pb-3 pt-2">
+          <p className="sam-text-card-title">{ad.postTitle}</p>
           {ad.postSummary ? (
-            <p className="line-clamp-2 text-[13px] leading-[1.45] text-[#6B7280]">{ad.postSummary}</p>
+            <p className="line-clamp-2 sam-text-body-secondary">{ad.postSummary}</p>
           ) : null}
-          <p className="text-[13px] font-semibold text-[#7360F2]">자세히 보기</p>
+          <p className="sam-text-body-secondary font-medium text-sam-primary">자세히 보기</p>
         </div>
       </Link>
     </article>

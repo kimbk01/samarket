@@ -41,14 +41,14 @@ export function CategoryListByType({
 
   if (variant === "tabs") {
     return (
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="sam-tabs sam-tabs--scroll">
         {categories
           .filter((c) => types.includes(c.type))
           .map((c) => (
             <Link
               key={c.id}
               href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-              className={`${APP_TOP_MENU_ROW1_BASE} ${APP_TOP_MENU_ROW1_INACTIVE} shadow-sm`}
+              className={`${APP_TOP_MENU_ROW1_BASE} ${APP_TOP_MENU_ROW1_INACTIVE}`}
             >
               {c.name}
             </Link>
@@ -66,7 +66,7 @@ export function CategoryListByType({
             <Link
               key={c.id}
               href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-              className="flex flex-col items-center rounded-ui-rect bg-sam-surface p-3 shadow-sm"
+              className="sam-card flex flex-col items-center sam-card-pad"
             >
               <span className="sam-text-body-secondary font-medium text-sam-fg">{c.name}</span>
               <span className="mt-0.5 sam-text-xxs text-sam-muted">
@@ -93,7 +93,7 @@ export function CategoryListByType({
                 <li key={c.id}>
                   <Link
                     href={linkBase ? `${linkBase}${linkUseSlug ? c.slug : c.id}` : "#"}
-                    className="block rounded-ui-rect bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+                    className="sam-list-item sam-list-item--interactive block"
                   >
                     {c.name}
                   </Link>

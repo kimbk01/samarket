@@ -12,13 +12,17 @@ import {
   buildMypageSectionHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
+import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { resolveUnifiedChatUnreadHintForDashboard } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  PHILIFE_FB_CARD_CLASS,
+  PHILIFE_FEED_INSET_X_CLASS,
+} from "@/lib/philife/philife-flat-ui-classes";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function formatCount(n: number | null | undefined): string {
@@ -135,72 +139,81 @@ export function MyPageHomeDashboard({
     ownerHub.chatUnread,
   ]);
 
+  /** 거래 홈 `HomeProductList` — `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` 과 동일 축 */
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {showBanner && bannerSlot ? <div className={`shrink-0 ${APP_MAIN_GUTTER_X_CLASS} pt-4`}>{bannerSlot}</div> : null}
+    <div className={`min-h-0 min-w-0 flex-1 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1`}>
+      {showBanner && bannerSlot ? <div className="mb-1 shrink-0">{bannerSlot}</div> : null}
 
-      <section className={`${APP_MAIN_GUTTER_X_CLASS} pt-4`}>
-        <div className="flex items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <Link
-            href={MYPAGE_PROFILE_EDIT_HREF}
-            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
-            aria-label="프로필 이미지"
-          >
-            {profile.avatar_url ? (
-              <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="72px" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted">
-                <UserPlaceholderIcon />
-              </div>
-            )}
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="sam-text-page-title font-bold leading-tight text-sam-fg">{displayName}</p>
-            <p className="mt-1 sam-text-helper text-sam-muted">{regionLine}</p>
-            <div className="mt-2">
-              <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
-            </div>
+      <div className="flex min-h-0 min-w-0 flex-col gap-1">
+        <article className={`${PHILIFE_FB_CARD_CLASS} w-full min-w-0`}>
+          <div className="flex items-start gap-3 sam-card-pad">
             <Link
               href={MYPAGE_PROFILE_EDIT_HREF}
-              className="mt-3 inline-flex h-9 items-center justify-center rounded-ui-rect border border-sam-border px-3 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
+              className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
+              aria-label="프로필 이미지"
             >
-              프로필 수정
+              {profile.avatar_url ? (
+                <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="72px" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sam-muted">
+                  <UserPlaceholderIcon />
+                </div>
+              )}
             </Link>
+            <div className="min-w-0 flex-1">
+              <p className="sam-text-profile-display leading-tight">{displayName}</p>
+              <p className="mt-1 sam-text-helper text-sam-muted">{regionLine}</p>
+              <div className="mt-2">
+                <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
+              </div>
+              <Link
+                href={MYPAGE_PROFILE_EDIT_HREF}
+                className="sam-btn sam-btn--outline sam-btn--sm mt-3"
+              >
+                프로필 수정
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </article>
 
-      <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-5`}>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-muted">상태 요약</h2>
-        <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
+        <h2 className="sam-text-section-title text-sam-fg pt-1">상태 요약</h2>
+        <div className="flex flex-col gap-1">
           {statRows.map((row) => (
             <Link
               key={row.label}
               href={row.href}
-              className="flex min-h-[48px] items-center justify-between border-b border-sam-border-soft px-4 py-3 sam-text-body last:border-b-0 active:bg-sam-app"
+              className={`block w-full min-w-0 no-underline ${PHILIFE_FB_CARD_CLASS} transition-colors active:bg-sam-surface-muted`}
             >
-              <span className="font-medium text-sam-fg">{row.label}</span>
-              <span className="tabular-nums text-sam-muted">{row.value}</span>
+              <div className="flex min-h-[52px] items-center justify-between sam-card-pad sam-text-body">
+                <span className="font-medium text-sam-fg">{row.label}</span>
+                <span className="tabular-nums text-sam-muted">{row.value}</span>
+              </div>
             </Link>
           ))}
         </div>
-      </section>
 
-      <section className={`${APP_MAIN_GUTTER_X_CLASS} mt-6 pb-6`}>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-muted">메뉴</h2>
-        <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
+        <h2 className="sam-text-section-title text-sam-fg pt-2">메뉴</h2>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
           {MYPAGE_MOBILE_NAV.map((sec) => (
-            <MyPageMobileMenuRow key={sec.id} href={buildMypageSectionHref(sec.id)} title={sec.label} />
+            <li key={sec.id} className="list-none">
+              <MyPageMobileMenuRow
+                href={buildMypageSectionHref(sec.id)}
+                title={sec.label}
+                surface="card"
+              />
+            </li>
           ))}
-        </div>
-        <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-          <MyPageMobileMenuRow
-            href={buildMypageItemHref("settings", "logout")}
-            title="로그아웃"
-            tone="danger"
-          />
-        </div>
-      </section>
+          <MyPageAdminMenuEntry asListItem />
+          <li className="list-none">
+            <MyPageMobileMenuRow
+              href={buildMypageItemHref("settings", "logout")}
+              title="로그아웃"
+              tone="danger"
+              surface="card"
+            />
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }

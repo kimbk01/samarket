@@ -63,8 +63,8 @@ export function HomeCategoryChip({
   ].join(" ");
 
   const feedChipCls = [
-    "shrink-0 rounded-full px-3 py-1.5 sam-text-helper font-semibold transition-colors",
-    isActive ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted",
+    "sam-chip shrink-0 transition-colors",
+    isActive ? "sam-chip--active" : "sam-chip--inactive",
   ].join(" ");
 
   return (

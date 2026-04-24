@@ -13,11 +13,7 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import {
-  APP_MAIN_COLUMN_CLASS,
-  APP_MAIN_GUTTER_NEG_X_CLASS,
-  APP_MAIN_GUTTER_X_CLASS,
-} from "@/lib/ui/app-content-layout";
+import { PHILIFE_FEED_INSET_NEG_X_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
@@ -141,7 +137,7 @@ function formatFeedRelativeTime(iso: string): string {
 
 const FB_MUTED = "text-[#65676B] dark:text-[#B0B3B8]";
 const FB_BODY = "text-[#050505] dark:text-[#E4E6EB]";
-const FB_HOVER_ROW = "hover:bg-[#F0F2F5] dark:hover:bg-[#3A3B3C]";
+const FB_HOVER_ROW = "hover:bg-sam-surface-muted dark:hover:bg-[#3A3B3C]";
 const FB_DIVIDER = "border-[#CED0D4]/80 dark:border-[#3E4042]";
 
 function FeedActionRow({ children }: { children: React.ReactNode }) {
@@ -210,14 +206,6 @@ function MyStoreOrderCard({
   const onChatPointerEnter = useCallback(() => {
     router.prefetch(chatHref);
   }, [chatHref, router]);
-  const activeTab = [
-    "pending",
-    "accepted",
-    "preparing",
-    "delivering",
-    "ready_for_pickup",
-    "arrived",
-  ].includes(o.order_status);
   const canCancelHere = o.order_status === "pending";
   const delivery = isDeliveryFulfillment(o.fulfillment_type);
 
@@ -228,9 +216,7 @@ function MyStoreOrderCard({
 
   return (
     <article
-      className={`relative overflow-hidden rounded-ui-rect bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08] ${
-        activeTab ? "before:absolute before:bottom-0 before:left-0 before:top-0 before:w-[3px] before:bg-signature" : ""
-      }`}
+      className="relative overflow-hidden rounded-ui-rect bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]"
     >
       <div className="px-3 pb-2 pt-3 sm:px-4">
         <div className="flex gap-2.5">
@@ -270,7 +256,7 @@ function MyStoreOrderCard({
                 {isMemberOrderStatus(o.order_status) ? (
                   <MemberOrderStatusBadge status={o.order_status} />
                 ) : (
-                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-[#F0F2F5] px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
+                  <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
                     {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                   </span>
                 )}
@@ -298,7 +284,7 @@ function MyStoreOrderCard({
                     type="button"
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
                     aria-label="주문 내역 삭제"
                     title="내역에서 삭제"
                   >
@@ -403,7 +389,7 @@ function MyStoreOrderCard({
           type="button"
           disabled={cancelBusy}
           onClick={() => onCancelPending(o.id)}
-          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center sam-text-body font-semibold text-[#F02849] transition-colors hover:bg-[#F0F2F5] disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
+          className={`w-full border-t ${FB_DIVIDER} py-2.5 text-center sam-text-body font-semibold text-[#F02849] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:hover:bg-[#3A3B3C]`}
         >
           {cancelBusy ? "처리 중…" : "주문 취소"}
         </button>
@@ -564,14 +550,14 @@ export function MyStoreOrdersView({
       className={
         embedded
           ? "min-w-0 pb-1"
-          : "min-h-screen bg-[#F0F2F5] pb-10 dark:bg-[#18191A]"
+          : "w-full min-h-0 bg-sam-app dark:bg-[#18191A]"
       }
     >
       <div
         className={
           embedded
             ? "mx-auto w-full min-w-0 max-w-none px-0 pt-0"
-            : `${APP_MAIN_COLUMN_CLASS} min-w-0 ${APP_MAIN_GUTTER_X_CLASS} pt-2 sm:pt-3`
+            : "min-w-0 w-full min-h-0 flex flex-col gap-1"
         }
       >
         {toast ? (
@@ -628,10 +614,11 @@ export function MyStoreOrdersView({
               className={
                 embedded
                   ? `sticky top-0 z-10 mb-3 -mx-3 rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface shadow-sm dark:bg-[#242526] sm:-mx-4 lg:mx-0`
-                  : `sticky top-12 z-20 ${APP_MAIN_GUTTER_NEG_X_CLASS} mb-3 border-b ${FB_DIVIDER} bg-sam-surface/92 backdrop-blur-md dark:bg-[#242526]/95`
+                  : // `AppStickyHeader`(1단)과 둘 다 sticky+z 가 되면 같은 뷰포트 스크롤에서 겹쳐 첫 카드가 잘릴 수 있어 mypage 에서는 2행 sticky 를 쓰지 않는다. 상위 `APP_MAIN_FEED_STACK` 이 인셋·pt 를 맡김.
+                    `${PHILIFE_FEED_INSET_NEG_X_CLASS} shrink-0 border-b ${FB_DIVIDER} bg-sam-surface/95 backdrop-blur-sm dark:bg-[#242526]/95`
               }
             >
-              <div className={embedded ? "px-0" : APP_MAIN_GUTTER_X_CLASS}>
+              <div className={embedded ? "px-0" : PHILIFE_FEED_INSET_X_CLASS}>
                 <MemberOrderTabs variant="feed" active={tab} onChange={setTab} counts={counts} />
               </div>
             </div>
@@ -649,7 +636,7 @@ export function MyStoreOrdersView({
                 </Link>
               </div>
             ) : (
-              <ul className={embedded ? "space-y-2.5" : "space-y-3"}>
+              <ul className={embedded ? "space-y-2.5" : "min-w-0 space-y-3"}>
                 {filtered.map((o) => (
                   <li key={o.id}>
                     <MyStoreOrderCard

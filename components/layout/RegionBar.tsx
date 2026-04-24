@@ -125,7 +125,7 @@ export function RegionBar({
       isPhilifeFeed ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
     return (
       <UnifiedTier1Shell embedded={embedded}>
-        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+        <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
           {isPhilifeFeed ? (
             <>
               <div className="flex w-10 shrink-0 justify-start">
@@ -167,7 +167,7 @@ export function RegionBar({
   if (pathNoQuery === "/stores") {
     return (
       <UnifiedTier1Shell embedded={embedded}>
-        <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+        <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
           <div className="flex w-[44px] shrink-0 justify-start">
             <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
           </div>
@@ -209,9 +209,9 @@ export function RegionBar({
     centerFromExtras != null && typeof centerFromExtras !== "string" ? (
       centerFromExtras
     ) : stringTitle ? (
-      <span className="truncate sam-text-section-title font-semibold">{stringTitle}</span>
+      <span className="truncate sam-text-page-title">{stringTitle}</span>
     ) : (
-      <span className="truncate sam-text-section-title font-semibold">SAMarket</span>
+      <span className="truncate sam-text-page-title">SAMarket</span>
     );
 
   const right =
@@ -225,7 +225,7 @@ export function RegionBar({
 
   return (
     <UnifiedTier1Shell embedded={embedded}>
-      <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+      <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
         <div
           className={
             o?.leftSlot != null

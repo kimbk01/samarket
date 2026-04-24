@@ -4,7 +4,7 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { ProfileEditForm } from "@/components/my/edit/ProfileEditForm";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 
 export default function MypageSectionProfileEditPage({
@@ -37,14 +37,14 @@ async function MypageSectionProfileEditPageBody({
   const backHref = buildMypageItemHref("account", "profile");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
         title="프로필 수정"
         subtitle="닉네임, 사진, 나의 상태, 지역, 동네"
         backHref={backHref}
         hideCtaStrip
       />
-      <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} py-4`}>
+      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} py-4`}>
         <ProfileEditForm />
       </div>
     </div>

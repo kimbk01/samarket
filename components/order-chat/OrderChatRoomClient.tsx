@@ -290,7 +290,7 @@ export function OrderChatRoomClient({
   const perspective = state.role === "buyer" ? "member" : "owner";
 
   return (
-    <div className={`flex min-h-screen flex-col ${state.role === "buyer" ? "bg-[#e8e6ef]" : "bg-[#e8edf3]"}`}>
+    <div className="flex min-h-screen flex-col bg-sam-app">
       <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
         <div className="flex items-center gap-2 px-2 py-2">
           <AppBackButton backHref={backHref} />

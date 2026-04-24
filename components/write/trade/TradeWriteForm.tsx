@@ -863,10 +863,10 @@ export function TradeWriteForm({
       ) : null}
       <form
         onSubmit={handleSubmit}
-        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
+        className="mx-auto w-full max-w-[480px] space-y-3 px-4 py-4 md:max-w-2xl lg:max-w-3xl"
       >
         {tradePolicy?.hint ? (
-          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
+          <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
             {tradePolicy.hint}
           </div>
         ) : null}
@@ -898,11 +898,11 @@ export function TradeWriteForm({
               />
             </div>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <div>
                 <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                  건물명 <span className="text-red-500">*</span>
+                  건물명 <span className="text-sam-danger">*</span>
                 </label>
                 <input
                   type="text"
@@ -914,17 +914,15 @@ export function TradeWriteForm({
                   aria-invalid={!!errors.buildingName}
                 />
                 {errors.buildingName && (
-                  <p className="mt-1 sam-text-body-secondary text-red-500">{errors.buildingName}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.buildingName}</p>
                 )}
               </div>
             </section>
           </>
         ) : skinKey === "used-car" ? (
-          <section
-            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-          >
+          <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <p className="mb-2 sam-text-body font-medium text-sam-fg">
-              구분 <span className="text-red-500">*</span>
+              구분 <span className="text-sam-danger">*</span>
             </p>
             <div className="flex flex-wrap gap-4">
               <label className="flex cursor-pointer items-center gap-2">
@@ -932,7 +930,7 @@ export function TradeWriteForm({
                   type="checkbox"
                   checked={usedCarTrade === "sell"}
                   onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
-                  className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
+                  className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                 />
                 <span className="sam-text-body text-sam-fg">팝니다</span>
               </label>
@@ -941,21 +939,19 @@ export function TradeWriteForm({
                   type="checkbox"
                   checked={usedCarTrade === "buy"}
                   onChange={(e) => setUsedCarTrade(e.target.checked ? "buy" : null)}
-                  className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
+                  className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                 />
                 <span className="sam-text-body text-sam-fg">삽니다</span>
               </label>
             </div>
             {(errors.usedCarTrade || errors.title) && (
-              <p className="mt-2 sam-text-body-secondary text-red-500">{errors.usedCarTrade || errors.title}</p>
+              <p className="mt-2 sam-text-body-secondary text-sam-danger">{errors.usedCarTrade || errors.title}</p>
             )}
           </section>
         ) : (
-          <section
-            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-          >
+          <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <label className="mb-1.5 block sam-text-body-lg font-semibold text-sam-fg">
-              제목 <span className="text-red-500">*</span>
+              제목 <span className="text-sam-danger">*</span>
             </label>
             <input
               type="text"
@@ -967,12 +963,12 @@ export function TradeWriteForm({
               className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
               aria-invalid={!!errors.title}
             />
-            {errors.title && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.title}</p>}
+            {errors.title && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.title}</p>}
           </section>
         )}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+        <section className="sam-section">
           <label className="mb-1.5 block sam-text-body font-semibold text-sam-fg">
-            내용 <span className="text-red-500">*</span>
+            내용 <span className="text-sam-danger">*</span>
           </label>
           <textarea
             value={description}
@@ -984,7 +980,7 @@ export function TradeWriteForm({
             aria-invalid={!!errors.description}
           />
           {errors.description && (
-            <p className="mt-1 sam-text-body-secondary text-red-500">{errors.description}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.description}</p>
           )}
           {showDescriptionAppend ? (
             <div className="mt-3">
@@ -1002,7 +998,7 @@ export function TradeWriteForm({
         {(hasPrice || (hasFreeShare && !isUsedCarSkin)) &&
           skinKey !== "real-estate" &&
           !(isUsedCarSkin && usedCarTrade === "buy") && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <section className="sam-section">
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
@@ -1011,7 +1007,7 @@ export function TradeWriteForm({
                       <input
                         type="radio"
                         name="samarket-trade-share-mode"
-                        className="border-sam-border text-signature focus:ring-signature/30"
+                        className="border-sam-border text-sam-primary focus:ring-sam-primary/30"
                         checked={!isFreeShare}
                         onChange={() => {
                           setIsFreeShare(false);
@@ -1024,7 +1020,7 @@ export function TradeWriteForm({
                       <input
                         type="radio"
                         name="samarket-trade-share-mode"
-                        className="border-sam-border text-signature focus:ring-signature/30"
+                        className="border-sam-border text-sam-primary focus:ring-sam-primary/30"
                         checked={isFreeShare}
                         onChange={() => {
                           setIsFreeShare(true);
@@ -1067,7 +1063,7 @@ export function TradeWriteForm({
                 <label
                   className={`mb-2 block sam-text-body font-medium text-sam-fg ${!isUsedCarSkin && (hasFreeShare || hasDirectDeal) ? "mt-2" : ""}`}
                 >
-                  가격 <span className="text-red-500">*</span>
+                  가격 <span className="text-sam-danger">*</span>
                 </label>
                 <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                   <span className="shrink-0 sam-text-body font-medium text-sam-muted">
@@ -1084,7 +1080,7 @@ export function TradeWriteForm({
                   />
                 </div>
                 {errors.price && (
-                  <p className="mt-1 sam-text-body-secondary text-red-500">{errors.price}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>
                 )}
                 {allowPriceOffer && (
                   <label className="mt-2 flex items-center gap-2">
@@ -1102,13 +1098,13 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "real-estate" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <section className="sam-section">
             <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">부동산 정보</h4>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    타입 <span className="text-red-500">*</span>
+                    타입 <span className="text-sam-danger">*</span>
                   </label>
                   <select
                     value={estateType}
@@ -1121,12 +1117,12 @@ export function TradeWriteForm({
                     ))}
                   </select>
                   {errors.estateType && (
-                    <p className="mt-1 sam-text-body-secondary text-red-500">{errors.estateType}</p>
+                    <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.estateType}</p>
                   )}
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    거래유형 <span className="text-red-500">*</span>
+                    거래유형 <span className="text-sam-danger">*</span>
                   </label>
                   <select
                     value={dealType}
@@ -1141,7 +1137,7 @@ export function TradeWriteForm({
               </div>
               {dealType === "판매" && (
                 <div>
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">판매가 <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">판매가 <span className="text-sam-danger">*</span></label>
                   <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                     <span className="shrink-0 sam-text-body font-medium text-sam-muted">
                       {currencyUnit}
@@ -1156,7 +1152,7 @@ export function TradeWriteForm({
                       aria-invalid={!!errors.price}
                     />
                   </div>
-                  {errors.price && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.price}</p>}
+                  {errors.price && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>}
                 </div>
               )}
               {dealType === "임대" && (
@@ -1164,7 +1160,7 @@ export function TradeWriteForm({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="min-w-0">
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                        보증금 <span className="text-red-500">*</span>
+                        보증금 <span className="text-sam-danger">*</span>
                       </label>
                       <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
                         <input
@@ -1178,12 +1174,12 @@ export function TradeWriteForm({
                         <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-helper">{currencyUnit}</span>
                       </div>
                       {errors.deposit && (
-                        <p className="mt-1 sam-text-helper text-red-500">{errors.deposit}</p>
+                        <p className="mt-1 sam-text-helper text-sam-danger">{errors.deposit}</p>
                       )}
                     </div>
                     <div className="min-w-0">
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                        월세 <span className="text-red-500">*</span>
+                        월세 <span className="text-sam-danger">*</span>
                       </label>
                       <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
                         <input
@@ -1197,7 +1193,7 @@ export function TradeWriteForm({
                         <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-xxs">{perMonthSuffix}</span>
                       </div>
                       {errors.monthly && (
-                        <p className="mt-1 sam-text-helper text-red-500">{errors.monthly}</p>
+                        <p className="mt-1 sam-text-helper text-sam-danger">{errors.monthly}</p>
                       )}
                     </div>
                     <div className="min-w-0">
@@ -1219,7 +1215,7 @@ export function TradeWriteForm({
                       type="checkbox"
                       checked={hasPremium}
                       onChange={(e) => setHasPremium(e.target.checked)}
-                      className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
+                      className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                     />
                     <span className="sam-text-body-secondary text-sam-fg">권리금 있음 (선택)</span>
                   </label>
@@ -1228,7 +1224,7 @@ export function TradeWriteForm({
               <div className="grid grid-cols-3 gap-2">
                 <div className="min-w-0">
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    크기(sq) <span className="text-red-500">*</span>
+                    크기(sq) <span className="text-sam-danger">*</span>
                   </label>
                   <input
                     type="text"
@@ -1239,12 +1235,12 @@ export function TradeWriteForm({
                     aria-invalid={!!errors.areaSqm}
                   />
                   {errors.areaSqm && (
-                    <p className="mt-1 sam-text-helper text-red-500">{errors.areaSqm}</p>
+                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.areaSqm}</p>
                   )}
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    방수 <span className="text-red-500">*</span>
+                    방수 <span className="text-sam-danger">*</span>
                   </label>
                   <input
                     type="text"
@@ -1256,12 +1252,12 @@ export function TradeWriteForm({
                     aria-invalid={!!errors.roomCount}
                   />
                   {errors.roomCount && (
-                    <p className="mt-1 sam-text-helper text-red-500">{errors.roomCount}</p>
+                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.roomCount}</p>
                   )}
                 </div>
                 <div className="min-w-0">
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    욕실수 <span className="text-red-500">*</span>
+                    욕실수 <span className="text-sam-danger">*</span>
                   </label>
                   <input
                     type="text"
@@ -1273,13 +1269,13 @@ export function TradeWriteForm({
                     aria-invalid={!!errors.bathroomCount}
                   />
                   {errors.bathroomCount && (
-                    <p className="mt-1 sam-text-helper text-red-500">{errors.bathroomCount}</p>
+                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.bathroomCount}</p>
                   )}
                 </div>
               </div>
               <div>
                 <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                  입주 가능일 <span className="text-red-500">*</span>
+                  입주 가능일 <span className="text-sam-danger">*</span>
                 </label>
                 <select
                   value={moveInDate}
@@ -1294,14 +1290,14 @@ export function TradeWriteForm({
                   ))}
                 </select>
                 {errors.moveInDate && (
-                  <p className="mt-1 sam-text-body-secondary text-red-500">{errors.moveInDate}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.moveInDate}</p>
                 )}
               </div>
             </div>
           </section>
         )}
         {skinKey === "used-car" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <section className="sam-section">
             <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">차량 정보</h4>
             {usedCarTrade === "buy" ? (
               <>
@@ -1318,7 +1314,7 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className="mb-1 block sam-text-helper leading-tight text-sam-fg sm:sam-text-body-secondary">
-                      년식 (이하) <span className="text-red-500">*</span>
+                      년식 (이하) <span className="text-sam-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -1332,7 +1328,7 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className="mb-1 block sam-text-helper leading-tight text-sam-fg sm:sam-text-body-secondary">
-                      금액 (이하) <span className="text-red-500">*</span>
+                      금액 (이하) <span className="text-sam-danger">*</span>
                     </label>
                     <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                       <span className="shrink-0 sam-text-helper font-medium text-sam-muted">
@@ -1351,7 +1347,7 @@ export function TradeWriteForm({
                   </div>
                 </div>
                 {(errors.price || errors.carYear) && (
-                  <p className="mt-2 sam-text-body-secondary text-red-500">{errors.price || errors.carYear}</p>
+                  <p className="mt-2 sam-text-body-secondary text-sam-danger">{errors.price || errors.carYear}</p>
                 )}
                 {allowPriceOffer && (
                   <label className="mt-3 flex cursor-pointer items-center gap-2">
@@ -1380,7 +1376,7 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
-                      연식 <span className="text-red-500">*</span>
+                      연식 <span className="text-sam-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -1392,7 +1388,7 @@ export function TradeWriteForm({
                       aria-invalid={!!errors.carYear}
                     />
                     {errors.carYear ? (
-                      <p className="mt-1 sam-text-helper text-red-500">{errors.carYear}</p>
+                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p>
                     ) : null}
                   </div>
                   <div className="min-w-0">
@@ -1414,7 +1410,7 @@ export function TradeWriteForm({
                     type="checkbox"
                     checked={carHasAccident}
                     onChange={(e) => setCarHasAccident(e.target.checked)}
-                    className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
+                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                   />
                   <span className="sam-text-body-secondary text-sam-fg whitespace-nowrap">사고 이력 있음</span>
                 </label>
@@ -1423,7 +1419,7 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "jobs" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <section className="sam-section">
             <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">알바 정보</h4>
             <div className="space-y-3">
               <div>
@@ -1460,7 +1456,7 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "exchange" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <section className="sam-section">
             <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">환전 정보</h4>
             <div className="space-y-3">
               <div>
@@ -1487,7 +1483,7 @@ export function TradeWriteForm({
           </section>
         )}
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <h4 className="mb-1 sam-text-body-secondary font-medium text-sam-muted">거래 채팅 통화</h4>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -1537,7 +1533,7 @@ export function TradeWriteForm({
           </div>
         )}
         {errors.submit && (
-          <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>
+          <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton
           label={editPostId ? "수정 완료" : "등록하기"}
