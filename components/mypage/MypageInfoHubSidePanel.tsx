@@ -14,6 +14,8 @@ type Props = {
 const PANEL_SLIDE_MS = 580;
 /** 열·닫 동일, 조금 느리게 흐르도록 */
 const PANEL_EASE = "cubic-bezier(0.2, 0.65, 0.25, 1)";
+/** 패널 폭과 메인 셸 push 이동 폭은 동일하게 유지한다. */
+const PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 
 /**
  * 1단 헤더 **햄버거** — 왼쪽 밖에서 **좌 → 우**로 밀어 들어온다.
@@ -72,10 +74,11 @@ export function MypageInfoHubSidePanel({ open, onClose }: Props) {
       aria-labelledby="mypage-info-hub-side-title"
     >
       <div
-        className="will-change-transform box-border flex h-full min-h-0 w-[90vw] max-w-full shrink-0 flex-col border-r border-sam-border/80 bg-sam-surface pl-[max(0px,env(safe-area-inset-left,0px))] shadow-[4px_0_24px_rgba(0,0,0,0.1)]"
+        className="will-change-transform box-border flex h-full min-h-0 w-[min(88vw,30rem)] max-w-full shrink-0 flex-col border-r border-sam-border/80 bg-sam-surface pl-[max(0px,env(safe-area-inset-left,0px))] shadow-[4px_0_24px_rgba(0,0,0,0.1)]"
         style={{
           transform: slideIn ? "translate3d(0,0,0)" : "translate3d(-100%,0,0)",
           transition: `transform ${PANEL_SLIDE_MS}ms ${PANEL_EASE}`,
+          width: PANEL_PUSH_WIDTH,
         }}
       >
         <div

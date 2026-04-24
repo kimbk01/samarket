@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
+import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 
 const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
 
@@ -30,6 +31,12 @@ export function FloatingAddButton() {
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   const pathSlug = useMemo(() => getCategorySlugFromPath(pathname ?? ""), [pathname]);
   const categorySlug = writeCategorySlug ?? pathSlug;
+  const hideFabOnTradeSurface = isTradeFloatingMenuSurface(pathname);
+
+  /** 거래 탭 표면은 FAB를 숨기고 상단 `+` 메뉴로 통일 */
+  if (hideFabOnTradeSurface) {
+    return null;
+  }
 
   /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김(현재 화면 주제로 바로 쓰기 가능할 때만 유지) */
   if (!launcherCategoriesLoading && !categorySlug && !hasLauncherTopics) {

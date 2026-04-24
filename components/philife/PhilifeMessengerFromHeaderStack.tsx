@@ -8,6 +8,7 @@ import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessenge
 
 const PANEL_MS = 480;
 const PANEL_EASE = "cubic-bezier(0.25,0.1,0.2,1)";
+const PANEL_PUSH_WIDTH = "100vw";
 
 const CommunityMessengerHome = dynamic(
   () =>
@@ -102,16 +103,22 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
     if (enterDraw) return "translate3d(0,0,0)";
     return "translate3d(100%,0,0)";
   })();
+  const shellX = (() => {
+    if (exiting) return "translate3d(0,0,0)";
+    if (enterDraw) return `translate3d(calc(-1 * ${PANEL_PUSH_WIDTH}),0,0)`;
+    return "translate3d(0,0,0)";
+  })();
 
   const showPortal = (isOpen || exiting) && domReady && typeof document !== "undefined";
 
   const panel = showPortal
     ? createPortal(
         <div
-          className="pointer-events-auto fixed inset-0 z-50 flex max-h-[100dvh] min-h-0 w-full min-w-0 max-w-full flex-col overflow-hidden bg-[color:var(--messenger-bg,#f6f6f6)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-[env(safe-area-inset-top,0px)] text-[color:var(--messenger-fg,#0f0f0f)] will-change-transform [overscroll-behavior:contain]"
+          className="pointer-events-auto fixed inset-y-0 right-0 z-50 flex max-h-[100dvh] min-h-0 w-full max-w-full flex-col overflow-hidden bg-[color:var(--messenger-bg,#f6f6f6)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-[env(safe-area-inset-top,0px)] text-[color:var(--messenger-fg,#0f0f0f)] will-change-transform [overscroll-behavior:contain]"
           style={{
             transform: panelX,
             transition: `transform ${PANEL_MS}ms ${PANEL_EASE}`,
+            width: PANEL_PUSH_WIDTH,
           }}
           role="dialog"
           aria-modal="true"
@@ -127,7 +134,16 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
 
   return (
     <>
-      <div className="relative w-full min-w-0 min-h-0 flex-1 overflow-x-hidden">{children}</div>
+      <div
+        className="relative w-full min-w-0 min-h-0 flex-1 overflow-x-hidden transition-transform"
+        style={{
+          transform: shellX,
+          transition: `transform ${PANEL_MS}ms ${PANEL_EASE}`,
+          willChange: lock ? "transform" : undefined,
+        }}
+      >
+        {children}
+      </div>
       {panel}
     </>
   );

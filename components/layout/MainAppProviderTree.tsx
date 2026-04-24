@@ -11,7 +11,7 @@ import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
-import { MypageInfoHubPanelProvider } from "@/contexts/MypageInfoHubPanelContext";
+import { MypageInfoHubPanelProvider, useMypageInfoHubPanel } from "@/contexts/MypageInfoHubPanelContext";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
@@ -27,6 +27,9 @@ import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMes
 import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { PhilifeWriteSheetProvider } from "@/contexts/PhilifeWriteSheetContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+
+const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
+const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
 
 /** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
 function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
@@ -78,6 +81,26 @@ function AppWideRuntimePerfHooks() {
   return null;
 }
 
+function MainShellPushLayer({ children }: { children: ReactNode }) {
+  const { open } = useMypageInfoHubPanel();
+  const pushStyle = open
+    ? {
+        transform: `translate3d(${INFO_HUB_PANEL_PUSH_WIDTH},0,0)`,
+        transition: INFO_HUB_PANEL_PUSH_TRANSITION,
+        willChange: "transform" as const,
+      }
+    : undefined;
+  return (
+    <div
+      data-main-shell-root
+      className="min-h-0 w-full"
+      style={pushStyle}
+    >
+      {children}
+    </div>
+  );
+}
+
 /**
  * Provider JSX 전용 — `MainAppProviders` 와 분리해 트리·순서를 한 파일에서 보존하고,
  * 이후 경로별 지연 로드·스플릿 시 경계를 잡기 쉽게 한다.
@@ -110,18 +133,20 @@ export function MainAppProviderTree({
                   <PhilifeHeaderMessengerStackProvider>
                   <MainTier1ChromeProvider>
                     <TradePresenceActivityProvider>
-                      <AppTitle />
-                      <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
-                        <AppStickyHeader />
-                        <PhilifeMessengerFromHeaderStack>
-                          <ConditionalAppShell
-                            regionBarInLayout={true}
-                            initialMainBottomNavItems={initialMainBottomNavItems}
-                          >
-                            {children}
-                          </ConditionalAppShell>
-                        </PhilifeMessengerFromHeaderStack>
-                      </div>
+                      <MainShellPushLayer>
+                        <AppTitle />
+                        <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
+                          <AppStickyHeader />
+                          <PhilifeMessengerFromHeaderStack>
+                            <ConditionalAppShell
+                              regionBarInLayout={true}
+                              initialMainBottomNavItems={initialMainBottomNavItems}
+                            >
+                              {children}
+                            </ConditionalAppShell>
+                          </PhilifeMessengerFromHeaderStack>
+                        </div>
+                      </MainShellPushLayer>
                       <TradeChatEntryCreatingOverlay />
                       <PhilifeWriteBottomSheet />
                     </TradePresenceActivityProvider>

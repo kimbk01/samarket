@@ -19,6 +19,7 @@ import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderCo
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
+import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
 import {
   BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY,
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
@@ -137,21 +138,25 @@ export function RegionBar({
               </div>
               <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
                 <PhilifeHeaderComposeButton />
-                <PhilifeHeaderMessengerButton />
                 <PhilifeHeaderNotificationInbox />
+                <PhilifeHeaderMessengerButton />
               </div>
             </>
           ) : (
             <>
-              <div className="flex w-[44px] shrink-0 justify-start" aria-hidden>
-                <div className="h-10 w-10" />
+              <div className="flex w-10 shrink-0 justify-start">
+                <MyHubHeaderInfoHubTrigger />
               </div>
               <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
                 <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
                   <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
                 </h1>
               </div>
-              <MyHubHeaderActions />
+              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
+                <TradeHeaderComposeButton />
+                <PhilifeHeaderNotificationInbox />
+                <PhilifeHeaderMessengerButton />
+              </div>
             </>
           )}
         </div>
