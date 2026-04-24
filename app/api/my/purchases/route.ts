@@ -1,4 +1,4 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,8 @@ export async function GET(req: NextRequest) {
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  await applyBuyerAutoConfirmAllDue(sbAny);
+  /** 목록 응답을 막지 않음 — 스윕은 백그라운드(동시 요청은 모듈 내 단일 in-flight 로 공유) */
+  void applyBuyerAutoConfirmAllDue(sbAny).catch(() => {});
 
   let rows: Record<string, unknown>[];
   try {

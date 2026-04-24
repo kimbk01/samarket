@@ -14,6 +14,7 @@ import {
   resolveBottomNavScrollHideEnabled,
   useBottomNavScrollHide,
 } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
+import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
@@ -50,13 +51,14 @@ export function ConditionalAppShell({
   );
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
-  const isPhilifeFeedRoot = pathNoQuery === "/philife";
+  const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
   const messengerSuppressBottomNav = useMessengerUIStore((s) => s.messengerSuppressBottomNavForKeyboard);
   const messengerRoomKeyboardHidesNav =
     isCommunityMessengerRoomPathname(pathname) && messengerSuppressBottomNav;
   const showBottomNavBase = f.showBottomNav && !messengerRoomKeyboardHidesNav;
+  /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래 홈·마켓 동일 */
   const showBottomNavEffective =
-    showBottomNavBase && !(isPhilifeFeedRoot && headerMessengerFromPhilife);
+    showBottomNavBase && !(isMessengerStackSurface && headerMessengerFromPhilife);
   const bottomNavScrollHideEnabled =
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
@@ -98,7 +100,7 @@ export function ConditionalAppShell({
         >
           <BottomNav
             initialTabs={initialMainBottomNavItems}
-            bodyPortal={isPhilifeFeedRoot}
+            bodyPortal={isMessengerStackSurface}
             extraOuterClassName={
               bottomNavScrollHideEnabled
                 ? bottomNavHiddenByScroll

@@ -82,7 +82,13 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
   }, [initialTab]);
 
   if (loading) {
-    return <p className="py-12 text-center sam-text-body text-sam-muted">불러오는 중...</p>;
+    return (
+      <ul className="space-y-2 py-2" aria-busy="true" aria-live="polite">
+        {[0, 1, 2, 3].map((i) => (
+          <li key={i} className="h-[4.25rem] animate-pulse rounded-ui-rect bg-sam-surface-muted/90" />
+        ))}
+      </ul>
+    );
   }
 
   if (items.length === 0) {

@@ -2,23 +2,26 @@ import type { ReactNode } from "react";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { TradeHubPageBody } from "@/components/mypage/trade/TradeHubPageBody";
 import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { COMMUNITY_FONT_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+
+/** `/philife` 피드와 동일: 커뮤니티 폰트·하단 `pb-28`·본문 가로 `px-2` */
+const TRADE_HUB_PAGE_ROOT_CLASS = [
+  "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden bg-sam-app pb-28 text-sam-fg",
+  COMMUNITY_FONT_CLASS,
+].join(" ");
 
 export default function TradeHubLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app pb-24">
+    <div className={TRADE_HUB_PAGE_ROOT_CLASS}>
       <MySubpageHeader
         title="개인 거래 허브"
         subtitle="구매·판매·찜·후기·채팅"
         hideCtaStrip
+        registerMainTier1={false}
         stickyBelow={<TradeHubTopTabs />}
       />
-      {/*
-        본문은 이미 `ConditionalAppShell` 의 `APP_MAIN_COLUMN_CLASS` 안 — 여기서 또 max-w 를 주면
-        태블릿·데스크톱에서 거래·채팅이 2xl(672px)에서 멈춤. 거터만 맞추고 가로는 메인 컬럼에 맡김.
-      */}
       <div
-        className={`flex min-h-0 min-w-0 flex-1 flex-col gap-2 py-3 ${APP_MAIN_GUTTER_X_CLASS} w-full max-w-none`}
+        className={`flex min-h-0 min-w-0 flex-1 flex-col gap-1 pt-1 ${PHILIFE_FEED_INSET_X_CLASS} w-full max-w-none`}
       >
         <TradeHubPageBody>{children}</TradeHubPageBody>
       </div>

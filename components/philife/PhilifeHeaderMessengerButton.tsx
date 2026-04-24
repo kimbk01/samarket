@@ -2,32 +2,42 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
+import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 
 /**
- * `/philife` 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
+ * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
  * 그 외 경로: 하단 메신저와 **동일 href**로 이동.
+ *
+ * 거래·필라이프 글쓰기 시트 초안이 있으면, 메신저(스택·링크) 진입 전 **저장되지 않음** 확인 후 시트를 닫는다.
  */
 export function PhilifeHeaderMessengerButton() {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
-  const onPhilife = pathname.split("?")[0] === "/philife";
   const stack = usePhilifeHeaderMessengerStack();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const href = useMemo(
     () => BOTTOM_NAV_ITEMS.find((i) => i.id === "chat")?.href ?? "/community-messenger?section=chats",
     []
   );
   const label = t("nav_bottom_messenger");
+  const useStack = isMessengerFromHeaderStackSurface(pathname);
 
-  if (onPhilife) {
+  const openMessengerStack = useCallback(() => {
+    if (!guardBeforeNavigate()) return;
+    stack.open();
+  }, [stack, guardBeforeNavigate]);
+
+  if (useStack) {
     return (
       <div className="flex w-10 shrink-0 items-center justify-end">
         <button
           type="button"
-          onClick={() => stack.open()}
+          onClick={openMessengerStack}
           className="sam-header-action h-10 w-10 text-sam-fg"
           aria-label={label}
         >
@@ -39,7 +49,15 @@ export function PhilifeHeaderMessengerButton() {
 
   return (
     <div className="flex w-10 shrink-0 items-center justify-end">
-      <Link href={href} className="sam-header-action h-10 w-10 text-sam-fg" aria-label={label} prefetch>
+      <Link
+        href={href}
+        className="sam-header-action h-10 w-10 text-sam-fg"
+        aria-label={label}
+        prefetch
+        onClick={(e) => {
+          if (!guardBeforeNavigate()) e.preventDefault();
+        }}
+      >
         <BottomNavMessengerChatIcon className="h-5 w-5" />
       </Link>
     </div>

@@ -10,13 +10,12 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 
-type PhilifeWriteSheetContextValue = {
+type TradeWriteSheetContextValue = {
   isOpen: boolean;
-  /** 열릴 때마다 증가 — 폼 리셋 키 */
   openEpoch: number;
-  /** URL `?category=`에 맞춤. 빈 문자열 = 기본(추천) 글쓰기 */
+  /** `/write?category=` 와 동일 — 빈 문자열이면 카테고리 미선택 */
   initialCategory: string;
-  /** 시트 폼 — `PhilifeNeighborhoodWriteForm` 이 갱신 */
+  /** 폼 입력 등으로 이탈 시 확인이 필요한지 — `WriteSheetFlowInner` 가 갱신 */
   blockingDraft: boolean;
   setBlockingDraft: (v: boolean) => void;
   /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기. `true`면 네비게이션 진행 */
@@ -25,9 +24,16 @@ type PhilifeWriteSheetContextValue = {
   close: () => void;
 };
 
-const PhilifeWriteSheetContext = createContext<PhilifeWriteSheetContextValue | null>(null);
+const TradeWriteSheetContext = createContext<TradeWriteSheetContextValue | null>(null);
 
-export function PhilifeWriteSheetProvider({ children }: { children: React.ReactNode }) {
+function isTradeWriteSheetSurfacePath(p: string): boolean {
+  if (p === "/home") return true;
+  if (p === "/market") return true;
+  if (p.startsWith("/market/")) return true;
+  return false;
+}
+
+export function TradeWriteSheetProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
   const [isOpen, setIsOpen] = useState(false);
   const [openEpoch, setOpenEpoch] = useState(0);
@@ -63,8 +69,7 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
   useEffect(() => {
     if (!isOpen) return;
     const p = pathname.split("?")[0] ?? "";
-    /** 글쓰기 시트는 필라이프/커뮤니티 **피드** 루트에만 둔다(상세·작성 풀페이지 등은 닫힘) */
-    if (p === "/philife" || p === "/community") return;
+    if (isTradeWriteSheetSurfacePath(p)) return;
     close();
   }, [isOpen, pathname, close]);
 
@@ -83,24 +88,18 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
   );
 
   return (
-    <PhilifeWriteSheetContext.Provider value={value}>
-      {children}
-    </PhilifeWriteSheetContext.Provider>
+    <TradeWriteSheetContext.Provider value={value}>{children}</TradeWriteSheetContext.Provider>
   );
 }
 
-export function usePhilifeWriteSheet() {
-  const v = useContext(PhilifeWriteSheetContext);
+export function useTradeWriteSheet() {
+  const v = useContext(TradeWriteSheetContext);
   if (!v) {
-    throw new Error("usePhilifeWriteSheet must be used within PhilifeWriteSheetProvider");
+    throw new Error("useTradeWriteSheet must be used within TradeWriteSheetProvider");
   }
   return v;
 }
 
-/**
- * `PhilifeHeaderComposeButton` 대체(폴백) 등: Provider 밖에서도 쓰일 수 있게 래핑.
- * 시트 API가 없으면 `null`.
- */
-export function usePhilifeWriteSheetOptional(): PhilifeWriteSheetContextValue | null {
-  return useContext(PhilifeWriteSheetContext);
+export function useTradeWriteSheetOptional(): TradeWriteSheetContextValue | null {
+  return useContext(TradeWriteSheetContext);
 }

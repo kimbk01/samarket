@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 /**
  * `/philife` 1단 헤더 — 페이스북형 **둥근 사각형 +** 글쓰기(기존 하단 FAB 대체).
@@ -35,6 +36,7 @@ function PhilifeHeaderComposeButtonFallback() {
 function PhilifeHeaderComposeButtonInner() {
   const { t } = useI18n();
   const { open: openWriteSheet } = usePhilifeWriteSheet();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const searchParams = useSearchParams();
   const category = searchParams.get("category")?.trim() ?? "";
   const href = buildPhilifeComposeHref(category);
@@ -48,6 +50,9 @@ function PhilifeHeaderComposeButtonInner() {
         href={href}
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
         aria-label={aria}
+        onClick={(e) => {
+          if (!guardBeforeNavigate()) e.preventDefault();
+        }}
       >
         <PlusInSquareIcon />
       </Link>
@@ -57,7 +62,10 @@ function PhilifeHeaderComposeButtonInner() {
   return (
     <button
       type="button"
-      onClick={() => openWriteSheet(category)}
+      onClick={() => {
+        if (!guardBeforeNavigate()) return;
+        openWriteSheet(category);
+      }}
       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
       aria-label={aria}
     >

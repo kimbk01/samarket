@@ -231,6 +231,12 @@ export async function fetchTradeHistorySalesBySession(opts?: {
   );
 }
 
+/** 구매·판매 API를 병렬로 백그라운드 프리페치 — 허브 스택·`+` 메뉴 열릴 때 체감 지연 완화 */
+export function prefetchTradeHubHistorySnapshots(): void {
+  void fetchTradeHistoryPurchasesBySession().catch(() => {});
+  void fetchTradeHistorySalesBySession().catch(() => {});
+}
+
 export async function fetchTradeHistorySales(
   userId: string,
   opts?: { force?: boolean }

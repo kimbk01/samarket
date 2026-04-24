@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -125,14 +127,22 @@ function isTradeHubSideRailPath(pathname: string | null): boolean {
 export function HomeTradeReelsSideRail() {
   const pathname = usePathname();
   const router = useRouter();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [railOpen, setRailOpen] = useState(true);
   const [sheetEntered, setSheetEntered] = useState(true);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipRailEnterAnimationRef = useRef(true);
 
   const onWriteClick = useCallback(() => {
+    if (tradeWriteSheet) {
+      if (!guardBeforeNavigate()) return;
+      tradeWriteSheet.open("");
+      return;
+    }
+    if (!guardBeforeNavigate()) return;
     router.push("/write");
-  }, [router]);
+  }, [router, tradeWriteSheet, guardBeforeNavigate]);
 
   useEffect(() => {
     if (!railOpen) {

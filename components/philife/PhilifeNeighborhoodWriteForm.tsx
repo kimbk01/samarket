@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import {
@@ -94,6 +94,8 @@ interface PhilifeNeighborhoodWriteFormProps {
   onSheetExitBeforeNavigate?: () => Promise<void>;
   /** 시트 전용: 「취소하기」 — 아래로 닫힘 애니메이션 후 닫힘(동기 또는 Promise) */
   onSheetClose?: () => void | Promise<void>;
+  /** 시트 전용: 다른 메뉴 이탈 가드용 — `suppressWriteScreenTier1` 일 때만 의미 있음 */
+  onSheetBlockingDraftChange?: (hasDraft: boolean) => void;
 }
 
 type WriteTopicOption = { slug: string; name: string };
@@ -108,6 +110,7 @@ export function PhilifeNeighborhoodWriteForm({
   onWillNavigateAfterSuccess,
   onSheetExitBeforeNavigate,
   onSheetClose,
+  onSheetBlockingDraftChange,
 }: PhilifeNeighborhoodWriteFormProps) {
   const router = useRouter();
   const { currentRegion } = useRegion();
@@ -745,6 +748,19 @@ export function PhilifeNeighborhoodWriteForm({
     adDepositorName,
     adMemo,
   ]);
+
+  const sheetBlockingDraft = useMemo(
+    () => (suppressWriteScreenTier1 ? sheetHasDraft() : false),
+    [suppressWriteScreenTier1, sheetHasDraft]
+  );
+
+  useEffect(() => {
+    if (!onSheetBlockingDraftChange) return;
+    onSheetBlockingDraftChange(sheetBlockingDraft);
+    return () => {
+      onSheetBlockingDraftChange(false);
+    };
+  }, [sheetBlockingDraft, onSheetBlockingDraftChange]);
 
   const handleSheetCancel = useCallback(async () => {
     if (!onSheetClose) return;

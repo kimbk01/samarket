@@ -1,20 +1,25 @@
 "use client";
 
-import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react";
-import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
-import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import type { CategoryWithSettings } from "@/lib/types/category";
+import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
+import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 
 const SHEET_EXIT_MS = 520;
 
 /**
- * `/philife` 1단(+): 글쓰기 폼을 **스티키 헤더(h1 스택) 바로 아래 ~ 화면 하단**으로
- * **아래→위**로 올리며 표시한다. 닫을 때 **아래로** 내려가며 사라진다.
+ * `/home`·`/market/…` — 거래 글쓰기를 `PhilifeWriteBottomSheet` 와 동일한 스티키 헤더錨·슬라이드로 표시.
  */
-export function PhilifeWriteBottomSheet() {
-  const { isOpen, openEpoch, initialCategory, close, setBlockingDraft } = usePhilifeWriteSheet();
+export function TradeWriteBottomSheet() {
+  const router = useRouter();
+  const pathname = usePathname() ?? "/home";
+  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft } = useTradeWriteSheet();
   const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [sheetCategoryKey, setSheetCategoryKey] = useState("");
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
@@ -37,6 +42,8 @@ export function PhilifeWriteBottomSheet() {
       setIsExiting(false);
       return;
     }
+    /** 거래 시트는 항상 빈 카테고리로 시작 — 마켓 URL 등으로 특정 주제가 고정되지 않게 */
+    setSheetCategoryKey("");
     setIsExiting(false);
     measure();
     setEnterDraw(false);
@@ -107,11 +114,27 @@ export function PhilifeWriteBottomSheet() {
     });
   }, [close]);
 
+  const onSuccessNavigate = useCallback(
+    (category: CategoryWithSettings, _postId: string) => {
+      void (async () => {
+        await exitAndClose();
+        router.replace(getCategoryHref(category));
+      })();
+    },
+    [exitAndClose, router]
+  );
+
+  const onHeaderClose = useCallback(() => {
+    if (blockingDraft) {
+      const ok = window.confirm("작성 중인 내용이 저장되지 않습니다. 닫을까요?");
+      if (!ok) return;
+    }
+    void exitAndClose();
+  }, [blockingDraft, exitAndClose]);
+
   if (!isOpen) return null;
 
   const panelOpen = enterDraw && !isExiting;
-  const sheetTitle =
-    initialCategory.trim() === "meetup" ? "모임 만들기" : "커뮤니티 글쓰기";
 
   return (
     <div
@@ -119,7 +142,7 @@ export function PhilifeWriteBottomSheet() {
       style={{ top: topOffsetPx, bottom: 0 }}
       role="dialog"
       aria-modal
-      aria-label={sheetTitle}
+      aria-label="거래 글쓰기"
     >
       <div
         ref={panelRef}
@@ -127,17 +150,31 @@ export function PhilifeWriteBottomSheet() {
           panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
         }`}
       >
-        <div className="shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5">
-          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{sheetTitle}</h2>
+        <div className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11">
+          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">거래 글쓰기</h2>
+          <button
+            type="button"
+            onClick={onHeaderClose}
+            className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-fg transition hover:bg-sam-surface-muted active:opacity-90"
+            aria-label="닫기"
+          >
+            <span className="text-[22px] font-light leading-none" aria-hidden>
+              ×
+            </span>
+          </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <PhilifeNeighborhoodWriteForm
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+          <WriteSheetFlowInner
             key={openEpoch}
-            initialCategory={initialCategory}
-            suppressWriteScreenTier1
-            onSheetExitBeforeNavigate={exitAndClose}
-            onSheetClose={exitAndClose}
-            onSheetBlockingDraftChange={setBlockingDraft}
+            mode="tradeSheet"
+            categoryKey={sheetCategoryKey}
+            onTradeSheetCategoryChange={setSheetCategoryKey}
+            pathnameForAuth={pathname}
+            onUserRequestClose={() => {
+              void exitAndClose();
+            }}
+            onSuccessNavigate={onSuccessNavigate}
+            onTradeSheetBlockingDraftChange={setBlockingDraft}
           />
         </div>
       </div>

@@ -24,6 +24,7 @@ import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkele
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
@@ -188,6 +189,7 @@ export function CommunityFeed({
   initialGlobalFeedRsc?: PhilifeGlobalFeedInitialRsc | null;
 } = {}) {
   const { open: openPhilifeWriteSheet } = usePhilifeWriteSheet();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -791,12 +793,13 @@ export function CommunityFeed({
   const philifeComposeHref = buildPhilifeComposeHref(category);
   const setPhilifeRecommendSort = useCallback(
     (mode: "latest" | "recommended") => {
+      if (normalizeFeedSort(sortParam) !== mode && !guardBeforeNavigate()) return;
       const sp = new URLSearchParams(searchKeyForNav);
       sp.set("sort", mode);
       const next = sp.toString();
       void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
-    [pathname, router, searchKeyForNav]
+    [pathname, router, searchKeyForNav, sortParam, guardBeforeNavigate]
   );
   const applyRecommendSort = useCallback(
     (mode: "latest" | "recommended") => {
@@ -809,15 +812,16 @@ export function CommunityFeed({
   /** 주제 탭: 상태 + `?category=` 동기화 — 새로고침·공유 시에도 동일 주제, 시드/캐시 키와도 맞음 */
   const applyCategoryTab = useCallback(
     (nextSlug: string) => {
+      const t = nextSlug.trim();
+      if (t !== category.trim() && !guardBeforeNavigate()) return;
       setCategory(nextSlug);
       const sp = new URLSearchParams(searchKeyForNav);
-      const t = nextSlug.trim();
       if (t) sp.set("category", t);
       else sp.delete("category");
       const next = sp.toString();
       void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
-    [pathname, router, searchKeyForNav]
+    [pathname, router, searchKeyForNav, category, guardBeforeNavigate]
   );
 
   const activeTopicTabIndex = useMemo(
@@ -855,8 +859,9 @@ export function CommunityFeed({
       return;
     }
     const href = getBottomNavAdjacentHref("community", "next") ?? "/home";
+    if (!guardBeforeNavigate()) return;
     void router.push(href);
-  }, [chips, activeTopicTabIndex, applyCategoryTab, router]);
+  }, [chips, activeTopicTabIndex, applyCategoryTab, router, guardBeforeNavigate]);
 
   const swipeToPrevTab = useCallback(() => {
     if (!chips.length) return;
@@ -1061,7 +1066,13 @@ export function CommunityFeed({
             아직 글이 없어요.
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               {category === "meetup" ? (
-                <Link href={philifeComposeHref} className="font-semibold text-[#7360F2]">
+                <Link
+                  href={philifeComposeHref}
+                  className="font-semibold text-[#7360F2]"
+                  onClick={(e) => {
+                    if (!guardBeforeNavigate()) e.preventDefault();
+                  }}
+                >
                   모임 글 쓰기
                 </Link>
               ) : (

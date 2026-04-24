@@ -14,7 +14,6 @@ import {
   countSalesHistoryItems,
 } from "@/lib/mypage/trade-history-load-server";
 import {
-
   counterpartyUserIdForSellerView,
   pickItemTradeRoomForProductChat,
   type ItemTradeRoomPair,
@@ -36,7 +35,8 @@ export async function GET(req: NextRequest) {
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  await applyBuyerAutoConfirmAllDue(sbAny);
+  /** 목록 응답 비차단 — 구매 API와 동일 스윕(in-flight 공유) */
+  void applyBuyerAutoConfirmAllDue(sbAny).catch(() => {});
 
   let rows: Record<string, unknown>[];
   let sellingPostIds: string[];

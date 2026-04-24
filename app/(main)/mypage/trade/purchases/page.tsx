@@ -1,10 +1,5 @@
-import { PurchasesView } from "@/components/mypage/PurchasesView";
-import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
+import { TradePurchasesSection } from "@/components/mypage/trade/TradePurchasesSection";
 
 export default function TradePurchasesPage() {
-  return (
-    <TradeHubSectionShell title="구매 내역">
-      <PurchasesView />
-    </TradeHubSectionShell>
-  );
+  return <TradePurchasesSection />;
 }

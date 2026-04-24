@@ -2,26 +2,40 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
+import { useWriteCategory } from "@/contexts/WriteCategoryContext";
+import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
+import { prefetchTradeHubHistorySnapshots } from "@/lib/mypage/trade-history-client";
 
 /**
- * 거래 1단 헤더용 `+` 버튼.
- * 상단 퀵메뉴에서 글쓰기/채팅/내역을 연다.
+ * 거래 1단 헤더 `+` — 글쓰기(시트)·거래 채팅·거래 내역 드롭다운.
+ * 글쓰기는 `PhilifeHeaderComposeButton` 과 같은 **둥근 사각 +** 트리거 스타일.
  */
 export function TradeHeaderComposeButton() {
   const { t } = useI18n();
+  const { open: openTradeWriteSheet } = useTradeWriteSheet();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const tradeHistoryStack = useTradeHeaderTradeHistoryStack();
+  const writeCtx = useWriteCategory();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [domReady, setDomReady] = useState(false);
-  const router = useRouter();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     setDomReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    prefetchTradeHubHistorySnapshots();
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -58,18 +72,16 @@ export function TradeHeaderComposeButton() {
   }, [menuOpen]);
 
   const openWrite = () => {
+    writeCtx?.ensureLauncherCategoriesLoaded();
+    if (!guardBeforeNavigate()) return;
     setMenuOpen(false);
-    router.push("/write");
+    openTradeWriteSheet("");
   };
 
-  const openTradeChat = () => {
+  const openTradeHistoryStack = () => {
+    if (!guardBeforeNavigate()) return;
     setMenuOpen(false);
-    router.push(TRADE_CHAT_MESSENGER_LIST_HREF);
-  };
-
-  const openTradeHistory = () => {
-    setMenuOpen(false);
-    router.push("/mypage/trade");
+    tradeHistoryStack.open();
   };
 
   return (
@@ -79,12 +91,12 @@ export function TradeHeaderComposeButton() {
           ref={triggerRef}
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
-          className="sam-header-action h-10 w-10 text-sam-fg"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
           aria-label={t("nav_write_aria")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
         >
-          <PlusIcon className="h-5 w-5" />
+          <PlusInSquareIcon />
         </button>
       </div>
       {menuOpen && domReady && menuPos && typeof document !== "undefined"
@@ -94,9 +106,34 @@ export function TradeHeaderComposeButton() {
               className="fixed z-[120] w-[11.5rem] overflow-hidden rounded-sam-lg border border-sam-border bg-sam-surface shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
               style={{ top: menuPos.top, right: menuPos.right }}
             >
-              <ActionRow icon={<WriteIcon className="h-5 w-5" />} label="글쓰기" onClick={openWrite} />
-              <ActionRow icon={<ChatIcon className="h-5 w-5" />} label="거래 채팅" onClick={openTradeChat} />
-              <ActionRow icon={<HistoryIcon className="h-5 w-5" />} label="거래 내역" onClick={openTradeHistory} />
+              <ActionRow icon={<WriteIcon className="h-5 w-5" />} label={t("common_write")} onClick={openWrite} />
+              <Link
+                href={TRADE_CHAT_SURFACE.messengerListHref}
+                className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                onClick={(e) => {
+                  if (!guardBeforeNavigate()) {
+                    e.preventDefault();
+                    return;
+                  }
+                  setMenuOpen(false);
+                }}
+              >
+                <span className="text-sam-fg">
+                  <ChatIcon className="h-5 w-5" />
+                </span>
+                <span>{t("nav_trade_chat")}</span>
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={openTradeHistoryStack}
+                className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+              >
+                <span className="text-sam-fg">
+                  <HistoryIcon className="h-5 w-5" />
+                </span>
+                <span>{t("nav_trade_history")}</span>
+              </button>
             </div>,
             document.body
           )
@@ -126,10 +163,10 @@ function ActionRow({
   );
 }
 
-function PlusIcon({ className }: { className?: string }) {
+function PlusInSquareIcon() {
   return (
     <svg
-      className={className}
+      className="h-5 w-5"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

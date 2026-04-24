@@ -27,7 +27,8 @@ async function loadTradeCountsForHub(userId: string): Promise<Pick<MyPageOvervie
     return { purchases: null, sales: null };
   }
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  await applyBuyerAutoConfirmAllDue(sbAny);
+  /** 스윕 비차단 — 허브 배지 조회 지연 방지 */
+  void applyBuyerAutoConfirmAllDue(sbAny).catch(() => {});
   const purchaseLoad = await loadPurchaseHistoryRows(sbAny, userId, { forCount: true });
   const salesLoad = await loadSalesHistoryRows(sbAny, userId, { forCount: true });
   const purchaseCount = purchaseLoad.rows.length;

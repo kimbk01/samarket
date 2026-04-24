@@ -5,12 +5,14 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 export function FloatingAddButton() {
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const writeCtx = useWriteCategory();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   const hideFabOnTradeSurface = isTradeFloatingMenuSurface(pathname);
@@ -27,6 +29,7 @@ export function FloatingAddButton() {
 
   const handleClick = () => {
     writeCtx?.ensureLauncherCategoriesLoaded();
+    if (!guardBeforeNavigate()) return;
     router.push("/write");
   };
 

@@ -58,6 +58,7 @@ import {
   isBottomNavTabActive,
   pickMainBottomNavPrefetchHrefs,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -150,12 +151,14 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   navSearch,
   optimisticActive,
   onNavigationIntent,
+  guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   navSearch: string;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
+  guardBeforeNavigate: () => boolean;
 }) {
   const { tt, t } = useI18n();
   const router = useRouter();
@@ -227,11 +230,28 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
         if (e.key === "Enter" || e.key === " ") {
+          if (
+            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
+            !guardBeforeNavigate()
+          ) {
+            e.preventDefault();
+            return;
+          }
           triggerLightTapFeedback();
           onNavigationIntent(tab.id);
         }
       }}
-      onClick={(e) => onBottomNavTabActivate(pathname, navSearch, tab.href, e)}
+      onClick={(e) => {
+        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href)) {
+          onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+          return;
+        }
+        if (!guardBeforeNavigate()) {
+          e.preventDefault();
+          return;
+        }
+        onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+      }}
     >
       {inner}
     </Link>
@@ -244,12 +264,14 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   navSearch,
   optimisticActive,
   onNavigationIntent,
+  guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   navSearch: string;
   optimisticActive: boolean;
   onNavigationIntent: (tabId: string) => void;
+  guardBeforeNavigate: () => boolean;
 }) {
   const { tt, t } = useI18n();
   const router = useRouter();
@@ -329,11 +351,28 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
         if (e.key === "Enter" || e.key === " ") {
+          if (
+            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
+            !guardBeforeNavigate()
+          ) {
+            e.preventDefault();
+            return;
+          }
           triggerLightTapFeedback();
           onNavigationIntent(tab.id);
         }
       }}
-      onClick={(e) => onBottomNavTabActivate(pathname, navSearch, tab.href, e)}
+      onClick={(e) => {
+        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href)) {
+          onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+          return;
+        }
+        if (!guardBeforeNavigate()) {
+          e.preventDefault();
+          return;
+        }
+        onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+      }}
     >
       {inner}
     </Link>
@@ -557,6 +596,8 @@ export function BottomNav({
     if (bodyPortal) setPortalToBody(true);
   }, [bodyPortal]);
 
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
     bodyPortal || (extraOuterClassName.length > 0 && extraOuterClassName.includes("translate-y"))
@@ -580,6 +621,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 optimisticActive={pendingActiveTabId === tab.id}
                 onNavigationIntent={markBottomNavIntent}
+                guardBeforeNavigate={guardBeforeNavigate}
               />
             ) : (
               <BottomNavTabStandard
@@ -589,6 +631,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 optimisticActive={pendingActiveTabId === tab.id}
                 onNavigationIntent={markBottomNavIntent}
+                guardBeforeNavigate={guardBeforeNavigate}
               />
             )
           )}

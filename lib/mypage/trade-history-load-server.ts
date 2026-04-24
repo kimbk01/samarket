@@ -109,7 +109,7 @@ export async function loadPurchaseHistoryRows(
 
   const postIdsFromRooms = [...new Set(roomsAsBuyer.map((r) => r.item_id).filter(Boolean))];
 
-  await runItemTradeReconcileBuyerIfStale(sbAny, userId, postIdsFromRooms);
+  void runItemTradeReconcileBuyerIfStale(sbAny, userId, postIdsFromRooms).catch(() => {});
 
   const pcSel = forCount ? PURCHASE_COUNT_SEL : PURCHASE_SEL;
   const { data: byBuyerId, error: e1 } = await sbAny
@@ -202,7 +202,7 @@ export async function loadSalesHistoryRows(
 
   const postMap = new Map(sellingMine.map((post) => [String(post.id), post]));
 
-  await runItemTradeReconcileSellerIfStale(sbAny, userId, sellingPostIds);
+  void runItemTradeReconcileSellerIfStale(sbAny, userId, sellingPostIds).catch(() => {});
 
   const byPostFlat: Record<string, unknown>[] = [];
   for (const idChunk of chunkIds(sellingPostIds, CHAT_ROOM_ID_IN_CHUNK_SIZE)) {

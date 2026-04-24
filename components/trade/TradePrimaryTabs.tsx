@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -14,6 +14,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -22,16 +23,43 @@ interface TradePrimaryTabsProps {
   appearance?: "pill" | "inline-text" | "community" | "orders-tab";
 }
 
+function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: boolean }) {
+  if (!embedInAppHeader) {
+    return (
+      <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
+        <div className={APP_MAIN_HEADER_INNER_CLASS}>
+          <div className={`${Sam.tabs.barScroll} flex min-h-[var(--sam-segment-tab-height)] w-full min-w-0 items-stretch border-b border-sam-border`} aria-hidden>
+            <span className="min-w-16 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
+            <span className="min-w-20 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface">
+      <div className={APP_MAIN_HEADER_INNER_CLASS}>
+        <div className={`${Sam.tabs.barScroll} flex min-h-[var(--sam-segment-tab-height)] w-full min-w-0 items-stretch`} aria-hidden>
+          <span className="min-w-16 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
+          <span className="min-w-20 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * TRADE 메뉴 탭(전체·카테고리…) — `RegionBar` 아래. `sam-tabs` / `sam-tabs--scroll` 단일 시각.
+ * `useSearchParams()` — Next 정적 생성용 `Suspense` 경계.
  */
-export function TradePrimaryTabs({
+function TradePrimaryTabsInner({
   embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const { loading, error, tabs } = useTradeTabs(pathname);
   const [allSortOpen, setAllSortOpen] = useState(false);
@@ -53,6 +81,7 @@ export function TradePrimaryTabs({
 
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
+      if (next !== tradeState && !guardBeforeNavigate()) return;
       const sp = new URLSearchParams(searchParams.toString());
       if (next === "latest") sp.delete("tradeState");
       else sp.set("tradeState", next);
@@ -60,7 +89,7 @@ export function TradePrimaryTabs({
       void router.replace(qs ? `/home?${qs}` : "/home", { scroll: false });
       setAllSortOpen(false);
     },
-    [router, searchParams]
+    [router, searchParams, tradeState, guardBeforeNavigate]
   );
 
   const updateAllSortMenuPos = useCallback(() => {
@@ -117,10 +146,6 @@ export function TradePrimaryTabs({
     };
   }, [allSortOpen, updateAllSortMenuPos]);
 
-  if (!embed && !embedInAppHeader) {
-    return null;
-  }
-
   const loadingBlock = (
     <p className={`${Sam.text.bodySecondary} py-3`} aria-live="polite">
       로딩…
@@ -176,6 +201,9 @@ export function TradePrimaryTabs({
                 aria-selected={tab.isActive}
                 prefetch={false}
                 className={tab.isActive ? Sam.tabs.tabActive : Sam.tabs.tab}
+                onClick={(e) => {
+                  if (!tab.isActive && !guardBeforeNavigate()) e.preventDefault();
+                }}
               >
                 <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">전체</span>
               </Link>
@@ -192,6 +220,9 @@ export function TradePrimaryTabs({
               aria-selected={tab.isActive}
               prefetch
               className={tab.isActive ? Sam.tabs.tabActive : Sam.tabs.tab}
+              onClick={(e) => {
+                if (!tab.isActive && !guardBeforeNavigate()) e.preventDefault();
+              }}
             >
               <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{tab.label}</span>
             </Link>
@@ -243,5 +274,17 @@ export function TradePrimaryTabs({
     <div className="relative flex min-w-0 flex-shrink-0 flex-col overflow-x-hidden border-b border-sam-border bg-sam-surface">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
     </div>
+  );
+}
+
+export function TradePrimaryTabs(props: TradePrimaryTabsProps) {
+  const { embed = false, embedInAppHeader = false } = props;
+  if (!embed && !embedInAppHeader) {
+    return null;
+  }
+  return (
+    <Suspense fallback={<TradePrimaryTabsFallback embedInAppHeader={Boolean(embedInAppHeader)} />}>
+      <TradePrimaryTabsInner {...props} />
+    </Suspense>
   );
 }

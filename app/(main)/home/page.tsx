@@ -17,7 +17,10 @@ async function HomeTradeFeedShell() {
     <div className="min-h-screen bg-background">
       <div className="min-w-0 max-w-full overflow-x-hidden pt-0 pb-4">
         <TradeListPageMountProbe />
-        <HomeContent initialHomeTradeFeed={initialHomeTradeFeed} />
+        {/** `HomeContent`·`HomeProductList` 의 `useSearchParams()` — 정적 생성 시 Suspense 필수 */}
+        <Suspense fallback={<MainHomeShellLoading />}>
+          <HomeContent initialHomeTradeFeed={initialHomeTradeFeed} />
+        </Suspense>
       </div>
     </div>
   );

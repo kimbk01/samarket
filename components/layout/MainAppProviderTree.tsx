@@ -23,9 +23,13 @@ import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntry
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
 import { PhilifeWriteBottomSheet } from "@/components/philife/PhilifeWriteBottomSheet";
+import { TradeWriteBottomSheet } from "@/components/trade/TradeWriteBottomSheet";
 import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMessengerFromHeaderStack";
 import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { TradeHeaderTradeHistoryStackProvider } from "@/contexts/TradeHeaderTradeHistoryStackContext";
+import { TradeHistoryFromHeaderStack } from "@/components/trade/TradeHistoryFromHeaderStack";
 import { PhilifeWriteSheetProvider } from "@/contexts/PhilifeWriteSheetContext";
+import { TradeWriteSheetProvider } from "@/contexts/TradeWriteSheetContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
@@ -130,7 +134,9 @@ export function MainAppProviderTree({
             <CategoryListHeaderProvider>
               <StoreCommerceCartMaybeProvider>
                 <PhilifeWriteSheetProvider>
+                  <TradeWriteSheetProvider>
                   <PhilifeHeaderMessengerStackProvider>
+                  <TradeHeaderTradeHistoryStackProvider>
                   <MainTier1ChromeProvider>
                     <TradePresenceActivityProvider>
                       <MainShellPushLayer>
@@ -138,20 +144,25 @@ export function MainAppProviderTree({
                         <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
                           <AppStickyHeader />
                           <PhilifeMessengerFromHeaderStack>
-                            <ConditionalAppShell
-                              regionBarInLayout={true}
-                              initialMainBottomNavItems={initialMainBottomNavItems}
-                            >
-                              {children}
-                            </ConditionalAppShell>
+                            <TradeHistoryFromHeaderStack>
+                              <ConditionalAppShell
+                                regionBarInLayout={true}
+                                initialMainBottomNavItems={initialMainBottomNavItems}
+                              >
+                                {children}
+                              </ConditionalAppShell>
+                            </TradeHistoryFromHeaderStack>
                           </PhilifeMessengerFromHeaderStack>
                         </div>
                       </MainShellPushLayer>
                       <TradeChatEntryCreatingOverlay />
                       <PhilifeWriteBottomSheet />
+                      <TradeWriteBottomSheet />
                     </TradePresenceActivityProvider>
                   </MainTier1ChromeProvider>
+                  </TradeHeaderTradeHistoryStackProvider>
                   </PhilifeHeaderMessengerStackProvider>
+                  </TradeWriteSheetProvider>
                 </PhilifeWriteSheetProvider>
               </StoreCommerceCartMaybeProvider>
             </CategoryListHeaderProvider>

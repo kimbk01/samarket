@@ -11,6 +11,8 @@ import {
   fetchTradeHistorySalesBySession,
 } from "@/lib/mypage/trade-history-client";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import {
   HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS,
   HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS,
@@ -50,6 +52,8 @@ export function HomeTradeHubFloatingBar() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const writeCtx = useWriteCategory();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   /** 어드민 「런처에 표시」 항목이 없으면 다이얼에서 글쓰기 행 숨김 */
@@ -84,21 +88,30 @@ export function HomeTradeHubFloatingBar() {
   }, [menuOpen]);
 
   const onWriteClick = useCallback(() => {
-    setMenuOpen(false);
     writeCtx?.ensureLauncherCategoriesLoaded();
+    if (tradeWriteSheet) {
+      if (!guardBeforeNavigate()) return;
+      setMenuOpen(false);
+      tradeWriteSheet.open("");
+      return;
+    }
+    if (!guardBeforeNavigate()) return;
+    setMenuOpen(false);
     router.push("/write");
-  }, [writeCtx, router]);
+  }, [writeCtx, router, tradeWriteSheet, guardBeforeNavigate]);
 
   const openPurchasesSheet = useCallback(() => {
+    if (!guardBeforeNavigate()) return;
     setMenuOpen(false);
     setHubSheet("purchases");
-  }, []);
+  }, [guardBeforeNavigate]);
 
   /** 거래 채팅 목록은 메신저 `section=chats&kind=trade` 로 통일 (기존 시트+ChatRoomScreen 제거) */
   const openTradeChatInMessenger = useCallback(() => {
+    if (!guardBeforeNavigate()) return;
     setMenuOpen(false);
     router.push(TRADE_CHAT_SURFACE.messengerListHref);
-  }, [router]);
+  }, [router, guardBeforeNavigate]);
 
   const closeHubSheet = useCallback(() => {
     setHubSheet(null);
