@@ -22,9 +22,15 @@ export function getWriteHref(category: CategoryWithSettings): string {
   return `/write/${segment(category)}`;
 }
 
-/** 글쓰기 런처 등에서 사용 (getWriteHref와 동일) */
+/** 단일 글쓰기 페이지(/write) 내부 전환용 링크 */
+export function getUnifiedWriteHref(category: CategoryWithSettings): string {
+  const value = category.type === "trade" ? category.id : segment(category);
+  return `/write?category=${encodeURIComponent(value)}`;
+}
+
+/** 글쓰기 런처는 항상 /write 단일 화면으로 진입 */
 export function getCategoryWriteHref(category: CategoryWithSettings): string {
-  return getWriteHref(category);
+  return getUnifiedWriteHref(category);
 }
 
 export function getCategoryHref(category: CategoryWithSettings): string {

@@ -11,8 +11,10 @@ import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clien
 import {
   HOME_POSTS_PAGE_SIZE,
   expandTradeMarketCategoryFilterIds,
+  resolveHomePostsStatusOrByTradeState,
   resolveHomePostsPayload,
   type HomePostsQuerySort,
+  type HomePostsTradeStateFilter,
   type HomePostsQueryType,
 } from "@/lib/posts/home-posts-query-server";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
@@ -57,6 +59,11 @@ function normalizeType(raw: string | null): HomePostsQueryType {
   return null;
 }
 
+function normalizeTradeState(raw: string | null): HomePostsTradeStateFilter {
+  if (raw === "active" || raw === "reserved" || raw === "sold") return raw;
+  return "latest";
+}
+
 function normalizePage(raw: string | null): number {
   const page = Number(raw);
   if (!Number.isFinite(page)) return 1;
@@ -67,9 +74,10 @@ function buildHomePostsCacheKey(
   page: number,
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
-  marketSegment: string
+  marketSegment: string,
+  tradeState: HomePostsTradeStateFilter
 ): string {
-  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}`;
+  return `${page}:${sort}:${type ?? "all"}:m:${marketSegment}:ts:${tradeState}`;
 }
 
 function buildHomePostsFavoriteCacheKey(
@@ -77,9 +85,10 @@ function buildHomePostsFavoriteCacheKey(
   page: number,
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
-  marketSegment: string
+  marketSegment: string,
+  tradeState: HomePostsTradeStateFilter
 ): string {
-  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment)}`;
+  return `${userId}:${buildHomePostsCacheKey(page, sort, type, marketSegment, tradeState)}`;
 }
 
 function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
@@ -162,6 +171,8 @@ export async function resolveHomePostsGetData(
   const page = normalizePage(searchParams.get("page"));
   const sort = normalizeSort(searchParams.get("sort"));
   const type = normalizeType(searchParams.get("type"));
+  const tradeState = normalizeTradeState(searchParams.get("tradeState"));
+  const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
   const tradeMarketParent = await resolveTradeMarketParentParam(
     readSb as SupabaseClient<any>,
     searchParams.get("tradeMarketParent")
@@ -193,7 +204,7 @@ export async function resolveHomePostsGetData(
       ? "configured_trade_union"
       : "all";
   const from = (page - 1) * HOME_POSTS_PAGE_SIZE;
-  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment);
+  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState);
   maybePruneExpiredEntries(homePostsServerCache);
   maybePruneExpiredEntries(homePostsFavoriteCache);
 
@@ -218,7 +229,8 @@ export async function resolveHomePostsGetData(
         from,
         sort,
         effectiveType,
-        tradeCategoryIds
+        tradeCategoryIds,
+        statusOr
       );
       if (diagnostics) diagnostics.dbQueryEndMs = elapsedMs();
       if (!pack) {
@@ -252,7 +264,14 @@ export async function resolveHomePostsGetData(
 
   if (userId && posts.length > 0) {
     const postIds = posts.map((post) => post.id).filter(Boolean);
-    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(userId, page, sort, effectiveType, marketSegment);
+    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(
+      userId,
+      page,
+      sort,
+      effectiveType,
+      marketSegment,
+      tradeState
+    );
     const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
     const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
 

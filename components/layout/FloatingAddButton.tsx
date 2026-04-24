@@ -1,36 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 
-const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
-
-function getCategorySlugFromPath(pathname: string): string | null {
-  for (const prefix of CATEGORY_PREFIXES) {
-    if (pathname.startsWith(prefix)) {
-      const slug = pathname.slice(prefix.length).replace(/\/.*$/, "").trim();
-      return slug || null;
-    }
-  }
-  return null;
-}
-
 export function FloatingAddButton() {
   const { t } = useI18n();
-  const [launcherOpen, setLauncherOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const writeCtx = useWriteCategory();
-  const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
-  const pathSlug = useMemo(() => getCategorySlugFromPath(pathname ?? ""), [pathname]);
-  const categorySlug = writeCategorySlug ?? pathSlug;
   const hideFabOnTradeSurface = isTradeFloatingMenuSurface(pathname);
 
   /** 거래 탭 표면은 FAB를 숨기고 상단 `+` 메뉴로 통일 */
@@ -38,18 +20,14 @@ export function FloatingAddButton() {
     return null;
   }
 
-  /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김(현재 화면 주제로 바로 쓰기 가능할 때만 유지) */
-  if (!launcherCategoriesLoading && !categorySlug && !hasLauncherTopics) {
+  /** 어드민에서 런처 항목을 모두 끈 경우 좌측 FAB 숨김 */
+  if (!launcherCategoriesLoading && !hasLauncherTopics) {
     return null;
   }
 
   const handleClick = () => {
-    if (categorySlug) {
-      router.push(`/write/${encodeURIComponent(categorySlug)}`);
-      return;
-    }
     writeCtx?.ensureLauncherCategoriesLoaded();
-    setLauncherOpen(true);
+    router.push("/write");
   };
 
   const isCommunityFab =
@@ -61,12 +39,9 @@ export function FloatingAddButton() {
 
   return (
     <>
-      {!launcherOpen ? (
-        <button type="button" onClick={handleClick} className={fabButtonClass} aria-label={t("nav_write_aria")}>
-          {isCommunityFab ? <PencilIcon /> : <PlusIcon />}
-        </button>
-      ) : null}
-      {launcherOpen ? <WriteLauncher onClose={() => setLauncherOpen(false)} /> : null}
+      <button type="button" onClick={handleClick} className={fabButtonClass} aria-label={t("nav_write_aria")}>
+        {isCommunityFab ? <PencilIcon /> : <PlusIcon />}
+      </button>
     </>
   );
 }

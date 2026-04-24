@@ -14,7 +14,7 @@ interface WriteLauncherOverlayProps {
 export function WriteLauncherOverlay({ onClose, children, className }: WriteLauncherOverlayProps) {
   return (
     <div
-      className={className ?? "fixed inset-0 z-30 bg-black/30"}
+      className={className ?? "fixed inset-0 z-[130] bg-black/30"}
       onClick={onClose}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
       role="dialog"

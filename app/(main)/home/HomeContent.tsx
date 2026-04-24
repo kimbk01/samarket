@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
@@ -19,7 +19,11 @@ const HomeFeedViewExperimental = dynamic(
   { ssr: true, loading: () => null }
 );
 
-function HomeTradeFeedBody({ initialHomeTradeFeed }: { initialHomeTradeFeed?: GetPostsForHomeResult | null }) {
+function HomeTradeFeedBody({
+  initialHomeTradeFeed,
+}: {
+  initialHomeTradeFeed?: GetPostsForHomeResult | null;
+}) {
   if (isProductionDeploy()) {
     return <HomeProductList initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />;
   }
@@ -39,7 +43,9 @@ export function HomeContent({
 }) {
   recordTradeListMetricOnce("trade_list_home_content_render_start_ms");
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
+  const tradeState = searchParams.get("tradeState") ?? "";
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
@@ -115,7 +121,10 @@ export function HomeContent({
   return (
     <div className="min-w-0 w-full max-w-full">
       <div ref={setHomeFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
-        <HomeTradeFeedBody initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />
+        <HomeTradeFeedBody
+          key={`home-feed:${tradeState || "latest"}`}
+          initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+        />
       </div>
     </div>
   );

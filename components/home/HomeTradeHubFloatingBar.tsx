@@ -1,16 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
@@ -19,8 +10,6 @@ import {
   fetchTradeHistoryPurchasesBySession,
   fetchTradeHistorySalesBySession,
 } from "@/lib/mypage/trade-history-client";
-import { WriteLauncherPanel } from "@/components/write-launcher/WriteLauncher";
-import { WriteLauncherOverlay } from "@/components/write-launcher/WriteLauncherOverlay";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import {
   HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS,
@@ -29,18 +18,6 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-
-const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
-
-function slugFromPath(pathname: string): string | null {
-  for (const prefix of CATEGORY_PREFIXES) {
-    if (pathname.startsWith(prefix)) {
-      const slug = pathname.slice(prefix.length).replace(/\/.*$/, "").trim();
-      return slug || null;
-    }
-  }
-  return null;
-}
 
 /** 참고 UI: 흰 라벨 박스 (왼쪽) */
 const LABEL_BOX_CLASS =
@@ -73,18 +50,13 @@ export function HomeTradeHubFloatingBar() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const writeCtx = useWriteCategory();
-  const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
-  const pathSlug = slugFromPath(pathname);
-  const categorySlug = writeCategorySlug ?? pathSlug;
-  /** 어드민 「런처에 표시」 항목이 없고 현재 경로 주제도 없으면 다이얼에서 글쓰기 행 숨김 */
-  const showWriteInDial =
-    Boolean(categorySlug) || hasLauncherTopics || launcherCategoriesLoading;
+  /** 어드민 「런처에 표시」 항목이 없으면 다이얼에서 글쓰기 행 숨김 */
+  const showWriteInDial = hasLauncherTopics || launcherCategoriesLoading;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [dialEntered, setDialEntered] = useState(false);
-  const [launcherOpen, setLauncherOpen] = useState(false);
   const [hubSheet, setHubSheet] = useState<HomeTradeHubSheet | null>(null);
   const [hubSheetEntered, setHubSheetEntered] = useState(false);
   const skipEnterAnimRef = useRef(true);
@@ -113,12 +85,9 @@ export function HomeTradeHubFloatingBar() {
 
   const onWriteClick = useCallback(() => {
     setMenuOpen(false);
-    if (categorySlug) {
-      router.push(`/write/${encodeURIComponent(categorySlug)}`);
-      return;
-    }
-    setLauncherOpen(true);
-  }, [categorySlug, router]);
+    writeCtx?.ensureLauncherCategoriesLoaded();
+    router.push("/write");
+  }, [writeCtx, router]);
 
   const openPurchasesSheet = useCallback(() => {
     setMenuOpen(false);
@@ -150,13 +119,11 @@ export function HomeTradeHubFloatingBar() {
   const maxRowIndex = menuItems.length - 1;
 
   const toggleMenu = useCallback(() => {
-    if (launcherOpen) setLauncherOpen(false);
     setMenuOpen((v) => !v);
-  }, [launcherOpen]);
+  }, []);
 
   const closeAll = useCallback(() => {
     setMenuOpen(false);
-    setLauncherOpen(false);
     setHubSheet(null);
   }, []);
 
@@ -191,36 +158,29 @@ export function HomeTradeHubFloatingBar() {
   }, [hubSheet]);
 
   useEffect(() => {
-    if (!launcherOpen && !hubSheet) return;
+    if (!hubSheet) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (hubSheet) {
         closeHubSheet();
         return;
       }
-      closeAll();
+      setMenuOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [launcherOpen, hubSheet, closeAll, closeHubSheet]);
+  }, [hubSheet, closeHubSheet]);
 
-  const shellZ = launcherOpen ? "z-[33]" : "z-[21]";
+  const shellZ = "z-[21]";
 
   return (
     <>
-      {menuOpen && !launcherOpen ? (
+      {menuOpen ? (
         <button
           type="button"
           className="fixed inset-0 z-[20] bg-sam-ink/20 backdrop-blur-[1px]"
           aria-label={t("nav_menu_close")}
           onClick={onBackdropClick}
-        />
-      ) : null}
-
-      {launcherOpen ? (
-        <WriteLauncherOverlay
-          onClose={closeAll}
-          className="fixed inset-0 z-[32] bg-sam-ink/20 backdrop-blur-[1px]"
         />
       ) : null}
 
@@ -274,70 +234,60 @@ export function HomeTradeHubFloatingBar() {
         <div
           className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-none mx-auto box-border flex w-full min-w-0 flex-col items-end gap-3`}
         >
-            {launcherOpen ? (
-              <div className="pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-                <WriteLauncherPanel onClose={closeAll} subFabClose />
-              </div>
-            ) : null}
-
-            {!launcherOpen ? (
-              <nav
-                id="home-trade-speed-dial"
-                className="flex flex-col items-end gap-3"
-                aria-label={t("nav_trade_quick_menu")}
-              >
-                {menuOpen
-                  ? menuItems.map((item, i) => (
-                      <DialRow
-                        key={item.key}
-                        index={i}
-                        maxIndex={maxRowIndex}
-                        dialEntered={dialEntered}
-                      >
-                        <span className={LABEL_BOX_CLASS}>{item.label}</span>
-                        {item.onClick ? (
-                          <button
-                            type="button"
-                            onClick={item.onClick}
-                            className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
-                            aria-label={item.label}
-                          >
-                            <span className="relative inline-flex">
-                              <item.Icon className="text-white" />
-                            </span>
-                          </button>
-                        ) : (
-                          <Link
-                            href={item.href!}
-                            prefetch={false}
-                            onClick={() => setMenuOpen(false)}
-                            className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
-                            aria-label={item.label}
-                          >
+            <nav
+              id="home-trade-speed-dial"
+              className="flex flex-col items-end gap-3"
+              aria-label={t("nav_trade_quick_menu")}
+            >
+              {menuOpen
+                ? menuItems.map((item, i) => (
+                    <DialRow
+                      key={item.key}
+                      index={i}
+                      maxIndex={maxRowIndex}
+                      dialEntered={dialEntered}
+                    >
+                      <span className={LABEL_BOX_CLASS}>{item.label}</span>
+                      {item.onClick ? (
+                        <button
+                          type="button"
+                          onClick={item.onClick}
+                          className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
+                          aria-label={item.label}
+                        >
+                          <span className="relative inline-flex">
                             <item.Icon className="text-white" />
-                          </Link>
-                        )}
-                      </DialRow>
-                    ))
-                  : null}
-              </nav>
-            ) : null}
+                          </span>
+                        </button>
+                      ) : (
+                        <Link
+                          href={item.href!}
+                          prefetch={false}
+                          onClick={() => setMenuOpen(false)}
+                          className={HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS}
+                          aria-label={item.label}
+                        >
+                          <item.Icon className="text-white" />
+                        </Link>
+                      )}
+                    </DialRow>
+                  ))
+                : null}
+            </nav>
 
-            {!launcherOpen ? (
-              <button
-                type="button"
-                onClick={toggleMenu}
-                aria-expanded={menuOpen}
-                aria-haspopup="true"
-                aria-controls={menuOpen ? "home-trade-speed-dial" : undefined}
-                className={`${HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS} relative`}
-                aria-label={menuOpen ? t("nav_menu_close") : t("nav_menu_open")}
-              >
-                <span className="relative inline-flex">
-                  {menuOpen ? <CloseIcon /> : <PlusBoldIcon />}
-                </span>
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={toggleMenu}
+              aria-expanded={menuOpen}
+              aria-haspopup="true"
+              aria-controls={menuOpen ? "home-trade-speed-dial" : undefined}
+              className={`${HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS} relative`}
+              aria-label={menuOpen ? t("nav_menu_close") : t("nav_menu_open")}
+            >
+              <span className="relative inline-flex">
+                {menuOpen ? <CloseIcon /> : <PlusBoldIcon />}
+              </span>
+            </button>
         </div>
       </div>
     </>

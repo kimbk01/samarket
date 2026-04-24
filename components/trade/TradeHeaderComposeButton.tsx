@@ -1,44 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { WriteLauncher } from "@/components/write-launcher/WriteLauncher";
-import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { TRADE_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/trade-chat-surface";
-
-const CATEGORY_PREFIXES = ["/market/", "/community/", "/philife/", "/services/", "/features/"];
-
-function getCategorySlugFromPath(pathname: string): string | null {
-  for (const prefix of CATEGORY_PREFIXES) {
-    if (pathname.startsWith(prefix)) {
-      const slug = pathname.slice(prefix.length).replace(/\/.*$/, "").trim();
-      return slug || null;
-    }
-  }
-  return null;
-}
 
 /**
  * 거래 1단 헤더용 `+` 버튼.
- * FAB와 동일하게: 카테고리 문맥이 있으면 바로 글쓰기, 없으면 런처를 연다.
+ * 상단 퀵메뉴에서 글쓰기/채팅/내역을 연다.
  */
 export function TradeHeaderComposeButton() {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [launcherOpen, setLauncherOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [domReady, setDomReady] = useState(false);
-  const pathname = usePathname();
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const writeCtx = useWriteCategory();
-  const writeCategorySlug = writeCtx?.writeCategorySlug ?? null;
-  const pathSlug = useMemo(() => getCategorySlugFromPath(pathname ?? ""), [pathname]);
-  const categorySlug = writeCategorySlug ?? pathSlug;
-
   useEffect(() => {
     setDomReady(true);
   }, []);
@@ -55,7 +35,10 @@ export function TradeHeaderComposeButton() {
     };
     updateMenuPos();
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const clickedTriggerArea = menuRef.current?.contains(target) ?? false;
+      const clickedMenuPanel = menuPanelRef.current?.contains(target) ?? false;
+      if (!clickedTriggerArea && !clickedMenuPanel) {
         setMenuOpen(false);
       }
     };
@@ -76,12 +59,7 @@ export function TradeHeaderComposeButton() {
 
   const openWrite = () => {
     setMenuOpen(false);
-    if (categorySlug) {
-      router.push(`/write/${encodeURIComponent(categorySlug)}`);
-      return;
-    }
-    writeCtx?.ensureLauncherCategoriesLoaded();
-    setLauncherOpen(true);
+    router.push("/write");
   };
 
   const openTradeChat = () => {
@@ -112,6 +90,7 @@ export function TradeHeaderComposeButton() {
       {menuOpen && domReady && menuPos && typeof document !== "undefined"
         ? createPortal(
             <div
+              ref={menuPanelRef}
               className="fixed z-[120] w-[11.5rem] overflow-hidden rounded-sam-lg border border-sam-border bg-sam-surface shadow-[0_14px_30px_rgba(0,0,0,0.18)]"
               style={{ top: menuPos.top, right: menuPos.right }}
             >
@@ -122,7 +101,6 @@ export function TradeHeaderComposeButton() {
             document.body
           )
         : null}
-      {launcherOpen ? <WriteLauncher onClose={() => setLauncherOpen(false)} /> : null}
     </>
   );
 }
@@ -150,8 +128,17 @@ function ActionRow({
 
 function PlusIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.2}
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <rect x="3" y="3" width="18" height="18" rx="4" ry="4" strokeWidth={2} />
+      <path d="M12 8v8M8 12h8" />
     </svg>
   );
 }

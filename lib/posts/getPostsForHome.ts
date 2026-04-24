@@ -5,6 +5,7 @@ import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/run
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular";
+export type HomeTradeStateFilter = "latest" | "active" | "reserved" | "sold";
 
 export interface GetPostsForHomeOptions {
   page?: number;
@@ -16,6 +17,8 @@ export interface GetPostsForHomeOptions {
    * 미지정이면 `/home` 전체 피드.
    */
   tradeMarketParentId?: string | null;
+  /** `/home` 전체 거래 정렬/상태 필터 */
+  tradeState?: HomeTradeStateFilter;
 }
 
 export interface GetPostsForHomeResult {
@@ -38,10 +41,11 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const sort = options.sort ?? "latest";
   const typeFilter = options.type ?? null;
   const tradeMarketParent = options.tradeMarketParentId?.trim() || null;
+  const tradeState = options.tradeState ?? "latest";
   /** 서버 정책 A(구성된 거래 루트 합집합)와 캐시 일치 — 키 버전 올리면 브라우저 구 캐시 무효 */
   const marketKey = tradeMarketParent ?? "all";
-  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:v3`;
-  return { page, sort, typeFilter, tradeMarketParent, cacheKey };
+  const cacheKey = `${page}:${sort}:${typeFilter ?? "all"}:m:${marketKey}:ts:${tradeState}:v4`;
+  return { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey };
 }
 
 export function peekCachedPostsForHome(
@@ -74,7 +78,7 @@ export function primeHomePostsCache(
 export async function getPostsForHome(
   options: GetPostsForHomeOptions = {}
 ): Promise<GetPostsForHomeResult> {
-  const { page, sort, typeFilter, tradeMarketParent, cacheKey } = normalizeOptions(options);
+  const { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
@@ -96,6 +100,9 @@ export async function getPostsForHome(
       }
       if (tradeMarketParent) {
         params.set("tradeMarketParent", tradeMarketParent);
+      }
+      if (tradeState && tradeState !== "latest") {
+        params.set("tradeState", tradeState);
       }
 
       const dbg = samarketRuntimeDebugEnabled();

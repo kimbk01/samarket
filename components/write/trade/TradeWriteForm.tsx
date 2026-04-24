@@ -136,11 +136,13 @@ import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
 import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
+import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   buildTradeWriteFormSessionDraft,
   clearTradeWriteFormSessionDraft,
@@ -155,6 +157,8 @@ interface TradeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  /** `/write?category=` 단일 화면 — 상위에서 1단·카테고리를 쓸 때 폼 내부 1단 숨김 */
+  suppressTier1Chrome?: boolean;
   /** `/products/[id]/edit` — 기존 글 수정 */
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
@@ -166,12 +170,14 @@ export function TradeWriteForm({
   category,
   onSuccess,
   onCancel,
+  suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
 }: TradeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
   const perMonthSuffix = `${currencyUnit}/month`;
@@ -840,11 +846,21 @@ export function TradeWriteForm({
   const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
 
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
-      <WriteScreenTier1Sync
-        title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
-        backHref={backHref}
-      />
+    <div
+      className={
+        embeddedTier1 || suppressTier1Chrome
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
+          : "min-h-screen bg-sam-app pb-24"
+      }
+    >
+      {!suppressTier1Chrome ? (
+        <WriteScreenTier1Sync
+          tier1Mode={embeddedTier1 ? "embedded" : "global"}
+          title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+          backHref={backHref}
+          onRequestClose={onCancel}
+        />
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
@@ -882,7 +898,7 @@ export function TradeWriteForm({
               />
             </div>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <div>
                 <label className="mb-1 block sam-text-body-secondary text-sam-fg">
@@ -893,7 +909,7 @@ export function TradeWriteForm({
                   value={buildingName}
                   onChange={(e) => setBuildingName(e.target.value)}
                   readOnly={coreLocked}
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+                  className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
                   placeholder="단지·건물명만 입력 (거래 지역은 대표 주소 기준)"
                   aria-invalid={!!errors.buildingName}
                 />
@@ -905,7 +921,7 @@ export function TradeWriteForm({
           </>
         ) : skinKey === "used-car" ? (
           <section
-            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
           >
             <p className="mb-2 sam-text-body font-medium text-sam-fg">
               구분 <span className="text-red-500">*</span>
@@ -936,9 +952,9 @@ export function TradeWriteForm({
           </section>
         ) : (
           <section
-            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+            className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
           >
-            <label className="mb-2 block sam-text-body font-medium text-sam-fg">
+            <label className="mb-1.5 block sam-text-body-lg font-semibold text-sam-fg">
               제목 <span className="text-red-500">*</span>
             </label>
             <input
@@ -948,14 +964,14 @@ export function TradeWriteForm({
               readOnly={coreLocked}
               placeholder="글 제목"
               maxLength={100}
-              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+              className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
               aria-invalid={!!errors.title}
             />
             {errors.title && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.title}</p>}
           </section>
         )}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <label className="mb-2 block sam-text-body font-medium text-sam-fg">
+        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+          <label className="mb-1.5 block sam-text-body font-semibold text-sam-fg">
             내용 <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -963,8 +979,8 @@ export function TradeWriteForm({
             onChange={(e) => setDescription(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
             placeholder="내용을 입력해 주세요"
-            rows={5}
-            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+            rows={4}
+            className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[96px] py-2.5`}
             aria-invalid={!!errors.description}
           />
           {errors.description && (
@@ -978,7 +994,7 @@ export function TradeWriteForm({
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="협의·진행 중 추가로 안내할 내용만 입력해 주세요."
                 rows={3}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+                className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] py-2.5`}
               />
             </div>
           ) : null}
@@ -986,7 +1002,7 @@ export function TradeWriteForm({
         {(hasPrice || (hasFreeShare && !isUsedCarSkin)) &&
           skinKey !== "real-estate" &&
           !(isUsedCarSkin && usedCarTrade === "buy") && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
@@ -1053,7 +1069,7 @@ export function TradeWriteForm({
                 >
                   가격 <span className="text-red-500">*</span>
                 </label>
-                <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
+                <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                   <span className="shrink-0 sam-text-body font-medium text-sam-muted">
                     {getCurrencyUnitLabel(appSettings.defaultCurrency)}
                   </span>
@@ -1086,8 +1102,8 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "real-estate" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-            <h4 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">부동산 정보</h4>
+          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+            <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">부동산 정보</h4>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0">
@@ -1126,7 +1142,7 @@ export function TradeWriteForm({
               {dealType === "판매" && (
                 <div>
                   <label className="mb-1 block sam-text-body-secondary text-sam-fg">판매가 <span className="text-red-500">*</span></label>
-                  <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 focus-within:ring-2 focus-within:ring-signature/20">
+                  <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
                     <span className="shrink-0 sam-text-body font-medium text-sam-muted">
                       {currencyUnit}
                     </span>
@@ -1150,7 +1166,7 @@ export function TradeWriteForm({
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
                         보증금 <span className="text-red-500">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1169,7 +1185,7 @@ export function TradeWriteForm({
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
                         월세 <span className="text-red-500">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1186,7 +1202,7 @@ export function TradeWriteForm({
                     </div>
                     <div className="min-w-0">
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">관리비 (선택)</label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2.5">
+                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1285,8 +1301,8 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "used-car" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-            <h4 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">차량 정보</h4>
+          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+            <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">차량 정보</h4>
             {usedCarTrade === "buy" ? (
               <>
                 <div className="grid grid-cols-3 gap-2">
@@ -1350,65 +1366,65 @@ export function TradeWriteForm({
                 )}
               </>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                <div className="min-w-0 flex flex-col gap-2">
-                  <div>
-                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">차종</label>
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="min-w-0">
+                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">차종</label>
                     <input
                       type="text"
                       value={carModel}
                       onChange={(e) => setCarModel(e.target.value)}
                       placeholder="예: 소나타"
-                      className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
+                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
                     />
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 pt-0.5">
+                  <div className="min-w-0">
+                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+                      연식 <span className="text-red-500">*</span>
+                    </label>
                     <input
-                      type="checkbox"
-                      checked={carHasAccident}
-                      onChange={(e) => setCarHasAccident(e.target.checked)}
-                      className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
+                      type="text"
+                      inputMode="numeric"
+                      value={carYear}
+                      onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
+                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
+                      aria-invalid={!!errors.carYear}
                     />
-                    <span className="sam-text-body-secondary text-sam-fg">사고 이력 있음</span>
-                  </label>
+                    {errors.carYear ? (
+                      <p className="mt-1 sam-text-helper text-red-500">{errors.carYear}</p>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+                      주행거리(km)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={mileage}
+                      onChange={(e) => setMileage(formatPriceInput(e.target.value))}
+                      placeholder="50,000"
+                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
+                    />
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    연식 <span className="text-red-500">*</span>
-                  </label>
+                <label className="flex cursor-pointer items-center gap-2 pt-0.5 whitespace-nowrap">
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    value={carYear}
-                    onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
-                    className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
-                    aria-invalid={!!errors.carYear}
+                    type="checkbox"
+                    checked={carHasAccident}
+                    onChange={(e) => setCarHasAccident(e.target.checked)}
+                    className="h-4 w-4 rounded border-sam-border text-signature focus:ring-signature/30"
                   />
-                  {errors.carYear ? (
-                    <p className="mt-1 sam-text-helper text-red-500">{errors.carYear}</p>
-                  ) : null}
-                </div>
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-helper leading-tight text-sam-fg sm:sam-text-body-secondary">
-                    주행거리(km)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={mileage}
-                    onChange={(e) => setMileage(formatPriceInput(e.target.value))}
-                    placeholder="50,000"
-                    className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
-                  />
-                </div>
+                  <span className="sam-text-body-secondary text-sam-fg whitespace-nowrap">사고 이력 있음</span>
+                </label>
               </div>
             )}
           </section>
         )}
         {skinKey === "jobs" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-            <h4 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">알바 정보</h4>
+          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+            <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">알바 정보</h4>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block sam-text-body-secondary text-sam-fg">급여</label>
@@ -1444,8 +1460,8 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "exchange" && (
-          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-            <h4 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">환전 정보</h4>
+          <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
+            <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">환전 정보</h4>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block sam-text-body-secondary text-sam-fg">통화</label>
@@ -1471,51 +1487,39 @@ export function TradeWriteForm({
           </section>
         )}
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-3 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <h4 className="mb-1 sam-text-body-secondary font-medium text-sam-muted">거래 채팅 통화</h4>
-          <p className="mb-3 sam-text-helper leading-relaxed text-sam-muted">
-            거래 문의는 채팅이 기본입니다. 아래에서 허용하면 구매자가 이 글의 거래 채팅에서 음성·영상 통화를 시작할 수 있습니다.
-          </p>
-          <div className="space-y-2.5">
-            <label className="flex cursor-pointer items-start gap-2.5">
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="trade_chat_call_policy"
-                className="mt-0.5"
+                className="mt-0"
                 checked={tradeChatCallPolicy === "none"}
                 onChange={() => setTradeChatCallPolicy("none")}
               />
-              <span>
-                <span className="block sam-text-body font-medium text-sam-fg">받지 않음</span>
-                <span className="sam-text-helper text-sam-muted">채팅만 가능</span>
-              </span>
+              <span className="sam-text-body font-medium text-sam-fg">받지 않음</span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2.5">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="trade_chat_call_policy"
-                className="mt-0.5"
+                className="mt-0"
                 checked={tradeChatCallPolicy === "voice_only"}
                 onChange={() => setTradeChatCallPolicy("voice_only")}
               />
-              <span>
-                <span className="block sam-text-body font-medium text-sam-fg">음성만</span>
-                <span className="sam-text-helper text-sam-muted">구매자에게 음성 통화 버튼만 표시</span>
-              </span>
+              <span className="sam-text-body font-medium text-sam-fg">음성만</span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2.5">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
                 name="trade_chat_call_policy"
-                className="mt-0.5"
+                className="mt-0"
                 checked={tradeChatCallPolicy === "voice_and_video"}
                 onChange={() => setTradeChatCallPolicy("voice_and_video")}
               />
-              <span>
-                <span className="block sam-text-body font-medium text-sam-fg">음성 + 영상</span>
-                <span className="sam-text-helper text-sam-muted">음성·영상 통화 모두 허용</span>
-              </span>
+              <span className="sam-text-body font-medium text-sam-fg">음성 + 영상</span>
             </label>
           </div>
         </section>

@@ -24,6 +24,7 @@ import {
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
+import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
@@ -32,6 +33,7 @@ interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  suppressTier1Chrome?: boolean;
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
@@ -56,12 +58,14 @@ export function ExchangeWriteForm({
   category,
   onSuccess,
   onCancel,
+  suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
 }: ExchangeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   /** 환전 전용 폼은 거래 지역 필수. exchange 카테고리 DB 설정에 has_location=false가 있어도 항상 표시 */
   const hasLocation = true;
@@ -343,11 +347,21 @@ export function ExchangeWriteForm({
   }, [rateValue, baseRates]);
 
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
-      <WriteScreenTier1Sync
-        title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
-        backHref={backHref}
-      />
+    <div
+      className={
+        embeddedTier1 || suppressTier1Chrome
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
+          : "min-h-screen bg-sam-app pb-24"
+      }
+    >
+      {!suppressTier1Chrome ? (
+        <WriteScreenTier1Sync
+          tier1Mode={embeddedTier1 ? "embedded" : "global"}
+          title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+          backHref={backHref}
+          onRequestClose={onCancel}
+        />
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"

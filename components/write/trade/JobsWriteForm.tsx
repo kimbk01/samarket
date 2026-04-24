@@ -28,8 +28,8 @@ import {
   MIN_WAGE_2026,
   MIN_WAGE_PHP_HOURLY,
 } from "@/lib/jobs/form-options";
-import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
+import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
@@ -37,11 +37,13 @@ import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
+import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  suppressTier1Chrome?: boolean;
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   tradePolicy?: TradePolicyClient | null;
@@ -74,12 +76,14 @@ export function JobsWriteForm({
   category,
   onSuccess,
   onCancel,
+  suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
   tradePolicy = null,
 }: JobsWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currency = appSettings.defaultCurrency || "PHP";
   const maxImages = Math.max(1, appSettings.maxProductImages ?? 10);
@@ -118,8 +122,7 @@ export function JobsWriteForm({
   const [availableTime, setAvailableTime] = useState("");
   const [experienceLevel, setExperienceLevel] = useState("none");
 
-  const [contactPhone, setContactPhone] = useState("");
-  const [phoneAllowed, setPhoneAllowed] = useState(false);
+  const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [images, setImages] = useState<ImageUploadItem[]>([]);
 
@@ -157,8 +160,9 @@ export function JobsWriteForm({
     setCompanyName(h.companyName);
     setAvailableTime(h.availableTime);
     setExperienceLevel(h.experienceLevel);
-    setContactPhone(h.contactPhone);
-    setPhoneAllowed(h.phoneAllowed);
+    setTradeChatCallPolicy(
+      normalizeTradeChatCallPolicy((ownerEditSnapshot.meta as Record<string, unknown> | null)?.trade_chat_call_policy)
+    );
     setTermsAgreed(h.termsAgreed);
     setImages(h.images);
     setDescriptionAppend("");
@@ -211,9 +215,6 @@ export function JobsWriteForm({
       }
     }
     if (!termsAgreed) next.termsAgreed = "안내 사항에 동의해 주세요.";
-    if (contactPhone.trim() && phoneAllowed === false) {
-      /* 연락처만 적고 공개 미체크 → 채팅만 유도 */
-    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }, [
@@ -231,13 +232,10 @@ export function JobsWriteForm({
     payType,
     currency,
     termsAgreed,
-    contactPhone,
-    phoneAllowed,
     coreLocked,
   ]);
 
   const buildMeta = useCallback((): Record<string, unknown> => {
-    const phone = contactPhone.trim();
     return {
       listing_kind: listingKind,
       /** 채팅/관리 필터 호환 */
@@ -258,9 +256,7 @@ export function JobsWriteForm({
       company_name: listingKind === "hire" ? companyName.trim() || undefined : undefined,
       available_time: listingKind === "work" ? availableTime.trim() || undefined : undefined,
       experience_level: listingKind === "work" ? experienceLevel : undefined,
-      phone_allowed: phoneAllowed,
-      contact_phone: phone || undefined,
-      no_phone_calls: phone ? !phoneAllowed : true,
+      trade_chat_call_policy: tradeChatCallPolicy,
       terms_agreed: termsAgreed,
       /** 거래 채팅에서 일자리임을 표시 */
       trade_chat_kind: "job",
@@ -280,8 +276,7 @@ export function JobsWriteForm({
     companyName,
     availableTime,
     experienceLevel,
-    phoneAllowed,
-    contactPhone,
+    tradeChatCallPolicy,
     termsAgreed,
   ]);
 
@@ -379,8 +374,21 @@ export function JobsWriteForm({
   const policyHint = tradePolicy?.hint?.trim() ?? "";
 
   return (
-    <div className="min-h-screen bg-sam-app pb-28">
-      <WriteScreenTier1Sync title={tierTitle} backHref={backHref} />
+    <div
+      className={
+        embeddedTier1 || suppressTier1Chrome
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-28"
+          : "min-h-screen bg-sam-app pb-28"
+      }
+    >
+      {!suppressTier1Chrome ? (
+        <WriteScreenTier1Sync
+          tier1Mode={embeddedTier1 ? "embedded" : "global"}
+          title={tierTitle}
+          backHref={backHref}
+          onRequestClose={onCancel}
+        />
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
@@ -731,28 +739,39 @@ export function JobsWriteForm({
         <section
           className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">연락 (선택)</p>
-          <p className="mb-2 sam-text-helper text-sam-muted">기본은 채팅만 사용해요. 전화번호는 글 본문에 나오지 않습니다.</p>
-          <input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value.replace(/[^\d+\s-]/g, "").slice(0, 22))}
-            placeholder={PH_MOBILE_PLACEHOLDER}
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
-          />
-          <label className="mt-2 flex items-start gap-2">
-            <input
-              type="checkbox"
-              checked={phoneAllowed}
-              onChange={(e) => setPhoneAllowed(e.target.checked)}
-              className="mt-0.5 rounded border-sam-border"
-            />
-            <span className="sam-text-body-secondary text-sam-fg">
-              채팅방에서 상대에게만 연락처 공개 (체크하지 않으면 번호는 저장만 되고 대화창에도 안 보여요)
-            </span>
-          </label>
+          <p className="mb-2 sam-text-body font-semibold text-sam-fg">거래 채팅 통화</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="jobs_trade_chat_call_policy"
+                className="mt-0"
+                checked={tradeChatCallPolicy === "none"}
+                onChange={() => setTradeChatCallPolicy("none")}
+              />
+              <span className="sam-text-body font-medium text-sam-fg">받지 않음</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="jobs_trade_chat_call_policy"
+                className="mt-0"
+                checked={tradeChatCallPolicy === "voice_only"}
+                onChange={() => setTradeChatCallPolicy("voice_only")}
+              />
+              <span className="sam-text-body font-medium text-sam-fg">음성만</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name="jobs_trade_chat_call_policy"
+                className="mt-0"
+                checked={tradeChatCallPolicy === "voice_and_video"}
+                onChange={() => setTradeChatCallPolicy("voice_and_video")}
+              />
+              <span className="sam-text-body font-medium text-sam-fg">음성 + 영상</span>
+            </label>
+          </div>
         </section>
 
         <section

@@ -28,9 +28,26 @@ export const HOME_POSTS_SELECT_TIERS = [
 ] as const;
 
 export const HOME_POSTS_STATUS_OR = "status.is.null,status.not.in.(hidden,sold)";
+export type HomePostsTradeStateFilter = "latest" | "active" | "reserved" | "sold";
 
 export type HomePostsQuerySort = "latest" | "popular";
 export type HomePostsQueryType = "trade" | "community" | "service" | "feature" | null;
+
+export function resolveHomePostsStatusOrByTradeState(
+  tradeState: HomePostsTradeStateFilter
+): string {
+  switch (tradeState) {
+    case "active":
+      return "status.is.null,status.eq.active";
+    case "reserved":
+      return "status.eq.reserved";
+    case "sold":
+      return "status.eq.sold";
+    case "latest":
+    default:
+      return HOME_POSTS_STATUS_OR;
+  }
+}
 
 export function mapPostRowForHome(row: Record<string, unknown>): PostWithMeta {
   const images = normalizePostImages(row.images);
@@ -74,20 +91,21 @@ export async function loadHomePostsPage(
   from: number,
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
-  tradeCategoryIds: string[] | null
+  tradeCategoryIds: string[] | null,
+  statusOr: string
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
   let data: unknown[] | null = null;
 
   outer: for (const selectFields of HOME_POSTS_SELECT_TIERS) {
     let q = sb.from(table).select(selectFields);
     if (tradeCategoryIds?.length) {
-      const andGroup = buildTradePostsStatusAndCategoryAndFilter(tradeCategoryIds, HOME_POSTS_STATUS_OR);
+      const andGroup = buildTradePostsStatusAndCategoryAndFilter(tradeCategoryIds, statusOr);
       if (!andGroup) {
         return { posts: [], hasMore: false };
       }
       applyPostgrestAndGroup(q as unknown as { url: URL }, andGroup);
     } else {
-      q = q.or(HOME_POSTS_STATUS_OR);
+      q = q.or(statusOr);
     }
     if (type === "trade") {
       q = q.not("trade_category_id", "is", null).neq("trade_category_id", "");
@@ -126,9 +144,10 @@ export async function resolveHomePostsPayload(
   from: number,
   sort: HomePostsQuerySort,
   type: HomePostsQueryType,
-  tradeCategoryIds: string[] | null
+  tradeCategoryIds: string[] | null,
+  statusOr: string
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean } | null> {
-  const fromMaskedRead = await loadHomePostsPage(readSb, POSTS_TABLE_READ, from, sort, type, tradeCategoryIds);
+  const fromMaskedRead = await loadHomePostsPage(readSb, POSTS_TABLE_READ, from, sort, type, tradeCategoryIds, statusOr);
   if (fromMaskedRead) return fromMaskedRead;
 
   if (serviceSb && serviceSb !== readSb) {
@@ -138,13 +157,14 @@ export async function resolveHomePostsPayload(
       from,
       sort,
       type,
-      tradeCategoryIds
+      tradeCategoryIds,
+      statusOr
     );
     if (fromMaskedService) return fromMaskedService;
   }
 
   if (serviceSb) {
-    return loadHomePostsPage(serviceSb, "posts", from, sort, type, tradeCategoryIds);
+    return loadHomePostsPage(serviceSb, "posts", from, sort, type, tradeCategoryIds, statusOr);
   }
 
   return null;

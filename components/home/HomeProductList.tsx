@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
@@ -13,6 +14,7 @@ import {
   primeHomePostsCache,
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
+import type { HomeTradeStateFilter } from "@/lib/posts/getPostsForHome";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -34,7 +36,11 @@ const ReportReasonModal = dynamic(
 
 type ListState = "idle" | "loading" | "error" | "empty";
 const MIN_SILENT_REFRESH_GAP_MS = 30_000;
-const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null };
+function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter {
+  if (raw === "active" || raw === "reserved" || raw === "sold") return raw;
+  return "latest";
+}
+
 const INITIAL_VISIBLE_CARD_COUNT = 8;
 
 export function HomeProductList({
@@ -43,8 +49,14 @@ export function HomeProductList({
   /** 서버(RSC)에서 채운 첫 페이지 — 마운트 시 클라이언트 재요청 생략 */
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
 }) {
+  const searchParams = useSearchParams();
+  const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
+  const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null, tradeState };
   const { tt } = useI18n();
-  const boot = initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
+  const boot =
+    tradeState === "latest"
+      ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
+      : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
   const cachedInitial = boot;
   const [listState, setListState] = useState<ListState>(() =>
     cachedInitial ? (cachedInitial.posts.length === 0 ? "empty" : "idle") : "loading"

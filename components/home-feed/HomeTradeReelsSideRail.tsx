@@ -3,10 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
-import { WriteLauncherOverlay } from "@/components/write-launcher/WriteLauncherOverlay";
-import { WriteLauncherPanel } from "@/components/write-launcher/WriteLauncher";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 
 /** 하단 탭(3.5rem+safe) + 본문과 동일 2pt 간격 */
@@ -126,15 +124,15 @@ function isTradeHubSideRailPath(pathname: string | null): boolean {
 
 export function HomeTradeReelsSideRail() {
   const pathname = usePathname();
-  const [launcherOpen, setLauncherOpen] = useState(false);
+  const router = useRouter();
   const [railOpen, setRailOpen] = useState(true);
   const [sheetEntered, setSheetEntered] = useState(true);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipRailEnterAnimationRef = useRef(true);
 
   const onWriteClick = useCallback(() => {
-    setLauncherOpen(true);
-  }, []);
+    router.push("/write");
+  }, [router]);
 
   useEffect(() => {
     if (!railOpen) {
@@ -159,7 +157,6 @@ export function HomeTradeReelsSideRail() {
   }, [railOpen]);
 
   const closeRail = useCallback(() => {
-    setLauncherOpen(false);
     setSheetEntered(false);
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     const wait = SLIDE_MS + MAX_ROW_INDEX * ROW_STAGGER_MS + CLOSE_EXTRA_MS;
@@ -174,8 +171,6 @@ export function HomeTradeReelsSideRail() {
     else setRailOpen(true);
   }, [railOpen, closeRail]);
 
-  const closeLauncher = useCallback(() => setLauncherOpen(false), []);
-
   useEffect(() => {
     return () => {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
@@ -188,20 +183,12 @@ export function HomeTradeReelsSideRail() {
     <>
       {showRail ? (
         <>
-          {launcherOpen ? <WriteLauncherOverlay onClose={closeLauncher} /> : null}
-
           <div
-            className={`pointer-events-none fixed inset-x-0 ${launcherOpen ? "z-[40]" : "z-[22]"}`}
+            className="pointer-events-none fixed inset-x-0 z-[22]"
             style={{ bottom: RAIL_BOTTOM }}
           >
             <div className={`${APP_MAIN_HEADER_INNER_CLASS} pointer-events-none relative`}>
               <div className="pointer-events-none absolute bottom-0 right-0 flex max-w-full flex-row items-end gap-3">
-                {launcherOpen ? (
-                  <div className="pointer-events-auto min-w-0 shrink" onClick={(e) => e.stopPropagation()}>
-                    <WriteLauncherPanel onClose={closeLauncher} hideFabClose />
-                  </div>
-                ) : null}
-
                 <div className="flex min-w-0 shrink-0 flex-col items-end gap-3">
                   {railOpen ? (
                     <nav
@@ -213,11 +200,11 @@ export function HomeTradeReelsSideRail() {
                         <span className={RAIL_LABEL_CLASS}>글쓰기</span>
                         <button
                           type="button"
-                          onClick={launcherOpen ? closeLauncher : onWriteClick}
+                          onClick={onWriteClick}
                           className={`${FAB_BASE} bg-emerald-600`}
-                          aria-label={launcherOpen ? "퀵메뉴 닫기" : "글쓰기"}
+                          aria-label="글쓰기"
                         >
-                          {launcherOpen ? <RadialCloseIcon /> : <PlusIcon />}
+                          <PlusIcon />
                         </button>
                       </StackRow>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import type { CategoryType } from "@/lib/categories/types";
 import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
@@ -95,20 +96,29 @@ export function WriteLauncherPanel({
 }
 
 export function WriteLauncher({ onClose, anchor = "left" }: WriteLauncherProps) {
+  const [domReady, setDomReady] = useState(false);
   const positionClass =
     anchor === "left"
       ? `${BOTTOM_NAV_FAB_LAYOUT.leftOffsetClass} items-start`
       : `${BOTTOM_NAV_FAB_LAYOUT.rightOffsetClass} items-end`;
 
-  return (
+  useEffect(() => {
+    setDomReady(true);
+  }, []);
+
+  if (!domReady || typeof document === "undefined") return null;
+
+  return createPortal(
     <WriteLauncherOverlay onClose={onClose}>
       <div
-        className={`fixed z-40 flex flex-col ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${positionClass}`}
+        className={`fixed z-[131] flex flex-col ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} ${positionClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <WriteLauncherPanel onClose={onClose} />
       </div>
     </WriteLauncherOverlay>
+    ,
+    document.body
   );
 }
 

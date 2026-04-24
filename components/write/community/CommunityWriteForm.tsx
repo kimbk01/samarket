@@ -7,6 +7,7 @@ import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
+import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -15,11 +16,18 @@ interface CommunityWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  suppressTier1Chrome?: boolean;
 }
 
-export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityWriteFormProps) {
+export function CommunityWriteForm({
+  category,
+  onSuccess,
+  onCancel,
+  suppressTier1Chrome = false,
+}: CommunityWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [images, setImages] = useState<ImageUploadItem[]>([]);
@@ -62,8 +70,21 @@ export function CommunityWriteForm({ category, onSuccess, onCancel }: CommunityW
   const backHref = getCategoryHref(category);
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] pb-24">
-      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
+    <div
+      className={
+        embeddedTier1 || suppressTier1Chrome
+          ? "flex w-full min-w-0 flex-col bg-[#F7F8FA] pb-24"
+          : "min-h-screen bg-[#F7F8FA] pb-24"
+      }
+    >
+      {!suppressTier1Chrome ? (
+        <WriteScreenTier1Sync
+          tier1Mode={embeddedTier1 ? "embedded" : "global"}
+          title={`${category.name} · 글쓰기`}
+          backHref={backHref}
+          onRequestClose={onCancel}
+        />
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"

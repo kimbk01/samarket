@@ -7,6 +7,7 @@ import { createPost } from "@/lib/posts/createPost";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
+import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
@@ -22,11 +23,18 @@ interface ServiceWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  suppressTier1Chrome?: boolean;
 }
 
-export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWriteFormProps) {
+export function ServiceWriteForm({
+  category,
+  onSuccess,
+  onCancel,
+  suppressTier1Chrome = false,
+}: ServiceWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const settings = category.settings;
   const postType = settings?.post_type ?? "post";
   const isRequest = isRequestType(postType);
@@ -106,8 +114,21 @@ export function ServiceWriteForm({ category, onSuccess, onCancel }: ServiceWrite
   const backHref = getCategoryHref(category);
 
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
-      <WriteScreenTier1Sync title={`${category.name} · 글쓰기`} backHref={backHref} />
+    <div
+      className={
+        embeddedTier1 || suppressTier1Chrome
+          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
+          : "min-h-screen bg-sam-app pb-24"
+      }
+    >
+      {!suppressTier1Chrome ? (
+        <WriteScreenTier1Sync
+          tier1Mode={embeddedTier1 ? "embedded" : "global"}
+          title={`${category.name} · 글쓰기`}
+          backHref={backHref}
+          onRequestClose={onCancel}
+        />
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
