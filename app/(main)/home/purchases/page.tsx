@@ -2,8 +2,6 @@ import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { HomePurchaseSalesHubTabs } from "@/components/mypage/HomePurchaseSalesHubTabs";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
-export const dynamic = "force-dynamic";
-
 export default function HomePurchasesPage() {
   return (
     <div className="min-h-screen bg-background">

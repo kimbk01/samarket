@@ -6,6 +6,33 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { Star } from "lucide-react";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+const INLINE_AD_CACHE_TTL_MS = 60_000;
+let inlineAdCache: { ad: AdFeedPost | null; expiresAt: number } | null = null;
+
+async function loadCommunityInlineAd(): Promise<AdFeedPost | null> {
+  const now = Date.now();
+  if (inlineAdCache && inlineAdCache.expiresAt > now) {
+    return inlineAdCache.ad;
+  }
+  return runSingleFlight("community-inline-ad-card:active-plife", async () => {
+    const againNow = Date.now();
+    if (inlineAdCache && inlineAdCache.expiresAt > againNow) {
+      return inlineAdCache.ad;
+    }
+    try {
+      const r = await fetch("/api/ads/active?boardKey=plife", { credentials: "include" });
+      const j = (await r.json()) as { ok?: boolean; ads?: AdFeedPost[] };
+      const first = j.ads?.[0] ?? null;
+      inlineAdCache = { ad: first, expiresAt: Date.now() + INLINE_AD_CACHE_TTL_MS };
+      return first;
+    } catch {
+      inlineAdCache = { ad: null, expiresAt: Date.now() + 10_000 };
+      return null;
+    }
+  });
+}
 
 export function CommunityInlineAdCard() {
   const [ad, setAd] = useState<AdFeedPost | null>(null);
@@ -15,10 +42,8 @@ export function CommunityInlineAdCard() {
     let cancel = false;
     void (async () => {
       try {
-        const r = await fetch("/api/ads/active?boardKey=plife", { credentials: "include" });
-        const j = (await r.json()) as { ok?: boolean; ads?: AdFeedPost[] };
+        const first = await loadCommunityInlineAd();
         if (cancel) return;
-        const first = j.ads?.[0] ?? null;
         setAd(first);
       } catch {
         if (!cancel) setAd(null);

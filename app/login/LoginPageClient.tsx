@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MyTestLoginSection } from "@/components/my/MyTestLoginSection";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -27,7 +27,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
 
 function LoginPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const postLoginDestination = POST_LOGIN_PATH;
   const [oauthBusy, setOauthBusy] = useState("");
   const [email, setEmail] = useState("");
@@ -36,10 +35,10 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (searchParams.toString().length > 0) {
+    if (typeof window !== "undefined" && window.location.search.length > 0) {
       router.replace("/login", { scroll: false });
     }
-  }, [router, searchParams]);
+  }, [router]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,15 +249,5 @@ function LoginPageContent() {
 }
 
 export default function LoginPageClient() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-          불러오는 중…
-        </div>
-      }
-    >
-      <LoginPageContent />
-    </Suspense>
-  );
+  return <LoginPageContent />;
 }

@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-24T12:00:00.000Z",
-  "currentTarget": "trade",
+  "updatedAt": "2026-04-24T17:20:00.000Z",
+  "currentTarget": "messenger",
   "inProgress": null,
   "completed": [
     {
@@ -658,6 +658,266 @@
           "note": "eslint components/community/CommentItem.tsx 0 warning; import 한 줄 추가·표시만 변경"
         }
       ]
+    },
+    {
+      "domain": "trade",
+      "target": "trade_home_suspense_boundary_outside_bootstrap_blocking",
+      "file": "app/(main)/home/page.tsx",
+      "reason": "HomePage가 Suspense 경계 밖에서 buildHomeTradeSeedRequest/getOptionalAuthenticatedUserId를 await해 fallback 표시 자체가 지연됨",
+      "before": "HomePage async + Promise.all(await) 후 <Suspense> 반환",
+      "after": "HomeTradeFeedShell 내부에서 Promise.all(await) 실행, HomePage는 즉시 <Suspense fallback> 반환",
+      "completedAt": "2026-04-24T12:45:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "page.tsx 구조상 await가 Suspense 내부 async 컴포넌트(HomeTradeFeedShell)로 이동했고, HomePage 본문에는 동기 JSX만 남아 fallback 즉시 반환 경로가 보장됨"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(초기 표시 전 blocking) 감소 확인: 기존 Promise.all 대기 구간이 페이지 루트에서 제거되어 buildHomeTradeSeedRequest/getOptionalAuthenticatedUserId 지연 시에도 MainHomeShellLoading 경계가 먼저 표시됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "resolveHomePostsGetData 호출·파라미터·HomeContent 전달 값은 동일해 기존 피드 데이터 흐름/로그인 연동/라우트 계약 변경 없음; 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "target": "community_inline_ad_card_reentry_duplicate_fetch",
+      "file": "components/community/post-detail/CommunityInlineAdCard.tsx",
+      "reason": "상세 인라인 광고 카드가 마운트마다 /api/ads/active?boardKey=plife를 독립 호출해 재진입 시 반복 네트워크 왕복이 발생함",
+      "before": "useEffect 마운트마다 직접 fetch 수행(캐시/합류 없음)",
+      "after": "모듈 범위 TTL 캐시(60초) + runSingleFlight 합류로 재진입/동시 마운트 중복 fetch 억제",
+      "completedAt": "2026-04-24T13:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 확인: UI 렌더 분기(tried/ad)와 API 파싱 형태는 유지, fetch 진입 경로만 loadCommunityInlineAd로 일원화"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 캐시 유효 구간에는 즉시 반환, 캐시 미스/동시 호출은 runSingleFlight 키로 단일 요청 합류"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: fetch 실패 시 null 처리와 스켈레톤 종료(tried=true) 동작 동일, 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "target": "trade_home_purchases_force_dynamic_cache_bypass",
+      "file": "app/(main)/home/purchases/page.tsx",
+      "reason": "거래 관리(구매내역) 페이지가 force-dynamic으로 고정되어 정적 라우트 캐시 경로를 사용하지 못함",
+      "before": "app/(main)/home/purchases/page.tsx에 export const dynamic = \"force-dynamic\" 선언",
+      "after": "force-dynamic 선언 제거",
+      "completedAt": "2026-04-24T13:50:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "페이지 파일은 MySubpageHeader/PurchasesView 조합의 정적 셸 구성이고 cookies/headers/searchParams/await fetch 등 동적 API 사용이 없음"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요 force-dynamic으로 인한 캐시 우회) 제거 확인: 세그먼트 강제 동적 선언이 사라져 라우트 캐시 정책을 기본 경로로 복귀"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "컴포넌트 트리/경로(/home/purchases)와 렌더 결과 분기 변경 없음; 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_stores_hub_buyer_summary_idle_delayed_load",
+      "file": "components/stores/StoresHub.tsx",
+      "reason": "스토어 허브 buyer 요약 로드가 idle 스케줄(900~2400ms) 뒤에 시작되어 최초 진입에서 MyZone 핵심 정보가 늦게 표시됨",
+      "before": "useEffect에서 scheduleWhenBrowserIdle(..., 900/2400ms) 이후 loadBuyerHub 실행",
+      "after": "마운트 useEffect에서 즉시 loadBuyerHub 실행",
+      "completedAt": "2026-04-24T14:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "구조 확인: loadBuyerHub 본문(fetchMeStoreOrdersHubSummaryDeduped, 401/idle/ready 분기)·이벤트 리프레시·pageshow 리프레시 경로는 그대로 유지"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 기존 idle 대기 구간 제거로 buyer 허브 요약 fetch 시작 시점이 마운트 직후로 앞당겨짐"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: geolocation idle 지연 로직/검색 debounce/주변 매장 피드 흐름 미변경, 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "target": "messenger_outgoing_dial_page_force_dynamic_cache_bypass",
+      "file": "app/(main)/community-messenger/calls/outgoing/page.tsx",
+      "reason": "아웃고잉 통화 다이얼 페이지 래퍼가 force-dynamic으로 고정되어 정적 라우트 캐시 경로를 사용하지 못함",
+      "before": "app/(main)/community-messenger/calls/outgoing/page.tsx에 export const dynamic = \"force-dynamic\" 선언",
+      "after": "force-dynamic 선언 제거",
+      "completedAt": "2026-04-24T14:50:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "page.tsx는 클라이언트 컴포넌트 래퍼 반환만 수행하며 cookies/headers/searchParams/await fetch 같은 동적 API 사용이 없음"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요 force-dynamic 표기) 제거로 세그먼트 강제 동적 처리 우회가 해소됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "CommunityMessengerOutgoingDialPageClient 진입/라우팅 로직은 변경 없고 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "target": "myinfo_mypage_root_force_dynamic_cache_bypass",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "내정보 루트 페이지가 force-dynamic으로 고정되어 정적 라우트 캐시 경로를 사용하지 못함",
+      "before": "app/(main)/mypage/page.tsx에 export const dynamic = \"force-dynamic\" 선언",
+      "after": "force-dynamic 선언 제거",
+      "completedAt": "2026-04-24T15:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "페이지는 Suspense + MypageServerBody 구성이며 cookies/headers/searchParams/동적 API를 직접 사용하지 않음"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요 force-dynamic 선언) 제거로 세그먼트 강제 동적 경로 우회가 해소됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "loadMypageServerShell 호출·MyContent 전달·fallback 구조 변경 없음, 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "target": "login_page_suspense_fallback_initial_blank",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "useSearchParams 의존으로 로그인 페이지 전체를 Suspense fallback으로 감싸 초기 진입에서 폼 대신 '불러오는 중…' 공백 화면이 먼저 노출됨",
+      "before": "useSearchParams 사용 + LoginPageClient가 <Suspense fallback='불러오는 중…'>로 전체 페이지 래핑",
+      "after": "window.location.search 기반 정규화로 변경하고 Suspense 래퍼 제거(즉시 로그인 폼 렌더)",
+      "completedAt": "2026-04-24T15:50:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 확인: 로그인 submit/OAuth/에러/세션 동기화 로직은 그대로 유지, URL 정규화 입력만 useSearchParams→window.location.search로 변경"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 페이지 루트 Suspense fallback 제거로 초기 렌더에서 바로 로그인 폼이 노출됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: query 존재 시 router.replace('/login') 동작 유지, 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "target": "community_legacy_my_route_force_dynamic_redundant",
+      "file": "app/(main)/community/my/page.tsx",
+      "reason": "/community/my가 /philife/my 리다이렉트 전용 페이지인데 force-dynamic 선언으로 세그먼트가 불필요하게 동적 처리됨",
+      "before": "export const dynamic = \"force-dynamic\" + Suspense + redirect(\"/philife/my\")",
+      "after": "force-dynamic 선언 제거, 기존 Suspense/redirect 흐름 유지",
+      "completedAt": "2026-04-24T16:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "구조 확인: 페이지는 redirect 전용 경로이며 동적 API(cookies/headers/searchParams/fetch) 직접 사용 없음"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요 force-dynamic 표기) 제거로 세그먼트 강제 동적 처리 우회가 해소됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "redirect 대상(/philife/my)·fallback 구조 불변, 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "target": "trade_home_sales_force_dynamic_cache_bypass",
+      "file": "app/(main)/home/sales/page.tsx",
+      "reason": "거래 관리(판매내역) 페이지가 force-dynamic으로 고정되어 정적 라우트 캐시 경로를 사용하지 못함",
+      "before": "app/(main)/home/sales/page.tsx에 export const dynamic = \"force-dynamic\" 선언",
+      "after": "force-dynamic 선언 제거",
+      "completedAt": "2026-04-24T16:50:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "페이지는 정적 셸(MySubpageHeader + SalesHistoryView) 구성이고 동적 API(cookies/headers/searchParams/await fetch) 직접 사용이 없음"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목(불필요 force-dynamic 표기) 제거로 세그먼트 강제 동적 처리 우회가 해소됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "경로(/home/sales)·컴포넌트 트리·표시 분기 변화 없고 린트 에러 없음"
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_store_detail_metadata_no_store_extra_fetch",
+      "file": "app/(main)/stores/[slug]/page.tsx",
+      "reason": "매장 상세 generateMetadata가 /api/stores/:slug를 no-store로 매 요청 조회해 상세 진입 시 추가 조회 비용이 반복됨",
+      "before": "generateMetadata fetch 옵션이 cache: \"no-store\"",
+      "after": "generateMetadata fetch 옵션을 next: { revalidate: 60 }로 변경",
+      "completedAt": "2026-04-24T17:20:00.000Z",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "구조 확인: generateMetadata의 title/description/canonical 계산 로직과 StoreDetailPageBody 본문 렌더 경로는 동일"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: no-store 강제 매요청 조회에서 60초 재검증 캐시로 전환되어 반복 상세 진입 시 메타 조회 추가 왕복이 완화됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 메타 필드 구성/slug canonical 계산/예외 처리 분기 유지, 린트 에러 없음"
+        }
+      ]
     }
   ],
   "lockedFiles": [
@@ -710,7 +970,17 @@
     "components/stores/home/StoreNearbyFeedSection.tsx",
     "components/stores/home/StoreCategoryExploreSection.tsx",
     "app/(main)/community-messenger/rooms/[roomId]/page.tsx",
-    "components/community/PhilifeFeedClientEntry.tsx"
+    "components/community/PhilifeFeedClientEntry.tsx",
+    "app/(main)/home/page.tsx",
+    "components/community/post-detail/CommunityInlineAdCard.tsx",
+    "app/(main)/home/purchases/page.tsx",
+    "components/stores/StoresHub.tsx",
+    "app/(main)/community-messenger/calls/outgoing/page.tsx",
+    "app/(main)/mypage/page.tsx",
+    "app/login/LoginPageClient.tsx",
+    "app/(main)/community/my/page.tsx",
+    "app/(main)/home/sales/page.tsx",
+    "app/(main)/stores/[slug]/page.tsx"
   ],
   "history": [
     {
@@ -1176,6 +1446,94 @@
       "file": "",
       "reason": "사용자 요청으로 커뮤니티 성능 우선 라운드 종료(필라이프 피드 SSR·상세·댓글 항목 반영 완료)",
       "result": "inProgress null 유지, currentTarget을 trade로 전환(자동 순서: community → trade → …)"
+    },
+    {
+      "at": "2026-04-24T12:45:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/home/page.tsx",
+      "reason": "홈 페이지의 Suspense 경계 밖 bootstrap await 제거",
+      "result": "3회 점검 pass, currentTarget을 delivery로 전환"
+    },
+    {
+      "at": "2026-04-24T13:00:00.000Z",
+      "domain": "community",
+      "action": "track_priority",
+      "file": "",
+      "reason": "사용자 요청으로 커뮤니티 성능을 우선 진행",
+      "result": "currentTarget을 community로 전환 후 단건 병목 작업 시작"
+    },
+    {
+      "at": "2026-04-24T13:20:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/post-detail/CommunityInlineAdCard.tsx",
+      "reason": "커뮤니티 상세 인라인 광고 카드 중복 fetch 억제",
+      "result": "3회 점검 pass, currentTarget을 trade로 전환"
+    },
+    {
+      "at": "2026-04-24T13:50:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/home/purchases/page.tsx",
+      "reason": "거래 관리 구매내역 페이지의 불필요 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 delivery로 전환"
+    },
+    {
+      "at": "2026-04-24T14:20:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoresHub.tsx",
+      "reason": "스토어 허브 buyer 요약 초기 load의 idle 지연 제거",
+      "result": "3회 점검 pass, currentTarget을 messenger로 전환"
+    },
+    {
+      "at": "2026-04-24T14:50:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "app/(main)/community-messenger/calls/outgoing/page.tsx",
+      "reason": "메신저 아웃고잉 다이얼 페이지의 불필요 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 myinfo로 전환"
+    },
+    {
+      "at": "2026-04-24T15:20:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "내정보 루트 페이지의 불필요 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 login으로 전환"
+    },
+    {
+      "at": "2026-04-24T15:50:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "로그인 루트 Suspense fallback 초기 공백 제거",
+      "result": "3회 점검 pass, currentTarget을 community로 전환"
+    },
+    {
+      "at": "2026-04-24T16:20:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "app/(main)/community/my/page.tsx",
+      "reason": "레거시 community my 리다이렉트 페이지의 불필요 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 trade로 전환"
+    },
+    {
+      "at": "2026-04-24T16:50:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/home/sales/page.tsx",
+      "reason": "거래 관리 판매내역 페이지의 불필요 force-dynamic 제거",
+      "result": "3회 점검 pass, currentTarget을 delivery로 전환"
+    },
+    {
+      "at": "2026-04-24T17:20:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "app/(main)/stores/[slug]/page.tsx",
+      "reason": "매장 상세 metadata no-store 추가 조회 완화",
+      "result": "3회 점검 pass, currentTarget을 messenger로 전환"
     }
   ]
 }

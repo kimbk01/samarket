@@ -167,12 +167,7 @@ export function StoresHub() {
   }, []);
 
   useEffect(() => {
-    const idleId = scheduleWhenBrowserIdle(() => {
-      void loadBuyerHub();
-    }, isConstrainedNetwork() ? 2400 : 900);
-    return () => {
-      cancelScheduledWhenBrowserIdle(idleId);
-    };
+    void loadBuyerHub();
   }, [loadBuyerHub]);
 
   useEffect(() => {
