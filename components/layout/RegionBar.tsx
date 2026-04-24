@@ -75,14 +75,17 @@ function StoresRootTier1Right() {
 
 function UnifiedTier1Shell({
   embedded,
+  hideBottomBorder,
   children,
 }: {
   embedded?: boolean;
+  hideBottomBorder?: boolean;
   children: ReactNode;
 }) {
+  const noBorder = embedded || hideBottomBorder;
   return (
     <header
-      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px] ${embedded ? "" : "border-b border-sam-border"}`}
+      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px] ${noBorder ? "" : "border-b border-sam-border"}`}
     >
       {children}
     </header>
@@ -223,9 +226,21 @@ export function RegionBar({
       <div className="h-9 w-9 shrink-0" aria-hidden />
     );
 
+  const hideTier1BottomBorder = o?.hideTier1BottomBorder === true;
+  const alignTitleStart = o?.alignTier1TitleStart === true;
+  const titleColClass = alignTitleStart
+    ? "min-w-0 flex-1 overflow-hidden pl-0 pr-1 text-left"
+    : "min-w-0 flex-1 overflow-hidden px-1 text-center";
+  const h1Class = alignTitleStart
+    ? "flex min-w-0 w-full flex-col items-start justify-center overflow-hidden text-sam-fg"
+    : "flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg";
+  const tier1RowGapClass = alignTitleStart ? "gap-0.5" : "gap-2";
+
   return (
-    <UnifiedTier1Shell embedded={embedded}>
-      <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+    <UnifiedTier1Shell embedded={embedded} hideBottomBorder={hideTier1BottomBorder}>
+      <div
+        className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center ${tier1RowGapClass} overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
+      >
         <div
           className={
             o?.leftSlot != null
@@ -245,8 +260,8 @@ export function RegionBar({
             />
           )}
         </div>
-        <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-          <h1 className="flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg">
+        <div className={titleColClass}>
+          <h1 className={h1Class}>
             {centerNode}
             {subtitle ? (
               subtitleHref ? (

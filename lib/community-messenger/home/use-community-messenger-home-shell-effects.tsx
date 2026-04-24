@@ -19,7 +19,14 @@ import {
 import {
   fetchMeNotificationSettingsSnapshot,
 } from "@/lib/me/fetch-me-notification-settings-client";
-import { resolveMessengerChatFilters, resolveMessengerSection, type MessengerChatInboxFilter, type MessengerChatKindFilter, type MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import {
+  messengerSectionLabel,
+  resolveMessengerChatFilters,
+  resolveMessengerSection,
+  type MessengerChatInboxFilter,
+  type MessengerChatKindFilter,
+  type MessengerMainSection,
+} from "@/lib/community-messenger/messenger-ia";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerFriendRequest,
@@ -47,13 +54,13 @@ type Args = {
   setMainSection: Dispatch<SetStateAction<MessengerMainSection>>;
   setChatInboxFilter: Dispatch<SetStateAction<MessengerChatInboxFilter>>;
   setChatKindFilter: Dispatch<SetStateAction<MessengerChatKindFilter>>;
-  incomingRequestCount: number;
   setNotificationSettings: Dispatch<SetStateAction<MessengerNotificationSettings>>;
   data: CommunityMessengerBootstrap | null;
   incomingFriendRequestPopup: CommunityMessengerFriendRequest | null;
   setIncomingFriendRequestPopup: Dispatch<SetStateAction<CommunityMessengerFriendRequest | null>>;
   /** `/philife` 헤더 푸시 스택: URL `section` 동기화·1단 `rightSlot` 은 별도 처리 */
   fromPhilifeHeaderStack?: boolean;
+  mainSection: MessengerMainSection;
 };
 
 export function useCommunityMessengerHomeShellEffects({
@@ -74,12 +81,12 @@ export function useCommunityMessengerHomeShellEffects({
   setMainSection,
   setChatInboxFilter,
   setChatKindFilter,
-  incomingRequestCount,
   setNotificationSettings,
   data,
   incomingFriendRequestPopup,
   setIncomingFriendRequestPopup,
   fromPhilifeHeaderStack = false,
+  mainSection,
 }: Args): void {
   useEffect(() => {
     consumeCommunityMessengerHomeReturn();
@@ -171,10 +178,14 @@ export function useCommunityMessengerHomeShellEffects({
     setMainTier1Extras({
       tier1: {
         rightSlot: headerActionsNode,
+        titleText: messengerSectionLabel(mainSection),
+        subtitle: "",
+        hideTier1BottomBorder: true,
+        alignTier1TitleStart: true,
       },
     });
     return () => setMainTier1Extras(null);
-  }, [headerActionsNode, incomingRequestCount, setMainTier1Extras, fromPhilifeHeaderStack]);
+  }, [headerActionsNode, mainSection, setMainTier1Extras, fromPhilifeHeaderStack]);
 
   useEffect(() => {
     let cancelled = false;

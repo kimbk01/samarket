@@ -12,6 +12,9 @@ const LEFT_ACTION_TOTAL = ACTION_W * 2;
 const RIGHT_ACTION_TOTAL = ACTION_W * 2;
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
+/** 퀵 메뉴(롱프레스) — 이보다 짧게 누르면 탭은 메뉴를 열지 않음 */
+const FRIEND_QUICK_MENU_LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_CANCEL_PX = 14;
 
 type Props = {
   friend: CommunityMessengerProfileLite;
@@ -55,6 +58,8 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   });
   const dragXRef = useRef(0);
   const suppressTapRef = useRef(false);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
 
   useEffect(() => {
     dragXRef.current = dragX;
@@ -62,8 +67,6 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
 
   const avatarSrc = friend.avatarUrl?.trim() ? friend.avatarUrl.trim() : null;
   const initial = friend.label.trim().slice(0, 1) || "?";
-  const handleLineRaw = friend.subtitle?.trim() ?? "";
-  const handleLine = handleLineRaw.startsWith("@") ? handleLineRaw.slice(1).trim() : handleLineRaw;
   const bioLine = friend.bio?.trim() ?? "";
   const swipeItemId = messengerFriendSwipeItemId(friend.id);
   const rightSwipeItemId = `${swipeItemId}:right`;
@@ -96,32 +99,64 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
 
   const clamp = useCallback((x: number) => Math.max(-LEFT_ACTION_TOTAL, Math.min(RIGHT_ACTION_TOTAL, x)), []);
 
-  const onPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    suppressTapRef.current = false;
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origin: dragXRef.current,
-      active: true,
-      dragging: false,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  const openQuickMenu = useCallback(() => {
+    snapClosed();
+    onOpenFriendQuickMenu(friend.id);
+  }, [friend.id, onOpenFriendQuickMenu, snapClosed]);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   }, []);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      clearLongPressTimer();
+      longPressFiredRef.current = false;
+      suppressTapRef.current = false;
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origin: dragXRef.current,
+        active: true,
+        dragging: false,
+      };
+      longPressTimerRef.current = setTimeout(() => {
+        longPressTimerRef.current = null;
+        longPressFiredRef.current = true;
+        suppressTapRef.current = true;
+        openQuickMenu();
+      }, FRIEND_QUICK_MENU_LONG_PRESS_MS);
+      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    },
+    [clearLongPressTimer, openQuickMenu]
+  );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       if (!dragRef.current.active) return;
+      if (longPressTimerRef.current) {
+        const mdx = Math.abs(e.clientX - dragRef.current.startX);
+        const mdy = Math.abs(e.clientY - dragRef.current.startY);
+        if (mdx > LONG_PRESS_MOVE_CANCEL_PX || mdy > LONG_PRESS_MOVE_CANCEL_PX) {
+          clearLongPressTimer();
+        }
+      }
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
       if (!dragRef.current.dragging) {
         if (Math.abs(dy) > DRAG_CANCEL_Y && Math.abs(dy) > Math.abs(dx)) {
+          clearLongPressTimer();
           dragRef.current.active = false;
           return;
         }
         if (Math.abs(dx) < DRAG_START_X || Math.abs(dx) <= Math.abs(dy)) {
           return;
         }
+        clearLongPressTimer();
         dragRef.current.dragging = true;
         suppressTapRef.current = true;
         setIsDragging(true);
@@ -130,19 +165,24 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
       dragXRef.current = next;
       setDragX(next);
     },
-    [clamp]
+    [clamp, clearLongPressTimer]
   );
 
-  const onPointerCancel = useCallback((e: React.PointerEvent) => {
-    dragRef.current.active = false;
-    dragRef.current.dragging = false;
-    setIsDragging(false);
-    try {
-      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-    } catch {
-      /* noop */
-    }
-  }, []);
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent) => {
+      clearLongPressTimer();
+      longPressFiredRef.current = false;
+      dragRef.current.active = false;
+      dragRef.current.dragging = false;
+      setIsDragging(false);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+    },
+    [clearLongPressTimer]
+  );
 
   const runAction = useCallback(
     (fn: () => void) => {
@@ -173,33 +213,24 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
     onToggleFavorite(friend.id);
   }, [friend.id, onToggleFavorite]);
 
-  const openQuickMenu = useCallback(() => {
-    snapClosed();
-    onOpenFriendQuickMenu(friend.id);
-  }, [friend.id, onOpenFriendQuickMenu, snapClosed]);
-
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragRef.current.active) return;
+      clearLongPressTimer();
+      if (!dragRef.current.active) {
+        longPressFiredRef.current = false;
+        return;
+      }
       dragRef.current.active = false;
       const wasDragging = dragRef.current.dragging;
       dragRef.current.dragging = false;
       setIsDragging(false);
+      longPressFiredRef.current = false;
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
       } catch {
         /* noop */
       }
       if (!wasDragging) {
-        // 모바일/포인터 캡처 환경에서 onClick이 누락되는 케이스가 있어 tap은 여기서 확정한다.
-        if (!suppressTapRef.current && Math.abs(dragXRef.current) <= 6) {
-          suppressTapRef.current = true;
-          openQuickMenu();
-          if (e.pointerType === "touch") {
-            e.preventDefault();
-          }
-          e.stopPropagation();
-        }
         return;
       }
       const cur = dragXRef.current;
@@ -213,7 +244,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
       }
       onOpenSwipeItem(snap === -LEFT_ACTION_TOTAL ? leftSwipeItemId : snap === RIGHT_ACTION_TOTAL ? rightSwipeItemId : null);
     },
-    [leftSwipeItemId, onCloseFriendQuickMenu, onCloseMenuItem, onOpenSwipeItem, openQuickMenu, rightSwipeItemId]
+    [clearLongPressTimer, leftSwipeItemId, onCloseFriendQuickMenu, onCloseMenuItem, onOpenSwipeItem, rightSwipeItemId]
   );
 
   const hideLabel = friend.isHiddenFriend ? "숨김 해제" : "숨기기";
@@ -275,7 +306,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
         <div
           role="button"
           tabIndex={0}
-          className="relative min-w-0 flex-1 cursor-pointer touch-manipulation active:bg-[color:var(--messenger-surface-muted)]"
+          className="relative min-w-0 flex-1 select-none touch-manipulation active:bg-[color:var(--messenger-surface-muted)]"
           onKeyDown={(ev) => {
             if (ev.key === "Enter" || ev.key === " ") {
               ev.preventDefault();
@@ -289,12 +320,11 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             }
             if (Math.abs(dragX) > 16) {
               snapClosed();
-              return;
             }
-            openQuickMenu();
           }}
         >
           <MessengerListRow
+            centerWithAvatar
             trailingLayout="center"
             avatar={
               <div className="relative h-12 w-12">
@@ -347,20 +377,17 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
                 {friend.label}
               </p>
-              <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
+              <span
+                className={
+                  friendKind === "trade"
+                    ? "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-success)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-trade-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-success)]"
+                    : friendKind === "delivery"
+                      ? "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--sam-warning)38%,var(--messenger-surface))] bg-[color:var(--messenger-badge-delivery-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--sam-warning)]"
+                      : "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-primary)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-direct-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-primary)]"
+                }
+              >
                 {friendKind === "trade" ? "거래 친구" : friendKind === "delivery" ? "배달 친구" : "친구"}
               </span>
-              {friend.isFavoriteFriend ? (
-                <span
-                  className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-semibold"
-                  style={{
-                    backgroundColor: "var(--messenger-primary-soft)",
-                    color: "var(--messenger-primary)",
-                  }}
-                >
-                  즐겨찾기
-                </span>
-              ) : null}
               {friend.blocked ? (
                 <span
                   className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium"
@@ -370,13 +397,11 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
                 </span>
               ) : null}
             </div>
-            {handleLine ? (
-              <p className="truncate sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-                {handleLine}
-              </p>
-            ) : null}
             {bioLine ? (
-              <p className="line-clamp-2 sam-text-helper font-normal leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              <p
+                className="line-clamp-2 whitespace-pre-wrap break-words sam-text-helper font-normal leading-snug"
+                style={{ color: "var(--messenger-text-secondary)" }}
+              >
                 {bioLine}
               </p>
             ) : null}

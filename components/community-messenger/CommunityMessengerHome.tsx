@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
+import { CommunityMessengerHomeBottomNav } from "@/components/community-messenger/CommunityMessengerHomeBottomNav";
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
@@ -538,12 +539,12 @@ export function CommunityMessengerHome({
     setMainSection,
     setChatInboxFilter,
     setChatKindFilter,
-    incomingRequestCount,
     setNotificationSettings,
     data,
     incomingFriendRequestPopup,
     setIncomingFriendRequestPopup,
     fromPhilifeHeaderStack,
+    mainSection,
   });
 
   /**
@@ -2076,6 +2077,8 @@ export function CommunityMessengerHome({
         retryText={t("common_try_again_later")}
         onRetry={() => void refresh()}
       />
+
+      <CommunityMessengerHomeBottomNav value={mainSection} onSelect={onPrimarySectionChange} />
 
       {outgoingCallConfirm ? (
         <MessengerOutgoingCallConfirmDialog

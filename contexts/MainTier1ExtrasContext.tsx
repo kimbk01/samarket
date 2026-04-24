@@ -22,6 +22,10 @@ export type MainTier1Partial = {
   rightSlot?: ReactNode;
   /** true면 뒤로 칸은 비움(주문 허브 등) */
   hideBack?: boolean;
+  /** true면 1단 헤더 하단 `border-b` 제거(커뮤니티 메신저 허브 등) */
+  hideTier1BottomBorder?: boolean;
+  /** true면 1단 제목을 뒤로가기 쪽(좌)으로 정렬 — 기본은 가운데 */
+  alignTier1TitleStart?: boolean;
   /** 있으면 좌측 뒤로 버튼 대체(글쓰기 취소 확인 등) */
   leftSlot?: ReactNode;
 };
@@ -46,6 +50,8 @@ function sameMainTier1Partial(a: MainTier1Partial | undefined, b: MainTier1Parti
     a.ariaLabel === b.ariaLabel &&
     a.showHubQuickActions === b.showHubQuickActions &&
     a.hideBack === b.hideBack &&
+    a.hideTier1BottomBorder === b.hideTier1BottomBorder &&
+    a.alignTier1TitleStart === b.alignTier1TitleStart &&
     a.rightSlot === b.rightSlot &&
     a.leftSlot === b.leftSlot
   );

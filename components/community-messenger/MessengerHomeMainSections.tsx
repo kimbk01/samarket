@@ -6,7 +6,6 @@ import type { MessengerMenuAnchorRect } from "@/components/community-messenger/M
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
-import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
 import {
   inboxKindToChatListChip,
   messengerChatListEmptyMessageForChip,
@@ -147,43 +146,9 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     const nextSection = q.get("section") as MessengerMainSection | null;
     if (nextSection) onPrimarySectionChange(nextSection);
   });
-  const sectionTitle =
-    mainSection === "friends"
-      ? "친구"
-      : mainSection === "chats"
-        ? "채팅"
-        : mainSection === "open_chat"
-          ? "모임"
-          : "보관함";
-  const sectionDescription =
-    mainSection === "friends"
-      ? "친구 목록과 프로필을 빠르게 관리하세요."
-      : mainSection === "chats"
-        ? "최근 대화와 안읽은 메시지를 모바일에 맞게 정리합니다."
-        : mainSection === "open_chat"
-          ? "참여 중인 모임 채팅과 새 모임을 한곳에서 확인합니다."
-          : "숨긴 대화와 보관한 채팅을 다시 꺼낼 수 있습니다.";
 
   return (
     <section data-cm-messenger-main className="space-y-2 px-3">
-      <div className="space-y-1.5">
-        <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
-        <div className="px-0.5">
-          <p
-            className="cm-messenger-section-title sam-text-page-title font-bold tracking-tight"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            {sectionTitle}
-          </p>
-          <p
-            className="cm-messenger-section-desc mt-0.5 sam-text-helper leading-snug"
-            style={{ color: "var(--messenger-text-secondary)" }}
-          >
-            {sectionDescription}
-          </p>
-        </div>
-      </div>
-
       <div
         className="min-h-[56dvh]"
         data-messenger-scrolling={isScrolling ? "true" : "false"}

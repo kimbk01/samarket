@@ -136,7 +136,11 @@ export function resolveConditionalAppShellFlags(
     !isTradeFloatingSurface;
   /** 메신저 채팅방은 하단 탭 유지 — 기타 채팅 상세·통화 전용은 숨김 */
   const suppressBottomNavForChatDetail = isChatRoomDetail && !isCommunityMessengerRoom;
+  /**
+   * 메신저(`community-messenger`) — 앱 기본 `BottomNav`는 숨기고 화면마다 전용 하단(허브 플로팅 탭·방 UI 등)만 쓴다.
+   */
   const showBottomNav =
+    !isCommunityMessengerSurface &&
     !hideBarAndFloat &&
     !isWritePage &&
     !suppressBottomNavForChatDetail &&
@@ -183,11 +187,13 @@ export function resolveConditionalAppShellFlags(
     isChatRoomDetail && (!isCommunityMessengerRoom || isCommunityMessengerCallPage);
   const mainBottomClass = chatDetailUsesZeroBottomPadding
     ? "pb-0"
-    : showBottomNav || isPostDetail
-      ? isTradeFloatingSurface
-        ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
-        : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-      : "pb-4";
+    : isCommunityMessengerSurface
+      ? "pb-0"
+      : showBottomNav || isPostDetail
+        ? isTradeFloatingSurface
+          ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
+          : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+        : "pb-4";
 
   return {
     // home(첫 진입)에서는 글로벌 realtime chrome을 기본으로 끈다(배지/사운드는 허브에서만).

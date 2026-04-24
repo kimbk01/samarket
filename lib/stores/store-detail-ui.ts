@@ -1,27 +1,27 @@
 /**
- * Îß§Ï?• Ï?ÅÏ?∏(Î©?Î?¥¬∑Ï†?Î≥¥¬∑Î¶¨Î∑∞) Í≥µÌ?µ Ì??Î©¥ ‚?? Ì?≠ Í∞? Îè?Ïùº Ì?§.
+ * Store detail (menu, info, reviews) shared layout / tab / section class tokens.
  */
 export const STORE_DETAIL_BG = "bg-sam-app";
 
 export const STORE_DETAIL_PAGE = `min-h-screen ${STORE_DETAIL_BG}`;
 
-/** Ìù∞ Ïπ¥Î??(Î©?Î?¥ Ì??¬∑Ï†?Î≥¥ Î∏?Î°ù Í≥µÌ?µ) */
+/** White card shell (menu, info, blog blocks) */
 export const STORE_DETAIL_CARD =
   "rounded-ui-rect border border-stone-200 bg-white shadow-sm";
 
-/** Í∞?Î°? Ï?¨Î∞±(Î≥∏Î¨∏ Ïπ¥Î??Ï?©) */
+/** Horizontal page gutter (main body cards) */
 export const STORE_DETAIL_GUTTER = "mx-4";
 
-/** Î©?Î?¥ Ï?πÏ?? Ï†?Î™©Í≥º Îè?Ïùº Ì?§Ïù? Íµ¨Ï?≠ Ï†?Î™© */
+/** Menu / zone section title row */
 export const STORE_DETAIL_SECTION_HEAD =
   "mb-3 flex items-center justify-center gap-2 px-1 text-center sam-text-body font-bold text-stone-800";
 
-/** Ï†?Î≥¥ Ì?≠ Ïß?Ì?? Ïπ©(Î©?Î?¥ Î¶¨Ï?§Ì?∏Ï?? Îè?Ïùº Î≥¥Îç? Ì?§) */
+/** Info tab metric tile (visually aligned with store list chips) */
 export const STORE_DETAIL_METRIC_TILE =
   "rounded-ui-rect border border-sam-border bg-background px-3 py-2.5";
 
 /**
- * Î?§Î°?Í∞?Í∏∞ Ï§? + Î©?Î?¥¬∑Ï†?Î≥¥¬∑Î¶¨Î∑∞ Ì?≠(+Ïπ©) ‚?? Ï?∞Ì?? Î∞?Ì?¨Î™? Ìù∞ Î∞∞Í≤Ω, Ì??Î?® Î≥¥Îç? Îè?Ïùº.
+ * Sticky back + menu/info/review top bar: safe-area, light bg, border and blur.
  */
 export const STORE_DETAIL_STICKY_HEADER =
   "sticky z-[35] rounded-ui-rect border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
@@ -29,11 +29,12 @@ export const STORE_DETAIL_STICKY_HEADER =
 export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[env(safe-area-inset-top,0px)]";
 
 /**
- * Tier1 Îß§Ï?• Ï?§Ì?∞Ì?§ Î∞?(Ï£ºÎ¨∏ Ì?§Îç? 2Ï§?: Îß§Ï?•¬∑Ï?°Ï?? + Ï?ÅÌ??¬∑Ï??Î†π¬∑Í≤?Ï??) Ï??Î?? ‚?? Í≤?Ï??¬∑Ïπ¥Ì??Í≥†Î¶¨ Ì?≠
+ * `top` offset for the 2nd-row menu/category tab bar below Tier1 store header
+ * (two-row when ordering: store row + menu/story/coupon row).
  */
 export const STORE_DETAIL_MENU_STICKY_TOP_CLASS =
   "top-[calc(env(safe-area-inset-top,0px)+104px)]";
 
-/** Îß§Ï?• 1Î?® Ï?§Ì?∞Ì?§ Î∞?Î°? Ï??Î?? Í≥†Ï†?Ì??Î?? 2Î?® Ì?§Îç?(Ï?ÅÌ??Î™?¬∑Ï?•Î∞?Íµ¨Î?? Ï†?Î™© Î?±) */
+/** 2nd-depth subheader (product title, min order, zone title, report page, etc.) */
 export const STORE_DETAIL_SUBHEADER_STICKY =
   "sticky z-[34] border-b border-gray-100 bg-white top-[calc(env(safe-area-inset-top,0px)+54px)]";
