@@ -108,6 +108,12 @@ export function useIntegratedChatRoomListRealtime(args: {
           .subscribe();
         mountedChannels.push(chRoom);
       }
+      if (cancelled) {
+        for (const c of mountedChannels) {
+          void sb.removeChannel(c);
+        }
+        mountedChannels.length = 0;
+      }
     })();
 
     return () => {

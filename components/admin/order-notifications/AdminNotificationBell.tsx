@@ -6,16 +6,19 @@ import {
   KASAMA_NOTIFICATIONS_UPDATED,
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export function AdminNotificationBell() {
   const [count, setCount] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/me/notifications?unread_count_only=1", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const res = await runSingleFlight("me:notifications:unread_count_only=1:admin-bell", () =>
+        fetch("/api/me/notifications?unread_count_only=1", {
+          credentials: "include",
+          cache: "no-store",
+        })
+      );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; unread_count?: number };
       if (res.ok && j?.ok) {
         setCount(Math.max(0, Math.floor(Number(j.unread_count) || 0)));

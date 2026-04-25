@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 /**
@@ -20,8 +21,10 @@ export function MyPageAdminMenuEntry({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/admin/access-check", { credentials: "include" });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const res = await runSingleFlight("admin:access-check:get", () =>
+          fetch("/api/admin/access-check", { credentials: "include" })
+        );
+        const data = (await res.clone().json().catch(() => ({}))) as { ok?: boolean };
         if (!cancelled && data?.ok === true) setShow(true);
       } finally {
         if (!cancelled) setReady(true);

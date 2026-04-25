@@ -1,5 +1,6 @@
 "use client";
 
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import type { PostWithMeta } from "./schema";
@@ -35,6 +36,11 @@ type HomePostsCacheEntry = {
 };
 
 const homePostsCache = new Map<string, HomePostsCacheEntry>();
+const HOME_CLIENT_POSTS_CACHE_MAX_KEYS = 80;
+
+function capHomePostsClientCache(): void {
+  pruneByExpiresAtAndMaxSize(homePostsCache, Date.now(), HOME_CLIENT_POSTS_CACHE_MAX_KEYS);
+}
 
 function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const page = Math.max(1, options.page ?? 1);
@@ -53,7 +59,9 @@ export function peekCachedPostsForHome(
 ): GetPostsForHomeResult | null {
   const { cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
-  if (!cached || cached.expiresAt <= Date.now()) {
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    homePostsCache.delete(cacheKey);
     return null;
   }
   return cached.data;
@@ -69,6 +77,7 @@ export function primeHomePostsCache(
     data,
     expiresAt: Date.now() + HOME_POSTS_TTL_MS,
   });
+  capHomePostsClientCache();
 }
 
 /**
@@ -137,6 +146,7 @@ export async function getPostsForHome(
         data: result,
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,
       });
+      capHomePostsClientCache();
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
         recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));

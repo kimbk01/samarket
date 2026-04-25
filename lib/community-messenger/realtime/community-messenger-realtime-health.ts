@@ -16,6 +16,7 @@ export type CommunityMessengerRealtimeScopeHealth = {
 
 const DEFAULT_SILENT_AFTER_MS = 15_000;
 const SILENT_ALERT_MIN_GAP_MS = 20_000;
+const SCOPE_HEALTH_MAX_SCOPES = 150;
 const scopeHealthMap = new Map<string, CommunityMessengerRealtimeScopeHealth>();
 
 function normalizeScope(scope: string): string {
@@ -38,6 +39,11 @@ function getOrCreateScopeHealth(scope: string): CommunityMessengerRealtimeScopeH
     silentAfterMs: DEFAULT_SILENT_AFTER_MS,
   };
   scopeHealthMap.set(normalized, current);
+  while (scopeHealthMap.size > SCOPE_HEALTH_MAX_SCOPES) {
+    const k = scopeHealthMap.keys().next().value;
+    if (k === undefined) break;
+    scopeHealthMap.delete(k);
+  }
   return current;
 }
 

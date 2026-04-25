@@ -200,6 +200,10 @@ export function useChatRoomRealtime(args: {
           }
         });
 
+      if (cancelled || myGen !== connectGen) {
+        void sb.removeChannel(channel);
+        return;
+      }
       currentChannel = channel;
     }
 

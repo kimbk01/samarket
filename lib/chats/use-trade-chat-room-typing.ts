@@ -68,6 +68,10 @@ export function useTradeChatRoomTypingPeer(args: {
           clear();
         })
         .subscribe();
+      if (cancelled) {
+        void sb.removeChannel(channel);
+        return;
+      }
       ch = channel;
     })();
 

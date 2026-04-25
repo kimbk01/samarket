@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { fetchMeNotificationSettingsGet } from "@/lib/me/fetch-me-notification-settings-client";
 
 type DomainSettings = {
   order_enabled: boolean;
@@ -55,7 +56,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+      const res = await fetchMeNotificationSettingsGet();
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         table_missing?: boolean;

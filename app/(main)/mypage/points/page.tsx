@@ -11,6 +11,7 @@ import { PointChargeRequestList } from "@/components/points/PointChargeRequestLi
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 function PointsBackendNotice() {
   const { t } = useI18n();
@@ -45,10 +46,12 @@ export default function MypagePointsPage() {
     void (async () => {
       try {
         setLoading(true);
-        const res = await fetch("/api/me/points", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await runSingleFlight("me:points:get", () =>
+          fetch("/api/me/points", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           balance?: unknown;

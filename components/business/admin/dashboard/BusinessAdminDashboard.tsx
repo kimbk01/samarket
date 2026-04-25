@@ -17,6 +17,7 @@ import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard
 import { BusinessDashboardInsights } from "@/components/business/admin/dashboard/BusinessDashboardInsights";
 import { BusinessDashboardMobileBar } from "@/components/business/admin/dashboard/BusinessDashboardMobileBar";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type InquiryRow = { id: string; status: string };
 
@@ -97,8 +98,12 @@ export function BusinessAdminDashboard({
     try {
       const [oj, ir, sr] = await Promise.all([
         fetchStoreOrdersListDeduped(row.id),
-        fetch(`/api/me/stores/${encodeURIComponent(row.id)}/inquiries`, { credentials: "include" }),
-        fetch("/api/me/store-settlements", { credentials: "include" }),
+        runSingleFlight(`me:stores:${row.id}:inquiries:get`, () =>
+          fetch(`/api/me/stores/${encodeURIComponent(row.id)}/inquiries`, { credentials: "include" })
+        ),
+        runSingleFlight("me:store-settlements:get", () =>
+          fetch("/api/me/store-settlements", { credentials: "include" })
+        ),
       ]);
       const ordersJson = oj.json as {
         ok?: boolean;

@@ -11,11 +11,14 @@ import {
   recordMessengerBootstrapBreakdown,
 } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
+/** `userId:lite|full` 키가 늘어나도 프로세스 메모리가 비한정으로 커지지 않게 상한(만료 + FIFO) */
+const COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES = 500;
 
 type CommunityMessengerBootstrapCacheEntry = {
   payload: Awaited<ReturnType<typeof getCommunityMessengerBootstrap>>;
@@ -57,11 +60,8 @@ export async function GET(request: NextRequest) {
   const lite = request.nextUrl.searchParams.get("lite") === "1";
   const mode: MessengerBootstrapBreakdown["mode"] = fresh ? "fresh" : lite ? "lite" : "full";
   const cacheKey = `${auth.userId}:${lite ? "lite" : "full"}`;
-  for (const [key, entry] of communityMessengerBootstrapCache) {
-    if (entry.expiresAt <= Date.now()) {
-      communityMessengerBootstrapCache.delete(key);
-    }
-  }
+  const now = Date.now();
+  pruneByExpiresAtAndMaxSize(communityMessengerBootstrapCache, now, COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES);
 
   let data = communityMessengerBootstrapCache.get(cacheKey)?.payload;
   const diagnostics: CommunityMessengerBootstrapDiagnostics = {
@@ -106,10 +106,12 @@ export async function GET(request: NextRequest) {
       diagnostics,
       detailedTimingBreakdown: bootstrapDiag,
     });
+    const afterFetch = Date.now();
     communityMessengerBootstrapCache.set(cacheKey, {
       payload: data,
-      expiresAt: Date.now() + COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS,
+      expiresAt: afterFetch + COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS,
     });
+    pruneByExpiresAtAndMaxSize(communityMessengerBootstrapCache, afterFetch, COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES);
   }
   const routeDurationMs = Math.round(performance.now() - t0);
   recordMessengerApiTiming("GET /api/community-messenger/bootstrap", routeDurationMs, 200);

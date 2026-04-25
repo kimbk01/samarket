@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
   canShowPurchaseReviewSend,
@@ -50,15 +51,15 @@ export function PurchaseDetailView({
       return;
     }
     if (!silent) setLoading(true);
-    fetch(`/api/my/purchases/${encodeURIComponent(chatId)}`, { cache: "no-store" })
-      .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as DetailPayload & { error?: string };
-        if (!res.ok) {
-          if (!silent) setRow(null);
-          return;
-        }
-        setRow(data as DetailPayload);
-      })
+    void runSingleFlight(`my-purchase-detail:${encodeURIComponent(chatId)}`, async () => {
+      const res = await fetch(`/api/my/purchases/${encodeURIComponent(chatId)}`, { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as DetailPayload & { error?: string };
+      if (!res.ok) {
+        if (!silent) setRow(null);
+        return;
+      }
+      setRow(data as DetailPayload);
+    })
       .catch(() => {
         if (!silent) setRow(null);
       })

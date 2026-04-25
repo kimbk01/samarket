@@ -5,7 +5,16 @@ import { fetchChatRoomBootstrapApi } from "@/lib/chats/fetch-chat-room-bootstrap
 import type { ChatRoomSource } from "@/lib/types/chat";
 
 const WARM_TTL_MS = 45_000;
+const WARMED_HREF_MAX_KEYS = 200;
 const warmedAtByHref = new Map<string, number>();
+
+function capWarmedAtByHrefMap(): void {
+  while (warmedAtByHref.size > WARMED_HREF_MAX_KEYS) {
+    const k = warmedAtByHref.keys().next().value;
+    if (k === undefined) break;
+    warmedAtByHref.delete(k);
+  }
+}
 
 function extractChatRoomIdFromHrefPath(pathname: string): string | null {
   const tradeSeg = TRADE_CHAT_SURFACE.hubPath.replace(/^\//, "").replace(/\//g, "\\/");
@@ -72,6 +81,7 @@ export function shouldWarmChatRoute(hrefRaw: string): boolean {
   const prev = warmedAtByHref.get(href) ?? 0;
   if (now - prev < WARM_TTL_MS) return false;
   warmedAtByHref.set(href, now);
+  capWarmedAtByHrefMap();
   return true;
 }
 

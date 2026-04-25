@@ -6,7 +6,20 @@ import {
 
 /** 짧은 시간에 구매/판매·count API가 겹쳐도 item_trade 동기화를 매번 돌리지 않음 */
 const GAP_MS = 15_000;
+const RECONCILE_LAST_RUN_STALE_MS = 86_400_000;
+const RECONCILE_LAST_RUN_MAX_KEYS = 5_000;
 const lastRun = new Map<string, number>();
+
+function pruneReconcileLastRunMap(now: number): void {
+  for (const [k, t] of lastRun) {
+    if (now - t > RECONCILE_LAST_RUN_STALE_MS) lastRun.delete(k);
+  }
+  while (lastRun.size > RECONCILE_LAST_RUN_MAX_KEYS) {
+    const k = lastRun.keys().next().value;
+    if (k === undefined) break;
+    lastRun.delete(k);
+  }
+}
 
 function shouldSkip(key: string): boolean {
   const t = lastRun.get(key) ?? 0;
@@ -23,6 +36,7 @@ export async function runItemTradeReconcileBuyerIfStale(
   postIdsFromRooms: string[]
 ): Promise<void> {
   const key = `item-trade:buyer:${userId}`;
+  pruneReconcileLastRunMap(Date.now());
   if (shouldSkip(key)) return;
   try {
     await reconcileProductChatsFromItemTradeByPostIds(sb, postIdsFromRooms);
@@ -39,6 +53,7 @@ export async function runItemTradeReconcileSellerIfStale(
   sellingPostIds: string[]
 ): Promise<void> {
   const key = `item-trade:seller:${userId}`;
+  pruneReconcileLastRunMap(Date.now());
   if (shouldSkip(key)) return;
   try {
     await reconcileProductChatsFromItemTradeByPostIds(sb, sellingPostIds);

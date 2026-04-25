@@ -8,6 +8,8 @@ let lastWarmedUrl: string | null = null;
 let lastWarmedAt = 0;
 /** 동일 URL 과도 워밍 방지 */
 const MIN_INTERVAL_MS = 90_000;
+let pendingWarmIdleId: number | null = null;
+let pendingWarmTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export function warmPhilifeNeighborhoodFeedByUrl(
   feedUrl: string,
@@ -28,9 +30,31 @@ export function warmPhilifeNeighborhoodFeedByUrl(
   };
 
   if (typeof requestIdleCallback === "function") {
+    if (pendingWarmIdleId != null) {
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(pendingWarmIdleId);
+      }
+      pendingWarmIdleId = null;
+    }
+    if (pendingWarmTimeout != null) {
+      clearTimeout(pendingWarmTimeout);
+      pendingWarmTimeout = null;
+    }
     /** 이전 2500ms 는 idle 이 자주 밀려 거래→커뮤니티 직전 워밍이 늦게 도착함 */
-    requestIdleCallback(run, { timeout: 900 });
+    pendingWarmIdleId = requestIdleCallback(
+      () => {
+        pendingWarmIdleId = null;
+        run();
+      },
+      { timeout: 900 }
+    ) as number;
   } else {
-    setTimeout(run, 200);
+    if (pendingWarmTimeout != null) {
+      clearTimeout(pendingWarmTimeout);
+    }
+    pendingWarmTimeout = setTimeout(() => {
+      pendingWarmTimeout = null;
+      run();
+    }, 200);
   }
 }

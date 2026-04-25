@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
 /** 글 상세+댓글 등 동일 요청에서 4회 쿼리 중복을 막기 위한 프로세스 로컬 캐시 */
 const BLOCKED_IDS_CACHE_TTL_MS = 5000;
+const BLOCKED_IDS_CACHE_MAX_AGE_MS = 120_000;
+const BLOCKED_IDS_CACHE_MAX_VIEWER_KEYS = 500;
 const blockedIdsCacheByViewer = new Map<string, { at: number; ids: Set<string> }>();
 
 /**
@@ -17,6 +20,7 @@ export async function fetchBlockedAuthorIdsForViewer(
   if (!v) return out;
 
   const now = Date.now();
+  pruneByAtMaxAgeAndMaxSize(blockedIdsCacheByViewer, now, BLOCKED_IDS_CACHE_MAX_AGE_MS, BLOCKED_IDS_CACHE_MAX_VIEWER_KEYS);
   const hit = blockedIdsCacheByViewer.get(v);
   if (hit && now - hit.at < BLOCKED_IDS_CACHE_TTL_MS) {
     return new Set(hit.ids);

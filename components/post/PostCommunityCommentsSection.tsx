@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityCommentReport } from "@/lib/reports/createCommunityCommentReport";
 import { Sam } from "@/lib/ui/sam-component-classes";
@@ -39,8 +40,10 @@ export function PostCommunityCommentsSection({
     if (!postId.trim()) return;
     if (!opts?.silent) setLoading(true);
     try {
-      const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as { comments?: CommentRow[] };
+      const res = await runSingleFlight(`post:${postId}:comments-get`, () =>
+        fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, { cache: "no-store" })
+      );
+      const data = (await res.clone().json().catch(() => ({}))) as { comments?: CommentRow[] };
       setComments(Array.isArray(data.comments) ? data.comments : []);
     } catch {
       if (!opts?.silent) setComments([]);

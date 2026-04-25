@@ -13,6 +13,7 @@ import {
 } from "@/lib/chats/trade-presence-heartbeat-surface-policy";
 import { useSamarketTabLeader } from "@/lib/runtime/leader-tab-coordinator";
 import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TRADE_PRESENCE_HTTP_LEADER_SCOPE = "trade-presence-http-post";
 
@@ -75,12 +76,14 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
     const postHeartbeat = () => {
       void (async () => {
         try {
-          await fetch("/api/me/trade-presence/heartbeat", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: "{}",
-          });
+          await runSingleFlight("me:trade-presence:heartbeat:post", () =>
+            fetch("/api/me/trade-presence/heartbeat", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: "{}",
+            })
+          );
         } catch {
           /* ignore */
         }

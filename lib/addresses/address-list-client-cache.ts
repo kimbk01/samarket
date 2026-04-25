@@ -3,6 +3,7 @@
  */
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const KEY = "samarket:me-addresses-list-cache:v1";
 
@@ -36,7 +37,9 @@ export function writeCachedMeAddressList(rows: UserAddressDTO[]): void {
 /** 글쓰기 등에서 주소 화면으로 가기 전에 목록 API만 미리 호출 */
 export function prefetchMeAddressListIntoCache(): void {
   if (typeof window === "undefined") return;
-  void fetch("/api/me/addresses", { credentials: "include" })
+  void runSingleFlight("me:addresses:list", () =>
+    fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
+  )
     .then((r) => r.json() as Promise<{ ok?: boolean; addresses?: UserAddressDTO[] }>)
     .then((j) => {
       if (j?.ok === true && Array.isArray(j.addresses) && j.addresses.length > 0) {

@@ -2,17 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export function MyPointCard() {
   const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/me/points", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { balance?: number }) => {
+    void (async () => {
+      try {
+        const r = await runSingleFlight("me:points:get", () =>
+          fetch("/api/me/points", { cache: "no-store" })
+        );
+        const j = (await r.json()) as { balance?: number };
         if (typeof j.balance === "number") setBalance(j.balance);
-      })
-      .catch(() => {});
+      } catch {
+        /* ignore */
+      }
+    })();
   }, []);
 
   return (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { MyPostAdList } from "@/components/ads/MyPostAdList";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import type { AdminPostAdRow, MePostAdsMeta } from "@/lib/ads/types";
@@ -16,7 +17,9 @@ export default function MyAdsPageClient() {
     setLoading(true);
     setAuthHint(null);
     try {
-      const res = await fetch("/api/me/post-ads", { credentials: "include", cache: "no-store" });
+      const res = await runSingleFlight("me:post-ads:get", () =>
+        fetch("/api/me/post-ads", { credentials: "include", cache: "no-store" })
+      );
       const j = (await res.json()) as {
         ok?: boolean;
         ads?: AdminPostAdRow[];

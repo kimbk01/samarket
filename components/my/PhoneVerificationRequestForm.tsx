@@ -9,6 +9,7 @@ import {
   PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
 } from "@/lib/utils/ph-mobile";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type VerificationPayload = {
   phone: string | null;
@@ -33,7 +34,9 @@ export function PhoneVerificationRequestForm() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/me/phone-verification", { credentials: "include" });
+        const res = await runSingleFlight("me:phone-verification:get", () =>
+          fetch("/api/me/phone-verification", { credentials: "include" })
+        );
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok || !data?.ok) {

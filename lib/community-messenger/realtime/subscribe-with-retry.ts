@@ -50,6 +50,7 @@ export function subscribeWithRetry(args: {
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let expectedInternalClosed = 0;
+  const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
 
   const clearTimer = () => {
@@ -60,9 +61,18 @@ export function subscribeWithRetry(args: {
 
   const markInternalChannelRecycle = () => {
     expectedInternalClosed += 1;
-    setTimeout(() => {
+    const t = setTimeout(() => {
+      internalDecayTimers.delete(t);
       if (expectedInternalClosed > 0) expectedInternalClosed -= 1;
     }, 1600);
+    internalDecayTimers.add(t);
+  };
+
+  const clearInternalDecayTimers = () => {
+    for (const t of internalDecayTimers) {
+      clearTimeout(t);
+    }
+    internalDecayTimers.clear();
   };
 
   const consumeInternalClosed = (): boolean => {
@@ -74,6 +84,8 @@ export function subscribeWithRetry(args: {
   const stop = () => {
     stopped = true;
     clearTimer();
+    clearInternalDecayTimers();
+    expectedInternalClosed = 0;
     clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
     if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {

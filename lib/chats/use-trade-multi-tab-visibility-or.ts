@@ -45,9 +45,7 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
 
   const postVisibility = useCallback((tid: string, visible: boolean) => {
     try {
-      if (!bcRef.current) {
-        bcRef.current = new BroadcastChannel(BC_NAME);
-      }
+      if (!bcRef.current) return;
       bcRef.current.postMessage({ tabId: tid, visible, at: Date.now() });
     } catch {
       /* ignore */
@@ -66,15 +64,6 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
     const tid = idRef.current || (idRef.current = tabId());
-    const apply = () => {
-      const v = document.visibilityState === "visible";
-      if (v) mapRef.current[tid] = Date.now();
-      else delete mapRef.current[tid];
-      recomputeAnyVisible();
-      postVisibility(tid, v);
-    };
-    const onPageHide = () => publish(false);
-    apply();
     try {
       bcRef.current = new BroadcastChannel(BC_NAME);
       bcRef.current.onmessage = (ev: MessageEvent) => {
@@ -90,6 +79,15 @@ export function useTradeMultiTabVisibilityOr(enabled: boolean): boolean {
     } catch {
       bcRef.current = null;
     }
+    const apply = () => {
+      const v = document.visibilityState === "visible";
+      if (v) mapRef.current[tid] = Date.now();
+      else delete mapRef.current[tid];
+      recomputeAnyVisible();
+      postVisibility(tid, v);
+    };
+    const onPageHide = () => publish(false);
+    apply();
     const heartbeatId = window.setInterval(() => {
       if (document.visibilityState !== "visible") {
         recomputeAnyVisible();

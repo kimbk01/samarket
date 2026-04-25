@@ -26,7 +26,8 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   const onVisibility = () => {
     if (typeof document === "undefined") return;
     if (document.visibilityState === "visible") {
-      void doFetch(true);
+      /** `force: true` 는 8s 갭을 무시해 visibility 복귀·깜빡임이 잦을 때 /notifications 왕복이 누적됨. 폴링(87)·이벤트(24)와 동일한 갭을 적용 */
+      void doFetch(false);
       armPoll();
     } else {
       disarmPoll();

@@ -5,9 +5,13 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
-/** 짧게: 거래 메뉴·하단 탭 저장 직후 갱신이 오래 남지 않게 */
+/** 짧게: 거래 메뉴·하단 탭 저장 직후 갱신이 오래 남지 않게. 엔트리는 항상 1보루(상한) — 메모리 누적 없음. */
 const TTL_MS = 15_000;
 let cached: { expiresAt: number; items: BottomNavItemConfig[] | null } | null = null;
+
+function dropExpiredMainBottomNavCache(now: number): void {
+  if (cached && cached.expiresAt <= now) cached = null;
+}
 
 /** 다른 탭·창과 동기화 — storage 이벤트용 */
 const MAIN_BOTTOM_NAV_LS_REV_KEY = "kasama:main-bottom-nav:rev";
@@ -29,6 +33,7 @@ export function fetchMainBottomNavDeduped(
     cached = null;
   }
   const now = Date.now();
+  dropExpiredMainBottomNavCache(now);
   if (cached && cached.expiresAt > now && cached.items) {
     return Promise.resolve({ ok: true, items: cached.items });
   }
@@ -52,9 +57,11 @@ export function fetchMainBottomNavDeduped(
 
 export function primeMainBottomNavDedupedCache(items: BottomNavItemConfig[]): void {
   if (!Array.isArray(items) || items.length === 0) return;
+  const t = Date.now();
+  dropExpiredMainBottomNavCache(t);
   cached = {
     items: items.map((item) => ({ ...item })),
-    expiresAt: Date.now() + TTL_MS,
+    expiresAt: t + TTL_MS,
   };
 }
 

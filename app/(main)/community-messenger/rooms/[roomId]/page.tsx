@@ -9,12 +9,8 @@ import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messen
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
-import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases/community-messenger-bootstrap";
-import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
-import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { createMessengerRoomPageRscTimers } from "@/lib/community-messenger/server/messenger-room-page-rsc-timers";
-import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 
 async function CommunityMessengerRoomPageLoaded({
   params,
@@ -37,23 +33,12 @@ async function CommunityMessengerRoomPageLoaded({
   const rscTimers = createMessengerRoomPageRscTimers(rid);
   rscTimers.mark("server_entry");
   const viewerUserId = await getOptionalAuthenticatedUserId();
-  const uid = viewerUserId?.trim() ?? "";
-  /** `GET .../bootstrap?mode=lite` 와 동일한 시드 한도 — RSC HTML 에 메시지·메타를 붙여 첫 페인트 전 클라이언트 대기를 줄임 */
-  const roomBootstrapSeedMessageLimit = Math.min(20, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
-  let initialServerSnapshot: Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>> = null;
-  rscTimers.mark("bootstrap_start");
-  if (uid) {
-    const canon = await messengerRoomCanonicalOrJsonError(uid, rid);
-    if (canon.ok) {
-      const readPort = createSupabaseCommunityMessengerReadPort();
-      initialServerSnapshot = await loadCommunityMessengerRoomBootstrap(readPort, uid, canon.canonicalRoomId, {
-        initialMessageLimit: roomBootstrapSeedMessageLimit,
-        hydrateFullMemberList: false,
-        deferSnapshotSecondary: true,
-      });
-    }
-  }
-  rscTimers.mark("bootstrap_end");
+  /**
+   * RSC 에서 `loadCommunityMessengerRoomBootstrap` 을 기다리면 TTFB 가 DB·정규화 시간만큼 길어지고
+   * Suspense 가 그동안 전체 셸을 붙잡는다. 방 데이터는 **클라이언트 단일 경로**
+   * (`peekRoomSnapshot` · `GET /api/.../bootstrap` · `useMessengerRoomLocalIndexedDbSnapshot`)로만 싱크한다.
+   */
+  const initialServerSnapshot = null;
   rscTimers.mark("pre_return");
   rscTimers.scheduleResponseAfter();
   return (

@@ -11,6 +11,7 @@ import {
   KASAMA_NOTIFICATIONS_UPDATED,
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
 
 type Row = {
@@ -46,7 +47,9 @@ export function AdminNotificationList() {
       setError(null);
     }
     try {
-      const res = await fetch("/api/me/notifications", { credentials: "include", cache: "no-store" });
+      const res = await runSingleFlight("me:notifications:list:admin-delivery-inbox", () =>
+        fetch("/api/me/notifications", { credentials: "include", cache: "no-store" })
+      );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; notifications?: Row[]; error?: string };
       if (res.status === 401) {
         setError("unauthorized");

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -35,7 +36,9 @@ export function ChatSettingsContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const r = await fetch("/api/me/trade-presence", { credentials: "include" });
+        const r = await runSingleFlight("me:trade-presence:get", () =>
+          fetch("/api/me/trade-presence", { credentials: "include" })
+        );
         const j = (await r.json()) as {
           ok?: boolean;
           settings?: {
@@ -50,8 +53,7 @@ export function ChatSettingsContent() {
         }
         setTradePresenceErr(null);
         const a = j.settings.audience;
-        const audience =
-          a === "everyone" || a === "friends" || a === "nobody" ? a : "friends";
+        const audience = a === "everyone" || a === "friends" || a === "nobody" ? a : "friends";
         setTradePresence({
           showOnline: j.settings.showOnline !== false,
           hideLastSeen: j.settings.hideLastSeen === true,

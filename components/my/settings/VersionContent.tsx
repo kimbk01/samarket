@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export function VersionContent() {
   const [version, setVersion] = useState("1.0.0");
@@ -12,10 +13,12 @@ export function VersionContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/settings/version", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await runSingleFlight("me:settings:version", () =>
+          fetch("/api/me/settings/version", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           version?: string;

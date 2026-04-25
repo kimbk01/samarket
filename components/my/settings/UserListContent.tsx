@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ListType = "favorite" | "hidden" | "blocked";
 
@@ -34,11 +35,13 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/me/relations/${type}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
+      const res = await runSingleFlight(`me:relations:${type}:list`, () =>
+        fetch(`/api/me/relations/${type}`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+      );
+      const json = (await res.clone().json().catch(() => ({}))) as {
         ok?: boolean;
         items?: UserRelationItem[];
         error?: string;

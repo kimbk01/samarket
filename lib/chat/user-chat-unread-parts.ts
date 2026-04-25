@@ -39,9 +39,13 @@ export function invalidateUserChatUnreadCache(userId: string): void {
 }
 
 function pruneExpiredUnreadCache(now: number) {
-  if (unreadPartsCache.size < 200) return;
   for (const [key, entry] of unreadPartsCache) {
     if (entry.expiresAt <= now) unreadPartsCache.delete(key);
+  }
+  while (unreadPartsCache.size > 200) {
+    const k = unreadPartsCache.keys().next().value;
+    if (k === undefined) break;
+    unreadPartsCache.delete(k);
   }
 }
 

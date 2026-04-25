@@ -1,6 +1,7 @@
 "use client";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 import { isMissingPostRowChatProductTitle } from "@/lib/chats/chat-product-from-post";
 import type { ChatRoom } from "@/lib/types/chat";
 
@@ -10,6 +11,7 @@ type FetchRoomResult =
 
 /** 상품 카드 API 보정 후에도 이전 빈 응답이 남지 않도록 과도하게 길지 않게 */
 const ROOM_DETAIL_TTL_MS = 12_000;
+const ROOM_DETAIL_CACHE_MAX_ENTRIES = 2_000;
 const roomDetailCache = new Map<string, { at: number; room: ChatRoom }>();
 
 function isDegradedChatRoom(room: ChatRoom): boolean {
@@ -27,6 +29,7 @@ export function peekChatRoomDetailMemory(roomId: string): ChatRoom | null {
   const key = roomId.trim();
   if (!key) return null;
   const now = Date.now();
+  pruneByAtMaxAgeAndMaxSize(roomDetailCache, now, ROOM_DETAIL_TTL_MS, ROOM_DETAIL_CACHE_MAX_ENTRIES);
   const cached = roomDetailCache.get(key);
   if (!cached || now - cached.at >= ROOM_DETAIL_TTL_MS) return null;
   if (isDegradedChatRoom(cached.room)) {
@@ -38,7 +41,9 @@ export function peekChatRoomDetailMemory(roomId: string): ChatRoom | null {
 export function updateChatRoomDetailMemory(roomId: string, room: ChatRoom): void {
   const key = roomId.trim();
   if (!key || isDegradedChatRoom(room)) return;
-  roomDetailCache.set(key, { at: Date.now(), room });
+  const t = Date.now();
+  roomDetailCache.set(key, { at: t, room });
+  pruneByAtMaxAgeAndMaxSize(roomDetailCache, t, ROOM_DETAIL_TTL_MS, ROOM_DETAIL_CACHE_MAX_ENTRIES);
 }
 
 /** 거래 액션 후 상세 재조회 시 이전 TTL 캐시를 쓰지 않도록 비웁니다. */
@@ -62,6 +67,7 @@ export async function fetchChatRoomDetailApi(roomId: string): Promise<FetchRoomR
   if (!key) return { ok: false, status: 400, code: "load_failed" };
 
   const now = Date.now();
+  pruneByAtMaxAgeAndMaxSize(roomDetailCache, now, ROOM_DETAIL_TTL_MS, ROOM_DETAIL_CACHE_MAX_ENTRIES);
   const cached = roomDetailCache.get(key);
   if (cached && now - cached.at < ROOM_DETAIL_TTL_MS) {
     if (isDegradedChatRoom(cached.room)) {

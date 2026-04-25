@@ -6,6 +6,19 @@ import type { MessengerAppVisibility } from "@/lib/community-messenger/notificat
 
 const recentDedupeAt = new Map<string, number>();
 const DEDUPE_MS = 2000;
+const RECENT_DEDUPE_STALE_MS = 20_000;
+const RECENT_DEDUPE_MAX_KEYS = 200;
+
+function capRecentWebDesktopNotificationDedupes(now: number): void {
+  for (const [k, t] of recentDedupeAt) {
+    if (now - t > RECENT_DEDUPE_STALE_MS) recentDedupeAt.delete(k);
+  }
+  while (recentDedupeAt.size > RECENT_DEDUPE_MAX_KEYS) {
+    const k = recentDedupeAt.keys().next().value;
+    if (k === undefined) break;
+    recentDedupeAt.delete(k);
+  }
+}
 
 export type TryMessengerWebDesktopNotificationInput = {
   roomId: string;
@@ -53,6 +66,7 @@ export function tryShowMessengerWebDesktopNotification(
     return { ok: false, kind: "noop", reason: "deduped" };
   }
   recentDedupeAt.set(intent.dedupeKey, now);
+  capRecentWebDesktopNotificationDedupes(now);
 
   try {
     const n = new Notification(input.title, {

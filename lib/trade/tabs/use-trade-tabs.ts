@@ -10,6 +10,12 @@ import type { TradePrimaryTab } from "./types";
 let cachedTradePrimaryCategories: CategoryWithSettings[] | null = null;
 let tradePrimaryCategoriesFlight: Promise<CategoryWithSettings[]> | null = null;
 
+/** RSC `layout` — `getHomeTradeChipCategoriesForServer` 와 동기(같은 쿼리). `AppStickyHeader` 보다 먼저 프라임. */
+export function primeTradeTabCategoriesCache(categories: CategoryWithSettings[]): void {
+  if (!categories.length) return;
+  cachedTradePrimaryCategories = categories;
+}
+
 async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
   if (cachedTradePrimaryCategories) {
     return cachedTradePrimaryCategories;
@@ -37,7 +43,7 @@ export function useTradeTabs(pathname: string) {
 
   useEffect(() => {
     let cancelled = false;
-    if (cachedTradePrimaryCategories) {
+    if (cachedTradePrimaryCategories?.length) {
       setTradeCategories(cachedTradePrimaryCategories);
       setLoading(false);
       return;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 function isPushSupported(): boolean {
   return (
@@ -28,8 +29,10 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
   const refresh = useCallback(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/me/push/status", { credentials: "include" });
-        const j = (await res.json().catch(() => ({}))) as StatusRes;
+        const res = await runSingleFlight("me:push:status:get", () =>
+          fetch("/api/me/push/status", { credentials: "include" })
+        );
+        const j = (await res.clone().json().catch(() => ({}))) as StatusRes;
         setStatus(res.ok && j?.ok ? j : { ok: false });
       } catch {
         setStatus({ ok: false });
@@ -66,8 +69,10 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
       setHint("이 브라우저는 웹 푸시를 지원하지 않습니다.");
       return;
     }
-    const vapidRes = await fetch("/api/me/push/vapid-key", { credentials: "include" });
-    const vapidJson = (await vapidRes.json().catch(() => ({}))) as { publicKey?: string | null };
+    const vapidRes = await runSingleFlight("me:push:vapid-key:get", () =>
+      fetch("/api/me/push/vapid-key", { credentials: "include" })
+    );
+    const vapidJson = (await vapidRes.clone().json().catch(() => ({}))) as { publicKey?: string | null };
     const key = typeof vapidJson.publicKey === "string" ? vapidJson.publicKey.trim() : "";
     if (!key) {
       setHint("서버에 VAPID 공개 키가 설정되지 않았습니다. 운영 환경에 키를 등록해 주세요.");

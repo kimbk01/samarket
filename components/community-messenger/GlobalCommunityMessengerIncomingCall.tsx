@@ -277,48 +277,48 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!force && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
       return;
     }
-    await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, async () => {
-      try {
-        const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
+    try {
+      const res = await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, () =>
+        fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
           cache: "no-store",
           credentials: "include",
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          sessions?: CommunityMessengerCallSession[];
-        };
-        if (res.status === 401 || res.status === 403) {
-          setSessions([]);
-          setIncomingListError(t("nav_messenger_login_required"));
-          return;
-        }
-        if (res.ok && json.ok) {
-          const serverList = json.sessions ?? [];
-          setSessions((prev) =>
-            mergeIncomingCallSessionsAfterFetch(
-              viewerUserIdRef.current,
-              serverList,
-              prev,
-              dismissedIncomingSessionsAtRef.current,
-              hardClearedIncomingSessionsAtRef.current
-            )
-          );
-          setIncomingListError(null);
-          setSessionActionError(null);
-          return;
-        }
-        setIncomingListError(
-          json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
-            ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
-            : MESSENGER_CALL_USER_MSG.incomingListFailed
-        );
-        /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
-      } catch {
-        setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
-      } finally {
-        lastRefreshAtRef.current = Date.now();
+        })
+      );
+      const json = (await res.clone().json().catch(() => ({}))) as {
+        ok?: boolean;
+        sessions?: CommunityMessengerCallSession[];
+      };
+      if (res.status === 401 || res.status === 403) {
+        setSessions([]);
+        setIncomingListError(t("nav_messenger_login_required"));
+        return;
       }
-    });
+      if (res.ok && json.ok) {
+        const serverList = json.sessions ?? [];
+        setSessions((prev) =>
+          mergeIncomingCallSessionsAfterFetch(
+            viewerUserIdRef.current,
+            serverList,
+            prev,
+            dismissedIncomingSessionsAtRef.current,
+            hardClearedIncomingSessionsAtRef.current
+          )
+        );
+        setIncomingListError(null);
+        setSessionActionError(null);
+        return;
+      }
+      setIncomingListError(
+        json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
+          ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
+          : MESSENGER_CALL_USER_MSG.incomingListFailed
+      );
+      /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
+    } catch {
+      setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
+    } finally {
+      lastRefreshAtRef.current = Date.now();
+    }
   }, [t]);
 
   /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */

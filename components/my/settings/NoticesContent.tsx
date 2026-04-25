@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type NoticeItem = {
   id: string;
@@ -24,10 +25,12 @@ export function NoticesContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/settings/notices", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await runSingleFlight("me:settings:notices:get", () =>
+          fetch("/api/me/settings/notices", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           notices?: NoticeItem[];

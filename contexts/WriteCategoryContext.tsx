@@ -36,16 +36,18 @@ export function WriteCategoryProvider({ children }: { children: React.ReactNode 
   const initialFetchAttemptedRef = useRef(false);
 
   const refreshLauncherCategories = useCallback(async () => {
-    await runSingleFlight("write-launcher-categories", async () => {
-      setLauncherCategoriesLoading(true);
-      try {
-        const list = await getWritableRootCategoriesForWriteLauncher();
-        setLauncherRootCategories(list);
-      } finally {
-        initialFetchAttemptedRef.current = true;
-        setLauncherCategoriesLoading(false);
-      }
-    });
+    setLauncherCategoriesLoading(true);
+    try {
+      const list = await runSingleFlight("write-launcher-categories", () =>
+        getWritableRootCategoriesForWriteLauncher()
+      );
+      setLauncherRootCategories(list);
+    } catch {
+      /* list stays unchanged */
+    } finally {
+      initialFetchAttemptedRef.current = true;
+      setLauncherCategoriesLoading(false);
+    }
   }, []);
 
   const ensureLauncherCategoriesLoaded = useCallback(() => {

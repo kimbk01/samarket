@@ -17,6 +17,7 @@ import { ProductActionBar } from "./ProductActionBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import {
   recordRouteEntryFetchNetworkFromResources,
@@ -102,21 +103,34 @@ export function ProductDetailView({
       setExistingMessengerRoomId(null);
       return;
     }
-    fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(product.id)}`, { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : { roomId: null }))
-      .then((data) => {
+    void (async () => {
+      try {
+        const res = await runSingleFlight(`chat:item:room-id:${product.id}`, () =>
+          fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(product.id)}`, { cache: "no-store" })
+        );
+        if (!res.ok) {
+          setExistingRoomId(null);
+          setExistingRoomSource(null);
+          setExistingMessengerRoomId(null);
+          return;
+        }
+        const data = (await res.clone().json().catch(() => ({}))) as {
+          roomId?: string | null;
+          source?: string;
+          messengerRoomId?: string | null;
+        };
         setExistingRoomId(typeof data?.roomId === "string" ? data.roomId : null);
         setExistingRoomSource(
           data?.source === "chat_room" || data?.source === "product_chat" ? data.source : null
         );
         const mid = typeof data?.messengerRoomId === "string" ? data.messengerRoomId.trim() : "";
         setExistingMessengerRoomId(mid || null);
-      })
-      .catch(() => {
+      } catch {
         setExistingRoomId(null);
         setExistingRoomSource(null);
         setExistingMessengerRoomId(null);
-      });
+      }
+    })();
   }, [product.id, userId]);
 
   useEffect(() => {

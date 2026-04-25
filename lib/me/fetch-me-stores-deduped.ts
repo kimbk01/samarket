@@ -15,6 +15,10 @@ const FLIGHT_KEY = "me:stores:list" as const;
 
 let cached: { expiresAt: number; value: MeStoresListResult } | null = null;
 
+function dropExpiredMeStoresCache(now: number): void {
+  if (cached && cached.expiresAt <= now) cached = null;
+}
+
 /** 매장 생성·수정 직후 등 — 다음 호출이 TTL 없이 서버를 다시 치게 함 */
 export function invalidateMeStoresListDedupedCache(): void {
   cached = null;
@@ -23,6 +27,7 @@ export function invalidateMeStoresListDedupedCache(): void {
 
 export function fetchMeStoresListDeduped(): Promise<MeStoresListResult> {
   const now = Date.now();
+  dropExpiredMeStoresCache(now);
   if (cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }

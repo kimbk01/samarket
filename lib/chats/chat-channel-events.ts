@@ -25,7 +25,16 @@ type ChatChannelDispatchDetail = {
 };
 
 const EVENT_DISPATCH_DEFAULT_DEDUPE_MS = 250;
+const RECENT_EVENT_SIG_MAX = 200;
 const recentEventDispatchAt = new Map<string, number>();
+
+function capRecentEventDispatchSigs(): void {
+  while (recentEventDispatchAt.size > RECENT_EVENT_SIG_MAX) {
+    const k = recentEventDispatchAt.keys().next().value;
+    if (k === undefined) break;
+    recentEventDispatchAt.delete(k);
+  }
+}
 
 function dispatchDedupedWindowEvent(eventName: string, detail: ChatChannelDispatchDetail, dedupeMs: number): void {
   if (typeof window === "undefined") return;
@@ -35,6 +44,7 @@ function dispatchDedupedWindowEvent(eventName: string, detail: ChatChannelDispat
   const prev = recentEventDispatchAt.get(sig) ?? 0;
   if (now - prev < dedupeMs) return;
   recentEventDispatchAt.set(sig, now);
+  capRecentEventDispatchSigs();
   window.dispatchEvent(new CustomEvent(eventName, { detail }));
 }
 

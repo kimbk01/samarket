@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
 type Row = {
@@ -69,9 +70,11 @@ export function OwnerStoreInquiriesView() {
         preferredStoreId && stores.some((s) => s.id === preferredStoreId)
           ? stores.find((s) => s.id === preferredStoreId)!
           : stores[0];
-      const ir = await fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
-        credentials: "include",
-      });
+      const ir = await runSingleFlight(`me:stores:${store.id}:inquiries:get`, () =>
+        fetch(`/api/me/stores/${encodeURIComponent(store.id)}/inquiries`, {
+          credentials: "include",
+        })
+      );
       const ij = await ir.json();
       if (!ij?.ok) {
         setState({

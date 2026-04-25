@@ -36,10 +36,21 @@ import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { getChatServiceRoleSupabase } from "./service-role-supabase";
 import { parseRoomId } from "@/lib/validate-params";
 import { computeItemTradeUnreadCount } from "@/lib/chats/server/compute-item-trade-unread";
+import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
 type RoomDetailCacheEntry = { at: number; payload: ChatRoom };
 const ROOM_DETAIL_CACHE_TTL_MS = 2500;
+const ROOM_DETAIL_CACHE_MAX_KEYS = 500;
 const roomDetailCache = new Map<string, RoomDetailCacheEntry>();
+
+function capRoomDetailServerCache(): void {
+  pruneByAtMaxAgeAndMaxSize(
+    roomDetailCache,
+    Date.now(),
+    ROOM_DETAIL_CACHE_TTL_MS * 4,
+    ROOM_DETAIL_CACHE_MAX_KEYS
+  );
+}
 
 type LoadChatRoomDetailSuccess = {
   ok: true;
@@ -445,6 +456,7 @@ export async function loadChatRoomDetailForUser(input: {
         stampDetail("detailComputeDoneMs");
         if (detailScope === "full") {
           roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+          capRoomDetailServerCache();
         }
         logChatRoomDetailPerf({
           roomId,
@@ -569,6 +581,7 @@ export async function loadChatRoomDetailForUser(input: {
     stampDetail("detailComputeDoneMs");
     if (detailScope === "full") {
       roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+      capRoomDetailServerCache();
     }
     logChatRoomDetailPerf({
       roomId,
@@ -729,6 +742,7 @@ export async function loadChatRoomDetailForUser(input: {
       } satisfies ChatRoom;
       if (detailScope === "full") {
         roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+        capRoomDetailServerCache();
       }
       logChatRoomDetailPerf({
         roomId,
@@ -783,6 +797,7 @@ export async function loadChatRoomDetailForUser(input: {
     } satisfies ChatRoom;
     if (detailScope === "full") {
       roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+      capRoomDetailServerCache();
     }
     logChatRoomDetailPerf({
       roomId,
@@ -934,6 +949,7 @@ export async function loadChatRoomDetailForUser(input: {
   stampDetail("detailComputeDoneMs");
   if (detailScope === "full") {
     roomDetailCache.set(cacheKey, { at: Date.now(), payload });
+    capRoomDetailServerCache();
   }
   logChatRoomDetailPerf({
     roomId,

@@ -41,9 +41,10 @@ export function createRealtimeAuthBridge(args: {
       cleanup();
       onReady();
     });
+    const { subscription: authStateSubscription } = data;
     authCleanup = () => {
       try {
-        data.subscription.unsubscribe();
+        authStateSubscription.unsubscribe();
       } catch {
         /* ignore */
       }

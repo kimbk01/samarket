@@ -3,11 +3,14 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
 import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS = 5_000;
+/** 사용자당 1키이나 트래픽이 몰릴 때 프로세스 메모리가 비한정 증가하지 않게 */
+const COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES = 4_000;
 
 type CommunityMessengerHomeSyncCacheEntry = {
   payload: Awaited<ReturnType<typeof getCommunityMessengerHomeSyncBundle>>;
@@ -35,20 +38,19 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.ok) return rateLimit.response;
 
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
-  for (const [key, entry] of communityMessengerHomeSyncCache) {
-    if (entry.expiresAt <= Date.now()) {
-      communityMessengerHomeSyncCache.delete(key);
-    }
-  }
+  const now = Date.now();
+  pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, now, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
 
   const cacheKey = auth.userId;
   let bundle = !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
   if (!bundle) {
     bundle = await getCommunityMessengerHomeSyncBundle(auth.userId);
+    const tSet = Date.now();
     communityMessengerHomeSyncCache.set(cacheKey, {
       payload: bundle,
-      expiresAt: Date.now() + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+      expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
     });
+    pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, tSet, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
   }
 
   recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);

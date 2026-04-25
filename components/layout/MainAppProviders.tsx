@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { MainAppProviderTree } from "@/components/layout/MainAppProviderTree";
+import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 /**
@@ -18,12 +19,21 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 export function MainAppProviders({
   children,
   initialMainBottomNavItems = null,
+  initialTradeTabCategories = null,
 }: {
   children: ReactNode;
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
+  /**
+   * RSC `(main)/layout` — `queryTradeHomeRootCategories` 와 동일 열. `<AppStickyHeader />` 가
+   * `children`보다 먼저 그려지므로, 동기 프라임(`TradeTabCategoriesServerPrime`)으로 클라 2nd 페치 대기를 제거.
+   */
+  initialTradeTabCategories?: CategoryWithSettings[] | null;
 }) {
   return (
-    <MainAppProviderTree initialMainBottomNavItems={initialMainBottomNavItems}>
+    <MainAppProviderTree
+      initialMainBottomNavItems={initialMainBottomNavItems}
+      initialTradeTabCategories={initialTradeTabCategories}
+    >
       {children}
     </MainAppProviderTree>
   );

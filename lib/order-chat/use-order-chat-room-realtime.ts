@@ -86,7 +86,7 @@ export function useOrderChatRoomRealtime(args: {
     void (async () => {
       await waitForSupabaseRealtimeAuth(sb);
       if (cancelled) return;
-      channelHolder.current = sb
+      const ch = sb
         .channel(`order-chat-room:${rid}`)
         .on(
           "postgres_changes",
@@ -119,6 +119,11 @@ export function useOrderChatRoomRealtime(args: {
             healthRef.current?.(false);
           }
         });
+      if (cancelled) {
+        void sb.removeChannel(ch);
+        return;
+      }
+      channelHolder.current = ch;
     })();
 
     return () => {

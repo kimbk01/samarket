@@ -104,10 +104,10 @@ function TradePrimaryTabsInner({
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const idleId = scheduleWhenBrowserIdle(() => {
-      for (const tab of tabs) {
-        if (tab.href && !tab.isActive) {
-          void router.prefetch(tab.href);
-        }
+      /** 인접·다음 몇 개만 — 탭 수가 늘수록 `router.prefetch` 다발이 메인·네트워크를 잠식(시간 누적 체감) */
+      const targets = tabs.filter((t) => t.href && !t.isActive).slice(0, 8);
+      for (const tab of targets) {
+        void router.prefetch(tab.href);
       }
     }, 450);
     return () => cancelScheduledWhenBrowserIdle(idleId);

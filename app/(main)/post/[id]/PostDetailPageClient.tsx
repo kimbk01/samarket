@@ -42,40 +42,40 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
     if (!id) return;
     const now = Date.now();
     if (now - lastListingFieldsRefreshAtRef.current < MIN_LISTING_FIELDS_REFRESH_GAP_MS) return;
-    await runSingleFlight(`post-detail-listing-fields:${id}`, async () => {
-      lastListingFieldsRefreshAtRef.current = Date.now();
-      try {
-        const res = await fetch(`/api/posts/${id}`, { cache: "no-store" });
-        if (!res.ok) return;
-        const row = (await res.json()) as ApiPostRow;
-        setPost((prev) => {
-          if (!prev || prev.id !== id) return prev;
-          const next: PostWithMeta = { ...prev };
-          if (typeof row.status === "string" && row.status) {
-            next.status = row.status as PostWithMeta["status"];
-          }
-          if (row.seller_listing_state === null) {
-            next.seller_listing_state = undefined;
-          } else if (typeof row.seller_listing_state === "string") {
-            next.seller_listing_state = row.seller_listing_state;
-          }
-          if (typeof row.type === "string" && row.type) {
-            next.type = row.type as PostWithMeta["type"];
-          }
-          if (typeof row.updated_at === "string" && row.updated_at) {
-            next.updated_at = row.updated_at;
-          }
-          if (row.reserved_buyer_id === null || row.reserved_buyer_id === undefined) {
-            next.reserved_buyer_id = undefined;
-          } else if (typeof row.reserved_buyer_id === "string") {
-            next.reserved_buyer_id = row.reserved_buyer_id.trim() || undefined;
-          }
-          return next;
-        });
-      } catch {
-        /* ignore */
-      }
-    });
+    try {
+      const res = await runSingleFlight(`post-detail-listing-fields:${id}`, () => {
+        lastListingFieldsRefreshAtRef.current = Date.now();
+        return fetch(`/api/posts/${id}`, { cache: "no-store" });
+      });
+      if (!res.ok) return;
+      const row = (await res.clone().json()) as ApiPostRow;
+      setPost((prev) => {
+        if (!prev || prev.id !== id) return prev;
+        const next: PostWithMeta = { ...prev };
+        if (typeof row.status === "string" && row.status) {
+          next.status = row.status as PostWithMeta["status"];
+        }
+        if (row.seller_listing_state === null) {
+          next.seller_listing_state = undefined;
+        } else if (typeof row.seller_listing_state === "string") {
+          next.seller_listing_state = row.seller_listing_state;
+        }
+        if (typeof row.type === "string" && row.type) {
+          next.type = row.type as PostWithMeta["type"];
+        }
+        if (typeof row.updated_at === "string" && row.updated_at) {
+          next.updated_at = row.updated_at;
+        }
+        if (row.reserved_buyer_id === null || row.reserved_buyer_id === undefined) {
+          next.reserved_buyer_id = undefined;
+        } else if (typeof row.reserved_buyer_id === "string") {
+          next.reserved_buyer_id = row.reserved_buyer_id.trim() || undefined;
+        }
+        return next;
+      });
+    } catch {
+      /* ignore */
+    }
   }, [id]);
 
   useEffect(() => {

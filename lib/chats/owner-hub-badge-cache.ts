@@ -38,9 +38,13 @@ export function invalidateOwnerHubBadgeCache(userId: string): void {
 }
 
 function pruneExpiredHubBadgeCache(now: number) {
-  if (hubBadgeCache.size < 200) return;
   for (const [key, entry] of hubBadgeCache) {
     if (entry.expiresAt <= now) hubBadgeCache.delete(key);
+  }
+  while (hubBadgeCache.size > 200) {
+    const k = hubBadgeCache.keys().next().value;
+    if (k === undefined) break;
+    hubBadgeCache.delete(k);
   }
 }
 

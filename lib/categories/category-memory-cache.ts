@@ -10,6 +10,16 @@ type Entry<T> = { at: number; value: T };
 
 const store = new Map<string, Entry<unknown>>();
 
+const CATEGORY_MEMORY_CACHE_MAX_KEYS = 200;
+
+function enforceCategoryMemoryMaxSize(): void {
+  while (store.size > CATEGORY_MEMORY_CACHE_MAX_KEYS) {
+    const k = store.keys().next().value;
+    if (k === undefined) break;
+    store.delete(k);
+  }
+}
+
 export function readCategoryCache<T>(key: string, ttlMs = DEFAULT_TTL_MS): T | null {
   const hit = store.get(key);
   if (!hit) return null;
@@ -21,7 +31,9 @@ export function readCategoryCache<T>(key: string, ttlMs = DEFAULT_TTL_MS): T | n
 }
 
 export function writeCategoryCache<T>(key: string, value: T): void {
-  store.set(key, { at: Date.now(), value });
+  const t = Date.now();
+  store.set(key, { at: t, value });
+  enforceCategoryMemoryMaxSize();
 }
 
 export function invalidateCategoryCachePrefix(prefix: string): void {

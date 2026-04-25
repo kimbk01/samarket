@@ -27,9 +27,13 @@ export function invalidateStoreOrderCountsCache(storeId: string): void {
 }
 
 function pruneExpired(now: number) {
-  if (cache.size < 300) return;
   for (const [k, e] of cache) {
     if (e.expiresAt <= now) cache.delete(k);
+  }
+  while (cache.size > 300) {
+    const k = cache.keys().next().value;
+    if (k === undefined) break;
+    cache.delete(k);
   }
 }
 

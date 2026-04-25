@@ -16,11 +16,13 @@ import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/s
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SEND_DEDUPE_TTL_MS = 2500;
+const SEND_DEDUPE_MAX_ENTRIES = 20_000;
 const sendDedupe = new Map<string, { at: number; res: { ok: boolean; message?: unknown; error?: string } }>();
 
 /** 이전 메시지 페이지 (스크롤 업) — 읽기 폭주 완화 */
@@ -148,6 +150,7 @@ export async function POST(
     ? `community-messenger:send:${auth.userId}:${canonicalRoomId}:${clientMessageId}`
     : `community-messenger:send:${auth.userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
   const now = Date.now();
+  pruneByAtMaxAgeAndMaxSize(sendDedupe, now, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
   const cached = sendDedupe.get(key);
   if (cached && now - cached.at <= SEND_DEDUPE_TTL_MS) {
     recordMessengerApiTiming(
@@ -167,7 +170,9 @@ export async function POST(
       membershipPreflightDone: true,
     });
     // store short TTL response to dedupe rapid retries/double-clicks
-    sendDedupe.set(key, { at: Date.now(), res: r as any });
+    const tStore = Date.now();
+    sendDedupe.set(key, { at: tStore, res: r as any });
+    pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
     return r;
   });
   if (result.ok) {

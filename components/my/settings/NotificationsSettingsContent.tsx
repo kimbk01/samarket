@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getUserSettings,
@@ -9,6 +10,7 @@ import {
   syncUserSettings,
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
+import { fetchMeNotificationSettingsGet } from "@/lib/me/fetch-me-notification-settings-client";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
 
@@ -45,20 +47,22 @@ export function NotificationsSettingsContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/profile/notification-email", { credentials: "include" });
+        const res = await runSingleFlight("me:profile:notification-email", () =>
+          fetch("/api/me/profile/notification-email", { credentials: "include" })
+        );
         if (cancelled) return;
         if (res.status === 401) {
           setCommerceEmailShowRow(false);
-          return;
-        }
-        const j = await res.json().catch(() => ({}));
-        if (!cancelled && j?.ok) {
-          setCommerceEmailShowRow(true);
-          setCommerceEmailOn(j.notify_commerce_email !== false);
-          setCommerceEmailColumnMissing(j.column_missing === true);
-          setCommerceEmailPatchError(null);
-        } else if (!cancelled) {
-          setCommerceEmailShowRow(false);
+        } else {
+          const j = await res.json().catch(() => ({}));
+          if (!cancelled && j?.ok) {
+            setCommerceEmailShowRow(true);
+            setCommerceEmailOn(j.notify_commerce_email !== false);
+            setCommerceEmailColumnMissing(j.column_missing === true);
+            setCommerceEmailPatchError(null);
+          } else if (!cancelled) {
+            setCommerceEmailShowRow(false);
+          }
         }
       } catch {
         /* ignore */
@@ -75,7 +79,7 @@ export function NotificationsSettingsContent() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/notification-settings", { credentials: "include" });
+        const res = await fetchMeNotificationSettingsGet();
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           settings?: {

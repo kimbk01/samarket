@@ -1,8 +1,651 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-24T17:20:00.000Z",
+  "updatedAt": "2026-04-26T00:00:00.000Z",
   "currentTarget": "messenger",
   "inProgress": null,
+  "bottlenecks": [
+    {
+      "id": "post_detail_page_client_listing_fields_get_async_setstate_in_flight",
+      "severity": "addressed",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "summary": "post-detail-listing-fields runSingleFlight async+lastRef+json+setPost — `() => { lastRef; return fetch }` + await 뒤 clone().json(가시성·focus·복원 in-flight 합류)"
+    },
+    {
+      "id": "write_category_context_write_launcher_categories_async_setstate_in_flight",
+      "severity": "addressed",
+      "file": "contexts/WriteCategoryContext.tsx",
+      "summary": "write-launcher-categories runSingleFlight async+setLoading·setCategories — `() => getWritableRootCategoriesForWriteLauncher()` + setState 는 await 이후"
+    },
+    {
+      "id": "web_push_settings_row_get_json_on_shared_response",
+      "severity": "addressed",
+      "file": "components/my/settings/WebPushSettingsRow.tsx",
+      "summary": "me:push:status:get / me:push:vapid-key:get runSingleFlight 직후 res.json() — res.clone().json(동시 refresh·가입 흐름)"
+    },
+    {
+      "id": "trade_reviews_management_load_promise_all_setstate_inside_flight",
+      "severity": "addressed",
+      "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
+      "summary": "mypage:trade-reviews-management:load(:force) runSingleFlight async+Promise.all 내부 setState — factory는 Promise.all(·후기2 fetch+json + 거래이력2 세션) 유지, setState·loading 은 await 이후(혼합 분리 없음)"
+    },
+    {
+      "id": "admin_user_list_page_get_async_setstate_in_flight",
+      "severity": "addressed",
+      "file": "components/admin/users/AdminUserListPage.tsx",
+      "summary": "admin-users:list admin GET runSingleFlight 콜백 async+setMembersFromApi — () => fetch, clone().json·setState 는 fetchMembers 본문"
+    },
+    {
+      "id": "global_community_messenger_incoming_call_sessions_get_async_in_flight",
+      "severity": "addressed",
+      "file": "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx",
+      "summary": "INCOMING_CALL fetch runSingleFlight async+setState — () => fetch, res.clone().json+setState 는 refresh(쿨다운 통과 후) try/catch"
+    },
+    {
+      "id": "post_community_comments_get_async_setstate_in_flight",
+      "severity": "addressed",
+      "file": "components/post/PostCommunityCommentsSection.tsx",
+      "summary": "post:{postId}:comments-get runSingleFlight 콜백 async+setComments — () => fetch + load에서 res.clone().json(초기·무음 갱신 겹침)"
+    },
+    {
+      "id": "product_detail_chat_item_room_id_get_chain_in_flight",
+      "severity": "addressed",
+      "file": "components/product/detail/ProductDetailView.tsx",
+      "summary": "chat:item:room-id runSingleFlight 콜백 async+setState (fetch().then) — () => fetch + IIFE clone().json(마운트+pageshow 복원)"
+    },
+    {
+      "id": "mandatory_address_gate_get_apply_json_inside_flight",
+      "severity": "addressed",
+      "file": "components/addresses/MandatoryAddressGate.tsx",
+      "summary": "mandatory-address-gate:GET runSingleFlight 콜백 async+applyGateJson — () => fetch, applyGateJson 는 res.clone().json(이벤트+복귀 병행)"
+    },
+    {
+      "id": "my_page_admin_menu_entry_access_check_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/mypage/MyPageAdminMenuEntry.tsx",
+      "summary": "admin:access-check:get runSingleFlight 콜백 async+json+setShow — () => fetch 만, res.clone().json()·setShow 는 effect(다중 인스턴스·in-flight 합류)"
+    },
+    {
+      "id": "user_list_content_relations_get_async_wrapper_no_clone",
+      "severity": "addressed",
+      "file": "components/my/settings/UserListContent.tsx",
+      "summary": "me:relations:{type}:list runSingleFlight 콜백 async+setState — () => fetch + load 본문에서 res.clone().json(동시 load 대비)"
+    },
+    {
+      "id": "my_products_view_my_posts_get_async_return_parser_inside_flight",
+      "severity": "addressed",
+      "file": "components/mypage/products/MyProductsView.tsx",
+      "summary": "me:my-posts:{uid} runSingleFlight 콜백 async+res.json+반환 — () => fetch + fetchMyPosts에서 clone().json(마운트+focus+visibility+복원·refresh 병행)"
+    },
+    {
+      "id": "my_point_card_me_points_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/mypage/MyPointCard.tsx",
+      "summary": "me:points:get runSingleFlight 콜백 async+내부 setState — () => fetch 만, r.json·setBalance 는 effect IIFE(포인트 카드 단일 effect)"
+    },
+    {
+      "id": "my_store_inquiries_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/mypage/MyStoreInquiriesView.tsx",
+      "summary": "me:store-inquiries:get runSingleFlight 콜백 async+setState — () => fetch 만, load에서 401/json·setState(동시 load 시 res.clone().json())"
+    },
+    {
+      "id": "my_written_reviews_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/mypage/reviews/MyWrittenReviewsView.tsx",
+      "summary": "me:written-reviews:get runSingleFlight 콜백 async+setItems — () => fetch 만, load IIFE에서 clone().json·setState(finally 로 loading)"
+    },
+    {
+      "id": "notifications_settings_profile_notification_email_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "summary": "me:profile:notification-email runSingleFlight 콜백 async+내부 setState — () => fetch 만 두고 401/JSON·setState 는 effect 본문"
+    },
+    {
+      "id": "community_tab_activity_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "summary": "me:community-activity:get runSingleFlight 콜백 async+setState — () => fetch 만, JSON·setState 는 effect 본문(동일 section 당 패널 1개)"
+    },
+    {
+      "id": "my_points_view_me_points_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/points/MyPointsView.tsx",
+      "summary": "me:points:get runSingleFlight 콜백 async+setState — () => fetch 만, JSON·setState 는 load(카드·/mypage/points RSC·동일 키 합류)"
+    },
+    {
+      "id": "trade_presence_heartbeat_post_unbounded_under_timer",
+      "severity": "addressed",
+      "file": "components/chats/TradePresenceActivityContext.tsx",
+      "summary": "POST /api/me/trade-presence/heartbeat 가 setTimeout·초기 호출에 runSingleFlight 없이 겹칠 수 있음"
+    },
+    {
+      "id": "version_content_settings_version_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/my/settings/VersionContent.tsx",
+      "summary": "me:settings:version runSingleFlight 콜백이 async+내부 setState — () => fetch 만 두고 JSON·setState 는 외부(동일 키·단일 응답)"
+    },
+    {
+      "id": "chat_settings_trade_presence_get_async_wrapper_only",
+      "severity": "addressed",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "summary": "me:trade-presence:get — fetch 는 `() => fetch` 로, 파싱·setState 는 effect 본문(동일 키)"
+    },
+    {
+      "id": "notifications_settings_domain_get_bypasses_fetch_me_notification_settings_get",
+      "severity": "addressed",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "summary": "GET /api/me/notification-settings 가 runSingleFlight+직접 fetch — `fetchMeNotificationSettingsGet`·`me:notification-settings:get` 로 통일"
+    },
+    {
+      "id": "admin_order_notification_list_get_mount_interval_dedup",
+      "severity": "addressed",
+      "file": "components/admin/order-notifications/AdminNotificationList.tsx",
+      "summary": "GET /api/me/notifications(관리 배송 알림) 이 마운트+interval+이벤트에 runSingleFlight 없이 겹칠 수 있음"
+    },
+    {
+      "id": "my_ads_page_post_ads_get_no_single_flight",
+      "severity": "addressed",
+      "file": "app/(main)/my/ads/MyAdsPageClient.tsx",
+      "summary": "GET /api/me/post-ads 가 runSingleFlight 없이 load 에만 있어 재입력·빠른 복귀에 중복 가능"
+    },
+    {
+      "id": "admin_order_notification_bell_unread_get_multiplier",
+      "severity": "addressed",
+      "file": "components/admin/order-notifications/AdminNotificationBell.tsx",
+      "summary": "GET ?unread_count_only=1 가 마운트+visibility+interval 에서 runSingleFlight 없이 겹침"
+    },
+    {
+      "id": "store_inquiries_get_unshared_dashboard_vs_owner_view",
+      "severity": "addressed",
+      "file": "components/business/owner/OwnerStoreInquiriesView.tsx",
+      "summary": "GET /api/me/stores/:id/inquiries 가 스토어 대시보드 load 와 runSingleFlight 없이 동시에 겹칠 수 있음"
+    },
+    {
+      "id": "business_admin_dashboard_store_inquiries_get_unshared",
+      "severity": "addressed",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "summary": "loadDashboard Promise.all 이 문의 GET 을 per-store me:stores:{id}:inquiries:get 로 OwnerStoreInquiriesView 와 합류"
+    },
+    {
+      "id": "phone_verification_get_no_single_flight",
+      "severity": "addressed",
+      "file": "components/my/PhoneVerificationRequestForm.tsx",
+      "summary": "GET /api/me/phone-verification 를 runSingleFlight 없이 호출해 마이·설정 복귀와 동시에 겹칠 수 있음"
+    },
+    {
+      "id": "me_store_settlements_get_unshared_across_seller_screens",
+      "severity": "addressed",
+      "file": "components/business/MyStoreSettlementsPage.tsx",
+      "summary": "GET /api/me/store-settlements 를 runSingleFlight 없이 호출해 BusinessAdminDashboard·정산 화면 전환 시 중복"
+    },
+    {
+      "id": "business_admin_dashboard_store_settlements_get_no_shared_flight",
+      "severity": "addressed",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "summary": "대시보드 Promise.all 이 GET /api/me/store-settlements 를 단독 fetch — MyStoreSettlementsPage 와 동일 me:store-settlements:get 로 합류"
+    },
+    {
+      "id": "mypage_points_page_get_bypasses_me_points_get",
+      "severity": "addressed",
+      "file": "app/(main)/mypage/points/page.tsx",
+      "summary": "전용 /mypage/points RSC 가 GET /api/me/points 를 runSingleFlight 없이 호출해 MyPointCard·MyPointsView `me:points:get` 와 겹침"
+    },
+    {
+      "id": "owner_store_notification_settings_get_bypasses_me_notification_settings_get",
+      "severity": "addressed",
+      "file": "components/stores/owner/OwnerNotificationSettings.tsx",
+      "summary": "GET /api/me/notification-settings 를 fetchMeNotificationSettingsGet·`me:notification-settings:get` 합류 없이 직접 호출(사장·구매자 설정 화면과 중복)"
+    },
+    {
+      "id": "web_push_settings_get_no_single_flight",
+      "severity": "addressed",
+      "file": "components/my/settings/WebPushSettingsRow.tsx",
+      "summary": "GET /api/me/push/status·push/vapid-key 를 runSingleFlight 없이 호출해 설정·토글·재로드에 중복"
+    },
+    {
+      "id": "address_list_prefetch_get_bypasses_me_addresses_list",
+      "severity": "addressed",
+      "file": "lib/addresses/address-list-client-cache.ts",
+      "summary": "prefetchMeAddressListIntoCache 가 GET /api/me/addresses 를 me:addresses:list 합류 없이 호출해 글쓰기·주소 흐름에서 목록 API 중복"
+    },
+    {
+      "id": "mypage_point_card_points_get_bypasses_me_points_get",
+      "severity": "addressed",
+      "file": "components/mypage/MyPointCard.tsx",
+      "summary": "GET /api/me/points 를 runSingleFlight 없이 호출해 MyPointsView `me:points:get` 와 겹칠 수 있음"
+    },
+    {
+      "id": "notices_content_settings_notices_get_no_single_flight",
+      "severity": "addressed",
+      "file": "components/my/settings/NoticesContent.tsx",
+      "summary": "GET /api/me/settings/notices 를 runSingleFlight 없이 호출해 설정 복귀·재마운트에 중복"
+    },
+    {
+      "id": "store_commerce_cart_checkout_contact_get_no_single_flight",
+      "severity": "addressed",
+      "file": "components/stores/StoreCommerceCartPageClient.tsx",
+      "summary": "GET /api/me/checkout-contact 를 runSingleFlight 없이 호출해 재요청·동시 효과에 중복"
+    },
+    {
+      "id": "profile_edit_load_addresses_get_no_me_addresses_list",
+      "severity": "addressed",
+      "file": "components/my/edit/ProfileEditForm.tsx",
+      "summary": "초기 load GET /api/me/addresses 를 me:addresses:list 에 합류시키지 않아 주소 관리·지도 선택과 겹칠 수 있음"
+    },
+    {
+      "id": "address_select_load_addresses_get_no_me_addresses_list",
+      "severity": "addressed",
+      "file": "components/map/AddressSelectClient.tsx",
+      "summary": "loadAddresses GET /api/me/addresses 를 me:addresses:list runSingleFlight 로 합류(다른 me 주소 GET 과 동시 요청 절감)"
+    },
+    {
+      "id": "main_shell_bottom_nav_programmatic_prefetch_restarts",
+      "severity": "addressed",
+      "file": "components/layout/BottomNav.tsx",
+      "summary": "idle prefetch useEffect에 useRouter() 참조가 있어 셸 도메인(bMainBottomNavPrefetch) 불변인데도 AppRouterContext 갱신 시 effect가 취소/재스케줄됨"
+    },
+    {
+      "id": "notification_unread_badge_visibility_force_bypasses_gap",
+      "severity": "addressed",
+      "file": "lib/notifications/notification-unread-badge-store.ts",
+      "summary": "visibility 복귀마다 doFetch(true)로 MIN_FETCH_GAP_MS(8s)를 우회해 /api/me/notifications 가 짧은 간격에 반복될 수 있음"
+    },
+    {
+      "id": "trade_activity_coordinator_scroll_broadcast_unthrottled",
+      "severity": "addressed",
+      "file": "lib/chats/use-trade-activity-coordinator.ts",
+      "summary": "scroll·pointer·키마다 bump()가 BC postMessage 를 매 틱 수행 — millisecond 경계만 막혀 장시간 스크롤 시 전파 작업 누적"
+    },
+    {
+      "id": "trade_multi_tab_visibility_or_broadcastchannel_orphan",
+      "severity": "addressed",
+      "file": "lib/chats/use-trade-multi-tab-visibility-or.ts",
+      "summary": "apply()가 effect 내 BC 생성보다 먼저 돌아 postVisibility가 임시 BroadcastChannel 을 만든 뒤 바로 덮어써 close 없이 유실됨"
+    },
+    {
+      "id": "messenger_bootstrap_early_warm_microtask_unsubscribed",
+      "severity": "addressed",
+      "file": "components/community-messenger/MessengerBootstrapEarlyWarm.tsx",
+      "summary": "queueMicrotask(run) 경로는 effect cleanup 이 없어 shellDomain 변경·언마운트 뒤에도 warmMessengerListBootstrapClient 가 스케줄될 수 있음"
+    },
+    {
+      "id": "messenger_bootstrap_getentriesbyname_full_array_scan",
+      "severity": "addressed",
+      "file": "lib/community-messenger/cm-bootstrap-client-fetch.ts",
+      "summary": "readResponseSizeBytes 가 performance.getEntriesByName(동일 URL) 배열 끝에서 0까지 역스캔 — 반복 bootstrap 시 엔트리 누적으로 스캔 비용이 커질 수 있음"
+    },
+    {
+      "id": "notification_unread_count_cache_prune_expired_only_no_size_cap",
+      "severity": "addressed",
+      "file": "lib/notifications/notification-unread-count-cache.ts",
+      "summary": "prune()가 만료 항목만 지워 size>=200이면 끝났는데 전부가 유효 TTL일 때 cache가 계속 자람"
+    },
+    {
+      "id": "client_owner_hub_badge_cache_prune_skips_when_under_200",
+      "severity": "addressed",
+      "file": "lib/chats/owner-hub-badge-cache.ts",
+      "summary": "pruneExpiredHubBadgeCache가 size<200이면 return으로 만료 항목 정리를 아예 하지 않음+전부 유효 시 200+ 유지"
+    },
+    {
+      "id": "store_order_counts_cache_prune_skips_when_under_300",
+      "severity": "addressed",
+      "file": "lib/stores/store-order-counts-cache.ts",
+      "summary": "pruneExpired가 size<300이면 return으로 만료 엔트리를 제거하지 않음+전부 유효 시 300+ 유지"
+    },
+    {
+      "id": "user_chat_unread_parts_prune_skips_expired_and_no_fifo_200",
+      "severity": "addressed",
+      "file": "lib/chat/user-chat-unread-parts.ts",
+      "summary": "pruneExpiredUnreadCache가 size<200이면 return으로 만료를 지우지 않고, 전 항목이 유효 TTL이면 200+ 유지(상한·FIFO 없음)"
+    },
+    {
+      "id": "trade_feed_favorites_cache_no_fifo_120",
+      "severity": "addressed",
+      "file": "lib/posts/trade-feed-favorites-server-cache.ts",
+      "summary": "size<120이면 prune 전면 생략+120+에서도 만료만 8% 샘플·FIFO 없이 Map이 늘 수 있음"
+    },
+    {
+      "id": "home_posts_route_cache_prune_150_no_fifo",
+      "severity": "addressed",
+      "file": "lib/posts/home-posts-route-core.ts",
+      "summary": "homePostsServerCache·homePostsFavoriteCache 공용 maybePrune이 size<150이면 return+150+에서 8% 만료만으로 상한·FIFO가 없을 수 있음"
+    },
+    {
+      "id": "chat_channel_events_recent_event_dispatch_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/chats/chat-channel-events.ts",
+      "summary": "채팅/허브 dispatch dedupe Map(recentEventDispatchAt)이 set만 하고 delete·size 상한이 없어 시그 키가 누적됨"
+    },
+    {
+      "id": "prewarm_chat_route_warmed_at_href_unbounded",
+      "severity": "addressed",
+      "file": "lib/chats/prewarm-chat-room-route.ts",
+      "summary": "채팅 링크 prewarm throttling(warmedAtByHref)이 href마다 set만 하고 delete·size 상한이 없어 긴 세션에서 키가 누적됨"
+    },
+    {
+      "id": "trade_feed_client_cache_no_expired_delete_or_size_cap",
+      "severity": "addressed",
+      "file": "lib/posts/trade-feed-client-cache.ts",
+      "summary": "클라 tradeFeedClientCache가 쓰기·peek 시 만료 항 delete/전역 prune 없이 키·만료 행이 쌓일 수 있음"
+    },
+    {
+      "id": "community_user_relation_client_cache_unbounded",
+      "severity": "addressed",
+      "file": "lib/community/user-relation-client.ts",
+      "summary": "relationCache가 at·5s 갭 히트만 있고 오래된 targetUserId 키·최대 개수 정리가 없어 누적될 수 있음"
+    },
+    {
+      "id": "messenger_web_desktop_notification_dedupe_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/community-messenger/notifications/messenger-web-desktop-notification.ts",
+      "summary": "recentDedupeAt이 2s 디듀프용 set만 하고 stale·상한이 없어 방·이벤트 키가 누적될 수 있음"
+    },
+    {
+      "id": "get_posts_for_home_client_cache_unbounded",
+      "severity": "addressed",
+      "file": "lib/posts/getPostsForHome.ts",
+      "summary": "홈 클라 homePostsCache가 키·만료 엔트리 누적( peek 만료 delete 없음, 쓰기 시 전역 prune 없음) 가능"
+    },
+    {
+      "id": "me_owner_store_notifications_cache_unbounded",
+      "severity": "addressed",
+      "file": "lib/me/fetch-me-owner-store-notifications.ts",
+      "summary": "owner_store_id별 캐시 set만으로 다매장·다요청 시 키·만료 행이 쌓일 수 있음"
+    },
+    {
+      "id": "social_filter_blocked_ids_viewer_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/neighborhood/social-filter.ts",
+      "summary": "blockedIdsCacheByViewer가 5s 히트만으로 다 viewerId 키·stale 엔트리를 프로세스에서 정리하지 않을 수 있음"
+    },
+    {
+      "id": "cm_presence_snapshot_client_cache_unbounded",
+      "severity": "addressed",
+      "file": "lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client.ts",
+      "summary": "userId별 presence 캐시 set만으로 만료·최대 키 수 정리 없이 누적될 수 있음"
+    },
+    {
+      "id": "delivery_order_alert_debounce_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/business/delivery-order-alert-debounce.ts",
+      "summary": "lastPlayByStore가 2.8s 간격 throttling set만으로 매장 id 키가 쌓일 수 있음"
+    },
+    {
+      "id": "item_trade_reconcile_lastrun_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/trade/run-item-trade-reconcile-if-stale.ts",
+      "summary": "item-trade reconcile throttling lastRun Map이 set만으로 서버에 다 userId·역할 키가 쌓일 수 있음"
+    },
+    {
+      "id": "load_me_stores_list_server_cache_no_max",
+      "severity": "addressed",
+      "file": "lib/me/load-me-stores-for-user.ts",
+      "summary": "meStoresServerCache가 userId 키별 set과 만료 루프만 있고 전체 만료+키 상한 정리가 없을 수 있음"
+    },
+    {
+      "id": "cm_realtime_health_scope_map_unbounded",
+      "severity": "addressed",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-health.ts",
+      "summary": "scopeHealthMap이 Realtime scope 문자열마다 getOrCreate로 쌓이고 clear 누락 시 키가 누적될 수 있음"
+    },
+    {
+      "id": "load_chat_room_detail_server_cache_no_max",
+      "severity": "addressed",
+      "file": "lib/chats/server/load-chat-room-detail.ts",
+      "summary": "roomDetailCache(2.5s at) set만으로 다 room cacheKey·dead at 행이 프로세스에 쌓일 수 있음"
+    },
+    {
+      "id": "cm_realtime_auth_bridge_auth_cleanup_race",
+      "severity": "addressed",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-auth-bridge.ts",
+      "summary": "onAuthStateChange 직후 authCleanup 대입 전에 teardown이 오면 data.subscription.unsubscribe가 호출되지 않을 수 있음"
+    },
+    {
+      "id": "cm_subscribe_with_retry_internal_recycle_timer_leak",
+      "severity": "addressed",
+      "file": "lib/community-messenger/realtime/subscribe-with-retry.ts",
+      "summary": "markInternalChannelRecycle의 1.6s setTimeout이 stop()에서 취소되지 않아 탭/구독 반복 시 타이머·카운트가 누적될 수 있음"
+    },
+    {
+      "id": "order_chat_room_realtime_subscribe_unmount_race",
+      "severity": "addressed",
+      "file": "lib/order-chat/use-order-chat-room-realtime.ts",
+      "summary": "채널 subscribe 직후 effect cleanup(cancelled)이면 channelHolder에 넣기 전·후 타이밍에 구독 정리 누락이 생길 수 있음"
+    },
+    {
+      "id": "trade_chat_typing_peer_subscribe_cancel_orphan",
+      "severity": "addressed",
+      "file": "lib/chats/use-trade-chat-room-typing.ts",
+      "summary": "waitFor 뒤 broadcast typing 채널 subscribe 직전에 effect cleanup(cancelled)이면 ch 대입 전 구독 제거 누락·이중 remove 가능"
+    },
+    {
+      "id": "integrated_chat_list_realtime_subscribe_end_cancel",
+      "severity": "addressed",
+      "file": "lib/chats/use-integrated-chat-room-list-realtime.ts",
+      "summary": "participants+방 청크 구독 루프 직후 unmount(cancelled)이면 mount 배열 remove가 클린업 이전·이중에 맞지 않을 수 있음"
+    },
+    {
+      "id": "use_chat_room_realtime_connect_stale_or_cancel_orphan",
+      "severity": "addressed",
+      "file": "lib/chats/use-chat-room-realtime.ts",
+      "summary": "connect()가 postgres subscribe 직후 cancelled·connectGen 불일치면 currentChannel 대입 전에 로컬 channel에 대한 removeChannel 누락"
+    },
+    {
+      "id": "my_purchase_detail_get_concurrent_load_refetch",
+      "severity": "addressed",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "summary": "초기 load·useRefetchOnPageShowRestore(bfcache)·탭 복귀가 같은 GET /api/my/purchases/:chatId 를 동시에 쏘면 in-flight·완료 race로 중복 네트"
+    },
+    {
+      "id": "philife_neighborhood_warm_stacked_idle_timeout",
+      "severity": "addressed",
+      "file": "lib/philife/warm-philife-neighborhood-feed.ts",
+      "summary": "feed URL/간격 갱신마다 requestIdleCallback·setTimeout 이 취소 없이 쌒여 커뮤니티 전·워밍 fetch 가 여럿 쌒일 수 있음"
+    },
+    {
+      "id": "mypage_instagram_section_preview_race_fetch",
+      "severity": "addressed",
+      "file": "components/my/mypage/MypageInstagramView.tsx",
+      "summary": "섹션(trade/store/board) 프리뷰 load 가 연속으로 불리면 동일 limit GET 이 병렬·중첩돼 셸 체감·네트 누적"
+    },
+    {
+      "id": "mystore_inquiries_get_concurrent_refetch",
+      "severity": "addressed",
+      "file": "components/mypage/MyStoreInquiriesView.tsx",
+      "summary": "마운트·pageshow/복원(useRefetchOnPageShowRestore)이 /api/me/store-inquiries 를 동시에 겹칠 수 있음"
+    },
+    {
+      "id": "my_written_reviews_get_concurrent_refetch",
+      "severity": "addressed",
+      "file": "components/mypage/reviews/MyWrittenReviewsView.tsx",
+      "summary": "load 트리거(마운트·복원·test-auth·WRITTEN_REVIEW_UPDATED 등)가 /api/my/written-reviews in-flight 를 합치지 않고 중첩"
+    },
+    {
+      "id": "trade_reviews_management_promiseall_concurrent",
+      "severity": "addressed",
+      "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
+      "summary": "4-way Promise.all load 가 복원·test-auth·마운트에 겹치면 동시 다발 fetch 중첩"
+    },
+    {
+      "id": "store_owner_order_chats_shell_me_stores_unshared",
+      "severity": "addressed",
+      "file": "components/stores/owner/StoreOwnerOrderChatsShell.tsx",
+      "summary": "loadStore 가 /api/me/stores 를 직접 호출해 me:stores in-flight·TTL 을 타지 못해 마운트+복원과 셸 다른 뷰와 GET 이 겹침"
+    },
+    {
+      "id": "my_products_fetch_posts_overlay",
+      "severity": "addressed",
+      "file": "components/mypage/products/MyProductsView.tsx",
+      "summary": "fetchMyPosts 가 /api/my/posts 를 마운트+focus+visibility+pageshow 에 합류 없이 중첩"
+    },
+    {
+      "id": "product_detail_item_room_id_refetch_race",
+      "severity": "addressed",
+      "file": "components/product/detail/ProductDetailView.tsx",
+      "summary": "refetchExistingRoomId 의 GET /api/chat/item/room-id 가 초기·복원·동시에 겹칠 수 있음"
+    },
+    {
+      "id": "me_points_get_concurrent",
+      "severity": "addressed",
+      "file": "components/points/MyPointsView.tsx",
+      "summary": "GET /api/me/points 가 마운트·충전취소 직후 load() 등에 in-flight 합류 없이 겹칠 수 있음"
+    },
+    {
+      "id": "owner_store_reviews_list_get_concurrent",
+      "severity": "addressed",
+      "file": "components/business/owner/OwnerStoreReviewsView.tsx",
+      "summary": "load() 내 /api/me/stores/:id/reviews GET 이 연속 load·effect 재실행에 중복"
+    },
+    {
+      "id": "post_comments_get_concurrent",
+      "severity": "addressed",
+      "file": "components/post/PostCommunityCommentsSection.tsx",
+      "summary": "댓글 GET 이 마운트·등록 직후 silent load 등에 겹칠 수 있음"
+    },
+    {
+      "id": "mypage_home_community_posts_limit20_overlay",
+      "severity": "addressed",
+      "file": "components/mypage/MyPageHomeDashboard.tsx",
+      "summary": "RSC 카운트 없을 때 /api/me/community-posts?limit=20 GET 이 주문 dedupe 와 병행돼 셸·다른 my 컴포넌트와 동일 엔드포인트(다른 limit)도 합류 없이 겹칠 수 있음"
+    },
+    {
+      "id": "community_tab_posts_limit6_overlay",
+      "severity": "addressed",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "summary": "커뮤니티 탭 미리보기 /api/me/community-posts?limit=6 GET 이 in-flight 합류 없이 중첩"
+    },
+    {
+      "id": "chat_settings_trade_presence_get_overlay",
+      "severity": "addressed",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "summary": "GET /api/me/trade-presence 가 userId effect 재실행 등에 in-flight 합류 없이 겹칠 수 있음"
+    },
+    {
+      "id": "me_settings_version_get_unshared",
+      "severity": "addressed",
+      "file": "components/my/settings/VersionContent.tsx",
+      "summary": "GET /api/me/settings/version 이 마운트·빠른 재진입에 in-flight 합류 없이 중첩"
+    },
+    {
+      "id": "me_relations_list_get_unshared",
+      "severity": "addressed",
+      "file": "components/my/settings/UserListContent.tsx",
+      "summary": "GET /api/me/relations/:type 목록이 동일 탭 type 의 연속 load·effect 에 겹칠 수 있음"
+    },
+    {
+      "id": "admin_access_check_get_unshared",
+      "severity": "addressed",
+      "file": "components/mypage/MyPageAdminMenuEntry.tsx",
+      "summary": "GET /api/admin/access-check 가 내정보 홈·설정 등에 동시에 여러 인스턴스로 붙을 때 중복"
+    },
+    {
+      "id": "me_community_activity_get_unshared",
+      "severity": "addressed",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "summary": "MyCommunityActivityPanel 이 GET /api/me/community-activity 를 in-flight 합류 없이 한 번에 한 번씩만 호출하지 않음(탭·재마운트)"
+    },
+    {
+      "id": "notification_settings_get_pair_unshared",
+      "severity": "addressed",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "summary": "알림 설정 /api/me/profile/notification-email 과 /api/me/notification-settings GET 이 runSingleFlight 없이 userId effect 에 겹침"
+    },
+    {
+      "id": "me_addresses_list_get_unshared",
+      "severity": "addressed",
+      "file": "components/addresses/AddressManagementClient.tsx",
+      "summary": "GET /api/me/addresses 가 load·지도 복귀 편집 fetch 에 동시에 겹칠 수 있음"
+    }
+  ],
+  "lastMeasured": [],
+  "notes": [
+    "2026-04-26: PostDetailPageClient — post-detail-listing-fields `() => fetch`+lastRef+clone().json",
+    "2026-04-26: WriteCategoryContext — write-launcher-categories factory = getWritableRootCategoriesForWriteLauncher, setState 는 await 뒤",
+    "2026-04-26: WebPushSettingsRow — me:push:status / vapid-key runSingleFlight 뒤 clone().json",
+    "2026-04-25: TradeReviewsManagementView — runSingleFlight(`mypage:trade-reviews-management:load…`) = Promise.all·setState 는 await 뒤",
+    "2026-04-25: AdminUserListPage — `admin-users:list:…` `() => fetch` + clone().json",
+    "2026-04-25: GlobalCommunityMessengerIncomingCall — INCOMING_CALL `() => fetch` + refresh clone().json",
+    "2026-04-25: PostCommunityCommentsSection — post:…:comments-get `() => fetch` + load clone().json",
+    "2026-04-25: ProductDetailView — chat:item:room-id `() => fetch` + refetch IIFE clone().json",
+    "2026-04-25: MandatoryAddressGate — GATE fetch-only + applyGateJson clone().json",
+    "2026-04-25: MyPageAdminMenuEntry — admin:access-check:get `() => fetch` + clone().json·setShow",
+    "2026-04-25: UserListContent — me:relations:{type}:list `() => fetch` + load clone().json",
+    "2026-04-25: MyProductsView — me:my-posts:{uid} `() => fetch` + fetchMyPosts clone().json",
+    "2026-04-25: MyPointCard — me:points:get `() => fetch` + effect json·setBalance",
+    "2026-04-25: MyStoreInquiriesView — me:store-inquiries:get `() => fetch` + load에서 clone().json(동시 in-flight·pageshow 겹침)",
+    "2026-04-25: MyWrittenReviewsView — me:written-reviews:get `() => fetch` + clone().json·setItems(이벤트+pageshow 겹침)",
+    "2026-04-25: NotificationsSettingsContent — me:profile:notification-email `() => fetch` + effect 본문 401/JSON·setState",
+    "2026-04-25: CommunityTab MyCommunityActivityPanel — me:community-activity:get `() => fetch` + effect JSON·setState",
+    "2026-04-25: MyPointsView — me:points:get `() => fetch` + load JSON·setState",
+    "2026-04-26: TradePresenceActivityContext — me:trade-presence:heartbeat:post (POST 중복·타이머 겹침)",
+    "2026-04-26: VersionContent + ChatSettingsContent — me:settings:version / me:trade-presence:get 콜백을 `() => fetch` 로 정리",
+    "2026-04-26: NotificationsSettingsContent — domain GET 을 fetchMeNotificationSettingsGet (me:notification-settings:get) 로 통일",
+    "2026-04-26: AdminNotificationList — me:notifications:list:admin-delivery-inbox",
+    "2026-04-26: MyAdsPageClient — me:post-ads:get",
+    "2026-04-26: AdminNotificationBell — me:notifications:unread_count_only=1:admin-bell (mount·visibility·poll)",
+    "2026-04-26: OwnerStoreInquiriesView + BusinessAdminDashboard — me:stores:{id}:inquiries:get 공유",
+    "2026-04-25: PhoneVerificationRequestForm — GET /api/me/phone-verification runSingleFlight `me:phone-verification:get`",
+    "2026-04-25: MyStoreSettlementsPage + BusinessAdminDashboard — GET /api/me/store-settlements 공유 `me:store-settlements:get`",
+    "2026-04-25: mypage/points page — GET /api/me/points runSingleFlight `me:points:get` (카드·MyPointsView 와 합류)",
+    "2026-04-25: OwnerNotificationSettings — fetchMeNotificationSettingsGet (me:notification-settings:get)로 사장/구매/관리·허브 GET 합류",
+    "2026-04-25: WebPushSettingsRow — me:push:status:get, me:push:vapid-key:get",
+    "2026-04-25: address-list-client-cache — prefetch GET /api/me/addresses runSingleFlight `me:addresses:list` + cache no-store",
+    "2026-04-25: MyPointCard + NoticesContent — `me:points:get` / `me:settings:notices:get` runSingleFlight",
+    "2026-04-25: StoreCommerceCartPageClient — GET /api/me/checkout-contact runSingleFlight `me:checkout-contact:get`",
+    "2026-04-25: ProfileEditForm + AddressSelectClient — GET /api/me/addresses runSingleFlight `me:addresses:list` (AddressManagementClient 와 공유 키)",
+    "2026-04-25: BottomNav programmatic prefetch effect deps를 bottomNavPrefetchDomain 전용으로 정리(routerRef로 prefetch) — main-bottom-nav-prefetch-domain 주석 의도(세부 경로에서 나머지 탭 RSC를 반복 긁지 않음)와 정렬",
+    "2026-04-25: notification-unread-badge-store visibility 복귀 doFetch를 false로 — 8s 갭과 정렬(실시간 KASAMA_NOTIFICATIONS_UPDATED force 유지)",
+    "2026-04-25: use-trade-activity-coordinator — lastActivity ms는 유지, BroadcastChannel postMessage 만 TRADE_ACTIVITY_BROADCAST_MIN_GAP_MS(900)로 희소화",
+    "2026-04-25: use-trade-multi-tab-visibility-or — effect에서 BroadcastChannel+onmessage 를 apply() 앞에 두고 postVisibility는 기존 채널만 post",
+    "2026-04-25: MessengerBootstrapEarlyWarm — cancelled+queueMicrotask/timeout cleanup으로 셸 전환 뒤 stale warm 방지",
+    "2026-04-26: cm-bootstrap readResponseSizeBytes — getEntriesByName 배열 끝 24개만 역스캔",
+    "2026-04-26: notification-unread-count-cache — 만료 정리 후에도 200키 초과 시 FIFO 삭감",
+    "2026-04-26: owner-hub-badge-cache / store-order-counts-cache — size 조기 return 제거+만료+FIFO(200/300)",
+    "2026-04-26: user-chat-unread-parts — prune size 조기 return 제거+만료 전체+200 FIFO",
+    "2026-04-26: trade-feed-favorites-server-cache — 120+ FIFO(삽입순) 추가, 8% 만료 샘플은 유지",
+    "2026-04-26: home-posts-route-core — 공용 캐시 150+ FIFO(삽입순), 8% 만료 샘플·size<150 early return 제거",
+    "2026-04-26: chat-channel-events — recentEventDispatchAt 200키 삽입순 FIFO",
+    "2026-04-26: prewarm-chat-room-route — warmedAtByHref 200키 삽입순 상한",
+    "2026-04-26: trade-feed-client-cache — pruneByExpiresAtAndMaxSize(100)+만료 peek delete",
+    "2026-04-26: user-relation-client — pruneByAtMaxAgeAndMaxSize(10m/200)",
+    "2026-04-26: messenger-web-desktop-notification — recentDedupeAt 20s stale+200 cap",
+    "2026-04-26: getPostsForHome — homePostsCache pruneByExpiresAtAndMaxSize(80)+peek 만료 delete",
+    "2026-04-26: fetch-me-owner-store-notifications — pruneByExpiresAtAndMaxSize(60) on set",
+    "2026-04-26: social-filter — blockedIdsCacheByViewer pruneByAtMaxAgeAndMaxSize(2m/500)",
+    "2026-04-27: cm presence snapshot client — pruneByExpiresAtAndMaxSize(200)",
+    "2026-04-27: delivery-order-alert — lastPlayByStore 1h stale+200 cap",
+    "2026-04-27: item-trade reconcile lastRun — 24h stale+5000 cap",
+    "2026-04-27: load-me-stores-for-user — meStoresServerCache pruneByExpiresAtAndMaxSize(100)",
+    "2026-04-27: community-messenger-realtime-health — scopeHealthMap 150 cap",
+    "2026-04-27: load-chat-room-detail — roomDetailCache pruneByAt(4xTTL/500 keys)",
+    "2026-04-25: community-messenger-realtime-auth-bridge — onAuthStateChange 직후 authStateSubscription에 authCleanup 연결",
+    "2026-04-25: subscribe-with-retry — stop에서 internalDecayTimers clear+expectedInternalClosed=0",
+    "2026-04-25: use-order-chat-room-realtime — subscribe 뒤 cancelled면 removeChannel, 아니면 channelHolder에 ch",
+    "2026-04-25: use-trade-chat-room-typing — peer: subscribe 뒤 cancelled면 remove+return, 아니면 ch=channel",
+    "2026-04-25: use-integrated-chat-room-list-realtime — 루프 끝 cancelled면 mountedChannels 전부 removeChannel",
+    "2026-04-25: use-chat-room-realtime — connect 끝 cancelled|myGen!=connectGen이면 removeChannel(orphan) 후 return",
+    "2026-04-25: PurchaseDetailView — /api/my/purchases/:chatId load runSingleFlight(my-purchase-detail:...)",
+    "2026-04-25: warm-philife-neighborhood-feed — 새 스케줄 시 pending idle+setTimeout 취소",
+    "2026-04-25: MypageInstagramView — trade/store/board 프리뷰 runSingleFlight(mypage-ig:…)",
+    "2026-04-25: MyStoreInquiriesView — /api/me/store-inquiries runSingleFlight(me:store-inquiries:get)",
+    "2026-04-25: MyWrittenReviewsView — /api/my/written-reviews runSingleFlight(me:written-reviews:get)",
+    "2026-04-25: TradeReviewsManagementView — load Promise.all runSingleFlight(…:load|:force) 로 합류",
+    "2026-04-26: StoreOwnerOrderChatsShell — loadStore 를 fetchMeStoresListDeduped() 로 (me:stores runSingleFlight+TTL)",
+    "2026-04-26: MyProductsView — /api/my/posts runSingleFlight(`me:my-posts:${uid}`)",
+    "2026-04-26: ProductDetailView — chat item room-id refetch runSingleFlight(`chat:item:room-id:…`)",
+    "2026-04-26: MyPointsView — GET /api/me/points runSingleFlight(`me:points:get`)",
+    "2026-04-26: OwnerStoreReviewsView — owner reviews list runSingleFlight(`me:store:…:owner-reviews:list`)",
+    "2026-04-26: PostCommunityCommentsSection — GET comments runSingleFlight(`post:…:comments-get`)",
+    "2026-04-26: MyPageHomeDashboard — community-posts limit=20 runSingleFlight(`me:community-posts:limit=20`)",
+    "2026-04-26: CommunityTab (posts panel) — limit=6 runSingleFlight(`me:community-posts:limit=6`)",
+    "2026-04-26: ChatSettingsContent — trade-presence GET runSingleFlight(`me:trade-presence:get`)",
+    "2026-04-26: VersionContent — GET /api/me/settings/version runSingleFlight(`me:settings:version`)",
+    "2026-04-26: UserListContent — relations list runSingleFlight(`me:relations:…:list`)",
+    "2026-04-26: MyPageAdminMenuEntry — /api/admin/access-check runSingleFlight(`admin:access-check:get`)",
+    "2026-04-26: CommunityTab MyCommunityActivityPanel — GET /api/me/community-activity runSingleFlight(`me:community-activity:get`)",
+    "2026-04-26: NotificationsSettingsContent — notification-email + notification-settings GET runSingleFlight(각 키)",
+    "2026-04-26: AddressManagementClient — GET /api/me/addresses runSingleFlight(`me:addresses:list`)"
+  ],
   "completed": [
     {
       "domain": "delivery",
@@ -918,6 +1561,636 @@
           "note": "부작용 점검: 메타 필드 구성/slug canonical 계산/예외 처리 분기 유지, 린트 에러 없음"
         }
       ]
+    },
+    {
+      "domain": "shell",
+      "target": "bottom_nav_programmatic_prefetch_use_router_context_dep",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "idle router.prefetch 체인 useEffect의 의존 배열에 useRouter()가 있어, AppRouterContext가 갱신될 때마다(같은 mainBottomNavPrefetchDomain이어도) debounce+idle+연쇄 prefetch가 취소·재스케줄됨",
+      "before": "useEffect(..., [bottomNavPrefetchDomain, router])에서 router.prefetch(href) 호출",
+      "after": "routerRef에 최신 router를 유지하고 routerRef.current.prefetch(href)만 사용, effect deps는 [bottomNavPrefetchDomain]만",
+      "completedAt": "2026-04-25T00:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "notification_unread_badge_visibility_fetch_force_bypasses_min_gap",
+      "file": "lib/notifications/notification-unread-badge-store.ts",
+      "reason": "알림 미읽음 배지 store의 visibility 복귀가 doFetch(true)로 MIN_FETCH_GAP_MS(8s)를 우회해 짧은 간격에 /api/me/notifications GET이 누적될 수 있음",
+      "before": "onVisibility(visible)에서 void doFetch(true)",
+      "after": "onVisibility(visible)에서 void doFetch(false) — 8s 갭·runSingleFlight와 정렬, KASAMA_NOTIFICATIONS_UPDATED의 doFetch(true)는 유지",
+      "completedAt": "2026-04-25T12:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "trade_activity_coordinator_broadcastchannel_per_scroll_flood",
+      "file": "lib/chats/use-trade-activity-coordinator.ts",
+      "reason": "bump()가 lastMsRef 갱신 후 매번 BroadcastChannel.postMessage — scroll(capture) 경로가 틱마다 호출되면 millisecond 비교만으로는 전파·메인스레드 비용이 누적됨",
+      "before": "lastMsRef 업데이트마다 postMessage",
+      "after": "TRADE_ACTIVITY_BROADCAST_MIN_GAP_MS(900) 내의 전파 생략 — 로컬 lastActivity ms 갱신은 기존과 동일",
+      "completedAt": "2026-04-25T18:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "trade_multi_tab_visibility_broadcast_channel_apply_before_init",
+      "file": "lib/chats/use-trade-multi-tab-visibility-or.ts",
+      "reason": "useEffect가 apply()를 try{BroadcastChannel+onmessage} 앞에 호출해 postVisibility의 lazy BC 생성이 이어지는 new BroadcastChannel(동일 BC_NAME)에 덮이며 닫히지 않음",
+      "before": "apply() 선행, postVisibility가 !bcRef 시 BC 생성, 이후 try에서 bcRef 재할당",
+      "after": "try에서 BC·onmessage 선설정 후 apply/heartbeat, postVisibility는 !bcRef면 return만",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "messenger_bootstrap_early_warm_queue_microtask_no_effect_cleanup",
+      "file": "components/community-messenger/MessengerBootstrapEarlyWarm.tsx",
+      "reason": "non-philife·non-messenger 셸에서 queueMicrotask(run)만 쓰는 경로는 React effect cleanup이 없어 shellDomain 이 바뀌거나 언마운트된 뒤에도 run이 실행될 수 있음",
+      "before": "queueMicrotask(() => run())만 있고 return cleanup 없음",
+      "after": "cancelled 플래그 + effect cleanup, philife setTimeout 콜백에도 cancelled 반영",
+      "completedAt": "2026-04-25T22:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "cm_bootstrap_read_response_size_getentriesbyname_o_n_scan",
+      "file": "lib/community-messenger/cm-bootstrap-client-fetch.ts",
+      "reason": "readResponseSizeBytes가 Resource Timing 동일 URL 엔트리를 entries.length-1~0 전부 순회",
+      "before": "i를 entries.length-1부터 0까지 전 범위 역스캔",
+      "after": "끝에서 최대 24개만 역스캔(scanFrom = max(0, n-24))",
+      "completedAt": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "notification_unread_count_map_prune_stale_size_only",
+      "file": "lib/notifications/notification-unread-count-cache.ts",
+      "reason": "prune()가 size>=200일 때 만료분만 제거·그래도>200이면(전부 아직 유효 TTL) set 시 cache 무한 증가",
+      "before": "만료 항목 delete 만, 200 밑으로 안 내려갈 수 있음",
+      "after": "만료 정리 후 while cache.size>200 cache.keys() FIFO delete",
+      "completedAt": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "client_owner_hub_badge_cache_prune_and_cap",
+      "file": "lib/chats/owner-hub-badge-cache.ts",
+      "reason": "pruneExpiredHubBadgeCache가 hubBadgeCache.size<200이면 조기 return해 만료 엔트리를 전혀 지우지 않음+200+ 전부 유효 시 누적",
+      "before": "if (size<200) return; 만료 delete만",
+      "after": "항상 만료 delete 후 size>200이면 FIFO delete",
+      "completedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "store_order_counts_cache_prune_and_cap",
+      "file": "lib/stores/store-order-counts-cache.ts",
+      "reason": "pruneExpired가 cache.size<300이면 return으로 만료 정리를 생략+300+ 전부 유효 시 누적",
+      "before": "if (size<300) return; 만료 delete만",
+      "after": "항상 만료 delete 후 size>300이면 FIFO delete",
+      "completedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "prewarm_chat_route_warmed_at_href_map_unbounded",
+      "file": "lib/chats/prewarm-chat-room-route.ts",
+      "reason": "채팅 링크 prewarm throttling(warmedAtByHref)이 href 키를 set만 하고 정리·상한이 없어 긴 세션에서 Map이 누적됨",
+      "before": "warmedAtByHref.set(href, now)만, delete 없음",
+      "after": "200키 초과 시 Map.keys() 삽입순 delete로 cap",
+      "completedAt": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "trade_feed_client_cache_prune_and_expired_on_peek",
+      "file": "lib/posts/trade-feed-client-cache.ts",
+      "reason": "클라 tradeFeedClientCache에 만료 엔트리 delete·최대 키 수 정리가 없고 peek이 만료 시 Map에 dead 항을 남김",
+      "before": "set만, peek은 만료 시 null만 반환",
+      "after": "prime/write 후 pruneByExpiresAtAndMaxSize(100), peek에서 만료 시 key delete",
+      "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "community_user_relation_client_cache_max",
+      "file": "lib/community/user-relation-client.ts",
+      "reason": "relationCache가 at와 5s 히트만으로 stale·최대 엔트리를 전역에서 정리하지 않음",
+      "before": "set만, targetUserId 다양 시 누적",
+      "after": "fetch 진입 시 pruneByAtMaxAgeAndMaxSize(10분, 200키)",
+      "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "messenger_web_desktop_notification_dedupe_stale_and_cap",
+      "file": "lib/community-messenger/notifications/messenger-web-desktop-notification.ts",
+      "reason": "Web Notification 2s 디듀프 Map(recentDedupeAt)이 set만 하고 오래된 키·상한 정리가 없음",
+      "before": "recentDedupeAt.set만",
+      "after": "20s 초과 ts 키 삭제+200 키 초과 시 삽입순 삭감",
+      "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "get_posts_for_home_client_cache_prune",
+      "file": "lib/posts/getPostsForHome.ts",
+      "reason": "홈 GET 클라 homePostsCache에 peek 만료 delete·쓰기 후 전역 prune·최대 키가 없어 누적 가능",
+      "before": "set만, peek은 만료 시 null만",
+      "after": "prime/fetch set 후 pruneByExpiresAtAndMaxSize(80), peekCachedPostsForHome에서 만료 key delete",
+      "completedAt": "2026-04-26T22:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "me_owner_store_notifications_cache_max",
+      "file": "lib/me/fetch-me-owner-store-notifications.ts",
+      "reason": "매장 owner_store_id별 캐시 Map이 성공 set 후 만료/개수 정리가 없음",
+      "before": "cache.set만",
+      "after": "set 직후 pruneByExpiresAtAndMaxSize(60)",
+      "completedAt": "2026-04-26T22:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "social_filter_blocked_ids_viewer_map_prune",
+      "file": "lib/neighborhood/social-filter.ts",
+      "reason": "서버 blockedIdsCacheByViewer가 5s TTL 히트만으로 다 viewer·stale 엔트리를 정리하지 않음",
+      "before": "set만",
+      "after": "fetchBlockedAuthorIdsForViewer 진입 시 pruneByAtMaxAgeAndMaxSize(2분, 500키)",
+      "completedAt": "2026-04-26T22:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "cm_presence_snapshot_client_cache_prune",
+      "file": "lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client.ts",
+      "reason": "클라 userId presence 캐시 Map이 만료·최대 키 수 정리 없이 누적",
+      "before": "cache.set만",
+      "after": "set 직후 pruneByExpiresAtAndMaxSize(200)",
+      "completedAt": "2026-04-27T00:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "delivery_order_alert_debounce_map_cap",
+      "file": "lib/business/delivery-order-alert-debounce.ts",
+      "reason": "lastPlayByStore throttling Map이 2.8s 간격 set만으로 id 키·오래된 ts 누적",
+      "before": "set만",
+      "after": "1h 경과 키 삭제+200 초과 시 삽입순 삭감",
+      "completedAt": "2026-04-27T00:00:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "item_trade_reconcile_lastrun_map_prune",
+      "file": "lib/trade/run-item-trade-reconcile-if-stale.ts",
+      "reason": "reconcile 15s gap throttling lastRun Map이 set만으로 유저·buyer/seller 키가 프로세스에 쌓임",
+      "before": "set만",
+      "after": "reconcile 시도마다 24h 초과+5000키 cap",
+      "completedAt": "2026-04-27T00:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "load_me_stores_list_cache_prune_max",
+      "file": "lib/me/load-me-stores-for-user.ts",
+      "reason": "GET /api/me/stores 공유 meStoresServerCache에 만료 전 수동 루프만 있고 expiresAt+최대 키 cap이 없을 수 있음",
+      "before": "for 만료 delete만+set",
+      "after": "pruneByExpiresAtAndMaxSize(100) 진입/실패·성공 set 직후",
+      "completedAt": "2026-04-27T12:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "cm_realtime_scope_health_map_cap",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-health.ts",
+      "reason": "Real-time 구독 모니터링 scopeHealthMap이 신규 scope·set마다 쌓일 수 있음",
+      "before": "getOrCreate 시 set만",
+      "after": "150 키 초과 시 삽입순 delete",
+      "completedAt": "2026-04-27T12:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "load_chat_room_detail_room_cache_prune",
+      "file": "lib/chats/server/load-chat-room-detail.ts",
+      "reason": "loadChatRoomDetail roomDetailCache가 2.5s at·set 경로에 전역 at·최대 키 cap 없이 누적",
+      "before": "roomDetailCache.set만",
+      "after": "set 직후 pruneByAtMaxAgeAndMaxSize(4xTTL, 500)",
+      "completedAt": "2026-04-27T12:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "cm_realtime_auth_bridge_sync_auth_cleanup",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-auth-bridge.ts",
+      "reason": "onAuthStateChange 직후 authCleanup이 다음 줄에만 있어 effect teardown과 동시에 구독 해제가 누락될 수 있음",
+      "before": "authCleanup이 subscription 대입 몇 줄 뒤",
+      "after": "data.subscription을 즉시 authStateSubscription에 붙여 authCleanup이 항상 unsubscribe",
+      "completedAt": "2026-04-25T18:00:00.000Z"
+    },
+    {
+      "domain": "messenger",
+      "target": "subscribe_with_retry_stop_clears_internal_decays",
+      "file": "lib/community-messenger/realtime/subscribe-with-retry.ts",
+      "reason": "Intentional removeChannel·stop 시 markInternalChannelRecycle setTimeout(1.6s)이 남아 expectedInternalClosed·이벤트 루프에 잔여",
+      "before": "stop에 internal decay clear 없음",
+      "after": "Set으로 타이머 추적, stop에서 clear+expectedInternalClosed=0",
+      "completedAt": "2026-04-25T18:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "order_chat_room_realtime_subscribe_cancel_teardown",
+      "file": "lib/order-chat/use-order-chat-room-realtime.ts",
+      "reason": "order_chat Realtime 훅이 subscribe 직후 cancelled면 channelHolder에만 의존한 remove가 빠질 수 있음",
+      "before": "channelHolder.current= 전체 chain 한 번에",
+      "after": "const ch=…subscribe() 후 cancelled면 removeChannel, 아니면 channelHolder=ch",
+      "completedAt": "2026-04-25T18:00:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "trade_chat_typing_peer_subscribe_cancel",
+      "file": "lib/chats/use-trade-chat-room-typing.ts",
+      "reason": "peer typing: subscribe 뒤 cancelled·ch= 순서에 따라 고아 채널·이중 removeChannel",
+      "before": "subscribe 직후 ch= 항상",
+      "after": "cancelled면 removeChannel+return, 이후 ch=channel",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "integrated_chat_list_loops_end_cancel_sweep",
+      "file": "lib/chats/use-integrated-chat-room-list-realtime.ts",
+      "reason": "루프 직후 unmount(cancelled) 시 mounted push와 effect cleanup remove 순서 방어",
+      "before": "루프 끝 cancelled sweep 없음",
+      "after": "cancelled면 mount 배열 removeChannel+length=0",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "use_chat_room_realtime_stale_channel_drop",
+      "file": "lib/chats/use-chat-room-realtime.ts",
+      "reason": "connect가 subscribe 직후 currentChannel 대입 전 취소/세대 불일치면 로컬 channel remove 누락",
+      "before": "currentChannel=channel 항상",
+      "after": "cancelled||myGen!=connectGen이면 sb.removeChannel(channel) 후 return",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "purchase_detail_get_single_flight",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "reason": "홈/구매허브 구매 상세 GET이 마운트+복원+포커스에 겹치면 in-flight·완료 경합",
+      "before": "fetch then 체인만",
+      "after": "runSingleFlight(`my-purchase-detail:${chatId}`) 로 동일 chatId in-flight 1",
+      "completedAt": "2026-04-25T22:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "philife_neighborhood_warm_cancel_stale_schedules",
+      "file": "lib/philife/warm-philife-neighborhood-feed.ts",
+      "reason": "짧은 간격 URL 워밍이 idle·200ms timeout 을 쌒아 low-priority fetch 누적",
+      "before": "rIC/timeout 취소 없음",
+      "after": "스케줄 전에 pending cancelIdle+clearTimeout",
+      "completedAt": "2026-04-25T22:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_instagram_section_preview_inflight",
+      "file": "components/my/mypage/MypageInstagramView.tsx",
+      "reason": "거래/매장/활동 섹션 프리뷰 load 가 빠른 전환 시 limit GET 중복",
+      "before": "loadTrade/Store/Board fetch 직접",
+      "after": "runSingleFlight mypage-ig:trade|store|board-preview",
+      "completedAt": "2026-04-25T22:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mystore_inquiries_get_single_flight",
+      "file": "components/mypage/MyStoreInquiriesView.tsx",
+      "reason": "store inquiries 목록 GET이 마운트+복원+전환에 겹치면 중복 /api/me/store-inquiries",
+      "before": "load 내 fetch 직접",
+      "after": "runSingleFlight(`me:store-inquiries:get`)",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "my_written_reviews_get_single_flight",
+      "file": "components/mypage/reviews/MyWrittenReviewsView.tsx",
+      "reason": "작성 후기 API가 복수 트리거에 동시에 겹칠 수 있음",
+      "before": "fetch /api/my/written-reviews 직접",
+      "after": "runSingleFlight(`me:written-reviews:get`)",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "trade_reviews_management_load_single_flight",
+      "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
+      "reason": "Promise.all(후기+거래내역) load 가 pageshow/마운트와 겹쳐 중첩",
+      "before": "load 전체 Promise.all 공유 없음",
+      "after": "runSingleFlight(`mypage:trade-reviews-management:load` 또는 :force) 로 동시 load 합류",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "store_owner_order_chats_shell_me_stores_deduped",
+      "file": "components/stores/owner/StoreOwnerOrderChatsShell.tsx",
+      "reason": "주문채팅 셸 loadStore 가 raw fetch /api/me/stores 로 매장 id 해석",
+      "before": "fetch(`/api/me/stores`) 직접",
+      "after": "fetchMeStoresListDeduped() (me:stores in-flight+짧은 TTL)",
+      "completedAt": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "my_products_list_single_flight",
+      "file": "components/mypage/products/MyProductsView.tsx",
+      "reason": "내상품 /api/my/posts 가 마운트+포커스+가시성+복원에 중복",
+      "before": "fetchMyPosts fetch 직접",
+      "after": "runSingleFlight(`me:my-posts:${uid}`)",
+      "completedAt": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "domain": "trade",
+      "target": "product_detail_item_room_id_refetch_single_flight",
+      "file": "components/product/detail/ProductDetailView.tsx",
+      "reason": "거래채팅 room-id 보정이 첫 effect·bfcache 복원 등에 겹침",
+      "before": "GET /api/chat/item/room-id 직접",
+      "after": "runSingleFlight(`chat:item:room-id:${itemId}`)",
+      "completedAt": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "me_points_get_single_flight",
+      "file": "components/points/MyPointsView.tsx",
+      "reason": "포인트 잔액/원장 GET이 연속 load 에서 중첩",
+      "before": "GET /api/me/points fetch 직접",
+      "after": "runSingleFlight(`me:points:get`)",
+      "completedAt": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "owner_store_reviews_list_single_flight",
+      "file": "components/business/owner/OwnerStoreReviewsView.tsx",
+      "reason": "사장 리뷰 탭 load 가 매장 id 확정 뒤 reviews GET 를 반복할 때 in-flight 겹침",
+      "before": "GET /api/me/stores/…/reviews 직접",
+      "after": "runSingleFlight(`me:store:${storeId}:owner-reviews:list`)",
+      "completedAt": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "domain": "community",
+      "target": "post_comments_get_single_flight",
+      "file": "components/post/PostCommunityCommentsSection.tsx",
+      "reason": "댓글 목록 fetch 가 초기·등록 후 갱신에 동시에 겹칠 수 있음",
+      "before": "GET /api/posts/…/comments 직접",
+      "after": "runSingleFlight(`post:${postId}:comments-get`)",
+      "completedAt": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_home_community_posts_limit20_single_flight",
+      "file": "components/mypage/MyPageHomeDashboard.tsx",
+      "reason": "홈 대시보드 fall back 시 community-posts 목록 API 중복",
+      "before": "GET /api/me/community-posts?limit=20 직접",
+      "after": "runSingleFlight(`me:community-posts:limit=20`)",
+      "completedAt": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "community_tab_posts_limit6_single_flight",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "reason": "커뮤니티 posts 패널 미리보기 GET",
+      "before": "GET /api/me/community-posts?limit=6 직접",
+      "after": "runSingleFlight(`me:community-posts:limit=6`)",
+      "completedAt": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "chat_settings_trade_presence_get_single_flight",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "reason": "채팅 설정 trade presence 초기 GET",
+      "before": "GET /api/me/trade-presence 직접",
+      "after": "runSingleFlight(`me:trade-presence:get`)",
+      "completedAt": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "version_content_settings_get_single_flight",
+      "file": "components/my/settings/VersionContent.tsx",
+      "reason": "앱 버전/빌드 GET 이 설정 진입·복귀에 겹침",
+      "before": "GET /api/me/settings/version 직접",
+      "after": "runSingleFlight(`me:settings:version`)",
+      "completedAt": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "user_list_relations_get_single_flight",
+      "file": "components/my/settings/UserListContent.tsx",
+      "reason": "친구·차단·숨김 관계 목록 GET",
+      "before": "GET /api/me/relations/:type 직접",
+      "after": "runSingleFlight(`me:relations:${type}:list`)",
+      "completedAt": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_admin_access_check_single_flight",
+      "file": "components/mypage/MyPageAdminMenuEntry.tsx",
+      "reason": "관리자 링크 노출 여부 access-check",
+      "before": "GET /api/admin/access-check 직접",
+      "after": "runSingleFlight(`admin:access-check:get`)",
+      "completedAt": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "community_activity_panel_get_single_flight",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "reason": "댓글/찜/신고 집계 activity GET",
+      "before": "GET /api/me/community-activity 직접",
+      "after": "runSingleFlight(`me:community-activity:get`)",
+      "completedAt": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "notification_settings_gets_single_flight",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "reason": "알림·도메인 토글에 필요한 두 GET",
+      "before": "profile/notification-email·notification-settings fetch 직접",
+      "after": "runSingleFlight(`me:profile:notification-email`)·`me:notification-settings:get`",
+      "completedAt": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "address_management_list_get_single_flight",
+      "file": "components/addresses/AddressManagementClient.tsx",
+      "reason": "주소록 목록과 지도 편집 복귀 fetch 겹침",
+      "before": "GET /api/me/addresses 직접(여러 경로)",
+      "after": "runSingleFlight(`me:addresses:list`)",
+      "completedAt": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "store_commerce_cart_checkout_contact_get_single_flight",
+      "file": "components/stores/StoreCommerceCartPageClient.tsx",
+      "reason": "스토어 장바구니/결제 연락처 GET 중복",
+      "before": "GET /api/me/checkout-contact 직접",
+      "after": "runSingleFlight(`me:checkout-contact:get`)",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "profile_edit_addresses_get_single_flight",
+      "file": "components/my/edit/ProfileEditForm.tsx",
+      "reason": "프로필 편집 load 시 주소 목록이 다른 me 주소 GET과 겹침",
+      "before": "GET /api/me/addresses 직접",
+      "after": "runSingleFlight(`me:addresses:list`)",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "address_select_load_addresses_get_single_flight",
+      "file": "components/map/AddressSelectClient.tsx",
+      "reason": "지도 주소 선택 loadAddresses 가 타 경로 me 주소 GET과 겹침",
+      "before": "GET /api/me/addresses 직접",
+      "after": "runSingleFlight(`me:addresses:list`)",
+      "completedAt": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "address_list_prefetch_me_addresses_list",
+      "file": "lib/addresses/address-list-client-cache.ts",
+      "reason": "prefetchMeAddressListIntoCache 가 주소 목록 GET 을 단독 호출",
+      "before": "GET /api/me/addresses 직접(prefetch)",
+      "after": "runSingleFlight(`me:addresses:list`)+cache no-store",
+      "completedAt": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_point_card_me_points_get_single_flight",
+      "file": "components/mypage/MyPointCard.tsx",
+      "reason": "마이페이지 요약 카드와 포인트 화면이 동일 balance GET",
+      "before": "GET /api/me/points 직접",
+      "after": "runSingleFlight(`me:points:get`)",
+      "completedAt": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "notices_content_settings_notices_get_single_flight",
+      "file": "components/my/settings/NoticesContent.tsx",
+      "reason": "공지사항 탭 GET",
+      "before": "GET /api/me/settings/notices 직접",
+      "after": "runSingleFlight(`me:settings:notices:get`)",
+      "completedAt": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "mypage_points_page_me_points_get_single_flight",
+      "file": "app/(main)/mypage/points/page.tsx",
+      "reason": "/mypage/points 엔트리 load GET",
+      "before": "GET /api/me/points 직접",
+      "after": "runSingleFlight(`me:points:get`)",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "owner_store_notification_settings_get_deduped",
+      "file": "components/stores/owner/OwnerNotificationSettings.tsx",
+      "reason": "스토어 사장 인앱 알림 도메인 설정 초기 GET",
+      "before": "GET /api/me/notification-settings fetch 직접",
+      "after": "fetchMeNotificationSettingsGet() — `me:notification-settings:get`",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "web_push_settings_push_gets_single_flight",
+      "file": "components/my/settings/WebPushSettingsRow.tsx",
+      "reason": "푸시 설정 상태·VAPID GET",
+      "before": "GET push/status, push/vapid-key 직접",
+      "after": "runSingleFlight(`me:push:status:get`)·`me:push:vapid-key:get`",
+      "completedAt": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "phone_verification_get_single_flight",
+      "file": "components/my/PhoneVerificationRequestForm.tsx",
+      "reason": "필리핀 전화 인증 상태 GET",
+      "before": "GET /api/me/phone-verification 직접",
+      "after": "runSingleFlight(`me:phone-verification:get`)",
+      "completedAt": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "my_store_settlements_get_single_flight",
+      "file": "components/business/MyStoreSettlementsPage.tsx",
+      "reason": "스토어 정산 목록 GET (사장 허브)",
+      "before": "GET /api/me/store-settlements 직접",
+      "after": "runSingleFlight(`me:store-settlements:get`)",
+      "completedAt": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "business_admin_dashboard_store_settlements_get_single_flight",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "reason": "스토어 대시보드 로드와 정산 탭·페이지의 동시 정산 GET 겹침",
+      "before": "GET /api/me/store-settlements raw fetch in Promise.all",
+      "after": "runSingleFlight(`me:store-settlements:get`)",
+      "completedAt": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "admin_notification_bell_unread_count_get_single_flight",
+      "file": "components/admin/order-notifications/AdminNotificationBell.tsx",
+      "reason": "주문·알림 관리 상단 벨 unread GET",
+      "before": "GET /api/me/notifications?unread_count_only=1 raw",
+      "after": "runSingleFlight(`me:notifications:unread_count_only=1:admin-bell`)",
+      "completedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "owner_store_inquiries_get_single_flight",
+      "file": "components/business/owner/OwnerStoreInquiriesView.tsx",
+      "reason": "스토어 문의 목록 GET(사장 허브)",
+      "before": "GET /api/me/stores/:id/inquiries raw",
+      "after": "runSingleFlight(`me:stores:{id}:inquiries:get`)",
+      "completedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "business_admin_dashboard_store_inquiries_get_shared_flight",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "reason": "대시보드 문의 GET",
+      "before": "per-store GET inquiries raw in Promise.all",
+      "after": "runSingleFlight(`me:stores:{row.id}:inquiries:get`)",
+      "completedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "notifications_settings_fetch_me_get_unified",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "reason": "도메인·채널 알림 GET",
+      "before": "runSingleFlight(`me:notification-settings:get`)+ fetch 직접",
+      "after": "fetchMeNotificationSettingsGet()",
+      "completedAt": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "target": "admin_order_notification_list_get_single_flight",
+      "file": "components/admin/order-notifications/AdminNotificationList.tsx",
+      "reason": "관리 주문/배송 알림 전체 목록 GET",
+      "before": "GET /api/me/notifications raw (mount·interval·KASAMA)",
+      "after": "runSingleFlight(`me:notifications:list:admin-delivery-inbox`)",
+      "completedAt": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "my_ads_post_ads_get_single_flight",
+      "file": "app/(main)/my/ads/MyAdsPageClient.tsx",
+      "reason": "내 광고 목록 GET",
+      "before": "GET /api/me/post-ads 직접",
+      "after": "runSingleFlight(`me:post-ads:get`)",
+      "completedAt": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "domain": "shell",
+      "target": "trade_presence_heartbeat_post_single_flight",
+      "file": "components/chats/TradePresenceActivityContext.tsx",
+      "reason": "HTTP heartbeat POST",
+      "before": "POST /api/me/trade-presence/heartbeat fetch 직접",
+      "after": "runSingleFlight(`me:trade-presence:heartbeat:post`)",
+      "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "version_content_settings_version_get_flight_slim",
+      "file": "components/my/settings/VersionContent.tsx",
+      "reason": "버전 GET",
+      "before": "runSingleFlight async IIFE+내부 setState",
+      "after": "`() => fetch`+effect 본문에서 json",
+      "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "myinfo",
+      "target": "chat_settings_trade_presence_get_flight_slim",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "reason": "거래 presence GET",
+      "before": "runSingleFlight async IIFE+내부 setState",
+      "after": "`() => fetch`+effect 본문에서 json",
+      "completedAt": "2026-04-26T20:00:00.000Z"
     }
   ],
   "lockedFiles": [
@@ -980,9 +2253,356 @@
     "app/login/LoginPageClient.tsx",
     "app/(main)/community/my/page.tsx",
     "app/(main)/home/sales/page.tsx",
-    "app/(main)/stores/[slug]/page.tsx"
+    "app/(main)/stores/[slug]/page.tsx",
+    "components/layout/BottomNav.tsx",
+    "lib/notifications/notification-unread-badge-store.ts",
+    "lib/chats/use-trade-activity-coordinator.ts",
+    "lib/chats/use-trade-multi-tab-visibility-or.ts",
+    "components/community-messenger/MessengerBootstrapEarlyWarm.tsx",
+    "lib/community-messenger/cm-bootstrap-client-fetch.ts",
+    "lib/notifications/notification-unread-count-cache.ts",
+    "lib/chats/owner-hub-badge-cache.ts",
+    "lib/stores/store-order-counts-cache.ts",
+    "lib/chat/user-chat-unread-parts.ts",
+    "lib/posts/trade-feed-favorites-server-cache.ts",
+    "lib/posts/home-posts-route-core.ts",
+    "lib/chats/chat-channel-events.ts",
+    "lib/chats/prewarm-chat-room-route.ts",
+    "lib/posts/trade-feed-client-cache.ts",
+    "lib/community/user-relation-client.ts",
+    "lib/community-messenger/notifications/messenger-web-desktop-notification.ts",
+    "lib/posts/getPostsForHome.ts",
+    "lib/me/fetch-me-owner-store-notifications.ts",
+    "lib/neighborhood/social-filter.ts",
+    "lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client.ts",
+    "lib/business/delivery-order-alert-debounce.ts",
+    "lib/trade/run-item-trade-reconcile-if-stale.ts",
+    "lib/me/load-me-stores-for-user.ts",
+    "lib/community-messenger/realtime/community-messenger-realtime-health.ts",
+    "lib/chats/server/load-chat-room-detail.ts",
+    "lib/community-messenger/realtime/community-messenger-realtime-auth-bridge.ts",
+    "lib/community-messenger/realtime/subscribe-with-retry.ts",
+    "lib/order-chat/use-order-chat-room-realtime.ts",
+    "lib/chats/use-trade-chat-room-typing.ts",
+    "lib/chats/use-integrated-chat-room-list-realtime.ts",
+    "lib/chats/use-chat-room-realtime.ts",
+    "components/mypage/purchases/PurchaseDetailView.tsx",
+    "lib/philife/warm-philife-neighborhood-feed.ts",
+    "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "type": "complete",
+      "domain": "shell",
+      "target": "trade_presence_heartbeat_post_single_flight",
+      "file": "components/chats/TradePresenceActivityContext.tsx",
+      "reason": "runSingleFlight me:trade-presence:heartbeat:post",
+      "at": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "version_content_settings_version_get_flight_slim",
+      "file": "components/my/settings/VersionContent.tsx",
+      "reason": "me:settings:version with () => fetch + parse outside",
+      "at": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "chat_settings_trade_presence_get_flight_slim",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "reason": "me:trade-presence:get with () => fetch + parse outside",
+      "at": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "notifications_settings_fetch_me_get_unified",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "reason": "fetchMeNotificationSettingsGet() for domain block",
+      "at": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "admin_order_notification_list_get_single_flight",
+      "file": "components/admin/order-notifications/AdminNotificationList.tsx",
+      "reason": "runSingleFlight me:notifications:list:admin-delivery-inbox",
+      "at": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "my_ads_post_ads_get_single_flight",
+      "file": "app/(main)/my/ads/MyAdsPageClient.tsx",
+      "reason": "runSingleFlight me:post-ads:get",
+      "at": "2026-04-26T18:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "admin_notification_bell_unread_count_get_single_flight",
+      "file": "components/admin/order-notifications/AdminNotificationBell.tsx",
+      "reason": "runSingleFlight me:notifications:unread_count_only=1:admin-bell",
+      "at": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "owner_store_inquiries_get_single_flight",
+      "file": "components/business/owner/OwnerStoreInquiriesView.tsx",
+      "reason": "runSingleFlight me:stores:{id}:inquiries:get",
+      "at": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "business_admin_dashboard_store_inquiries_get_shared_flight",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "reason": "runSingleFlight me:stores:{row.id}:inquiries:get in loadDashboard",
+      "at": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "phone_verification_get_single_flight",
+      "file": "components/my/PhoneVerificationRequestForm.tsx",
+      "reason": "runSingleFlight(`me:phone-verification:get`)",
+      "at": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "my_store_settlements_get_single_flight",
+      "file": "components/business/MyStoreSettlementsPage.tsx",
+      "reason": "runSingleFlight(`me:store-settlements:get`)",
+      "at": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "business_admin_dashboard_store_settlements_get_single_flight",
+      "file": "components/business/admin/dashboard/BusinessAdminDashboard.tsx",
+      "reason": "runSingleFlight(`me:store-settlements:get`) in loadDashboard",
+      "at": "2026-04-26T00:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_points_page_me_points_get_single_flight",
+      "file": "app/(main)/mypage/points/page.tsx",
+      "reason": "runSingleFlight(`me:points:get`) for GET /api/me/points",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "delivery",
+      "target": "owner_store_notification_settings_get_deduped",
+      "file": "components/stores/owner/OwnerNotificationSettings.tsx",
+      "reason": "fetchMeNotificationSettingsGet()",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "web_push_settings_push_gets_single_flight",
+      "file": "components/my/settings/WebPushSettingsRow.tsx",
+      "reason": "runSingleFlight push status + vapid-key",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "address_list_prefetch_me_addresses_list",
+      "file": "lib/addresses/address-list-client-cache.ts",
+      "reason": "runSingleFlight(`me:addresses:list`) in prefetchMeAddressListIntoCache",
+      "at": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_point_card_me_points_get_single_flight",
+      "file": "components/mypage/MyPointCard.tsx",
+      "reason": "runSingleFlight(`me:points:get`)",
+      "at": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "notices_content_settings_notices_get_single_flight",
+      "file": "components/my/settings/NoticesContent.tsx",
+      "reason": "runSingleFlight(`me:settings:notices:get`)",
+      "at": "2026-04-25T22:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "store_commerce_cart_checkout_contact_get_single_flight",
+      "file": "components/stores/StoreCommerceCartPageClient.tsx",
+      "reason": "runSingleFlight(`me:checkout-contact:get`) for GET /api/me/checkout-contact",
+      "at": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "profile_edit_addresses_get_single_flight",
+      "file": "components/my/edit/ProfileEditForm.tsx",
+      "reason": "runSingleFlight(`me:addresses:list`)",
+      "at": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "address_select_load_addresses_get_single_flight",
+      "file": "components/map/AddressSelectClient.tsx",
+      "reason": "runSingleFlight(`me:addresses:list`)",
+      "at": "2026-04-25T20:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "community_activity_panel_get_single_flight",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "reason": "runSingleFlight(`me:community-activity:get`)",
+      "at": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "notification_settings_gets_single_flight",
+      "file": "components/my/settings/NotificationsSettingsContent.tsx",
+      "reason": "runSingleFlight notification-email + notification-settings",
+      "at": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "address_management_list_get_single_flight",
+      "file": "components/addresses/AddressManagementClient.tsx",
+      "reason": "runSingleFlight(`me:addresses:list`)",
+      "at": "2026-04-26T04:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "version_content_settings_get_single_flight",
+      "file": "components/my/settings/VersionContent.tsx",
+      "reason": "runSingleFlight(`me:settings:version`)",
+      "at": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "user_list_relations_get_single_flight",
+      "file": "components/my/settings/UserListContent.tsx",
+      "reason": "runSingleFlight(`me:relations:…:list`)",
+      "at": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_admin_access_check_single_flight",
+      "file": "components/mypage/MyPageAdminMenuEntry.tsx",
+      "reason": "runSingleFlight(`admin:access-check:get`)",
+      "at": "2026-04-26T03:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mypage_home_community_posts_limit20_single_flight",
+      "file": "components/mypage/MyPageHomeDashboard.tsx",
+      "reason": "runSingleFlight(`me:community-posts:limit=20`)",
+      "at": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "community_tab_posts_limit6_single_flight",
+      "file": "components/mypage/tabs/CommunityTab.tsx",
+      "reason": "runSingleFlight(`me:community-posts:limit=6`)",
+      "at": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "chat_settings_trade_presence_get_single_flight",
+      "file": "components/my/settings/ChatSettingsContent.tsx",
+      "reason": "runSingleFlight(`me:trade-presence:get`)",
+      "at": "2026-04-26T02:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "me_points_get_single_flight",
+      "file": "components/points/MyPointsView.tsx",
+      "reason": "runSingleFlight(`me:points:get`)",
+      "at": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "shell",
+      "target": "owner_store_reviews_list_single_flight",
+      "file": "components/business/owner/OwnerStoreReviewsView.tsx",
+      "reason": "runSingleFlight(`me:store:…:owner-reviews:list`)",
+      "at": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "community",
+      "target": "post_comments_get_single_flight",
+      "file": "components/post/PostCommunityCommentsSection.tsx",
+      "reason": "runSingleFlight(`post:…:comments-get`)",
+      "at": "2026-04-26T01:00:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "shell",
+      "target": "store_owner_order_chats_shell_me_stores_deduped",
+      "file": "components/stores/owner/StoreOwnerOrderChatsShell.tsx",
+      "reason": "fetchMeStoresListDeduped로 loadStore 합류",
+      "at": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "my_products_list_single_flight",
+      "file": "components/mypage/products/MyProductsView.tsx",
+      "reason": "runSingleFlight(`me:my-posts:…`)",
+      "at": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "trade",
+      "target": "product_detail_item_room_id_refetch_single_flight",
+      "file": "components/product/detail/ProductDetailView.tsx",
+      "reason": "room-id GET runSingleFlight(`chat:item:room-id:…`)",
+      "at": "2026-04-26T00:15:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "mystore_inquiries_get_single_flight",
+      "file": "components/mypage/MyStoreInquiriesView.tsx",
+      "reason": "runSingleFlight(`me:store-inquiries:get`)",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "my_written_reviews_get_single_flight",
+      "file": "components/mypage/reviews/MyWrittenReviewsView.tsx",
+      "reason": "runSingleFlight(`me:written-reviews:get`)",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
+    {
+      "type": "complete",
+      "domain": "myinfo",
+      "target": "trade_reviews_management_load_single_flight",
+      "file": "components/mypage/reviews/TradeReviewsManagementView.tsx",
+      "reason": "load Promise.all을 runSingleFlight(일반·force 키 분리)로 합류",
+      "at": "2026-04-25T23:30:00.000Z"
+    },
     {
       "type": "complete",
       "domain": "delivery",
@@ -1534,6 +3154,286 @@
       "file": "app/(main)/stores/[slug]/page.tsx",
       "reason": "매장 상세 metadata no-store 추가 조회 완화",
       "result": "3회 점검 pass, currentTarget을 messenger로 전환"
+    },
+    {
+      "at": "2026-04-25T00:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "하단 idle programmatic prefetch effect에서 useRouter context 참조 제거(routerRef + deps=도메인만)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T12:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/notifications/notification-unread-badge-store.ts",
+      "reason": "알림 배지 store visibility 복귀 doFetch(false)로 8s 갭 적용",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T18:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/use-trade-activity-coordinator.ts",
+      "reason": "거래 활동 BC 전파 900ms 최소 간격(로컬 lastActivity 유지)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T20:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/use-trade-multi-tab-visibility-or.ts",
+      "reason": "멀티탭 visibility BC effect 순서 정리(apply 전 채널 단일 생성)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T22:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/MessengerBootstrapEarlyWarm.tsx",
+      "reason": "early warm effect에 cancelled·cleanup으로 셸 전환 시 stale warm 제거",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T00:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/cm-bootstrap-client-fetch.ts",
+      "reason": "readResponseSizeBytes getEntriesByName 스캔 24개 상한",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T00:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/notifications/notification-unread-count-cache.ts",
+      "reason": "unread count cache 200 상한·FIFO",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T12:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/owner-hub-badge-cache.ts",
+      "reason": "prune에서 size 조기 return 제거+200 FIFO",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T12:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "lib/stores/store-order-counts-cache.ts",
+      "reason": "prune에서 size 조기 return 제거+300 FIFO",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T14:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chat/user-chat-unread-parts.ts",
+      "reason": "채팅 미읽음 파트 캐시 prune: 만료 전체+200 FIFO(조기 return 제거)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T14:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/posts/trade-feed-favorites-server-cache.ts",
+      "reason": "trade feed 찜 Map 120 상한 FIFO(8% 만료 샘플 유지, size<120 early return 제거)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T16:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/posts/home-posts-route-core.ts",
+      "reason": "홈 RSC/GET 공용 home posts·favorite 캐시 150+ FIFO(8% 만료 유지, size<150 early return 제거)",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T16:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/chat-channel-events.ts",
+      "reason": "윈도 이벤트 dispatch dedupe Map 200 키 삽입순 upper bound",
+      "result": "bottlenecks/notes/lockedFiles 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T18:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/prewarm-chat-room-route.ts",
+      "reason": "warmedAtByHref prewarm throttling 200 키 삽입순 cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T20:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/posts/trade-feed-client-cache.ts",
+      "reason": "거래 피드 클라 캐시 만료+100키 cap(pruneByExpiresAtAndMaxSize) 및 peek 만료 delete",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T20:00:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "lib/community/user-relation-client.ts",
+      "reason": "이웃 관계 스냅샷 캐시 pruneByAtMaxAgeAndMaxSize(10m/200)",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T20:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/notifications/messenger-web-desktop-notification.ts",
+      "reason": "웹 데스크톱 알림 recentDedupeAt 20s stale+200 cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T22:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/posts/getPostsForHome.ts",
+      "reason": "getPostsForHome homePostsCache 만료+80키 cap 및 peek 만료 delete",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T22:00:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "lib/me/fetch-me-owner-store-notifications.ts",
+      "reason": "owner 매장 알림 deduped 캐시 60키 expiresAt prune",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-26T22:00:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "lib/neighborhood/social-filter.ts",
+      "reason": "차단 id viewer 캐시 pruneByAtMaxAgeAndMaxSize(2m/500)",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T00:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client.ts",
+      "reason": "presence snapshot 클라 200keys expiresAt prune",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T00:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "lib/business/delivery-order-alert-debounce.ts",
+      "reason": "lastPlayByStore 1h stale+200key cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T00:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/trade/run-item-trade-reconcile-if-stale.ts",
+      "reason": "reconcile lastRun 24h stale+5000 cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T12:00:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "lib/me/load-me-stores-for-user.ts",
+      "reason": "meStoresServerCache expiresAt+100 cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T12:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-health.ts",
+      "reason": "scopeHealthMap 150 삽입순 cap",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-27T12:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/server/load-chat-room-detail.ts",
+      "reason": "roomDetailCache 4xTTL+500 at prune per set",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T18:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/realtime/community-messenger-realtime-auth-bridge.ts",
+      "reason": "authStateSubscription 즉시 authCleanup",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T18:00:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/realtime/subscribe-with-retry.ts",
+      "reason": "stop에서 internal decay 타이머·카운트 정리",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T18:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/order-chat/use-order-chat-room-realtime.ts",
+      "reason": "subscribe 뒤 cancelled면 removeChannel",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T20:00:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "lib/chats/use-trade-chat-room-typing.ts",
+      "reason": "peer: subscribe 뒤 cancel 분기+ch 대입",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T20:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/use-integrated-chat-room-list-realtime.ts",
+      "reason": "async 루프 끝 mounted sweep on cancelled",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T20:00:00.000Z",
+      "domain": "shell",
+      "action": "complete",
+      "file": "lib/chats/use-chat-room-realtime.ts",
+      "reason": "connect stale/orphan channel remove",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T22:00:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "reason": "runSingleFlight로 구매 상세 GET 합류",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T22:00:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "lib/philife/warm-philife-neighborhood-feed.ts",
+      "reason": "Philife feed warm rIC/timeout 취소",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
+    },
+    {
+      "at": "2026-04-25T22:00:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/my/mypage/MypageInstagramView.tsx",
+      "reason": "section preview runSingleFlight",
+      "result": "bottlenecks/notes/completed/lockedFiles/history 갱신, currentTarget 유지"
     }
   ]
 }

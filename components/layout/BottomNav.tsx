@@ -149,14 +149,15 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   tab,
   pathname,
   navSearch,
-  optimisticActive,
+  pendingActiveTabId,
   onNavigationIntent,
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   navSearch: string;
-  optimisticActive: boolean;
+  /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
+  pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
   guardBeforeNavigate: () => boolean;
 }) {
@@ -164,7 +165,10 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const router = useRouter();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
-  const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
+  const isActive =
+    pendingActiveTabId != null
+      ? tab.id === pendingActiveTabId
+      : isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS[tab.icon];
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -262,14 +266,14 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   tab,
   pathname,
   navSearch,
-  optimisticActive,
+  pendingActiveTabId,
   onNavigationIntent,
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
   pathname: string | null;
   navSearch: string;
-  optimisticActive: boolean;
+  pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
   guardBeforeNavigate: () => boolean;
 }) {
@@ -278,7 +282,10 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const ownerStore = useOwnerLitePreferredStoreRow();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
-  const isActive = optimisticActive || isBottomNavTabActive(pathname, tab.href);
+  const isActive =
+    pendingActiveTabId != null
+      ? tab.id === pendingActiveTabId
+      : isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
   const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
   const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
@@ -418,6 +425,9 @@ export function BottomNav({
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const router = useRouter();
+  /** `useRouter()` 는 AppRouterContext 갱신 시마다 항상 동일 식별자가 아닐 수 있음 — prefetch effect deps 는 도메인 키만. */
+  const routerRef = useRef(router);
+  routerRef.current = router;
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() =>
     initialTabs && initialTabs.length > 0 ? initialTabs.map((tab) => ({ ...tab })) : [...BOTTOM_NAV_ITEMS]
   );
@@ -564,7 +574,7 @@ export function BottomNav({
               index: idx,
               total: hrefs.length,
             });
-            router.prefetch(href);
+            routerRef.current.prefetch(href);
             const pathOnly = (href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
             if (pathOnly === "/community-messenger") {
               warmMessengerListBootstrapClient();
@@ -587,7 +597,7 @@ export function BottomNav({
       }
       chainTimers.length = 0;
     };
-  }, [bottomNavPrefetchDomain, router]);
+  }, [bottomNavPrefetchDomain]);
 
   if (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname)) return null;
 
@@ -619,7 +629,7 @@ export function BottomNav({
                 tab={tab}
                 pathname={pathname}
                 navSearch={navSearch}
-                optimisticActive={pendingActiveTabId === tab.id}
+                pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
                 guardBeforeNavigate={guardBeforeNavigate}
               />
@@ -629,7 +639,7 @@ export function BottomNav({
                 tab={tab}
                 pathname={pathname}
                 navSearch={navSearch}
-                optimisticActive={pendingActiveTabId === tab.id}
+                pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
                 guardBeforeNavigate={guardBeforeNavigate}
               />

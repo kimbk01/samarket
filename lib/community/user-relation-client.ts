@@ -1,3 +1,4 @@
+import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type CommunityUserRelationSnapshot = {
@@ -6,6 +7,8 @@ type CommunityUserRelationSnapshot = {
 };
 
 const MIN_FETCH_GAP_MS = 5_000;
+const RELATION_CACHE_MAX_AGE_MS = 10 * 60_000;
+const RELATION_CACHE_MAX_KEYS = 200;
 const relationCache = new Map<string, { at: number; value: CommunityUserRelationSnapshot }>();
 
 function relationKey(targetUserId: string) {
@@ -20,8 +23,9 @@ export async function fetchCommunityUserRelationSnapshot(
   targetUserId: string
 ): Promise<CommunityUserRelationSnapshot> {
   const key = relationKey(targetUserId);
-  const cached = relationCache.get(key);
   const now = Date.now();
+  pruneByAtMaxAgeAndMaxSize(relationCache, now, RELATION_CACHE_MAX_AGE_MS, RELATION_CACHE_MAX_KEYS);
+  const cached = relationCache.get(key);
   if (cached && now - cached.at < MIN_FETCH_GAP_MS) {
     return cached.value;
   }

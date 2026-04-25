@@ -2,6 +2,7 @@ import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domai
 import { randomUUID } from "crypto";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   parseCommunityMessengerRoomContextMeta,
@@ -883,14 +884,9 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
     .select("id, nickname, username, avatar_url, bio")
     .in("id", unique);
   const map = new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
-  fetchProfilesByIdsCache.set(cacheKey, { expiresAt: Date.now() + FETCH_PROFILES_BY_IDS_TTL_MS, map });
-  if (fetchProfilesByIdsCache.size > 400) {
-    const now = Date.now();
-    for (const k of [...fetchProfilesByIdsCache.keys()].slice(0, 120)) {
-      const e = fetchProfilesByIdsCache.get(k);
-      if (!e || e.expiresAt <= now) fetchProfilesByIdsCache.delete(k);
-    }
-  }
+  const t = Date.now();
+  fetchProfilesByIdsCache.set(cacheKey, { expiresAt: t + FETCH_PROFILES_BY_IDS_TTL_MS, map });
+  pruneByExpiresAtAndMaxSize(fetchProfilesByIdsCache, t, 400);
   return map;
 }
 
@@ -2671,6 +2667,7 @@ async function mapIncomingCallSessionsBatch(
 }
 
 const ACTIVE_CALL_ROOM_CACHE_TTL_MS = 2500;
+const ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES = 2_000;
 const activeCallSessionByUserRoomCache = new Map<string, { expiresAt: number; session: CommunityMessengerCallSession | null }>();
 
 async function getActiveCallSessionForRoom(
@@ -2680,6 +2677,8 @@ async function getActiveCallSessionForRoom(
   const rid = trimText(roomId);
   const uid = trimText(userId);
   const ck = `${uid}\0${rid}`;
+  const nowMs = Date.now();
+  pruneByExpiresAtAndMaxSize(activeCallSessionByUserRoomCache, nowMs, ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES);
   const hit = activeCallSessionByUserRoomCache.get(ck);
   if (hit && hit.expiresAt > Date.now()) return hit.session;
   const sb = getSupabaseOrNull();
@@ -2696,10 +2695,12 @@ async function getActiveCallSessionForRoom(
       .maybeSingle();
     if (data && !error) {
       const mapped = await mapCallSession(userId, data as CallSessionRow, undefined, undefined, undefined, "labels_only");
+      const tSet = Date.now();
       activeCallSessionByUserRoomCache.set(ck, {
-        expiresAt: Date.now() + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
+        expiresAt: tSet + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
         session: mapped,
       });
+      pruneByExpiresAtAndMaxSize(activeCallSessionByUserRoomCache, tSet, ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES);
       return mapped;
     }
   }
@@ -2711,10 +2712,12 @@ async function getActiveCallSessionForRoom(
   const mapped = session
     ? await mapCallSession(userId, session, undefined, undefined, undefined, "labels_only")
     : null;
+  const tSetDev = Date.now();
   activeCallSessionByUserRoomCache.set(ck, {
-    expiresAt: Date.now() + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
+    expiresAt: tSetDev + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
     session: mapped,
   });
+  pruneByExpiresAtAndMaxSize(activeCallSessionByUserRoomCache, tSetDev, ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES);
   return mapped;
 }
 
@@ -5604,14 +5607,9 @@ function tradeChatRoomDetailPromiseFromMessengerRoomRow(
     .then((res) => {
       if (chatRoomDetailLoad) finalizeChatRoomDetailLoadDiagnostics(chatRoomDetailLoad);
       const r = res.ok ? res.room : null;
-      tradeRoomDetailEntryCache.set(cacheKey, { expiresAt: Date.now() + TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS, room: r });
-      if (tradeRoomDetailEntryCache.size > 200) {
-        const now = Date.now();
-        for (const k of [...tradeRoomDetailEntryCache.keys()].slice(0, 80)) {
-          const e = tradeRoomDetailEntryCache.get(k);
-          if (!e || e.expiresAt <= now) tradeRoomDetailEntryCache.delete(k);
-        }
-      }
+      const t = Date.now();
+      tradeRoomDetailEntryCache.set(cacheKey, { expiresAt: t + TRADE_ROOM_DETAIL_ENTRY_CACHE_TTL_MS, room: r });
+      pruneByExpiresAtAndMaxSize(tradeRoomDetailEntryCache, t, 200);
       return r;
     })
     .catch(() => null);

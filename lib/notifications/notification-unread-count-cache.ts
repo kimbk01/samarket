@@ -10,9 +10,13 @@ function makeKey(userId: string, mode: UnreadCountMode): string {
 }
 
 function prune(now: number) {
-  if (cache.size < 200) return;
   for (const [key, entry] of cache) {
     if (entry.expiresAt <= now) cache.delete(key);
+  }
+  while (cache.size > 200) {
+    const k = cache.keys().next().value;
+    if (k === undefined) break;
+    cache.delete(k);
   }
 }
 

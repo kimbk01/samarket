@@ -1,3 +1,4 @@
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
@@ -16,6 +17,7 @@ const ME_STORE_SELECT =
 
 type MeStoreRow = Record<string, unknown> & { id: string };
 const ME_STORES_SERVER_CACHE_TTL_MS = 20_000;
+const ME_STORES_SERVER_CACHE_MAX_KEYS = 100;
 
 const meStoresServerCache = new Map<
   string,
@@ -31,11 +33,8 @@ export async function loadMeStoresListForUser(
 ): Promise<{ ok: true; stores: StoreRow[] } | { ok: false; error: string }> {
   const key = userId.trim();
   if (!key) return { ok: true, stores: [] };
-  for (const [cacheKey, entry] of meStoresServerCache) {
-    if (entry.expiresAt <= Date.now()) {
-      meStoresServerCache.delete(cacheKey);
-    }
-  }
+  const now0 = Date.now();
+  pruneByExpiresAtAndMaxSize(meStoresServerCache, now0, ME_STORES_SERVER_CACHE_MAX_KEYS);
   const cached = meStoresServerCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -54,6 +53,7 @@ export async function loadMeStoresListForUser(
       value: failed,
       expiresAt: Date.now() + 3_000,
     });
+    pruneByExpiresAtAndMaxSize(meStoresServerCache, Date.now(), ME_STORES_SERVER_CACHE_MAX_KEYS);
     return failed;
   }
 
@@ -108,6 +108,7 @@ export async function loadMeStoresListForUser(
     value: success,
     expiresAt: Date.now() + ME_STORES_SERVER_CACHE_TTL_MS,
   });
+  pruneByExpiresAtAndMaxSize(meStoresServerCache, Date.now(), ME_STORES_SERVER_CACHE_MAX_KEYS);
   return success;
 }
 

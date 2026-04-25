@@ -16,6 +16,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { formatPrice } from "@/lib/utils/format";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
 import { WRITTEN_REVIEW_UPDATED_EVENT } from "@/lib/mypage/written-review-events";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 
 export interface MyWrittenReviewItem {
@@ -137,17 +138,19 @@ export function MyWrittenReviewsView({
       return;
     }
     if (!silent) setLoading(true);
-    fetch("/api/my/written-reviews", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((d: { items?: MyWrittenReviewItem[] }) => {
+    void (async () => {
+      try {
+        const r = await runSingleFlight("me:written-reviews:get", () =>
+          fetch("/api/my/written-reviews", { credentials: "include", cache: "no-store" })
+        );
+        const d = (await r.clone().json()) as { items?: MyWrittenReviewItem[] };
         setItems(Array.isArray(d.items) ? d.items : []);
-      })
-      .catch(() => {
+      } catch {
         if (!silent) setItems([]);
-      })
-      .finally(() => {
+      } finally {
         if (!silent) setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   useEffect(() => {

@@ -2,6 +2,7 @@
  * 브라우저 메모리 trade 피드 캐시 — `GET /api/trade/feed` 왕복 완화.
  * `use client` 없음: `toggleFavorite` 등에서 가볍게 무효화만 import 가능.
  */
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 
@@ -29,6 +30,11 @@ type TradeFeedCacheEntry = {
 };
 
 const tradeFeedClientCache = new Map<string, TradeFeedCacheEntry>();
+const TRADE_FEED_CLIENT_CACHE_MAX_KEYS = 100;
+
+function capTradeFeedClientCache(): void {
+  pruneByExpiresAtAndMaxSize(tradeFeedClientCache, Date.now(), TRADE_FEED_CLIENT_CACHE_MAX_KEYS);
+}
 
 /**
  * `viewerSegment`: `getCurrentUser()?.id ?? "anon"` (클라이언트에서만 의미 있음)
@@ -75,7 +81,11 @@ export function peekCachedTradeFeed(
 ): TradeFeedClientResult | null {
   const key = buildTradeFeedClientCacheKey(categoryIds, options, viewerSegment);
   const hit = tradeFeedClientCache.get(key);
-  if (!hit || hit.expiresAt <= Date.now()) return null;
+  if (!hit) return null;
+  if (hit.expiresAt <= Date.now()) {
+    tradeFeedClientCache.delete(key);
+    return null;
+  }
   return hit.data;
 }
 
@@ -90,6 +100,7 @@ export function primeTradeFeedCache(
     data,
     expiresAt: Date.now() + TRADE_FEED_CLIENT_TTL_MS,
   });
+  capTradeFeedClientCache();
 }
 
 export function readTradeFeedClientCache(
@@ -113,4 +124,5 @@ export function writeTradeFeedClientCache(
     data,
     expiresAt: Date.now() + TRADE_FEED_CLIENT_TTL_MS,
   });
+  capTradeFeedClientCache();
 }

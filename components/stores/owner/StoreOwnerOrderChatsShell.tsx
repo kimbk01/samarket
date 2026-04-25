@@ -7,6 +7,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
 import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
 import { fetchMeOrderChatRoomsDeduped } from "@/lib/me/fetch-me-order-chat-rooms-deduped";
+import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import type { OrderChatRoomPublic } from "@/lib/order-chat/types";
 
 type ShellState =
@@ -25,24 +26,21 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     const silent = !!opts?.silent;
     if (!silent) setState({ kind: "loading" });
     try {
-      const res = await fetch("/api/me/stores", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (res.status === 401) {
+      const { status, json: raw } = await fetchMeStoresListDeduped();
+      const j = raw as { ok?: boolean; stores?: { id: string; slug: string }[] };
+      if (status === 401) {
         setState({ kind: "unauth" });
         return;
       }
-      if (res.status === 503) {
+      if (status === 503) {
         if (!silent) setState({ kind: "error", message: "서버 설정을 확인해 주세요." });
         return;
       }
-      const j = await res.json();
       if (!j?.ok || !Array.isArray(j.stores)) {
         if (!silent) setState({ kind: "error", message: "목록을 불러오지 못했습니다." });
         return;
       }
-      const hit = (j.stores as { id: string; slug: string }[]).find((s) => s.slug === slug);
+      const hit = j.stores.find((s) => s.slug === slug);
       if (!hit) {
         setState({ kind: "no_store" });
         return;

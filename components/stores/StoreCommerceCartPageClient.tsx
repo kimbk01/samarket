@@ -5,6 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { flushSync } from "react-dom";
 import { useStoreCommerceCart } from "@/contexts/StoreCommerceCartContext";
@@ -344,7 +345,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const fetchCheckoutContact = useCallback(async () => {
     const gen = ++checkoutContactFetchGenRef.current;
     try {
-      const res = await fetch("/api/me/checkout-contact", { credentials: "include" });
+      const res = await runSingleFlight("me:checkout-contact:get", () =>
+        fetch("/api/me/checkout-contact", { credentials: "include" })
+      );
       const json = (await res.json()) as {
         ok?: boolean;
         contact_phone?: string | null;

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { usePathname, useRouter } from "next/navigation";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -63,7 +64,9 @@ export function ProfileEditForm() {
     setAddressListErr(false);
     const pick = consumeMapAddressPick();
 
-    const addressesPromise = fetch("/api/me/addresses", { credentials: "include" })
+    const addressesPromise = runSingleFlight("me:addresses:list", () =>
+      fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
+    )
       .then(async (res) => {
         const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
         if (res.ok && j.ok && Array.isArray(j.addresses)) {

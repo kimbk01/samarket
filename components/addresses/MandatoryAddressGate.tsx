@@ -62,7 +62,7 @@ export function MandatoryAddressGate() {
       setBlocked(false);
       return;
     }
-    const j = (await res.json()) as {
+    const j = (await res.clone().json()) as {
       ok?: boolean;
       authenticated?: boolean;
       needsBlock?: boolean;
@@ -81,13 +81,13 @@ export function MandatoryAddressGate() {
       return;
     }
     try {
-      await runSingleFlight(GATE_FETCH_FLIGHT, async () => {
-        const res = await fetch("/api/me/mandatory-address-gate", {
+      const res = await runSingleFlight(GATE_FETCH_FLIGHT, () =>
+        fetch("/api/me/mandatory-address-gate", {
           credentials: "include",
           cache: "no-store",
-        });
-        await applyGateJson(res);
-      });
+        })
+      );
+      await applyGateJson(res);
     } catch {
       setBlocked(false);
     }

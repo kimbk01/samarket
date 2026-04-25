@@ -1,3 +1,4 @@
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type MeOwnerStoreNotificationsResult = {
@@ -6,6 +7,7 @@ export type MeOwnerStoreNotificationsResult = {
 };
 
 const TTL_MS = 15_000;
+const ME_OWNER_STORE_NOTIF_CACHE_MAX_KEYS = 60;
 const cache = new Map<string, { expiresAt: number; value: MeOwnerStoreNotificationsResult }>();
 
 export function invalidateMeOwnerStoreNotificationsCache(storeId: string): void {
@@ -42,6 +44,7 @@ export function fetchMeOwnerStoreNotificationsDeduped(
     const result = { status: res.status, json };
     if (res.ok || res.status === 401 || res.status === 503) {
       cache.set(sid, { value: result, expiresAt: Date.now() + TTL_MS });
+      pruneByExpiresAtAndMaxSize(cache, Date.now(), ME_OWNER_STORE_NOTIF_CACHE_MAX_KEYS);
     }
     return result;
   });

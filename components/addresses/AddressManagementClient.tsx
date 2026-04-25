@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -68,7 +69,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       void (async () => {
         try {
-          const res = await fetch("/api/me/addresses", { credentials: "include" });
+          const res = await runSingleFlight("me:addresses:list", () =>
+            fetch("/api/me/addresses", { credentials: "include" })
+          );
           const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
           const found = res.ok && j.ok ? j.addresses?.find((a) => a.id === ctx.addressId) : undefined;
           if (found) {
@@ -94,7 +97,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     const showWait = listRef.current.length === 0;
     if (showWait) setListBootstrapping(true);
     try {
-      const a = await fetch("/api/me/addresses", { credentials: "include" });
+      const a = await runSingleFlight("me:addresses:list", () =>
+        fetch("/api/me/addresses", { credentials: "include" })
+      );
       const aj = (await a.json()) as { ok?: boolean; addresses?: UserAddressDTO[]; error?: string };
       if (!a.ok || !aj.ok) {
         setLoadErr(typeof aj.error === "string" ? aj.error : tt("목록을 불러오지 못했어요."));

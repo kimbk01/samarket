@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 
@@ -51,10 +52,12 @@ export function OwnerStoreReviewsView() {
       }
       setStoreId(sid);
 
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const res = await runSingleFlight(`me:store:${sid}:owner-reviews:list`, () =>
+        fetch(`/api/me/stores/${encodeURIComponent(sid)}/reviews`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+      );
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;

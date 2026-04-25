@@ -92,12 +92,16 @@ function buildHomePostsFavoriteCacheKey(
 }
 
 function maybePruneExpiredEntries<T extends { expiresAt: number }>(cache: Map<string, T>): void {
-  if (cache.size < 150) return;
   if (Math.random() < 0.08) {
     const now = Date.now();
     for (const [key, entry] of cache) {
       if (entry.expiresAt <= now) cache.delete(key);
     }
+  }
+  while (cache.size > 150) {
+    const k = cache.keys().next().value;
+    if (k === undefined) break;
+    cache.delete(k);
   }
 }
 

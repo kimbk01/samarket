@@ -30,6 +30,8 @@ import { TradeHeaderTradeHistoryStackProvider } from "@/contexts/TradeHeaderTrad
 import { TradeHistoryFromHeaderStack } from "@/components/trade/TradeHistoryFromHeaderStack";
 import { PhilifeWriteSheetProvider } from "@/contexts/PhilifeWriteSheetContext";
 import { TradeWriteSheetProvider } from "@/contexts/TradeWriteSheetContext";
+import { TradeTabCategoriesServerPrime } from "@/components/layout/TradeTabCategoriesServerPrime";
+import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
@@ -115,13 +117,16 @@ function MainShellPushLayer({ children }: { children: ReactNode }) {
 export function MainAppProviderTree({
   children,
   initialMainBottomNavItems = null,
+  initialTradeTabCategories = null,
 }: {
   children: ReactNode;
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
+  initialTradeTabCategories?: CategoryWithSettings[] | null;
 }) {
   return (
     <RegionProvider>
       <MypageInfoHubPanelProvider>
+      <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
       <AppWideRuntimePerfHooks />
       <SessionLostRedirect />
       <MessengerBootstrapEarlyWarm />

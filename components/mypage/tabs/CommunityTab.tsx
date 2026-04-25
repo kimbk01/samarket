@@ -4,6 +4,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
@@ -110,10 +111,12 @@ function MyCommunityPostsPanel() {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/me/community-posts?limit=6", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await runSingleFlight("me:community-posts:limit=6", () =>
+          fetch("/api/me/community-posts?limit=6", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           posts?: CommunityPostPreview[];
@@ -201,10 +204,12 @@ function MyCommunityActivityPanel({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/me/community-activity", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const res = await runSingleFlight("me:community-activity:get", () =>
+          fetch("/api/me/community-activity", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           comments?: CommunityCommentItem[];

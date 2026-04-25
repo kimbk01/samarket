@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type Row = {
   id: string;
@@ -40,15 +41,21 @@ export function MyStoreInquiriesView() {
     const silent = !!opts?.silent;
     if (!silent) setState({ kind: "loading" });
     try {
-      const res = await fetch("/api/me/store-inquiries", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const res = await runSingleFlight("me:store-inquiries:get", () =>
+        fetch("/api/me/store-inquiries", {
+          credentials: "include",
+          cache: "no-store",
+        })
+      );
       if (res.status === 401) {
         setState({ kind: "unauth" });
         return;
       }
-      const json = await res.json();
+      const json = (await res.clone().json()) as {
+        ok?: boolean;
+        error?: string;
+        inquiries?: unknown;
+      };
       if (!json?.ok) {
         if (!silent) {
           setState({

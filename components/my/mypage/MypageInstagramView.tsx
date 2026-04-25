@@ -29,6 +29,7 @@ import {
   syncUserSettings,
   VIDEO_AUTOPLAY_LABELS,
 } from "@/lib/settings/user-settings-store";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
@@ -204,17 +205,19 @@ export function MypageInstagramView({
   const loadTradePreview = useCallback(async () => {
     setTradePreview((prev) => ({ ...prev, status: "loading" }));
     try {
-      const [purchasesRes, salesRes] = await Promise.all([
-        fetch("/api/my/purchases?limit=3", { credentials: "include", cache: "no-store" }),
-        fetch("/api/my/sales?limit=3", { credentials: "include", cache: "no-store" }),
-      ]);
-      if (!purchasesRes.ok || !salesRes.ok) throw new Error("trade_preview_failed");
-      const purchasesJson = (await purchasesRes.json()) as { items?: TradePurchasePreview[] };
-      const salesJson = (await salesRes.json()) as { items?: TradeSalePreview[] };
-      setTradePreview({
-        status: "ready",
-        purchases: Array.isArray(purchasesJson.items) ? purchasesJson.items : [],
-        sales: Array.isArray(salesJson.items) ? salesJson.items : [],
+      await runSingleFlight("mypage-ig:trade-preview", async () => {
+        const [purchasesRes, salesRes] = await Promise.all([
+          fetch("/api/my/purchases?limit=3", { credentials: "include", cache: "no-store" }),
+          fetch("/api/my/sales?limit=3", { credentials: "include", cache: "no-store" }),
+        ]);
+        if (!purchasesRes.ok || !salesRes.ok) throw new Error("trade_preview_failed");
+        const purchasesJson = (await purchasesRes.json()) as { items?: TradePurchasePreview[] };
+        const salesJson = (await salesRes.json()) as { items?: TradeSalePreview[] };
+        setTradePreview({
+          status: "ready",
+          purchases: Array.isArray(purchasesJson.items) ? purchasesJson.items : [],
+          sales: Array.isArray(salesJson.items) ? salesJson.items : [],
+        });
       });
     } catch {
       setTradePreview({ status: "error", purchases: [], sales: [] });
@@ -224,13 +227,15 @@ export function MypageInstagramView({
   const loadStorePreview = useCallback(async () => {
     setStorePreview((prev) => ({ ...prev, status: "loading" }));
     try {
-      const { status, json } = await fetchMeStoreOrdersListDeduped("?limit=3");
-      if (status < 200 || status >= 300) throw new Error("store_preview_failed");
-      const parsed = json as { ok?: boolean; orders?: StoreOrderPreview[] };
-      if (!parsed.ok) throw new Error("store_preview_failed");
-      setStorePreview({
-        status: "ready",
-        orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+      await runSingleFlight("mypage-ig:store-preview", async () => {
+        const { status, json } = await fetchMeStoreOrdersListDeduped("?limit=3");
+        if (status < 200 || status >= 300) throw new Error("store_preview_failed");
+        const parsed = json as { ok?: boolean; orders?: StoreOrderPreview[] };
+        if (!parsed.ok) throw new Error("store_preview_failed");
+        setStorePreview({
+          status: "ready",
+          orders: Array.isArray(parsed.orders) ? parsed.orders : [],
+        });
       });
     } catch {
       setStorePreview({ status: "error", orders: [] });
@@ -240,16 +245,18 @@ export function MypageInstagramView({
   const loadBoardPreview = useCallback(async () => {
     setBoardPreview((prev) => ({ ...prev, status: "loading" }));
     try {
-      const res = await fetch("/api/me/community-posts?limit=3", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error("board_preview_failed");
-      const json = (await res.json()) as { ok?: boolean; posts?: CommunityFeedPostDTO[] };
-      if (!json.ok) throw new Error("board_preview_failed");
-      setBoardPreview({
-        status: "ready",
-        posts: Array.isArray(json.posts) ? json.posts : [],
+      await runSingleFlight("mypage-ig:board-preview", async () => {
+        const res = await fetch("/api/me/community-posts?limit=3", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error("board_preview_failed");
+        const json = (await res.json()) as { ok?: boolean; posts?: CommunityFeedPostDTO[] };
+        if (!json.ok) throw new Error("board_preview_failed");
+        setBoardPreview({
+          status: "ready",
+          posts: Array.isArray(json.posts) ? json.posts : [],
+        });
       });
     } catch {
       setBoardPreview({ status: "error", posts: [] });

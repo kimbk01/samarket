@@ -17,6 +17,7 @@ import {
 import { SalesHistoryCard, type SalesHistoryRow } from "@/components/mypage/sales/SalesHistoryCard";
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   fetchTradeHistoryPurchasesBySession,
   fetchTradeHistorySalesBySession,
@@ -152,36 +153,41 @@ export function TradeReviewsManagementView({
     const silent = !!opts?.silent;
     if (!silent) setLoading(true);
     const init: RequestInit = { credentials: "include", cache: "no-store" };
+    const force = !!opts?.force;
 
-    Promise.all([
-      fetch("/api/my/received-reviews", init).then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { items?: MyReceivedReviewItem[] };
-        return r.ok && Array.isArray(d.items) ? d.items : [];
-      }),
-      fetch("/api/my/written-reviews", init).then(async (r) => {
-        const d = (await r.json().catch(() => ({}))) as { items?: unknown[] };
-        return r.ok && Array.isArray(d.items) ? d.items.length : 0;
-      }),
-      fetchTradeHistoryPurchasesBySession({ force: !!opts?.force }),
-      fetchTradeHistorySalesBySession({ force: !!opts?.force }),
-    ])
-      .then(([recv, writLen, pur, sal]) => {
+    void (async () => {
+      try {
+        const [recv, writLen, pur, sal] = await runSingleFlight(
+          `mypage:trade-reviews-management:load${force ? ":force" : ""}`,
+          () =>
+            Promise.all([
+              fetch("/api/my/received-reviews", init).then(async (r) => {
+                const d = (await r.json().catch(() => ({}))) as { items?: MyReceivedReviewItem[] };
+                return r.ok && Array.isArray(d.items) ? d.items : [];
+              }),
+              fetch("/api/my/written-reviews", init).then(async (r) => {
+                const d = (await r.json().catch(() => ({}))) as { items?: unknown[] };
+                return r.ok && Array.isArray(d.items) ? d.items.length : 0;
+              }),
+              fetchTradeHistoryPurchasesBySession({ force }),
+              fetchTradeHistorySalesBySession({ force }),
+            ])
+        );
         setReceived(recv);
         setWrittenCount(writLen);
         setPurchases(pur);
         setSales(sal);
-      })
-      .catch(() => {
+      } catch {
         if (!silent) {
           setReceived([]);
           setWrittenCount(0);
           setPurchases([]);
           setSales([]);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!silent) setLoading(false);
-      });
+      }
+    })();
   }, []);
 
   const reload = useCallback(() => {

@@ -3,12 +3,15 @@
 import { useCallback, useEffect, useRef } from "react";
 
 const BC_NAME = "samarket:trade-activity-v1";
+/** `scroll`·pointer 등이 초당 수백 번 올 수 있어 BC 전파만 누적 방지(로컬 lastActivity ms는 항상 갱신) */
+const TRADE_ACTIVITY_BROADCAST_MIN_GAP_MS = 900;
 
 /**
  * 거래 채팅 presence 용 **앱(탭) 전역** 활동 시각 — 한 탭이라도 포그라운드+활동이면 최신 시각 유지.
  */
 export function useTradeActivityCoordinator(enabled: boolean) {
   const lastMsRef = useRef(0);
+  const lastTradeActivityBroadcastAtRef = useRef(0);
   const bcRef = useRef<BroadcastChannel | null>(null);
 
   const bump = useCallback(() => {
@@ -16,6 +19,10 @@ export function useTradeActivityCoordinator(enabled: boolean) {
     const t = Date.now();
     if (t <= lastMsRef.current) return;
     lastMsRef.current = t;
+    if (t - lastTradeActivityBroadcastAtRef.current < TRADE_ACTIVITY_BROADCAST_MIN_GAP_MS) {
+      return;
+    }
+    lastTradeActivityBroadcastAtRef.current = t;
     try {
       bcRef.current?.postMessage({ t });
     } catch {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import Link from "next/link";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
@@ -71,7 +72,9 @@ export function MyPageHomeDashboard({
       try {
         const [ordersWrapped, postsRes] = await Promise.all([
           fetchMeStoreOrdersListDeduped("?limit=100"),
-          fetch("/api/me/community-posts?limit=20", { credentials: "include", cache: "no-store" }),
+          runSingleFlight("me:community-posts:limit=20", () =>
+            fetch("/api/me/community-posts?limit=20", { credentials: "include", cache: "no-store" })
+          ),
         ]);
         const oj =
           ordersWrapped.status >= 200 && ordersWrapped.status < 300

@@ -27,7 +27,9 @@ function readResponseSizeBytes(response: Response, requestUrl: string): number |
   if (typeof performance === "undefined" || typeof location === "undefined") return null;
   const absoluteUrl = response.url || new URL(requestUrl, location.origin).toString();
   const entries = performance.getEntriesByName(absoluteUrl) as PerformanceResourceTiming[];
-  for (let i = entries.length - 1; i >= 0; i -= 1) {
+  /** resource timing 버퍼에 동일 URL 항목이 쌓이면 전체 배열을 도는 비용이 커짐 — 사이즈 판정은 직전 시도(끝에서)만 보면 됨 */
+  const scanFrom = Math.max(0, entries.length - 24);
+  for (let i = entries.length - 1; i >= scanFrom; i -= 1) {
     const entry = entries[i];
     if (typeof entry.encodedBodySize === "number" && entry.encodedBodySize > 0) {
       return Math.round(entry.encodedBodySize);

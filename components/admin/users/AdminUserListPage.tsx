@@ -55,16 +55,16 @@ export function AdminUserListPage() {
       return;
     }
     try {
-      await runSingleFlight(`admin-users:list:${adminUserId}:${membersKey}`, async () => {
-        const res = await fetch("/api/admin/users", { credentials: "include" });
-        if (!res.ok) {
-          setMembersFromApi(null);
-          return;
-        }
-        const data = await res.json();
-        const list = data.users ?? [];
-        setMembersFromApi(list);
-      });
+      const res = await runSingleFlight(`admin-users:list:${adminUserId}:${membersKey}`, () =>
+        fetch("/api/admin/users", { credentials: "include" })
+      );
+      if (!res.ok) {
+        setMembersFromApi(null);
+        return;
+      }
+      const data = (await res.clone().json().catch(() => ({}))) as { users?: AdminUser[] };
+      const list = data.users ?? [];
+      setMembersFromApi(list);
     } catch {
       setMembersFromApi(null);
     }

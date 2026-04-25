@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
 import {
@@ -56,10 +57,10 @@ export function MyProductsView() {
     setCurrentUserId(user?.id ?? null);
   }, []);
 
-  const fetchMyPosts = useCallback(async (_uid: string) => {
-    const res = await fetch("/api/my/posts");
+  const fetchMyPosts = useCallback(async (uid: string) => {
+    const res = await runSingleFlight(`me:my-posts:${uid.trim()}`, () => fetch("/api/my/posts"));
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = (await res.clone().json()) as { posts?: Product[] };
     return (data.posts ?? []) as Product[];
   }, []);
 

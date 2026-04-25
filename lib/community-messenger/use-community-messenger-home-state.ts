@@ -72,13 +72,41 @@ function visibleChatListInputKey(
   kw: string
 ): string {
   if (items.length === 0) return `0|${inbox}|${kind}|${kw}`;
-  const rowSig = items
-    .map(
-      (i) =>
-        `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
-    )
+  const k = kw.trim();
+  /**
+   * 검색어가 없을 때(칩만 전체→거래 등)는 필터·정합에 쓰는 필드 + 짧은 preview 시그만 넣는다.
+   * 기존은 `i.preview` 전체를 키에 붙여 방·메시지가 많을수록 키 문자열·Map 조회 비용이 기하급수적으로 커졌다.
+   */
+  if (k) {
+    const rowSig = items
+      .map(
+        (i) =>
+          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
+      )
+      .join("\n");
+    return `${items.length}|${inbox}|${kind}|${k}|${rowSig}`;
+  }
+  const rowSigTight = items
+    .map((i) => {
+      const r = i.room;
+      const p = i.preview;
+      const previewTight = `${p.length}:${p.length > 96 ? `${p.slice(0, 96)}…` : p}`;
+      return [
+        r.id,
+        r.lastMessageAt,
+        r.unreadCount,
+        r.isPinned ? 1 : 0,
+        r.roomType,
+        r.contextMeta?.kind ?? "",
+        r.title,
+        r.subtitle,
+        r.summary,
+        previewTight,
+        r.philifeMeetingMemberLabel ?? "",
+      ].join("\t");
+    })
     .join("\n");
-  return `${items.length}|${inbox}|${kind}|${kw}|${rowSig}`;
+  return `${items.length}|${inbox}|${kind}||${rowSigTight}`;
 }
 
 export function useCommunityMessengerHomeState({

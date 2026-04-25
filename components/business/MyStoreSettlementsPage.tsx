@@ -7,6 +7,7 @@ import { getAppSettings } from "@/lib/admin-settings/mock-app-settings";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatPrice } from "@/lib/utils/format";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type Row = {
   id: string;
@@ -52,7 +53,9 @@ export function MyStoreSettlementsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/me/store-settlements", { credentials: "include" });
+      const res = await runSingleFlight("me:store-settlements:get", () =>
+        fetch("/api/me/store-settlements", { credentials: "include" })
+      );
       const json = await res.json();
       if (res.status === 401) {
         setError("로그인이 필요합니다.");

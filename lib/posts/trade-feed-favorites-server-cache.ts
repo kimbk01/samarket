@@ -40,12 +40,16 @@ async function fetchFavoriteMapWithEpochRetry(
 }
 
 function maybePruneExpiredEntries(): void {
-  if (tradeFeedFavoritesCache.size < 120) return;
   if (Math.random() < 0.08) {
     const now = Date.now();
     for (const [k, v] of tradeFeedFavoritesCache) {
       if (v.expiresAt <= now) tradeFeedFavoritesCache.delete(k);
     }
+  }
+  while (tradeFeedFavoritesCache.size > 120) {
+    const k = tradeFeedFavoritesCache.keys().next().value;
+    if (k === undefined) break;
+    tradeFeedFavoritesCache.delete(k);
   }
 }
 

@@ -18,17 +18,28 @@ export function MessengerBootstrapEarlyWarm() {
   useEffect(() => {
     if (shellDomain === "messenger") return;
     if (peekBootstrapCache()) return;
+    let cancelled = false;
     const run = () => {
+      if (cancelled) return;
       if (peekBootstrapCache()) return;
       warmMessengerListBootstrapClient();
     };
     if (shellDomain === "philife") {
-      const t = window.setTimeout(run, 900);
-      return () => window.clearTimeout(t);
+      const t = window.setTimeout(() => {
+        run();
+      }, 900);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(t);
+      };
     }
     queueMicrotask(() => {
+      if (cancelled) return;
       run();
     });
+    return () => {
+      cancelled = true;
+    };
   }, [shellDomain]);
 
   return null;

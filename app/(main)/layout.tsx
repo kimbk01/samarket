@@ -1,5 +1,6 @@
 import { MainAppProviders } from "@/components/layout/MainAppProviders";
 import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messenger/room/MessengerRoomRouteEntryMountProbe";
+import { getHomeTradeChipCategoriesForServer } from "@/lib/categories/get-home-trade-chip-categories-server";
 import { loadMainBottomNavItemsServerCached } from "@/lib/main-menu/load-main-bottom-nav-items-server";
 
 /**
@@ -11,9 +12,15 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { items: initialMainBottomNavItems } = await loadMainBottomNavItemsServerCached();
+  const [{ items: initialMainBottomNavItems }, initialTradeTabCategories] = await Promise.all([
+    loadMainBottomNavItemsServerCached(),
+    getHomeTradeChipCategoriesForServer(),
+  ]);
   return (
-    <MainAppProviders initialMainBottomNavItems={initialMainBottomNavItems}>
+    <MainAppProviders
+      initialMainBottomNavItems={initialMainBottomNavItems}
+      initialTradeTabCategories={initialTradeTabCategories}
+    >
       <MessengerRoomRouteEntryMountProbe stage="layout" />
       {children}
     </MainAppProviders>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PointLedgerEntry, PointChargeRequest } from "@/lib/types/point";
 import { PointChargeBadge } from "./PointChargeBadge";
 import { PointChargeForm } from "./PointChargeForm";
@@ -33,7 +34,7 @@ export function MyPointsView() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/me/points", { cache: "no-store" });
+      const res = await runSingleFlight("me:points:get", () => fetch("/api/me/points", { cache: "no-store" }));
       const j = (await res.json()) as {
         balance?: number;
         ledger?: PointLedgerEntry[];
