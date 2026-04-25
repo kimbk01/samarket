@@ -19,6 +19,8 @@ type VerificationPayload = {
   help_text?: string;
   /** OAuth·이메일 가입과 동일 이용 조건 충족(관리자 수동 정식 회원 포함) */
   full_member_access_ok?: boolean;
+  store_member_status?: string;
+  consent_required?: boolean;
 };
 
 export function PhoneVerificationRequestForm() {
@@ -27,6 +29,7 @@ export function PhoneVerificationRequestForm() {
   const [nickname, setNickname] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
   const [status, setStatus] = useState<VerificationPayload | null>(null);
+  const [otpCode, setOtpCode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +73,8 @@ export function PhoneVerificationRequestForm() {
       return;
     }
     try {
-      const res = await fetch("/api/me/phone-verification", {
-        method: "PATCH",
+      const res = await fetch("/api/me/phone-verification/send", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ nickname, phone: norm }),
@@ -82,9 +85,44 @@ export function PhoneVerificationRequestForm() {
         return;
       }
       setStatus(data.verification as VerificationPayload);
-      setMessage("전화번호 인증 요청을 저장했습니다. 관리자 승인 후 글쓰기, 거래, 주문, 채팅이 열립니다.");
+      setMessage("인증번호를 발송했습니다. 받은 코드를 입력해 정회원 인증을 완료해 주세요.");
     } catch {
-      setError("인증 요청에 실패했습니다.");
+      setError("인증번호 발송에 실패했습니다.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const verifyCode = async () => {
+    const norm = normalizePhMobileDb(phoneDigits);
+    if (!norm) {
+      setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
+      return;
+    }
+    if (!otpCode.trim()) {
+      setError("인증번호를 입력해 주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/me/phone-verification/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ nickname, phone: norm, code: otpCode.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        setError(data?.error || "인증번호 확인에 실패했습니다.");
+        return;
+      }
+      setStatus(data.verification as VerificationPayload);
+      setMessage("전화번호 인증이 완료되었습니다. 이제 정회원 기능을 이용할 수 있습니다.");
+      setOtpCode("");
+    } catch {
+      setError("인증번호 확인에 실패했습니다.");
     } finally {
       setSubmitting(false);
     }
@@ -101,13 +139,12 @@ export function PhoneVerificationRequestForm() {
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
           {status?.full_member_access_ok && !status.phone_verified ? (
             <>
-              Google·카카오·애플·이메일 가입 회원과 동일한 정식 회원으로 등록되어 있어 글쓰기·거래·주문·채팅을 이용할
-              수 있습니다. 필리핀 번호는 선택적으로 등록·변경할 수 있으며, 요청 시 관리자 승인 절차가 적용됩니다.
+              관리자 수동 생성 계정 또는 관리자 계정은 이미 정회원 권한으로 이용할 수 있습니다. 필요하면 필리핀 번호를
+              등록해 업데이트할 수 있습니다.
             </>
           ) : (
             <>
-              전화번호 인증 전까지는 열람만 가능하며 글쓰기, 거래, 주문, 채팅은 사용할 수 없습니다. 현재 단계에서는
-              인증 요청을 저장한 뒤 관리자가 승인합니다.
+              정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.
             </>
           )}
         </p>
@@ -121,11 +158,16 @@ export function PhoneVerificationRequestForm() {
             : status?.full_member_access_ok
               ? "정식 회원(앱 이용 가능)"
               : status?.phone_verification_status === "pending"
-                ? "승인 대기"
+                ? "인증번호 확인 대기"
                 : "미인증"}
         </p>
         {status?.help_text ? (
           <p className="mt-1 sam-text-body-secondary text-sam-muted">{status.help_text}</p>
+        ) : null}
+        {status?.consent_required ? (
+          <p className="mt-1 sam-text-body-secondary text-amber-700">
+            이용약관/개인정보처리방침 동의가 먼저 필요합니다.
+          </p>
         ) : null}
       </div>
 
@@ -154,6 +196,18 @@ export function PhoneVerificationRequestForm() {
             className="sam-input mt-1"
           />
         </div>
+        <div>
+          <label className="block text-[13px] font-semibold text-sam-fg">인증번호</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={10}
+            value={otpCode}
+            onChange={(e) => setOtpCode(e.target.value.replace(/\D+/g, ""))}
+            placeholder="SMS로 받은 인증번호"
+            className="sam-input mt-1"
+          />
+        </div>
         {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
         {message ? <p className="sam-text-body-secondary text-green-700">{message}</p> : null}
         <button
@@ -161,7 +215,15 @@ export function PhoneVerificationRequestForm() {
           disabled={submitting}
           className="sam-btn-primary w-full disabled:opacity-50"
         >
-          {submitting ? "저장 중…" : "전화번호 인증 요청 저장"}
+          {submitting ? "발송 중…" : "인증번호 발송"}
+        </button>
+        <button
+          type="button"
+          disabled={submitting || status?.full_member_access_ok === true}
+          onClick={() => void verifyCode()}
+          className="w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
+        >
+          {submitting ? "확인 중…" : "인증번호 확인"}
         </button>
       </form>
 

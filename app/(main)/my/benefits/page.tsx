@@ -9,7 +9,7 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 function roleLabel(role: string | null | undefined): string {
   const r = (role ?? "").toLowerCase();
-  if (r === "admin" || r === "master") return "운영";
+  if (r === "admin" || r === "super_admin") return "운영";
   if (r === "store_owner" || r === "business") return "사업자";
   return "일반";
 }

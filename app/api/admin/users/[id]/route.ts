@@ -26,17 +26,17 @@ function memberTypeToProfileAndTestRole(memberType: MemberType): {
   switch (memberType) {
     case "normal":
       return {
-        profile: { role: "user", member_type: "normal", is_special_member: false },
+        profile: { role: "user", is_admin: false, member_type: "normal", is_special_member: false },
         testRole: "member",
       };
     case "premium":
       return {
-        profile: { role: "special", member_type: "premium", is_special_member: true },
+        profile: { role: "special", is_admin: false, member_type: "premium", is_special_member: true },
         testRole: "special",
       };
     case "admin":
       return {
-        profile: { role: "admin", member_type: "admin", is_special_member: false },
+        profile: { role: "admin", is_admin: true, member_type: "admin", is_special_member: false },
         testRole: "admin",
       };
   }
@@ -209,26 +209,34 @@ async function ensureProfileRow(
     role === "master" || role === "admin" ? "admin" : role === "special" ? "premium" : "normal";
   const is_special_member = role === "special";
   const phone = tu?.contact_phone?.trim() || null;
-  const phone_verification_status = phone ? "pending" : "unverified";
+  const nowIso = new Date().toISOString();
+  const phone_verification_status = tu ? "verified" : phone ? "pending" : "unverified";
 
   const row: Record<string, unknown> = {
     id: userId,
     email,
+    auth_login_email: email,
     username: usernameRaw,
     nickname,
     role,
+    is_admin: role === "admin" || role === "master",
     member_type,
+    member_status: tu ? "verified_member" : "sns_member",
+    manual_account_type: role === "admin" || role === "master" ? "admin" : "operations_member",
     is_special_member,
     phone,
-    phone_verified: false,
+    phone_verified: Boolean(tu),
     phone_verification_status,
-    phone_verified_at: null,
-    phone_verification_method: null,
+    phone_verified_at: tu ? nowIso : null,
+    phone_verification_method: tu ? "admin_manual" : null,
     status: "active",
     preferred_country: "PH",
+    provider:
+      (typeof meta.provider === "string" && meta.provider) ||
+      (tu ? "admin_manual" : "email"),
     auth_provider:
       (typeof meta.auth_provider === "string" && meta.auth_provider) ||
-      (tu ? "manual_admin" : "sync_from_auth"),
+      (tu ? "admin_manual" : "email"),
   };
 
   const { error: upErr } = await sb.from("profiles").upsert(row);
@@ -247,6 +255,8 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "verified",
         phone_verified_at: new Date().toISOString(),
         phone_verification_method: "admin_manual",
+        member_status: "verified_member",
+        status: "active",
       };
     case "pending":
       return {
@@ -254,6 +264,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "pending",
         phone_verified_at: null,
         phone_verification_method: null,
+        member_status: "sns_member",
       };
     case "rejected":
       return {
@@ -261,6 +272,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "rejected",
         phone_verified_at: null,
         phone_verification_method: null,
+        member_status: "sns_member",
       };
     case "unverified":
       return {
@@ -268,6 +280,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "unverified",
         phone_verified_at: null,
         phone_verification_method: null,
+        member_status: "sns_member",
       };
   }
 }

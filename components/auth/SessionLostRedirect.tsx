@@ -1,8 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
+import { performClientLogout } from "@/lib/auth/logout-client";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -45,15 +47,23 @@ function isCommunityMessengerCallShellPath(path: string): boolean {
  * - 실제 미인증은 `proxy.ts`·전체 네비게이션 시 서버가 처리.
  */
 export function SessionLostRedirect() {
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const pathnameRef = useRef(pathname);
   const prevPathForSessionRef = useRef<string | null>(null);
   const lastCheckAtRef = useRef(0);
+  const [sessionReplacedOpen, setSessionReplacedOpen] = useState(false);
+
+  const finalizeForcedLogout = useCallback(async () => {
+    const result = await performClientLogout();
+    if (result.ok) {
+      setSessionReplacedOpen(false);
+      router.replace("/login");
+    }
+  }, [router]);
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;
-    /** `test_users` 아이디 로그인은 Supabase 세션이 없어 `/api/auth/session` 이 항상 401 — Kasama·프록시와 동일하게 유지 */
-    if (getTestAuth()) return;
     const path = pathnameRef.current;
     if (path === "/login" || path.startsWith("/login/")) return;
     if (isCommunityMessengerCallShellPath(path)) return;
@@ -70,6 +80,18 @@ export function SessionLostRedirect() {
             if (res.status >= 500 || res.status === 429) return;
             if (res.status === 403) return;
             if (res.status !== 401) return;
+
+            let code = "";
+            try {
+              const body = (await res.clone().json()) as { code?: string };
+              code = String(body?.code ?? "").trim();
+            } catch {
+              code = "";
+            }
+            if (code === SESSION_REPLACED_CODE) {
+              setSessionReplacedOpen(true);
+              return;
+            }
 
             if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
               const sb = getSupabaseClient();
@@ -117,5 +139,20 @@ export function SessionLostRedirect() {
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuth);
   }, [check]);
 
-  return null;
+  return sessionReplacedOpen ? (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 px-4">
+      <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
+        <p className="sam-text-body font-semibold text-sam-fg">{SESSION_REPLACED_MESSAGE}</p>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => void finalizeForcedLogout()}
+            className="w-full rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 }

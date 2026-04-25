@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { getAllowedAdminEmails } from "@/lib/auth/admin-policy";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
@@ -14,10 +14,8 @@ import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-d
 
 const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
 
-function isAdminEmailForServer(email: string | null | undefined): boolean {
-  const e = email?.trim();
-  if (!e) return false;
-  return getAllowedAdminEmails().includes(e);
+function isAdminProfileRole(role: string | null | undefined): boolean {
+  return isPrivilegedAdminRole(role);
 }
 
 /** 프로필·CMS·매장 보유 + `loadMypageHubExtrasServer` 용 라우트 user id */
@@ -102,7 +100,7 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
     ? resolveProfileTrustScore(profile as unknown as Record<string, unknown>)
     : (trustSummary?.mannerScore ?? 50);
   const isBusinessMember = hasOwnerStore;
-  const isAdmin = isAdminEmailForServer(profile?.email ?? null);
+  const isAdmin = isAdminProfileRole(profile?.role ?? null);
 
   return {
     profile,

@@ -8,7 +8,7 @@ import { ProfileStatRow } from "./ProfileStatRow";
 import { ProfileActionButtons } from "./ProfileActionButtons";
 
 function getMemberTypeLabel(profile: ProfileRow): string {
-  if (profile.role === "admin" || profile.role === "master") return "관리자";
+  if (profile.role === "admin" || profile.role === "super_admin") return "관리자";
   if (profile.is_special_member) return "특별회원";
   return "일반회원";
 }

@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
+import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { APP_LANGUAGE_COOKIE, normalizeAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -104,6 +106,12 @@ export async function GET(req: NextRequest) {
       } catch {
         /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
       }
+      const sessionMeta = buildRequestSessionMeta(req);
+      await syncActiveSessionForUser(user.id, response, {
+        rotate: true,
+        sessionMeta,
+        loginIdentifier: user.email?.trim().toLowerCase() ?? null,
+      });
     }
   }
 

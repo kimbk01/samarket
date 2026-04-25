@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -23,9 +25,15 @@ export async function POST(_req: Request, context: { params: Promise<{ slug: str
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+  const access = await assertVerifiedMemberForAction(supabase as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
   const { slug } = await context.params;
   const storeId = await resolveStoreId(supabase, slug);
@@ -57,9 +65,15 @@ export async function DELETE(_req: Request, context: { params: Promise<{ slug: s
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+  const access = await assertVerifiedMemberForAction(supabase as any, userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
   }
   const { slug } = await context.params;
   const storeId = await resolveStoreId(supabase, slug);

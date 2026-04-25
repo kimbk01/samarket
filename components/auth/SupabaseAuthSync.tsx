@@ -61,7 +61,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
       invalidateMeProfileDedupedCache();
       setSupabaseProfileCache(null);
       resetMessengerNotificationSurfacesAfterSignOut();
-      dispatchTestAuthChanged();
+        dispatchTestAuthChanged();
       if (process.env.NODE_ENV === "development") {
         console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
       }
@@ -121,7 +121,7 @@ function hydrateProfileCacheFromSessionDeduped(sb: SupabaseClient): Promise<void
 }
 
 /**
- * Supabase 브라우저 세션을 프로필 캐시에 반영하고, 기존 화면이 listen 하는 이벤트로 갱신을 트리거.
+ * Supabase 브라우저 세션을 프로필 캐시에 반영하고, 기존 화면이 listen 하는 인증 변경 이벤트를 발행한다.
  */
 export function SupabaseAuthSync() {
   useEffect(() => {

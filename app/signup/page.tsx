@@ -1,7 +1,7 @@
-import SignupPageClient from "./SignupPageClient";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default function SignupPage() {
-  return <SignupPageClient />;
+export default async function SignupPage() {
+  redirect("/login");
 }

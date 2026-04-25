@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 import {
   notifyStoreOwnerBuyerCancelled,
@@ -77,6 +78,8 @@ export async function GET(
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";
@@ -202,6 +205,8 @@ export async function PATCH(
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";
@@ -416,6 +421,8 @@ export async function DELETE(
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";

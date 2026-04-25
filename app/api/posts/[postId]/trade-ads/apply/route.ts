@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { mapPostDetailRowToPostWithMeta, loadPostRowForDetail } from "@/lib/posts/map-post-detail-row";
 import { loadCategoryLite } from "@/lib/posts/category-lite";
@@ -20,6 +21,10 @@ type Body = { ad_product_id?: string };
 export async function POST(req: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const postId = (await params).postId?.trim() ?? "";
   if (!postId) {

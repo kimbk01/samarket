@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -26,10 +26,13 @@ type PostBody = {
  * 로그인 사용자: 공개 매장(승인·노출) 또는 해당 매장의 활성 상품에 대한 신고
  */
 export async function POST(req: NextRequest) {
-  const reporterId = await getRouteUserId();
-  if (!reporterId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
+  const reporterId = auth.userId;
 
   let body: PostBody;
   try {

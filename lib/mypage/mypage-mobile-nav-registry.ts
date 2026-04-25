@@ -110,7 +110,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       { id: "support", label: "고객센터" },
       { id: "terms", label: "이용약관" },
       { id: "version", label: "버전 정보" },
-      { id: "logout", label: "로그아웃" },
       { id: "leave", label: "탈퇴하기" },
     ],
   },

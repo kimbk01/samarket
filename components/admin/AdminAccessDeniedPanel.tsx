@@ -8,9 +8,7 @@ export function AdminAccessDeniedPanel() {
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <p className="sam-text-body font-medium text-sam-fg">관리자 인증이 필요합니다</p>
       <p className="mt-2 sam-text-body-secondary text-sam-muted">
-        개발용 계정은 로그인 페이지에서 aaaa(또는 해당 계정)로 로그인한 뒤 다시 열어 주세요. Supabase만 쓰는 경우{" "}
-        <code className="rounded bg-sam-surface-muted px-1">NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL</code>에 이메일을 넣어
-        주세요.
+        관리자 권한은 서버의 회원 프로필 역할로만 확인합니다. 관리자 계정으로 다시 로그인한 뒤 접근해 주세요.
       </p>
       <Link href="/home" className="mt-4 sam-text-body font-medium text-signature underline">
         홈으로

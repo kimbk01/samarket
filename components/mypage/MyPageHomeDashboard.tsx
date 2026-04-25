@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import Link from "next/link";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import {
   MYPAGE_MOBILE_NAV,
   MYPAGE_PROFILE_EDIT_HREF,
-  buildMypageItemHref,
   buildMypageSectionHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
@@ -208,12 +208,7 @@ export function MyPageHomeDashboard({
           ))}
           <MyPageAdminMenuEntry asListItem />
           <li className="list-none">
-            <MyPageMobileMenuRow
-              href={buildMypageItemHref("settings", "logout")}
-              title="로그아웃"
-              tone="danger"
-              surface="card"
-            />
+            <LogoutActionTrigger variant="menu_row" surface="card" />
           </li>
         </ul>
       </div>

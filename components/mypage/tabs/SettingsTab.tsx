@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
 import { BulkRegionChangeContent } from "@/components/my/settings/BulkRegionChangeContent";
 import { CacheSettingsContent } from "@/components/my/settings/CacheSettingsContent";
@@ -6,10 +7,10 @@ import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsConten
 import { CountrySettingsContent } from "@/components/my/settings/CountrySettingsContent";
 import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettingsContent";
 import { LeaveContent } from "@/components/my/settings/LeaveContent";
-import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { NoticesContent } from "@/components/my/settings/NoticesContent";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
+import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
@@ -92,7 +93,7 @@ export function SettingsTab({ section }: { section: string }) {
     return (
       <TabShell
         title="시스템"
-        description="캐시 삭제, 버전 정보, 로그아웃, 탈퇴 같은 시스템 단위 작업을 모읍니다."
+        description="캐시 삭제, 버전 정보, 로그아웃, 계정 관리 같은 시스템 단위 작업을 모읍니다."
       >
         <SettingsBlock title="캐시 삭제">
           <CacheSettingsContent />
@@ -103,7 +104,7 @@ export function SettingsTab({ section }: { section: string }) {
         <SettingsBlock title="로그아웃">
           <LogoutContent />
         </SettingsBlock>
-        <SettingsBlock title="탈퇴하기">
+        <SettingsBlock title="계정 관리 > 계정 삭제">
           <LeaveContent />
         </SettingsBlock>
       </TabShell>
@@ -124,12 +125,20 @@ export function SettingsTab({ section }: { section: string }) {
             <p>주문 문제는 주문 내역과 주문 상세에서 먼저 상태를 확인하세요.</p>
             <p>거래 문제는 거래 채팅과 거래 후기 화면에서 먼저 확인하세요.</p>
             <p>그래도 해결되지 않으면 운영 문의 흐름으로 접수하는 구조를 유지합니다.</p>
+            <p>게시글, 댓글, 사용자, 채팅방은 신고/차단 기능으로 즉시 접수할 수 있습니다.</p>
           </div>
         </SettingsBlock>
         <SettingsBlock title="이용약관">
           <div className="space-y-2 sam-text-helper leading-5 text-sam-muted">
             <p>계정, 거래, 주문, 커뮤니티 사용 정책은 서비스 공통 규칙으로 적용됩니다.</p>
             <p>정확한 프로필, 지역, 연락처 정보는 거래와 주문 신뢰도에 직접 연결됩니다.</p>
+            <p>
+              <Link href="/terms" className="text-signature underline">이용약관</Link>
+              {" · "}
+              <Link href="/privacy" className="text-signature underline">개인정보처리방침</Link>
+              {" · "}
+              <Link href="/account/delete-request" className="text-signature underline">계정 삭제 요청</Link>
+            </p>
           </div>
         </SettingsBlock>
       </TabShell>

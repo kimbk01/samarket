@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId, requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   findBannedWord,
@@ -96,6 +97,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ postId: st
 export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-comment:create:${getRateLimitKey(req, auth.userId)}`,

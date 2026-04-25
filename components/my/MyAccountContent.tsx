@@ -7,9 +7,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { isTestUsersSurfaceEnabled } from "@/lib/config/test-users-surface";
 import type { ProfileRow } from "@/lib/profile/types";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 
 export function MyAccountContent() {
   const { t } = useI18n();
@@ -36,16 +36,8 @@ export function MyAccountContent() {
         <p>{t("common_login_required")}</p>
         <p>
           <Link href="/login" className="font-medium text-signature underline">
-            {isTestUsersSurfaceEnabled() ? "테스트 로그인" : t("common_login")}
+            {t("common_login")}
           </Link>
-          {isTestUsersSurfaceEnabled() ? (
-            <>
-              {" · "}
-              <Link href="/signup" className="font-medium text-signature underline">
-                {t("common_signup")}
-              </Link>
-            </>
-          ) : null}
         </p>
         <Link href="/my" className="block text-sam-muted">{t("common_back_to_mypage")}</Link>
       </div>
@@ -57,10 +49,14 @@ export function MyAccountContent() {
 
   const displayNickname = profile.nickname?.trim() || t("account_nickname");
   const contactFormal = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified,
-    auth_provider: profile.auth_provider,
+    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
+    phone_verified_at: profile.phone_verified_at,
+    provider: profile.provider ?? profile.auth_provider,
+    auth_provider: profile.provider ?? profile.auth_provider,
     email: profile.email,
   });
+  const storeMemberStatus = deriveStoreMemberStatus(profile);
+  const consentDone = hasStoreTermsConsent(profile);
 
   return (
     <div className="space-y-4">
@@ -114,6 +110,10 @@ export function MyAccountContent() {
             </dd>
           </div>
           <div>
+            <dt className="text-sam-muted">회원 상태</dt>
+            <dd className="mt-0.5 text-sam-fg">{storeMemberStatus}</dd>
+          </div>
+          <div>
             <dt className="text-sam-muted">{t("account_phone_verification")}</dt>
             <dd className="mt-0.5 text-sam-fg">
               {contactFormal
@@ -122,6 +122,10 @@ export function MyAccountContent() {
                   ? t("account_pending")
                   : t("account_unverified")}
             </dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">약관 동의</dt>
+            <dd className="mt-0.5 text-sam-fg">{consentDone ? "완료" : "필요"}</dd>
           </div>
         </dl>
         {!contactFormal ? (

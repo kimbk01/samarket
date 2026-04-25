@@ -2,11 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRow } from "./types";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
+import { normalizeStoreAuthProvider } from "@/lib/auth/store-member-policy";
 
 /**
  * `profiles` 행이 없고 Supabase Auth 에 해당 사용자가 있으면 최소 행을 upsert 한다.
  * - 아이디 로그인 쿠키는 남는데 public TRUNCATE 등으로 profiles 만 비는 경우 복구
- * - test_users 가 있으면 username / display_name / role 반영
  */
 export async function ensureProfileForUserId(
   sb: SupabaseClient<any>,
@@ -31,41 +31,44 @@ export async function ensureProfileForUserId(
     (typeof meta.nickname === "string" && meta.nickname.trim()) || metaUser || null;
   const email = user.email?.trim() ?? null;
   const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
-
-  const { data: tu } = await sb
-    .from("test_users")
-    .select("username, display_name, role")
-    .eq("id", uid)
-    .maybeSingle();
-  const t = tu as { username?: string; display_name?: string; role?: string } | null;
-
   const username =
-    (t?.username?.trim() || metaUser || (email && email.includes("@") ? email.split("@")[0] : null)) ?? null;
+    (metaUser || (email && email.includes("@") ? email.split("@")[0] : null)) ?? null;
   const nicknameRaw =
-    t?.display_name?.trim() || metaNick || username || (email && email.includes("@") ? email.split("@")[0] : null);
+    metaNick || username || (email && email.includes("@") ? email.split("@")[0] : null);
   const nickname = (nicknameRaw && nicknameRaw.length > 0 ? nicknameRaw : "회원").slice(0, 20);
-
-  const tr = (t?.role ?? "member").toLowerCase();
-  const isMaster = tr === "master";
-  const isAdmin = tr === "admin" || isMaster;
+  const provider =
+    (typeof meta.provider === "string" && meta.provider.trim()) ||
+    (typeof meta.auth_provider === "string" && meta.auth_provider.trim()) ||
+    (typeof user.app_metadata?.provider === "string" && user.app_metadata.provider.trim()) ||
+    "email";
+  const normalizedProvider = normalizeStoreAuthProvider(provider) ?? "email";
+  const nowIso = new Date().toISOString();
+  const isAdminManual = normalizedProvider === "admin_manual";
 
   const profilePayload: Record<string, unknown> = {
     id: uid,
-    email: email ?? (username ? `${username}@test.local` : null),
+    email,
+    display_name: nickname,
     username,
     nickname,
-    role: isMaster ? "master" : isAdmin ? "admin" : "user",
-    member_type: isAdmin ? "admin" : "normal",
+    auth_login_email: email,
+    role: "user",
+    is_admin: false,
+    member_type: "normal",
     is_special_member: false,
-    phone_verified: false,
-    phone_verification_status: "unverified",
+    phone_verified: isAdminManual,
+    phone_verified_at: isAdminManual ? nowIso : null,
+    phone_verification_status: isAdminManual ? "verified" : "unverified",
+    phone_verification_method: isAdminManual ? "admin_manual" : null,
     realname_verified: false,
     status: "active",
+    member_status: isAdminManual ? "verified_member" : "sns_member",
     preferred_language: preferredLanguage,
     preferred_country: "PH",
-    auth_provider:
-      (typeof meta.auth_provider === "string" && meta.auth_provider.trim()) || "sync_from_auth",
-    updated_at: new Date().toISOString(),
+    provider: normalizedProvider,
+    auth_provider: normalizedProvider,
+    phone_country_code: "+63",
+    updated_at: nowIso,
   };
 
   const { error: upErr } = await sb.from("profiles").upsert(profilePayload, { onConflict: "id" });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import {
@@ -20,6 +21,8 @@ export async function GET(
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
   const { storeId } = await context.params;
   const id = typeof storeId === "string" ? storeId.trim() : "";
   if (!id) {
@@ -102,6 +105,10 @@ export async function POST(
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(userId);
+  if (!phone.ok) return phone.response;
   const { storeId } = await context.params;
   const sid = typeof storeId === "string" ? storeId.trim() : "";
   if (!sid) {

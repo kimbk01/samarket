@@ -6,6 +6,7 @@
  */
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -80,6 +81,12 @@ export async function GET(request: NextRequest) {
     const res = jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
     mergeAuthCookies(cookieCarrier, res);
     return res;
+  }
+
+  const session = await validateActiveSession(user.id);
+  if (!session.ok) {
+    mergeAuthCookies(cookieCarrier, session.response);
+    return session.response;
   }
 
   const res = jsonOkWithRequest(request, { authenticated: true });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -56,10 +56,13 @@ function parseItemFeedback(
  * 구매자: 완료된 주문에 대한 리뷰 1건 등록 (주문당 1회)
  */
 export async function POST(req: NextRequest) {
-  const buyerId = await getRouteUserId();
-  if (!buyerId) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAuth();
+  if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
+  const buyerId = auth.userId;
 
   let body: PostBody;
   try {

@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { enforceTradeChatCreateRoomQuota } from "@/lib/security/rate-limit-presets";
 import { resolveLegacyProductChatCreateOrGet } from "@/lib/chat-domain/use-cases/legacy-product-chat-create-or-get";
 
@@ -14,6 +15,10 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(userId);
+  if (!phone.ok) return phone.response;
 
   const createRl = await enforceTradeChatCreateRoomQuota(userId);
   if (!createRl.ok) return createRl.response;

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { touchProductChatAfterItemTradeMessage } from "@/lib/trade/touch-product-chat-from-item-trade-room";
 import { shouldBlockItemTradeMessagingForReservation } from "@/lib/trade/reserved-item-chat";
 import {
@@ -52,6 +53,11 @@ export async function GET(
   if (!auth.ok) {
     markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, auth.response.status);
     return auth.response;
+  }
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_GET_MESSAGES_ROUTE, t0, session.response.status);
+    return session.response;
   }
 
   const pageRateLimit = await enforceRateLimit({
@@ -111,6 +117,11 @@ export async function POST(
     return auth.response;
   }
   const userId = auth.userId;
+  const session = await validateActiveSession(userId);
+  if (!session.ok) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, session.response.status);
+    return session.response;
+  }
 
   const sendRateLimit = await enforceRateLimit({
     key: `trade-chat:message-send:${getRateLimitKey(req, userId)}`,

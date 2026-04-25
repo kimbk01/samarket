@@ -7,8 +7,6 @@ import {
   encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
-import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -16,7 +14,6 @@ export const dynamic = "force-dynamic";
  * 관리자 회원 수동 생성
  * - 일반 회원과 동일하게 Supabase `auth.users` + `public.profiles`(동일 PK = auth uid).
  * - `signInWithPassword`·RLS·`auth.uid()` 는 자가 가입 회원과 같은 경로로 동작.
- * - 추가: `test_users`(동일 id) — 닉·연락처 보조 조회용. 이용 권한·지위는 Google·이메일 등 자가 가입 회원과 동일.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -31,10 +28,10 @@ export async function POST(req: NextRequest) {
     password?: string;
     nickname?: string;
     email?: string;
-    role?: string;
+    name?: string;
+    accountType?: string;
     contactPhone?: string;
     contactAddress?: string;
-    phoneVerified?: boolean;
     /** LocationSelector regionId */
     regionCode?: string;
     /** LocationSelector cityId */
@@ -52,11 +49,12 @@ export async function POST(req: NextRequest) {
   const password = String(body.password ?? "");
   const nickname = String(body.nickname ?? "").trim();
   const emailRaw = String(body.email ?? "").trim().toLowerCase();
-  const roleRaw = String(body.role ?? "normal").toLowerCase();
-  const role = roleRaw === "premium" || roleRaw === "special" ? "special" : "member";
+  const name = String(body.name ?? "").trim();
+  const accountTypeRaw = String(body.accountType ?? "development_member").trim().toLowerCase();
+  const isAdminAccount = accountTypeRaw === "admin";
+  const memberType = isAdminAccount ? "admin" : "normal";
   const contactPhoneRaw = String(body.contactPhone ?? "").trim();
   const contactAddressRaw = String(body.contactAddress ?? "").trim();
-  const phoneVerified = body.phoneVerified === true;
   const regionId = String(body.regionCode ?? "").trim();
   const cityId = String(body.cityCode ?? "").trim();
   const streetIn = String(body.addressStreetLine ?? "").trim().slice(0, 500);
@@ -75,17 +73,10 @@ export async function POST(req: NextRequest) {
   const region_name = buildProfileRegionNameForStorage(regionId, cityId);
   const address_street_line = streetIn || null;
   const address_detail = detailIn || null;
-  /** test_users·어드민 상세 호환용 — 폼에서 합친 문자열이 없으면 DB 필드로 동일 규칙 재구성 */
-  const contactAddress =
-    contactAddressRaw ||
-    [
-      region_name?.trim(),
-      [address_street_line, address_detail].filter(Boolean).join(" · "),
-    ]
-      .filter(Boolean)
-      .join("\n") ||
-    null;
-  const email = emailRaw || buildManualMemberAuthEmail(username);
+  const email = emailRaw;
+  const phoneCountryCode = contactPhone ? "+63" : null;
+  const phoneNumber = contactPhone ? contactPhone.replace(/^\+63/, "") : null;
+  const nowIso = new Date().toISOString();
 
   if (!username || username.length < 2 || username.length > 64) {
     return NextResponse.json({ ok: false, error: "아이디는 2~64자로 입력하세요." }, { status: 400 });
@@ -96,8 +87,14 @@ export async function POST(req: NextRequest) {
   if (!nickname || nickname.length > 20) {
     return NextResponse.json({ ok: false, error: "닉네임은 1~20자로 입력하세요." }, { status: 400 });
   }
-  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+  if (!name || name.length > 50) {
+    return NextResponse.json({ ok: false, error: "이름은 1~50자로 입력하세요." }, { status: 400 });
+  }
+  if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     return NextResponse.json({ ok: false, error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
+  }
+  if (!["development_member", "operations_member", "admin"].includes(accountTypeRaw)) {
+    return NextResponse.json({ ok: false, error: "권한 유형이 올바르지 않습니다." }, { status: 400 });
   }
 
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
@@ -109,9 +106,12 @@ export async function POST(req: NextRequest) {
     email_confirm: true,
     user_metadata: {
       nickname,
+      full_name: name,
       username,
       login_id: username,
-      auth_provider: "manual_admin",
+      provider: "admin_manual",
+      auth_provider: "admin_manual",
+      manual_account_type: accountTypeRaw,
     },
   });
 
@@ -126,19 +126,30 @@ export async function POST(req: NextRequest) {
   const profileRow: Record<string, unknown> = {
     id,
     email,
+    auth_login_email: email,
+    display_name: nickname,
     username,
     nickname,
-    role: role === "special" ? "special" : "user",
-    member_type: role === "special" ? "premium" : "normal",
-    is_special_member: role === "special",
+    realname: name,
+    role: isAdminAccount ? "admin" : "user",
+    is_admin: isAdminAccount,
+    member_type: memberType,
+    member_status: "verified_member",
+    manual_account_type: accountTypeRaw,
+    is_special_member: false,
     phone: contactPhone,
-    phone_verified: phoneVerified,
-    phone_verification_status: phoneVerified ? "verified" : contactPhone ? "pending" : "unverified",
-    phone_verified_at: phoneVerified ? new Date().toISOString() : null,
-    phone_verification_method: phoneVerified ? "admin_manual" : null,
+    phone_country_code: phoneCountryCode,
+    phone_number: phoneNumber,
+    phone_verified: true,
+    phone_verification_status: "verified",
+    phone_verified_at: nowIso,
+    phone_verification_method: "admin_manual",
     status: "active",
     preferred_country: "PH",
-    auth_provider: "manual_admin",
+    provider: "admin_manual",
+    auth_provider: "admin_manual",
+    created_by_admin: admin.userId,
+    last_login_at: nowIso,
     region_code,
     region_name,
     address_street_line,
@@ -150,36 +161,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
   }
 
-  const testUserRow: Record<string, unknown> = {
-    id,
-    username,
-    password,
-    role,
-    display_name: nickname,
-    contact_phone: contactPhone,
-    contact_address: contactAddress,
-  };
-  const { error } = await (supabase as any).from("test_users").upsert(testUserRow);
-  if (error) {
-    await (supabase as any).from("profiles").delete().eq("id", id);
-    await supabase.auth.admin.deleteUser(id);
-    if (error.code === "23505") {
-      return NextResponse.json({ ok: false, error: "이미 사용 중인 아이디입니다." }, { status: 400 });
-    }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
   return NextResponse.json({
     ok: true,
     user: {
       id,
       username,
       nickname,
+      name,
       email,
-      role,
-      phoneVerified,
+      role: isAdminAccount ? "admin" : "user",
+      memberType,
+      accountType: accountTypeRaw,
+      phoneVerified: true,
     },
-    /** 개발·운영 확인용: 이메일이 어떤 규칙으로 정해졌는지 */
-    authEmailResolution: emailRaw ? "explicit_email" : "manual_local_default",
   });
 }

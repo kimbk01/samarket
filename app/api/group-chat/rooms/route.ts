@@ -3,6 +3,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { jsonError, parseJsonBody } from "@/lib/http/api-route";
 
@@ -12,6 +13,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

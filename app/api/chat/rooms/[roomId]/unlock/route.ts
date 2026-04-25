@@ -3,6 +3,7 @@
  * Body: { adminId? }
  */
 import { NextRequest, NextResponse } from "next/server";
+import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
@@ -37,7 +38,7 @@ export async function POST(
     .eq("id", adminId)
     .maybeSingle();
   const role = (profile as { role?: string } | null)?.role;
-  if (role !== "admin" && role !== "master") {
+  if (!isPrivilegedAdminRole(role)) {
     return NextResponse.json({ ok: false, error: "관리자만 잠금 해제할 수 있습니다." }, { status: 403 });
   }
 

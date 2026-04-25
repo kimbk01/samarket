@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest) {
   const t0 = performance.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
 
   const listRateLimit = await enforceRateLimit({
     key: `community-messenger:rooms-list:${getRateLimitKey(req, auth.userId)}`,
@@ -47,6 +50,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const createRateLimit = await enforceRateLimit({
     key: `community-messenger:room-create:${getRateLimitKey(req, auth.userId)}`,

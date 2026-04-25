@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -18,6 +19,10 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(userId);
+  if (!phone.ok) return phone.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {

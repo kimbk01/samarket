@@ -104,7 +104,7 @@ export async function GET(_req: NextRequest) {
   const list: AdminUser[] = ((rows ?? []) as ProfileRow[]).map((r) => {
     const testUser = testMap.get(r.id);
     const memberType: MemberType =
-      r.role === "admin" || r.role === "master"
+      r.role === "admin" || r.role === "master" || r.role === "super_admin"
         ? "admin"
         : r.member_type === "premium" || r.role === "special"
           ? "premium"
@@ -148,7 +148,11 @@ export async function GET(_req: NextRequest) {
     .map((row) => {
       const role = String(row.role ?? "member").trim().toLowerCase();
       const memberType: MemberType =
-        role === "admin" || role === "master" ? "admin" : role === "special" || role === "premium" ? "premium" : "normal";
+        role === "admin" || role === "master" || role === "super_admin"
+          ? "admin"
+          : role === "special" || role === "premium"
+            ? "premium"
+            : "normal";
       const loc = firstLineOfMultiline(row.contact_address) || undefined;
       return {
         id: row.id,

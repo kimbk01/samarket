@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceUserReportQuota } from "@/lib/security/rate-limit-presets";
 
@@ -17,6 +18,10 @@ const TARGET_TYPES = ["user", "product", "chat_room", "chat_message", "post", "c
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const reportRl = await enforceUserReportQuota(auth.userId, "unified");
   if (!reportRl.ok) return reportRl.response;

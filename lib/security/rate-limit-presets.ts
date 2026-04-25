@@ -39,6 +39,36 @@ export async function enforcePhoneVerificationPatchQuota(userId: string) {
   });
 }
 
+export async function enforcePhoneVerificationSendQuota(userId: string) {
+  return enforceRateLimit({
+    key: `phone_verification_send:${userId}`,
+    limit: 8,
+    windowMs: 3_600_000,
+    message: "인증번호 발송 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    code: "phone_verification_send_rate_limited",
+  });
+}
+
+export async function enforcePhoneVerificationCheckQuota(userId: string) {
+  return enforceRateLimit({
+    key: `phone_verification_check:${userId}`,
+    limit: 20,
+    windowMs: 3_600_000,
+    message: "인증번호 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    code: "phone_verification_check_rate_limited",
+  });
+}
+
+export async function enforcePasswordLoginResolveQuota(subjectKey: string) {
+  return enforceRateLimit({
+    key: `password_login_resolve:${subjectKey}`,
+    limit: 30,
+    windowMs: 60_000,
+    message: "로그인 식별자 확인 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    code: "password_login_resolve_rate_limited",
+  });
+}
+
 export async function enforceProfileEnsureQuota(userId: string) {
   return enforceRateLimit({
     key: `profile_ensure:${userId}`,

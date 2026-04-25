@@ -1,27 +1,12 @@
-/**
- * 관리자 정책 (보안·노출 판단)
- * - 허용 이메일/테스트 유저 기준 관리자 여부
- * - 실운영 시 env 또는 서버 세션으로 교체
- */
+/** 관리자 정책은 공개 env·클라이언트 저장값이 아니라 서버의 `profiles.role` 기준으로만 판단한다. */
 
-import { getTestAuth } from "@/lib/auth/test-auth-store";
-import { getPublicDeployTier } from "@/lib/config/deploy-surface";
-
-/** `AdminGuard`·관리자 API(`isRouteAdmin`)와 동일 기준 */
+/** 관리자 라우트는 모든 환경에서 서버 검증을 강제한다. */
 export function isAdminRequireAuthEnabled(): boolean {
-  const tier = getPublicDeployTier();
-  if (tier === "production" || tier === "staging") return true;
-  return (
-    typeof process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AUTH === "string" &&
-    process.env.NEXT_PUBLIC_ADMIN_REQUIRE_AUTH === "true"
-  );
+  return true;
 }
 
-/** 허용 관리자 이메일: env 우선. 실운영 시 반드시 env 설정. */
+/** 레거시 호출부 호환용. 더 이상 공개 이메일 allow-list는 사용하지 않는다. */
 export function getAllowedAdminEmails(): string[] {
-  const v = process.env.NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL;
-  if (typeof v === "string" && v.trim())
-    return v.split(",").map((e) => e.trim()).filter(Boolean);
   return [];
 }
 
@@ -31,19 +16,18 @@ export function getAllowedAdminEmails(): string[] {
  */
 /** DB·sessionStorage 등 소스별 표기 차이 대응 (Admin / ADMIN / 공백) */
 export function normalizeAdminRole(role: string | null | undefined): string {
-  return String(role ?? "").trim().toLowerCase();
+  const normalized = String(role ?? "").trim().toLowerCase();
+  if (normalized === "master") return "super_admin";
+  return normalized;
 }
 
 export function isPrivilegedAdminRole(role: string | null | undefined): boolean {
   const r = normalizeAdminRole(role);
-  return r === "admin" || r === "master";
+  return r === "admin" || r === "super_admin";
 }
 
 export function isAdminUser(
-  user: { email?: string | null; id?: string } | null
+  user: { role?: string | null } | null
 ): boolean {
-  const test = getTestAuth();
-  if (test && isPrivilegedAdminRole(test.role)) return true;
-  if (!user?.email) return false;
-  return getAllowedAdminEmails().includes(user.email);
+  return isPrivilegedAdminRole(user?.role);
 }

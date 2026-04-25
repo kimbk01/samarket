@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -163,13 +164,7 @@ export function MandatoryAddressGate() {
           >
             주소 입력하기
           </button>
-          <button
-            type="button"
-            onClick={() => router.push("/mypage/logout")}
-            className="w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-ui-muted"
-          >
-            로그아웃
-          </button>
+          <LogoutActionTrigger variant="outlined_button" />
         </div>
       </div>
     </div>

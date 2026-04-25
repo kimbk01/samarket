@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export async function POST(
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
 
   const { slug } = await context.params;
   const decoded = decodeURIComponent(slug || "").trim();

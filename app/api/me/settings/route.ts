@@ -11,9 +11,16 @@ import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isUserSettingsTableMissing(message: string): boolean {
-  const lowered = message.toLowerCase();
-  return lowered.includes("user_settings") && lowered.includes("does not exist");
+function isUserSettingsSchemaUnavailable(error: { message?: string; code?: string } | null | undefined): boolean {
+  const lowered = String(error?.message ?? "").toLowerCase();
+  if (error?.code === "42P01") return true;
+  if (error?.code === "42703" && lowered.includes("user_settings")) return true;
+  if (error?.code?.startsWith("PGRST") && lowered.includes("user_settings")) return true;
+  if (lowered.includes("user_settings") && lowered.includes("does not exist")) return true;
+  if (lowered.includes("user_settings") && lowered.includes("schema cache")) return true;
+  if (lowered.includes("user_settings") && lowered.includes("column")) return true;
+  if (lowered.includes("could not find") && lowered.includes("user_settings")) return true;
+  return false;
 }
 
 function normalizePatch(body: Record<string, unknown>): Partial<UserSettingsRow> {
@@ -92,7 +99,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    if (isUserSettingsTableMissing(error.message ?? "")) {
+    if (isUserSettingsSchemaUnavailable(error)) {
       return jsonOkWithRequest(req, { settings: baseSettings, source: "profile_fallback" });
     }
     return jsonErrorWithRequest(req, error.message ?? "settings_fetch_failed", 500);
@@ -139,11 +146,19 @@ export async function PATCH(req: NextRequest) {
     return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
   }
 
-  const { data: before } = await sb
+  const { data: before, error: beforeError } = await sb
     .from("user_settings")
     .select(USER_SETTINGS_ROW_SELECT)
     .eq("user_id", auth.userId)
     .maybeSingle();
+
+  if (beforeError && !isUserSettingsSchemaUnavailable(beforeError)) {
+    return jsonErrorWithRequest(req, beforeError.message ?? "settings_fetch_failed", 500);
+  }
+
+  if (beforeError && isUserSettingsSchemaUnavailable(beforeError)) {
+    return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+  }
 
   const nextRow = {
     ...(before ?? baseSettings),
@@ -159,7 +174,7 @@ export async function PATCH(req: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    if (isUserSettingsTableMissing(error.message ?? "")) {
+    if (isUserSettingsSchemaUnavailable(error)) {
       return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
     }
     return jsonErrorWithRequest(req, error.message ?? "settings_update_failed", 500);

@@ -133,7 +133,7 @@ export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
   const recentUsers: RecentUser[] = users.map((u) => {
     const role = String(u.role ?? "");
     const memberType: RecentUser["memberType"] =
-      role === "admin" || role === "master"
+      role === "admin" || role === "master" || role === "super_admin"
         ? "admin"
         : role === "special" || role === "premium"
           ? "premium"

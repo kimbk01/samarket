@@ -1,11 +1,12 @@
 "use client";
 
+import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import type { Profile } from "@/lib/types/profile";
 import {
-  PHONE_VERIFICATION_REQUIRED_MESSAGE,
   bypassesPhilippinePhoneVerificationGate,
 } from "@/lib/auth/member-access";
+import { hasStoreTermsConsent, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -30,6 +31,11 @@ export function buildPhoneVerificationHref(next?: string): string {
   return `/my/account/phone-verification?next=${encodeURIComponent(target)}`;
 }
 
+export function buildConsentHref(next?: string): string {
+  const target = next?.trim() || currentHrefFallback();
+  return `/auth/consent?next=${encodeURIComponent(target)}`;
+}
+
 export function isLoginRequiredError(error: string | null | undefined): boolean {
   const msg = String(error ?? "").toLowerCase();
   return msg.includes("로그인이 필요") || msg.includes("unauthorized");
@@ -38,10 +44,20 @@ export function isLoginRequiredError(error: string | null | undefined): boolean 
 export function isPhoneVerificationRequiredError(error: string | null | undefined): boolean {
   const msg = String(error ?? "");
   return (
-    msg.includes(PHONE_VERIFICATION_REQUIRED_MESSAGE) ||
+    msg.includes(STORE_PHONE_GATE_MESSAGE) ||
     (msg.includes("전화번호") && msg.includes("인증")) ||
     (msg.includes("필리핀") && msg.includes("인증"))
   );
+}
+
+export function isSessionReplacedError(error: string | null | undefined): boolean {
+  const msg = String(error ?? "");
+  return msg.includes(SESSION_REPLACED_CODE) || msg.includes(SESSION_REPLACED_MESSAGE);
+}
+
+function confirmMove(message: string): boolean {
+  if (typeof window === "undefined") return true;
+  return window.confirm(message);
 }
 
 export function redirectForBlockedAction(
@@ -50,11 +66,15 @@ export function redirectForBlockedAction(
   next?: string
 ): boolean {
   if (isLoginRequiredError(error)) {
-    router.push(buildLoginHref(next));
+    if (confirmMove("로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?")) {
+      router.push(buildLoginHref(next));
+    }
     return true;
   }
   if (isPhoneVerificationRequiredError(error)) {
-    router.push(buildPhoneVerificationHref(next));
+    if (confirmMove("정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.\n인증 화면으로 이동하시겠습니까?")) {
+      router.push(buildPhoneVerificationHref(next));
+    }
     return true;
   }
   return false;
@@ -66,19 +86,30 @@ export function ensureClientAccessOrRedirect(
   next?: string
 ): boolean {
   if (!user?.id) {
-    router.replace?.(buildLoginHref(next)) ?? router.push(buildLoginHref(next));
+    if (confirmMove("로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?")) {
+      router.replace?.(buildLoginHref(next)) ?? router.push(buildLoginHref(next));
+    }
     return false;
   }
-  if (user.phone_verified === false) {
+  if (!hasStoreTermsConsent(user)) {
+    if (confirmMove("서비스 이용약관과 개인정보처리방침 동의가 필요합니다.\n동의 화면으로 이동하시겠습니까?")) {
+      router.replace?.(buildConsentHref(next)) ?? router.push(buildConsentHref(next));
+    }
+    return false;
+  }
+  const phoneVerified = user.phone_verified === true || Boolean(user.phone_verified_at);
+  if (!phoneVerified) {
     if (
       !bypassesPhilippinePhoneVerificationGate({
         role: user.role,
         phone_verified: false,
-        auth_provider: user.auth_provider,
+        auth_provider: user.provider ?? user.auth_provider,
         email: user.email,
       })
     ) {
-      router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
+      if (confirmMove("정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.\n인증 화면으로 이동하시겠습니까?")) {
+        router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
+      }
       return false;
     }
   }

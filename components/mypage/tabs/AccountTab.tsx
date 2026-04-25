@@ -1,4 +1,5 @@
 import { UserListContent } from "@/components/my/settings/UserListContent";
+import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
@@ -29,8 +30,8 @@ export function AccountTab({
   storeAttentionSummary,
 }: Props & { section: string }) {
   const contactFormal = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified,
-    auth_provider: profile.auth_provider,
+    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
+    auth_provider: profile.provider ?? profile.auth_provider,
     email: profile.email,
   });
 
@@ -76,17 +77,16 @@ export function AccountTab({
             { label: "계정 상세", href: "/mypage/account", caption: "내 계정 정보 확인" },
             { label: "프로필 수정", href: MYPAGE_PROFILE_EDIT_HREF, caption: "기본 프로필 편집" },
             {
-              label: "로그아웃",
-              href: buildMypageItemHref("settings", "logout"),
-              caption: "설정에서 처리",
-            },
-            {
               label: "탈퇴하기",
               href: buildMypageItemHref("settings", "leave"),
               caption: "설정에서 처리",
             },
           ]}
         />
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="mb-3 sam-text-helper text-sam-muted">로그아웃을 누르면 확인 팝업에서 바로 종료됩니다.</p>
+          <LogoutContent />
+        </div>
       </div>
     );
   }

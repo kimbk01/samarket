@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
 import { invalidatePostFavoriteServerCachesForViewer } from "@/lib/posts/invalidate-post-favorite-server-caches";
@@ -40,6 +41,10 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(userId);
+  if (!phone.ok) return phone.response;
 
   const favRl = await enforceFavoriteToggleQuota(userId);
   if (!favRl.ok) return favRl.response;

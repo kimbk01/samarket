@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 type Props = {
-  href: string;
+  href?: string;
   title: string;
   icon?: ReactNode;
   /** 오른쪽 보조 텍스트(배지 등) */
@@ -16,6 +16,7 @@ type Props = {
    * `grouped` — 섹션 설정 등 단일 박스 안 행(하단 보더).
    */
   surface?: "card" | "grouped";
+  onClick?: () => void;
 };
 
 export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
@@ -25,6 +26,7 @@ export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
   accessory,
   tone = "default",
   surface = "grouped",
+  onClick,
 }: Props) {
   const titleClass =
     tone === "danger"
@@ -33,16 +35,30 @@ export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
 
   const surfaceClass =
     surface === "card"
-      ? `${PHILIFE_FB_CARD_CLASS} flex min-h-[56px] w-full min-w-0 items-center gap-3 sam-card-pad transition-colors active:bg-sam-surface-muted`
-      : "flex min-h-[56px] w-full min-w-0 items-center gap-3 border-b border-sam-border-soft bg-sam-surface sam-card-pad-x py-3 last:border-b-0 active:bg-sam-app";
+      ? `${PHILIFE_FB_CARD_CLASS} flex min-h-[56px] w-full min-w-0 items-center gap-3 sam-card-pad transition duration-100 active:scale-[0.99] active:bg-sam-surface-muted`
+      : "flex min-h-[56px] w-full min-w-0 items-center gap-3 border-b border-sam-border-soft bg-sam-surface sam-card-pad-x py-3 last:border-b-0 transition duration-100 active:scale-[0.99] active:bg-sam-app";
 
-  return (
-    <Link href={href} className={surfaceClass}>
+  const inner = (
+    <>
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center text-sam-muted">{icon}</span> : null}
       <span className={titleClass}>{title}</span>
       {accessory ? <span className="shrink-0 sam-text-body-secondary text-sam-muted">{accessory}</span> : null}
       <Chevron />
-    </Link>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={surfaceClass}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={surfaceClass}>
+      {inner}
+    </button>
   );
 });
 

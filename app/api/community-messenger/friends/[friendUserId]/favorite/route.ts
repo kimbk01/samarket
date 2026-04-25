@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { toggleCommunityMessengerFavoriteFriend } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -12,6 +13,10 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:friend-favorite-toggle:${getRateLimitKey(req, auth.userId)}`,

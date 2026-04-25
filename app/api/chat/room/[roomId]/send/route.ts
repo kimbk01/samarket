@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { safeErrorMessage } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import {
   ADMIN_CHAT_SUSPENDED_MESSAGE,
   fetchItemTradeAdminSuspended,
@@ -35,6 +36,8 @@ export async function POST(
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
+  const session = await validateActiveSession(userId);
+  if (!session.ok) return session.response;
 
   const sendRl = await enforceTradeChatSendQuota(userId, roomId);
   if (!sendRl.ok) return sendRl.response;

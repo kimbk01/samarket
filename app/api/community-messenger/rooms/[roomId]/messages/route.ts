@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -32,6 +33,8 @@ export async function GET(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:message-page:${getRateLimitKey(req, auth.userId)}`,
@@ -120,6 +123,10 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const [parsed, routeParams, rateLimit] = await Promise.all([
     parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),

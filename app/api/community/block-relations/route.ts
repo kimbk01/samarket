@@ -3,6 +3,7 @@ import {
   requireAuthenticatedUserId,
   requireAuthenticatedUserIdStrict,
 } from "@/lib/auth/api-session";
+import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
 
@@ -15,6 +16,8 @@ const SAMPLE_AUTHOR_ID = "00000000-0000-4000-8000-000000000001";
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
 
   const target = req.nextUrl.searchParams.get("targetUserId")?.trim() ?? "";
   if (!target || target === auth.userId) {
@@ -55,6 +58,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
+  const session = await validateActiveSession(auth.userId);
+  if (!session.ok) return session.response;
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   let body: { targetUserId?: string };
   try {

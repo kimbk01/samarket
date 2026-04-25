@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
+import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
@@ -129,6 +130,7 @@ export function MainAppProviderTree({
       <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
       <AppWideRuntimePerfHooks />
       <SessionLostRedirect />
+      <AuthComplianceRedirect />
       <MessengerBootstrapEarlyWarm />
       <OwnerHubBadgeRuntime />
       <MandatoryAddressGate />

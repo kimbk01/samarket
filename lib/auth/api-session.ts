@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { readKasamaDevUserIdFromRequest } from "@/lib/auth/kasama-session-cookies";
 import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
-import { allowKasamaDevSession, isProductionDeploy } from "@/lib/config/deploy-surface";
 import { jsonError } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
@@ -20,18 +18,11 @@ function inflightKeyFromCookieHeader(cookieHeader: string): string {
 }
 
 /**
- * Supabase 세션(쿠키) 또는 아이디 로그인(test_users) 쿠키에서 사용자 ID.
+ * Supabase 세션(쿠키)에서 사용자 ID.
  * 요청 본문/쿼리의 userId는 신뢰하지 않음.
- * Kasama: production 이 아니고 `allowKasamaDevSession()` 일 때만 인정 — `proxy.ts`·`getRouteUserId` 와 동일.
- *
  * JWT 식별은 `resolveRouteHandlerUserIdFromSupabase` — `getClaims()` 로컬 검증 우선, 필요 시만 `getUser()`.
  */
 export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
-  if (!isProductionDeploy() && allowKasamaDevSession()) {
-    const kasama = await readKasamaDevUserIdFromRequest();
-    if (kasama) return kasama;
-  }
-
   let cookieHeader = "";
   try {
     cookieHeader = (await headers()).get("cookie") ?? "";

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { ensureMessengerRoomIdForItemTrade } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const buyerId = auth.userId;
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
 
   const sb = resolveServiceSupabaseForApi();
   if (!sb) {

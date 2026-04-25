@@ -1,10 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { KASAMA_DEV_UID_COOKIE, KASAMA_DEV_UID_PUB_COOKIE } from "@/lib/auth/dev-session-cookie";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
-import { allowKasamaDevSession } from "@/lib/config/deploy-surface";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
-import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 /**
  * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
@@ -20,6 +17,9 @@ function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname.startsWith("/login/")) return true;
   if (pathname === "/signup" || pathname.startsWith("/signup/")) return true;
   if (pathname.startsWith("/auth/")) return true;
+  if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
+  if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
+  if (pathname === "/account/delete-request" || pathname.startsWith("/account/delete-request/")) return true;
   return false;
 }
 
@@ -40,13 +40,6 @@ function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
     if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) return true;
   }
   return false;
-}
-
-function requestHasKasamaDevAuthCookies(request: NextRequest): boolean {
-  const primary = request.cookies.get(KASAMA_DEV_UID_COOKIE)?.value?.trim();
-  if (primary && isUuidLikeString(primary)) return true;
-  const mirrored = request.cookies.get(KASAMA_DEV_UID_PUB_COOKIE)?.value?.trim();
-  return Boolean(mirrored && isUuidLikeString(mirrored));
 }
 
 /** HTML 문서가 브라우저(웨일 등) 디스크 캐시에 오래 머물며 “예전처럼 로그인 없이 보임”으로 보이는 일 완화 */
@@ -80,7 +73,7 @@ export async function proxy(request: NextRequest) {
 
   if (pathname === "/test-signup" || pathname.startsWith("/test-signup/")) {
     const u = request.nextUrl.clone();
-    u.pathname = "/signup";
+    u.pathname = "/login";
     u.search = "";
     return NextResponse.redirect(u, 308);
   }
@@ -96,18 +89,6 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isPublicPath(pathname)) {
-    return preventAuthPageCache(NextResponse.next());
-  }
-
-  if (allowKasamaDevSession() && requestHasKasamaDevAuthCookies(request)) {
-    /**
-     * 운영·스테이징(`isAdminRequireAuthEnabled`)에서는 `/admin` 에 **Supabase 세션**을 요구한다.
-     * Kasama 쿠키만으로 HTML 을 통과시키면 레이아웃·API 전에 프록시가 끝나 JWT 검증이 생략될 수 있어,
-     * 관리자 화면은 실제 로그인( `sb-*-auth-token` ) 경로로만 진입하게 맞춘다.
-     */
-    if (isAdminPath(pathname) && isAdminRequireAuthEnabled() && !requestHasSupabaseAuthCookies(request)) {
-      return redirectToLogin(request);
-    }
     return preventAuthPageCache(NextResponse.next());
   }
 

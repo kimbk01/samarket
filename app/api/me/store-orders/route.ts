@@ -6,6 +6,7 @@ import { notifyStoreOwnerNewOrder } from "@/lib/notifications/notify-store-comme
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
@@ -95,6 +96,8 @@ export async function GET(req: NextRequest) {
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -275,6 +278,8 @@ export async function POST(req: NextRequest) {
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const session = await validateActiveSession(buyerId);
+  if (!session.ok) return session.response;
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {

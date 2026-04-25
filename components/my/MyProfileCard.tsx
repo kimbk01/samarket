@@ -20,7 +20,7 @@ export type AddressDefaultsFlags = {
 } | null;
 
 function getMemberTypeLabel(profile: ProfileRow): string {
-  if (profile.role === "admin" || profile.role === "master") return "관리자";
+  if (profile.role === "admin" || profile.role === "super_admin") return "관리자";
   if (profile.is_special_member) return "특별회원";
   return "일반회원";
 }
@@ -61,8 +61,8 @@ export function MyProfileCard({
     if (!addressDefaults.delivery) chips.push({ key: "delivery", label: tt("배달 주소 미설정"), warn: true });
   }
   const contactFormal = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified,
-    auth_provider: profile.auth_provider,
+    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
+    auth_provider: profile.provider ?? profile.auth_provider,
     email: profile.email,
   });
   if (!contactFormal) {

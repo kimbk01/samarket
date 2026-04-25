@@ -36,15 +36,19 @@ export function userToProfile(user: User | null | undefined): Profile | null {
   const metaPic = typeof meta?.picture === "string" ? meta.picture : null;
   const metaAvatar = typeof meta?.avatar_url === "string" ? meta.avatar_url : null;
   const authProv =
-    typeof meta?.auth_provider === "string" && meta.auth_provider.trim()
-      ? meta.auth_provider.trim()
+    typeof meta?.provider === "string" && meta.provider.trim()
+      ? meta.provider.trim()
+      : typeof meta?.auth_provider === "string" && meta.auth_provider.trim()
+        ? meta.auth_provider.trim()
       : null;
   return {
     id: user.id,
     email: user.email ?? "",
+    display_name: nick,
     nickname: nick,
     avatar_url: metaAvatar || metaPic || null,
     temperature: 50,
+    provider: authProv,
     auth_provider: authProv,
   };
 }

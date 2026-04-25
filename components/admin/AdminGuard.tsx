@@ -1,10 +1,8 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
-import { getTestAuth, TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { getAllowedAdminEmails, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 async function fetchServerAdminAccess(): Promise<boolean> {
   try {
@@ -18,9 +16,8 @@ async function fetchServerAdminAccess(): Promise<boolean> {
 
 /**
  * 관리자 영역 접근 제어
- * - 서버 `/api/admin/access-check`(`isRouteAdmin`)과 동일 — 로그인만으로는 통과하지 않음
- * - 허용 이메일(NEXT_PUBLIC_ADMIN_ALLOWED_EMAIL) + Supabase 세션
- * - sessionStorage 테스트 역할(admin/master) — 표기 정규화
+ * - 서버 `/api/admin/access-check` 기준으로만 허용한다.
+ * - 클라이언트 캐시/공개 env/테스트 세션으로 관리자 판정하지 않는다.
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
   const [allowed, setAllowed] = useState(false);
@@ -30,30 +27,6 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const run = async () => {
-      const test = getTestAuth();
-      if (test && isPrivilegedAdminRole(test.role)) {
-        if (!cancelled) {
-          setAllowed(true);
-          setChecking(false);
-        }
-        return;
-      }
-
-      const supabase = getSupabaseClient();
-      if (supabase) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        const allowedEmails = getAllowedAdminEmails();
-        if (user?.email && allowedEmails.includes(user.email)) {
-          if (!cancelled) {
-            setAllowed(true);
-            setChecking(false);
-          }
-          return;
-        }
-      }
-
       const serverOk = await fetchServerAdminAccess();
       if (!cancelled) {
         setAllowed(serverOk);
@@ -62,16 +35,6 @@ export function AdminGuard({ children }: { children: ReactNode }) {
     };
 
     void run();
-
-    const onTestAuth = () => {
-      if (!cancelled) {
-        setChecking(true);
-        void run();
-      }
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
-    }
 
     const supabase = getSupabaseClient();
     let unsubAuth: () => void = () => {};
@@ -87,9 +50,6 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 
     return () => {
       cancelled = true;
-      if (typeof window !== "undefined") {
-        window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onTestAuth);
-      }
       unsubAuth();
     };
   }, []);

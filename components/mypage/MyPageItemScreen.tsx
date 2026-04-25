@@ -8,10 +8,10 @@ import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsConten
 import { CountrySettingsContent } from "@/components/my/settings/CountrySettingsContent";
 import { LanguageSettingsContent } from "@/components/my/settings/LanguageSettingsContent";
 import { LeaveContent } from "@/components/my/settings/LeaveContent";
-import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { NoticesContent } from "@/components/my/settings/NoticesContent";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { PersonalizationContent } from "@/components/my/settings/PersonalizationContent";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
@@ -182,8 +182,8 @@ export function MyPageItemScreen(
       return (
         <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body leading-6 text-sam-fg">
           <p>서비스 이용 약관·운영 정책은 회원가입 시 동의한 내용을 따릅니다.</p>
-          <Link href="/signup" className="sam-text-body font-medium text-sam-fg underline">
-            회원가입 화면에서 약관 다시 보기
+          <Link href="/terms" className="sam-text-body font-medium text-sam-fg underline">
+            이용약관 다시 보기
           </Link>
         </div>
       );
@@ -192,7 +192,12 @@ export function MyPageItemScreen(
       return <VersionContent />;
     }
     if (item === "logout") {
-      return <LogoutContent />;
+      return (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <p className="mb-3 sam-text-helper text-sam-muted">현재 로그인된 계정에서 바로 로그아웃할 수 있습니다.</p>
+          <LogoutActionTrigger autoOpen />
+        </div>
+      );
     }
     if (item === "leave") {
       return <LeaveContent />;
