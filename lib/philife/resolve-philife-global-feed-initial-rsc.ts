@@ -31,11 +31,7 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
   viewerUserId: string | null,
   input?: { category?: string; sort?: string }
 ): Promise<PhilifeGlobalFeedInitialRsc> {
-  const topics = await loadPhilifeDefaultSectionTopics();
   const category = input?.category?.trim().toLowerCase() ?? "";
-  if (category && !isPhilifeFeedCategorySlugAllowedByTopics(topics, category)) {
-    throw new Error("invalid_category");
-  }
   const sortRaw = input?.sort?.trim() ?? "";
   const feedSort: "latest" | "popular" | "recommended" = (() => {
     if (!category) {
@@ -64,8 +60,12 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
     String(feedSort),
   ].join(":");
 
-  const listResult = await runSingleFlight(listQueryKey, async () =>
-    listNeighborhoodFeed({
+  const listResult = await runSingleFlight(listQueryKey, async () => {
+    const topics = await loadPhilifeDefaultSectionTopics();
+    if (category && !isPhilifeFeedCategorySlugAllowedByTopics(topics, category)) {
+      throw new Error("invalid_category");
+    }
+    return listNeighborhoodFeed({
       allLocations: true,
       ...(category ? { category } : {}),
       offset,
@@ -74,8 +74,8 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
       neighborOnly: false,
       feedSort,
       topics,
-    })
-  );
+    });
+  });
   const { posts, hasMore, pagingOffsetAdvance } = listResult;
   return {
     viewerKey,

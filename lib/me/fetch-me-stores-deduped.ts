@@ -31,9 +31,10 @@ export function fetchMeStoresListDeduped(): Promise<MeStoresListResult> {
   if (cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }
-  return runSingleFlight(FLIGHT_KEY, async (): Promise<MeStoresListResult> => {
-    const res = await fetch("/api/me/stores", { credentials: "include", cache: "no-store" });
-    const json: unknown = await res.json().catch(() => ({}));
+  return runSingleFlight(FLIGHT_KEY, () =>
+    fetch("/api/me/stores", { credentials: "include", cache: "no-store" })
+  ).then(async (res): Promise<MeStoresListResult> => {
+    const json: unknown = await res.clone().json().catch(() => ({}));
     const result = { status: res.status, json };
     if (res.ok || res.status === 401 || res.status === 503) {
       cached = { value: result, expiresAt: Date.now() + TTL_MS };

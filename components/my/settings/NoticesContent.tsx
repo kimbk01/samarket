@@ -31,7 +31,7 @@ export function NoticesContent() {
             cache: "no-store",
           })
         );
-        const json = (await res.json().catch(() => ({}))) as {
+        const json = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
           notices?: NoticeItem[];
           error?: string;

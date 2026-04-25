@@ -15,6 +15,7 @@ function readSession(): CommunityMessengerBootstrap | null {
       sessionStorage.removeItem(SS_KEY);
       return null;
     }
+    memoryCache = { data: parsed.data, at: parsed.at };
     return parsed.data;
   } catch {
     return null;

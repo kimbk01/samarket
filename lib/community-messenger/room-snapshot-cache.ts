@@ -152,6 +152,9 @@ export function invalidateRoomSnapshot(roomId: string): void {
   for (const k of Array.from(entries.keys())) {
     if (k.endsWith(suffix)) entries.delete(k);
   }
+  for (const k of Array.from(hotEntries.keys())) {
+    if (k.endsWith(suffix)) hotEntries.delete(k);
+  }
 }
 
 export function seedRoomSnapshotFromSummary(args: {

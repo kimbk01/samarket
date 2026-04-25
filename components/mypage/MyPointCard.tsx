@@ -13,7 +13,7 @@ export function MyPointCard() {
         const r = await runSingleFlight("me:points:get", () =>
           fetch("/api/me/points", { cache: "no-store" })
         );
-        const j = (await r.json()) as { balance?: number };
+        const j = (await r.clone().json()) as { balance?: number };
         if (typeof j.balance === "number") setBalance(j.balance);
       } catch {
         /* ignore */

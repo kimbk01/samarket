@@ -53,14 +53,14 @@ export async function fetchPostBuyerChats(postId: string): Promise<TradeBuyerCha
   if (isOfflineMockPostId(id)) {
     return { items: [], postStatus: "active", sellerListingState: null, reservedBuyerId: null };
   }
-  return runSingleFlight(`trade:post-buyer-chats:${id}`, async () => {
-    const res = await fetch(`/api/my/post-buyer-chats?postId=${encodeURIComponent(id)}`);
-    const data = (await res.json().catch(() => ({}))) as TradeBuyerChatsPayload;
-    if (!res.ok || data.error) {
-      return { ...data, error: data.error ?? "목록을 불러오지 못했습니다." };
-    }
-    return data;
-  });
+  const res = await runSingleFlight(`trade:post-buyer-chats:${id}`, () =>
+    fetch(`/api/my/post-buyer-chats?postId=${encodeURIComponent(id)}`)
+  );
+  const data = (await res.clone().json().catch(() => ({}))) as TradeBuyerChatsPayload;
+  if (!res.ok || data.error) {
+    return { ...data, error: data.error ?? "목록을 불러오지 못했습니다." };
+  }
+  return data;
 }
 
 export async function postSellerListingStateRequest(

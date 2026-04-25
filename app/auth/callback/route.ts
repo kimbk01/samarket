@@ -9,6 +9,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const dynamic = "force-dynamic";
 
 const SIGNUP_NICKNAME_COOKIE = "samarket_signup_nickname";
+const ENSURE_PROFILE_SOFT_TIMEOUT_MS = 180;
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -96,7 +97,10 @@ export async function GET(req: NextRequest) {
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
       try {
-        await ensureAuthProfileRow(serviceSb, mergedUser);
+        await Promise.race([
+          ensureAuthProfileRow(serviceSb, mergedUser),
+          new Promise<void>((resolve) => setTimeout(resolve, ENSURE_PROFILE_SOFT_TIMEOUT_MS)),
+        ]);
       } catch {
         /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
       }

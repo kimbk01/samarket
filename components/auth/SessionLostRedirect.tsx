@@ -61,32 +61,34 @@ export function SessionLostRedirect() {
     if (!force && now - lastCheckAtRef.current < SESSION_CHECK_COOLDOWN_MS) return;
     lastCheckAtRef.current = now;
 
-    await runSingleFlight(SESSION_CHECK_FLIGHT, async () => {
-      try {
-        for (let attempt = 0; attempt < SESSION_UNAUTH_MAX_ATTEMPTS; attempt++) {
-          const res = await fetchAuthSessionNoStore();
-          if (res.ok) return;
-          if (res.status >= 500 || res.status === 429) return;
-          if (res.status === 403) return;
-          if (res.status !== 401) return;
+    await runSingleFlight(SESSION_CHECK_FLIGHT, () =>
+      (async (): Promise<void> => {
+        try {
+          for (let attempt = 0; attempt < SESSION_UNAUTH_MAX_ATTEMPTS; attempt++) {
+            const res = await fetchAuthSessionNoStore();
+            if (res.ok) return;
+            if (res.status >= 500 || res.status === 429) return;
+            if (res.status === 403) return;
+            if (res.status !== 401) return;
 
-          if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
-            const sb = getSupabaseClient();
-            try {
-              await sb?.auth.refreshSession();
-            } catch {
-              /* ignore */
+            if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
+              const sb = getSupabaseClient();
+              try {
+                await sb?.auth.refreshSession();
+              } catch {
+                /* ignore */
+              }
+              await new Promise((r) => setTimeout(r, 280 + attempt * 120));
+              continue;
             }
-            await new Promise((r) => setTimeout(r, 280 + attempt * 120));
-            continue;
+            /** 여기까지 401이면 네트워크·레이스·부하 가능성이 큼 — `signOut`·로그인 강제 이동 금지 */
+            return;
           }
-          /** 여기까지 401이면 네트워크·레이스·부하 가능성이 큼 — `signOut`·로그인 강제 이동 금지 */
-          return;
+        } catch {
+          /** 네트워크 끊김 등 */
         }
-      } catch {
-        /** 네트워크 끊김 등 */
-      }
-    });
+      })()
+    );
   }, []);
 
   useLayoutEffect(() => {

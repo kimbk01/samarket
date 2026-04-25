@@ -19,6 +19,7 @@ import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarke
 
 /** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
 let profileEnsureInFlight: Promise<Response> | null = null;
+let profileHydrateInFlight: Promise<void> | null = null;
 
 function fetchProfileEnsureDeduped(): Promise<Response> {
   if (!profileEnsureInFlight) {
@@ -110,6 +111,15 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
   }
 }
 
+function hydrateProfileCacheFromSessionDeduped(sb: SupabaseClient): Promise<void> {
+  if (!profileHydrateInFlight) {
+    profileHydrateInFlight = hydrateProfileCacheFromSession(sb).finally(() => {
+      profileHydrateInFlight = null;
+    });
+  }
+  return profileHydrateInFlight;
+}
+
 /**
  * Supabase 브라우저 세션을 프로필 캐시에 반영하고, 기존 화면이 listen 하는 이벤트로 갱신을 트리거.
  */
@@ -125,12 +135,12 @@ export function SupabaseAuthSync() {
     let initialHydrateCancel: (() => void) | null = null;
     if (typeof requestAnimationFrame === "function" && typeof cancelAnimationFrame === "function") {
       const rafId = requestAnimationFrame(() => {
-        void hydrateProfileCacheFromSession(sb);
+        void hydrateProfileCacheFromSessionDeduped(sb);
       });
       initialHydrateCancel = () => cancelAnimationFrame(rafId);
     } else {
       const idleId = scheduleWhenBrowserIdle(() => {
-        void hydrateProfileCacheFromSession(sb);
+        void hydrateProfileCacheFromSessionDeduped(sb);
       }, 240);
       initialHydrateCancel = () => cancelScheduledWhenBrowserIdle(idleId);
     }
@@ -147,7 +157,7 @@ export function SupabaseAuthSync() {
       }
       /** 이전 탭·401 캐시 등으로 GET /api/me/profile 이 오래된 결과를 쓰지 않도록 */
       invalidateMeProfileDedupedCache();
-      void hydrateProfileCacheFromSession(sb);
+      void hydrateProfileCacheFromSessionDeduped(sb);
     });
 
     return () => {

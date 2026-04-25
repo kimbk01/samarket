@@ -10,11 +10,9 @@ type PhilifePageProps = {
  * RSC: 현재 URL 주제·정렬과 동일한 `neighborhoodFeed` 1회 시드 — 클라 첫 GET 과 경합/이중 요청을 줄인다.
  */
 export default async function PhilifePage({ searchParams }: PhilifePageProps) {
-  const sp = await searchParams;
+  const [sp, viewerUserId] = await Promise.all([searchParams, getOptionalAuthenticatedUserId()]);
   const category = typeof sp.category === "string" ? sp.category.trim() : "";
   const sort = typeof sp.sort === "string" ? sp.sort.trim() : "";
-
-  const viewerUserId = await getOptionalAuthenticatedUserId();
   let initialGlobalFeed = null;
   try {
     initialGlobalFeed = await resolvePhilifeGlobalFeedInitialForRsc(viewerUserId, { category, sort });

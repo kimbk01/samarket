@@ -9,12 +9,13 @@ export type AdminOrderChatRoomsResult = {
 export function fetchAdminOrderChatRoomsDeduped(limit = 100): Promise<AdminOrderChatRoomsResult> {
   const lim = Math.min(300, Math.max(1, limit));
   const key = `admin:order-chat:rooms:${lim}`;
-  return runSingleFlight(key, async (): Promise<AdminOrderChatRoomsResult> => {
-    const res = await fetch(`/api/admin/order-chat/rooms?limit=${lim}`, {
+  return runSingleFlight(key, () =>
+    fetch(`/api/admin/order-chat/rooms?limit=${lim}`, {
       credentials: "include",
       cache: "no-store",
-    });
-    const json: unknown = await res.json().catch(() => ({}));
+    })
+  ).then(async (res): Promise<AdminOrderChatRoomsResult> => {
+    const json: unknown = await res.clone().json().catch(() => ({}));
     return { status: res.status, json };
   });
 }

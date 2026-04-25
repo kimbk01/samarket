@@ -30,6 +30,9 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 
+const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
+let lastStaleCacheResumeSilentRefreshAt = 0;
+
 export type UseCommunityMessengerHomeBootstrapArgs = {
   initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
   /** 언어 전환 시 effect 재실행 없이 최신 번역만 쓰기 위한 ref */
@@ -416,8 +419,15 @@ export function useCommunityMessengerHomeBootstrap({
     }
     const stale = peekBootstrapCache();
     if (stale) {
-      /* 예열·캐시 히트가 늘면서 420ms 는 첫 목록 체감만 지연 — 짧은 idle 로 사일런트 sync 만 미룬다 */
+      /**
+       * 세션 복원 직후 재진입이 짧은 간격으로 반복될 때 stale hit마다 silent sync GET을 다시 열지 않게 한다.
+       * 같은 탭에서 최근 silent sync를 이미 예약/실행했다면 이번 라운드는 캐시만 사용한다.
+       */
+      if (Date.now() - lastStaleCacheResumeSilentRefreshAt < STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS) {
+        return;
+      }
       const idleId = scheduleWhenBrowserIdle(() => {
+        lastStaleCacheResumeSilentRefreshAt = Date.now();
         void refreshRef.current(true);
       }, 100);
       return () => {

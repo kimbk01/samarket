@@ -35,7 +35,7 @@ export function MyPointsView() {
     setLoading(true);
     try {
       const res = await runSingleFlight("me:points:get", () => fetch("/api/me/points", { cache: "no-store" }));
-      const j = (await res.json()) as {
+      const j = (await res.clone().json()) as {
         balance?: number;
         ledger?: PointLedgerEntry[];
         chargeRequests?: PointChargeRequest[];

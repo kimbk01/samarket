@@ -12,14 +12,14 @@ export async function fetchOrderChatGetDeduped(
 ): Promise<{ status: number; json: unknown }> {
   const oid = orderId.trim();
   if (!oid) return { status: 400, json: {} };
-  return runSingleFlight(orderChatGetFlightKey(oid), async () => {
-    const res = await fetch(`/api/order-chat/orders/${encodeURIComponent(oid)}`, {
+  const res = await runSingleFlight(orderChatGetFlightKey(oid), () =>
+    fetch(`/api/order-chat/orders/${encodeURIComponent(oid)}`, {
       credentials: "include",
       cache: "no-store",
-    });
-    const json: unknown = await res.json().catch(() => ({}));
-    return { status: res.status, json };
-  });
+    })
+  );
+  const json: unknown = await res.clone().json().catch(() => ({}));
+  return { status: res.status, json };
 }
 
 export function forgetOrderChatGetDeduped(orderId: string): void {

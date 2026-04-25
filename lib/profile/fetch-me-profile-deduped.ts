@@ -37,9 +37,10 @@ export function fetchMeProfileDeduped(): Promise<MeProfileGetResult> {
   if (cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }
-  return runSingleFlight(FLIGHT_KEY, async (): Promise<MeProfileGetResult> => {
-    const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
-    const json: unknown = await res.json().catch(() => ({}));
+  return runSingleFlight(FLIGHT_KEY, () =>
+    fetch("/api/me/profile", { credentials: "include", cache: "no-store" })
+  ).then(async (res): Promise<MeProfileGetResult> => {
+    const json: unknown = await res.clone().json().catch(() => ({}));
     const result: MeProfileGetResult = { status: res.status, json };
     if (res.ok || res.status === 401 || res.status === 403) {
       cached = { value: result, expiresAt: Date.now() + TTL_MS };

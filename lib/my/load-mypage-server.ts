@@ -12,6 +12,8 @@ import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } f
 import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
 import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
 
+const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
+
 function isAdminEmailForServer(email: string | null | undefined): boolean {
   const e = email?.trim();
   if (!e) return false;
@@ -20,6 +22,10 @@ function isAdminEmailForServer(email: string | null | undefined): boolean {
 
 /** 프로필·CMS·매장 보유 + `loadMypageHubExtrasServer` 용 라우트 user id */
 type MypageCoreInternal = Omit<MyPageData, "hubServerExtras" | "homeDashboardCounts"> & { viewerIdForHub: string };
+
+function defaultCmsPack(): [MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]] {
+  return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
+}
 
 const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> => {
   const userId = await getRouteUserId();
@@ -65,11 +71,23 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
       if (sectionsRes.data?.length) sections = sectionsRes.data as MyPageSectionRow[];
       return [banner, services, sections];
     } catch {
-      return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
+      return defaultCmsPack();
+    }
+  };
+  const loadCmsPackWithTimeout = async (): Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]> => {
+    try {
+      return await Promise.race([
+        loadCmsPack(),
+        new Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]>((resolve) => {
+          setTimeout(() => resolve(defaultCmsPack()), MYPAGE_CMS_PACK_TIMEOUT_MS);
+        }),
+      ]);
+    } catch {
+      return defaultCmsPack();
     }
   };
 
-  const cmsPackPromise = loadCmsPack();
+  const cmsPackPromise = loadCmsPackWithTimeout();
 
   const [profile, storesHead, cmsPack] = await Promise.all([profilePromise, storesHeadPromise, cmsPackPromise]);
 

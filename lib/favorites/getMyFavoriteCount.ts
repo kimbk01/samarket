@@ -14,21 +14,17 @@ export async function getMyFavoriteCount(): Promise<number> {
   if (cached && cached.expiresAt > now) {
     return cached.value;
   }
-  return runSingleFlight("favorites:count", async () => {
-    const again = cached;
-    if (again && again.expiresAt > Date.now()) {
-      return again.value;
-    }
-    try {
-      const res = await fetch("/api/favorites/count", { credentials: "include" });
-      const data = (await res.json()) as { count?: number };
-      const n = typeof data.count === "number" ? data.count : 0;
-      cached = { value: n, expiresAt: Date.now() + TTL_MS };
-      return n;
-    } catch {
-      return 0;
-    }
-  });
+  try {
+    const res = await runSingleFlight("favorites:count", () =>
+      fetch("/api/favorites/count", { credentials: "include" })
+    );
+    const data = (await res.clone().json().catch(() => ({}))) as { count?: number };
+    const n = typeof data.count === "number" ? data.count : 0;
+    cached = { value: n, expiresAt: Date.now() + TTL_MS };
+    return n;
+  } catch {
+    return 0;
+  }
 }
 
 /** 찜 추가/제거 직후 배지·카운트 즉시 맞출 때 */

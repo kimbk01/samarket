@@ -16,19 +16,19 @@ export async function getFavoriteStatusForPosts(
   if (!user?.id || ids.length === 0) return empty;
 
   const flightKey = `favorites:status:${ids.join(",")}`;
-  return runSingleFlight(flightKey, async () => {
-    try {
-      const params = new URLSearchParams({
-        postIds: ids.join(","),
-      });
-      const res = await fetch(`/api/favorites/status?${params}`, {
+  try {
+    const params = new URLSearchParams({
+      postIds: ids.join(","),
+    });
+    const res = await runSingleFlight(flightKey, () =>
+      fetch(`/api/favorites/status?${params}`, {
         credentials: "include",
         cache: "no-store",
-      });
-      const data = (await res.json().catch(() => ({}))) as Record<string, boolean>;
-      return Object.fromEntries(ids.map((id) => [id, data[id] === true]));
-    } catch {
-      return empty;
-    }
-  });
+      })
+    );
+    const data = (await res.clone().json().catch(() => ({}))) as Record<string, boolean>;
+    return Object.fromEntries(ids.map((id) => [id, data[id] === true]));
+  } catch {
+    return empty;
+  }
 }

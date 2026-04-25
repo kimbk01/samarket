@@ -9,12 +9,13 @@ export type AdminDashboardStatsResult = {
 };
 
 export function fetchAdminDashboardStatsDeduped(): Promise<AdminDashboardStatsResult> {
-  return runSingleFlight("admin:stats:dashboard", async (): Promise<AdminDashboardStatsResult> => {
-    const res = await fetch("/api/admin/stats/dashboard", { cache: "no-store" });
+  return runSingleFlight("admin:stats:dashboard", () =>
+    fetch("/api/admin/stats/dashboard", { cache: "no-store" })
+  ).then(async (res): Promise<AdminDashboardStatsResult> => {
     if (!res.ok) {
       return { status: res.status, json: null };
     }
-    const json: unknown = await res.json().catch(() => null);
+    const json: unknown = await res.clone().json().catch(() => null);
     return { status: res.status, json };
   });
 }

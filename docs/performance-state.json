@@ -1,9 +1,117 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-26T00:00:00.000Z",
-  "currentTarget": "messenger",
+  "updatedAt": "2026-04-25T17:13:00.000Z",
+  "currentTarget": "myinfo",
   "inProgress": null,
   "bottlenecks": [
+    {
+      "id": "me_stores_list_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/me/fetch-me-stores-deduped.ts",
+      "summary": "me:stores:list runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "me_notifications_list_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/me/fetch-me-notifications-deduped.ts",
+      "summary": "me:notifications:list:exclude_owner_commerce runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "me_profile_get_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/profile/fetch-me-profile-deduped.ts",
+      "summary": "me:profile:get runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "me_order_chat_rooms_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/me/fetch-me-order-chat-rooms-deduped.ts",
+      "summary": "me:order-chat:rooms:{scope} runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "admin_order_chat_rooms_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/admin/fetch-admin-order-chat-rooms-deduped.ts",
+      "summary": "admin:order-chat:rooms:{limit} runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "admin_dashboard_stats_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/admin/fetch-admin-dashboard-stats-deduped.ts",
+      "summary": "admin:stats:dashboard runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "favorites_status_single_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/favorites/getFavoriteStatus.ts",
+      "summary": "favorites:status:single:{postId} runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "favorites_status_bulk_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/favorites/getFavoriteStatusForPosts.ts",
+      "summary": "favorites:status:{ids} runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "favorites_count_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/favorites/getMyFavoriteCount.ts",
+      "summary": "favorites:count runSingleFlight async+json+캐시 반영 — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "order_chat_get_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/order-chat/fetch-order-chat-get-deduped.ts",
+      "summary": "order-chat:get:{orderId} runSingleFlight async+json 파싱 — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "group_chat_bootstrap_deduped_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/group-chat/fetch-group-chat-bootstrap.ts",
+      "summary": "group-chat:bootstrap:{roomId} runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "exchange_rates_via_app_async_json_inside_flight",
+      "severity": "addressed",
+      "file": "lib/exchange/fetchExchangeRates.ts",
+      "summary": "exchange-rates:via-app runSingleFlight async+json — `() => fetch` + 호출부 res.clone().json()"
+    },
+    {
+      "id": "session_lost_redirect_session_check_flight_async_factory",
+      "severity": "addressed",
+      "file": "components/auth/SessionLostRedirect.tsx",
+      "summary": "client:auth-session-check runSingleFlight 콜백 async+재시도 루프 — 팩터리를 `() => (async …)()` 로만 두고 루프·fetchAuthSessionNoStore 로직은 그대로(분리 없음)"
+    },
+    {
+      "id": "seller_trade_flow_fetch_post_buyer_chats_async_json_in_flight",
+      "severity": "addressed",
+      "file": "lib/trade/seller-trade-flow-client.ts",
+      "summary": "trade:post-buyer-chats runSingleFlight async+res.json — `() => fetch` + 호출부 clone().json·반환 조건"
+    },
+    {
+      "id": "warm_messenger_list_bootstrap_async_json_prime_in_flight",
+      "severity": "addressed",
+      "file": "lib/community-messenger/warm-messenger-list-bootstrap-client.ts",
+      "summary": "list-bootstrap-warm runSingleFlight async+json+prime — `() => fetchCommunityMessengerBootstrapClient(\"lite\")` + IIFE clone().json(잠금 아닌 warm 전용)"
+    },
+    {
+      "id": "my_points_view_me_points_get_json_without_clone_shared_flight",
+      "severity": "addressed",
+      "file": "components/points/MyPointsView.tsx",
+      "summary": "me:points:get runSingleFlight 후 res.json() — MyPointCard·/mypage/points RSC 와 동일 in-flight 시 본문 이중 소비 가능 → res.clone().json()"
+    },
+    {
+      "id": "my_point_card_me_points_get_json_without_clone_shared_flight",
+      "severity": "addressed",
+      "file": "components/mypage/MyPointCard.tsx",
+      "summary": "me:points:get runSingleFlight 후 r.json() — MyPointsView 와 동일 키 합류 시 본문 공유 → r.clone().json()"
+    },
+    {
+      "id": "notices_content_settings_notices_get_json_without_clone",
+      "severity": "addressed",
+      "file": "components/my/settings/NoticesContent.tsx",
+      "summary": "me:settings:notices:get runSingleFlight 후 res.json() — 동시 in-flight·복귀 겹침 대비 res.clone().json()"
+    },
     {
       "id": "post_detail_page_client_listing_fields_get_async_setstate_in_flight",
       "severity": "addressed",
@@ -559,6 +667,37 @@
   ],
   "lastMeasured": [],
   "notes": [
+    "2026-04-25: bootstrap-cache — 유효 sessionStorage 캐시 read 시 memoryCache 승격을 추가해 재진입 동안 JSON.parse 반복을 1회로 제한",
+    "2026-04-25: room-snapshot-cache — invalidateRoomSnapshot 시 hotEntries도 함께 삭제해 stale hot snapshot 재사용/누적 완화",
+    "2026-04-25: delivery 재점검 — stores/page는 셸 래퍼(직접 fetch 없음), 핵심 후보(StoresHub/StoreNearbyFeedSection/StoreCategoryExploreSection)는 lockedFiles·completed 제약으로 수정 불가, target을 messenger로 전환",
+    "2026-04-25: trade 재점검 — home/page·HomeContent·home-posts-route-core 포함 핵심 경로가 lockedFiles/completed 제약으로 수정 불가, target을 delivery로 전환",
+    "2026-04-25: community 재점검 — 후보 경로 중 네트워크/재조회 병목 파일이 lockedFiles·completed에 포함되어 신규 수정 가능 병목 없음, target을 trade로 전환",
+    "2026-04-25: use-philife-feed-viewer-sig — auth callback session.user.id를 viewerSig 스냅샷에 반영하고 동일 sig 이벤트는 스킵해 불필요 재동기화 트리거 완화",
+    "2026-04-25: philife-feed-session-cache — write 시 만료 스냅샷 정리 + 최대 60개 상한으로 sessionStorage JSON 누적 완화",
+    "2026-04-25: philife/page RSC — searchParams + getOptionalAuthenticatedUserId 병렬 await로 시드 준비 선행 대기 축소",
+    "2026-04-25: resolve-philife-global-feed-initial-rsc — topics 로드/카테고리 검증을 runSingleFlight 내부로 이동해 동시 요청 중복 로드 완화",
+    "2026-04-25: login 라운드 재점검 — 핵심 병목 지점(app/login/LoginPageClient.tsx)은 lockedFiles, 직전 처리(app/auth/callback/route.ts·SupabaseAuthSync)는 동일 원인 재수정 금지라 신규 코드 확정 병목 없음. target을 community로 전환",
+    "2026-04-25: auth callback — ensureAuthProfileRow await를 180ms soft-timeout으로 제한해 로그인 콜백 redirect blocking 완화",
+    "2026-04-25: SupabaseAuthSync — profile hydrate in-flight dedupe로 INITIAL_SESSION/SIGNED_IN 겹침 시 중복 getUser+ensure 연쇄 완화",
+    "2026-04-25: myinfo 라운드 점검 — lockedFiles(hooks/use-mypage-hub-model.ts) 및 직전 처리(lib/my/load-mypage-server.ts 동일 원인 재수정 금지) 제약으로 신규 코드 확정 병목 없음, target을 login으로 전환",
+    "2026-04-25: load-mypage-server — CMS pack(배너/서비스/섹션) await를 180ms 타임아웃 fallback(default pack)으로 비차단화",
+    "2026-04-26: fetch-me-stores-deduped — me:stores:list fetch-only + clone().json",
+    "2026-04-26: fetch-me-notifications-deduped — me:notifications:list fetch-only + clone().json",
+    "2026-04-26: fetch-me-profile-deduped — me:profile:get fetch-only + clone().json",
+    "2026-04-26: fetch-me-order-chat-rooms-deduped — me:order-chat:rooms fetch-only + clone().json",
+    "2026-04-26: fetch-admin-order-chat-rooms-deduped — admin:order-chat:rooms fetch-only + clone().json",
+    "2026-04-26: fetch-admin-dashboard-stats-deduped — admin:stats:dashboard fetch-only + clone().json",
+    "2026-04-26: getFavoriteStatus — favorites:status:single fetch-only + clone().json",
+    "2026-04-26: getFavoriteStatusForPosts — favorites:status:{ids} fetch-only + clone().json",
+    "2026-04-26: getMyFavoriteCount — favorites:count fetch-only + clone().json",
+    "2026-04-26: fetch-order-chat-get-deduped — order-chat:get `() => fetch` + clone().json",
+    "2026-04-26: fetch-group-chat-bootstrap — group-chat:bootstrap `() => fetch` + clone().json",
+    "2026-04-26: fetchExchangeRatesViaApp — exchange-rates:via-app `() => fetch` + clone().json",
+    "2026-04-26: SessionLostRedirect — SESSION_CHECK_FLIGHT `() => (async …)()` (루프 유지)",
+    "2026-04-26: seller-trade-flow-client — trade:post-buyer-chats `() => fetch` + clone().json",
+    "2026-04-26: warm-messenger-list-bootstrap-client — list-bootstrap-warm `() => fetchCommunityMessengerBootstrapClient(lite)` + clone().json",
+    "2026-04-26: MyPointsView + MyPointCard — me:points:get 응답 본문 res.clone().json (동일 single-flight)",
+    "2026-04-26: NoticesContent — me:settings:notices:get clone().json",
     "2026-04-26: PostDetailPageClient — post-detail-listing-fields `() => fetch`+lastRef+clone().json",
     "2026-04-26: WriteCategoryContext — write-launcher-categories factory = getWritableRootCategoriesForWriteLauncher, setState 는 await 뒤",
     "2026-04-26: WebPushSettingsRow — me:push:status / vapid-key runSingleFlight 뒤 clone().json",
@@ -647,6 +786,246 @@
     "2026-04-26: AddressManagementClient — GET /api/me/addresses runSingleFlight(`me:addresses:list`)"
   ],
   "completed": [
+    {
+      "domain": "messenger",
+      "file": "lib/community-messenger/bootstrap-cache.ts",
+      "reason": "peekBootstrapCache가 유효 sessionStorage 캐시를 메모리로 승격하지 않아 재진입 동안 JSON.parse가 반복됨",
+      "before": "peekBootstrapCache가 memoryCache 미존재 시 readSession() 호출마다 sessionStorage JSON.parse를 반복",
+      "after": "readSession()에서 TTL 유효 캐시를 memoryCache로 승격해 이후 peek는 메모리 경로로 반환",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: readSession 유효 분기에서 memoryCache 갱신 라인 추가 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: 재진입 반복 peek 경로가 sessionStorage JSON.parse 반복 대신 memoryCache fast-path로 합류"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 기존 TTL/키/clear 동작은 유지되어 만료 처리 및 UI 응답 구조 변화 없음"
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "lib/community-messenger/room-snapshot-cache.ts",
+      "reason": "invalidateRoomSnapshot가 entries만 제거하고 hotEntries는 남겨 stale room snapshot 재사용/누적 가능",
+      "before": "invalidateRoomSnapshot가 entries 맵만 삭제",
+      "after": "invalidateRoomSnapshot가 suffix 매칭 hotEntries도 함께 삭제",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: invalidateRoomSnapshot에서 entries+hotEntries 동시 정리 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: 방 무효화 이후 hot cache fallback 경로에서도 stale 재사용 차단"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: cacheKey/suffix 규칙은 기존과 동일해 타 방 캐시 영향 없음"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "hooks/use-philife-feed-viewer-sig.ts",
+      "reason": "useSyncExternalStore가 auth 세션 정보를 스냅샷에 반영하지 않아 profile cache 동기화 전까지 viewerSig가 _anon으로 남고 불필요 재조회 트리거가 생길 수 있음",
+      "before": "onAuthStateChange에서 session 값을 사용하지 않고 매 이벤트마다 onStoreChange",
+      "after": "session.user.id 기반 lastAuthViewerSig를 스냅샷에 반영하고 동일 sig 이벤트는 skip",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: readPhilifeFeedViewerSigSnapshot/lastAuthViewerSig 추가 및 subscribe 경로 반영 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: auth 이벤트마다 무조건 onStoreChange 하지 않고 sig 변경 시에만 트리거"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: TEST_AUTH_CHANGED_EVENT 구독/해제 및 SSR fallback('_anon') 동작은 유지"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "lib/community/philife-feed-session-cache.ts",
+      "reason": "필라이프 피드 세션 캐시가 만료/상한 정리 없이 누적되어 초기 진입 시 sessionStorage JSON 파싱 비용이 커질 수 있음",
+      "before": "write 시 기존 전체 캐시를 그대로 유지하며 엔트리 누적",
+      "after": "write 시 만료 스냅샷 제거 + 최신 60개 상한 prune 적용",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: pruneStoredShape 추가 및 write 경로에서 정리 호출 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: MAX_AGE_MS 초과/빈 posts 엔트리가 저장 시점에 제거됨"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 캐시 키 포맷/read 반환 스키마/피드 UI 소비 구조는 변경 없음"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "app/(main)/philife/page.tsx",
+      "reason": "RSC 진입에서 searchParams 처리 후 viewer 조회를 직렬 await해 시드 준비 시작이 늦어질 수 있음",
+      "before": "searchParams await 후 getOptionalAuthenticatedUserId await",
+      "after": "Promise.all([searchParams, getOptionalAuthenticatedUserId()]) 병렬화",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 두 await가 병렬화되어 시드 준비 선행 대기가 단축됨"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: resolvePhilifeGlobalFeedInitialForRsc 호출 시점이 늦춰지지 않음"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 반환 props(initialGlobalFeed)·UI 렌더 경로는 기존과 동일"
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "lib/philife/resolve-philife-global-feed-initial-rsc.ts",
+      "reason": "동일 listQueryKey 동시 요청에서도 runSingleFlight 바깥에서 topics 로드/검증이 먼저 실행되어 중복 선행 대기가 발생함",
+      "before": "loadPhilifeDefaultSectionTopics + category 검증을 runSingleFlight 외부에서 실행",
+      "after": "topics 로드/검증을 runSingleFlight 내부 factory로 이동해 동일 키 요청 합류",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 선행 topics 로드가 single-flight 내부로 이동됨"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: 동일 listQueryKey 동시 요청 시 topics/검증 경로도 합류"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: invalid_category 예외/seed 반환 스키마는 기존과 동일"
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/auth/callback/route.ts",
+      "reason": "로그인 콜백에서 ensureAuthProfileRow 완료까지 await하여 redirect 응답이 지연될 수 있음",
+      "before": "exchangeCodeForSession 후 ensureAuthProfileRow를 완료까지 await",
+      "after": "ensureAuthProfileRow를 180ms soft-timeout Promise.race로 제한(초과 시 클라 ensure 경로로 이관)",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: redirect 응답 전 ensure await 상한이 생겨 콜백 blocking 구간이 제한됨"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: profile 보장 시도는 유지하되 timeout 초과 시 다음 단계(클라이언트 ensure)로 진행 가능"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 쿠키 정리/redirect 경로/next 파라미터 처리 로직은 변경 없음"
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "components/auth/SupabaseAuthSync.tsx",
+      "reason": "INITIAL_SESSION과 SIGNED_IN 이벤트 근접 발생 시 hydrateProfileCacheFromSession 중복 실행 가능",
+      "before": "초기 rAF hydrate와 onAuthStateChange hydrate가 서로 독립 실행",
+      "after": "profileHydrateInFlight dedupe로 동일 시점 중복 hydrate를 단일 비행으로 합류",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: hydrateProfileCacheFromSessionDeduped 추가 및 양 경로 호출 통일 확인"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: in-flight 동안 추가 hydrate 요청이 기존 Promise에 합류함"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: sign-out 시 캐시 초기화/이벤트 dispatch 흐름은 기존과 동일"
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "lib/my/load-mypage-server.ts",
+      "reason": "mypage 서버 셸 core 로드가 CMS pack(배너/서비스/섹션) 3개 쿼리 완료까지 항상 대기함",
+      "before": "loadMypageCoreCached에서 cmsPackPromise=loadCmsPack()을 Promise.all로 항상 await",
+      "after": "loadCmsPackWithTimeout(180ms)으로 CMS를 비차단 fallback(default pack) 처리",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: loadCmsPack 대기가 Promise.race 타임아웃으로 분리되어 core 응답 대기 상한이 생김"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 점검: 느린 CMS 쿼리 시에도 default pack으로 즉시 반환 가능하며 profile/stores 핵심 경로는 유지"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 반환 스키마(banner/services/sections)는 동일하고 실패 시 기본값 경로도 기존과 동일"
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "lib/community-messenger/home/use-community-messenger-home-bootstrap.ts",
+      "reason": "세션 캐시(stale) 히트 재진입마다 100ms 후 refresh(true)를 매번 예약해 짧은 시간 연속 GET이 누적됨",
+      "before": "stale 캐시 분기 진입 시 scheduleWhenBrowserIdle(100)로 refresh(true)를 매번 예약",
+      "after": "stale 캐시 분기에서 최근 20초 내 예약/실행 이력이 있으면 silent refresh 예약을 생략",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "stale 분기에 20초 쿨다운 가드가 추가되어 연속 재진입 예약 조건이 코드상 차단됨"
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "기존 refreshRef.current(true) 호출은 유지되며, 쿨다운 밖 첫 stale 진입에서는 동일 경로로 silent refresh 실행 가능"
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "non-stale 경로의 refreshRef.current() 초기 부트스트랩 호출은 변경되지 않아 기존 cold 진입 흐름 유지"
+        }
+      ]
+    },
     {
       "domain": "delivery",
       "target": "buyer_order_detail_initial_fetch_effect_phase",
@@ -2291,6 +2670,126 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-04-25T17:13:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/bootstrap-cache.ts",
+      "reason": "bootstrap session cache read 시 memoryCache 승격 추가",
+      "result": "3회 점검 pass, tsc 통과, currentTarget을 myinfo로 전환"
+    },
+    {
+      "at": "2026-04-25T17:09:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/room-snapshot-cache.ts",
+      "reason": "room snapshot invalidate 시 hotEntries 동시 삭제",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(messenger)"
+    },
+    {
+      "at": "2026-04-25T17:08:00.000Z",
+      "domain": "delivery",
+      "action": "advance",
+      "file": "",
+      "reason": "lockedFiles/completed 제약으로 신규 코드 확정 병목 수정 불가",
+      "result": "수정 없이 currentTarget을 messenger로 전환"
+    },
+    {
+      "at": "2026-04-25T17:06:00.000Z",
+      "domain": "trade",
+      "action": "advance",
+      "file": "",
+      "reason": "lockedFiles/completed 제약으로 신규 코드 확정 병목 수정 불가",
+      "result": "수정 없이 currentTarget을 delivery로 전환"
+    },
+    {
+      "at": "2026-04-25T17:04:00.000Z",
+      "domain": "community",
+      "action": "advance",
+      "file": "",
+      "reason": "lockedFiles/completed 제약으로 신규 코드 확정 병목 수정 불가",
+      "result": "수정 없이 currentTarget을 trade로 전환"
+    },
+    {
+      "at": "2026-04-25T17:01:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "hooks/use-philife-feed-viewer-sig.ts",
+      "reason": "viewerSig 스냅샷에 auth session user 반영 + 동일 sig 이벤트 스킵",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(community)"
+    },
+    {
+      "at": "2026-04-25T16:57:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "lib/community/philife-feed-session-cache.ts",
+      "reason": "필라이프 피드 세션 캐시 prune(만료 정리 + 60개 상한)",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(community)"
+    },
+    {
+      "at": "2026-04-25T16:54:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "app/(main)/philife/page.tsx",
+      "reason": "philife RSC 시드 준비 await 병렬화",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(community)"
+    },
+    {
+      "at": "2026-04-25T16:54:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "lib/philife/resolve-philife-global-feed-initial-rsc.ts",
+      "reason": "RSC seed topics 로드/검증 single-flight 내부 합류",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(community)"
+    },
+    {
+      "at": "2026-04-25T16:53:00.000Z",
+      "domain": "login",
+      "action": "advance",
+      "file": "",
+      "reason": "lockedFiles/동일 원인 재수정 금지 제약으로 신규 코드 확정 병목 없음",
+      "result": "수정 없이 currentTarget을 community로 전환"
+    },
+    {
+      "at": "2026-04-25T16:50:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/auth/callback/route.ts",
+      "reason": "콜백 ensure await 상한(180ms soft-timeout) 적용",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(login)"
+    },
+    {
+      "at": "2026-04-25T16:50:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "components/auth/SupabaseAuthSync.tsx",
+      "reason": "profile hydrate in-flight dedupe로 중복 세션/프로필 동기화 완화",
+      "result": "3회 점검 pass, tsc 통과, currentTarget 유지(login)"
+    },
+    {
+      "at": "2026-04-25T16:48:00.000Z",
+      "domain": "myinfo",
+      "action": "advance",
+      "file": "",
+      "reason": "lockedFiles/기완료 제약 하에 코드로 확정 가능한 신규 병목 없음",
+      "result": "수정 없이 currentTarget을 login으로 전환"
+    },
+    {
+      "at": "2026-04-25T16:55:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "lib/my/load-mypage-server.ts",
+      "reason": "mypage 서버 core에서 CMS pack await blocking 완화(180ms timeout fallback)",
+      "result": "1건 처리 완료, tsc 통과, currentTarget 유지(myinfo)"
+    },
+    {
+      "at": "2026-04-25T16:49:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "lib/community-messenger/home/use-community-messenger-home-bootstrap.ts",
+      "reason": "stale 캐시 재진입 시 silent refresh 연속 예약 억제",
+      "result": "3회 점검 pass, currentTarget을 myinfo로 전환"
+    },
     {
       "type": "complete",
       "domain": "shell",

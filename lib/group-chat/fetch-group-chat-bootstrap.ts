@@ -22,12 +22,12 @@ export async function fetchGroupChatBootstrapDeduped(roomId: string): Promise<{
   if (!rid) {
     return { status: 400, data: { error: "invalid_room" } };
   }
-  return runSingleFlight(`group-chat:bootstrap:${rid}`, async () => {
-    const res = await fetch(`/api/group-chat/rooms/${encodeURIComponent(rid)}/bootstrap`, {
+  const res = await runSingleFlight(`group-chat:bootstrap:${rid}`, () =>
+    fetch(`/api/group-chat/rooms/${encodeURIComponent(rid)}/bootstrap`, {
       credentials: "include",
       cache: "no-store",
-    });
-    const data = (await res.json().catch(() => ({}))) as GroupChatBootstrapPayload;
-    return { status: res.status, data };
-  });
+    })
+  );
+  const data = (await res.clone().json().catch(() => ({}))) as GroupChatBootstrapPayload;
+  return { status: res.status, data };
 }

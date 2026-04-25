@@ -12,17 +12,17 @@ export async function getFavoriteStatus(postId: string): Promise<boolean> {
   const pid = postId?.trim() ?? "";
   if (!user?.id || !pid) return false;
 
-  return runSingleFlight(`favorites:status:single:${pid}`, async () => {
-    try {
-      const params = new URLSearchParams({ postIds: pid });
-      const res = await fetch(`/api/favorites/status?${params}`, {
+  try {
+    const params = new URLSearchParams({ postIds: pid });
+    const res = await runSingleFlight(`favorites:status:single:${pid}`, () =>
+      fetch(`/api/favorites/status?${params}`, {
         credentials: "include",
         cache: "no-store",
-      });
-      const data = (await res.json().catch(() => ({}))) as Record<string, boolean>;
-      return data[pid] === true;
-    } catch {
-      return false;
-    }
-  });
+      })
+    );
+    const data = (await res.clone().json().catch(() => ({}))) as Record<string, boolean>;
+    return data[pid] === true;
+  } catch {
+    return false;
+  }
 }

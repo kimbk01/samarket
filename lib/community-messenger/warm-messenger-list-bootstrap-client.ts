@@ -21,15 +21,21 @@ export function warmMessengerListBootstrapClient(): void {
     return;
   }
   recordMessengerHomeWarmCallSiteInvocation();
-  void runSingleFlight("community-messenger:list-bootstrap-warm", async () => {
+  void (async () => {
     samarketMessengerHomeDebugEvent("messenger_home_warm_start");
-    const res = await fetchCommunityMessengerBootstrapClient("lite");
-    if (!res.ok) return;
-    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!json || json.ok !== true) return;
-    const payload = { ...json };
-    delete payload.ok;
-    primeBootstrapCache(payload as CommunityMessengerBootstrap);
-    samarketMessengerHomeDebugEvent("messenger_home_warm_success");
-  });
+    try {
+      const res = await runSingleFlight("community-messenger:list-bootstrap-warm", () =>
+        fetchCommunityMessengerBootstrapClient("lite")
+      );
+      if (!res.ok) return;
+      const json = (await res.clone().json().catch(() => null)) as Record<string, unknown> | null;
+      if (!json || json.ok !== true) return;
+      const payload = { ...json };
+      delete payload.ok;
+      primeBootstrapCache(payload as CommunityMessengerBootstrap);
+      samarketMessengerHomeDebugEvent("messenger_home_warm_success");
+    } catch {
+      /* ignore */
+    }
+  })();
 }
