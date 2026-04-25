@@ -4,12 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
+import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
-import {
-  mapProviderToSupabaseOAuth,
-  type AuthLoginSetting,
-  type LoginSettingProvider,
-} from "@/lib/auth/login-settings";
+import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
@@ -30,20 +27,18 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
   return Promise.race([p, rejectAfter(ms, message)]);
 }
 
-type LoginPageClientProps = {
-  initialSettings: AuthLoginSetting[];
-  initialSettingsError?: string | null;
-};
-
-function LoginPageContent({ initialSettings, initialSettingsError }: LoginPageClientProps) {
+function LoginPageContent() {
   const router = useRouter();
   const postLoginDestination = POST_LOGIN_PATH;
+  const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(true);
+  const [providersError, setProvidersError] = useState<string | null>(null);
+  const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [settings] = useState<AuthLoginSetting[]>(initialSettings);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.search.length > 0) {
@@ -52,11 +47,56 @@ function LoginPageContent({ initialSettings, initialSettingsError }: LoginPageCl
   }, [router]);
 
   useEffect(() => {
+    void (async () => {
+      setProvidersLoading(true);
+      setProvidersError(null);
+      try {
+        const res = await fetch("/api/auth-providers?enabled=true", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => null)) as
+          | { ok?: boolean; providers?: AuthProviderPublic[]; error?: string }
+          | null;
+        if (!res.ok || !json?.ok || !Array.isArray(json.providers)) {
+          setProvidersError(json?.error || "SNS 로그인 목록을 불러오지 못했습니다.");
+          return;
+        }
+        setProviders(json.providers);
+      } catch {
+        setProvidersError("SNS 로그인 목록을 불러오지 못했습니다.");
+      } finally {
+        setProvidersLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/login-settings", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => null)) as
+          | { ok?: boolean; settings?: Array<{ provider?: string; enabled?: boolean }> }
+          | null;
+        if (!res.ok || !json?.ok || !Array.isArray(json.settings)) return;
+        const passwordSetting = json.settings.find((item) => item.provider === "password");
+        if (passwordSetting) {
+          setPasswordEnabled(passwordSetting.enabled === true);
+        }
+      } catch {
+        /* 비밀번호 설정 조회 실패 시 기본 노출 유지 */
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     void router.prefetch(postLoginDestination);
   }, [router, postLoginDestination]);
 
-  const passwordEnabled = settings.some((item) => item.provider === "password" && item.enabled);
-  const oauthEnabled = settings.some((item) => item.provider !== "password" && item.enabled);
+  const oauthEnabled = providers.length > 0;
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,18 +191,19 @@ function LoginPageContent({ initialSettings, initialSettingsError }: LoginPageCl
     router.replace(postLoginDestination);
   };
 
-  const handleOAuthLogin = async (provider: Exclude<LoginSettingProvider, "password">) => {
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError("");
     setOauthBusy(provider);
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setError("Supabase 설정이 없습니다.");
-      setOauthBusy(null);
-      return;
-    }
-    const redirectTo =
-      typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined;
     try {
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        setError("Supabase 설정이 없습니다.");
+        return;
+      }
+      const redirectTo =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/api/auth/oauth/callback?provider=${encodeURIComponent(provider)}`
+          : undefined;
       const { error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
           provider: mapProviderToSupabaseOAuth(provider),
@@ -194,17 +235,17 @@ function LoginPageContent({ initialSettings, initialSettingsError }: LoginPageCl
         </p>
         <div className="mt-5">
           <LoginProviderButtons
-            settings={settings}
+            providers={providers}
             disabled={Boolean(oauthBusy) || loading}
             busyProvider={oauthBusy}
-            emptyText="현재 사용 가능한 SNS 로그인이 없습니다."
+            emptyText={providersLoading ? "SNS 로그인 설정을 불러오는 중…" : "현재 사용 가능한 SNS 로그인이 없습니다."}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
         </div>
-        {initialSettingsError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{initialSettingsError}</p>
+        {providersError ? (
+          <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
         ) : null}
-        {!passwordEnabled && !oauthEnabled && !initialSettingsError ? (
+        {!passwordEnabled && !oauthEnabled && !providersError ? (
           <p className="mt-4 sam-text-body-secondary text-amber-700">
             현재 사용 가능한 로그인 방식이 없습니다. 관리자에게 문의해 주세요.
           </p>
@@ -234,6 +275,6 @@ function LoginPageContent({ initialSettings, initialSettingsError }: LoginPageCl
   );
 }
 
-export default function LoginPageClient(props: LoginPageClientProps) {
-  return <LoginPageContent {...props} />;
+export default function LoginPageClient() {
+  return <LoginPageContent />;
 }
