@@ -21,12 +21,20 @@ const FORBIDDEN_PREFIXES = [
   "/api/",
 ] as const;
 
+/**
+ * 페이지가 아닌 정적 자원/매니페스트로 사용자를 보내지 않기 위한 차단 확장자.
+ * 로그인 후 `next` 가 자원 URL 이면 화면이 깨지므로(다운로드/JSON 노출) 거부한다.
+ */
+const FORBIDDEN_EXTENSION_RE =
+  /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|wav|mp3|mp4|webmanifest|json|xml|txt|map|woff2?|ttf|otf|eot|css|js|mjs|pdf)$/i;
+
 function isForbiddenPath(pathname: string): boolean {
   for (const prefix of FORBIDDEN_PREFIXES) {
     if (pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(`${prefix}?`)) {
       return true;
     }
   }
+  if (FORBIDDEN_EXTENSION_RE.test(pathname)) return true;
   return false;
 }
 

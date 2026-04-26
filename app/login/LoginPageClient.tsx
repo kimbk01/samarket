@@ -36,6 +36,7 @@ function mapAuthErrorMessage(code: string): string {
   if (code === "provider_id_missing") return "로그인 사용자 식별자를 찾지 못했습니다.";
   if (code === "user_upsert_failed") return "회원 가입 처리에 실패했습니다. 다시 시도해 주세요.";
   if (code === "supabase_service_unconfigured") return "서버 인증 설정이 누락되었습니다. 관리자에게 문의해 주세요.";
+  if (code === "session_missing") return "세션이 만료되었거나 확인되지 않아 다시 로그인해 주세요.";
   return `로그인 처리 실패(${code}). 다시 시도해 주세요.`;
 }
 
@@ -73,12 +74,14 @@ function LoginPageContent() {
     if (window.location.search.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const authError = params.get("auth_error")?.trim() ?? "";
-    if (authError) {
-      const message = mapAuthErrorMessage(authError);
-      setError((prev) => (prev === message ? prev : message));
-      window.alert(message);
-    }
-    // `auth_error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
+    // 스펙 1-A: 콜백/가드가 `?error=session_missing` 을 보낼 수 있다. 동일하게 사용자에게 알린다.
+    const errorCode = params.get("error")?.trim() ?? "";
+    const code = authError || errorCode;
+    if (!code) return;
+    const message = mapAuthErrorMessage(code);
+    setError((prev) => (prev === message ? prev : message));
+    if (typeof window !== "undefined") window.alert(message);
+    // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
     const cleanHref = withNextSearchParam("/login", next ?? null);
     router.replace(cleanHref, { scroll: false });
   }, [router, next]);

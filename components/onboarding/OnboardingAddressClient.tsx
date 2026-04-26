@@ -7,6 +7,7 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 /**
  * 로그인 직후 대표 주소가 없으면 도착하는 화면 (스펙 1-C, 9).
@@ -46,6 +47,12 @@ export function OnboardingAddressClient() {
       if (json.authenticated && json.needsBlock === false) {
         completedRef.current = true;
         setCompleted(true);
+        // 다음 화면(RegionProvider·MyProfileCard 등)이 새 region/주소를 즉시 보도록 dedupe 캐시 끊기.
+        try {
+          invalidateMeProfileDedupedCache();
+        } catch {
+          /* 흐름 차단 금지 */
+        }
         window.setTimeout(() => {
           router.replace(target);
         }, 600);

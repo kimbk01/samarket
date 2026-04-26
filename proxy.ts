@@ -95,7 +95,12 @@ export async function proxy(request: NextRequest) {
   }
   if (
     pathname === "/favicon.ico" ||
-    /\.(?:svg|png|jpg|jpeg|gif|webp|wav|mp3|ico)$/i.test(pathname)
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff2?|ttf|otf|eot)$/i.test(
+      pathname
+    )
   ) {
     return NextResponse.next();
   }
@@ -161,6 +166,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|wav|mp3)$).*)",
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff|woff2|ttf|otf|eot)$).*)",
   ],
 };

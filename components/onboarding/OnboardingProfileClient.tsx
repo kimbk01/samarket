@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 /**
@@ -83,6 +84,13 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
       if (!res.ok || json?.ok === false) {
         setError(json?.error || "저장에 실패했습니다. 다시 시도해 주세요.");
         return;
+      }
+      // 같은 닉네임을 다른 화면(MyProfileCard·RegionProvider 등)이 dedupe 캐시로 바라보고 있어,
+      // 저장 직후 즉시 새 값을 보도록 캐시를 끊어준다.
+      try {
+        invalidateMeProfileDedupedCache();
+      } catch {
+        /* 캐시 무효화 실패는 흐름을 막지 않는다. */
       }
       setDone(true);
     } catch {
