@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -49,7 +50,13 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
 
 function LoginPageContent() {
   const router = useRouter();
-  const postLoginDestination = POST_LOGIN_PATH;
+  const searchParams = useSearchParams();
+  // `next` 는 SNS 로그인 시작 시 한 번만 캡처. 이후 콜백·세션 복원도 동일 값을 사용한다.
+  const next = useMemo(
+    () => sanitizeNextPath(searchParams?.get("next") ?? null),
+    [searchParams]
+  );
+  const postLoginDestination = next ?? POST_LOGIN_PATH;
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
@@ -61,17 +68,19 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search.length > 0) {
-      const params = new URLSearchParams(window.location.search);
-      const authError = params.get("auth_error")?.trim() ?? "";
-      if (authError) {
-        const message = mapAuthErrorMessage(authError);
-        setError((prev) => (prev === message ? prev : message));
-        window.alert(message);
-      }
-      router.replace("/login", { scroll: false });
+    if (typeof window === "undefined") return;
+    if (window.location.search.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("auth_error")?.trim() ?? "";
+    if (authError) {
+      const message = mapAuthErrorMessage(authError);
+      setError((prev) => (prev === message ? prev : message));
+      window.alert(message);
     }
-  }, [router]);
+    // `auth_error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
+    const cleanHref = withNextSearchParam("/login", next ?? null);
+    router.replace(cleanHref, { scroll: false });
+  }, [router, next]);
 
   useEffect(() => {
     void (async () => {
@@ -283,6 +292,11 @@ function LoginPageContent() {
         setError((prev) => (prev === nextError ? prev : nextError));
         return;
       }
+      // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
+      const callbackUrl = withNextSearchParam(
+        `${window.location.origin}/auth/callback`,
+        next ?? null
+      );
       if (provider === "kakao") {
         const { data, error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
@@ -293,7 +307,9 @@ function LoginPageContent() {
               queryParams: {
                 scope: "profile_nickname profile_image",
               },
-              // We manually navigate so failures are explicit to users.
+              // redirectTo 가 없으면 Supabase 는 현재 페이지(/login)로 ?code= 를 돌려보내 코드 교환이 일어나지 않는다.
+              // 반드시 /auth/callback 으로 명시하고 next 도 함께 보존한다.
+              redirectTo: callbackUrl,
               skipBrowserRedirect: true,
             },
           }),
@@ -317,7 +333,7 @@ function LoginPageContent() {
         supabase.auth.signInWithOAuth({
           provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
+            redirectTo: callbackUrl,
             skipBrowserRedirect: true,
           },
         }),

@@ -2,6 +2,7 @@
 
 import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import type { Profile } from "@/lib/types/profile";
 import {
   bypassesPhilippinePhoneVerificationGate,
@@ -19,11 +20,12 @@ function currentHrefFallback(): string {
 }
 
 /**
- * 클라이언트에서 로그인 페이지로 보낼 때 — `?next=` 미부착(프록시·세션만료와 동일).
- * 로그인 성공 후 이동은 로그인 페이지·`/auth/callback` 이 `POST_LOGIN_PATH` 로 통일.
+ * 클라이언트에서 로그인 페이지로 보낼 때.
+ * `next` 는 `sanitizeNextPath` 검증 후 안전한 내부 경로일 때만 부착된다.
+ * (외부·`/login`·`/auth/callback` 등은 자동으로 떨어져 무한 루프를 막는다.)
  */
-export function buildLoginHref(_next?: string): string {
-  return "/login";
+export function buildLoginHref(next?: string): string {
+  return buildLoginPath(next);
 }
 
 export function buildPhoneVerificationHref(next?: string): string {

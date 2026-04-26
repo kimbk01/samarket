@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 /**
@@ -49,11 +50,22 @@ function preventAuthPageCache(res: NextResponse): NextResponse {
   return res;
 }
 
-/** 미인증 시 `/login` 만 사용. `?next=` 는 세션 만료 후 로그인 실패·루프를 유발해 붙이지 않음 — 성공 후 경로는 `POST_LOGIN_PATH` */
+/**
+ * 미인증 시 `/login` 으로 보낸다.
+ * 원래 가려던 *내부* 경로가 안전(`sanitizeNextPath`)하면 `?next=` 로 보존해
+ * `/auth/callback` 또는 로그인 성공 후 그 경로로 복귀하게 한다.
+ *
+ * 보존하지 않는 경우(루프·외부 송출 위험): `/login`, `/auth/callback`, `/auth/consent`, `/api/*`, `//`, 외부 URL 등.
+ */
 function redirectToLogin(request: NextRequest): NextResponse {
   const loginUrl = request.nextUrl.clone();
+  const originalPathWithSearch = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const safeNext = sanitizeNextPath(originalPathWithSearch);
   loginUrl.pathname = "/login";
   loginUrl.search = "";
+  if (safeNext) {
+    loginUrl.searchParams.set("next", safeNext);
+  }
   return preventAuthPageCache(NextResponse.redirect(loginUrl));
 }
 
