@@ -265,7 +265,7 @@ function LoginPageContent() {
       }
       const redirectTo =
         typeof window !== "undefined"
-          ? `${window.location.origin}/auth/callback?provider=${encodeURIComponent(provider)}`
+          ? `${window.location.origin}/auth/callback`
           : undefined;
       const { error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
