@@ -330,9 +330,13 @@ function LoginPageContent() {
         window.location.assign(authorizeUrl);
         return;
       }
+      const oauthProvider =
+        provider === "naver"
+          ? ("custom:naver" as any)
+          : (mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"]);
       const { data, error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
-          provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
+          provider: oauthProvider,
           options: {
             redirectTo: callbackUrl,
             skipBrowserRedirect: true,
