@@ -74,6 +74,7 @@ import {
   recordRouteEntryRouteTotalMs,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -674,9 +675,26 @@ export function PostDetailView({
     }
 
     let cancelled = false;
-    fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(post.id)}`)
-      .then((res) => (res.ok ? res.json() : { roomId: null }))
-      .then((data) => {
+    void (async () => {
+      try {
+        const res = await runSingleFlight(`trade:item-room-id:get:${post.id}`, () =>
+          fetch(`/api/chat/item/room-id?itemId=${encodeURIComponent(post.id)}`, {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
+        if (cancelled) return;
+        if (!res.ok) {
+          setExistingTradeRoomId(null);
+          setExistingTradeRoomSource(null);
+          setExistingTradeMessengerId(null);
+          return;
+        }
+        const data = (await res.clone().json().catch(() => ({}))) as {
+          roomId?: unknown;
+          source?: unknown;
+          messengerRoomId?: unknown;
+        };
         if (cancelled) return;
         setExistingTradeRoomId(typeof data?.roomId === "string" ? data.roomId : null);
         setExistingTradeRoomSource(
@@ -684,14 +702,14 @@ export function PostDetailView({
         );
         const mid = typeof data?.messengerRoomId === "string" ? data.messengerRoomId.trim() : "";
         setExistingTradeMessengerId(mid || null);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setExistingTradeRoomId(null);
           setExistingTradeRoomSource(null);
           setExistingTradeMessengerId(null);
         }
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -865,10 +883,13 @@ export function PostDetailView({
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/users/${encodeURIComponent(sellerUserId)}/public-profile`, {
-          cache: "no-store",
-        });
-        const data = (await res.json().catch(() => ({}))) as {
+        const encodedSellerId = encodeURIComponent(sellerUserId);
+        const res = await runSingleFlight(`users:${encodedSellerId}:public-profile`, () =>
+          fetch(`/api/users/${encodedSellerId}/public-profile`, {
+            cache: "no-store",
+          })
+        );
+        const data = (await res.clone().json().catch(() => ({}))) as {
           ok?: boolean;
           profile?: PublicSellerProfileDTO;
         };

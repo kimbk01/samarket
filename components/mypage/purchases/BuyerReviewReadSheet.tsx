@@ -6,6 +6,7 @@ import {
   BUYER_TO_SELLER_POSITIVE,
 } from "@/lib/trade/trade-review-tags";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const LABEL = new Map<string, string>([
   ...BUYER_TO_SELLER_POSITIVE.map((x) => [x.key, x.label] as const),
@@ -44,9 +45,11 @@ export function BuyerReviewReadSheet({
       perspective === "buyer_self"
         ? `/api/my/buyer-review?chatId=${encodeURIComponent(chatId)}`
         : `/api/my/seller-sees-buyer-review?chatId=${encodeURIComponent(chatId)}`;
-    fetch(path)
+    runSingleFlight(`mypage:buyer-review-read:${path}`, () =>
+      fetch(path, { credentials: "include", cache: "no-store" })
+    )
       .then(async (res) => {
-        const data = (await res.json().catch(() => ({}))) as {
+        const data = (await res.clone().json().catch(() => ({}))) as {
           review?: ReviewPayload;
           error?: string;
         };

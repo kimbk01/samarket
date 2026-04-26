@@ -115,32 +115,29 @@ export async function GET(req: NextRequest) {
   const providerId = resolveProviderId(user, provider);
   if (!providerId) return redirectWithError(req, "provider_id_missing");
 
-  try {
-    await (serviceSb ?? supabase)
-      .from("users")
-      .upsert(
-        {
-          provider,
-          provider_id: providerId,
-          email: user.email?.trim() ?? "",
-          name:
-            String((user.user_metadata as Record<string, unknown> | null)?.name ?? "").trim() ||
-            String((user.user_metadata as Record<string, unknown> | null)?.full_name ?? "").trim() ||
-            String((user.user_metadata as Record<string, unknown> | null)?.nickname ?? "").trim() ||
-            user.email?.split("@")[0] ||
-            "user",
-          phone: null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "provider,provider_id" }
-      )
-      .select("id");
-  } catch {
-    /**
-     * `public.users` 레지스트리는 보조 인덱스다.
-     * 세션/프로필 동기화보다 우선하지 않으며, 여기 실패로 로그인 자체를 막지 않는다.
-     */
-  }
+  const usersRegistryPromise = (serviceSb ?? supabase)
+    .from("users")
+    .upsert(
+      {
+        provider,
+        provider_id: providerId,
+        email: user.email?.trim() ?? "",
+        name:
+          String((user.user_metadata as Record<string, unknown> | null)?.name ?? "").trim() ||
+          String((user.user_metadata as Record<string, unknown> | null)?.full_name ?? "").trim() ||
+          String((user.user_metadata as Record<string, unknown> | null)?.nickname ?? "").trim() ||
+          user.email?.split("@")[0] ||
+          "user",
+        phone: null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "provider,provider_id" }
+    )
+    .select("id")
+    .then(
+      () => undefined,
+      () => undefined
+    );
 
   let nick = "";
   if (cookieRaw) {
@@ -198,6 +195,12 @@ export async function GET(req: NextRequest) {
     consentUrl.searchParams.set("next", POST_LOGIN_PATH);
     response.headers.set("Location", consentUrl.toString());
   }
+
+  /**
+   * `public.users` 레지스트리는 보조 인덱스다.
+   * 필수 프로필 보장과 병렬로 진행하되, 실패해도 로그인 자체를 막지 않는다.
+   */
+  await usersRegistryPromise;
 
   const sessionMeta = buildRequestSessionMeta(req);
   try {

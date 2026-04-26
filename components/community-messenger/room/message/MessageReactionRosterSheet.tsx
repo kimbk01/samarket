@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CommunityMessengerMessageActionAnchorRect } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type MessageReactionRosterSheetProps = {
   open: { messageId: string; reactionKey: string; anchor: CommunityMessengerMessageActionAnchorRect } | null;
@@ -29,27 +30,31 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
     }
     const [messageId, reactionKey] = rosterFetchKey.split("\u0000");
     let cancelled = false;
-    const ac = new AbortController();
     setLoading(true);
     const rk = encodeURIComponent(reactionKey);
-    const url = `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(messageId)}/reactions?reactionKey=${rk}`;
-    void fetch(url, { credentials: "include", signal: ac.signal })
-      .then((r) => r.json().catch(() => ({})))
-      .then((json: { ok?: boolean; users?: Array<{ userId: string; label: string }> }) => {
+    const rid = streamRoomId.trim();
+    const url = `${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(messageId)}/reactions?reactionKey=${rk}`;
+    const flightKey = `messenger:reaction-roster:${rid}:${messageId}:${reactionKey}`;
+    void (async () => {
+      try {
+        const res = await runSingleFlight(flightKey, () =>
+          fetch(url, { credentials: "include", cache: "no-store" })
+        );
+        const json = (await res.clone().json().catch(() => ({}))) as {
+          ok?: boolean;
+          users?: Array<{ userId: string; label: string }>;
+        };
         if (cancelled) return;
         if (json && json.ok === true && Array.isArray(json.users)) setUsers(json.users);
         else setUsers([]);
-      })
-      .catch((e) => {
-        if (cancelled || (e && String(e.name) === "AbortError")) return;
+      } catch {
         if (!cancelled) setUsers([]);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
-      ac.abort();
     };
   }, [rosterFetchKey, streamRoomId]);
 

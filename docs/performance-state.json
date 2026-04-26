@@ -1,9 +1,39 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-25T17:13:00.000Z",
-  "currentTarget": "myinfo",
+  "updatedAt": "2026-04-26T15:12:00.000Z",
+  "currentTarget": "login",
   "inProgress": null,
   "bottlenecks": [
+    {
+      "id": "myinfo_purchase_detail_get_async_inside_flight",
+      "severity": "addressed",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "summary": "my-purchase-detail:{chatId} runSingleFlight — `() => fetch` + credentials include + 호출부 res.clone().json()"
+    },
+    {
+      "id": "messenger_message_reaction_roster_get_async_inside_flight",
+      "severity": "addressed",
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "summary": "messenger:reaction-roster:{roomId}:{messageId}:{reactionKey} runSingleFlight — GET reactions + 호출부 res.clone().json()"
+    },
+    {
+      "id": "delivery_store_reviews_public_short_ttl_cache",
+      "severity": "addressed",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "summary": "fetchStoreReviewsPublicDeduped — 15s 성공 응답 메모리 캐시 + 기존 runSingleFlight(동일 슬러그 재진입 네트워크 감소)"
+    },
+    {
+      "id": "trade_item_room_id_get_async_inside_flight",
+      "severity": "addressed",
+      "file": "components/post/PostDetailView.tsx",
+      "summary": "trade:item-room-id:get:{itemId} runSingleFlight — GET /api/chat/item/room-id + 호출부 res.clone().json(), credentials include"
+    },
+    {
+      "id": "philife_community_post_view_post_async_inside_flight",
+      "severity": "addressed",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "summary": "philife:community-post:view:{postId} runSingleFlight — POST fetch + 호출부 res.clone().json(), credentials include"
+    },
     {
       "id": "me_stores_list_deduped_async_json_inside_flight",
       "severity": "addressed",
@@ -783,9 +813,471 @@
     "2026-04-26: MyPageAdminMenuEntry — /api/admin/access-check runSingleFlight(`admin:access-check:get`)",
     "2026-04-26: CommunityTab MyCommunityActivityPanel — GET /api/me/community-activity runSingleFlight(`me:community-activity:get`)",
     "2026-04-26: NotificationsSettingsContent — notification-email + notification-settings GET runSingleFlight(각 키)",
-    "2026-04-26: AddressManagementClient — GET /api/me/addresses runSingleFlight(`me:addresses:list`)"
+    "2026-04-26: AddressManagementClient — GET /api/me/addresses runSingleFlight(`me:addresses:list`)",
+    "2026-04-26: CommunityPostDetailClient — POST philife post view runSingleFlight(`philife:community-post:view:{id}`)",
+    "2026-04-26: PostDetailView — GET /api/chat/item/room-id runSingleFlight(`trade:item-room-id:get:{itemId}`)",
+    "2026-04-26: store-delivery-api-client — GET /api/stores/:slug/reviews 15s 성공 캐시 + runSingleFlight",
+    "2026-04-26: MessageReactionRosterSheet — GET …/reactions runSingleFlight(`messenger:reaction-roster:…`)",
+    "2026-04-26: 사용자 요청 세션 종료 — currentTarget login 초기화",
+    "2026-04-26: PurchaseDetailView — GET /api/my/purchases/:chatId runSingleFlight(fetch만) + credentials + clone.json"
   ],
   "completed": [
+    {
+      "domain": "myinfo",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "reason": "my purchase detail load merged the whole async factory in runSingleFlight so overlapping callers could not share a single Response and omitted session cookies on the GET",
+      "before": "PurchaseDetailView passed an async factory to runSingleFlight that awaited fetch then res.json inside the shared flight, without credentials include on the GET.",
+      "after": "load now uses runSingleFlight only for the fetch Response (`() => fetch` with credentials include and no-store), parses via res.clone().json outside the flight body pattern, and keeps silent/loading guards in an outer async IIFE.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: single-flight factory returns fetch promise only; setRow/setLoading remain in caller scope with silent guards."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: concurrent load() for the same chatId share one in-flight GET and cloned JSON parse per consumer."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: post() trade actions and review/report sheets unchanged; tsc and eslint on this file passed."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "reason": "message reaction roster GET had no in-flight sharing when the same reaction popover was triggered concurrently or remounted quickly",
+      "before": "MessageReactionRosterSheet called fetch(reactionsUrl) with AbortController only, without joining duplicate in-flight GETs for the same room, message, and reaction key.",
+      "after": "The roster effect now joins through runSingleFlight(`messenger:reaction-roster:${roomId}:${messageId}:${reactionKey}`) with no-store credentials and parses a cloned JSON body; unmount uses a cancelled flag instead of aborting the shared response body.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: flight key includes streamRoomId trim, messageId, reactionKey; loading/users state updates guarded by cancelled."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: overlapping GETs for the same roster key share one in-flight response."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: Escape overlay behavior unchanged; tsc and eslint on this file passed."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "store public reviews GET had runSingleFlight only and no short reuse cache for the same slug re-entry",
+      "before": "fetchStoreReviewsPublicDeduped merged simultaneous calls only; repeated store detail visits for the same slug after the first flight still hit /api/stores/:slug/reviews with cache:no-store.",
+      "after": "fetchStoreReviewsPublicDeduped now keeps a 15s in-memory successful-response cache per store slug and deletes the entry on failed responses, mirroring fetchStorePublicBySlugDeduped and fetchStoreProductPublicDeduped.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: slug cache check before and inside runSingleFlight; failed responses delete cache."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated StoreReviewsSection loads within 15s can return from memory instead of no-store network fetch."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: mutation paths unchanged; only successful public GET responses are cached briefly; tsc and eslint on this file passed."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/post/PostDetailView.tsx",
+      "reason": "post detail resolved viewer path fetched item trade room id without in-flight sharing on overlapping mounts",
+      "before": "PostDetailView called fetch(`/api/chat/item/room-id?itemId=…`) directly in an effect whenever bootstrap was absent, without joining concurrent callers for the same post id.",
+      "after": "The room-id effect now joins through runSingleFlight(`trade:item-room-id:get:${post.id}`) with credentials include, no-store, and parses a cloned JSON body on ok responses.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: bootstrap short-circuit and cancelled guard preserved; non-ok responses clear room state without parsing body."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: duplicate effect runs or parallel mounts for the same item id share one in-flight GET."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: KASAMA_TRADE_CHAT_ROOM_RESOLVED listener and chat CTA paths unchanged; tsc and eslint on this file passed."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "Philife post view POST ran on every mount without in-flight sharing so dev StrictMode or rapid remount could duplicate view tracking requests",
+      "before": "CommunityPostDetailClient called fetch(philifePostViewUrl(post.id), { method: \"POST\" }) directly in a mount effect without joining concurrent callers.",
+      "after": "The view effect now joins the same post id through runSingleFlight(`philife:community-post:view:${post.id}`), uses credentials include, and parses a cloned JSON body.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: single-flight wraps only the POST fetch; like/comment/report paths unchanged; view_count still applied when ok."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: duplicate mount or overlapping callers for the same post id share one in-flight POST response."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: comments refresh still uses fetchCommunityPostCommentsDeduped; tsc and eslint on this file passed."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "login page initial auth providers and login settings GETs bypassed in-flight sharing on remount or fast re-entry",
+      "before": "LoginPageClient fetched /api/auth-providers?enabled=true and /api/auth/login-settings directly in separate mount effects.",
+      "after": "LoginPageClient now joins both initial GETs through stable runSingleFlight keys and parses cloned responses outside the shared flight.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: auth provider and login settings effects keep existing state/error handling while using stable single-flight keys."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: fast login page remounts or StrictMode duplicate effects can share the same no-store GET responses."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: password/OAuth submit flows are unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "components/mypage/purchases/BuyerReviewReadSheet.tsx",
+      "reason": "buyer review read sheet fetched the same review path directly on repeated open without in-flight sharing",
+      "before": "BuyerReviewReadSheet called fetch(path) directly for buyer/seller review read APIs whenever the sheet mounted.",
+      "after": "BuyerReviewReadSheet now joins the same review path through a path-keyed runSingleFlight and parses a cloned response.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: buyer_self and seller_sees_buyer paths are included in the single-flight key and keep the existing auth guard."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated review sheet opens for the same chat/perspective can share one no-store GET."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: response error handling and review state application remain unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "reason": "sticker pack and item GETs bypassed in-flight sharing when the sticker sheet was reopened or pack selection repeated",
+      "before": "MessengerStickerSheet fetched /api/stickers/packs and /api/stickers/packs/:id/items directly with cache:no-store on open and pack change.",
+      "after": "MessengerStickerSheet now joins pack and item GETs through runSingleFlight keys and parses cloned responses outside the shared flight.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: packs and pack-items GETs use stable single-flight keys while preserving open/activePackId cancellation guards."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated sticker sheet open and repeated pack selection can share in-flight no-store requests."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: recent stickers local path is unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "store product public detail had single-flight only and no short reuse cache for same product re-entry",
+      "before": "fetchStoreProductPublicDeduped merged simultaneous calls only; repeated same-product re-entry after the first flight still hit /api/stores/products/:id with cache:no-store.",
+      "after": "fetchStoreProductPublicDeduped now keeps a 15s in-memory successful-response cache per product id and deletes the entry on failed responses.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: same product id checks storeProductPublicCache before and inside runSingleFlight, while failed responses delete cache."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated product detail/cart option visits within 15s can return from memory instead of no-store network fetch."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: mutation APIs remain unchanged and only successful public GET responses are cached briefly; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/post/PostDetailView.tsx",
+      "reason": "post detail seller public profile fetch bypassed in-flight sharing on repeated seller/detail entry",
+      "before": "PostDetailView fetched /api/users/:id/public-profile directly with cache:no-store whenever sellerProfile was not already present.",
+      "after": "PostDetailView now uses a seller-id keyed runSingleFlight for the public profile request and parses a cloned response before applying author state.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: public profile fetch is keyed by encoded seller id and keeps the existing cancelled guard and fallback getUserProfile path."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated detail mounts for the same seller can share one in-flight public-profile response instead of issuing parallel no-store requests."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: sellerProfile prop fast path and fallback behavior remain unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "Philife top ads fetch bypassed the existing active-plife single-flight path and could duplicate the same ads request",
+      "before": "CommunityFeed loaded /api/ads/active?boardKey=plife with a direct idle fetch, while inline community ad cards used a separate single-flight path for the same endpoint.",
+      "after": "CommunityFeed now joins the existing active-plife single-flight key and parses a cloned response outside the flight before setting top ads.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: top ads load now uses runSingleFlight(\"community-inline-ad-card:active-plife\") with cloned JSON parsing and cancelled state guard."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: Philife feed top ads and inline ad card requests for the same active-plife endpoint can share an in-flight response."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: idle scheduling remains unchanged; unmount no longer sets state after cancellation; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/login/page.tsx",
+      "reason": "login route shell was still forced dynamic even though login data is fetched client-side",
+      "before": "The login page exported dynamic = \"force-dynamic\" and used an async page component without server data work, forcing the route shell out of static reuse.",
+      "after": "The login page now renders LoginPageClient from a plain page component without force-dynamic, leaving provider/settings fetching to the existing client effects.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: app/login/page.tsx no longer exports force-dynamic and no longer declares an async component."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: login route shell can be reused by Next instead of forcing dynamic render for client-fetched login settings."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: LoginPageClient keeps provider/settings/session/OAuth logic unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "app/(main)/mypage/section/[section]/[item]/page.tsx",
+      "reason": "mobile mypage item routes still used the shell loader and deferred hub counts/address enrichment to the client",
+      "before": "The mobile stack item route loaded loadMypageServerShell, so MyPageItemRouteClient received null hubServerExtras and could trigger client-side address/count enrichment after first paint.",
+      "after": "The mobile stack item route now uses loadMypageServer, passing the same enriched initialMyPageData shape used by the root mypage route.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: section item page imports loadMypageServer and passes its result directly to MyPageItemRouteClient."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: useMypageHubModel can initialize from hubServerExtras on mobile item routes and skip initial address/count follow-up fetches."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: notFound metadata guard and Suspense shell remain unchanged; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "app/api/community-messenger/bootstrap/route.ts",
+      "reason": "same user bootstrap requests could concurrently execute multi-round getCommunityMessengerBootstrap before route cache was populated",
+      "before": "The bootstrap route had an 8s response cache, but simultaneous cache misses for the same user/mode each started getCommunityMessengerBootstrap and repeated the rooms/profile/discoverable payload path.",
+      "after": "The bootstrap route now keeps a same-process in-flight promise per user/mode/fresh key, so concurrent non-diagnostic misses await the same bootstrap load before the cache is populated.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: communityMessengerBootstrapInflight is keyed by userId + lite/full + fresh/cached and is deleted in finally after load completion."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: simultaneous bootstrap misses now share one getCommunityMessengerBootstrap execution instead of duplicating multi-round rooms/profile work."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: bootstrap_diag requests bypass sharing to keep timing diagnostics local; TypeScript, ESLint, and IDE lints passed."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "store public detail API had single-flight only and no short reuse cache for same slug re-entry",
+      "before": "fetchStorePublicBySlugDeduped merged simultaneous calls only; repeated same-slug re-entry after the first flight still hit /api/stores/:slug with cache:no-store.",
+      "after": "fetchStorePublicBySlugDeduped now keeps a 15s in-memory successful-response cache per slug and invalidates it on store favorite mutation.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: same slug checks storePublicCache before and inside runSingleFlight, while failed responses delete cache."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: repeated store detail/sticky/cart calls within 15s can return from memory instead of no-store network fetch."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: favorite POST/DELETE deletes the slug cache to avoid stale favorite state; TypeScript and ESLint passed."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/post/PostCard.tsx",
+      "reason": "product list card click started route entry without explicit detail route prefetch on user intent",
+      "before": "PostCard only started product_detail perf tracking on click; route preparation depended on default Link behavior and did not explicitly prefetch on hover/focus intent.",
+      "after": "PostCard now builds a stable detailHref and calls router.prefetch(detailHref) on pointer enter and focus before click navigation.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: detailHref is reused for href, prefetch, and route-entry perf tracking."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: user intent can start Next route prefetch before click, reducing pure click-start route preparation."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: favorite/menu click handlers remain outside the Link and unchanged; TypeScript and ESLint passed."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "Philife RSC seed was discarded when viewerSig differed from initial viewerKey even if the feed query matched",
+      "before": "CommunityFeed only used initialGlobalFeedRsc when viewerSig exactly matched initialGlobalFeedRsc.viewerKey, so login/session timing differences could force cache lookup and fetchPage(0).",
+      "after": "CommunityFeed now displays the RSC seed whenever the query matches and the feed is not neighbor-only, while still writing the cache under the current viewerSig.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: canDisplayRscSeedForCurrentQuery keeps category/sort/not-neighbor query guard and relaxes only viewerSig equality for non-neighbor feed."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: matching RSC seed now returns before readPhilifeFeedCache and fetchPage(0), reducing first-entry refetch path."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: neighborOnly remains excluded; cache is written with current viewerSig; TypeScript and ESLint passed."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/api/auth/oauth/callback/route.ts",
+      "reason": "OAuth callback awaited auxiliary public.users upsert before profile ensure and session sync",
+      "before": "The callback awaited the public.users auxiliary registry upsert before nickname/locale merge, profile ensure, consent routing, and active-session sync.",
+      "after": "The public.users auxiliary registry upsert starts as a promise and runs in parallel with profile ensure; it is awaited before session sync only to settle errors without blocking profile work first.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: usersRegistryPromise starts before ensureAuthProfileRow and no longer blocks the profile ensure path first."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: independent public.users upsert and profile ensure now overlap instead of running strictly sequentially."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: upsert failure remains non-fatal through .then handlers; provider mismatch, consent redirect, session sync, cookie clearing flow stays intact; TypeScript and ESLint passed."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage route used shell loader, leaving hub/home dashboard counts to client fan-out",
+      "before": "loadMypageServerShell returned hubServerExtras:null and homeDashboardCounts:null, so useMypageHubModel and MyPageHomeDashboard could run client-side count/address/order/post follow-up fetches after first paint.",
+      "after": "mypage route now calls loadMypageServer, reusing the existing server loader that fills hubServerExtras and homeDashboardCounts before passing initialMyPageData to MyContent.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: app/(main)/mypage/page.tsx imports loadMypageServer and passes its result directly to MyContent."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: useMypageHubModel initializes from hubServerExtras and skips initial counts/address fetch when present; MyPageHomeDashboard uses homeDashboardCounts before fallback list fetches."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: /mypage section routes still use loadMypageServerShell; TypeScript and ESLint for the modified page passed."
+        }
+      ]
+    },
     {
       "domain": "messenger",
       "file": "lib/community-messenger/bootstrap-cache.ts",
@@ -2670,6 +3162,166 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-04-26T15:12:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/mypage/purchases/PurchaseDetailView.tsx",
+      "reason": "구매 상세 GET이 비행 안에서 전체 async를 합치고 credentials가 빠져 있음",
+      "result": "fetch-only single-flight + clone JSON + credentials include, 3회 점검; 도메인 순환 한 바퀴 마감으로 currentTarget 유지(login)"
+    },
+    {
+      "at": "2026-04-26T15:05:00.000Z",
+      "domain": "myinfo",
+      "action": "advance",
+      "file": "",
+      "reason": "사용자 요청으로 도메인 순환 성능 라운드 세션 종료",
+      "result": "코드 변경 없음; currentTarget을 login으로 초기화해 다음 이어가기 기준점으로 둠"
+    },
+    {
+      "at": "2026-04-26T14:42:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "reason": "Reaction roster GET could duplicate without single-flight",
+      "result": "Joined reaction roster GET through room+message+reaction keyed runSingleFlight, completed 3 checks, currentTarget set to myinfo"
+    },
+    {
+      "at": "2026-04-26T14:35:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "Store reviews public GET had no short TTL reuse after single-flight",
+      "result": "Added 15s successful-response cache per slug for fetchStoreReviewsPublicDeduped, completed 3 checks, currentTarget set to messenger"
+    },
+    {
+      "at": "2026-04-26T14:28:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/post/PostDetailView.tsx",
+      "reason": "Item room-id GET could duplicate without in-flight sharing",
+      "result": "Joined trade room-id GET through runSingleFlight per post id, completed 3 checks, currentTarget set to delivery"
+    },
+    {
+      "at": "2026-04-26T14:18:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "Philife post view POST could duplicate on remount without in-flight sharing",
+      "result": "Joined post view POST through runSingleFlight per post id with clone JSON parse, completed 3 checks, currentTarget set to trade"
+    },
+    {
+      "at": "2026-04-26T14:06:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "Login page initial auth providers/settings GETs could duplicate on remount",
+      "result": "Added stable in-flight sharing for auth providers and login settings GETs, completed 3 checks, currentTarget set to community"
+    },
+    {
+      "at": "2026-04-26T13:58:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/mypage/purchases/BuyerReviewReadSheet.tsx",
+      "reason": "Buyer review read sheet direct GET could duplicate on repeated open",
+      "result": "Added path-keyed in-flight sharing for buyer review read APIs, completed 3 checks, currentTarget set to login"
+    },
+    {
+      "at": "2026-04-26T13:50:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "reason": "Sticker sheet pack/items no-store GETs could duplicate on reopen or repeated pack selection",
+      "result": "Added stable in-flight sharing for sticker packs and pack items, completed 3 checks, currentTarget set to myinfo"
+    },
+    {
+      "at": "2026-04-26T13:00:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "Store product detail same-product re-entry had no short reuse cache",
+      "result": "Added 15s successful-response cache for public product detail, completed 3 checks, currentTarget set to messenger"
+    },
+    {
+      "at": "2026-04-26T12:52:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/post/PostDetailView.tsx",
+      "reason": "Seller public profile no-store fetch could duplicate on repeated detail entry",
+      "result": "Added seller-id keyed in-flight sharing for public-profile fetch, completed 3 checks, currentTarget set to delivery"
+    },
+    {
+      "at": "2026-04-26T12:44:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "Philife top ads direct fetch duplicated active-plife ad load path",
+      "result": "Joined CommunityFeed top ads load to existing active-plife single-flight key, completed 3 checks, currentTarget set to trade"
+    },
+    {
+      "at": "2026-04-26T12:08:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/login/page.tsx",
+      "reason": "Login route shell was forced dynamic despite client-side data loading",
+      "result": "Removed force-dynamic and async wrapper from login page shell, completed 3 checks, currentTarget set to community"
+    },
+    {
+      "at": "2026-04-26T12:00:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "app/(main)/mypage/section/[section]/[item]/page.tsx",
+      "reason": "Mobile mypage item routes deferred hub counts/address enrichment to client",
+      "result": "Switched mobile item route from shell loader to loadMypageServer, completed 3 checks, currentTarget set to login"
+    },
+    {
+      "at": "2026-04-26T11:51:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "app/api/community-messenger/bootstrap/route.ts",
+      "reason": "Concurrent messenger bootstrap cache misses duplicated multi-round payload work",
+      "result": "Added per user/mode in-flight sharing for non-diagnostic bootstrap loads, completed 3 checks, currentTarget set to myinfo"
+    },
+    {
+      "at": "2026-04-26T11:42:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "lib/stores/store-delivery-api-client.ts",
+      "reason": "Store public detail same-slug re-entry had no short reuse cache",
+      "result": "Added 15s successful-response cache with favorite mutation invalidation, completed 3 checks, currentTarget set to messenger"
+    },
+    {
+      "at": "2026-04-26T11:34:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/post/PostCard.tsx",
+      "reason": "Product detail route prefetch was not explicit on list-card user intent",
+      "result": "Added pointer/focus router.prefetch for detail route, completed 3 checks, currentTarget set to delivery"
+    },
+    {
+      "at": "2026-04-26T11:26:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "Philife RSC seed viewerSig mismatch caused cache/fetch fallback",
+      "result": "Allowed matching non-neighbor RSC seed to display despite viewerSig timing mismatch, completed 3 checks, currentTarget set to trade"
+    },
+    {
+      "at": "2026-04-26T11:21:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/api/auth/oauth/callback/route.ts",
+      "reason": "OAuth callback auxiliary users registry upsert was sequential before profile ensure",
+      "result": "Started users registry upsert in parallel with profile ensure, completed 3 code-structure checks, currentTarget set to community"
+    },
+    {
+      "at": "2026-04-26T11:03:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage shell loader caused client fan-out for hub/home dashboard counts",
+      "result": "Switched root /mypage to existing loadMypageServer, completed 3 code-structure checks, currentTarget set to login"
+    },
     {
       "at": "2026-04-25T17:13:00.000Z",
       "domain": "messenger",

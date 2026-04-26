@@ -36,6 +36,7 @@ import {
   NEIGHBORHOOD_FEED_PAGE_SIZE,
   PHILIFE_GLOBAL_FEED_SESSION_KEY,
 } from "@/lib/philife/neighborhood-feed-client-url";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   bumpAppWidePerf,
   getAppWidePhaseLastMs,
@@ -222,7 +223,6 @@ export function CommunityFeed({
   const nextOffsetRef = useRef(bootNextOffset);
   const loadMoreLockRef = useRef(false);
   const feedAbortRef = useRef<AbortController | null>(null);
-  const adsAbortRef = useRef<AbortController | null>(null);
   /** 지역·필터가 바뀌면 증가. 이전 요청 응답은 무시해 트래픽·경합 시 UI 꼬임 방지 */
   const feedSessionRef = useRef(0);
   /** 첫 페이지 fetch 만 — 세션 불일치 시에도 마지막 요청만 `loading` 해제 */
@@ -677,7 +677,12 @@ export function CommunityFeed({
       initialGlobalFeedRsc.seededSort === resolvePhilifeFeedSortForQuery(category, sortParam) &&
       !neighborOnly;
 
-    if (initialGlobalFeedRsc && canUseRscSeedForCurrentQuery && viewerSig === initialGlobalFeedRsc.viewerKey) {
+    const canDisplayRscSeedForCurrentQuery =
+      initialGlobalFeedRsc &&
+      canUseRscSeedForCurrentQuery &&
+      (viewerSig === initialGlobalFeedRsc.viewerKey || !neighborOnly);
+
+    if (canDisplayRscSeedForCurrentQuery) {
       const s = initialGlobalFeedRsc;
       const merged = mergeNeighborhoodFeedById([], s.posts, false);
       setPosts(merged);
@@ -730,14 +735,14 @@ export function CommunityFeed({
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
-    adsAbortRef.current?.abort();
-    const controller = new AbortController();
-    adsAbortRef.current = controller;
+    let cancelled = false;
     const load = () => {
-      fetch("/api/ads/active?boardKey=plife", { signal: controller.signal })
-        .then((r) => r.json())
+      runSingleFlight("community-inline-ad-card:active-plife", () =>
+        fetch("/api/ads/active?boardKey=plife", { credentials: "include" })
+      )
+        .then((r) => r.clone().json())
         .then((j: { ads?: AdFeedPost[] }) => {
-          if (j.ads) setTopAds(j.ads);
+          if (!cancelled && j.ads) setTopAds(j.ads);
         })
         .catch(() => {
           /* 광고 로드 실패는 조용히 무시 */
@@ -761,11 +766,8 @@ export function CommunityFeed({
       cancelScheduled = () => window.clearTimeout(tid);
     }
     return () => {
+      cancelled = true;
       cancelScheduled?.();
-      controller.abort();
-      if (adsAbortRef.current === controller) {
-        adsAbortRef.current = null;
-      }
     };
   }, []);
 

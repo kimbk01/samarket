@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-23 |
+| Last updated | 2026-04-26 |
 | Owner | (선택) |
 
 ---
@@ -51,6 +51,8 @@
 | 트랙 이름 | 메신저·앱 체감 + 서버 부하 — **고빈도 API 반복 비용(스냅샷/뱃지) 상위 병목** |
 | **트랙 상태** | **진행 중** — 라운드 **V-fix**(2026-04-23) 코드 반영: 잘못된 핫패스 회수 + 근본 병목만 유지. |
 | 한 줄 요약 | **라운드 U:** 커뮤니티(`/philife`) RSC 시드·초기 부팅. **라운드 V(교정):** 근본 병목은 `community_messenger_participants` → `applyRoomSummaryPatched` 가 **`unreadCount`만 바뀌는데도 매번 `sortRoomOrder(전체 방)`**을 호출한 점(코드로 확정). `lastMessageAt`(피드 정렬 키)이 바뀔 때만 전체 정렬. `applyIncomingMessageEvent`는 새 객체 때문에 `===`로 **항상 정렬**되던 분기를 동일 규칙으로 교정. 키 상한(280) 가지치기는 **초과 시에만** `seedBootstrap`/`seedRoomSnapshot`에서 실행(핫 Realtime 경로에서 매 패치 정렬·가지치기 제거). |
+
+**보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
 
 ---
 

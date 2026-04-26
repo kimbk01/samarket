@@ -51,21 +51,26 @@ export function PurchaseDetailView({
       return;
     }
     if (!silent) setLoading(true);
-    void runSingleFlight(`my-purchase-detail:${encodeURIComponent(chatId)}`, async () => {
-      const res = await fetch(`/api/my/purchases/${encodeURIComponent(chatId)}`, { cache: "no-store" });
-      const data = (await res.json().catch(() => ({}))) as DetailPayload & { error?: string };
-      if (!res.ok) {
+    void (async () => {
+      try {
+        const res = await runSingleFlight(`my-purchase-detail:${encodeURIComponent(chatId)}`, () =>
+          fetch(`/api/my/purchases/${encodeURIComponent(chatId)}`, {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
+        const data = (await res.clone().json().catch(() => ({}))) as DetailPayload & { error?: string };
+        if (!res.ok) {
+          if (!silent) setRow(null);
+          return;
+        }
+        setRow(data as DetailPayload);
+      } catch {
         if (!silent) setRow(null);
-        return;
-      }
-      setRow(data as DetailPayload);
-    })
-      .catch(() => {
-        if (!silent) setRow(null);
-      })
-      .finally(() => {
+      } finally {
         if (!silent) setLoading(false);
-      });
+      }
+    })();
   }, [chatId]);
 
   useEffect(() => {

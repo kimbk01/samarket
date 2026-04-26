@@ -29,6 +29,7 @@ import {
   PHILIFE_DETAIL_POST_SLAB_CLASS,
   PHILIFE_DETAIL_TITLE_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export function CommunityPostDetailClient({
   post,
@@ -72,8 +73,10 @@ export function CommunityPostDetailClient({
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch(philifePostViewUrl(post.id), { method: "POST" });
-        const data = (await res.json()) as { ok?: boolean; view_count?: number };
+        const res = await runSingleFlight(`philife:community-post:view:${post.id}`, () =>
+          fetch(philifePostViewUrl(post.id), { method: "POST", credentials: "include" })
+        );
+        const data = (await res.clone().json().catch(() => ({}))) as { ok?: boolean; view_count?: number };
         if (data.ok && typeof data.view_count === "number") setViewCount(data.view_count);
       } catch {
         /* ignore */

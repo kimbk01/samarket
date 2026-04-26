@@ -23,7 +23,7 @@ import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
-import type { AdminUser } from "@/lib/types/admin-user";
+import type { AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 
@@ -38,6 +38,67 @@ const DEFAULT_FILTERS: AdminUserFilters = {
 };
 
 type Tab = "members" | "staff";
+
+const PROVIDER_SUMMARY_ORDER: AdminAuthProvider[] = [
+  "google",
+  "kakao",
+  "naver",
+  "apple",
+  "facebook",
+  "email",
+  "manual",
+  "unknown",
+];
+
+const PROVIDER_SUMMARY_META: Record<
+  AdminAuthProvider,
+  { label: string; shortLabel: string; className: string }
+> = {
+  google: {
+    label: "구글",
+    shortLabel: "G",
+    className: "border-[#d7e3ff] bg-white text-[#1877f2]",
+  },
+  kakao: {
+    label: "카카오톡",
+    shortLabel: "K",
+    className: "border-[#f4d35e] bg-[#fff8d8] text-[#7a5a00]",
+  },
+  naver: {
+    label: "네이버",
+    shortLabel: "N",
+    className: "border-[#bdecc8] bg-[#ecf8ef] text-[#128a3a]",
+  },
+  apple: {
+    label: "애플",
+    shortLabel: "A",
+    className: "border-[#dadde1] bg-white text-[#050505]",
+  },
+  facebook: {
+    label: "페이스북",
+    shortLabel: "f",
+    className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
+  },
+  email: {
+    label: "이메일",
+    shortLabel: "@",
+    className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
+  },
+  manual: {
+    label: "수동 관리",
+    shortLabel: "M",
+    className: "border-[#cfd6df] bg-[#f8fafc] text-[#475467]",
+  },
+  unknown: {
+    label: "확인 필요",
+    shortLabel: "?",
+    className: "border-[#dadde1] bg-[#f7f8fa] text-[#65676b]",
+  },
+};
+
+function normalizeSummaryProvider(provider: AdminUser["authProvider"]): AdminAuthProvider {
+  return provider && PROVIDER_SUMMARY_ORDER.includes(provider) ? provider : "unknown";
+}
 
 export function AdminUserListPage() {
   const router = useRouter();
@@ -115,6 +176,20 @@ export function AdminUserListPage() {
     () => filterAndSortUsers(users, filters, searchQuery),
     [users, filters, searchQuery]
   );
+  const memberSummary = useMemo(() => {
+    const counts = PROVIDER_SUMMARY_ORDER.reduce(
+      (acc, provider) => ({ ...acc, [provider]: 0 }),
+      {} as Record<AdminAuthProvider, number>
+    );
+    for (const user of users) {
+      counts[normalizeSummaryProvider(user.authProvider)] += 1;
+    }
+    return {
+      total: users.length,
+      visible: filtered.length,
+      counts,
+    };
+  }, [filtered.length, users]);
 
   const staffList = useMemo(() => getAdminStaffList(), [staffKey]);
   const isMaster = getAdminRole() === "master";
@@ -253,6 +328,43 @@ export function AdminUserListPage() {
               </a>{" "}
               로 <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">projectRef</code> 비교.
             </p>
+          </div>
+          <div className="rounded-xl border border-[#d0d7e2] bg-white p-4 font-sans shadow-sm">
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e9edf3] pb-3">
+              <div>
+                <p className="text-xs font-bold tracking-[0.04em] text-[#667085]">회원 현황</p>
+                <p className="mt-1 text-2xl font-black tabular-nums text-[#101828]">
+                  총 {memberSummary.total.toLocaleString()}명
+                </p>
+              </div>
+              <div className="rounded-lg border border-[#d7e3ff] bg-[#eef4ff] px-3 py-2 text-right">
+                <p className="text-xs font-bold text-[#1877f2]">현재 표시</p>
+                <p className="text-lg font-black tabular-nums text-[#101828]">
+                  {memberSummary.visible.toLocaleString()}명
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+              {PROVIDER_SUMMARY_ORDER.map((provider) => {
+                const meta = PROVIDER_SUMMARY_META[provider];
+                return (
+                  <div
+                    key={provider}
+                    className={`rounded-lg border px-3 py-2 ${meta.className}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-black shadow-sm">
+                        {meta.shortLabel}
+                      </span>
+                      <span className="text-lg font-black tabular-nums">
+                        {memberSummary.counts[provider].toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs font-bold">{meta.label}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <AdminUserFilterBar
             filters={filters}

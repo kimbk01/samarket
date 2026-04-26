@@ -63,6 +63,7 @@ export const PostCard = memo(function PostCard({
   const imageRef = useRef<HTMLImageElement | null>(null);
   const currency = getAppSettings().defaultCurrency || "KRW";
   const viewerId = getCurrentUser()?.id ?? null;
+  const detailHref = `/post/${post.id}`;
   const showOwnerTradeActions =
     isTradePostForOwnerMenu(post.type) && isPostListOwnedByViewer(post, viewerId);
   const ownerMenuPost = {
@@ -141,8 +142,14 @@ export const PostCard = memo(function PostCard({
           </button>
         </div>
         <Link
-          href={`/post/${post.id}`}
-          onClick={() => beginRouteEntryPerf("product_detail", `/post/${post.id}`)}
+          href={detailHref}
+          onPointerEnter={() => {
+            void router.prefetch(detailHref);
+          }}
+          onFocus={() => {
+            void router.prefetch(detailHref);
+          }}
+          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
           className="flex min-w-0 flex-1 gap-3"
         >
           <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-sam-md bg-sam-surface-muted">

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { findMypageMobileItem } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { loadMypageServerShell } from "@/lib/my/load-mypage-server";
+import { loadMypageServer } from "@/lib/my/load-mypage-server";
 import { MyPageItemRouteClient } from "@/components/mypage/MyPageItemRouteClient";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ async function MypageSectionItemPageBody({
   const meta = findMypageMobileItem(s, i);
   if (!meta) notFound();
 
-  const initialMyPageData = await loadMypageServerShell();
+  const initialMyPageData = await loadMypageServer();
 
   return (
     <MyPageItemRouteClient initialMyPageData={initialMyPageData} section={s} item={i} itemLabel={meta.label} />

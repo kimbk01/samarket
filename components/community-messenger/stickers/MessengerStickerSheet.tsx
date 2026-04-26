@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { StickerItemDto, StickerPackDto } from "@/lib/stickers/sticker-dto";
 import { readRecentStickerUrls } from "@/lib/stickers/recent-stickers-client";
 import { MessengerStickerLazyImage } from "@/components/community-messenger/stickers/MessengerStickerLazyImage";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const RECENT_PACK_ID = "__recent__";
 
@@ -29,8 +30,10 @@ export function MessengerStickerSheet({
     setPackErr(null);
     void (async () => {
       try {
-        const res = await fetch("/api/stickers/packs", { cache: "no-store" });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; packs?: StickerPackDto[] };
+        const res = await runSingleFlight("messenger:stickers:packs:get", () =>
+          fetch("/api/stickers/packs", { cache: "no-store" })
+        );
+        const json = (await res.clone().json().catch(() => ({}))) as { ok?: boolean; packs?: StickerPackDto[] };
         if (cancelled) return;
         if (res.ok && json.ok && json.packs?.length) {
           setPacks(json.packs);
@@ -66,8 +69,11 @@ export function MessengerStickerSheet({
     setItemsBusy(true);
     void (async () => {
       try {
-        const res = await fetch(`/api/stickers/packs/${encodeURIComponent(activePackId)}/items`, { cache: "no-store" });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: StickerItemDto[] };
+        const packId = encodeURIComponent(activePackId);
+        const res = await runSingleFlight(`messenger:stickers:pack:${packId}:items:get`, () =>
+          fetch(`/api/stickers/packs/${packId}/items`, { cache: "no-store" })
+        );
+        const json = (await res.clone().json().catch(() => ({}))) as { ok?: boolean; items?: StickerItemDto[] };
         if (cancelled) return;
         setItems(res.ok && json.ok && json.items ? json.items : []);
       } catch {

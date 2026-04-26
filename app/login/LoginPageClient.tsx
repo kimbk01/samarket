@@ -12,6 +12,7 @@ import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_ENSURE_SOFT_WAIT_MS = 120;
@@ -77,11 +78,13 @@ function LoginPageContent() {
       setProvidersLoading(true);
       setProvidersError(null);
       try {
-        const res = await fetch("/api/auth-providers?enabled=true", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => null)) as
+        const res = await runSingleFlight("login:auth-providers:enabled:get", () =>
+          fetch("/api/auth-providers?enabled=true", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
+        const json = (await res.clone().json().catch(() => null)) as
           | { ok?: boolean; providers?: AuthProviderPublic[]; error?: string }
           | null;
         if (!res.ok || !json?.ok || !Array.isArray(json.providers)) {
@@ -100,11 +103,13 @@ function LoginPageContent() {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/auth/login-settings", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => null)) as
+        const res = await runSingleFlight("login:auth-login-settings:get", () =>
+          fetch("/api/auth/login-settings", {
+            credentials: "include",
+            cache: "no-store",
+          })
+        );
+        const json = (await res.clone().json().catch(() => null)) as
           | { ok?: boolean; settings?: Array<{ provider?: string; enabled?: boolean }> }
           | null;
         if (!res.ok || !json?.ok || !Array.isArray(json.settings)) return;

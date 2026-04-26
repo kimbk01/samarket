@@ -3,7 +3,7 @@
   <circle cx="48" cy="52" r="18" fill="#FEF3C7" stroke="#F59E0B" stroke-width="2"/>
   <text x="48" y="57" text-anchor="middle" font-size="20" font-weight="bold" fill="#B45309">$</text>
   <circle cx="72" cy="68" r="18" fill="#D1FAE5" stroke="#059669" stroke-width="2"/>
-  <text x="72" y="73" text-anchor="middle" font-size="20" font-weight="bold" fill="#047857">�</text>
+  <text x="72" y="73" text-anchor="middle" font-size="20" font-weight="bold" fill="#047857">&#8369;</text>
   <path d="M 62 45 A 25 25 0 0 1 58 75" stroke="#38BDF8" stroke-width="4" fill="none" stroke-linecap="round"/>
   <path d="M 58 45 A 25 25 0 0 0 62 75" stroke="#38BDF8" stroke-width="4" fill="none" stroke-linecap="round"/>
 </svg>

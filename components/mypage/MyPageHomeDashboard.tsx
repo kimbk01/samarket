@@ -26,6 +26,7 @@ import {
   PHILIFE_FEED_INSET_X_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
+import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 
 function formatCount(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
@@ -53,6 +54,7 @@ export function MyPageHomeDashboard({
   const ownerHub = useOwnerHubBadgeBreakdown();
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
   const [postCount, setPostCount] = useState<number | null>(() => homeDashboardCounts?.communityPostCount ?? null);
+  const representativeAddress = useRepresentativeAddressLine();
 
   const viewerId = profile.id?.trim() ?? "";
 
@@ -98,7 +100,13 @@ export function MyPageHomeDashboard({
     };
   }, [viewerId, homeDashboardCounts]);
 
-  const regionLine = resolveProfileLocationAddressLines(profile).join(" · ") || "대표 지역을 설정해 주세요";
+  const profileRegionLine = resolveProfileLocationAddressLines(profile).join(" · ").trim();
+  const representativeRegionLine =
+    representativeAddress.status === "ready" ? (representativeAddress.line ?? "").trim() : "";
+  const regionLine =
+    profileRegionLine ||
+    representativeRegionLine ||
+    (representativeAddress.status === "loading" ? "대표 주소를 확인하는 중입니다" : "대표 지역을 설정해 주세요");
   const displayName = profile.nickname?.trim() || "닉네임 없음";
 
   const statRows = useMemo((): { label: string; value: string; href: string }[] => {

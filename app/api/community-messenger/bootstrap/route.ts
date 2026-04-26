@@ -26,6 +26,10 @@ type CommunityMessengerBootstrapCacheEntry = {
 };
 
 const communityMessengerBootstrapCache = new Map<string, CommunityMessengerBootstrapCacheEntry>();
+const communityMessengerBootstrapInflight = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof getCommunityMessengerBootstrap>>>
+>();
 
 export async function GET(request: NextRequest) {
   const t0 = performance.now();
@@ -60,6 +64,7 @@ export async function GET(request: NextRequest) {
   const lite = request.nextUrl.searchParams.get("lite") === "1";
   const mode: MessengerBootstrapBreakdown["mode"] = fresh ? "fresh" : lite ? "lite" : "full";
   const cacheKey = `${auth.userId}:${lite ? "lite" : "full"}`;
+  const inflightKey = `${cacheKey}:${fresh ? "fresh" : "cached"}`;
   const now = Date.now();
   pruneByExpiresAtAndMaxSize(communityMessengerBootstrapCache, now, COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES);
 
@@ -100,12 +105,25 @@ export async function GET(request: NextRequest) {
   };
   const cacheHit = Boolean(data) && !fresh;
   if (!data || fresh) {
-    data = await getCommunityMessengerBootstrap(auth.userId, {
-      skipDiscoverable: lite,
-      deferCallLog: lite,
-      diagnostics,
-      detailedTimingBreakdown: bootstrapDiag,
-    });
+    const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
+    if (existingInflight) {
+      data = await existingInflight;
+    } else {
+      const loadPromise = getCommunityMessengerBootstrap(auth.userId, {
+        skipDiscoverable: lite,
+        deferCallLog: lite,
+        diagnostics,
+        detailedTimingBreakdown: bootstrapDiag,
+      });
+      if (!bootstrapDiag) {
+        communityMessengerBootstrapInflight.set(inflightKey, loadPromise);
+      }
+      try {
+        data = await loadPromise;
+      } finally {
+        communityMessengerBootstrapInflight.delete(inflightKey);
+      }
+    }
     const afterFetch = Date.now();
     communityMessengerBootstrapCache.set(cacheKey, {
       payload: data,

@@ -4,6 +4,13 @@
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
+const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
+const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_PRODUCT_PUBLIC_CACHE_TTL_MS = 15_000;
+const storeProductPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_REVIEWS_PUBLIC_CACHE_TTL_MS = 15_000;
+const storeReviewsPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+
 function trimSlug(slug: string): string {
   return slug.trim();
 }
@@ -14,10 +21,24 @@ export type StoreApiJsonResponse = { status: number; json: unknown };
 export async function fetchStorePublicBySlugDeduped(slug: string): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
   if (!s) return { status: 400, json: { ok: false } };
+  const cached = storePublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
   return runSingleFlight(`stores:api:public:${s}`, async () => {
+    const inFlightCached = storePublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storePublicCache.set(s, { expiresAt: Date.now() + STORE_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storePublicCache.delete(s);
+    }
+    return value;
   });
 }
 
@@ -25,10 +46,24 @@ export async function fetchStorePublicBySlugDeduped(slug: string): Promise<Store
 export async function fetchStoreProductPublicDeduped(productId: string): Promise<StoreApiJsonResponse> {
   const id = productId.trim();
   if (!id) return { status: 400, json: { ok: false } };
+  const cached = storeProductPublicCache.get(id);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
   return runSingleFlight(`stores:api:product:${id}`, async () => {
+    const inFlightCached = storeProductPublicCache.get(id);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
     const res = await fetch(`/api/stores/products/${encodeURIComponent(id)}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeProductPublicCache.set(id, { expiresAt: Date.now() + STORE_PRODUCT_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeProductPublicCache.delete(id);
+    }
+    return value;
   });
 }
 
@@ -36,10 +71,24 @@ export async function fetchStoreProductPublicDeduped(productId: string): Promise
 export async function fetchStoreReviewsPublicDeduped(storeSlug: string): Promise<StoreApiJsonResponse> {
   const s = trimSlug(storeSlug);
   if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeReviewsPublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
   return runSingleFlight(`stores:api:reviews:${s}`, async () => {
+    const inFlightCached = storeReviewsPublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeReviewsPublicCache.set(s, { expiresAt: Date.now() + STORE_REVIEWS_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeReviewsPublicCache.delete(s);
+    }
+    return value;
   });
 }
 
@@ -79,6 +128,7 @@ export async function fetchStoreFavoriteMutation(
 ): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
   if (!s) return { status: 400, json: { ok: false } };
+  storePublicCache.delete(s);
   const res = await fetch(`/api/stores/${encodeURIComponent(s)}/favorite`, {
     method,
     credentials: "include",
