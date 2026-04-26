@@ -14,6 +14,7 @@ import {
 import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
 import { getAdminRole } from "@/lib/admin-permission";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
@@ -125,26 +126,47 @@ export function AdminUserListPage() {
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
 
-  const currentUser = getCurrentUser();
-  const adminUserId = currentUser?.id ?? "";
+  // 클라이언트 캐시(`getCurrentUser()`)는 첫 렌더에서 비어 있고, `SupabaseAuthSync` 가 한 프레임 뒤에 채운다.
+  // 동기 1회 읽기 + `TEST_AUTH_CHANGED_EVENT` 구독으로 하이드레이션 후 다시 그리게 한다.
+  const [adminUserId, setAdminUserId] = useState<string>(() => getCurrentUser()?.id ?? "");
+  useEffect(() => {
+    const onAuthChanged = () => {
+      const id = getCurrentUser()?.id ?? "";
+      setAdminUserId((prev) => (prev === id ? prev : id));
+    };
+    onAuthChanged();
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, []);
 
+  /**
+   * 회원 목록 조회 — 권한 검증은 서버(`requireAdminApiUser`)가 한다.
+   * 클라이언트의 `adminUserId` 가 비어 있어도(쿠키만 있고 프로필 캐시 미하이드레이션 상태) 호출을 막지 않는다.
+   * 401·403 응답은 분명히 표면화하고, 200 이면 목록을 노출한다.
+   */
   const fetchMembers = useCallback(async () => {
-    if (!adminUserId) {
-      setMembersFromApi(null);
-      setMembersError("관리자 세션을 확인하는 중입니다.");
-      return;
-    }
     setMembersLoading(true);
     setMembersError(null);
     try {
-      const res = await runSingleFlight(`admin-users:list:${adminUserId}:${membersKey}`, () =>
-        fetch("/api/admin/users", { credentials: "include" })
+      const flightKey = `admin-users:list:${adminUserId || "anon"}:${membersKey}`;
+      const res = await runSingleFlight(flightKey, () =>
+        fetch("/api/admin/users", { credentials: "include", cache: "no-store" })
       );
       const data = (await res.clone().json().catch(() => ({}))) as {
         users?: AdminUser[];
         error?: string;
         code?: string;
       };
+      if (res.status === 401) {
+        setMembersFromApi([]);
+        setMembersError("로그인이 필요합니다. 다시 로그인 후 시도해 주세요.");
+        return;
+      }
+      if (res.status === 403) {
+        setMembersFromApi([]);
+        setMembersError(data.error || "관리자만 조회할 수 있습니다.");
+        return;
+      }
       if (!res.ok) {
         setMembersFromApi([]);
         setMembersError(
@@ -166,10 +188,9 @@ export function AdminUserListPage() {
   }, [adminUserId, membersKey]);
 
   useEffect(() => {
-    if (tab === "members" && adminUserId) {
-      fetchMembers();
-    }
-  }, [tab, adminUserId, membersKey, fetchMembers]);
+    if (tab !== "members") return;
+    void fetchMembers();
+  }, [tab, membersKey, fetchMembers]);
 
   const users = useMemo(() => membersFromApi ?? [], [membersFromApi]);
   const filtered = useMemo(

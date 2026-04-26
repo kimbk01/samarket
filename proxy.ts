@@ -104,6 +104,15 @@ export async function proxy(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+  // Next.js App Router metadata routes (확장자 없음): `app/icon.tsx`·`app/apple-icon.tsx`·`app/opengraph-image.tsx` 등.
+  // 이들은 `/icon`, `/apple-icon`, `/opengraph-image[/...]` 처럼 노출되며 페이지가 아니라 이미지 응답이다.
+  // 인증 게이트에서 빼야 비로그인 상태에서도 정상 로딩되고, 잘못된 `?next=%2Ficon` 도 만들지 않는다.
+  if (
+    /^\/(?:icon|apple-icon|opengraph-image|twitter-image)(?:\/|$|-)/i.test(pathname) ||
+    /^\/(?:icon|apple-icon|opengraph-image|twitter-image)$/i.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
 
   if (isPublicPath(pathname)) {
     return preventAuthPageCache(NextResponse.next());
@@ -166,6 +175,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff|woff2|ttf|otf|eot)$).*)",
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|icon(?:[/-]|$)|apple-icon(?:[/-]|$)|opengraph-image(?:[/-]|$)|twitter-image(?:[/-]|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|wav|mp3|mp4|ico|webmanifest|json|xml|txt|map|woff|woff2|ttf|otf|eot)$).*)",
   ],
 };
