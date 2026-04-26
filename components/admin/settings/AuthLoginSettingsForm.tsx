@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
+import type { AuthProviderPublicMeta, OAuthProvider } from "@/lib/auth/auth-providers";
 import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
 
-type EditableProvider = AuthProviderPublic & { client_secret: string };
+type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
 
-function toEditable(row: AuthProviderPublic): EditableProvider {
+function toEditable(row: AuthProviderPublicMeta): EditableProvider {
   return {
     ...row,
     client_secret: "",
@@ -45,7 +45,7 @@ export function AuthLoginSettingsForm() {
     });
     const providersJson = (await providersRes.json().catch(() => null)) as {
       ok?: boolean;
-      providers?: AuthProviderPublic[];
+      providers?: AuthProviderPublicMeta[];
       error?: string;
     } | null;
     if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
@@ -92,6 +92,12 @@ export function AuthLoginSettingsForm() {
     setSessionPolicy((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
+  const updateLoginSetting = (provider: OAuthProvider, patch: Partial<AuthLoginSetting>) => {
+    setLegacySettings((prev) =>
+      prev.map((item) => (item.provider === provider ? { ...item, ...patch } : item))
+    );
+  };
+
   const saveProvider = async (provider: OAuthProvider): Promise<void> => {
     const row = providers.find((item) => item.provider === provider);
     if (!row) {
@@ -130,7 +136,7 @@ export function AuthLoginSettingsForm() {
       });
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
-        provider?: AuthProviderPublic;
+        provider?: AuthProviderPublicMeta;
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !json.provider) {
@@ -149,6 +155,30 @@ export function AuthLoginSettingsForm() {
             : item
         )
       );
+      if (sessionPolicy) {
+        const policyRes = await fetch("/api/admin/auth-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            settings: legacySettings,
+            sessionPolicy,
+          }),
+        });
+        const policyJson = (await policyRes.json().catch(() => null)) as {
+          ok?: boolean;
+          settings?: AuthLoginSetting[];
+          error?: string;
+        } | null;
+        if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings)) {
+          setProviderError((prev) => ({
+            ...prev,
+            [provider]: policyJson?.error || "로그인 화면 노출/이름 설정 저장에 실패했습니다.",
+          }));
+          return;
+        }
+        setLegacySettings(policyJson.settings);
+      }
       setProviderStatus((prev) => ({ ...prev, [provider]: "저장되었습니다." }));
     } catch {
       setProviderError((prev) => ({ ...prev, [provider]: `${provider} 설정을 저장하지 못했습니다.` }));
@@ -236,21 +266,51 @@ export function AuthLoginSettingsForm() {
                 key={row.provider}
                 className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4"
               >
+                {(() => {
+                  const setting = legacySettings.find((item) => item.provider === row.provider);
+                  return (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="sam-text-body font-semibold text-sam-fg">{getProviderTitle(row.provider)}</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">
+                      {setting?.label?.trim() || getProviderTitle(row.provider)}
+                    </p>
                     <p className="sam-text-helper text-sam-muted">{row.provider}</p>
                   </div>
-                  <label className="flex items-center gap-2 sam-text-body text-sam-fg">
-                    <input
-                      type="checkbox"
-                      checked={row.enabled}
-                      onChange={(e) => updateProvider(row.provider, { enabled: e.target.checked })}
-                    />
-                    사용
-                  </label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 sam-text-body text-sam-fg">
+                      <input
+                        type="checkbox"
+                        checked={row.enabled}
+                        onChange={(e) => updateProvider(row.provider, { enabled: e.target.checked })}
+                      />
+                      사용 여부
+                    </label>
+                    <label className="flex items-center gap-2 sam-text-body text-sam-fg">
+                      <input
+                        type="checkbox"
+                        checked={setting?.enabled === true}
+                        onChange={(e) =>
+                          updateLoginSetting(row.provider, { enabled: e.target.checked })
+                        }
+                      />
+                      로그인 화면 노출 여부
+                    </label>
+                  </div>
                 </div>
+                  );
+                })()}
                 <div className="grid gap-3 md:grid-cols-2">
+                  <label className="sam-text-body text-sam-fg">
+                    <span className="mb-1 block sam-text-helper text-sam-muted">Provider 이름</span>
+                    <input
+                      type="text"
+                      value={legacySettings.find((item) => item.provider === row.provider)?.label ?? getProviderTitle(row.provider)}
+                      onChange={(e) =>
+                        updateLoginSetting(row.provider, { label: e.target.value.trim() || getProviderTitle(row.provider) })
+                      }
+                      className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                    />
+                  </label>
                   <label className="sam-text-body text-sam-fg">
                     <span className="mb-1 block sam-text-helper text-sam-muted">정렬 순서</span>
                     <input
@@ -281,15 +341,24 @@ export function AuthLoginSettingsForm() {
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                       autoComplete="new-password"
                     />
+                    <span className="mt-1 block sam-text-helper text-sam-muted">
+                      저장 상태: {row.client_secret_configured ? "설정됨" : "미설정"}
+                    </span>
                   </label>
                   <label className="sam-text-body text-sam-fg">
-                    <span className="mb-1 block sam-text-helper text-sam-muted">Redirect URI</span>
+                    <span className="mb-1 block sam-text-helper text-sam-muted">
+                      외부 OAuth 콘솔에 등록할 Supabase Callback URL
+                    </span>
                     <input
                       type="url"
                       value={row.redirect_uri}
                       onChange={(e) => updateProvider(row.provider, { redirect_uri: e.target.value })}
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                     />
+                    <span className="mt-1 block sam-text-helper text-sam-muted">
+                      SAMARKET은 Supabase Auth 방식입니다. 카카오/구글/네이버/애플/페이스북 개발자 콘솔에는
+                      samarket.vercel.app/api/auth/... 주소가 아니라 Supabase Callback URL을 등록해야 합니다.
+                    </span>
                   </label>
                 </div>
                 <label className="sam-text-body text-sam-fg">

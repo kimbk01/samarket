@@ -22,6 +22,9 @@ export type AuthProviderRow = {
 };
 
 export type AuthProviderPublic = Omit<AuthProviderRow, "client_secret">;
+export type AuthProviderPublicMeta = AuthProviderPublic & {
+  client_secret_configured?: boolean;
+};
 
 const SUPPORTED_PROVIDER_SET = new Set<string>(SUPPORTED_AUTH_PROVIDERS);
 
@@ -60,25 +63,31 @@ export function hasRequiredOAuthKeys(row: Pick<AuthProviderRow, "client_id" | "c
   );
 }
 
+export function buildSupabaseCallbackUrl(rawSupabaseUrl: string | undefined): string | null {
+  const trimmed = (rawSupabaseUrl ?? "").trim().replace(/\/+$/, "");
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    return `${parsed.origin}/auth/v1/callback`;
+  } catch {
+    return null;
+  }
+}
+
 export function buildRedirectWhitelist(requestOrigin?: string): string[] {
   const fromEnv = (process.env.AUTH_REDIRECT_URI_WHITELIST ?? "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
   if (fromEnv.length > 0) return fromEnv;
-  const origin = requestOrigin
-    ? requestOrigin.trim().replace(/\/+$/, "")
-    : process.env.NEXT_PUBLIC_SITE_URL
-      ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/+$/, "")
-      : "";
-  const projectFallbackOrigins = ["https://samarket.vercel.app"];
+  // SAMarket 정식 구조: 외부 OAuth 콘솔에는 Supabase callback 만 등록한다.
+  // requestOrigin 을 일부러 사용하지 않는 이유는 앱 callback 주소의 재허용을 막기 위함.
+  void requestOrigin;
+  const supabaseCallback = buildSupabaseCallbackUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const projectSupabaseFallback = "https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback";
   const fallback = [
-    origin ? `${origin}/api/auth/oauth/callback` : "",
-    origin ? `${origin}/api/auth/google/callback` : "",
-    ...projectFallbackOrigins.flatMap((base) => [
-      `${base}/api/auth/oauth/callback`,
-      `${base}/api/auth/google/callback`,
-    ]),
+    supabaseCallback ?? "",
+    projectSupabaseFallback,
   ]
     .map((item) => item.trim())
     .filter(Boolean);

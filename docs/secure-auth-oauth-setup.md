@@ -1,16 +1,15 @@
 # Secure Auth OAuth Setup
 
-## Supabase URL Configuration
+## Supabase URL Configuration (Production Standard)
 
 1. Supabase Dashboard -> `Authentication` -> `URL Configuration`
 2. `Site URL`:
-   - production: `https://your-domain.com`
+   - production: `https://samarket.vercel.app`
 3. `Redirect URLs`:
+   - `https://samarket.vercel.app/**`
    - `http://localhost:3000/**`
-   - `https://your-domain.com/**`
-   - `https://*-your-project.vercel.app/**`
 
-앱 코드는 OAuth 완료 후 `app/auth/callback/route.ts` 로 돌아오므로, 각 provider 로그인 시 `redirectTo` 는 앱의 `/auth/callback` 이 allow list 에 포함되어야 합니다.
+SAMarket은 Supabase Auth OAuth 단일 구조입니다. OAuth 완료 후 앱은 `/auth/callback` 으로 복귀합니다.
 
 ## Google
 
@@ -25,7 +24,7 @@
 1. Kakao Developers에서 앱 생성
 2. `Kakao Login` 활성화
 3. Redirect URI에 Supabase callback URL 등록
-   - `https://<project-ref>.supabase.co/auth/v1/callback`
+   - `https://ckdosyydvgzqwpbwuhon.supabase.co/auth/v1/callback`
 4. Supabase Dashboard -> `Authentication` -> `Sign In / Providers` -> `Kakao`
 5. REST API Key 기반 Client ID / Secret을 입력하고 enable 합니다.
 
@@ -66,6 +65,8 @@ Supabase가 표시하는 callback URL을 Naver Developers의 callback URL에 등
 
 - Google: `provider: "google"`
 - Kakao: `provider: "kakao"`
-- Naver: `provider: "custom:naver"`
-- OAuth callback path: `/auth/callback`
+- Naver: `provider: "naver"`
+- Apple: `provider: "apple"`
+- Facebook: `provider: "facebook"`
+- OAuth callback path: `/auth/callback` (legacy `/api/auth/oauth/callback` is redirect-only)
 - 로그인 완료 후 서버가 `profiles.active_session_id` 와 httpOnly 쿠키를 함께 갱신합니다.

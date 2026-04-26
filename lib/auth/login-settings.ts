@@ -52,9 +52,13 @@ export function isOauthLoginProvider(provider: LoginSettingProvider): provider i
 
 export function mapProviderToSupabaseOAuth(
   provider: Exclude<LoginSettingProvider, "password">
-): "google" | "kakao" | "custom:naver" | "apple" | "facebook" {
-  if (provider === "naver") return "custom:naver";
-  return provider;
+): "google" | "kakao" | "naver" | "custom:naver" | "apple" | "facebook" {
+  if (provider !== "naver") return provider;
+  const configuredNaverSlug = String(process.env.NEXT_PUBLIC_SUPABASE_NAVER_PROVIDER_SLUG ?? "")
+    .trim()
+    .toLowerCase();
+  if (configuredNaverSlug === "custom:naver") return "custom:naver";
+  return "naver";
 }
 
 export async function loadAuthLoginSettings(): Promise<AuthLoginSetting[]> {

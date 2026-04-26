@@ -3,7 +3,6 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
-import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { AdminAuthProvider, MemberType } from "@/lib/types/admin-user";
 
@@ -223,10 +222,9 @@ export async function GET(_req: NextRequest) {
   let { data: rows, error } = await fetchProfiles();
 
   /**
-   * OAuth 첫 로그인 직후 `profiles` 누락이 남아도 관리자 목록에서 보이도록
-   * 최근 Auth 사용자 프로필을 한 번 보정하고,
-   * 보정마저 실패한 사용자는 "auth-only" 임시 엔트리로 항상 노출한다.
-   * (회원 가입은 됐지만 `profiles` 가 비는 상태를 관리자에게 가시화)
+   * 관리자 목록 GET은 "조회 전용"으로 유지한다.
+   * (목록 진입 경로에서 프로필 보정 write를 수행하지 않음)
+   * profiles 누락 사용자는 auth-only 엔트리로 가시화해 운영자가 즉시 식별 가능하게 한다.
    */
   const serviceSb = supabase as AuthAdminClient;
   let authOnlyEntries: AuthListUser[] = [];
@@ -246,35 +244,7 @@ export async function GET(_req: NextRequest) {
           return id.length > 0 && !existingIds.has(id);
         })
         .slice(0, 50);
-
-      for (const authUser of missingAuthUsers) {
-        const id = String(authUser.id ?? "").trim();
-        if (!id) continue;
-        try {
-          await ensureProfileForUserId(supabase, id);
-        } catch {
-          // 한 명의 보정 실패는 전체 목록 노출을 막지 않는다.
-        }
-      }
-
-      if (missingAuthUsers.length > 0) {
-        const refetched = await fetchProfiles();
-        rows = refetched.data;
-        error = refetched.error;
-      }
-
-      /**
-       * `ensureProfileForUserId` 가 성공했는지 다시 검사.
-       * 여전히 `profiles` 에 없는 auth.users 는 auth-only 엔트리로 표시 →
-       * "Supabase Auth 에는 있지만 profiles 누락" 상태가 관리자 화면에서 즉시 보인다.
-       */
-      const refreshedIds = new Set<string>(
-        ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter(Boolean)
-      );
-      authOnlyEntries = missingAuthUsers.filter((u) => {
-        const id = String(u?.id ?? "").trim();
-        return id.length > 0 && !refreshedIds.has(id);
-      });
+      authOnlyEntries = missingAuthUsers;
     } catch {
       // auth.admin 조회 실패 시 기존 profiles 결과를 그대로 사용.
     }
@@ -300,18 +270,21 @@ export async function GET(_req: NextRequest) {
           .in("id", profileIds)
       : { data: [] as TestUserRow[] };
 
-  let legacyTestUsersQuery = supabase
+  const legacyTestUsersQuery = supabase
     .from("test_users")
     .select("id, username, display_name, role, contact_phone, contact_address, created_at")
     .order("created_at", { ascending: false })
     .limit(250);
-  if (profileIds.length > 0) {
-    /** `profiles` 와 id 가 겹치는 행은 `matchedTestRows` 로 이미 조회 — 최근 250 스캔의 대역·중복 병합 낭비 감소 */
-    legacyTestUsersQuery = legacyTestUsersQuery.not("id", "in", `(${profileIds.join(",")})`);
-  }
   const { data: recentTestRows } = await legacyTestUsersQuery;
 
-  const testRows = [...((matchedTestRows ?? []) as TestUserRow[]), ...((recentTestRows ?? []) as TestUserRow[])];
+  const testRowsById = new Map<string, TestUserRow>();
+  for (const row of (matchedTestRows ?? []) as TestUserRow[]) {
+    if (row?.id) testRowsById.set(row.id, row);
+  }
+  for (const row of (recentTestRows ?? []) as TestUserRow[]) {
+    if (row?.id && !testRowsById.has(row.id)) testRowsById.set(row.id, row);
+  }
+  const testRows = Array.from(testRowsById.values());
   const testMap = new Map<string, TestUserRow>(
     ((testRows ?? []) as TestUserRow[]).map((row) => [row.id, row])
   );

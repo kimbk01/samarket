@@ -265,11 +265,11 @@ function LoginPageContent() {
       }
       const redirectTo =
         typeof window !== "undefined"
-          ? `${window.location.origin}/api/auth/oauth/callback?provider=${encodeURIComponent(provider)}`
+          ? `${window.location.origin}/auth/callback?provider=${encodeURIComponent(provider)}`
           : undefined;
       const { error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
-          provider: mapProviderToSupabaseOAuth(provider),
+          provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
           options: { redirectTo },
         }),
         AUTH_REQUEST_TIMEOUT_MS,

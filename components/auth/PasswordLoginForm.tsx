@@ -20,13 +20,13 @@ export function PasswordLoginForm({
   onSubmit,
 }: Props) {
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate autoComplete="off">
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">이메일 또는 로그인 ID</label>
         <input
           type="text"
           inputMode="email"
-          autoComplete="username"
+          autoComplete="off"
           value={identifier}
           onChange={(e) => onIdentifierChange(e.target.value)}
           placeholder="이메일 또는 로그인 ID"
@@ -38,6 +38,7 @@ export function PasswordLoginForm({
         <label className="block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
         <input
           type="password"
+          autoComplete="new-password"
           value={password}
           onChange={(e) => onPasswordChange(e.target.value)}
           required

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import {
   sortAuthProviders,
-  type AuthProviderPublic,
+  type AuthProviderPublicMeta,
 } from "@/lib/auth/auth-providers";
 import { loadAuthProviderRows } from "@/lib/auth/auth-provider-store";
 import { clientSafeInternalErrorMessage, jsonError, jsonOk } from "@/lib/http/api-route";
@@ -10,7 +10,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function toPublicRows(rows: Array<AuthProviderPublic & { client_secret?: string }>): AuthProviderPublic[] {
+function toPublicRows(rows: Array<AuthProviderPublicMeta & { client_secret?: string }>): AuthProviderPublicMeta[] {
   return rows.map((row) => ({
     id: row.id,
     provider: row.provider,
@@ -21,6 +21,7 @@ function toPublicRows(rows: Array<AuthProviderPublic & { client_secret?: string 
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    client_secret_configured: row.client_secret_configured ?? String(row.client_secret ?? "").trim().length > 0,
   }));
 }
 

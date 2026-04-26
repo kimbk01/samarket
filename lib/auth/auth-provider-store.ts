@@ -1,9 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  buildSupabaseCallbackUrl,
   normalizeOAuthProvider,
   sortAuthProviders,
   SUPPORTED_AUTH_PROVIDERS,
-  type AuthProviderPublic,
+  type AuthProviderPublicMeta,
   type AuthProviderRow,
   type OAuthProvider,
 } from "@/lib/auth/auth-providers";
@@ -33,7 +34,7 @@ function normalizeRow(row: AnyRow): AuthProviderRow | null {
   };
 }
 
-export function toAuthProviderPublic(row: AuthProviderRow): AuthProviderPublic {
+export function toAuthProviderPublic(row: AuthProviderRow): AuthProviderPublicMeta {
   return {
     id: row.id,
     provider: row.provider,
@@ -44,17 +45,19 @@ export function toAuthProviderPublic(row: AuthProviderRow): AuthProviderPublic {
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    client_secret_configured: row.client_secret.trim().length > 0,
   };
 }
 
 function defaultRows(): AuthProviderRow[] {
+  const defaultSupabaseCallback = buildSupabaseCallbackUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? "";
   return SUPPORTED_AUTH_PROVIDERS.map((provider, index) => ({
     id: provider,
     provider,
     enabled: false,
     client_id: "",
     client_secret: "",
-    redirect_uri: "",
+    redirect_uri: defaultSupabaseCallback,
     scope: "",
     sort_order: index + 1,
   }));

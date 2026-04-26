@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import {
+  buildSupabaseCallbackUrl,
   normalizeOAuthProvider,
   sortAuthProviders,
   validateRedirectUriWithWhitelist,
-  type AuthProviderPublic,
+  type AuthProviderPublicMeta,
   type AuthProviderRow,
 } from "@/lib/auth/auth-providers";
 import { loadAuthProviderByProvider, loadAuthProviderRows } from "@/lib/auth/auth-provider-store";
@@ -24,7 +25,7 @@ type ProviderPayload = {
   sort_order?: number;
 };
 
-function toPublicRow(row: AuthProviderRow): AuthProviderPublic {
+function toPublicRow(row: AuthProviderRow): AuthProviderPublicMeta {
   return {
     id: row.id,
     provider: row.provider,
@@ -35,6 +36,7 @@ function toPublicRow(row: AuthProviderRow): AuthProviderPublic {
     sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at,
+    client_secret_configured: row.client_secret.trim().length > 0,
   };
 }
 
@@ -84,9 +86,10 @@ export async function POST(req: NextRequest) {
         return existing?.client_secret ?? "";
       })()
     : existing?.client_secret ?? "";
+  const defaultSupabaseCallback = buildSupabaseCallbackUrl(process.env.NEXT_PUBLIC_SUPABASE_URL) ?? "";
   const incomingRedirectUri = hasField("redirect_uri")
     ? String(payload.redirect_uri ?? "").trim()
-    : existing?.redirect_uri ?? "";
+    : existing?.redirect_uri ?? defaultSupabaseCallback;
   const incomingScope = hasField("scope")
     ? String(payload.scope ?? "").trim()
     : existing?.scope ?? "";
