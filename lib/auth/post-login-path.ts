@@ -4,4 +4,4 @@
  * - 미인증 시 `/login` 은 쿼리 없이 열고(`proxy.ts`, `buildLoginHref`),
  *   성공 후에는 이 경로로만 이동해 세션·게이트와 맞춘다.
  */
-export const POST_LOGIN_PATH = "/home" as const;
+export const POST_LOGIN_PATH = "/mypage" as const;

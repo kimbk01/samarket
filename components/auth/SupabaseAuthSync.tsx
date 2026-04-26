@@ -13,25 +13,12 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
-/** INITIAL_SESSION·SIGNED_IN 등 짧은 간격에 ensure 가 여러 번 때리는 것 방지 */
-let profileEnsureInFlight: Promise<Response> | null = null;
 let profileHydrateInFlight: Promise<void> | null = null;
-
-function fetchProfileEnsureDeduped(): Promise<Response> {
-  if (!profileEnsureInFlight) {
-    profileEnsureInFlight = fetch("/api/auth/profile/ensure", {
-      method: "POST",
-      credentials: "include",
-    }).finally(() => {
-      profileEnsureInFlight = null;
-    });
-  }
-  return profileEnsureInFlight;
-}
 
 /**
  * 세션 + 서버 ensure(profiles DB)로 프로필 캐시를 맞춤.

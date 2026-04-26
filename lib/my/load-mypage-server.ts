@@ -6,6 +6,9 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { MyPageData, MyPageBannerRow, MyServiceRow, MyPageSectionRow } from "./types";
 import { DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS } from "./my-page-defaults";
 import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
@@ -32,7 +35,44 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
   const userSb = await createSupabaseRouteHandlerClient();
   const sbStores = tryGetSupabaseForStores();
 
-  const profilePromise = userSb ? fetchProfileRowSafe(userSb, userId) : Promise.resolve(null);
+  const profilePromise = userSb
+    ? (async () => {
+        const existing = await fetchProfileRowSafe(userSb, userId);
+        if (existing) return existing;
+        try {
+          const {
+            data: { user },
+          } = await userSb.auth.getUser();
+          if (!user?.id || user.id !== userId) return null;
+          /**
+           * 1순위: service_role 보정 (트리거/제약을 모두 통과)
+           * 2순위(service key 미설정): 본인 쿠키 클라이언트로 INSERT-only 보정
+           *   - 트리거는 UPDATE 에만 걸리므로 신규 INSERT 는 허용
+           *   - RLS `id = auth.uid()` 통과
+           *   - `ensureAuthProfileRow` 의 minimal fallback 이 어떤 스키마에서도 row 생성
+           */
+          const svc = tryCreateSupabaseServiceClient();
+          if (svc) {
+            try {
+              await ensureAuthProfileRow(svc, user);
+            } catch {
+              await ensureProfileForUserId(svc, userId);
+            }
+            const refreshed = await fetchProfileRowSafe(userSb, userId);
+            if (refreshed) return refreshed;
+            return await fetchProfileRowSafe(svc, userId);
+          }
+          try {
+            await ensureAuthProfileRow(userSb, user);
+          } catch {
+            // 다음 호출(클라이언트 /api/auth/profile/ensure)에서도 동일 fallback 시도됨
+          }
+          return await fetchProfileRowSafe(userSb, userId);
+        } catch {
+          return null;
+        }
+      })()
+    : Promise.resolve(null);
 
   const storesHeadPromise =
     sbStores != null

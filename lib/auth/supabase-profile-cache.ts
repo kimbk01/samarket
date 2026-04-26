@@ -1,5 +1,6 @@
 import type { Profile } from "@/lib/types/profile";
 import type { Session, User } from "@supabase/supabase-js";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
 let cached: Profile | null = null;
 
@@ -24,6 +25,37 @@ export function patchSupabaseProfileCache(updates: Partial<Profile>): void {
   cached = { ...cached, ...updates };
 }
 
+function pickString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function readIdentityDataValue(user: User, keys: string[]): string | null {
+  const identities = Array.isArray(user.identities)
+    ? (user.identities as unknown as Array<{ identity_data?: Record<string, unknown> | null }>)
+    : [];
+  for (const identity of identities) {
+    const data = identity.identity_data;
+    if (!data || typeof data !== "object") continue;
+    for (const key of keys) {
+      const value = pickString(data[key]);
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+function resolveOAuthAvatarUrl(user: User, meta: Record<string, unknown> | undefined): string | null {
+  return (
+    pickString(meta?.avatar_url) ??
+    pickString(meta?.picture) ??
+    pickString(meta?.photo_url) ??
+    pickString(meta?.image) ??
+    readIdentityDataValue(user, ["avatar_url", "picture", "photo_url", "image"])
+  );
+}
+
 /** getUser() 등 세션 없이 User 만 있을 때 — getSession() 경고 회피·동일 메타 규칙 */
 export function userToProfile(user: User | null | undefined): Profile | null {
   if (!user?.id) return null;
@@ -31,10 +63,9 @@ export function userToProfile(user: User | null | undefined): Profile | null {
   const nick =
     (typeof meta?.nickname === "string" && meta.nickname) ||
     (typeof meta?.full_name === "string" && meta.full_name) ||
+    (typeof meta?.name === "string" && meta.name) ||
     user.email?.split("@")[0] ||
     "User";
-  const metaPic = typeof meta?.picture === "string" ? meta.picture : null;
-  const metaAvatar = typeof meta?.avatar_url === "string" ? meta.avatar_url : null;
   const authProv =
     typeof meta?.provider === "string" && meta.provider.trim()
       ? meta.provider.trim()
@@ -46,7 +77,7 @@ export function userToProfile(user: User | null | undefined): Profile | null {
     email: user.email ?? "",
     display_name: nick,
     nickname: nick,
-    avatar_url: metaAvatar || metaPic || null,
+    avatar_url: withDefaultAvatar(resolveOAuthAvatarUrl(user, meta)),
     temperature: 50,
     provider: authProv,
     auth_provider: authProv,

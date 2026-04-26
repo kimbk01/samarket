@@ -51,6 +51,19 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
+      // SNS OAuth 프로필 이미지
+      { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "lh4.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "lh5.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "lh6.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "*.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "*.ggpht.com", pathname: "/**" },
+      { protocol: "https", hostname: "k.kakaocdn.net", pathname: "/**" },
+      { protocol: "https", hostname: "*.kakaocdn.net", pathname: "/**" },
+      { protocol: "https", hostname: "*.pstatic.net", pathname: "/**" },
+      { protocol: "https", hostname: "graph.facebook.com", pathname: "/**" },
+      { protocol: "https", hostname: "*.fbcdn.net", pathname: "/**" },
+      { protocol: "https", hostname: "*.fbsbx.com", pathname: "/**" },
       // 로컬 Supabase Storage (`supabase start`) 에서 public URL 이 http 인 경우
       { protocol: "http", hostname: "127.0.0.1", pathname: "/storage/v1/object/public/**" },
       { protocol: "http", hostname: "localhost", pathname: "/storage/v1/object/public/**" },

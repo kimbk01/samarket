@@ -8,6 +8,7 @@ import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 
@@ -62,17 +63,13 @@ export function MyAccountContent() {
     <div className="space-y-4">
       <div className="flex items-center gap-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted">
-          {profile.avatar_url ? (
-            <Image
-              src={profile.avatar_url}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="64px"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center sam-text-hero text-sam-meta">👤</div>
-          )}
+          <Image
+            src={withDefaultAvatar(profile.avatar_url)}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="64px"
+          />
         </div>
         <div className="min-w-0 flex-1">
           <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>

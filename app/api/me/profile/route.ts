@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
+import type { ProfileUpdatePayload } from "@/lib/profile/types";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -178,9 +179,29 @@ export async function GET() {
   }
   let profile = await fetchProfileRowSafe(routeSb, auth.userId);
   if (!profile) {
+    /**
+     * 1순위: service_role 로 강력하게 보정.
+     * 2순위(production 에 service key 없을 때): 본인 쿠키 클라이언트로 INSERT-only.
+     *   - `guard_profiles_self_update` 트리거는 UPDATE 에만 걸리므로 신규 INSERT 는 허용
+     *   - RLS `profiles_insert_own_or_admin` 의 `id = auth.uid()` 도 통과
+     *   - `ensureAuthProfileRow` 는 첫 시도 실패 시 id-only 수준의 minimal fallback 으로 강하한다
+     */
     const svc = tryCreateSupabaseServiceClient();
     if (svc) {
-      profile = await ensureProfileForUserId(svc, auth.userId);
+      try {
+        await ensureAuthProfileRow(svc, user);
+      } catch {
+        await ensureProfileForUserId(svc, auth.userId);
+      }
+      profile = await fetchProfileRowSafe(routeSb, auth.userId);
+      if (!profile) profile = await fetchProfileRowSafe(svc, auth.userId);
+    } else {
+      try {
+        await ensureAuthProfileRow(routeSb, user);
+      } catch {
+        // INSERT-only 도 막혔다면 다음 GET 에서 다시 시도하도록 한 다음, 우선 null 반환
+      }
+      profile = await fetchProfileRowSafe(routeSb, auth.userId);
     }
   }
   return NextResponse.json({ ok: true, profile });

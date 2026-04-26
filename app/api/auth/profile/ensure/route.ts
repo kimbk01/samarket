@@ -4,6 +4,8 @@ import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 
@@ -26,22 +28,63 @@ export async function POST(request: NextRequest) {
   const ensureRl = await enforceProfileEnsureQuota(user.id);
   if (!ensureRl.ok) return ensureRl.response;
 
+  /**
+   * service_role 이 있으면 트리거·제약을 안정적으로 통과하고,
+   * 없으면 본인 쿠키 클라이언트의 INSERT-only fallback 으로 최소 프로필 행을 보장한다.
+   */
   const serviceSb = tryCreateSupabaseServiceClient();
-  if (!serviceSb) {
-    return jsonError("프로필 동기화 구성이 준비되지 않았습니다.", 503, {
-      code: "supabase_service_unconfigured",
-    });
-  }
+  const writeSb = serviceSb ?? routeSb;
 
   try {
-    const state = await ensureAuthProfileRow(serviceSb, user);
+    const state = await ensureAuthProfileRow(writeSb, user).catch(async () => {
+      const fallback = serviceSb ? await ensureProfileForUserId(serviceSb, user.id) : null;
+      if (!fallback) throw new Error("profile_ensure_failed");
+      const row = fallback as {
+        id: string;
+        email?: string | null;
+        username?: string | null;
+        nickname?: string | null;
+        avatar_url?: string | null;
+        role?: string | null;
+        member_type?: string | null;
+        status?: string | null;
+        phone?: string | null;
+        phone_country_code?: string | null;
+        phone_number?: string | null;
+        phone_verified?: boolean | null;
+        phone_verified_at?: string | null;
+        phone_verification_status?: string | null;
+        auth_login_email?: string | null;
+        auth_provider?: string | null;
+        provider?: string | null;
+      };
+      return {
+        userId: row.id,
+        email: row.email ?? null,
+        username: row.username ?? null,
+        nickname: row.nickname ?? "user",
+        avatarUrl: withDefaultAvatar(row.avatar_url ?? null),
+        role: row.role ?? "user",
+        memberType: row.member_type ?? "normal",
+        status: row.status ?? "sns_pending",
+        phone: row.phone ?? null,
+        phoneCountryCode: row.phone_country_code ?? "+63",
+        phoneNumber: row.phone_number ?? null,
+        phoneVerified: row.phone_verified === true,
+        phoneVerifiedAt: row.phone_verified_at ?? null,
+        phoneVerificationStatus: row.phone_verification_status ?? "unverified",
+        authLoginEmail: row.auth_login_email ?? row.email ?? null,
+        authProvider: row.auth_provider ?? null,
+        provider: row.provider ?? null,
+      };
+    });
     const response = jsonOk({
       profile: {
         id: state.userId,
         email: state.email ?? "",
         display_name: state.nickname,
         nickname: state.nickname,
-        avatar_url: state.avatarUrl,
+        avatar_url: withDefaultAvatar(state.avatarUrl),
         username: state.username,
         role: state.role,
         status: state.status,

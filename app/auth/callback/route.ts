@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { APP_LANGUAGE_COOKIE, normalizeAppLanguage } from "@/lib/i18n/config";
@@ -11,12 +12,11 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const dynamic = "force-dynamic";
 
 const SIGNUP_NICKNAME_COOKIE = "samarket_signup_nickname";
-const ENSURE_PROFILE_SOFT_TIMEOUT_MS = 180;
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const next = req.nextUrl.searchParams.get("next")?.trim() || POST_LOGIN_PATH;
-  const redirectUrl = new URL(next.startsWith("/") ? next : POST_LOGIN_PATH, req.url);
+  const redirectUrl = new URL(next.startsWith("/") && !next.startsWith("//") ? next : POST_LOGIN_PATH, req.url);
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     const serviceSb = tryCreateSupabaseServiceClient();
-    if (user && serviceSb) {
+    if (user) {
       const baseMeta =
         user.user_metadata && typeof user.user_metadata === "object"
           ? { ...(user.user_metadata as Record<string, unknown>) }
@@ -98,13 +98,21 @@ export async function GET(req: NextRequest) {
         baseMeta.preferred_language = normalizeAppLanguage(localeCookieRaw);
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
+      let accessState: Awaited<ReturnType<typeof ensureAuthProfileRow>> | null = null;
       try {
-        await Promise.race([
-          ensureAuthProfileRow(serviceSb, mergedUser),
-          new Promise<void>((resolve) => setTimeout(resolve, ENSURE_PROFILE_SOFT_TIMEOUT_MS)),
-        ]);
+        accessState = await ensureAuthProfileRow(serviceSb ?? supabase, mergedUser);
       } catch {
         /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
+      }
+      if (accessState && !hasStoreTermsConsent({
+        terms_accepted_at: accessState.termsAcceptedAt ?? null,
+        terms_version: accessState.termsVersion ?? null,
+        privacy_accepted_at: accessState.privacyAcceptedAt ?? null,
+        privacy_version: accessState.privacyVersion ?? null,
+      })) {
+        const consentUrl = new URL("/auth/consent", req.url);
+        consentUrl.searchParams.set("next", redirectUrl.pathname + redirectUrl.search);
+        response.headers.set("Location", consentUrl.toString());
       }
       const sessionMeta = buildRequestSessionMeta(req);
       await syncActiveSessionForUser(user.id, response, {

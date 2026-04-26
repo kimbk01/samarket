@@ -22,7 +22,9 @@ type ProfileLike = {
   member_status?: string | null;
   email?: string | null;
   terms_accepted_at?: string | null;
+  terms_version?: string | null;
   privacy_accepted_at?: string | null;
+  privacy_version?: string | null;
   deleted_at?: string | null;
 };
 
@@ -52,8 +54,18 @@ export function normalizeStoreAuthProvider(provider: string | null | undefined):
   return normalized;
 }
 
-export function hasStoreTermsConsent(profile: Pick<ProfileLike, "terms_accepted_at" | "privacy_accepted_at"> | null | undefined): boolean {
-  return Boolean(profile?.terms_accepted_at) && Boolean(profile?.privacy_accepted_at);
+export function hasStoreTermsConsent(
+  profile: Pick<
+    ProfileLike,
+    "terms_accepted_at" | "terms_version" | "privacy_accepted_at" | "privacy_version"
+  > | null | undefined
+): boolean {
+  return (
+    Boolean(profile?.terms_accepted_at) &&
+    Boolean(profile?.privacy_accepted_at) &&
+    profile?.terms_version === STORE_TERMS_VERSION &&
+    profile?.privacy_version === STORE_PRIVACY_VERSION
+  );
 }
 
 export function isDeletedStoreMember(profile: Pick<ProfileLike, "deleted_at" | "status"> | null | undefined): boolean {

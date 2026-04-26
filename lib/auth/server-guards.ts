@@ -60,7 +60,7 @@ export async function validateActiveSession(
     if (activeSessionId && activeSessionId !== sessionId) {
       return { ok: false, response: sessionReplacedResponse(), profile };
     }
-    if (!activeSessionId) {
+    if (!activeSessionId && !sessionId) {
       return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
     }
   }
@@ -110,7 +110,7 @@ export async function syncActiveSessionForUser(
 ): Promise<{ sessionId: string | null; profile: ProfileRow | null }> {
   const sb = tryCreateSupabaseServiceClient();
   const profile = sb ? await getCurrentProfile(userId) : await getCurrentProfile(userId);
-  if (!profile || !sb) {
+  if (!profile) {
     return { sessionId: null, profile };
   }
 
@@ -127,6 +127,17 @@ export async function syncActiveSessionForUser(
     nextSessionId = profileSessionId;
   } else {
     nextSessionId = createActiveSessionId();
+  }
+
+  if (!sb) {
+    setActiveSessionCookie(response, nextSessionId);
+    return {
+      sessionId: nextSessionId,
+      profile: {
+        ...profile,
+        active_session_id: profileSessionId,
+      },
+    };
   }
 
   const { error: profileUpdateError } = await sb

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { MyPageData } from "@/lib/my/types";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
@@ -19,14 +19,56 @@ import {
   MYPAGE_INFO_HUB_SHEET_VALUE,
   MYPAGE_MAIN_HREF,
 } from "@/lib/my/mypage-info-hub";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const recoveryTriggeredRef = useRef(false);
+  const ensureRetriedRef = useRef(false);
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
 
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
+
+  useEffect(() => {
+    if (loading || recoveryTriggeredRef.current) return;
+    if (data?.profile) return;
+    /**
+     * 세션은 있으나 `profiles` 행이 비어 있는 첫 진입을 자동 회복.
+     * `/api/auth/profile/ensure` 의 3단(full → minimal → id-only) fallback 으로
+     * 행이 만들어지면, 메인 데이터를 다시 로드해 화면을 정상화한다.
+     * (production · service_role 미설정 환경 모두에서 작동)
+     */
+    if (data && !data.profile && !ensureRetriedRef.current) {
+      ensureRetriedRef.current = true;
+      (async () => {
+        try {
+          await fetchProfileEnsureDeduped();
+          invalidateMeProfileDedupedCache();
+          await load({ silent: true });
+        } catch {
+          // 다음 단계의 로그인 복구로 자연 fallback
+        }
+      })();
+      return;
+    }
+    recoveryTriggeredRef.current = true;
+    const hasAuthError = Boolean(searchParams.get("auth_error"));
+    const reason = data
+      ? "프로필을 불러오지 못했습니다. 다시 로그인해 주세요."
+      : "세션을 확인하지 못했습니다. 다시 로그인해 주세요.";
+    if (typeof window !== "undefined") {
+      window.alert(reason);
+    }
+    const errorCode = hasAuthError
+      ? String(searchParams.get("auth_error") ?? "session_recovery_required")
+      : data
+        ? "profile_load_failed"
+        : "session_recovery_required";
+    router.replace(`/login?auth_error=${encodeURIComponent(errorCode)}`);
+  }, [loading, data, load, router, searchParams]);
 
   useEffect(() => {
     if (!infoHubOpen) return;

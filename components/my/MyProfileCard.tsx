@@ -11,6 +11,7 @@ import {
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
 export type AddressDefaultsFlags = {
   master: boolean;
@@ -80,13 +81,7 @@ export function MyProfileCard({
             className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-sam-primary-soft sm:h-[76px] sm:w-[76px]"
             aria-label={tt("프로필 이미지 편집")}
           >
-            {profile.avatar_url ? (
-              <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="76px" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-muted">
-                <UserPlaceholderIcon />
-              </div>
-            )}
+            <Image src={withDefaultAvatar(profile.avatar_url)} alt="" fill className="object-cover" sizes="76px" />
           </Link>
         </div>
         <div className="min-w-0 flex-1">
@@ -194,11 +189,3 @@ function QuickLink({ href, title, subtitle }: { href: string; title: string; sub
   );
 }
 
-function UserPlaceholderIcon() {
-  return (
-    <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}

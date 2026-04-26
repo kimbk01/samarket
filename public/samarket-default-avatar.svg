@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="SAMarket default profile image">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="32" x2="208" y2="224" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF2FF"/>
+      <stop offset="1" stop-color="#D7E5FF"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="76" y1="64" x2="184" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3478F6"/>
+      <stop offset="1" stop-color="#1F5ED9"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="128" fill="url(#bg)"/>
+  <circle cx="128" cy="96" r="42" fill="url(#mark)"/>
+  <path d="M56 207c10-42 37-67 72-67s62 25 72 67c2 8-4 17-13 17H69c-9 0-15-9-13-17Z" fill="url(#mark)"/>
+  <circle cx="184" cy="184" r="34" fill="#FFFFFF"/>
+  <path d="M169 183.5 180.5 195 201 172" fill="none" stroke="#1F5ED9" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

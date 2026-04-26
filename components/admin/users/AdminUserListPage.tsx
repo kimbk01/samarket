@@ -43,6 +43,8 @@ export function AdminUserListPage() {
   const [staffKey, setStaffKey] = useState(0);
   const [membersKey, setMembersKey] = useState(0);
   const [membersFromApi, setMembersFromApi] = useState<AdminUser[] | null>(null);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
 
@@ -52,21 +54,37 @@ export function AdminUserListPage() {
   const fetchMembers = useCallback(async () => {
     if (!adminUserId) {
       setMembersFromApi(null);
+      setMembersError("관리자 세션을 확인하는 중입니다.");
       return;
     }
+    setMembersLoading(true);
+    setMembersError(null);
     try {
       const res = await runSingleFlight(`admin-users:list:${adminUserId}:${membersKey}`, () =>
         fetch("/api/admin/users", { credentials: "include" })
       );
+      const data = (await res.clone().json().catch(() => ({}))) as {
+        users?: AdminUser[];
+        error?: string;
+        code?: string;
+      };
       if (!res.ok) {
-        setMembersFromApi(null);
+        setMembersFromApi([]);
+        setMembersError(
+          data.error ||
+            (data.code === "supabase_service_unconfigured"
+              ? "SUPABASE_SERVICE_ROLE_KEY가 없어 회원 목록을 불러올 수 없습니다."
+              : "회원 목록을 불러오지 못했습니다.")
+        );
         return;
       }
-      const data = (await res.clone().json().catch(() => ({}))) as { users?: AdminUser[] };
       const list = data.users ?? [];
       setMembersFromApi(list);
     } catch {
-      setMembersFromApi(null);
+      setMembersFromApi([]);
+      setMembersError("회원 목록 요청에 실패했습니다. 네트워크 또는 서버 로그를 확인해 주세요.");
+    } finally {
+      setMembersLoading(false);
     }
   }, [adminUserId, membersKey]);
 
@@ -194,7 +212,23 @@ export function AdminUserListPage() {
             showMemberUuid={showMemberUuid}
             onShowMemberUuidChange={setShowMemberUuid}
           />
-          {filtered.length === 0 ? (
+          {membersError ? (
+            <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-6 text-center sam-text-body text-red-700">
+              <p className="font-medium">회원 목록을 표시할 수 없습니다.</p>
+              <p className="mt-1">{membersError}</p>
+              <button
+                type="button"
+                onClick={refreshMembers}
+                className="mt-4 rounded-ui-rect border border-red-300 bg-white px-4 py-2 sam-text-body font-medium text-red-700 hover:bg-red-50"
+              >
+                다시 불러오기
+              </button>
+            </div>
+          ) : membersLoading ? (
+            <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
+              회원 목록을 불러오는 중입니다.
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
               조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
             </div>

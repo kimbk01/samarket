@@ -11,11 +11,30 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_ENSURE_SOFT_WAIT_MS = 120;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
+
+function mapAuthErrorMessage(code: string): string {
+  if (!code) return "로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.";
+  if (code === "provider_not_enabled") return "선택한 로그인 제공자가 비활성화되어 있습니다.";
+  if (code === "provider_key_missing") return "로그인 제공자 키가 누락되어 있습니다. 관리자에게 문의해 주세요.";
+  if (code === "redirect_uri_not_allowed") return "허용되지 않은 Redirect URI입니다.";
+  if (code === "callback_failed") return "OAuth 콜백 처리에 실패했습니다. 다시 시도해 주세요.";
+  if (code === "profile_ensure_failed") return "프로필 동기화에 실패했습니다. 다시 로그인해 주세요.";
+  if (code === "session_sync_failed") return "세션 동기화에 실패했습니다. 다시 로그인해 주세요.";
+  if (code === "user_not_found") return "로그인 사용자를 확인하지 못했습니다. 다시 시도해 주세요.";
+  if (code === "invalid_provider") return "로그인 제공자 정보가 올바르지 않습니다.";
+  if (code === "provider_mismatch") return "로그인 제공자 정보가 일치하지 않습니다.";
+  if (code === "missing_code") return "로그인 인증 코드가 누락되었습니다.";
+  if (code === "provider_id_missing") return "로그인 사용자 식별자를 찾지 못했습니다.";
+  if (code === "user_upsert_failed") return "회원 가입 처리에 실패했습니다. 다시 시도해 주세요.";
+  if (code === "supabase_service_unconfigured") return "서버 인증 설정이 누락되었습니다. 관리자에게 문의해 주세요.";
+  return `로그인 처리 실패(${code}). 다시 시도해 주세요.`;
+}
 
 function rejectAfter(ms: number, message: string): Promise<never> {
   return new Promise((_, reject) => {
@@ -42,6 +61,13 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.location.search.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const authError = params.get("auth_error")?.trim() ?? "";
+      if (authError) {
+        const message = mapAuthErrorMessage(authError);
+        setError(message);
+        window.alert(message);
+      }
       router.replace("/login", { scroll: false });
     }
   }, [router]);
@@ -170,10 +196,7 @@ function LoginPageContent() {
     }
     const loginUntilNavT0 = performance.now();
     const fetchAuthT0 = performance.now();
-    const ensurePromise = fetch("/api/auth/profile/ensure", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => null);
+    const ensurePromise = fetchProfileEnsureDeduped().catch(() => null);
     // 로그인 직후 체감 속도를 위해 짧게만 기다리고 즉시 이동한다.
     await Promise.race([
       ensurePromise,

@@ -20,6 +20,7 @@ import { resolveUnifiedChatUnreadHintForDashboard } from "@/lib/notifications/sa
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import {
   PHILIFE_FB_CARD_CLASS,
   PHILIFE_FEED_INSET_X_CLASS,
@@ -155,13 +156,7 @@ export function MyPageHomeDashboard({
               className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
               aria-label="프로필 이미지"
             >
-              {profile.avatar_url ? (
-                <Image src={profile.avatar_url} alt="" fill className="object-cover" sizes="72px" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-sam-muted">
-                  <UserPlaceholderIcon />
-                </div>
-              )}
+              <Image src={withDefaultAvatar(profile.avatar_url)} alt="" fill className="object-cover" sizes="72px" />
             </Link>
             <div className="min-w-0 flex-1">
               <p className="sam-text-profile-display leading-tight">{displayName}</p>
@@ -216,10 +211,3 @@ export function MyPageHomeDashboard({
   );
 }
 
-function UserPlaceholderIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-    </svg>
-  );
-}

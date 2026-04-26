@@ -9,7 +9,8 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 export function AuthConsentForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const next = searchParams.get("next")?.trim() || POST_LOGIN_PATH;
+  const rawNext = searchParams.get("next")?.trim() || POST_LOGIN_PATH;
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : POST_LOGIN_PATH;
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -35,7 +36,7 @@ export function AuthConsentForm() {
         return;
       }
       invalidateMeProfileDedupedCache();
-      router.replace(next.startsWith("/") ? next : POST_LOGIN_PATH);
+      router.replace(next);
     } catch {
       setError("동의를 저장하지 못했습니다.");
     } finally {

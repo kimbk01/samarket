@@ -2,6 +2,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
+import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
 import {
   deriveStoreMemberStatus,
   hasPhilippinePhoneVerification,
@@ -44,6 +45,28 @@ export const PHONE_VERIFICATION_REQUIRED_MESSAGE =
 
 function normalizeProvider(provider: string | null | undefined): string | null {
   return normalizeStoreAuthProvider(provider);
+}
+
+/**
+ * `profiles.provider` / `profiles.auth_provider` 컬럼은
+ * `profiles_provider_check` 제약(`'google','kakao','naver','manual','email'`)을 받는다.
+ * 정책 코드(`store-member-policy`)는 표시·정책 분기용으로 `'admin_manual'` 을 쓰지만,
+ * DB에 그대로 넣으면 제약 위반이 되므로 저장 직전 `'manual'` 로 매핑한다.
+ */
+function normalizeProviderForDb(provider: string | null | undefined): string | null {
+  const normalized = normalizeStoreAuthProvider(provider);
+  if (!normalized) return null;
+  if (normalized === "admin_manual") return "manual";
+  if (
+    normalized === "google" ||
+    normalized === "kakao" ||
+    normalized === "naver" ||
+    normalized === "manual" ||
+    normalized === "email"
+  ) {
+    return normalized;
+  }
+  return "email";
 }
 
 function normalizeMemberStatus(status: string | null | undefined): string {
@@ -126,6 +149,31 @@ function pickTrimmed(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function readFirstIdentityDataValue(user: User, keys: string[]): string | null {
+  const identities = Array.isArray(user.identities)
+    ? (user.identities as unknown as Array<{ identity_data?: Record<string, unknown> | null }>)
+    : [];
+  for (const identity of identities) {
+    const data = identity.identity_data;
+    if (!data || typeof data !== "object") continue;
+    for (const key of keys) {
+      const value = pickTrimmed(data[key]);
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+function resolveOAuthAvatarUrl(user: User, meta: Record<string, unknown>): string | null {
+  return (
+    pickTrimmed(meta.picture) ??
+    pickTrimmed(meta.avatar_url) ??
+    pickTrimmed(meta.photo_url) ??
+    pickTrimmed(meta.image) ??
+    readFirstIdentityDataValue(user, ["picture", "avatar_url", "photo_url", "image"])
+  );
+}
+
 export function resolveNicknameSeed(input: {
   nickname?: unknown;
   username?: unknown;
@@ -156,16 +204,26 @@ export async function ensureAuthProfileRow(
     pickTrimmed(meta.login_id) ??
     (email ? email.split("@")[0] : null);
   const nickname = resolveNicknameSeed({
-    nickname: meta.nickname ?? meta.full_name,
+    nickname: meta.nickname ?? meta.full_name ?? meta.name,
     username,
     email,
     fallbackId: user.id,
   });
 
-  const oauthAvatar = pickTrimmed(meta.picture) ?? pickTrimmed(meta.avatar_url);
+  const oauthAvatarRaw = resolveOAuthAvatarUrl(user, meta);
+  const oauthAvatar = withDefaultAvatar(oauthAvatarRaw);
   const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
   const nowIso = new Date().toISOString();
   const isAdminManual = provider === "admin_manual";
+  const dbProvider = normalizeProviderForDb(provider) ?? "email";
+
+  /**
+   * `profiles_status_check` (마이그레이션 `20260426030000`) 호환:
+   * 허용값은 `('sns_pending', 'verified_user', 'suspended', 'deleted')` 뿐.
+   * 관리자 수동 정식 회원은 SMS 없이도 거래 가능 → `verified_user`,
+   * 그 외 SNS·이메일 신규는 전화 인증 전 단계 → `sns_pending`.
+   */
+  const dbStatus: "verified_user" | "sns_pending" = isAdminManual ? "verified_user" : "sns_pending";
 
   const seedRow = {
     id: user.id,
@@ -174,8 +232,8 @@ export async function ensureAuthProfileRow(
     username,
     nickname,
     auth_login_email: email,
-    provider,
-    auth_provider: provider,
+    provider: dbProvider,
+    auth_provider: dbProvider,
     avatar_url: oauthAvatar,
     preferred_language: preferredLanguage,
   };
@@ -189,19 +247,66 @@ export async function ensureAuthProfileRow(
     .maybeSingle();
 
   if (!existing) {
-    await sb.from("profiles").upsert({
+    const fullRow = {
       ...seedRow,
       role: "user",
       is_admin: false,
       member_type: "normal",
-      status: "active",
+      status: dbStatus,
       member_status: isAdminManual ? "verified_member" : "sns_member",
       phone_country_code: "+63",
       phone_verified: isAdminManual,
       phone_verified_at: isAdminManual ? nowIso : null,
       phone_verification_status: isAdminManual ? "verified" : "unverified",
       phone_verification_method: isAdminManual ? "admin_manual" : null,
-    });
+      updated_at: nowIso,
+    };
+    const { error: upsertError } = await sb
+      .from("profiles")
+      .upsert(fullRow, { onConflict: "id" });
+    if (upsertError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[ensureAuthProfileRow] full upsert failed → minimal fallback", {
+          message: upsertError.message,
+          userId: user.id,
+        });
+      }
+      /**
+       * 제약·트리거·미적용 마이그레이션 등으로 전체 행이 거부될 수 있다.
+       * 어떤 스키마라도 통과하는 최소 컬럼만 다시 시도하고, 그것도 실패하면
+       * id 만으로 마지막 시도(모든 NOT NULL 컬럼은 DEFAULT 가 있으므로 id 만으로 INSERT 가능).
+       */
+      const minimalRow = {
+        id: user.id,
+        email,
+        display_name: nickname,
+        nickname,
+        avatar_url: oauthAvatar,
+        updated_at: nowIso,
+      };
+      const second = await sb.from("profiles").upsert(minimalRow, { onConflict: "id" });
+      if (second.error) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[ensureAuthProfileRow] minimal upsert failed → id-only fallback", {
+            message: second.error.message,
+            userId: user.id,
+          });
+        }
+        const idOnly = await sb.from("profiles").upsert({ id: user.id }, { onConflict: "id" });
+        if (idOnly.error) {
+          const verify = await sb
+            .from("profiles")
+            .select("id")
+            .eq("id", user.id)
+            .maybeSingle();
+          if (!verify.data) {
+            throw new Error(
+              `${upsertError.message ?? "profile_upsert_failed"} | minimal: ${second.error.message ?? "minimal_upsert_failed"} | id_only: ${idOnly.error.message ?? "id_only_upsert_failed"}`
+            );
+          }
+        }
+      }
+    }
   } else {
     const patch: Record<string, unknown> = {};
     if (!pickTrimmed(existing.email) && email) patch.email = email;
@@ -209,8 +314,8 @@ export async function ensureAuthProfileRow(
     if (!pickTrimmed(existing.username) && username) patch.username = username;
     if (!pickTrimmed(existing.nickname) && nickname) patch.nickname = nickname;
     if (!pickTrimmed((existing as { auth_login_email?: string | null }).auth_login_email) && email) patch.auth_login_email = email;
-    if (!pickTrimmed((existing as { provider?: string | null }).provider) && provider) patch.provider = provider;
-    if (!pickTrimmed(existing.auth_provider) && provider) patch.auth_provider = provider;
+    if (!pickTrimmed((existing as { provider?: string | null }).provider) && dbProvider) patch.provider = dbProvider;
+    if (!pickTrimmed(existing.auth_provider) && dbProvider) patch.auth_provider = dbProvider;
     if (!pickTrimmed((existing as { member_status?: string | null }).member_status)) {
       patch.member_status = isAdminManual ? "verified_member" : "sns_member";
     }
@@ -224,10 +329,33 @@ export async function ensureAuthProfileRow(
       patch.preferred_language = preferredLanguage;
     }
     const exAv = pickTrimmed(existing.avatar_url);
-    if (!exAv && oauthAvatar) patch.avatar_url = oauthAvatar;
+    if (oauthAvatarRaw && (!exAv || isSamarketDefaultAvatarUrl(exAv))) patch.avatar_url = oauthAvatarRaw;
+    if (!exAv && !oauthAvatarRaw) patch.avatar_url = oauthAvatar;
     if (Object.keys(patch).length > 0) {
-      await sb.from("profiles").update(patch).eq("id", user.id);
+      const { error: updateError } = await sb.from("profiles").update(patch).eq("id", user.id);
+      if (updateError) {
+        /**
+         * `guard_profiles_self_update` 트리거 (사용자 클라이언트가 provider/status/role 변경 시 차단)
+         * 또는 마이그레이션 미적용 환경에서 update 가 막힐 수 있다.
+         * 기존 행이 있으므로 업데이트 실패는 회원 가입을 막는 fatal 이 아니다 — 경고만 남기고 진행.
+         */
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[ensureAuthProfileRow] enrichment update skipped", {
+            message: updateError.message,
+            userId: user.id,
+          });
+        }
+      }
     }
+  }
+
+  const verifiedProfile = await sb
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (verifiedProfile.error || !verifiedProfile.data) {
+    throw new Error(verifiedProfile.error?.message || "profile_verify_failed");
   }
 
   return await loadMemberAccessState(sb, user.id, {
@@ -303,7 +431,9 @@ export async function loadMemberAccessState(
   });
   const hasRequiredConsent = hasStoreTermsConsent({
     terms_accepted_at: termsAcceptedAt,
+    terms_version: termsVersion,
     privacy_accepted_at: privacyAcceptedAt,
+    privacy_version: privacyVersion,
   });
 
   return {
