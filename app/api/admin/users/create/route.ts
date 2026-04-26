@@ -10,6 +10,18 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function mapProfileCreateError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("profiles_nickname_lower_unique_idx") ||
+    lower.includes("duplicate key") ||
+    (lower.includes("unique") && lower.includes("nickname"))
+  ) {
+    return "이미 사용 중인 닉네임입니다";
+  }
+  return message;
+}
+
 /**
  * 관리자 회원 수동 생성
  * - 일반 회원과 동일하게 Supabase `auth.users` + `public.profiles`(동일 PK = auth uid).
@@ -100,6 +112,14 @@ export async function POST(req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
     auth: { persistSession: false },
   });
+  const { data: nicknameRows } = await supabase
+    .from("profiles")
+    .select("id")
+    .ilike("nickname", nickname)
+    .limit(1);
+  if (Array.isArray(nicknameRows) && nicknameRows.length > 0) {
+    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+  }
   const { data: created, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -144,7 +164,7 @@ export async function POST(req: NextRequest) {
     phone_verification_status: "verified",
     phone_verified_at: nowIso,
     phone_verification_method: "admin_manual",
-    status: "active",
+    status: "verified_user",
     preferred_country: "PH",
     provider: "admin_manual",
     auth_provider: "admin_manual",
@@ -158,7 +178,7 @@ export async function POST(req: NextRequest) {
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {
     await supabase.auth.admin.deleteUser(id);
-    return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: mapProfileCreateError(profileError.message) }, { status: 500 });
   }
 
   return NextResponse.json({

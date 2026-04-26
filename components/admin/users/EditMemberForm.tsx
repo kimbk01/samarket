@@ -34,6 +34,7 @@ function inferPhoneValue(u: AdminUser): string {
 export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps) {
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const isMasterUi = getAdminRole() === "master";
+  const [nickname, setNickname] = useState(user.nickname);
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
   const [phoneStatus, setPhoneStatus] = useState(() => inferPhoneValue(user));
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +50,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       : ["normal", "premium"];
 
   useEffect(() => {
+    setNickname(user.nickname);
     setMemberType(user.memberType);
     setPhoneStatus(inferPhoneValue(user));
   }, [user]);
@@ -64,7 +66,17 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     e.preventDefault();
     setError(null);
 
-    const body: { memberType?: MemberType; phoneVerificationStatus?: string } = {};
+    const nextNickname = nickname.trim();
+    if (!nextNickname) {
+      setError("닉네임을 입력해 주세요.");
+      return;
+    }
+    if (nextNickname.length > 20) {
+      setError("닉네임은 20자 이내로 입력해 주세요.");
+      return;
+    }
+    const body: { nickname?: string; memberType?: MemberType; phoneVerificationStatus?: string } = {};
+    if (nextNickname !== user.nickname) body.nickname = nextNickname;
     const effectiveMember = memberLocked ? user.memberType : memberType;
     if (effectiveMember !== user.memberType) body.memberType = effectiveMember;
     if (phoneStatus !== inferPhoneValue(user)) body.phoneVerificationStatus = phoneStatus;
@@ -140,6 +152,17 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
         ) : null}
 
         <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">닉네임</span>
+            <input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              maxLength={20}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+              placeholder="닉네임"
+            />
+          </label>
+
           <label className="block">
             <span className="sam-text-body-secondary font-medium text-sam-fg">회원 구분</span>
             <select

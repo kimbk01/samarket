@@ -5,14 +5,29 @@
 import type { ModerationStatus } from "@/lib/types/report";
 
 export type MemberType = "normal" | "premium" | "admin";
+export type AdminAuthProvider =
+  | "google"
+  | "kakao"
+  | "naver"
+  | "apple"
+  | "facebook"
+  | "email"
+  | "manual"
+  | "unknown";
 
 export interface AdminUser {
   id: string;
   /** 아이디 로그인(test_users.username). DB PK id와 별개 */
   loginUsername?: string;
+  /** 운영 목록 표시용 실제 로그인 식별값(SNS email/provider id/manual login_id) */
+  loginIdentifier?: string;
   nickname: string;
   email?: string;
   avatar?: string;
+  authProvider?: AdminAuthProvider;
+  providerLabel?: string;
+  providerUserId?: string;
+  phone?: string;
   memberType: MemberType;
   /** profiles.role 원본 — master 판별·서버 검증용 */
   profileRole?: string;
@@ -34,6 +49,7 @@ export interface AdminUser {
   reportCount: number;
   chatCount: number;
   joinedAt: string;
+  lastSignInAt?: string;
   lastActiveAt?: string;
   adminMemo?: string;
 }

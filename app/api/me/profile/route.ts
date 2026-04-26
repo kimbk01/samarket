@@ -42,6 +42,14 @@ function isMissingProfileAddressColumnError(message: string): boolean {
 }
 
 function mapProfileDbError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("profiles_nickname_lower_unique_idx") ||
+    lower.includes("duplicate key") ||
+    (lower.includes("unique") && lower.includes("nickname"))
+  ) {
+    return "이미 사용 중인 닉네임입니다";
+  }
   if (isMissingProfileAddressColumnError(message)) {
     return (
       "DB에 프로필 주소·지도 컬럼이 없습니다. " +
@@ -49,6 +57,23 @@ function mapProfileDbError(message: string): string {
     );
   }
   return message;
+}
+
+async function isNicknameTaken(
+  sb: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
+  userId: string,
+  nickname: string
+): Promise<boolean> {
+  const normalized = nickname.trim().toLowerCase();
+  if (!normalized) return false;
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id")
+    .ilike("nickname", nickname.trim())
+    .neq("id", userId)
+    .limit(1);
+  if (error) return false;
+  return Array.isArray(data) && data.some((row) => String((row as { id?: unknown }).id ?? "") !== userId);
 }
 
 /** 컬럼 미존재 시 한 번 더: 주소·지도 필드 없이 나머지만 저장 시도 */
@@ -81,6 +106,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     if (!n) return { ok: false, error: "닉네임을 입력해 주세요." };
     if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
     patch.nickname = n;
+    patch.display_name = n;
   }
 
   if ("avatar_url" in b) {
@@ -229,6 +255,10 @@ export async function PATCH(req: NextRequest) {
   };
 
   const serviceSb = tryCreateSupabaseServiceClient();
+  const nickname = typeof parsed.patch.nickname === "string" ? parsed.patch.nickname.trim() : "";
+  if (serviceSb && nickname && (await isNicknameTaken(serviceSb, auth.userId, nickname))) {
+    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+  }
   if (serviceSb) {
     let attemptRow: Record<string, unknown> = row;
     let { data, error } = await serviceSb

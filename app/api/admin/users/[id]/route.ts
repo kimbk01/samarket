@@ -12,6 +12,31 @@ export const dynamic = "force-dynamic";
 
 const PHONE_VERIFICATION_STATUSES = ["unverified", "pending", "verified", "rejected"] as const;
 
+function mapProfileUpdateError(message: string): string {
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("profiles_nickname_lower_unique_idx") ||
+    lower.includes("duplicate key") ||
+    (lower.includes("unique") && lower.includes("nickname"))
+  ) {
+    return "이미 사용 중인 닉네임입니다";
+  }
+  return message;
+}
+
+async function isNicknameTaken(sb: SupabaseClient, userId: string, nickname: string): Promise<boolean> {
+  const normalized = nickname.trim();
+  if (!normalized) return false;
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id")
+    .ilike("nickname", normalized)
+    .neq("id", userId)
+    .limit(1);
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {
   const { data: p } = await sb.from("profiles").select("role").eq("id", actorId).maybeSingle();
   if (normalizeAdminRole((p as { role?: string } | null)?.role) === "master") return true;
@@ -229,7 +254,7 @@ async function ensureProfileRow(
     phone_verification_status,
     phone_verified_at: tu ? nowIso : null,
     phone_verification_method: tu ? "admin_manual" : null,
-    status: "active",
+    status: "verified_user",
     preferred_country: "PH",
     provider:
       (typeof meta.provider === "string" && meta.provider) ||
@@ -256,7 +281,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verified_at: new Date().toISOString(),
         phone_verification_method: "admin_manual",
         member_status: "verified_member",
-        status: "active",
+        status: "verified_user",
       };
     case "pending":
       return {
@@ -415,6 +440,7 @@ export async function PATCH(
   let body: {
     memberType?: string;
     phoneVerificationStatus?: string;
+    nickname?: string;
   };
   try {
     body = await req.json();
@@ -424,13 +450,16 @@ export async function PATCH(
 
   const memberTypeRaw = body.memberType;
   const phoneRaw = body.phoneVerificationStatus;
+  const nicknameRaw = body.nickname;
   const hasMember =
     memberTypeRaw !== undefined &&
     memberTypeRaw !== null &&
     String(memberTypeRaw).trim() !== "";
   const hasPhone =
     phoneRaw !== undefined && phoneRaw !== null && String(phoneRaw).trim() !== "";
-  if (!hasMember && !hasPhone) {
+  const hasNickname =
+    nicknameRaw !== undefined && nicknameRaw !== null && String(nicknameRaw).trim() !== "";
+  if (!hasMember && !hasPhone && !hasNickname) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
@@ -450,6 +479,16 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "invalid_phone_status" }, { status: 400 });
     }
     phoneStatus = p as (typeof PHONE_VERIFICATION_STATUSES)[number];
+  }
+
+  let nextNickname: string | null = null;
+  if (hasNickname) {
+    const n = String(nicknameRaw).trim();
+    if (!n) return NextResponse.json({ ok: false, error: "닉네임을 입력해 주세요." }, { status: 400 });
+    if (n.length > 20) {
+      return NextResponse.json({ ok: false, error: "닉네임은 20자 이내로 입력해 주세요." }, { status: 400 });
+    }
+    nextNickname = n;
   }
 
   const sb = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
@@ -524,7 +563,7 @@ export async function PATCH(
     memberTypeToApply = null;
   }
 
-  if (memberTypeToApply === null && phoneStatus === null) {
+  if (memberTypeToApply === null && phoneStatus === null && nextNickname === null) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
@@ -535,17 +574,29 @@ export async function PATCH(
   if (phoneStatus !== null) {
     Object.assign(patch, phoneStatusToPatch(phoneStatus));
   }
+  if (nextNickname !== null) {
+    if (await isNicknameTaken(sb, userId, nextNickname)) {
+      return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+    }
+    patch.nickname = nextNickname;
+    patch.display_name = nextNickname;
+  }
 
   const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
   if (updateError) {
-    return NextResponse.json({ ok: false, error: updateError.message || "update_failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: mapProfileUpdateError(updateError.message || "update_failed") }, { status: 500 });
   }
 
-  if (memberTypeToApply !== null) {
+  if (memberTypeToApply !== null || nextNickname !== null) {
     const { data: testRow } = await sb.from("test_users").select("id").eq("id", userId).maybeSingle();
     if (testRow) {
-      const { testRole } = memberTypeToProfileAndTestRole(memberTypeToApply);
-      await sb.from("test_users").update({ role: testRole }).eq("id", userId);
+      const testPatch: Record<string, unknown> = {};
+      if (memberTypeToApply !== null) {
+        const { testRole } = memberTypeToProfileAndTestRole(memberTypeToApply);
+        testPatch.role = testRole;
+      }
+      if (nextNickname !== null) testPatch.display_name = nextNickname;
+      if (Object.keys(testPatch).length > 0) await sb.from("test_users").update(testPatch).eq("id", userId);
     }
   }
 
