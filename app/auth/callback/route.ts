@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { APP_LANGUAGE_COOKIE, normalizeAppLanguage } from "@/lib/i18n/config";
@@ -100,22 +101,29 @@ export async function GET(req: NextRequest) {
         baseMeta.preferred_language = normalizeAppLanguage(localeCookieRaw);
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
-      let accessState: Awaited<ReturnType<typeof ensureAuthProfileRow>> | null = null;
       try {
-        accessState = await ensureAuthProfileRow(serviceSb ?? supabase, mergedUser);
+        await ensureAuthProfileRow(serviceSb ?? supabase, mergedUser);
       } catch {
         /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
       }
-      if (accessState && !hasStoreTermsConsent({
-        terms_accepted_at: accessState.termsAcceptedAt ?? null,
-        terms_version: accessState.termsVersion ?? null,
-        privacy_accepted_at: accessState.privacyAcceptedAt ?? null,
-        privacy_version: accessState.privacyVersion ?? null,
-      })) {
-        const consentUrl = new URL("/auth/consent", req.url);
-        consentUrl.searchParams.set("next", redirectUrl.pathname + redirectUrl.search);
-        response.headers.set("Location", consentUrl.toString());
+
+      // 온보딩 상태 단일 조회 → 동의/프로필/주소 분기 결정 (스펙 1)
+      let onboardingTarget: string | null = null;
+      try {
+        const status = await getOnboardingStatus(serviceSb ?? supabase, user.id);
+        onboardingTarget = resolvePostLoginRoute({
+          hasSession: true,
+          status,
+          next: safeNext,
+        });
+      } catch {
+        /* 상태 조회 실패 시 기본 next 로 진행 (콜백을 막지 않음) */
       }
+      if (onboardingTarget) {
+        const onboardingUrl = new URL(onboardingTarget, req.url);
+        response.headers.set("Location", onboardingUrl.toString());
+      }
+
       const sessionMeta = buildRequestSessionMeta(req);
       await syncActiveSessionForUser(user.id, response, {
         rotate: true,

@@ -18,6 +18,9 @@ function isGateExcludedPath(path: string): boolean {
   if (path === "/my/addresses" || path.startsWith("/my/addresses/")) return true;
   if (path === "/mypage/logout" || path.startsWith("/mypage/logout/")) return true;
   if (path === "/my/logout" || path.startsWith("/my/logout/")) return true;
+  // 온보딩 단계는 별도 화면이 동일한 게이트 검사를 들고 있어 모달이 중복 표시되면 안 된다.
+  if (path === "/onboarding/address" || path.startsWith("/onboarding/address/")) return true;
+  if (path === "/onboarding/profile" || path.startsWith("/onboarding/profile/")) return true;
   return false;
 }
 

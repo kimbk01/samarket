@@ -7,6 +7,7 @@ import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
+import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -293,10 +294,7 @@ function LoginPageContent() {
         return;
       }
       // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
-      const callbackUrl = withNextSearchParam(
-        `${window.location.origin}/auth/callback`,
-        next ?? null
-      );
+      const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next ?? null);
       if (provider === "kakao") {
         const { data, error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
