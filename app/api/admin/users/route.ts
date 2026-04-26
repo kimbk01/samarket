@@ -3,6 +3,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
+import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
+import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { AdminAuthProvider, MemberType } from "@/lib/types/admin-user";
 
@@ -192,6 +195,80 @@ function firstLineOfMultiline(text: string | null | undefined): string {
   return line ?? "";
 }
 
+const ADDRESS_SELECT =
+  "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
+
+/**
+ * `profiles.region_*` 만으로는 사용자가 새 주소 관리에서 등록한 진짜 주소가 보이지 않는다.
+ * `user_addresses` 의 활성 행을 사용자 ID 집합으로 한 번에 가져와 마스터·생활·거래·배달 우선순위로
+ * 사용자별 대표 한 건만 추려서 반환한다.
+ */
+function pickAdminLocationAddressForUser(
+  rows: UserAddressDTO[]
+): UserAddressDTO | null {
+  if (rows.length === 0) return null;
+  const score = (a: UserAddressDTO): number =>
+    (a.isDefaultMaster ? 1000 : 0) +
+    (a.isDefaultLife ? 100 : 0) +
+    (a.isDefaultTrade ? 10 : 0) +
+    (a.isDefaultDelivery ? 1 : 0);
+  let best = rows[0];
+  let bestScore = score(best);
+  for (let i = 1; i < rows.length; i += 1) {
+    const cur = rows[i];
+    const s = score(cur);
+    if (s > bestScore) {
+      best = cur;
+      bestScore = s;
+      continue;
+    }
+    if (s === bestScore) {
+      const tCur = new Date(cur.updatedAt).getTime();
+      const tBest = new Date(best.updatedAt).getTime();
+      if (Number.isFinite(tCur) && tCur > (Number.isFinite(tBest) ? tBest : 0)) {
+        best = cur;
+      }
+    }
+  }
+  return best;
+}
+
+/** 어드민 목록용 한 줄 주소 — 본문(동네·시·도로) + 가능한 경우 건물·동·호 꼬리. */
+function locationLineFromUserAddress(dto: UserAddressDTO | null | undefined): string {
+  if (!dto) return "";
+  const main = buildTradePublicLine(dto).trim();
+  if (!main || main === "주소 미입력") return "";
+  const tail = buildAddressListDetailLine(dto, main);
+  return tail ? `${main} · ${tail}` : main;
+}
+
+async function loadAdminAddressMap(
+  sb: SupabaseClient,
+  userIds: string[]
+): Promise<Map<string, UserAddressDTO>> {
+  const out = new Map<string, UserAddressDTO>();
+  if (userIds.length === 0) return out;
+  const { data: rows, error } = await sb
+    .from("user_addresses")
+    .select(ADDRESS_SELECT)
+    .in("user_id", userIds)
+    .eq("is_active", true);
+  if (error || !Array.isArray(rows)) return out;
+  const grouped = new Map<string, UserAddressDTO[]>();
+  for (const row of rows) {
+    const dto = rowToUserAddressDTO(row as Record<string, unknown>);
+    if (!dto.userId) continue;
+    const arr = grouped.get(dto.userId);
+    if (arr) arr.push(dto);
+    else grouped.set(dto.userId, [dto]);
+  }
+  for (const [uid, arr] of grouped.entries()) {
+    const best = pickAdminLocationAddressForUser(arr);
+    if (best) out.set(uid, best);
+  }
+  return out;
+}
+
 export async function GET(_req: NextRequest) {
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
@@ -233,18 +310,31 @@ export async function GET(_req: NextRequest) {
     const existingIds = new Set<string>(
       ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter((id) => typeof id === "string" && id.length > 0)
     );
+    /**
+     * 회원수는 `auth.users` 기준이므로 전체 페이지를 끝까지 로드한다.
+     * (`perPage` 200 은 GoTrue 기본 상한, 안전 상한 5000 명까지 순회.)
+     */
     try {
-      const authUsersResult = await serviceSb.auth.admin.listUsers({ page: 1, perPage: 200 });
-      authUsers = Array.isArray(authUsersResult?.data?.users)
-        ? authUsersResult.data.users
-        : [];
-      const missingAuthUsers = authUsers
-        .filter((u) => {
+      const seen = new Set<string>();
+      for (let page = 1; page <= 25; page += 1) {
+        const result = await serviceSb.auth.admin.listUsers({ page, perPage: 200 });
+        const batch = Array.isArray(result?.data?.users) ? result.data.users : [];
+        if (batch.length === 0) break;
+        let added = 0;
+        for (const u of batch) {
           const id = String(u?.id ?? "").trim();
-          return id.length > 0 && !existingIds.has(id);
-        })
-        .slice(0, 50);
-      authOnlyEntries = missingAuthUsers;
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          authUsers.push(u);
+          added += 1;
+        }
+        if (added === 0) break;
+        if (batch.length < 200) break;
+      }
+      authOnlyEntries = authUsers.filter((u) => {
+        const id = String(u?.id ?? "").trim();
+        return id.length > 0 && !existingIds.has(id);
+      });
     } catch {
       // auth.admin 조회 실패 시 기존 profiles 결과를 그대로 사용.
     }
@@ -256,6 +346,16 @@ export async function GET(_req: NextRequest) {
 
   const profileIds = ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter(Boolean);
   const ids = new Set(profileIds);
+
+  /**
+   * 신규 주소 관리(`user_addresses`) — 사용자가 실제로 등록한 주소를 한 번에 가져와 매핑.
+   * 어드민 목록의 "지역" 셀은 우선 마스터/생활 기본 주소 한 줄을 사용한다.
+   */
+  const authOnlyIdSet = authOnlyEntries
+    .map((u) => String(u?.id ?? "").trim())
+    .filter(Boolean);
+  const allUserIdsForAddress = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
+  const adminAddressMap = await loadAdminAddressMap(supabase, allUserIdsForAddress);
 
   /**
    * `test_users` 전체 스캔/전송 방지:
@@ -313,6 +413,7 @@ export async function GET(_req: NextRequest) {
         : r.member_type === "premium" || r.role === "special"
           ? "premium"
           : "normal";
+    const fromUserAddress = locationLineFromUserAddress(adminAddressMap.get(r.id));
     const fromProfile = resolveProfileLocationAddressOneLine({
       region_code: r.region_code,
       region_name: r.region_name,
@@ -321,6 +422,7 @@ export async function GET(_req: NextRequest) {
     }).trim();
     const fromTestLine = firstLineOfMultiline(testUser?.contact_address);
     const locationLine =
+      fromUserAddress ||
       fromProfile ||
       fromTestLine ||
       (r.region_name ?? "").trim() ||
@@ -432,7 +534,7 @@ export async function GET(_req: NextRequest) {
       profileRole: provider,
       hasProfile: false,
       moderationStatus: "warned",
-      location: undefined,
+      location: locationLineFromUserAddress(adminAddressMap.get(id)) || undefined,
       pointBalance: 0,
       phoneVerified: false,
       verificationStatus: "unverified",
@@ -447,9 +549,41 @@ export async function GET(_req: NextRequest) {
     };
   });
 
+  /**
+   * 최종 dedupe — `auth.users.id` 기준으로 1행만 유지한다.
+   * profiles → legacyTestUsers → profileLessAuthUsers 순으로 우선순위가 높다(앞 항목이 보존).
+   * (정상 케이스에서는 이미 분기에서 분리되지만 동일 UUID 충돌이 생겨도 안전하게 1행으로 수렴.)
+   */
+  const merged = [...list, ...legacyTestUsers, ...profileLessAuthUsers];
+  const seenIds = new Set<string>();
+  const dedupedUsers: AdminUser[] = [];
+  for (const u of merged) {
+    const id = String(u.id ?? "").trim();
+    if (!id) continue;
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    dedupedUsers.push(u);
+  }
+  dedupedUsers.sort((a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime());
+
+  /**
+   * provider 카운트는 `auth.identities` 기준 — auth user 의 primary identity provider 로 집계.
+   * 매 회원 1행만 반영하므로 SNS 재로그인으로 카운트가 늘지 않는다.
+   */
+  const providerCounts = dedupedUsers.reduce<Record<string, number>>((acc, u) => {
+    const key = String(u.authProvider ?? "unknown");
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return NextResponse.json({
-    users: [...list, ...legacyTestUsers, ...profileLessAuthUsers].sort(
-      (a, b) => new Date(b.joinedAt).getTime() - new Date(a.joinedAt).getTime()
-    ),
+    users: dedupedUsers,
+    summary: {
+      totalAuthUsers: authUsers.length,
+      totalRows: dedupedUsers.length,
+      withProfile: dedupedUsers.filter((u) => u.hasProfile === true).length,
+      withoutProfile: dedupedUsers.filter((u) => u.hasProfile === false).length,
+      providerCounts,
+    },
   });
 }

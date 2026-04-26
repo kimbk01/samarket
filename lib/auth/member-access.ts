@@ -190,6 +190,45 @@ export function resolveNicknameSeed(input: {
   return fallbackId ? fallbackId.slice(0, 8) : "user";
 }
 
+/**
+ * 닉네임 unique 정책(`profiles_nickname_lower_unique_idx`)을 사전 충족시키기 위한 헬퍼.
+ * - SNS 기본 닉네임이 이미 사용 중이면 `BK KIM`, `BK KIM2`, `BK KIM3` … 으로 suffix 부여.
+ * - 본인(`ownerId`) 의 행이라면 충돌 아님.
+ * - DB 조회 실패·컬럼 부재 등 예외는 silent — 원본 후보 그대로 반환(이후 insert 가 unique 위반 시 fallback path 가 처리).
+ */
+async function resolveUniqueNicknameForInsert(
+  sb: SupabaseClient,
+  candidate: string,
+  ownerId: string
+): Promise<string> {
+  const base = (candidate ?? "").trim();
+  if (!base) return base;
+  const tryName = async (name: string): Promise<boolean> => {
+    try {
+      const { data, error } = await sb
+        .from("profiles")
+        .select("id")
+        .ilike("nickname", name)
+        .limit(2);
+      if (error || !Array.isArray(data)) return true;
+      const taken = data.find((row) => {
+        const rid = (row as { id?: unknown }).id;
+        return typeof rid === "string" && rid !== ownerId;
+      });
+      return !taken;
+    } catch {
+      return true;
+    }
+  };
+  if (await tryName(base)) return base;
+  for (let i = 2; i <= 50; i += 1) {
+    const trimmed = base.length > 18 ? base.slice(0, 18) : base;
+    const candidateName = `${trimmed}${i}`;
+    if (await tryName(candidateName)) return candidateName;
+  }
+  return `${base.slice(0, 12)}-${ownerId.slice(0, 6)}`;
+}
+
 export async function ensureAuthProfileRow(
   sb: SupabaseClient,
   user: User
@@ -225,19 +264,6 @@ export async function ensureAuthProfileRow(
    */
   const dbStatus: "verified_user" | "sns_pending" = isAdminManual ? "verified_user" : "sns_pending";
 
-  const seedRow = {
-    id: user.id,
-    email,
-    display_name: nickname,
-    username,
-    nickname,
-    auth_login_email: email,
-    provider: dbProvider,
-    auth_provider: dbProvider,
-    avatar_url: oauthAvatar,
-    preferred_language: preferredLanguage,
-  };
-
   const { data: existing } = await sb
     .from("profiles")
     .select(
@@ -246,7 +272,33 @@ export async function ensureAuthProfileRow(
     .eq("id", user.id)
     .maybeSingle();
 
+  /**
+   * 닉네임 unique 보장은 비싸므로 **실제로 닉네임을 기록할 때만** 평가한다.
+   * - 신규 행: 항상 필요 (insert 의 nickname/display_name)
+   * - 기존 행: nickname/display_name 가 둘 다 비어 있을 때만 (update patch)
+   * 그 외(이미 닉네임이 채워진 기존 회원의 재로그인) 는 추가 쿼리 0건.
+   */
+  let uniqueNicknameCache: string | null = null;
+  const ensureUniqueNickname = async (): Promise<string> => {
+    if (uniqueNicknameCache != null) return uniqueNicknameCache;
+    uniqueNicknameCache = await resolveUniqueNicknameForInsert(sb, nickname, user.id);
+    return uniqueNicknameCache;
+  };
+
   if (!existing) {
+    const insertNickname = await ensureUniqueNickname();
+    const seedRow = {
+      id: user.id,
+      email,
+      display_name: insertNickname,
+      username,
+      nickname: insertNickname,
+      auth_login_email: email,
+      provider: dbProvider,
+      auth_provider: dbProvider,
+      avatar_url: oauthAvatar,
+      preferred_language: preferredLanguage,
+    };
     const fullRow = {
       ...seedRow,
       role: "user",
@@ -279,8 +331,8 @@ export async function ensureAuthProfileRow(
       const minimalRow = {
         id: user.id,
         email,
-        display_name: nickname,
-        nickname,
+        display_name: insertNickname,
+        nickname: insertNickname,
         avatar_url: oauthAvatar,
         updated_at: nowIso,
       };
@@ -310,9 +362,11 @@ export async function ensureAuthProfileRow(
   } else {
     const patch: Record<string, unknown> = {};
     if (!pickTrimmed(existing.email) && email) patch.email = email;
-    if (!pickTrimmed((existing as { display_name?: string | null }).display_name) && nickname) patch.display_name = nickname;
+    const needsDisplayName = !pickTrimmed((existing as { display_name?: string | null }).display_name) && Boolean(nickname);
+    const needsNickname = !pickTrimmed(existing.nickname) && Boolean(nickname);
+    if (needsDisplayName) patch.display_name = await ensureUniqueNickname();
     if (!pickTrimmed(existing.username) && username) patch.username = username;
-    if (!pickTrimmed(existing.nickname) && nickname) patch.nickname = nickname;
+    if (needsNickname) patch.nickname = await ensureUniqueNickname();
     if (!pickTrimmed((existing as { auth_login_email?: string | null }).auth_login_email) && email) patch.auth_login_email = email;
     if (!pickTrimmed((existing as { provider?: string | null }).provider) && dbProvider) patch.provider = dbProvider;
     if (!pickTrimmed(existing.auth_provider) && dbProvider) patch.auth_provider = dbProvider;

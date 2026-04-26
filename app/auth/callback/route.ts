@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
@@ -102,7 +102,18 @@ export async function GET(req: NextRequest) {
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
       try {
-        await ensureAuthProfileRow(serviceSb ?? supabase, mergedUser);
+        /**
+         * SNS 로그인 회원 식별·중복 방지 단일 진입점:
+         * - profiles 가 있으면 update 만, 없을 때만 1회 insert
+         * - provider+provider_user_id 충돌 시 duplicateWarning 만 표면화 (자동 병합 금지)
+         */
+        const outcome = await ensureUserProfile(serviceSb ?? supabase, mergedUser);
+        if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
+          console.warn("[auth/callback] duplicate profile candidate detected", {
+            userId: mergedUser.id,
+            candidates: outcome.duplicateCandidates,
+          });
+        }
       } catch {
         /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
       }

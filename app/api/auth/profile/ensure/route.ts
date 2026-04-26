@@ -4,6 +4,7 @@ import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
@@ -36,6 +37,21 @@ export async function POST(request: NextRequest) {
   const writeSb = serviceSb ?? routeSb;
 
   try {
+    /**
+     * 신규 단일 진입점 — id 우선 → provider+provider_user_id → email 폴백.
+     * 충돌 후보가 발견돼도 자동 병합하지 않고 (운영자 검토 대상) 흐름은 그대로 진행.
+     */
+    try {
+      const outcome = await ensureUserProfile(writeSb, user);
+      if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
+        console.warn("[api/auth/profile/ensure] duplicate profile candidate detected", {
+          userId: user.id,
+          candidates: outcome.duplicateCandidates,
+        });
+      }
+    } catch {
+      /* ensureUserProfile 실패는 아래 ensureAuthProfileRow 폴백이 보강한다 */
+    }
     const state = await ensureAuthProfileRow(writeSb, user).catch(async () => {
       const fallback = serviceSb ? await ensureProfileForUserId(serviceSb, user.id) : null;
       if (!fallback) throw new Error("profile_ensure_failed");
