@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const safeNext = sanitizeNextPath(req.nextUrl.searchParams.get("next"));
   const oauthError = req.nextUrl.searchParams.get("error");
+  const oauthErrorDescription = req.nextUrl.searchParams.get("error_description");
   const next = safeNext ?? POST_LOGIN_PATH;
   const redirectUrl = new URL(next, req.url);
   const loginUrl = new URL("/login", req.url);
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
   let exchangedOk = false;
   if (oauthError) {
     loginUrl.searchParams.set("auth_error", "callback_failed");
+    const detail = String(oauthErrorDescription ?? oauthError).trim();
+    if (detail) loginUrl.searchParams.set("auth_error_detail", detail.slice(0, 300));
     response = NextResponse.redirect(loginUrl);
   } else if (code) {
     try {
@@ -78,6 +81,7 @@ export async function GET(req: NextRequest) {
       exchangedOk = true;
     } catch {
       loginUrl.searchParams.set("auth_error", "callback_failed");
+      loginUrl.searchParams.set("auth_error_detail", "exchange_code_for_session_failed");
       response = NextResponse.redirect(loginUrl);
     }
   } else {

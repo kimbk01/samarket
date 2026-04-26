@@ -21,12 +21,16 @@ const LOGIN_ENSURE_SOFT_WAIT_MS = 0;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
 
-function mapAuthErrorMessage(code: string): string {
+function mapAuthErrorMessage(code: string, detail?: string): string {
   if (!code) return "로그인 처리 중 오류가 발생했습니다. 다시 시도해 주세요.";
   if (code === "provider_not_enabled") return "선택한 로그인 제공자가 비활성화되어 있습니다.";
   if (code === "provider_key_missing") return "로그인 제공자 키가 누락되어 있습니다. 관리자에게 문의해 주세요.";
   if (code === "redirect_uri_not_allowed") return "허용되지 않은 Redirect URI입니다.";
-  if (code === "callback_failed") return "OAuth 콜백 처리에 실패했습니다. 다시 시도해 주세요.";
+  if (code === "callback_failed") {
+    const normalizedDetail = String(detail ?? "").trim();
+    if (!normalizedDetail) return "OAuth 콜백 처리에 실패했습니다. 다시 시도해 주세요.";
+    return `OAuth 콜백 처리에 실패했습니다: ${normalizedDetail}`;
+  }
   if (code === "profile_ensure_failed") return "프로필 동기화에 실패했습니다. 다시 로그인해 주세요.";
   if (code === "session_sync_failed") return "세션 동기화에 실패했습니다. 다시 로그인해 주세요.";
   if (code === "user_not_found") return "로그인 사용자를 확인하지 못했습니다. 다시 시도해 주세요.";
@@ -74,11 +78,12 @@ function LoginPageContent() {
     if (window.location.search.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const authError = params.get("auth_error")?.trim() ?? "";
+    const authErrorDetail = params.get("auth_error_detail")?.trim() ?? "";
     // 스펙 1-A: 콜백/가드가 `?error=session_missing` 을 보낼 수 있다. 동일하게 사용자에게 알린다.
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
     if (!code) return;
-    const message = mapAuthErrorMessage(code);
+    const message = mapAuthErrorMessage(code, authErrorDetail);
     setError((prev) => (prev === message ? prev : message));
     if (typeof window !== "undefined") window.alert(message);
     // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
