@@ -150,6 +150,26 @@ function LoginPageContent() {
     void router.prefetch(postLoginDestination);
   }, [router, postLoginDestination]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (cancelled || !session?.user) return;
+        router.replace(postLoginDestination);
+      } catch {
+        /* 세션 조회 실패 시 로그인 화면 유지 */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, postLoginDestination]);
+
   const oauthEnabled = providers.length > 0;
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
