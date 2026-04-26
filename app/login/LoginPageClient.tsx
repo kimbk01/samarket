@@ -263,14 +263,16 @@ function LoginPageContent() {
         setError((prev) => (prev === nextError ? prev : nextError));
         return;
       }
-      const redirectTo =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/auth/callback`
-          : undefined;
+      // Kakao authorize 단계로 redirect_to 가 전달되면 KOE205 가 발생한다.
+      // Kakao 의 경우 redirectTo 를 생략해 Supabase Site URL 기본값을 사용한다.
+      const options =
+        provider === "kakao" || typeof window === "undefined"
+          ? undefined
+          : { redirectTo: `${window.location.origin}/auth/callback` };
       const { error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
           provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
-          options: { redirectTo },
+          options,
         }),
         AUTH_REQUEST_TIMEOUT_MS,
         AUTH_TIMEOUT_MESSAGE
