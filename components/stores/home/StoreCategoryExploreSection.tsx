@@ -31,7 +31,7 @@ export function StoreCategoryExploreSection({
 
   useLayoutEffect(() => {
     if (pickedSlug && !primaries.some((p) => p.slug === pickedSlug)) {
-      setPickedSlug(null);
+      setPickedSlug((prev) => (prev === null ? prev : null));
     }
   }, [pickedSlug, primaries]);
 
@@ -62,7 +62,7 @@ export function StoreCategoryExploreSection({
                 type="button"
                 role="tab"
                 aria-selected={on}
-                onClick={() => setPickedSlug(p.slug)}
+                onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
                 className={`flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 border-b-[3px] px-4 py-2 sam-text-body-secondary transition-colors ${
                   on
                     ? "border-sam-primary font-semibold text-sam-fg dark:text-[#E4E6EB]"

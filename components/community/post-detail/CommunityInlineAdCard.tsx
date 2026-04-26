@@ -44,11 +44,11 @@ export function CommunityInlineAdCard() {
       try {
         const first = await loadCommunityInlineAd();
         if (cancel) return;
-        setAd(first);
+        setAd((prev) => (prev?.adId === first?.adId ? prev : first));
       } catch {
-        if (!cancel) setAd(null);
+        if (!cancel) setAd((prev) => (prev == null ? prev : null));
       } finally {
-        if (!cancel) setTried(true);
+        if (!cancel) setTried((prev) => (prev ? prev : true));
       }
     })();
     return () => {

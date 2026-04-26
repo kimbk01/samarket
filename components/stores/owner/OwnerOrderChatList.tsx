@@ -12,8 +12,8 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(storeId);
       const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };
@@ -32,7 +32,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
       setRooms([]);
       setError("network_error");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, [storeId]);
 

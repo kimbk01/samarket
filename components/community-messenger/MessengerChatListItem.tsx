@@ -156,7 +156,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const closeSwipe = useCallback(() => {
     dragXRef.current = 0;
-    setDragX(0);
+    setDragX((prev) => (prev === 0 ? prev : 0));
     onOpenSwipeItem?.(null);
   }, [onOpenSwipeItem]);
 
@@ -225,7 +225,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   useEffect(() => {
     if (openedSwipeItemId && openedSwipeItemId !== swipeItemId) {
       dragXRef.current = 0;
-      setDragX(0);
+      setDragX((prev) => (prev === 0 ? prev : 0));
     }
   }, [openedSwipeItemId, swipeItemId]);
 
@@ -290,7 +290,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         cancelPending();
         suppressTapRef.current = true;
         tapNavigateArmedRef.current = false;
-        setIsDragging(true);
+        setIsDragging((prev) => (prev ? prev : true));
         releasePressedVisual();
       }
       const next = clamp(dragRef.current.origin + dx);
@@ -307,7 +307,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragRef.current.active = false;
       const wasDragging = dragRef.current.dragging;
       dragRef.current.dragging = false;
-      setIsDragging(false);
+      setIsDragging((prev) => (prev ? false : prev));
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
       } catch {

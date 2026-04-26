@@ -9,15 +9,15 @@ export function BulkRegionChangeContent() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleSubmit = () => {
-    setError(null);
-    setSuccess(null);
-    setConfirming(true);
+    setError((prev) => (prev === null ? prev : null));
+    setSuccess((prev) => (prev === null ? prev : null));
+    setConfirming((prev) => (prev ? prev : true));
   };
 
   const handleConfirm = async () => {
-    setBusy(true);
-    setError(null);
-    setSuccess(null);
+    setBusy((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
+    setSuccess((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/me/posts/bulk-region", {
         method: "POST",
@@ -36,11 +36,11 @@ export function BulkRegionChangeContent() {
       const label = typeof json.location?.label === "string" ? json.location.label : "선택한 기본 동네";
       const count = Number.isFinite(json.updatedCount) ? Number(json.updatedCount) : 0;
       setSuccess(`${label} 기준으로 판매 글 ${count}건의 동네를 변경했습니다.`);
-      setConfirming(false);
+      setConfirming((prev) => (prev ? false : prev));
     } catch {
       setError("동네를 일괄 변경하지 못했습니다.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 
@@ -67,7 +67,7 @@ export function BulkRegionChangeContent() {
             <button
               type="button"
               disabled={busy}
-              onClick={() => setConfirming(false)}
+              onClick={() => setConfirming((prev) => (prev ? false : prev))}
               className="rounded border border-sam-border px-3 py-1.5 sam-text-body text-sam-fg"
             >
               취소

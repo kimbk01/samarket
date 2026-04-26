@@ -438,7 +438,7 @@ export function MessengerSearchSheet({
     setAction({ kind: "room", item });
   }, []);
 
-  const dismissAction = useCallback(() => setAction(null), []);
+  const dismissAction = useCallback(() => setAction((prev) => (prev === null ? prev : null)), []);
 
   return (
     <>

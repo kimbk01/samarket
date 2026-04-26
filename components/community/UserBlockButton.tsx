@@ -26,9 +26,9 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     if (!me?.id || !targetUserId || me.id === targetUserId) return;
     try {
       const relation = await fetchCommunityUserRelationSnapshot(targetUserId);
-      setBlocked(relation.blocked);
+      setBlocked((prev) => (prev === relation.blocked ? prev : relation.blocked));
     } catch {
-      setBlocked(null);
+      setBlocked((prev) => (prev === null ? prev : null));
     }
   }, [me?.id, targetUserId]);
 
@@ -55,7 +55,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     ) {
       return;
     }
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     try {
       const res = await fetch("/api/community/block-relations", {
         method: "POST",
@@ -65,11 +65,11 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       const j = (await res.json()) as { ok?: boolean; blocked?: boolean; error?: string };
       invalidateCommunityUserRelationSnapshot(targetUserId);
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
-        setBlocked(j.blocked);
+        setBlocked((prev) => (prev === j.blocked ? prev : j.blocked));
         router.refresh();
       }
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

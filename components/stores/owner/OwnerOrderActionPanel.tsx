@@ -38,14 +38,14 @@ export function OwnerOrderActionPanel({
     const label = labelForOwnerTransition(s, order_status, fulfillment);
     setBusy(order_status);
     const r = await patchOwnerOrderStatusRemote(storeId, order.id, order_status);
-    setBusy(null);
+    setBusy((prev) => (prev === null ? prev : null));
     if (r.ok) {
       setToast(`${label} 반영됨`);
       await onAfterAction?.();
     } else {
       setToast(r.error);
     }
-    setTimeout(() => setToast(null), 2600);
+    setTimeout(() => setToast((prev) => (prev === null ? prev : null)), 2600);
   };
 
   const isDeliveryLike =
@@ -99,7 +99,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "pending" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 거절
           </button>
         ) : null}
@@ -116,7 +121,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "accepted" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 취소
           </button>
         ) : null}
@@ -133,7 +143,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "preparing" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 취소
           </button>
         ) : null}
@@ -161,7 +176,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "ready_for_pickup" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 취소
           </button>
         ) : null}
@@ -178,7 +198,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "delivering" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 취소
           </button>
         ) : null}
@@ -195,7 +220,12 @@ export function OwnerOrderActionPanel({
         ) : null}
 
         {s === "arrived" && nextStatuses.includes("cancelled") ? (
-          <button type="button" disabled={busy !== null} className={btnClass()} onClick={() => setRejectOpen(true)}>
+          <button
+            type="button"
+            disabled={busy !== null}
+            className={btnClass()}
+            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
+          >
             주문 취소
           </button>
         ) : null}
@@ -210,10 +240,10 @@ export function OwnerOrderActionPanel({
           s === "ready_for_pickup" ||
           s === "arrived"
         }
-        onClose={() => setRejectOpen(false)}
+        onClose={() => setRejectOpen((prev) => (prev ? false : prev))}
         onConfirm={(reason) => {
           void reason;
-          setRejectOpen(false);
+          setRejectOpen((prev) => (prev ? false : prev));
           void patch("cancelled");
         }}
       />

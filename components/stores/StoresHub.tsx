@@ -129,7 +129,7 @@ export function StoresHub() {
       const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersHubSummaryDeduped();
       if (ordersStatus === 401) {
         setBuyerOrderSummary({ kind: "idle" });
-        setRecentOrder(null);
+        setRecentOrder((prev) => (prev === null ? prev : null));
         return;
       }
 
@@ -147,7 +147,7 @@ export function StoresHub() {
       const hub = ordersJson.hub_summary;
       if (!ordersJson.ok || !hub) {
         setBuyerOrderSummary({ kind: "idle" });
-        setRecentOrder(null);
+        setRecentOrder((prev) => (prev === null ? prev : null));
         return;
       }
 
@@ -162,7 +162,7 @@ export function StoresHub() {
       });
     } catch {
       setBuyerOrderSummary({ kind: "idle" });
-      setRecentOrder(null);
+      setRecentOrder((prev) => (prev === null ? prev : null));
     }
   }, []);
 

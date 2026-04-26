@@ -15,7 +15,7 @@ import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
-const LOGIN_ENSURE_SOFT_WAIT_MS = 120;
+const LOGIN_ENSURE_SOFT_WAIT_MS = 0;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
 
@@ -66,7 +66,7 @@ function LoginPageContent() {
       const authError = params.get("auth_error")?.trim() ?? "";
       if (authError) {
         const message = mapAuthErrorMessage(authError);
-        setError(message);
+        setError((prev) => (prev === message ? prev : message));
         window.alert(message);
       }
       router.replace("/login", { scroll: false });
@@ -75,8 +75,8 @@ function LoginPageContent() {
 
   useEffect(() => {
     void (async () => {
-      setProvidersLoading(true);
-      setProvidersError(null);
+      setProvidersLoading((prev) => (prev ? prev : true));
+      setProvidersError((prev) => (prev === null ? prev : null));
       try {
         const res = await runSingleFlight("login:auth-providers:enabled:get", () =>
           fetch("/api/auth-providers?enabled=true", {
@@ -88,14 +88,32 @@ function LoginPageContent() {
           | { ok?: boolean; providers?: AuthProviderPublic[]; error?: string }
           | null;
         if (!res.ok || !json?.ok || !Array.isArray(json.providers)) {
-          setProvidersError(json?.error || "SNS 로그인 목록을 불러오지 못했습니다.");
+          const nextProviderError = json?.error || "SNS 로그인 목록을 불러오지 못했습니다.";
+          setProvidersError((prev) => (prev === nextProviderError ? prev : nextProviderError));
           return;
         }
-        setProviders(json.providers);
+        setProviders((prev) => {
+          if (
+            prev.length === json.providers.length &&
+            prev.every((p, i) => {
+              const next = json.providers[i];
+              return (
+                next != null &&
+                p.provider === next.provider &&
+                p.enabled === next.enabled &&
+                p.displayName === next.displayName
+              );
+            })
+          ) {
+            return prev;
+          }
+          return json.providers;
+        });
       } catch {
-        setProvidersError("SNS 로그인 목록을 불러오지 못했습니다.");
+        const nextProviderError = "SNS 로그인 목록을 불러오지 못했습니다.";
+        setProvidersError((prev) => (prev === nextProviderError ? prev : nextProviderError));
       } finally {
-        setProvidersLoading(false);
+        setProvidersLoading((prev) => (prev ? false : prev));
       }
     })();
   }, []);
@@ -115,7 +133,8 @@ function LoginPageContent() {
         if (!res.ok || !json?.ok || !Array.isArray(json.settings)) return;
         const passwordSetting = json.settings.find((item) => item.provider === "password");
         if (passwordSetting) {
-          setPasswordEnabled(passwordSetting.enabled === true);
+          const nextPasswordEnabled = passwordSetting.enabled === true;
+          setPasswordEnabled((prev) => (prev === nextPasswordEnabled ? prev : nextPasswordEnabled));
         }
       } catch {
         /* 비밀번호 설정 조회 실패 시 기본 노출 유지 */
@@ -131,39 +150,47 @@ function LoginPageContent() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setError((prev) => (prev === "" ? prev : ""));
+    setLoading((prev) => (prev ? prev : true));
     const supabase = getSupabaseClient();
     if (!supabase) {
-      setError("Supabase 설정이 없습니다.");
-      setLoading(false);
+      const nextError = "Supabase 설정이 없습니다.";
+      setError((prev) => (prev === nextError ? prev : nextError));
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
     let signInEmail = "";
     try {
-      const resolveRes = await fetch("/api/auth/password-login/resolve-identifier", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ identifier }),
-      });
+      const resolveRes = await runSingleFlight(
+        `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
+        () =>
+          fetch("/api/auth/password-login/resolve-identifier", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ identifier }),
+          })
+      );
       const resolveJson = (await resolveRes.json().catch(() => null)) as
         | { identifier?: string; error?: string }
         | null;
       if (!resolveRes.ok) {
-        setError(resolveJson?.error || "로그인 식별자를 확인하지 못했습니다.");
-        setLoading(false);
+        const nextError = resolveJson?.error || "로그인 식별자를 확인하지 못했습니다.";
+        setError((prev) => (prev === nextError ? prev : nextError));
+        setLoading((prev) => (prev ? false : prev));
         return;
       }
       signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
     } catch {
-      setError("로그인 식별자를 확인하지 못했습니다.");
-      setLoading(false);
+      const nextError = "로그인 식별자를 확인하지 못했습니다.";
+      setError((prev) => (prev === nextError ? prev : nextError));
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
     if (!signInEmail) {
-      setError("이메일 또는 아이디를 입력하세요.");
-      setLoading(false);
+      const nextError = "이메일 또는 아이디를 입력하세요.";
+      setError((prev) => (prev === nextError ? prev : nextError));
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
     let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
@@ -174,29 +201,32 @@ function LoginPageContent() {
         AUTH_TIMEOUT_MESSAGE
       );
     } catch (e) {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
       if (e instanceof Error && e.message === AUTH_TIMEOUT_MESSAGE) {
-        setError(AUTH_TIMEOUT_MESSAGE);
+        setError((prev) => (prev === AUTH_TIMEOUT_MESSAGE ? prev : AUTH_TIMEOUT_MESSAGE));
         return;
       }
-      setError(describeSupabaseFetchFailure(e).userMessage);
+      const nextError = describeSupabaseFetchFailure(e).userMessage;
+      setError((prev) => (prev === nextError ? prev : nextError));
       return;
     }
     const err = signInResult.error;
     if (err) {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
       const net = describeSupabaseFetchFailure(err);
       if (net.code !== "unknown") {
-        setError(net.userMessage);
+        setError((prev) => (prev === net.userMessage ? prev : net.userMessage));
         return;
       }
-      setError(err.message || "로그인에 실패했습니다.");
+      const nextError = err.message || "로그인에 실패했습니다.";
+      setError((prev) => (prev === nextError ? prev : nextError));
       return;
     }
     const session = signInResult.data.session;
     if (!session) {
-      setLoading(false);
-      setError("세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.");
+      setLoading((prev) => (prev ? false : prev));
+      const nextError = "세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.";
+      setError((prev) => (prev === nextError ? prev : nextError));
       return;
     }
     const loginUntilNavT0 = performance.now();
@@ -215,17 +245,18 @@ function LoginPageContent() {
         // Ignore session sync failures here.
       });
     recordAppWidePhaseLastMs("login_until_navigation_ms", Math.round(performance.now() - loginUntilNavT0));
-    setLoading(false);
+    setLoading((prev) => (prev ? false : prev));
     router.replace(postLoginDestination);
   };
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
-    setError("");
-    setOauthBusy(provider);
+    setError((prev) => (prev === "" ? prev : ""));
+    setOauthBusy((prev) => (prev === provider ? prev : provider));
     try {
       const supabase = getSupabaseClient();
       if (!supabase) {
-        setError("Supabase 설정이 없습니다.");
+        const nextError = "Supabase 설정이 없습니다.";
+        setError((prev) => (prev === nextError ? prev : nextError));
         return;
       }
       const redirectTo =
@@ -241,16 +272,18 @@ function LoginPageContent() {
         AUTH_TIMEOUT_MESSAGE
       );
       if (oauthError) {
-        setError(oauthError.message || "소셜 로그인을 시작하지 못했습니다.");
+        const nextError = oauthError.message || "소셜 로그인을 시작하지 못했습니다.";
+        setError((prev) => (prev === nextError ? prev : nextError));
       }
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_TIMEOUT_MESSAGE) {
-        setError(AUTH_TIMEOUT_MESSAGE);
+        setError((prev) => (prev === AUTH_TIMEOUT_MESSAGE ? prev : AUTH_TIMEOUT_MESSAGE));
       } else {
-        setError(describeSupabaseFetchFailure(e).userMessage);
+        const nextError = describeSupabaseFetchFailure(e).userMessage;
+        setError((prev) => (prev === nextError ? prev : nextError));
       }
     } finally {
-      setOauthBusy(null);
+      setOauthBusy((prev) => (prev === null ? prev : null));
     }
   };
 

@@ -75,8 +75,8 @@ export function MessengerFriendAddSheet({
   const copyInvite = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(inviteUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      setCopied((prev) => (prev ? prev : true));
+      window.setTimeout(() => setCopied((prev) => (prev ? false : prev)), 2000);
     } catch {
       /* ignore */
     }

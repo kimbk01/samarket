@@ -243,7 +243,7 @@ export function CommunityFeed({
   const [showNeighborOnlyStrip, setShowNeighborOnlyStrip] = useState(true);
 
   useEffect(() => {
-    setCategory(categoryParam);
+    setCategory((prev) => (prev === categoryParam ? prev : categoryParam));
   }, [categoryParam]);
 
   /** 레거시 `?category=recommended` → `?sort=recommended` */
@@ -277,13 +277,13 @@ export function CommunityFeed({
   }, [categoryParam, sortParam, pathname, router, searchParams]);
 
   useEffect(() => {
-    if (!isAllTabView) setRecommendMenuOpen(false);
+    if (!isAllTabView) setRecommendMenuOpen((prev) => (prev ? false : prev));
   }, [isAllTabView]);
 
   useEffect(() => {
     if (!recommendMenuOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setRecommendMenuOpen(false);
+      if (e.key === "Escape") setRecommendMenuOpen((prev) => (prev ? false : prev));
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -294,7 +294,7 @@ export function CommunityFeed({
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (recommendMenuRef.current?.contains(t) || recommendMenuPanelRef.current?.contains(t)) return;
-      setRecommendMenuOpen(false);
+      setRecommendMenuOpen((prev) => (prev ? false : prev));
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);

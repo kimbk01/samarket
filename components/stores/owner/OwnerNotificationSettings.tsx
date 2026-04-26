@@ -54,7 +54,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   const [s, setS] = useState<DomainSettings | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading((prev) => (prev ? prev : true));
     try {
       const res = await fetchMeNotificationSettingsGet();
       const j = (await res.json().catch(() => ({}))) as {
@@ -68,22 +68,31 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
         return;
       }
       if (!j?.ok || !j.settings) {
-        setS(null);
+        setS((prev) => (prev === null ? prev : null));
         return;
       }
       setUnauthorized(false);
       setTableMissing(j.table_missing === true);
       const x = j.settings;
-      setS({
+      const nextSettings: DomainSettings = {
         order_enabled: x.order_enabled !== false,
         store_enabled: x.store_enabled !== false,
         sound_enabled: x.sound_enabled !== false,
         vibration_enabled: x.vibration_enabled !== false,
-      });
+      };
+      setS((prev) =>
+        prev &&
+        prev.order_enabled === nextSettings.order_enabled &&
+        prev.store_enabled === nextSettings.store_enabled &&
+        prev.sound_enabled === nextSettings.sound_enabled &&
+        prev.vibration_enabled === nextSettings.vibration_enabled
+          ? prev
+          : nextSettings
+      );
     } catch {
-      setS(null);
+      setS((prev) => (prev === null ? prev : null));
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, []);
 

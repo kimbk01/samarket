@@ -256,23 +256,23 @@ export function CommunityMessengerHome({
   }, []);
 
   const resetMessengerTransientUi = useCallback(() => {
-    setOpenedSwipeItemId(null);
-    setOpenedMenuItemId(null);
-    setRoomActionSheet(null);
+    setOpenedSwipeItemId((prev) => (prev === null ? prev : null));
+    setOpenedMenuItemId((prev) => (prev === null ? prev : null));
+    setRoomActionSheet((prev) => (prev === null ? prev : null));
     setMessengerOverlayGeneration((g) => g + 1);
   }, []);
 
   const notifyMessengerListScroll = useCallback(() => {
     if (!isScrollingRef.current) {
       isScrollingRef.current = true;
-      setIsScrolling(true);
+      setIsScrolling((prev) => (prev ? prev : true));
     }
     if (scrollResetTimerRef.current != null) {
       clearTimeout(scrollResetTimerRef.current);
     }
     scrollResetTimerRef.current = setTimeout(() => {
       isScrollingRef.current = false;
-      setIsScrolling(false);
+      setIsScrolling((prev) => (prev ? false : prev));
       scrollResetTimerRef.current = null;
     }, MESSENGER_SCROLL_OVERLAY_IDLE_MS);
 
@@ -295,9 +295,9 @@ export function CommunityMessengerHome({
   }, []);
 
   const openMessengerMenuItem = useCallback((id: string) => {
-    setOpenedSwipeItemId(null);
+    setOpenedSwipeItemId((prev) => (prev === null ? prev : null));
     setOpenedMenuItemId(id);
-    setRoomActionSheet(null);
+    setRoomActionSheet((prev) => (prev === null ? prev : null));
   }, []);
 
   const closeMessengerMenuItem = useCallback((id?: string) => {
@@ -313,7 +313,7 @@ export function CommunityMessengerHome({
       listContext: MessengerChatListContext,
       anchorRect: MessengerMenuAnchorRect | null
     ) => {
-      setOpenedSwipeItemId(null);
+      setOpenedSwipeItemId((prev) => (prev === null ? prev : null));
       setOpenedMenuItemId(messengerRoomMenuItemId(item.room.id, listContext));
       setRoomActionSheet({ item, listContext, anchorRect });
     },
@@ -360,9 +360,9 @@ export function CommunityMessengerHome({
   const [joinAliasBio, setJoinAliasBio] = useState("");
   const [joinAliasAvatarUrl, setJoinAliasAvatarUrl] = useState("");
   const resetFriendSearchState = useCallback(() => {
-    setSearchKeyword("");
+    setSearchKeyword((prev) => (prev === "" ? prev : ""));
     setSearchResults([]);
-    setFriendUserSearchAttempted(false);
+    setFriendUserSearchAttempted((prev) => (prev ? false : prev));
   }, []);
   const resetGroupCreateDraft = useCallback(() => {
     setGroupTitle("");
@@ -388,7 +388,7 @@ export function CommunityMessengerHome({
   }, []);
   const closeJoinOpenGroupModal = useCallback(() => {
     resetJoinOpenGroupDraft();
-    setJoinTargetGroup(null);
+    setJoinTargetGroup((prev) => (prev === null ? prev : null));
   }, [resetJoinOpenGroupDraft]);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
@@ -1118,7 +1118,7 @@ export function CommunityMessengerHome({
   const createPrivateGroup = useCallback(async () => {
     const memberIds = groupMembers.filter(Boolean);
     if (memberIds.length === 0) return;
-    setActionError(null);
+    setActionError((prev) => (prev === null ? prev : null));
     setBusyId("create-private-group");
     try {
       const res = await fetch("/api/community-messenger/groups/create", {

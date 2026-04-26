@@ -28,6 +28,7 @@ import {
   ownerEditLockHint,
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -133,7 +134,7 @@ export const PostCard = memo(function PostCard({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setMenuOpen(true);
+              setMenuOpen((prev) => (prev ? prev : true));
             }}
             className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
             aria-label="메뉴"
@@ -194,7 +195,7 @@ export const PostCard = memo(function PostCard({
       {menuOpen ? (
         <PostListMenuBottomSheet
           open
-          onClose={() => setMenuOpen(false)}
+          onClose={() => setMenuOpen((prev) => (prev ? false : prev))}
           showOwnerTradeActions={showOwnerTradeActions}
           ownerEditLocked={showOwnerTradeActions && ownerEditLocked}
           ownerDeleteLocked={showOwnerTradeActions && ownerDeleteLocked}
@@ -208,9 +209,13 @@ export const PostCard = memo(function PostCard({
             if (action === "delete_own") {
               void (async () => {
                 try {
-                  const res = await fetch(
-                    `/api/posts/${encodeURIComponent(post.id)}/owner-delete`,
-                    { method: "POST", credentials: "include" }
+                  const res = await runSingleFlight(
+                    `trade:post:owner-delete:${post.id}`,
+                    () =>
+                      fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-delete`, {
+                        method: "POST",
+                        credentials: "include",
+                      })
                   );
                   const data = (await res.json().catch(() => ({}))) as {
                     ok?: boolean;

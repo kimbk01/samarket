@@ -23,8 +23,8 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    setUploadError(null);
-    setUploading(true);
+    setUploadError((prev) => (prev === null ? prev : null));
+    setUploading((prev) => (prev ? prev : true));
     try {
       const fd = new FormData();
       fd.set("file", file);
@@ -43,7 +43,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
     } catch {
       setUploadError("업로드에 실패했습니다.");
     } finally {
-      setUploading(false);
+      setUploading((prev) => (prev ? false : prev));
     }
   };
 

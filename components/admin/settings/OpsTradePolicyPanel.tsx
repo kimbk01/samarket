@@ -15,11 +15,11 @@ export function OpsTradePolicyPanel() {
     const me = getCurrentUser();
     const u = me?.id?.trim();
     if (!u || !isAdminUser(me)) {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
-    setLoading(true);
-    setMsg(null);
+    setLoading((prev) => (prev ? prev : true));
+    setMsg((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/admin/ops-trade-policy");
       const data = await res.json().catch(() => ({}));
@@ -30,7 +30,7 @@ export function OpsTradePolicyPanel() {
     } catch {
       setMsg("불러오기 실패");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, []);
 
@@ -41,8 +41,8 @@ export function OpsTradePolicyPanel() {
   const save = async () => {
     const u = getCurrentUser()?.id?.trim();
     if (!u) return;
-    setSaving(true);
-    setMsg(null);
+    setSaving((prev) => (prev ? prev : true));
+    setMsg((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/admin/ops-trade-policy", {
         method: "PUT",
@@ -61,7 +61,7 @@ export function OpsTradePolicyPanel() {
     } catch {
       setMsg("네트워크 오류");
     } finally {
-      setSaving(false);
+      setSaving((prev) => (prev ? false : prev));
     }
   };
 

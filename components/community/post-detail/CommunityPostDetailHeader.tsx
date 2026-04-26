@@ -70,7 +70,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
               type="button"
               className="fixed inset-0 z-40 cursor-default"
               aria-label="닫기"
-              onClick={() => setMoreOpen(false)}
+              onClick={() => setMoreOpen((prev) => (prev ? false : prev))}
             />
             <ul
               className={`absolute right-0 top-full z-50 mt-1 min-w-[9.5rem] text-left ${COMMUNITY_DROPDOWN_PANEL_CLASS}`}
@@ -83,7 +83,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                     role="menuitem"
                     className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#1F2430] hover:bg-[#F7F8FA]"
                     onClick={() => {
-                      setMoreOpen(false);
+                      setMoreOpen((prev) => (prev ? false : prev));
                       r.current.onOpenReport();
                     }}
                   >
@@ -98,7 +98,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                     role="menuitem"
                     className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#E25555] hover:bg-red-50"
                     onClick={() => {
-                      setMoreOpen(false);
+                      setMoreOpen((prev) => (prev ? false : prev));
                       r.current.onDelete?.();
                     }}
                   >
@@ -112,7 +112,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                   role="menuitem"
                   className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#1F2430] hover:bg-[#F7F8FA]"
                   onClick={() => {
-                    setMoreOpen(false);
+                    setMoreOpen((prev) => (prev ? false : prev));
                     void router.push(philifeAppPaths.home);
                   }}
                 >

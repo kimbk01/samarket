@@ -208,7 +208,7 @@ export function CommunityDetail({
     async (opts?: { silent?: boolean; force?: boolean }) => {
       const startedAt = perfNow();
       const silent = opts?.silent === true;
-      if (!silent) setCommentsLoading(true);
+      if (!silent) setCommentsLoading((prev) => (prev ? prev : true));
       try {
         const result = await fetchCommunityPostCommentsDeduped(post.id, { force: opts?.force === true });
         const data = result.json as {
@@ -277,7 +277,7 @@ export function CommunityDetail({
           elapsedMs: Math.round(perfNow() - startedAt),
         });
       } finally {
-        if (!silent) setCommentsLoading(false);
+        if (!silent) setCommentsLoading((prev) => (prev ? false : prev));
       }
     },
     [post.id]
@@ -453,15 +453,15 @@ export function CommunityDetail({
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
     if (!window.confirm("이 글을 삭제할까요? (복구 불가)")) return;
-    setBusy(true);
-    setDeleteErr("");
+    setBusy((prev) => (prev ? prev : true));
+    setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.replace(philifeAppPaths.home);
       else setDeleteErr(j.error ?? "삭제에 실패했습니다.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

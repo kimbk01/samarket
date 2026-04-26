@@ -14,7 +14,9 @@ export function MyPointCard() {
           fetch("/api/me/points", { cache: "no-store" })
         );
         const j = (await r.clone().json()) as { balance?: number };
-        if (typeof j.balance === "number") setBalance(j.balance);
+        if (typeof j.balance === "number") {
+          setBalance((prev) => (prev === j.balance ? prev : j.balance));
+        }
       } catch {
         /* ignore */
       }

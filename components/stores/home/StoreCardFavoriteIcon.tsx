@@ -26,7 +26,7 @@ export function StoreCardFavoriteIcon({
       e.preventDefault();
       e.stopPropagation();
       if (busy || !decoded) return;
-      setBusy(true);
+      setBusy((prev) => (prev ? prev : true));
       try {
         const method = on ? "DELETE" : "POST";
         const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
@@ -45,7 +45,7 @@ export function StoreCardFavoriteIcon({
           })
         );
       } finally {
-        setBusy(false);
+        setBusy((prev) => (prev ? false : prev));
       }
     },
     [busy, on, decoded]

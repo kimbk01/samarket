@@ -26,8 +26,8 @@ export function OwnerOrdersPageClient({ slug }: Props) {
 
   const load = useCallback(async () => {
     if (!storeId) return;
-    setLoading(true);
-    setError(null);
+    setLoading((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const r = await fetchOwnerOrdersRemote(storeId, { storeSlug: safeSlug, storeName });
       if (!r.ok) {
@@ -39,7 +39,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "load_failed");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, [storeId, safeSlug, storeName]);
 
@@ -105,7 +105,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
           <button
             key={k}
             type="button"
-            onClick={() => setTab(k)}
+            onClick={() => setTab((prev) => (prev === k ? prev : k))}
             className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 ring-inset ${
               tab === k ? "bg-sam-ink text-white ring-sam-border" : "bg-sam-surface text-sam-fg ring-sam-border hover:bg-sam-app"
             }`}

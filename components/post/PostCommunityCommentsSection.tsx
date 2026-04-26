@@ -38,17 +38,32 @@ export function PostCommunityCommentsSection({
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!postId.trim()) return;
-    if (!opts?.silent) setLoading(true);
+    if (!opts?.silent) setLoading((prev) => (prev ? prev : true));
     try {
       const res = await runSingleFlight(`post:${postId}:comments-get`, () =>
         fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, { cache: "no-store" })
       );
       const data = (await res.clone().json().catch(() => ({}))) as { comments?: CommentRow[] };
-      setComments(Array.isArray(data.comments) ? data.comments : []);
+      const nextComments = Array.isArray(data.comments) ? data.comments : [];
+      setComments((prev) => {
+        if (
+          prev.length === nextComments.length &&
+          prev.every(
+            (c, idx) =>
+              c.id === nextComments[idx]?.id &&
+              c.content === nextComments[idx]?.content &&
+              c.created_at === nextComments[idx]?.created_at &&
+              (c.parent_id ?? null) === (nextComments[idx]?.parent_id ?? null)
+          )
+        ) {
+          return prev;
+        }
+        return nextComments;
+      });
     } catch {
-      if (!opts?.silent) setComments([]);
+      if (!opts?.silent) setComments((prev) => (prev.length === 0 ? prev : []));
     } finally {
-      if (!opts?.silent) setLoading(false);
+      if (!opts?.silent) setLoading((prev) => (prev ? false : prev));
     }
   }, [postId]);
 
@@ -56,19 +71,25 @@ export function PostCommunityCommentsSection({
     void load();
   }, [load]);
 
-  const roots = useMemo(() => {
-    return comments
-      .filter((c) => !(c.parent_id ?? "").trim())
-      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const { roots, repliesByParent } = useMemo(() => {
+    const nextRoots: CommentRow[] = [];
+    const nextRepliesByParent = new Map<string, CommentRow[]>();
+    for (const c of comments) {
+      const parentId = (c.parent_id ?? "").trim();
+      if (!parentId) {
+        nextRoots.push(c);
+        continue;
+      }
+      const bucket = nextRepliesByParent.get(parentId);
+      if (bucket) bucket.push(c);
+      else nextRepliesByParent.set(parentId, [c]);
+    }
+    nextRoots.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    for (const [, list] of nextRepliesByParent) {
+      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    }
+    return { roots: nextRoots, repliesByParent: nextRepliesByParent };
   }, [comments]);
-
-  const repliesOf = useCallback(
-    (parentId: string) =>
-      comments
-        .filter((c) => (c.parent_id ?? "").trim() === parentId)
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-    [comments]
-  );
 
   const onSubmitComment = async () => {
     if (!currentUserId) {
@@ -77,8 +98,8 @@ export function PostCommunityCommentsSection({
     }
     const text = draft.trim();
     if (!text) return;
-    setSubmitting(true);
-    setError("");
+    setSubmitting((prev) => (prev ? prev : true));
+    setError((prev) => (prev === "" ? prev : ""));
     const tempId = `temp-${Date.now()}`;
     const optimisticComment: CommentRow = {
       id: tempId,
@@ -93,8 +114,8 @@ export function PostCommunityCommentsSection({
       if (replyParentId?.trim()) body.parentId = replyParentId.trim();
 
       setComments((prev) => [...prev, optimisticComment]);
-      setDraft("");
-      setReplyParentId(null);
+      setDraft((prev) => (prev === "" ? prev : ""));
+      setReplyParentId((prev) => (prev === null ? prev : null));
 
       const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/comments`, {
         method: "POST",
@@ -112,7 +133,7 @@ export function PostCommunityCommentsSection({
       setComments((prev) => prev.filter((comment) => comment.id !== tempId));
       setError("등록에 실패했습니다.");
     } finally {
-      setSubmitting(false);
+      setSubmitting((prev) => (prev ? false : prev));
     }
   };
 
@@ -126,9 +147,9 @@ export function PostCommunityCommentsSection({
     const text = reason.trim();
     if (!text) return;
     setReportBusyId(commentId);
-    setError("");
+    setError((prev) => (prev === "" ? prev : ""));
     const res = await createCommunityCommentReport(commentId, text);
-    setReportBusyId(null);
+    setReportBusyId((prev) => (prev === null ? prev : null));
     if (res.ok) alert("신고가 접수되었습니다.");
     else setError(res.error);
   };
@@ -170,7 +191,7 @@ export function PostCommunityCommentsSection({
             {opts.allowReply && currentUserId && (
               <button
                 type="button"
-                onClick={() => setReplyParentId(c.id)}
+                onClick={() => setReplyParentId((prev) => (prev === c.id ? prev : c.id))}
                 className={`rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 font-medium text-sam-fg ${Sam.text.xxs}`}
               >
                 답글
@@ -194,7 +215,7 @@ export function PostCommunityCommentsSection({
           {roots.map((root) => (
             <li key={root.id} className="space-y-0">
               {renderCommentRow(root, { isChild: false, allowReply: true })}
-              {repliesOf(root.id).map((reply) => (
+              {(repliesByParent.get(root.id) ?? []).map((reply) => (
                 <div key={reply.id}>{renderCommentRow(reply, { isChild: true, allowReply: false })}</div>
               ))}
             </li>
@@ -211,7 +232,7 @@ export function PostCommunityCommentsSection({
             <button
               type="button"
               className="font-medium text-sky-800 underline"
-              onClick={() => setReplyParentId(null)}
+              onClick={() => setReplyParentId((prev) => (prev === null ? prev : null))}
             >
               취소
             </button>

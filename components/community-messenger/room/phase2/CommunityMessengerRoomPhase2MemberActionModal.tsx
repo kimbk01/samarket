@@ -56,7 +56,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
   const memberActionTarget = vm.memberActionTarget;
   const [outCallKind, setOutCallKind] = useState<null | "voice" | "video">(null);
   useEffect(() => {
-    if (!memberActionTarget) setOutCallKind(null);
+    if (!memberActionTarget) setOutCallKind((prev) => (prev === null ? prev : null));
   }, [memberActionTarget]);
   return (
     <>
@@ -66,12 +66,12 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
           peerLabel={memberActionTarget.label}
           kind={outCallKind}
           busy={vm.outgoingDialLocked}
-          onCancel={() => setOutCallKind(null)}
+          onCancel={() => setOutCallKind((prev) => (prev === null ? prev : null))}
           onConfirm={() => {
             const id = memberActionTarget.id;
             const kind = outCallKind;
             if (!vm.startDirectCallWithMember(id, kind, memberActionTarget.label)) return;
-            setOutCallKind(null);
+            setOutCallKind((prev) => (prev === null ? prev : null));
             vm.setMemberActionTarget(null);
           }}
         />

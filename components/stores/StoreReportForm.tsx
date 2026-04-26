@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const REASON_OPTIONS: { value: string; label: string }[] = [
   { value: "spam", label: "스팸·도배" },
@@ -30,25 +31,28 @@ export function StoreReportForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErr(null);
+    setErr((prev) => (prev === null ? prev : null));
     if (!message.trim()) {
       setErr("내용을 입력해 주세요.");
       return;
     }
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     try {
-      const res = await fetch("/api/me/store-reports", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          store_slug: storeSlug,
-          target_type: mode,
-          product_id: mode === "product" ? productId : undefined,
-          reason_type: reason,
-          message: message.trim(),
-        }),
-      });
+      const dedupeKey = `store-report:${mode}:${storeSlug}:${productId ?? ""}:${reason}:${message.trim()}`;
+      const res = await runSingleFlight(dedupeKey, () =>
+        fetch("/api/me/store-reports", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            store_slug: storeSlug,
+            target_type: mode,
+            product_id: mode === "product" ? productId : undefined,
+            reason_type: reason,
+            message: message.trim(),
+          }),
+        })
+      );
       const json = await res.json();
       if (res.status === 401) {
         setErr("로그인이 필요합니다.");
@@ -62,11 +66,11 @@ export function StoreReportForm({
         setErr(json?.error ?? "신고 접수에 실패했습니다.");
         return;
       }
-      setOk(true);
+      setOk((prev) => (prev ? prev : true));
     } catch {
       setErr("네트워크 오류");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   }
 

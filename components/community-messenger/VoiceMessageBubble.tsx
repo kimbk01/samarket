@@ -71,13 +71,13 @@ export function VoiceMessageBubble({
 
   useEffect(() => {
     setActiveSrc(src);
-    setUsedFallback(false);
-    setLoadError(false);
-    setPlaying(false);
+    setUsedFallback((prev) => (prev ? false : prev));
+    setLoadError((prev) => (prev ? false : prev));
+    setPlaying((prev) => (prev ? false : prev));
     setProgress(0);
     setRemainingSec(null);
     playIntentRef.current = false;
-    setRateIdx(0);
+    setRateIdx((prev) => (prev === 0 ? prev : 0));
   }, [src]);
 
   const pauseSelf = useCallback(() => {

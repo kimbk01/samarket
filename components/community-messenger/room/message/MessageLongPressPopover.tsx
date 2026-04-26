@@ -62,8 +62,8 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   });
 
   useEffect(() => {
-    setShareExpanded(false);
-    setDeleteExpanded(false);
+    setShareExpanded((prev) => (prev ? false : prev));
+    setDeleteExpanded((prev) => (prev ? false : prev));
   }, [item.id]);
 
   /** 앵커·말풍선 정렬 + 공유/삭제 펼침 등으로 패널 높이가 바뀔 때마다 보정(ResizeObserver). */

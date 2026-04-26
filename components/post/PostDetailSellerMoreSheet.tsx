@@ -18,10 +18,10 @@ export function PostDetailSellerMoreSheet({
 
   useEffect(() => {
     if (!open) {
-      setSlideIn(false);
+      setSlideIn((prev) => (prev ? false : prev));
       return;
     }
-    const id = requestAnimationFrame(() => setSlideIn(true));
+    const id = requestAnimationFrame(() => setSlideIn((prev) => (prev ? prev : true)));
     return () => cancelAnimationFrame(id);
   }, [open]);
 

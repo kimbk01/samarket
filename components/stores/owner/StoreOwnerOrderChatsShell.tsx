@@ -55,7 +55,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
   }, [slug]);
 
   const loadRooms = useCallback(async (storeId: string) => {
-    setRoomsError(null);
+    setRoomsError((prev) => (prev === null ? prev : null));
     try {
       const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(storeId);
       const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };

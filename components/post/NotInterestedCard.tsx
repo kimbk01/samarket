@@ -39,7 +39,7 @@ export function NotInterestedCard({ onUndo, onReason }: NotInterestedCardProps) 
 
   const handleReason = (reason: NotInterestedReason) => {
     onReason?.(reason);
-    setSent(true);
+    setSent((prev) => (prev ? prev : true));
   };
 
   if (sent) {

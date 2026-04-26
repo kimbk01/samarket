@@ -51,7 +51,7 @@ export function ChatSettingsContent() {
           if (!cancelled && j.ok === false) setTradePresenceErr("거래 채팅 표시 설정을 불러오지 못했습니다.");
           return;
         }
-        setTradePresenceErr(null);
+        setTradePresenceErr((prev) => (prev === null ? prev : null));
         const a = j.settings.audience;
         const audience = a === "everyone" || a === "friends" || a === "nobody" ? a : "friends";
         setTradePresence({
@@ -79,8 +79,8 @@ export function ChatSettingsContent() {
     const prev = tradePresence;
     const next: TradePresenceSettings = { ...prev, ...partial };
     setTradePresence(next);
-    setTradePresenceSaving(true);
-    setTradePresenceErr(null);
+    setTradePresenceSaving((prev) => (prev ? prev : true));
+    setTradePresenceErr((prev) => (prev === null ? prev : null));
     const body: Record<string, unknown> = {};
     if (partial.showOnline !== undefined) body.showOnline = partial.showOnline;
     if (partial.hideLastSeen !== undefined) body.hideLastSeen = partial.hideLastSeen;
@@ -101,7 +101,7 @@ export function ChatSettingsContent() {
       setTradePresence(prev);
       setTradePresenceErr("네트워크 오류로 저장하지 못했습니다.");
     } finally {
-      setTradePresenceSaving(false);
+      setTradePresenceSaving((prev) => (prev ? false : prev));
     }
   };
 

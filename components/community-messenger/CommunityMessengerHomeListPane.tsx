@@ -234,7 +234,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
           <MessengerIncomingFriendRequestPopup
             request={props.incomingFriendRequestPopup}
             busyId={props.busyId}
-            onDismiss={() => props.setIncomingFriendRequestPopup(null)}
+            onDismiss={() => props.setIncomingFriendRequestPopup((prev) => (prev === null ? prev : null))}
             onRespond={(requestId, action) => void props.respondRequest(requestId, action)}
           />
         ) : null}

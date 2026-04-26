@@ -15,15 +15,15 @@ export function MyServicesCategoryGrid() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const list = await getActiveCategories();
       setCategories(list);
     } catch (e) {
       setError((e as Error).message ?? "카테고리를 불러올 수 없습니다.");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, []);
 

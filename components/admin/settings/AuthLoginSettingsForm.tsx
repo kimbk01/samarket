@@ -162,9 +162,9 @@ export function AuthLoginSettingsForm() {
       setPolicyError("중복 로그인 정책 저장 준비가 되지 않았습니다.");
       return;
     }
-    setPolicySaving(true);
-    setPolicyError(null);
-    setPolicySuccess(null);
+    setPolicySaving((prev) => (prev ? prev : true));
+    setPolicyError((prev) => (prev === null ? prev : null));
+    setPolicySuccess((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/admin/auth-settings", {
         method: "PUT",
@@ -191,7 +191,7 @@ export function AuthLoginSettingsForm() {
     } catch {
       setPolicyError("중복 로그인 정책을 저장하지 못했습니다.");
     } finally {
-      setPolicySaving(false);
+      setPolicySaving((prev) => (prev ? false : prev));
     }
   };
 

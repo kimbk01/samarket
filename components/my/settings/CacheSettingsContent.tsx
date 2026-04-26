@@ -21,12 +21,12 @@ export function CacheSettingsContent() {
     } catch {
       // ignore
     }
-    setToast(true);
+    setToast((prev) => (prev ? prev : true));
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
     }
     toastTimerRef.current = setTimeout(() => {
-      setToast(false);
+      setToast((prev) => (prev ? false : prev));
       toastTimerRef.current = null;
     }, 2000);
   };

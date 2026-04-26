@@ -552,7 +552,9 @@ export function PostDetailView({
     let cancelled = false;
     const resolveViewer = async () => {
       const id = (await getCurrentUserIdForDb())?.trim() || null;
-      if (!cancelled) setResolvedViewerId(id);
+      if (!cancelled) {
+        setResolvedViewerId((prev) => (prev === id ? prev : id));
+      }
     };
     void resolveViewer();
     const onTestAuthChange = () => {
@@ -943,7 +945,8 @@ export function PostDetailView({
 
   useEffect(() => {
     const n = post.favorite_count;
-    setFavoriteCount(typeof n === "number" && Number.isFinite(n) ? n : 0);
+    const next = typeof n === "number" && Number.isFinite(n) ? n : 0;
+    setFavoriteCount((prev) => (prev === next ? prev : next));
   }, [post.id, post.favorite_count]);
 
   const handleFavorite = useCallback(async () => {
@@ -973,19 +976,19 @@ export function PostDetailView({
       return;
     }
     if (!reportReason.trim()) return;
-    setReportError("");
-    setReportSubmitting(true);
+    setReportError((prev) => (prev === "" ? prev : ""));
+    setReportSubmitting((prev) => (prev ? prev : true));
     try {
       const res = await createReport(post.id, reportReason.trim());
       if (res.ok) {
-        setReportOpen(false);
-        setReportReason("");
-        setReportError("");
+        setReportOpen((prev) => (prev ? false : prev));
+        setReportReason((prev) => (prev === "" ? prev : ""));
+        setReportError((prev) => (prev === "" ? prev : ""));
       } else {
         setReportError(res.error ?? "신고 접수에 실패했습니다.");
       }
     } finally {
-      setReportSubmitting(false);
+      setReportSubmitting((prev) => (prev ? false : prev));
     }
   }, [post.id, reportReason, router]);
 
@@ -1394,7 +1397,7 @@ export function PostDetailView({
 
         <PostDetailMoreBottomSheet
           open={detailMoreOpen}
-          onClose={() => setDetailMoreOpen(false)}
+          onClose={() => setDetailMoreOpen((prev) => (prev ? false : prev))}
           onSelectReport={() => {
             setReportError("");
             setReportOpen(true);
@@ -1405,7 +1408,7 @@ export function PostDetailView({
         />
         <PostDetailSellerMoreSheet
           open={sellerMoreOpen}
-          onClose={() => setSellerMoreOpen(false)}
+          onClose={() => setSellerMoreOpen((prev) => (prev ? false : prev))}
           onCancelSale={() => void runCancelOwnSale()}
           busy={cancelSaleBusy}
         />
@@ -1427,7 +1430,7 @@ export function PostDetailView({
                 <p className="mt-2 sam-text-body-secondary text-red-600">{reportError}</p>
               ) : null}
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setReportOpen(false)} className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg">취소</button>
+                <button type="button" onClick={() => setReportOpen((prev) => (prev ? false : prev))} className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg">취소</button>
                 <button type="button" onClick={handleReport} disabled={!reportReason.trim() || reportSubmitting} className="flex-1 rounded-ui-rect bg-red-600 py-2 sam-text-body font-medium text-white disabled:opacity-50">신고</button>
               </div>
             </div>
@@ -1712,7 +1715,7 @@ export function PostDetailView({
 
       <PostDetailMoreBottomSheet
         open={detailMoreOpen}
-        onClose={() => setDetailMoreOpen(false)}
+        onClose={() => setDetailMoreOpen((prev) => (prev ? false : prev))}
         onSelectReport={() => {
           setReportError("");
           setReportOpen(true);

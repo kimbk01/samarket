@@ -71,17 +71,17 @@ export function MeetingHostControls({
   const isHost = me?.id && me.id === createdBy;
 
   useEffect(() => {
-    setEntryPolicy(initialEntryPolicy);
+    setEntryPolicy((prev) => (prev === initialEntryPolicy ? prev : initialEntryPolicy));
   }, [initialEntryPolicy]);
 
   useEffect(() => {
     if (entryPolicy !== "invite_only") {
-      setInviteCandidates([]);
+      setInviteCandidates((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     const keyword = inviteUserId.trim();
     if (keyword.length < 2) {
-      setInviteCandidates([]);
+      setInviteCandidates((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -96,7 +96,7 @@ export function MeetingHostControls({
           };
           setInviteCandidates(res.ok && j.ok && Array.isArray(j.candidates) ? j.candidates : []);
         } catch {
-          setInviteCandidates([]);
+          setInviteCandidates((prev) => (prev.length === 0 ? prev : []));
         } finally {
           setInviteSearching(false);
         }
@@ -108,8 +108,8 @@ export function MeetingHostControls({
 
   const onSetAttendance = async (userId: string, status: AttendanceStatus) => {
     if (!canManage) return;
-    setBusy(true);
-    setErr("");
+    setBusy((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(mApi.attendance(), {
         method: "PATCH",
@@ -123,22 +123,22 @@ export function MeetingHostControls({
       }
       router.refresh();
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 
   const onCloseMeeting = async () => {
     if (!isHost) return;
     if (!window.confirm("모임을 종료할까요? 이후 새 참여는 불가합니다.")) return;
-    setBusy(true);
-    setErr("");
+    setBusy((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(mApi.close(), { method: "POST" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
       else setErr(j.error ?? "종료 실패");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

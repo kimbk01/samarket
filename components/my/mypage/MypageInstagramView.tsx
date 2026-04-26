@@ -167,7 +167,7 @@ export function MypageInstagramView({
 
   const needsBizEntryModal =
     hasOwnerStore && ownerStoreGate != null && ownerStoreGate.kind !== "approved";
-  const openBizBlocked = () => setBizBlockedOpen(true);
+  const openBizBlocked = () => setBizBlockedOpen((prev) => (prev ? prev : true));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -535,7 +535,7 @@ export function MypageInstagramView({
       <BottomSheet
         open={settingsSheet != null}
         title={sheetTitle(settingsSheet)}
-        onClose={() => setSettingsSheet(null)}
+        onClose={() => setSettingsSheet((prev) => (prev === null ? prev : null))}
       >
         {settingsSheet === "notifications" ? <NotificationsSettingsContent /> : null}
         {settingsSheet === "language" ? <LanguageSettingsContent /> : null}
@@ -551,7 +551,7 @@ export function MypageInstagramView({
       {needsBizEntryModal && ownerStoreGate ? (
         <StoreBusinessBlockedModal
           open={bizBlockedOpen}
-          onClose={() => setBizBlockedOpen(false)}
+          onClose={() => setBizBlockedOpen((prev) => (prev ? false : prev))}
           state={ownerStoreGate}
           firstStoreId={ownerStoreGateFirstId?.trim() || undefined}
           primaryCloseLabel="확인"

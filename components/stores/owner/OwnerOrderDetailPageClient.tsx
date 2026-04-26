@@ -21,24 +21,24 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
 
   const load = useCallback(async () => {
     if (!storeId || !safeOrderId) return;
-    setLoading(true);
-    setError(null);
+    setLoading((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const r = await fetchOwnerOrderRemote(storeId, safeOrderId, {
         storeSlug: safeSlug,
         storeName,
       });
       if (!r.ok) {
-        setOrder(null);
+        setOrder((prev) => (prev === null ? prev : null));
         setError(r.error);
         return;
       }
       setOrder(r.order);
     } catch {
-      setOrder(null);
+      setOrder((prev) => (prev === null ? prev : null));
       setError("network_error");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, [storeId, safeOrderId, safeSlug, storeName]);
 

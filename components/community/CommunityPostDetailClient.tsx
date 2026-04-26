@@ -86,7 +86,7 @@ export function CommunityPostDetailClient({
 
   const onLike = async () => {
     const prevLikeCount = likeCount;
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     setLikeCount((count) => count + 1);
     try {
       const res = await fetch(philifePostLikeUrl(post.id), { method: "POST" });
@@ -99,7 +99,7 @@ export function CommunityPostDetailClient({
     } catch {
       setLikeCount(prevLikeCount);
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 
@@ -266,7 +266,7 @@ export function CommunityPostDetailClient({
               <div className="mt-3 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setReportOpen(false)}
+                  onClick={() => setReportOpen((prev) => (prev ? false : prev))}
                   className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
                 >
                   취소

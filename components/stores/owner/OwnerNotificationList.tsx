@@ -17,6 +17,7 @@ import {
 } from "@/lib/me/fetch-me-owner-store-notifications";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type Row = {
   id: string;
@@ -58,8 +59,8 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
   const load = useCallback(
     async (silent = false, force = false) => {
       if (!silent) {
-        setLoading(true);
-        setError(null);
+        setLoading((prev) => (prev ? prev : true));
+        setError((prev) => (prev === null ? prev : null));
       }
       try {
         const { status, json } = await fetchMeOwnerStoreNotificationsDeduped(storeId, { force });
@@ -84,7 +85,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
           setRows([]);
         }
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent) setLoading((prev) => (prev ? false : prev));
       }
     },
     [storeId]
@@ -148,12 +149,14 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
   }, []);
 
   const markOneRead = async (id: string) => {
-    const res = await fetch("/api/me/notifications", {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [id] }),
-    });
+    const res = await runSingleFlight(`store-owner:notifications:mark-read:${id}`, () =>
+      fetch("/api/me/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id] }),
+      })
+    );
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
     if (j?.ok) {
       setRows((prev) => prev.map((x) => (x.id === id ? { ...x, is_read: true } : x)));
@@ -165,14 +168,17 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
   const markAllForStoreRead = async () => {
     const unread = rows.filter((r) => !r.is_read).map((r) => r.id);
     if (unread.length === 0) return;
-    setMarkBusy(true);
+    const unreadKey = [...unread].sort().join(",");
+    setMarkBusy((prev) => (prev ? prev : true));
     try {
-      const res = await fetch("/api/me/notifications", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: unread }),
-      });
+      const res = await runSingleFlight(`store-owner:notifications:mark-read-all:${unreadKey}`, () =>
+        fetch("/api/me/notifications", {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: unread }),
+        })
+      );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (j?.ok) {
         setRows((prev) => prev.map((x) => (!x.is_read ? { ...x, is_read: true } : x)));
@@ -180,7 +186,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
         broadcast();
       }
     } finally {
-      setMarkBusy(false);
+      setMarkBusy((prev) => (prev ? false : prev));
     }
   };
 
@@ -203,7 +209,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => setTab((prev) => (prev === t ? prev : t))}
             className={`rounded-full px-3 py-1 sam-text-xxs font-semibold ${
               tab === t ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
             }`}

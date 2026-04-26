@@ -159,6 +159,14 @@ export function useCommunityMessengerHomeBootstrap({
         const groups = payload.groups ?? base.groups;
         const requests = payload.requests ?? base.requests;
         const friends = payload.friends ?? base.friends;
+        if (
+          chats === base.chats &&
+          groups === base.groups &&
+          requests === base.requests &&
+          friends === base.friends
+        ) {
+          return prev;
+        }
         const next: CommunityMessengerBootstrap = {
           ...base,
           chats,

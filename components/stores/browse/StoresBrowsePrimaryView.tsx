@@ -212,15 +212,15 @@ export function StoresBrowsePrimaryView({
       if (!activeSub) {
         if (!silent) {
           setRemoteRows([]);
-          setFeedSource(null);
-          setRemoteLoading(false);
+          setFeedSource((prev) => (prev === null ? prev : null));
+          setRemoteLoading((prev) => (prev ? false : prev));
         }
         return;
       }
       if (!silent) {
-        setRemoteLoading(true);
+        setRemoteLoading((prev) => (prev ? prev : true));
         setRemoteRows(undefined);
-        setFeedSource(null);
+        setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
         const { json } = await fetchStoresBrowseDeduped(browseQuerySuffix);
@@ -243,11 +243,11 @@ export function StoresBrowsePrimaryView({
       } catch {
         if (!silent) {
           setRemoteRows([]);
-          setFeedSource(null);
+          setFeedSource((prev) => (prev === null ? prev : null));
           browseHadListForContextRef.current = false;
         }
       } finally {
-        if (!silent) setRemoteLoading(false);
+        if (!silent) setRemoteLoading((prev) => (prev ? false : prev));
       }
     },
     [activeSub, browseQuerySuffix]

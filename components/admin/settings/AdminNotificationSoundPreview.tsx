@@ -31,7 +31,7 @@ export function AdminNotificationSoundPreview({
 
   useEffect(() => {
     let cancelled = false;
-    setPeaks(null);
+    setPeaks((prev) => (prev === null ? prev : null));
     (async () => {
       try {
         const res = await fetch(resolvedSrc, { mode: "cors", credentials: "omit" });

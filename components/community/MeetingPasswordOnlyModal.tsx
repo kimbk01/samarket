@@ -33,7 +33,7 @@ export function MeetingPasswordOnlyModal({
   const [password, setPassword] = useState("");
 
   useEffect(() => {
-    if (open) setPassword("");
+    if (open) setPassword((prev) => (prev === "" ? prev : ""));
   }, [open]);
 
   if (!open) return null;

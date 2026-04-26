@@ -57,7 +57,7 @@ export function SessionLostRedirect() {
   const finalizeForcedLogout = useCallback(async () => {
     const result = await performClientLogout();
     if (result.ok) {
-      setSessionReplacedOpen(false);
+      setSessionReplacedOpen((prev) => (prev ? false : prev));
       router.replace("/login");
     }
   }, [router]);
@@ -89,7 +89,7 @@ export function SessionLostRedirect() {
               code = "";
             }
             if (code === SESSION_REPLACED_CODE) {
-              setSessionReplacedOpen(true);
+              setSessionReplacedOpen((prev) => (prev ? prev : true));
               return;
             }
 

@@ -39,17 +39,17 @@ export function NoticesContent() {
         if (cancelled) return;
         if (!res.ok || !json.ok) {
           setError(typeof json.error === "string" ? json.error : "공지사항을 불러오지 못했습니다.");
-          setNotices([]);
+          setNotices((prev) => (prev.length === 0 ? prev : []));
           return;
         }
         setNotices(Array.isArray(json.notices) ? json.notices : []);
       } catch {
         if (!cancelled) {
           setError("공지사항을 불러오지 못했습니다.");
-          setNotices([]);
+          setNotices((prev) => (prev.length === 0 ? prev : []));
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoading((prev) => (prev ? false : prev));
       }
     })();
     return () => {

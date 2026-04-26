@@ -18,11 +18,12 @@ export function AuthConsentForm() {
 
   const handleSubmit = async () => {
     if (!agreeTerms || !agreePrivacy) {
-      setError("이용약관과 개인정보처리방침에 모두 동의해 주세요.");
+      const nextError = "이용약관과 개인정보처리방침에 모두 동의해 주세요.";
+      setError((prev) => (prev === nextError ? prev : nextError));
       return;
     }
-    setSubmitting(true);
-    setError(null);
+    setSubmitting((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/me/legal-consent", {
         method: "PATCH",
@@ -38,9 +39,10 @@ export function AuthConsentForm() {
       invalidateMeProfileDedupedCache();
       router.replace(next);
     } catch {
-      setError("동의를 저장하지 못했습니다.");
+      const nextError = "동의를 저장하지 못했습니다.";
+      setError((prev) => (prev === nextError ? prev : nextError));
     } finally {
-      setSubmitting(false);
+      setSubmitting((prev) => (prev ? false : prev));
     }
   };
 

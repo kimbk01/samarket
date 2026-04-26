@@ -18,10 +18,10 @@ export function MyAccountContent() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    setLoading((prev) => (prev ? prev : true));
     const p = await getMyProfile();
     setProfile(p);
-    setLoading(false);
+    setLoading((prev) => (prev ? false : prev));
   }, []);
 
   useEffect(() => {

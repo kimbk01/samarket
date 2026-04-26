@@ -85,12 +85,13 @@ function MyHubHeaderInAppSoundInner() {
     try {
       const snapshot = await fetchMeNotificationSettingsSnapshot();
       if (snapshot?.ok && snapshot.settings) {
-        setSoundOn(snapshot.settings.sound_enabled !== false);
+        const nextSoundOn = snapshot.settings.sound_enabled !== false;
+        setSoundOn((prev) => (prev === nextSoundOn ? prev : nextSoundOn));
       }
     } catch {
       /* ignore */
     } finally {
-      setLoaded(true);
+      setLoaded((prev) => (prev ? prev : true));
     }
   }, []);
 
@@ -110,7 +111,7 @@ function MyHubHeaderInAppSoundInner() {
 
   const onToggleSound = async () => {
     if (busy) return;
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     const next = !soundOn;
     try {
       const res = await fetch("/api/me/notification-settings", {
@@ -129,7 +130,7 @@ function MyHubHeaderInAppSoundInner() {
         window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
       }
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

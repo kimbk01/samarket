@@ -33,11 +33,21 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
           fetch("/api/me/push/status", { credentials: "include" })
         );
         const j = (await res.clone().json().catch(() => ({}))) as StatusRes;
-        setStatus(res.ok && j?.ok ? j : { ok: false });
+        const next = (res.ok && j?.ok ? j : { ok: false }) as StatusRes;
+        setStatus((prev) =>
+          prev &&
+          prev.ok === next.ok &&
+          prev.vapid_configured === next.vapid_configured &&
+          prev.web_push_enabled === next.web_push_enabled &&
+          prev.subscription_count === next.subscription_count &&
+          prev.table_missing === next.table_missing
+            ? prev
+            : next
+        );
       } catch {
-        setStatus({ ok: false });
+        setStatus((prev) => (prev?.ok === false ? prev : { ok: false }));
       } finally {
-        setLoaded(true);
+        setLoaded((prev) => (prev ? prev : true));
       }
     })();
   }, []);
@@ -64,7 +74,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
   }, [pushEnabled, loaded, refresh]);
 
   const registerPush = useCallback(async () => {
-    setHint(null);
+    setHint((prev) => (prev === null ? prev : null));
     if (!isPushSupported()) {
       setHint("이 브라우저는 웹 푸시를 지원하지 않습니다.");
       return;
@@ -79,7 +89,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
       return;
     }
 
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
@@ -115,13 +125,13 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     } catch (e) {
       setHint(e instanceof Error ? e.message : "등록 중 오류가 났습니다.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   }, [refresh]);
 
   const unregisterPush = useCallback(async () => {
-    setHint(null);
-    setBusy(true);
+    setHint((prev) => (prev === null ? prev : null));
+    setBusy((prev) => (prev ? prev : true));
     try {
       const reg = await navigator.serviceWorker.getRegistration();
       const sub = await reg?.pushManager.getSubscription();
@@ -137,7 +147,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     } catch (e) {
       setHint(e instanceof Error ? e.message : "해제에 실패했습니다.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   }, [refresh]);
 

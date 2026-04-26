@@ -45,8 +45,8 @@ export function MyNotificationsView() {
 
   const load = useCallback(async (silent = false, forceFetch = false) => {
     if (!silent) {
-      setLoading(true);
-      setError(null);
+      setLoading((prev) => (prev ? prev : true));
+      setError((prev) => (prev === null ? prev : null));
     }
     try {
       const { status, json: raw } = await fetchMeNotificationsListDeduped({
@@ -55,13 +55,13 @@ export function MyNotificationsView() {
       const j = raw as { ok?: boolean; error?: string; notifications?: Row[] };
       if (status === 401) {
         setError("로그인이 필요합니다.");
-        setRows([]);
+        setRows((prev) => (prev.length === 0 ? prev : []));
         return;
       }
       if (!j?.ok) {
         if (!silent) {
           setError(typeof j?.error === "string" ? j.error : "load_failed");
-          setRows([]);
+          setRows((prev) => (prev.length === 0 ? prev : []));
         }
         return;
       }
@@ -70,10 +70,10 @@ export function MyNotificationsView() {
     } catch {
       if (!silent) {
         setError("network_error");
-        setRows([]);
+        setRows((prev) => (prev.length === 0 ? prev : []));
       }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) setLoading((prev) => (prev ? false : prev));
     }
   }, []);
 
@@ -150,8 +150,8 @@ export function MyNotificationsView() {
 
   async function markAllRead() {
     if (!rows.some((r) => !r.is_read)) return;
-    setBusy(true);
-    setError(null);
+    setBusy((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/me/notifications", {
         method: "PATCH",
@@ -170,7 +170,7 @@ export function MyNotificationsView() {
     } catch {
       setError("network_error");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   }
 
@@ -194,14 +194,14 @@ export function MyNotificationsView() {
           return;
         }
         setRows((prev) => prev.filter((r) => !item.ids.includes(r.id)));
-        setError(null);
+        setError((prev) => (prev === null ? prev : null));
         invalidateMeNotificationsListDedupedCache();
         broadcastNotificationsUpdated();
       } catch {
         setError("network_error");
       } finally {
-        setDeleteBusyKey(null);
-        setPendingDelete(null);
+        setDeleteBusyKey((prev) => (prev === null ? prev : null));
+        setPendingDelete((prev) => (prev === null ? prev : null));
       }
     },
     [broadcastNotificationsUpdated]
@@ -267,7 +267,7 @@ export function MyNotificationsView() {
         cancelLabel={t("notif_inbox_delete_dialog_cancel")}
         confirmLabel={t("common_delete")}
         busy={pendingDelete != null && deleteBusyKey === pendingDelete.key}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={() => setPendingDelete((prev) => (prev === null ? prev : null))}
         onConfirm={() => {
           const item = pendingDeleteRef.current;
           if (item) void runDeleteGroup(item);

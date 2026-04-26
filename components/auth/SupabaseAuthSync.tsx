@@ -37,7 +37,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
       } = await sb.auth.getUser();
       if (error || !u) {
         invalidateMeProfileDedupedCache();
-        setSupabaseProfileCache(null);
+        setSupabaseProfileCache((prev) => (prev === null ? prev : null));
         clearBootstrapCache();
         resetMessengerNotificationSurfacesAfterSignOut();
         dispatchTestAuthChanged();
@@ -46,7 +46,7 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
       user = u;
     } catch (e) {
       invalidateMeProfileDedupedCache();
-      setSupabaseProfileCache(null);
+      setSupabaseProfileCache((prev) => (prev === null ? prev : null));
       resetMessengerNotificationSurfacesAfterSignOut();
         dispatchTestAuthChanged();
       if (process.env.NODE_ENV === "development") {
@@ -136,7 +136,7 @@ export function SupabaseAuthSync() {
     } = sb.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         invalidateMeProfileDedupedCache();
-        setSupabaseProfileCache(null);
+        setSupabaseProfileCache((prev) => (prev === null ? prev : null));
         clearBootstrapCache();
         resetMessengerNotificationSurfacesAfterSignOut();
         dispatchTestAuthChanged();

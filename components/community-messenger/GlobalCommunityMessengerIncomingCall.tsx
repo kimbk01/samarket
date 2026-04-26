@@ -224,7 +224,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     void getCurrentUserIdForDb().then((value) => {
-      setUserId(value);
+      setUserId((prev) => (prev === value ? prev : value));
     });
   }, []);
 
@@ -1033,7 +1033,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 type="button"
                 className="rounded-ui-rect bg-white/15 px-3 py-1.5 sam-text-helper font-semibold text-white active:bg-white/25"
                 onClick={() => {
-                  setIncomingListError(null);
+                  setIncomingListError((prev) => (prev === null ? prev : null));
                   void refresh(true);
                 }}
               >
@@ -1042,7 +1042,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               <button
                 type="button"
                 className="rounded-ui-rect px-3 py-1.5 sam-text-helper font-medium text-white/75 underline-offset-2 active:text-white"
-                onClick={() => setIncomingListError(null)}
+                onClick={() => setIncomingListError((prev) => (prev === null ? prev : null))}
               >
                 닫기
               </button>

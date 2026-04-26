@@ -27,10 +27,11 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
     if (!me?.id || !targetUserId || me.id === targetUserId) return;
     try {
       const relation = await fetchCommunityUserRelationSnapshot(targetUserId);
-      setFollowing(relation.following);
-      setTheyBlocked(relation.blocked === true);
+      setFollowing((prev) => (prev === relation.following ? prev : relation.following));
+      const nextBlocked = relation.blocked === true;
+      setTheyBlocked((prev) => (prev === nextBlocked ? prev : nextBlocked));
     } catch {
-      setFollowing(null);
+      setFollowing((prev) => (prev === null ? prev : null));
     }
   }, [me?.id, targetUserId]);
 
@@ -43,7 +44,7 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
       router.push("/login");
       return;
     }
-    setBusy(true);
+    setBusy((prev) => (prev ? prev : true));
     try {
       const res = await fetch("/api/community/neighbor-relations", {
         method: "POST",
@@ -52,10 +53,12 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
       });
       const j = (await res.json()) as { ok?: boolean; following?: boolean };
       invalidateCommunityUserRelationSnapshot(targetUserId);
-      if (j.ok && typeof j.following === "boolean") setFollowing(j.following);
+      if (j.ok && typeof j.following === "boolean") {
+        setFollowing((prev) => (prev === j.following ? prev : j.following));
+      }
       else await load();
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

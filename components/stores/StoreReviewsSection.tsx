@@ -38,7 +38,7 @@ export function StoreReviewsSection({
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
-      if (!silent) setLoading(true);
+      if (!silent) setLoading((prev) => (prev ? prev : true));
       try {
         const { json } = await fetchStoreReviewsPublicDeduped(storeSlug);
         const j = json as {
@@ -53,9 +53,9 @@ export function StoreReviewsSection({
           setCount(Number(j.count) || 0);
         }
       } catch {
-        if (!silent) setReviews([]);
+        if (!silent) setReviews((prev) => (prev.length === 0 ? prev : []));
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent) setLoading((prev) => (prev ? false : prev));
       }
     },
     [storeSlug]

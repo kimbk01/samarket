@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type TradeAdProductItem = {
   id: string;
@@ -49,10 +50,12 @@ export function TradePostAdApplySheet({
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
-    setErr("");
-    setMessage("");
-    fetch(`/api/posts/${encodeURIComponent(postId)}/trade-ads/products`, { cache: "no-store" })
+    setLoading((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === "" ? prev : ""));
+    setMessage((prev) => (prev === "" ? prev : ""));
+    runSingleFlight(`trade:post-ad-products:${postId}`, () =>
+      fetch(`/api/posts/${encodeURIComponent(postId)}/trade-ads/products`, { cache: "no-store" })
+    )
       .then(async (res) => {
         const j = (await res.json().catch(() => ({}))) as TradeAdProductsResponse;
         if (cancelled) return;
@@ -67,7 +70,7 @@ export function TradePostAdApplySheet({
         if (!cancelled) setErr("네트워크 오류로 광고 상품을 불러오지 못했습니다.");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoading((prev) => (prev ? false : prev));
       });
     return () => {
       cancelled = true;
@@ -79,14 +82,16 @@ export function TradePostAdApplySheet({
   const apply = async (adProductId: string) => {
     if (submittingId) return;
     setSubmittingId(adProductId);
-    setErr("");
-    setMessage("");
+    setErr((prev) => (prev === "" ? prev : ""));
+    setMessage((prev) => (prev === "" ? prev : ""));
     try {
-      const res = await fetch(`/api/posts/${encodeURIComponent(postId)}/trade-ads/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ad_product_id: adProductId }),
-      });
+      const res = await runSingleFlight(`trade:post-ad-apply:${postId}:${adProductId}`, () =>
+        fetch(`/api/posts/${encodeURIComponent(postId)}/trade-ads/apply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ad_product_id: adProductId }),
+        })
+      );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
         setErr(j.error ?? "광고 신청에 실패했습니다.");
@@ -94,7 +99,7 @@ export function TradePostAdApplySheet({
       }
       setMessage("광고 신청이 접수되었습니다. 관리자 승인 후 노출됩니다.");
     } finally {
-      setSubmittingId(null);
+      setSubmittingId((prev) => (prev === null ? prev : null));
     }
   };
 

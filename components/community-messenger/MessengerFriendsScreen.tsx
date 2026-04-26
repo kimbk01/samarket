@@ -74,19 +74,19 @@ export function MessengerFriendsScreen({
   }, [friendQuickMenuBlocksTabSwipeRef, quickMenuUserId]);
 
   useEffect(() => {
-    setQuickMenuUserId(null);
+    setQuickMenuUserId((prev) => (prev === null ? prev : null));
   }, [messengerOverlayGeneration]);
 
   const openFriendQuickMenu = useCallback(
     (userId: string) => {
       onOpenSwipeItem(null);
-      queueMicrotask(() => setQuickMenuUserId(userId));
+      queueMicrotask(() => setQuickMenuUserId((prev) => (prev === userId ? prev : userId)));
     },
     [onOpenSwipeItem]
   );
 
   const closeFriendQuickMenu = useCallback(() => {
-    setQuickMenuUserId(null);
+    setQuickMenuUserId((prev) => (prev === null ? prev : null));
   }, []);
 
   const quickProfile =

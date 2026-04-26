@@ -197,8 +197,8 @@ export function PostDetailSellerTradeLifecycleBar({
   const onBuyerPicked = async (c: TradeBuyerPickCandidate) => {
     if (!buyerPicker) return;
     const { mode } = buyerPicker;
-    setBuyerPicker(null);
-    setBusy(true);
+    setBuyerPicker((prev) => (prev === null ? prev : null));
+    setBusy((prev) => (prev ? prev : true));
     try {
       if (mode === "reserve") {
         const saved = await postSellerListingStateRequest(postId, "reserved", c.buyerId);
@@ -218,7 +218,7 @@ export function PostDetailSellerTradeLifecycleBar({
     } catch {
       window.alert("네트워크 오류입니다.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 
@@ -263,7 +263,7 @@ export function PostDetailSellerTradeLifecycleBar({
           title={buyerPicker?.mode === "reserve" ? "예약할 구매자 선택" : "거래완료할 구매자 선택"}
           subtitle="채팅 문의가 있는 구매자만 표시됩니다."
           candidates={buyerPicker?.candidates ?? []}
-          onClose={() => setBuyerPicker(null)}
+          onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
         />
       </>
@@ -296,7 +296,7 @@ export function PostDetailSellerTradeLifecycleBar({
           title="예약할 구매자 선택"
           subtitle="채팅 문의가 있는 구매자만 표시됩니다."
           candidates={buyerPicker?.candidates ?? []}
-          onClose={() => setBuyerPicker(null)}
+          onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
         />
       </>
@@ -336,7 +336,7 @@ export function PostDetailSellerTradeLifecycleBar({
           title="거래완료할 구매자 선택"
           subtitle="채팅 문의가 있는 구매자만 표시됩니다."
           candidates={buyerPicker?.candidates ?? []}
-          onClose={() => setBuyerPicker(null)}
+          onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
         />
       </>

@@ -133,7 +133,7 @@ export function CommunityCommentSection({
                   ? `${sortTabBase} ${COMMUNITY_TAB_ACTIVE_CLASS}`
                   : `${sortTabBase} ${COMMUNITY_TAB_IDLE_CLASS}`
               }
-              onClick={() => setSortMode("thread")}
+              onClick={() => setSortMode((prev) => (prev === "thread" ? prev : "thread"))}
             >
               등록순
             </button>
@@ -144,7 +144,7 @@ export function CommunityCommentSection({
                   ? `${sortTabBase} ${COMMUNITY_TAB_ACTIVE_CLASS}`
                   : `${sortTabBase} ${COMMUNITY_TAB_IDLE_CLASS}`
               }
-              onClick={() => setSortMode("newest")}
+              onClick={() => setSortMode((prev) => (prev === "newest" ? prev : "newest"))}
             >
               최신순
             </button>

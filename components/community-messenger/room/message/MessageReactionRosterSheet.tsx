@@ -24,13 +24,13 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
 
   useEffect(() => {
     if (!rosterFetchKey || !streamRoomId.trim()) {
-      setUsers([]);
-      setLoading(false);
+      setUsers((prev) => (prev.length === 0 ? prev : []));
+      setLoading((prev) => (prev ? false : prev));
       return;
     }
     const [messageId, reactionKey] = rosterFetchKey.split("\u0000");
     let cancelled = false;
-    setLoading(true);
+    setLoading((prev) => (prev ? prev : true));
     const rk = encodeURIComponent(reactionKey);
     const rid = streamRoomId.trim();
     const url = `${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(messageId)}/reactions?reactionKey=${rk}`;
@@ -45,12 +45,15 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
           users?: Array<{ userId: string; label: string }>;
         };
         if (cancelled) return;
-        if (json && json.ok === true && Array.isArray(json.users)) setUsers(json.users);
-        else setUsers([]);
+        if (json && json.ok === true && Array.isArray(json.users)) {
+          setUsers(json.users);
+        } else {
+          setUsers((prev) => (prev.length === 0 ? prev : []));
+        }
       } catch {
-        if (!cancelled) setUsers([]);
+        if (!cancelled) setUsers((prev) => (prev.length === 0 ? prev : []));
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoading((prev) => (prev ? false : prev));
       }
     })();
     return () => {
@@ -74,7 +77,7 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
       }
       let left = a.left + a.width / 2 - pw / 2;
       left = Math.max(margin, Math.min(left, vw - pw - margin));
-      setPos({ top, left });
+      setPos((prev) => (prev.top === top && prev.left === left ? prev : { top, left }));
     };
     layout();
     const el = panelRef.current;

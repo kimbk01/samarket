@@ -72,18 +72,18 @@ export function CommunityCommentItem({
   const timeStamp = useMemo(() => formatCommentStamp(node.created_at), [node.created_at]);
 
   useEffect(() => {
-    if (!isReplyOpen) setReplyDraft("");
+    if (!isReplyOpen) setReplyDraft((prev) => (prev === "" ? prev : ""));
   }, [isReplyOpen]);
 
   const onSave = useCallback(async () => {
     const t = draft.trim();
     if (!t) return;
-    setSaving(true);
+    setSaving((prev) => (prev ? prev : true));
     try {
       await onEdit(node.id, t);
-      setEditing(false);
+      setEditing((prev) => (prev ? false : prev));
     } finally {
-      setSaving(false);
+      setSaving((prev) => (prev ? false : prev));
     }
   }, [draft, node.id, onEdit]);
 
@@ -277,7 +277,7 @@ export function CommunityCommentItem({
             <button
               type="button"
               className="m-0 border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-[#7360F2] underline underline-offset-2"
-              onClick={() => setRepliesOpen(true)}
+              onClick={() => setRepliesOpen((prev) => (prev ? prev : true))}
             >
               답글 {childCount}개 펼치기
             </button>
@@ -287,7 +287,7 @@ export function CommunityCommentItem({
                 <button
                   type="button"
                   className="mb-2 border-0 bg-transparent p-0 text-left text-[12px] text-[#6B7280]"
-                  onClick={() => setRepliesOpen(false)}
+                  onClick={() => setRepliesOpen((prev) => (prev ? false : prev))}
                 >
                   답글 접기
                 </button>

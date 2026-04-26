@@ -61,7 +61,7 @@ export function MeetingJoinButton({
   }, []);
 
   useEffect(() => {
-    setLocalStatus(viewerStatus);
+    setLocalStatus((prev) => (prev === viewerStatus ? prev : viewerStatus));
   }, [viewerStatus]);
 
   const isFull = typeof memberCount === "number" && typeof maxMembers === "number" && memberCount >= maxMembers;
@@ -104,9 +104,9 @@ export function MeetingJoinButton({
       router.push("/login");
       return;
     }
-    setBusy(true);
-    setErr("");
-    setModalSubmitErr("");
+    setBusy((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === "" ? prev : ""));
+    setModalSubmitErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(mApi.join(), {
         method: "POST",
@@ -150,7 +150,7 @@ export function MeetingJoinButton({
       setErr(msg);
       setModalSubmitErr(msg);
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 
@@ -229,7 +229,7 @@ export function MeetingJoinButton({
         onClose={() => {
           if (!busy) {
             setPasswordModalOpen(false);
-            setErr("");
+            setErr((prev) => (prev === "" ? prev : ""));
           }
         }}
         busy={busy}
@@ -246,8 +246,8 @@ export function MeetingJoinButton({
         open={joinModalOpen}
         onClose={() => {
           if (!busy) {
-            setJoinModalOpen(false);
-            setModalSubmitErr("");
+            setJoinModalOpen((prev) => (prev ? false : prev));
+            setModalSubmitErr((prev) => (prev === "" ? prev : ""));
           }
         }}
         defaultNickname={me?.nickname?.trim() ?? ""}

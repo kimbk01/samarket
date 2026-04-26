@@ -11,7 +11,7 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
   const [err, setErr] = useState("");
 
   const load = useCallback(async () => {
-    setErr("");
+    setErr((prev) => (prev === "" ? prev : ""));
     try {
       const result = await fetchCommunityMyHubPostsDeduped(userId);
       const j = result.json as { ok?: boolean; posts?: NeighborhoodFeedPostDTO[]; error?: string };

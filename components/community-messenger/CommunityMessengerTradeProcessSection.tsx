@@ -349,7 +349,11 @@ export function CommunityMessengerTradeProcessSection({
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
               <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 작성</h2>
-              <button type="button" onClick={() => setReviewSheetOpen(false)} className="sam-text-body text-sam-muted">
+              <button
+                type="button"
+                onClick={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
+                className="sam-text-body text-sam-muted"
+              >
                 닫기
               </button>
             </div>
@@ -360,13 +364,13 @@ export function CommunityMessengerTradeProcessSection({
               revieweeLabel={partnerLabel}
               roleType="buyer_to_seller"
               onSuccess={() => {
-                setReviewSheetOpen(false);
+                setReviewSheetOpen((prev) => (prev ? false : prev));
                 bustTradeCachesAfterReview(effectiveProductChatId);
                 void reload();
                 onTradeMetaChanged?.();
                 router.refresh();
               }}
-              onCancel={() => setReviewSheetOpen(false)}
+              onCancel={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
             />
           </div>
         </div>

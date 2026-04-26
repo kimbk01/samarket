@@ -65,8 +65,8 @@ export function LanguageSettingsContent() {
   const select = useCallback(
     async (code: AppLanguageCode) => {
       if (busy || code === current) return;
-      setBusy(true);
-      setError("");
+      setBusy((prev) => (prev ? prev : true));
+      setError((prev) => (prev === "" ? prev : ""));
       const previous = current;
       setCurrent(code);
       setLanguage(code);
@@ -78,7 +78,7 @@ export function LanguageSettingsContent() {
         updateUserSettings(userId, { preferred_language: previous });
         setError(result.error);
       }
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     },
     [busy, current, setLanguage, userId]
   );

@@ -44,13 +44,13 @@ export function CommunityWriteFormClient({
   );
 
   useEffect(() => {
-    setMeetupPlace("");
-    setMeetupDate("");
+    setMeetupPlace((prev) => (prev === "" ? prev : ""));
+    setMeetupDate((prev) => (prev === "" ? prev : ""));
   }, [topicSlug]);
 
   useEffect(() => {
     if (selectedTopic && !selectedTopic.allow_question) {
-      setIsQuestion(false);
+      setIsQuestion((prev) => (prev ? false : prev));
     }
   }, [selectedTopic]);
 
@@ -58,7 +58,7 @@ export function CommunityWriteFormClient({
     const files = e.target.files;
     if (!files?.length) return;
     setUploading(true);
-    setErr("");
+    setErr((prev) => (prev === "" ? prev : ""));
     try {
       const next = [...imageUrls];
       for (const f of Array.from(files)) {
@@ -92,7 +92,7 @@ export function CommunityWriteFormClient({
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr("");
+    setErr((prev) => (prev === "" ? prev : ""));
     if (!topicSlug) {
       setErr("주제를 선택하세요.");
       return;

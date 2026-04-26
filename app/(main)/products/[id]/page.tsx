@@ -27,7 +27,7 @@ async function ProductDetailPageBody({ paramsPromise }: { paramsPromise: PagePro
   let initialViewerTradeRoom:
     | { roomId: string | null; source: ChatRoomSource | null; messengerRoomId?: string | null }
     | undefined;
-  if (viewerUserId && product.sellerId) {
+  if (viewerUserId && product.sellerId && viewerUserId !== product.sellerId) {
     const sb = resolveServiceSupabaseForApi();
     if (sb) {
       const r = await resolveViewerItemTradeRoom(sb, {

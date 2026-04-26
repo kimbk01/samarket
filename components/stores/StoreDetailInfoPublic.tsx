@@ -80,7 +80,7 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
-    if (!silent) setLoading(true);
+    if (!silent) setLoading((prev) => (prev ? prev : true));
     try {
       const { json } = await fetchStorePublicBySlugDeduped(slug);
       const j = json as {
@@ -93,17 +93,17 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
         setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
       } else {
         if (!silent) {
-          setStore(null);
+          setStore((prev) => (prev === null ? prev : null));
           setRecentOrderCount(0);
         }
       }
     } catch {
       if (!silent) {
-        setStore(null);
+        setStore((prev) => (prev === null ? prev : null));
         setRecentOrderCount(0);
       }
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent) setLoading((prev) => (prev ? false : prev));
     }
   }, [slug]);
 

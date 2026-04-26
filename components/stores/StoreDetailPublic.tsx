@@ -208,7 +208,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
           const top = el.getBoundingClientRect().top + window.scrollY;
           if (top <= y + 8) best = i;
         });
-        setActiveMenuSection(best);
+        setActiveMenuSection((prev) => (prev === best ? prev : best));
       });
     };
     onScroll();
@@ -398,7 +398,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
           <div className="mb-2 grid grid-cols-2 gap-2 rounded-ui-rect bg-sam-surface p-1">
             <button
               type="button"
-              onClick={() => setActiveTab("menu")}
+              onClick={() => setActiveTab((prev) => (prev === "menu" ? prev : "menu"))}
               className={`rounded-ui-rect px-3 py-2 sam-text-body font-semibold ${
                 activeTab === "menu" ? "bg-signature text-white" : "text-sam-fg"
               }`}
@@ -407,7 +407,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab("review")}
+              onClick={() => setActiveTab((prev) => (prev === "review" ? prev : "review"))}
               className={`rounded-ui-rect px-3 py-2 sam-text-body font-semibold ${
                 activeTab === "review" ? "bg-signature text-white" : "text-sam-fg"
               }`}

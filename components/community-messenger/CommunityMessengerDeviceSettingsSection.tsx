@@ -41,7 +41,7 @@ export function CommunityMessengerDeviceSettingsSection({
 
   useEffect(() => {
     if (!visible) return;
-    setHint(null);
+    setHint((prev) => (prev === null ? prev : null));
     void loadLists();
   }, [visible, loadLists]);
 
@@ -52,15 +52,15 @@ export function CommunityMessengerDeviceSettingsSection({
   };
 
   const test = async () => {
-    setBusy(true);
-    setHint(null);
+    setBusy((prev) => (prev ? prev : true));
+    setHint((prev) => (prev === null ? prev : null));
     try {
       await testCommunityMessengerMediaPipeline();
       setHint("마이크·카메라 테스트에 성공했습니다.");
     } catch {
       setHint("테스트에 실패했습니다. 브라우저 권한과 장치 연결을 확인해 주세요.");
     } finally {
-      setBusy(false);
+      setBusy((prev) => (prev ? false : prev));
     }
   };
 

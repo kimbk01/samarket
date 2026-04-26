@@ -50,7 +50,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
 
   const handleFeedback = (reason: HiddenPostFeedbackReason) => {
     onFeedback?.(reason);
-    setFeedbackSent(true);
+    setFeedbackSent((prev) => (prev ? prev : true));
   };
 
   return (

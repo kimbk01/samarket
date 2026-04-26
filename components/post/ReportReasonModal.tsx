@@ -38,10 +38,10 @@ export function ReportReasonModal({
       router.push(`/post/${postId}?reportAuthor=1`);
       return;
     }
-    setSubmitting(true);
-    setError("");
+    setSubmitting((prev) => (prev ? prev : true));
+    setError((prev) => (prev === "" ? prev : ""));
     const res = await createReport(postId, label);
-    setSubmitting(false);
+    setSubmitting((prev) => (prev ? false : prev));
     if (res.ok) {
       onClose();
       onSuccess?.();

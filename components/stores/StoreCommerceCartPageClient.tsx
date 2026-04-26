@@ -552,7 +552,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
 
   function closeAddressModal() {
-    setAddressModalOpen(false);
+    setAddressModalOpen((prev) => (prev ? false : prev));
     setModalLocationError(undefined);
   }
 
@@ -587,7 +587,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     });
     setSelectedAddressId(newId);
     setModalLocationError(undefined);
-    setAddressModalOpen(false);
+    setAddressModalOpen((prev) => (prev ? false : prev));
   }
 
   async function submitOrder() {

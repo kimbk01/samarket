@@ -34,7 +34,7 @@ export function ProblemOrderModal({
           <button
             type="button"
             onClick={() => {
-              setText("");
+              setText((prev) => (prev === "" ? prev : ""));
               onClose();
             }}
             className="sam-btn-secondary px-4"
@@ -46,7 +46,7 @@ export function ProblemOrderModal({
             onClick={() => {
               if (!text.trim()) return;
               onConfirm(text.trim());
-              setText("");
+              setText((prev) => (prev === "" ? prev : ""));
               onClose();
             }}
             className="sam-btn-primary px-4"

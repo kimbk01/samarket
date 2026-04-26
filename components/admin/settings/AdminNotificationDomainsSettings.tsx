@@ -46,8 +46,8 @@ export function AdminNotificationDomainsSettings() {
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setErr(null);
+    setLoading((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/admin/notification-settings", { credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; items?: Row[]; error?: string };
@@ -74,7 +74,7 @@ export function AdminNotificationDomainsSettings() {
     } catch {
       setErr("네트워크 오류");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, []);
 
@@ -87,8 +87,8 @@ export function AdminNotificationDomainsSettings() {
   }, []);
 
   const save = useCallback(async () => {
-    setSaving(true);
-    setErr(null);
+    setSaving((prev) => (prev ? prev : true));
+    setErr((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch("/api/admin/notification-settings", {
         method: "PATCH",
@@ -105,7 +105,7 @@ export function AdminNotificationDomainsSettings() {
     } catch {
       setErr("네트워크 오류");
     } finally {
-      setSaving(false);
+      setSaving((prev) => (prev ? false : prev));
     }
   }, [rows]);
 

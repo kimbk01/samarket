@@ -209,7 +209,7 @@ export function MessengerChatsScreen({
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
   const onDocumentScroll = useCallback(() => {
-    setFilterSheetOpen(false);
+    setFilterSheetOpen((prev) => (prev ? false : prev));
     onListScrollStart();
   }, [onListScrollStart]);
   useMessengerHomeListDocumentScroll(onDocumentScroll);
@@ -223,7 +223,7 @@ export function MessengerChatsScreen({
   }, [items]);
 
   const closeAllTransient = () => {
-    setFilterSheetOpen(false);
+    setFilterSheetOpen((prev) => (prev ? false : prev));
     onResetTransientUi();
   };
 

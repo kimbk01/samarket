@@ -15,7 +15,8 @@ export function PersonalizationContent() {
 
   const refresh = useCallback(() => {
     const s = getUserSettings(userId);
-    setEnabled(s.personalization_enabled !== false);
+    const nextEnabled = s.personalization_enabled !== false;
+    setEnabled((prev) => (prev === nextEnabled ? prev : nextEnabled));
   }, [userId]);
   useEffect(() => {
     refresh();

@@ -26,13 +26,13 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
     setEvents(initialEvents);
     setHasMore(initialHasMore);
     setFilter("all");
-    setError(null);
+    setError((prev) => (prev === null ? prev : null));
   }, [meetingId, initialEvents, initialHasMore]);
 
   const fetchPage = useCallback(
     async (opts: { offset: number; replace: boolean; typeKey: string }) => {
-      setLoading(true);
-      setError(null);
+      setLoading((prev) => (prev ? prev : true));
+      setError((prev) => (prev === null ? prev : null));
       try {
         const sp = new URLSearchParams();
         sp.set("limit", "15");
@@ -55,14 +55,14 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
         setEvents((prev) => (opts.replace ? next : [...prev, ...next]));
         setHasMore(!!json.hasMore);
       } finally {
-        setLoading(false);
+        setLoading((prev) => (prev ? false : prev));
       }
     },
     [meetingId]
   );
 
   const onFilterChange = (value: string) => {
-    setFilter(value);
+    setFilter((prev) => (prev === value ? prev : value));
     void fetchPage({ offset: 0, replace: true, typeKey: value });
   };
 

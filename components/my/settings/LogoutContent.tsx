@@ -24,17 +24,17 @@ export function LogoutActionTrigger({
   const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
-    setSubmitting(true);
-    setError(null);
+    setSubmitting((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     const result = await performClientLogout();
-    setSubmitting(false);
+    setSubmitting((prev) => (prev ? false : prev));
 
     if (!result.ok) {
       setError(result.message);
       return;
     }
 
-    setOpen(false);
+    setOpen((prev) => (prev ? false : prev));
     router.replace("/login");
     router.refresh();
   };
@@ -47,16 +47,16 @@ export function LogoutActionTrigger({
           tone="danger"
           surface={surface}
           onClick={() => {
-            setError(null);
-            setOpen(true);
+            setError((prev) => (prev === null ? prev : null));
+            setOpen((prev) => (prev ? prev : true));
           }}
         />
       ) : (
         <button
           type="button"
           onClick={() => {
-            setError(null);
-            setOpen(true);
+            setError((prev) => (prev === null ? prev : null));
+            setOpen((prev) => (prev ? prev : true));
           }}
           className={
             variant === "outlined_button"
@@ -86,7 +86,7 @@ export function LogoutActionTrigger({
             <div className="mt-4 flex gap-3">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => setOpen((prev) => (prev ? false : prev))}
                 disabled={submitting}
                 className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
               >

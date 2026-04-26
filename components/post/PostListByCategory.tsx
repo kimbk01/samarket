@@ -95,15 +95,15 @@ export function PostListByCategory({
   const load = useCallback(
     async (pageNum: number = 1) => {
       if (!categoryId) {
-        setLoading(false);
+        setLoading((prev) => (prev ? false : prev));
         return;
       }
       if (!tradeFeedServerResolution && effectiveIds.length === 0) {
-        setLoading(false);
+        setLoading((prev) => (prev ? false : prev));
         return;
       }
       const epoch = listFeedEpochRef.current;
-      setLoading(true);
+      setLoading((prev) => (prev ? prev : true));
       try {
         const useHomePostsApi =
           tradeFeedServerResolution &&
@@ -313,7 +313,7 @@ export function PostListByCategory({
       if (toastTimerRef.current != null) clearTimeout(toastTimerRef.current);
       toastTimerRef.current = setTimeout(() => {
         toastTimerRef.current = null;
-        setToast(null);
+        setToast((prev) => (prev === null ? prev : null));
       }, 2000);
     }
     if (action === "not_interest") {
@@ -416,7 +416,7 @@ export function PostListByCategory({
         <ReportReasonModal
           postId={reportPostId}
           open={!!reportPostId}
-          onClose={() => setReportPostId(null)}
+          onClose={() => setReportPostId((prev) => (prev === null ? prev : null))}
         />
       ) : null}
     </>

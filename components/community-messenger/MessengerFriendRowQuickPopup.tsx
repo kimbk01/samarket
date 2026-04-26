@@ -109,13 +109,13 @@ export function MessengerFriendRowQuickPopup({
 
   useEffect(() => {
     if (!open) {
-      setStep("main");
-      setLaunching(null);
+      setStep((prev) => (prev === "main" ? prev : "main"));
+      setLaunching((prev) => (prev === null ? prev : null));
       return;
     }
     dimmerSuppressUntilRef.current = Date.now() + 320;
-    setStep("main");
-    setLaunching(null);
+    setStep((prev) => (prev === "main" ? prev : "main"));
+    setLaunching((prev) => (prev === null ? prev : null));
   }, [open, pid]);
 
   useEffect(() => {

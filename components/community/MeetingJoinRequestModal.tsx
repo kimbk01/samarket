@@ -45,11 +45,11 @@ export function MeetingJoinRequestModal({
 
   useEffect(() => {
     if (open) {
-      setNickname(defaultNickname);
-      setIntro("");
-      setReason("");
-      setNote("");
-      setPassword("");
+      setNickname((prev) => (prev === defaultNickname ? prev : defaultNickname));
+      setIntro((prev) => (prev === "" ? prev : ""));
+      setReason((prev) => (prev === "" ? prev : ""));
+      setNote((prev) => (prev === "" ? prev : ""));
+      setPassword((prev) => (prev === "" ? prev : ""));
     }
   }, [open, defaultNickname]);
 

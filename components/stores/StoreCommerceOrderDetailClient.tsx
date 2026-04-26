@@ -70,7 +70,9 @@ export function StoreCommerceOrderDetailClient({
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!silent) setState({ kind: "loading" });
+    if (!silent) {
+      setState((prev) => (prev.kind === "loading" ? prev : { kind: "loading" }));
+    }
     try {
       const { status, json } = await fetchMeStoreOrderDetailDeduped(orderId);
       if (status === 401) {

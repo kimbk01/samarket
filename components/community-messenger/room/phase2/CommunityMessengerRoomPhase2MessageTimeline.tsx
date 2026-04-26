@@ -927,7 +927,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         urls={imageLightbox?.urls ?? []}
         originals={imageLightbox?.originals ?? []}
         index={imageLightbox?.index ?? 0}
-        onClose={() => setImageLightbox(null)}
+        onClose={() => setImageLightbox((prev) => (prev === null ? prev : null))}
         onChangeIndex={(next) =>
           setImageLightbox((cur) => {
             if (!cur) return cur;
@@ -939,7 +939,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       <MessageReactionRosterSheet
         open={reactionRoster}
         streamRoomId={vm.streamRoomId}
-        onClose={() => setReactionRoster(null)}
+        onClose={() => setReactionRoster((prev) => (prev === null ? prev : null))}
       />
     </div>
   );

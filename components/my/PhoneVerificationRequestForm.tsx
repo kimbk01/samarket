@@ -63,13 +63,13 @@ export function PhoneVerificationRequestForm() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setMessage(null);
+    setSubmitting((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
+    setMessage((prev) => (prev === null ? prev : null));
     const norm = normalizePhMobileDb(phoneDigits);
     if (!norm) {
       setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
-      setSubmitting(false);
+      setSubmitting((prev) => (prev ? false : prev));
       return;
     }
     try {
@@ -89,7 +89,7 @@ export function PhoneVerificationRequestForm() {
     } catch {
       setError("인증번호 발송에 실패했습니다.");
     } finally {
-      setSubmitting(false);
+      setSubmitting((prev) => (prev ? false : prev));
     }
   };
 

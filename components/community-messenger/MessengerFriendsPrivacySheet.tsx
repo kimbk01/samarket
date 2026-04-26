@@ -55,7 +55,7 @@ export function MessengerFriendsPrivacySheet({
             <button
               key={seg.id}
               type="button"
-              onClick={() => setTab(seg.id)}
+              onClick={() => setTab((prev) => (prev === seg.id ? prev : seg.id))}
               className={`relative min-w-0 flex-1 px-1 py-2.5 sam-text-body-secondary font-medium ${
                 tab === seg.id ? "text-ui-fg" : "text-ui-muted"
               }`}

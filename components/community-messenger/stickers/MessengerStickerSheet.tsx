@@ -27,7 +27,7 @@ export function MessengerStickerSheet({
     if (!open) return;
     setActivePackId(RECENT_PACK_ID);
     let cancelled = false;
-    setPackErr(null);
+    setPackErr((prev) => (prev === null ? prev : null));
     void (async () => {
       try {
         const res = await runSingleFlight("messenger:stickers:packs:get", () =>
@@ -39,10 +39,13 @@ export function MessengerStickerSheet({
           setPacks(json.packs);
         } else {
           setPackErr("스티커 목록을 불러오지 못했습니다.");
-          setPacks([]);
+          setPacks((prev) => (Array.isArray(prev) && prev.length === 0 ? prev : []));
         }
       } catch {
-        if (!cancelled) setPackErr("스티커 목록을 불러오지 못했습니다.");
+        if (!cancelled) {
+          setPackErr("스티커 목록을 불러오지 못했습니다.");
+          setPacks((prev) => (Array.isArray(prev) && prev.length === 0 ? prev : []));
+        }
       }
     })();
     return () => {
@@ -66,7 +69,7 @@ export function MessengerStickerSheet({
       return;
     }
     let cancelled = false;
-    setItemsBusy(true);
+    setItemsBusy((prev) => (prev ? prev : true));
     void (async () => {
       try {
         const packId = encodeURIComponent(activePackId);
@@ -79,7 +82,7 @@ export function MessengerStickerSheet({
       } catch {
         if (!cancelled) setItems([]);
       } finally {
-        if (!cancelled) setItemsBusy(false);
+        if (!cancelled) setItemsBusy((prev) => (prev ? false : prev));
       }
     })();
     return () => {

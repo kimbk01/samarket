@@ -167,7 +167,7 @@ export function StoreProductPublic({
   }, [product]);
 
   useEffect(() => {
-    setGalleryIdx(0);
+    setGalleryIdx((prev) => (prev === 0 ? prev : 0));
   }, [product?.id]);
 
   useEffect(() => {
@@ -820,7 +820,7 @@ export function StoreProductPublic({
                     key={o.value}
                     type="button"
                     disabled={orderBusy || orderBlocked}
-                    onClick={() => setFulfillment(o.value)}
+                    onClick={() => setFulfillment((prev) => (prev === o.value ? prev : o.value))}
                     className={`rounded-full px-3 py-1.5 sam-text-body-secondary ${
                       fulfillment === o.value
                         ? "bg-signature text-white"

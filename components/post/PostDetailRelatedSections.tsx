@@ -143,7 +143,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
               const el = scrollerRef.current;
               if (!el) return;
               el.scrollTo({ left: el.clientWidth * next, behavior: "smooth" });
-              setPage(next);
+              setPage((prev) => (prev === next ? prev : next));
             }}
           >
             ›
@@ -156,7 +156,8 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
         onScroll={(e) => {
           const el = e.currentTarget;
           const idx = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
-          setPage(Math.max(0, Math.min(pages.length - 1, idx)));
+          const next = Math.max(0, Math.min(pages.length - 1, idx));
+          setPage((prev) => (prev === next ? prev : next));
         }}
       >
         {pages.map((rows, idx) => (
@@ -184,7 +185,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
                   left: el.clientWidth * idx,
                   behavior: "smooth",
                 });
-                setPage(idx);
+                setPage((prev) => (prev === idx ? prev : idx));
               }}
             />
           ))}

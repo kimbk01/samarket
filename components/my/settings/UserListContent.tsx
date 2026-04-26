@@ -32,8 +32,8 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading((prev) => (prev ? prev : true));
+    setError((prev) => (prev === null ? prev : null));
     try {
       const res = await runSingleFlight(`me:relations:${type}:list`, () =>
         fetch(`/api/me/relations/${type}`, {
@@ -47,16 +47,30 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setItems([]);
+        setItems((prev) => (prev.length === 0 ? prev : []));
         setError(typeof json.error === "string" ? json.error : "목록을 불러오지 못했습니다.");
         return;
       }
-      setItems(Array.isArray(json.items) ? json.items : []);
+      const nextItems = Array.isArray(json.items) ? json.items : [];
+      setItems((prev) => {
+        if (
+          prev.length === nextItems.length &&
+          prev.every(
+            (item, idx) =>
+              item.id === nextItems[idx]?.id &&
+              item.targetId === nextItems[idx]?.targetId &&
+              item.createdAt === nextItems[idx]?.createdAt
+          )
+        ) {
+          return prev;
+        }
+        return nextItems;
+      });
     } catch {
-      setItems([]);
+      setItems((prev) => (prev.length === 0 ? prev : []));
       setError("목록을 불러오지 못했습니다.");
     } finally {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
     }
   }, [type]);
 
@@ -66,7 +80,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    setError(null);
+    setError((prev) => (prev === null ? prev : null));
     try {
       const res = await fetch(`/api/me/relations/${type}?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -81,7 +95,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
     } catch {
       setError("삭제하지 못했습니다.");
     } finally {
-      setBusyId(null);
+      setBusyId((prev) => (prev === null ? prev : null));
     }
   };
 

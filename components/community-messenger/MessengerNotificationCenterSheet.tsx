@@ -93,7 +93,7 @@ function RequestRow({
   const isIncoming = request.direction === "incoming";
   const label = isIncoming ? request.requesterLabel : request.addresseeLabel;
 
-  const openMenu = useCallback(() => setMenu(true), []);
+  const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
 
   const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
 
@@ -165,7 +165,7 @@ function RequestRow({
       {menu && isIncoming ? (
         <RowActionSheet
           title={label}
-          onClose={() => setMenu(false)}
+          onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             {
               label: "거절",
@@ -196,7 +196,7 @@ function MissedCallRow({
   const call = item.call;
   const kindLabel = call.callKind === "video" ? "영상" : "음성";
   const [menu, setMenu] = useState(false);
-  const openMenu = useCallback(() => setMenu(true), []);
+  const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
   const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
 
   return (
@@ -237,7 +237,7 @@ function MissedCallRow({
       {menu ? (
         <RowActionSheet
           title={call.peerLabel}
-          onClose={() => setMenu(false)}
+          onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             ...(call.roomId
               ? [
@@ -283,7 +283,7 @@ function ImportantRoomRow({
 }) {
   const room = item.room;
   const [menu, setMenu] = useState(false);
-  const openMenu = useCallback(() => setMenu(true), []);
+  const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
   const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
   const badge = getRoomTypeBadgeLabel(room);
   const busyRead = busyId === `room-read:${room.id}`;
@@ -331,7 +331,7 @@ function ImportantRoomRow({
       {menu ? (
         <RowActionSheet
           title={room.title}
-          onClose={() => setMenu(false)}
+          onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             {
               label: "대화 열기",

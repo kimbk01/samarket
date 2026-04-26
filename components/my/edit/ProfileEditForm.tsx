@@ -60,8 +60,8 @@ export function ProfileEditForm() {
   const [addressListErr, setAddressListErr] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setAddressListErr(false);
+    setLoading((prev) => (prev ? prev : true));
+    setAddressListErr((prev) => (prev ? false : prev));
     const pick = consumeMapAddressPick();
 
     const addressesPromise = runSingleFlight("me:addresses:list", () =>
@@ -79,7 +79,7 @@ export function ProfileEditForm() {
     const [data, addrPack] = await Promise.all([getMyProfile(), addressesPromise]);
 
     if (!data) {
-      setLoading(false);
+      setLoading((prev) => (prev ? false : prev));
       const loginUrl = "/login";
       if (typeof window !== "undefined") {
         window.location.replace(loginUrl);
@@ -89,7 +89,7 @@ export function ProfileEditForm() {
       return;
     }
 
-    if (!addrPack.ok) setAddressListErr(true);
+    if (!addrPack.ok) setAddressListErr((prev) => (prev ? prev : true));
     const rows = addrPack.rows;
     setAddressList(rows);
 

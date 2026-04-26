@@ -276,11 +276,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
           setOwnerHubStoreId(null);
           setOwnerStoreGate(null);
           setOwnerStoreGateFirstId(null);
-          setOverviewCounts((prev) => ({
-            purchases: prev.purchases,
-            sales: prev.sales,
-            storeAttention: prev.storeAttention,
-          }));
+          setOverviewCounts((prev) => prev);
         }
       }
     };

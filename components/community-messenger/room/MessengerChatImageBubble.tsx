@@ -156,7 +156,7 @@ function SingleChatImage({
 }) {
   const [ar, setAr] = useState<number | null>(null);
   useEffect(() => {
-    setAr(null);
+    setAr((prev) => (prev == null ? prev : null));
   }, [src]);
   const ratio = ar != null ? clampAspectRatio(ar) : 4 / 5;
   return (
@@ -179,7 +179,10 @@ function SingleChatImage({
               const el = e.currentTarget;
               const w = el.naturalWidth;
               const h = el.naturalHeight;
-              if (w > 0 && h > 0) setAr(w / h);
+              if (w > 0 && h > 0) {
+                const nextAr = w / h;
+                setAr((prev) => (prev === nextAr ? prev : nextAr));
+              }
             }}
           />
           {pending ? (
