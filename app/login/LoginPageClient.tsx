@@ -336,11 +336,17 @@ function LoginPageContent() {
         return;
       }
       if (provider === "naver") {
+        const configuredScope =
+          providers.find((item) => item.provider === "naver")?.scope?.trim() ?? "";
+        const naverScope = configuredScope || "name email";
         const { data, error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
             provider: "custom:naver" as any,
             options: {
               redirectTo: callbackUrl,
+              queryParams: {
+                scope: naverScope,
+              },
               skipBrowserRedirect: true,
             },
           }),
