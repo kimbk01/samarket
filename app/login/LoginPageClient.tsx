@@ -284,7 +284,7 @@ function LoginPageContent() {
         return;
       }
       if (provider === "kakao") {
-        const { error: oauthError } = await withTimeout(
+        const { data, error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
             provider: "kakao",
             options: {
@@ -293,6 +293,8 @@ function LoginPageContent() {
               queryParams: {
                 scope: "profile_nickname profile_image",
               },
+              // We manually navigate so failures are explicit to users.
+              skipBrowserRedirect: true,
             },
           }),
           AUTH_REQUEST_TIMEOUT_MS,
@@ -300,14 +302,23 @@ function LoginPageContent() {
         );
         if (oauthError) {
           setError((prev) => (prev === oauthError.message ? prev : oauthError.message));
+          return;
         }
+        const authorizeUrl = data?.url?.trim() ?? "";
+        if (!authorizeUrl) {
+          const nextError = "카카오 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
+          setError((prev) => (prev === nextError ? prev : nextError));
+          return;
+        }
+        window.location.assign(authorizeUrl);
         return;
       }
-      const { error: oauthError } = await withTimeout(
+      const { data, error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
           provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
           options: {
             redirectTo: `${window.location.origin}/auth/callback`,
+            skipBrowserRedirect: true,
           },
         }),
         AUTH_REQUEST_TIMEOUT_MS,
@@ -316,7 +327,15 @@ function LoginPageContent() {
       if (oauthError) {
         const nextError = oauthError.message || "소셜 로그인을 시작하지 못했습니다.";
         setError((prev) => (prev === nextError ? prev : nextError));
+        return;
       }
+      const authorizeUrl = data?.url?.trim() ?? "";
+      if (!authorizeUrl) {
+        const nextError = "소셜 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        setError((prev) => (prev === nextError ? prev : nextError));
+        return;
+      }
+      window.location.assign(authorizeUrl);
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_TIMEOUT_MESSAGE) {
         setError((prev) => (prev === AUTH_TIMEOUT_MESSAGE ? prev : AUTH_TIMEOUT_MESSAGE));
