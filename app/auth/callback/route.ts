@@ -18,14 +18,19 @@ const SIGNUP_NICKNAME_COOKIE = "samarket_signup_nickname";
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const safeNext = sanitizeNextPath(req.nextUrl.searchParams.get("next"));
+  const oauthError = req.nextUrl.searchParams.get("error");
   const next = safeNext ?? POST_LOGIN_PATH;
   const redirectUrl = new URL(next, req.url);
+  const loginUrl = new URL("/login", req.url);
+  if (safeNext) {
+    loginUrl.searchParams.set("next", safeNext);
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
   if (!url || !anon) {
-    redirectUrl.searchParams.set("auth_error", "supabase_unconfigured");
-    const res = NextResponse.redirect(redirectUrl);
+    loginUrl.searchParams.set("auth_error", "supabase_unconfigured");
+    const res = NextResponse.redirect(loginUrl);
     res.cookies.set(SIGNUP_NICKNAME_COOKIE, "", { path: "/", maxAge: 0 });
     return res;
   }
@@ -64,14 +69,20 @@ export async function GET(req: NextRequest) {
   });
 
   let exchangedOk = false;
-  if (code) {
+  if (oauthError) {
+    loginUrl.searchParams.set("auth_error", "callback_failed");
+    response = NextResponse.redirect(loginUrl);
+  } else if (code) {
     try {
       await supabase.auth.exchangeCodeForSession(code);
       exchangedOk = true;
     } catch {
-      redirectUrl.searchParams.set("auth_error", "callback_failed");
-      response = NextResponse.redirect(redirectUrl);
+      loginUrl.searchParams.set("auth_error", "callback_failed");
+      response = NextResponse.redirect(loginUrl);
     }
+  } else {
+    loginUrl.searchParams.set("auth_error", "missing_code");
+    response = NextResponse.redirect(loginUrl);
   }
 
   if (exchangedOk) {
