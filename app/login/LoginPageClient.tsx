@@ -330,13 +330,35 @@ function LoginPageContent() {
         window.location.assign(authorizeUrl);
         return;
       }
-      const oauthProvider =
-        provider === "naver"
-          ? ("custom:naver" as any)
-          : (mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"]);
+      if (provider === "naver") {
+        const { data, error: oauthError } = await withTimeout(
+          supabase.auth.signInWithOAuth({
+            provider: "custom:naver" as any,
+            options: {
+              redirectTo: callbackUrl,
+              skipBrowserRedirect: true,
+            },
+          }),
+          AUTH_REQUEST_TIMEOUT_MS,
+          AUTH_TIMEOUT_MESSAGE
+        );
+        if (oauthError) {
+          const nextError = oauthError.message || "소셜 로그인을 시작하지 못했습니다.";
+          setError((prev) => (prev === nextError ? prev : nextError));
+          return;
+        }
+        const authorizeUrl = data?.url?.trim() ?? "";
+        if (!authorizeUrl) {
+          const nextError = "소셜 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
+          setError((prev) => (prev === nextError ? prev : nextError));
+          return;
+        }
+        window.location.assign(authorizeUrl);
+        return;
+      }
       const { data, error: oauthError } = await withTimeout(
         supabase.auth.signInWithOAuth({
-          provider: oauthProvider,
+          provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
           options: {
             redirectTo: callbackUrl,
             skipBrowserRedirect: true,
