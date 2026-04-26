@@ -92,22 +92,26 @@ function LoginPageContent() {
           setProvidersError((prev) => (prev === nextProviderError ? prev : nextProviderError));
           return;
         }
+        const providersFromApi = json.providers;
         setProviders((prev) => {
           if (
-            prev.length === json.providers.length &&
+            prev.length === providersFromApi.length &&
             prev.every((p, i) => {
-              const next = json.providers[i];
+              const next = providersFromApi[i];
               return (
                 next != null &&
                 p.provider === next.provider &&
                 p.enabled === next.enabled &&
-                p.displayName === next.displayName
+                p.client_id === next.client_id &&
+                p.redirect_uri === next.redirect_uri &&
+                p.scope === next.scope &&
+                p.sort_order === next.sort_order
               );
             })
           ) {
             return prev;
           }
-          return json.providers;
+          return providersFromApi;
         });
       } catch {
         const nextProviderError = "SNS 로그인 목록을 불러오지 못했습니다.";

@@ -15,7 +15,8 @@ export function MyPointCard() {
         );
         const j = (await r.clone().json()) as { balance?: number };
         if (typeof j.balance === "number") {
-          setBalance((prev) => (prev === j.balance ? prev : j.balance));
+          const nextBalance = j.balance;
+          setBalance((prev) => (prev === nextBalance ? prev : nextBalance));
         }
       } catch {
         /* ignore */

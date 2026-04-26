@@ -65,7 +65,8 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
       const j = (await res.json()) as { ok?: boolean; blocked?: boolean; error?: string };
       invalidateCommunityUserRelationSnapshot(targetUserId);
       if (res.ok && j.ok && typeof j.blocked === "boolean") {
-        setBlocked((prev) => (prev === j.blocked ? prev : j.blocked));
+        const nextBlocked = j.blocked;
+        setBlocked((prev) => (prev === nextBlocked ? prev : nextBlocked));
         router.refresh();
       }
     } finally {

@@ -54,7 +54,8 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
       const j = (await res.json()) as { ok?: boolean; following?: boolean };
       invalidateCommunityUserRelationSnapshot(targetUserId);
       if (j.ok && typeof j.following === "boolean") {
-        setFollowing((prev) => (prev === j.following ? prev : j.following));
+        const nextFollowing = j.following;
+        setFollowing((prev) => (prev === nextFollowing ? prev : nextFollowing));
       }
       else await load();
     } finally {
