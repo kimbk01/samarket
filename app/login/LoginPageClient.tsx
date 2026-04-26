@@ -268,7 +268,11 @@ function LoginPageContent() {
           supabase.auth.signInWithOAuth({
             provider: "kakao",
             options: {
-              scopes: "profile_nickname profile_image",
+              // Supabase Kakao default scopes include account_email.
+              // Force override with queryParams to avoid requesting email on non-business apps.
+              queryParams: {
+                scope: "profile_nickname profile_image",
+              },
             },
           }),
           AUTH_REQUEST_TIMEOUT_MS,
