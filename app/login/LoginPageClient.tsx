@@ -267,13 +267,15 @@ function LoginPageContent() {
         const { error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
             provider: "kakao",
+            options: {
+              scopes: "profile_nickname profile_image",
+            },
           }),
           AUTH_REQUEST_TIMEOUT_MS,
           AUTH_TIMEOUT_MESSAGE
         );
         if (oauthError) {
-          const nextError = oauthError.message || "소셜 로그인을 시작하지 못했습니다.";
-          setError((prev) => (prev === nextError ? prev : nextError));
+          setError((prev) => (prev === oauthError.message ? prev : oauthError.message));
         }
         return;
       }
@@ -281,8 +283,7 @@ function LoginPageContent() {
         supabase.auth.signInWithOAuth({
           provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
           options: {
-            redirectTo:
-              typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : POST_LOGIN_PATH,
+            redirectTo: `${window.location.origin}/auth/callback`,
           },
         }),
         AUTH_REQUEST_TIMEOUT_MS,
