@@ -3,11 +3,10 @@ import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { canUseVerifiedMemberFeatures, loadMemberAccessState } from "@/lib/auth/member-access";
-import { sendTwilioVerificationCode } from "@/lib/auth/twilio-verify";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { enforcePhoneVerificationSendQuota } from "@/lib/security/rate-limit-presets";
-import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import { sendPhoneOtpForUser } from "@/lib/auth/phone-otp-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,39 +41,35 @@ export async function POST(req: NextRequest) {
   } catch {
     return jsonError("invalid_json", 400);
   }
-  const normalizedPhone = normalizePhMobileDb(String(body.phone ?? "").trim());
+  const normalizedPhone = String(body.phone ?? "").trim();
   const nickname = String(body.nickname ?? "").trim().slice(0, 20);
-  if (!normalizedPhone) {
-    return jsonError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO, 400);
-  }
   if (!nickname) {
     return jsonError("닉네임을 입력해 주세요.", 400);
   }
-  const verification = await sendTwilioVerificationCode(normalizedPhone);
-  if (!verification.ok) {
-    return jsonError(verification.error, verification.status);
+  const result = await sendPhoneOtpForUser(sb, auth.userId, normalizedPhone);
+  if (!result.ok) {
+    return jsonError(result.message, result.status);
   }
+  const phone = result.data.phone;
   const now = new Date().toISOString();
-  const { error } = await sb.from("profiles").upsert({
-    id: auth.userId,
+  const { error } = await sb.from("profiles").update({
     nickname,
-    phone: normalizedPhone,
+    phone,
     phone_country_code: "+63",
-    phone_number: normalizedPhone.replace(/^\+63/, ""),
+    phone_number: phone.replace(/^\+63/, ""),
     phone_verified: false,
     phone_verified_at: null,
     phone_verification_status: "pending",
-    phone_verification_method: "twilio_verify",
     phone_verification_requested_at: now,
     preferred_country: "PH",
     updated_at: now,
-  });
+  }).eq("id", auth.userId);
   if (error) {
     return jsonError(error.message || "phone_verification_send_failed", 500);
   }
   return jsonOk({
     verification: {
-      phone: normalizedPhone,
+      phone,
       phone_verified: false,
       phone_verification_status: "pending",
       nickname,

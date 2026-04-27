@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
+import type { BottomNavIconKey, BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import {
   MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS,
   MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS,
@@ -56,6 +56,7 @@ function presetSelectValue(current: string | undefined, presets: { value: string
 
 export function AdminMainBottomNavPage() {
   const [rows, setRows] = useState<MainBottomNavAdminRow[] | null>(null);
+  const [previewVisible, setPreviewVisible] = useState<BottomNavItemConfig[]>([]);
   const [fromDb, setFromDb] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,7 @@ export function AdminMainBottomNavPage() {
         return;
       }
       setRows(data.items as MainBottomNavAdminRow[]);
+      setPreviewVisible(Array.isArray(data.preview_visible) ? (data.preview_visible as BottomNavItemConfig[]) : []);
       setFromDb(Boolean(data.from_db));
       setUpdatedAt(typeof data.updated_at === "string" ? data.updated_at : null);
     } catch {
@@ -158,6 +160,7 @@ export function AdminMainBottomNavPage() {
         return;
       }
       setRows(data.items as MainBottomNavAdminRow[]);
+      setPreviewVisible(Array.isArray(data.preview_visible) ? (data.preview_visible as BottomNavItemConfig[]) : []);
       setFromDb(true);
       notifyMainBottomNavConfigChanged();
       setMessage({ type: "ok", text: "저장되었습니다. 앱 하단 탭에 반영됩니다." });
@@ -180,6 +183,7 @@ export function AdminMainBottomNavPage() {
         return;
       }
       setRows(data.items as MainBottomNavAdminRow[]);
+      setPreviewVisible(Array.isArray(data.preview_visible) ? (data.preview_visible as BottomNavItemConfig[]) : []);
       setFromDb(false);
       setUpdatedAt(null);
       notifyMainBottomNavConfigChanged();
@@ -208,7 +212,26 @@ export function AdminMainBottomNavPage() {
           <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">코드 기본값</span>
         )}
         {updatedAt ? <span className="text-sam-muted">마지막 수정: {updatedAt}</span> : null}
+        {rows ? (
+          <>
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
+              노출 {rows.filter((r) => r.visible).length}
+            </span>
+            <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
+              숨김 {rows.filter((r) => !r.visible).length}
+            </span>
+          </>
+        ) : null}
       </div>
+
+      {previewVisible.length > 0 ? (
+        <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
+          <p className="sam-text-helper font-medium text-sam-fg">앱 반영 미리보기(노출 탭)</p>
+          <p className="mt-1 sam-text-xxs text-sam-muted">
+            {previewVisible.map((tab) => `${tab.label}(${tab.href})`).join(" · ")}
+          </p>
+        </div>
+      ) : null}
 
       {message ? (
         <div
@@ -320,13 +343,27 @@ export function AdminMainBottomNavPage() {
                     </div>
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="checkbox"
-                      checked={row.visible}
-                      onChange={(e) => patchRow(i, { visible: e.target.checked })}
-                      className="h-4 w-4"
-                      title="끄면 앱에서 숨김"
-                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={row.visible}
+                        onChange={(e) => patchRow(i, { visible: e.target.checked })}
+                        className="h-4 w-4"
+                        title="끄면 앱에서 숨김"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => patchRow(i, { visible: !row.visible })}
+                        className={`rounded border px-2 py-0.5 sam-text-xxs ${
+                          row.visible
+                            ? "border-amber-300 bg-amber-50 text-amber-900"
+                            : "border-emerald-300 bg-emerald-50 text-emerald-900"
+                        }`}
+                        title={row.visible ? "이 메뉴 숨기기" : "이 메뉴 다시 보이기"}
+                      >
+                        {row.visible ? "숨기기" : "보이기"}
+                      </button>
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <button

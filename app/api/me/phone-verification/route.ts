@@ -7,6 +7,7 @@ import {
   loadMemberAccessState,
 } from "@/lib/auth/member-access";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import { loadAuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export async function GET() {
   }
   const state = await loadMemberAccessState(sb, auth.userId);
   const fullMemberAccessOk = canUseVerifiedMemberFeatures(state);
+  const phoneSettings = await loadAuthPhoneSettings();
   return NextResponse.json({
     ok: true,
     verification: {
@@ -34,6 +36,7 @@ export async function GET() {
       full_member_access_ok: fullMemberAccessOk,
       store_member_status: state.storeMemberStatus ?? "sns_member",
       consent_required: state.hasRequiredConsent === false,
+      settings: phoneSettings,
     },
   });
 }

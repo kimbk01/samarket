@@ -28,7 +28,10 @@ type ProfileRow = {
   points: number | null;
   phone: string | null;
   phone_verified: boolean | null;
+  phone_verified_at: string | null;
   phone_verification_status: string | null;
+  member_status: string | null;
+  verified_member_at: string | null;
   provider: string | null;
   auth_provider: string | null;
   last_login_at: string | null;
@@ -289,7 +292,7 @@ export async function GET(_req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
 
   const profileSelect =
-    "id, email, username, nickname, display_name, role, member_type, status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verification_status, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, nickname, display_name, role, member_type, status, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const fetchProfiles = async () =>
     supabase
       .from("profiles")
@@ -444,7 +447,10 @@ export async function GET(_req: NextRequest) {
       location: locationLine,
       pointBalance: Number(r.points ?? 0),
       phoneVerified: r.phone_verified === true,
+      phoneVerifiedAt: r.phone_verified_at ?? undefined,
       verificationStatus: r.phone_verification_status ?? undefined,
+      memberStatus: r.member_status ?? undefined,
+      verifiedMemberAt: r.verified_member_at ?? undefined,
       productCount: 0,
       soldCount: 0,
       reviewCount: 0,
@@ -481,7 +487,10 @@ export async function GET(_req: NextRequest) {
         moderationStatus: "normal",
         location: loc,
         phoneVerified: false,
+        phoneVerifiedAt: undefined,
         verificationStatus: "unverified",
+        memberStatus: "pending",
+        verifiedMemberAt: undefined,
         productCount: 0,
         soldCount: 0,
         reviewCount: 0,
@@ -537,7 +546,10 @@ export async function GET(_req: NextRequest) {
       location: locationLineFromUserAddress(adminAddressMap.get(id)) || undefined,
       pointBalance: 0,
       phoneVerified: false,
+      phoneVerifiedAt: undefined,
       verificationStatus: "unverified",
+      memberStatus: "pending",
+      verifiedMemberAt: undefined,
       productCount: 0,
       soldCount: 0,
       reviewCount: 0,

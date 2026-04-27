@@ -28,6 +28,9 @@ export interface AdminUser {
   providerLabel?: string;
   providerUserId?: string;
   phone?: string;
+  phoneVerifiedAt?: string;
+  verifiedMemberAt?: string;
+  memberStatus?: string;
   memberType: MemberType;
   /** profiles.role 원본 — master 판별·서버 검증용 */
   profileRole?: string;

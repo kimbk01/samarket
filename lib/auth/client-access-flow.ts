@@ -30,7 +30,7 @@ export function buildLoginHref(next?: string): string {
 
 export function buildPhoneVerificationHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/my/account/phone-verification?next=${encodeURIComponent(target)}`;
+  return `/mypage/section/account/profile/edit?next=${encodeURIComponent(target)}`;
 }
 
 export function buildConsentHref(next?: string): string {
@@ -74,7 +74,7 @@ export function redirectForBlockedAction(
     return true;
   }
   if (isPhoneVerificationRequiredError(error)) {
-    if (confirmMove("정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.\n인증 화면으로 이동하시겠습니까?")) {
+    if (confirmMove("전화번호 인증 후 이용 가능합니다.\n전화번호 인증하러 가시겠습니까?")) {
       router.push(buildPhoneVerificationHref(next));
     }
     return true;
@@ -109,7 +109,7 @@ export function ensureClientAccessOrRedirect(
         email: user.email,
       })
     ) {
-      if (confirmMove("정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.\n인증 화면으로 이동하시겠습니까?")) {
+      if (confirmMove("전화번호 인증 후 이용 가능합니다.\n전화번호 인증하러 가시겠습니까?")) {
         router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
       }
       return false;

@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { AuthProviderPublicMeta, OAuthProvider } from "@/lib/auth/auth-providers";
 import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
+import type { AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 
 type EditableProvider = AuthProviderPublicMeta & { client_secret: string };
 
@@ -28,7 +29,8 @@ export function AuthLoginSettingsForm() {
   const [providers, setProviders] = useState<EditableProvider[]>([]);
   const [legacySettings, setLegacySettings] = useState<AuthLoginSetting[]>([]);
   const [sessionPolicy, setSessionPolicy] = useState<AuthDuplicateLoginPolicy | null>(null);
-  const [activeSection, setActiveSection] = useState<"oauth" | "policy">("oauth");
+  const [activeSection, setActiveSection] = useState<"oauth" | "policy" | "phone">("oauth");
+  const [phoneSettings, setPhoneSettings] = useState<AuthPhoneSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [policySaving, setPolicySaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,9 @@ export function AuthLoginSettingsForm() {
   const [providerError, setProviderError] = useState<Record<string, string | null>>({});
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [policySuccess, setPolicySuccess] = useState<string | null>(null);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null);
 
   const loadProviders = async () => {
     const providersRes = await fetch("/api/admin/auth-providers", {
@@ -72,10 +77,26 @@ export function AuthLoginSettingsForm() {
     setSessionPolicy(policyJson.sessionPolicy);
   };
 
+  const loadPhoneSettings = async () => {
+    const res = await fetch("/api/admin/settings/auth-phone", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      settings?: AuthPhoneSettings;
+      error?: string;
+    } | null;
+    if (!res.ok || !json?.ok || !json.settings) {
+      throw new Error(json?.error || "전화 인증 설정을 불러오지 못했습니다.");
+    }
+    setPhoneSettings(json.settings);
+  };
+
   useEffect(() => {
     void (async () => {
       try {
-        await Promise.all([loadProviders(), loadPolicy()]);
+        await Promise.all([loadProviders(), loadPolicy(), loadPhoneSettings()]);
       } catch (e) {
         setError(e instanceof Error ? e.message : "설정을 불러오지 못했습니다.");
       } finally {
@@ -225,11 +246,41 @@ export function AuthLoginSettingsForm() {
     }
   };
 
+  const savePhoneSettings = async (): Promise<void> => {
+    if (!phoneSettings) return;
+    setPhoneSaving(true);
+    setPhoneError(null);
+    setPhoneSuccess(null);
+    try {
+      const res = await fetch("/api/admin/settings/auth-phone", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(phoneSettings),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        settings?: AuthPhoneSettings;
+        error?: string;
+      } | null;
+      if (!res.ok || !json?.ok || !json.settings) {
+        setPhoneError(json?.error || "전화 인증 설정 저장에 실패했습니다.");
+        return;
+      }
+      setPhoneSettings(json.settings);
+      setPhoneSuccess("저장되었습니다.");
+    } catch {
+      setPhoneError("전화 인증 설정 저장에 실패했습니다.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <AdminPageHeader title="Auth 로그인 설정" />
       <AdminCard title="설정 구분">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setActiveSection("oauth")}
@@ -251,6 +302,17 @@ export function AuthLoginSettingsForm() {
             }`}
           >
             중복 로그인 정책
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSection("phone")}
+            className={`rounded-ui-rect border px-3 py-2 text-sm font-medium ${
+              activeSection === "phone"
+                ? "border-signature bg-signature/10 text-signature"
+                : "border-sam-border bg-sam-surface text-sam-fg"
+            }`}
+          >
+            전화 인증
           </button>
         </div>
       </AdminCard>
@@ -392,7 +454,7 @@ export function AuthLoginSettingsForm() {
           </div>
         )}
       </AdminCard>
-      ) : (
+      ) : activeSection === "policy" ? (
       <AdminCard title="중복 로그인 정책">
         {loading || !sessionPolicy ? (
           <p className="sam-text-body text-sam-muted">불러오는 중…</p>
@@ -452,6 +514,120 @@ export function AuthLoginSettingsForm() {
                 className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
                 {policySaving ? "저장 중…" : "저장"}
+              </button>
+            </div>
+          </div>
+        )}
+      </AdminCard>
+      ) : (
+      <AdminCard title="전화 인증 설정">
+        {loading || !phoneSettings ? (
+          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 sam-text-body text-sam-fg">
+              <input
+                type="checkbox"
+                checked={phoneSettings.enabled === true}
+                onChange={(e) =>
+                  setPhoneSettings((prev) => (prev ? { ...prev, enabled: e.target.checked } : prev))
+                }
+              />
+              전화 인증 사용
+            </label>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">국가</span>
+                <input value="PH" disabled className="w-full rounded-ui-rect border border-sam-border px-3 py-2 bg-sam-app" />
+              </label>
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">Provider</span>
+                <input value="supabase" disabled className="w-full rounded-ui-rect border border-sam-border px-3 py-2 bg-sam-app" />
+              </label>
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">SMS 발신자명(표시용)</span>
+                <input
+                  value={phoneSettings.sms_from_name ?? ""}
+                  onChange={(e) =>
+                    setPhoneSettings((prev) =>
+                      prev ? { ...prev, sms_from_name: e.target.value } : prev
+                    )
+                  }
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                />
+              </label>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">OTP 유효시간(초)</span>
+                <input
+                  type="number"
+                  min={60}
+                  value={phoneSettings.otp_ttl_seconds}
+                  onChange={(e) =>
+                    setPhoneSettings((prev) =>
+                      prev ? { ...prev, otp_ttl_seconds: Number(e.target.value) || 300 } : prev
+                    )
+                  }
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                />
+              </label>
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">재발송 대기시간(초)</span>
+                <input
+                  type="number"
+                  min={10}
+                  value={phoneSettings.resend_cooldown_seconds}
+                  onChange={(e) =>
+                    setPhoneSettings((prev) =>
+                      prev ? { ...prev, resend_cooldown_seconds: Number(e.target.value) || 60 } : prev
+                    )
+                  }
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                />
+              </label>
+              <label className="sam-text-body text-sam-fg">
+                <span className="mb-1 block sam-text-helper text-sam-muted">최대 인증 시도</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={phoneSettings.max_attempts}
+                  onChange={(e) =>
+                    setPhoneSettings((prev) =>
+                      prev ? { ...prev, max_attempts: Number(e.target.value) || 5 } : prev
+                    )
+                  }
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                />
+              </label>
+            </div>
+            <label className="sam-text-body text-sam-fg">
+              <span className="mb-1 block sam-text-helper text-sam-muted">안내 문구</span>
+              <textarea
+                rows={3}
+                value={phoneSettings.guide_text}
+                onChange={(e) =>
+                  setPhoneSettings((prev) =>
+                    prev ? { ...prev, guide_text: e.target.value } : prev
+                  )
+                }
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+              />
+            </label>
+            <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+              실제 SMS 발송은 Supabase Dashboard &gt; Authentication &gt; Providers &gt; Phone 에서 SMS Provider 설정이 필요합니다.
+              설정이 없으면 OTP 발송 API는 실패합니다. (Phone Provider 활성화/ SMS Provider 설정 필요, 필리핀 번호는 +63 국제번호로 발송)
+            </div>
+            {phoneError ? <p className="sam-text-body-secondary text-red-600">{phoneError}</p> : null}
+            {phoneSuccess ? <p className="sam-text-body-secondary text-emerald-600">{phoneSuccess}</p> : null}
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => void savePhoneSettings()}
+                disabled={phoneSaving}
+                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
+              >
+                {phoneSaving ? "저장 중…" : "전화 인증 설정 저장"}
               </button>
             </div>
           </div>

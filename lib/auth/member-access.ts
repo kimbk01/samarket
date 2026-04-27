@@ -10,6 +10,7 @@ import {
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
+import { isVerifiedMember } from "@/lib/auth/member-status";
 
 export type MemberAccessState = {
   userId: string;
@@ -305,7 +306,7 @@ export async function ensureAuthProfileRow(
       is_admin: false,
       member_type: "normal",
       status: dbStatus,
-      member_status: isAdminManual ? "verified_member" : "sns_member",
+      member_status: isAdminManual ? "active" : "pending",
       phone_country_code: "+63",
       phone_verified: isAdminManual,
       phone_verified_at: isAdminManual ? nowIso : null,
@@ -371,7 +372,7 @@ export async function ensureAuthProfileRow(
     if (!pickTrimmed((existing as { provider?: string | null }).provider) && dbProvider) patch.provider = dbProvider;
     if (!pickTrimmed(existing.auth_provider) && dbProvider) patch.auth_provider = dbProvider;
     if (!pickTrimmed((existing as { member_status?: string | null }).member_status)) {
-      patch.member_status = isAdminManual ? "verified_member" : "sns_member";
+      patch.member_status = isAdminManual ? "active" : "pending";
     }
     if (isAdminManual && (existing.phone_verified !== true || !pickTrimmed((existing as { phone_verified_at?: string | null }).phone_verified_at))) {
       patch.phone_verified = true;
@@ -522,6 +523,9 @@ export async function loadMemberAccessState(
 export function canUseVerifiedMemberFeatures(state: MemberAccessState | null | undefined): boolean {
   if (!state) return false;
   if (isPrivilegedAdminRole(state.role)) return true;
+  if (isVerifiedMember({ phone_verified: state.phoneVerified, member_status: state.memberStatus ?? null })) {
+    return true;
+  }
   if (
     state.storeMemberStatus !== "verified_member" &&
     state.storeMemberStatus !== "admin_manual" &&

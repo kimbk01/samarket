@@ -15,6 +15,7 @@ import { ProfileBasicFields } from "./ProfileBasicFields";
 import { ProfileMapLocationBlock } from "./ProfileMapLocationBlock";
 import { ProfileReadonlyFields } from "./ProfileReadonlyFields";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import {
   buildProfileRegionNameForStorage,
   encodeProfileAppLocationStorage,
@@ -58,6 +59,11 @@ export function ProfileEditForm() {
   const [errors, setErrors] = useState<{ nickname?: string; phone?: string }>({});
   const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
   const [addressListErr, setAddressListErr] = useState(false);
+  const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<{
+    enabled: boolean;
+    guide_text: string;
+    resend_cooldown_seconds: number;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
@@ -76,7 +82,26 @@ export function ProfileEditForm() {
       })
       .catch((): { ok: false; rows: UserAddressDTO[] } => ({ ok: false, rows: [] }));
 
-    const [data, addrPack] = await Promise.all([getMyProfile(), addressesPromise]);
+    const phoneSettingsPromise = runSingleFlight("me:phone-verification:get", () =>
+      fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" })
+    )
+      .then(async (res) => {
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          verification?: { settings?: { enabled?: boolean; guide_text?: string; resend_cooldown_seconds?: number } };
+        };
+        if (!res.ok || !j.ok) return null;
+        const s = j.verification?.settings;
+        if (!s) return null;
+        return {
+          enabled: s.enabled === true,
+          guide_text: String(s.guide_text ?? ""),
+          resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60) || 60,
+        };
+      })
+      .catch(() => null);
+
+    const [data, addrPack, pvSettings] = await Promise.all([getMyProfile(), addressesPromise, phoneSettingsPromise]);
 
     if (!data) {
       setLoading((prev) => (prev ? false : prev));
@@ -92,6 +117,7 @@ export function ProfileEditForm() {
     if (!addrPack.ok) setAddressListErr((prev) => (prev ? prev : true));
     const rows = addrPack.rows;
     setAddressList(rows);
+    setPhoneVerificationSettings(pvSettings);
 
     const masterAddr = rows.find((a) => a.isDefaultMaster) ?? null;
 
@@ -235,6 +261,15 @@ export function ProfileEditForm() {
         errors={errors}
       />
       <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
+      <PhoneVerificationBox
+        snapshot={{
+          phone: profile.phone,
+          phone_verified: profile.phone_verified,
+          member_status: profile.member_status ?? null,
+          settings: phoneVerificationSettings ?? undefined,
+        }}
+        onRefreshProfile={load}
+      />
       <ProfileReadonlyFields profile={profile} />
 
       {message ? (

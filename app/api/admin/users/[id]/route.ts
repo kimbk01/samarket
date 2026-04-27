@@ -246,13 +246,14 @@ async function ensureProfileRow(
     role,
     is_admin: role === "admin" || role === "master",
     member_type,
-    member_status: tu ? "verified_member" : "sns_member",
+    member_status: tu ? "active" : "pending",
     manual_account_type: role === "admin" || role === "master" ? "admin" : "operations_member",
     is_special_member,
     phone,
     phone_verified: Boolean(tu),
     phone_verification_status,
     phone_verified_at: tu ? nowIso : null,
+    verified_member_at: tu ? nowIso : null,
     phone_verification_method: tu ? "admin_manual" : null,
     status: "verified_user",
     preferred_country: "PH",
@@ -280,7 +281,8 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "verified",
         phone_verified_at: new Date().toISOString(),
         phone_verification_method: "admin_manual",
-        member_status: "verified_member",
+        member_status: "active",
+        verified_member_at: new Date().toISOString(),
         status: "verified_user",
       };
     case "pending":
@@ -289,7 +291,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "pending",
         phone_verified_at: null,
         phone_verification_method: null,
-        member_status: "sns_member",
+        member_status: "pending",
       };
     case "rejected":
       return {
@@ -297,7 +299,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "rejected",
         phone_verified_at: null,
         phone_verification_method: null,
-        member_status: "sns_member",
+        member_status: "pending",
       };
     case "unverified":
       return {
@@ -305,7 +307,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         phone_verification_status: "unverified",
         phone_verified_at: null,
         phone_verification_method: null,
-        member_status: "sns_member",
+        member_status: "pending",
       };
   }
 }
@@ -320,7 +322,10 @@ type AdminUserDetailRow = {
   contact_phone: string | null;
   contact_address: string | null;
   phone_verified: boolean;
+  phone_verified_at: string | null;
   phone_verification_status: string;
+  member_status: string | null;
+  verified_member_at: string | null;
   created_at: string | null;
 };
 
@@ -353,7 +358,7 @@ export async function GET(
     supabase
       .from("profiles")
       .select(
-        "id, username, email, role, nickname, phone, phone_verified, phone_verification_status, created_at, region_code, region_name, address_street_line, address_detail"
+        "id, username, email, role, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
       )
       .eq("id", rawId)
       .maybeSingle(),
@@ -405,9 +410,12 @@ export async function GET(
     contact_phone: (profile?.phone ?? testUser?.contact_phone ?? null) as string | null,
     contact_address: mergedContactAddress,
     phone_verified: profile?.phone_verified === true,
+    phone_verified_at: (profile?.phone_verified_at ?? null) as string | null,
     phone_verification_status:
       (profile?.phone_verification_status as string | null) ??
       (profile?.phone_verified ? "verified" : profile?.phone ? "pending" : "unverified"),
+    member_status: (profile?.member_status ?? null) as string | null,
+    verified_member_at: (profile?.verified_member_at ?? null) as string | null,
     created_at: (profile?.created_at ?? testUser?.created_at ?? null) as string | null,
   };
 

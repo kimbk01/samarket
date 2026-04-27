@@ -214,6 +214,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         ) : null}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 font-semibold text-[#101828]">{u.nickname}</td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || "-"}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || "-"}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">
         <span
@@ -222,6 +223,25 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           }`}
         >
           {u.phoneVerified ? "완료" : u.verificationStatus === "pending" ? "대기" : "미인증"}
+        </span>
+      </td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">
+        <span
+          className={`rounded-full px-2.5 py-1 font-bold ${
+            u.phoneVerified && String(u.memberStatus ?? "").toLowerCase() === "active"
+              ? "bg-[#e7f3ff] text-[#1877f2]"
+              : String(u.memberStatus ?? "").toLowerCase() === "pending"
+                ? "bg-[#fff3e8] text-[#b54708]"
+                : "bg-[#f0f2f5] text-[#65676b]"
+          }`}
+        >
+          {u.phoneVerified && String(u.memberStatus ?? "").toLowerCase() === "active"
+            ? "정상회원"
+            : !u.phoneVerified
+              ? "전화미인증"
+              : String(u.memberStatus ?? "").toLowerCase() === "pending"
+                ? "대기회원"
+                : (u.memberStatus ?? "대기회원")}
         </span>
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#101828]">{MEMBER_TYPE_LABELS[u.memberType]}</td>
@@ -275,16 +295,16 @@ export function AdminUserTable({
 }: AdminUserTableProps) {
   return (
     <div className="max-w-full overflow-x-auto rounded-xl border border-[#d0d7e2] bg-white shadow-sm">
-      <table
-        className="min-w-[1510px] border-collapse font-sans text-[13px] leading-normal"
-      >
+      <table className="min-w-[1630px] border-collapse font-sans text-[13px] leading-normal">
         <thead>
           <tr className="border-b border-[#d0d7e2] bg-[#f6f8fb]">
             <SortHeader label="가입수단" sortId="provider" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-0 z-20 bg-[#f6f8fb]" />
             <SortHeader label="로그인 아이디" sortId="loginIdentifier" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-[132px] z-20 min-w-[230px] bg-[#f6f8fb]" />
             <SortHeader label="닉네임" sortId="nickname" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">이메일</th>
             <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">전화번호</th>
             <SortHeader label="전화 인증" sortId="phoneVerified" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">회원상태</th>
             <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">구분</th>
             <SortHeader label="상태" sortId="moderationStatus" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
             <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">지역</th>

@@ -93,6 +93,8 @@ export function deriveStoreMemberStatus(profile: ProfileLike | null | undefined)
   if (!profile || isDeletedStoreMember(profile)) return "guest";
   if (isPrivilegedAdminRole(profile.role)) return "admin";
   const memberStatus = String(profile.member_status ?? "").trim().toLowerCase();
+  if (memberStatus === "active") return "verified_member";
+  if (memberStatus === "pending") return "sns_member";
   if (memberStatus === "admin_manual") return "admin_manual";
   if (memberStatus === "verified_member") return "verified_member";
   if (memberStatus === "sns_member") return "sns_member";

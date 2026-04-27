@@ -6,7 +6,7 @@ import type { ProfileUpdatePayload } from "@/lib/profile/types";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 
 export const runtime = "nodejs";
@@ -161,9 +161,11 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     if (v === null || v === "") {
       patch.phone = null;
     } else {
-      const r = normalizeOptionalPhMobileDb(String(v));
-      if (!r.ok) return { ok: false, error: r.error };
-      patch.phone = r.value;
+      const normalizedPhone = normalizePhilippinesPhoneNumber(String(v));
+      if (!isValidPhilippinesMobilePhone(normalizedPhone)) {
+        return { ok: false, error: "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567" };
+      }
+      patch.phone = normalizedPhone;
     }
   }
   if ("preferred_language" in b) {

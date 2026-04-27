@@ -37,12 +37,16 @@ export async function PATCH(
           phone_verified: false,
           phone_verification_status: "unverified",
           phone_verified_at: null,
+          member_status: "pending",
+          verified_member_at: null,
         }
       : {
           phone_verified: true,
           phone_verification_status: "verified",
           phone_verified_at: new Date().toISOString(),
           phone_verification_method: "admin_manual",
+          member_status: "active",
+          verified_member_at: new Date().toISOString(),
         };
 
   const { error } = await sb.from("profiles").update(patch).eq("id", userId);

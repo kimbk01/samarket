@@ -17,7 +17,10 @@ export type ApiTestUserRow = {
   contact_phone?: string | null;
   contact_address?: string | null;
   phone_verified?: boolean;
+  phone_verified_at?: string | null;
   phone_verification_status?: string;
+  member_status?: string | null;
+  verified_member_at?: string | null;
   created_at: string | null;
 };
 
@@ -113,6 +116,30 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
             <dt className="sam-text-helper font-medium text-sam-muted">전화번호 인증</dt>
             <dd className="mt-0.5 text-sam-fg">
               {user.phone_verified ? "완료" : user.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">전화 인증 일시</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.phone_verified_at ? new Date(user.phone_verified_at).toLocaleString("ko-KR") : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">회원상태</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.phone_verified && String(user.member_status ?? "").toLowerCase() === "active"
+                ? "정상회원"
+                : !user.phone_verified
+                  ? "전화미인증"
+                  : String(user.member_status ?? "").toLowerCase() === "pending"
+                    ? "대기회원"
+                    : (user.member_status ?? "—")}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">정상회원 전환 일시</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.verified_member_at ? new Date(user.verified_member_at).toLocaleString("ko-KR") : "—"}
             </dd>
           </div>
           <div>

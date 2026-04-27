@@ -11,6 +11,7 @@ import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import type { ProfileRow } from "@/lib/profile/types";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isVerifiedMember } from "@/lib/auth/member-status";
 
 export async function requireAuth(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
@@ -77,7 +78,7 @@ export async function requirePhoneVerified(
   if (isPrivilegedAdminRole(profile.role)) {
     return { ok: true, profile };
   }
-  if (profile.status === "verified_user" && profile.phone_verified_at) {
+  if (isVerifiedMember({ phone_verified: profile.phone_verified, member_status: profile.member_status })) {
     return { ok: true, profile };
   }
   return {
