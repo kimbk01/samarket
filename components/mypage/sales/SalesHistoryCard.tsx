@@ -87,8 +87,8 @@ export function SalesHistoryCard({
     } catch {
       /* ignore */
     } finally {
-      setActionBusy(null);
-      setMenuOpen(false);
+      setActionBusy((prev) => (prev === null ? prev : null));
+      setMenuOpen((prev) => (prev ? false : prev));
     }
   };
 
@@ -110,8 +110,8 @@ export function SalesHistoryCard({
     } catch {
       /* ignore */
     } finally {
-      setActionBusy(null);
-      setMenuOpen(false);
+      setActionBusy((prev) => (prev === null ? prev : null));
+      setMenuOpen((prev) => (prev ? false : prev));
     }
   };
 
@@ -133,8 +133,8 @@ export function SalesHistoryCard({
     } catch {
       /* ignore */
     } finally {
-      setActionBusy(null);
-      setMenuOpen(false);
+      setActionBusy((prev) => (prev === null ? prev : null));
+      setMenuOpen((prev) => (prev ? false : prev));
     }
   };
 

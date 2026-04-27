@@ -64,6 +64,31 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
   };
 }
 
+function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: NeighborhoodFeedPostDTO): boolean {
+  if (prev === next) return true;
+  return (
+    prev.id === next.id &&
+    prev.feed_list_skin === next.feed_list_skin &&
+    prev.created_at === next.created_at &&
+    prev.title === next.title &&
+    prev.summary === next.summary &&
+    prev.content === next.content &&
+    prev.author_name === next.author_name &&
+    prev.category_label === next.category_label &&
+    prev.topic_color === next.topic_color &&
+    prev.location_label === next.location_label &&
+    prev.meetup_place === next.meetup_place &&
+    prev.community_messenger_room_id === next.community_messenger_room_id &&
+    prev.meeting_id === next.meeting_id &&
+    prev.like_count === next.like_count &&
+    prev.comment_count === next.comment_count &&
+    prev.view_count === next.view_count &&
+    prev.is_question === next.is_question &&
+    prev.is_meetup === next.is_meetup &&
+    (prev.images?.length ?? 0) === (next.images?.length ?? 0)
+  );
+}
+
 export const CommunityCard = memo(function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
   const skin = post.feed_list_skin;
   const vm = buildNeighborhoodFeedListViewModel(post);
@@ -86,4 +111,4 @@ export const CommunityCard = memo(function CommunityCard({ post }: { post: Neigh
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
   return <FeedListLayoutCarrotThumbRight vm={vm} />;
-});
+}, (prev, next) => isSameCommunityCardPost(prev.post, next.post));

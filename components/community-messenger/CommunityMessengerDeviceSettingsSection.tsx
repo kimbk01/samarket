@@ -22,13 +22,22 @@ export function CommunityMessengerDeviceSettingsSection({
   const [videoId, setVideoId] = useState("");
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const isSameDeviceList = (prev: MediaDeviceInfo[], next: MediaDeviceInfo[]): boolean => {
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i += 1) {
+      if (prev[i]?.deviceId !== next[i]?.deviceId || prev[i]?.label !== next[i]?.label) return false;
+    }
+    return true;
+  };
 
   const loadLists = useCallback(async () => {
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return;
     try {
       const list = await navigator.mediaDevices.enumerateDevices();
-      setAudioList(list.filter((d) => d.kind === "audioinput"));
-      setVideoList(list.filter((d) => d.kind === "videoinput"));
+      const nextAudioList = list.filter((d) => d.kind === "audioinput");
+      const nextVideoList = list.filter((d) => d.kind === "videoinput");
+      setAudioList((prev) => (isSameDeviceList(prev, nextAudioList) ? prev : nextAudioList));
+      setVideoList((prev) => (isSameDeviceList(prev, nextVideoList) ? prev : nextVideoList));
       const cur = readPreferredCommunityMessengerDeviceIds();
       const firstA = list.find((d) => d.kind === "audioinput")?.deviceId ?? "";
       const firstV = list.find((d) => d.kind === "videoinput")?.deviceId ?? "";

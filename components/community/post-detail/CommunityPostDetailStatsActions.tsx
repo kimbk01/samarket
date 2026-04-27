@@ -39,7 +39,8 @@ export function CommunityPostDetailStatsActions({
 }: Props) {
   const [saved, setSaved] = useState(false);
   useEffect(() => {
-    setSaved(isPostSavedLocal(postId));
+    const nextSaved = isPostSavedLocal(postId);
+    setSaved((prev) => (prev === nextSaved ? prev : nextSaved));
   }, [postId]);
 
   const toggleSave = () => {

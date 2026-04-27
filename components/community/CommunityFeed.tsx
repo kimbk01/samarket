@@ -184,6 +184,32 @@ function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): Neighborho
   return out;
 }
 
+function isSameNeighborhoodFeedRows(
+  prev: NeighborhoodFeedPostDTO[],
+  next: NeighborhoodFeedPostDTO[]
+): boolean {
+  if (prev === next) return true;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i += 1) {
+    const a = prev[i] as NeighborhoodFeedPostDTO & {
+      updated_at?: string;
+      created_at?: string;
+      content?: string;
+    };
+    const b = next[i] as NeighborhoodFeedPostDTO & {
+      updated_at?: string;
+      created_at?: string;
+      content?: string;
+    };
+    if (!a || !b) return false;
+    if (a.id !== b.id) return false;
+    if ((a.updated_at ?? "") !== (b.updated_at ?? "")) return false;
+    if ((a.created_at ?? "") !== (b.created_at ?? "")) return false;
+    if ((a.content ?? "") !== (b.content ?? "")) return false;
+  }
+  return true;
+}
+
 export function CommunityFeed({
   initialGlobalFeedRsc = null,
 }: {
@@ -558,7 +584,7 @@ export function CommunityFeed({
         let mergedForCache: NeighborhoodFeedPostDTO[] | null = null;
         if (!append) {
           mergedForCache = mergeNeighborhoodFeedById([], next, false);
-          setPosts(mergedForCache);
+          setPosts((prev) => (isSameNeighborhoodFeedRows(prev, mergedForCache ?? []) ? prev : mergedForCache ?? []));
         } else {
           setPosts((prev) => mergeNeighborhoodFeedById(prev, next, true));
         }

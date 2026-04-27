@@ -32,6 +32,27 @@ type Row = {
   domain?: string | null;
 };
 
+function isSameNotificationRows(prev: Row[], next: Row[]): boolean {
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i += 1) {
+    const a = prev[i];
+    const b = next[i];
+    if (
+      a.id !== b.id ||
+      a.notification_type !== b.notification_type ||
+      a.title !== b.title ||
+      a.body !== b.body ||
+      a.link_url !== b.link_url ||
+      a.is_read !== b.is_read ||
+      a.created_at !== b.created_at ||
+      a.domain !== b.domain
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function BellOnIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -118,12 +139,13 @@ export function MyHeaderNotificationInbox() {
       const { status, json: raw } = await fetchMeNotificationsListDeduped({ force, excludeChatMessages: true });
       const j = raw as { ok?: boolean; notifications?: Row[] };
       if (status === 401) {
-        setRows([]);
+        setRows((prev) => (prev.length === 0 ? prev : []));
         return;
       }
-      setRows((j?.ok ? (j.notifications ?? []) : []) as Row[]);
+      const nextRows = (j?.ok ? (j.notifications ?? []) : []) as Row[];
+      setRows((prev) => (isSameNotificationRows(prev, nextRows) ? prev : nextRows));
     } catch {
-      setRows([]);
+      setRows((prev) => (prev.length === 0 ? prev : []));
     } finally {
       if (!silent) setLoading(false);
     }

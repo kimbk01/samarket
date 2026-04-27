@@ -20,10 +20,26 @@ import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
 const LOGIN_ENSURE_SOFT_WAIT_MS = 0;
+const LOGIN_BOOTSTRAP_CACHE_TTL_MS = 30_000;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
 const IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE =
   "로그인 ID 확인이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.";
+
+type LoginBootstrapSnapshot = {
+  providers: AuthProviderPublic[];
+  providersError: string | null;
+  passwordEnabled: boolean;
+  cachedAt: number;
+};
+
+let loginBootstrapSnapshot: LoginBootstrapSnapshot | null = null;
+
+function readLoginBootstrapSnapshot(): LoginBootstrapSnapshot | null {
+  if (!loginBootstrapSnapshot) return null;
+  if (Date.now() - loginBootstrapSnapshot.cachedAt > LOGIN_BOOTSTRAP_CACHE_TTL_MS) return null;
+  return loginBootstrapSnapshot;
+}
 
 function mapPasswordLoginErrorMessage(raw: string): string {
   const message = String(raw ?? "").trim();
@@ -137,30 +153,64 @@ function LoginPageContent() {
   }, [router, next]);
 
   useEffect(() => {
+    let cancelled = false;
+    const cached = readLoginBootstrapSnapshot();
+    if (cached) {
+      setProviders((prev) => (prev === cached.providers ? prev : cached.providers));
+      setProvidersError((prev) => (prev === cached.providersError ? prev : cached.providersError));
+      setPasswordEnabled((prev) => (prev === cached.passwordEnabled ? prev : cached.passwordEnabled));
+      setProvidersLoading((prev) => (prev ? false : prev));
+      return () => {
+        cancelled = true;
+      };
+    }
     void (async () => {
       setProvidersLoading((prev) => (prev ? prev : true));
       setProvidersError((prev) => (prev === null ? prev : null));
+      let nextProviders: AuthProviderPublic[] = [];
+      let nextProvidersError: string | null = null;
+      let nextPasswordEnabled = true;
       try {
-        const res = await runSingleFlight("login:auth-providers:enabled:get", () =>
-          fetch("/api/auth-providers?enabled=true", {
-            credentials: "include",
-            cache: "no-store",
-          })
-        );
-        const json = (await res.clone().json().catch(() => null)) as
+        const [providersRes, settingsRes] = await Promise.all([
+          runSingleFlight("login:auth-providers:enabled:get", () =>
+            fetch("/api/auth-providers?enabled=true", {
+              credentials: "include",
+              cache: "no-store",
+            })
+          ),
+          runSingleFlight("login:auth-login-settings:get", () =>
+            fetch("/api/auth/login-settings", {
+              credentials: "include",
+              cache: "no-store",
+            })
+          ),
+        ]);
+        const providersJson = (await providersRes.clone().json().catch(() => null)) as
           | { ok?: boolean; providers?: AuthProviderPublic[]; error?: string }
           | null;
-        if (!res.ok || !json?.ok || !Array.isArray(json.providers)) {
-          const nextProviderError = json?.error || "SNS 로그인 목록을 불러오지 못했습니다.";
-          setProvidersError((prev) => (prev === nextProviderError ? prev : nextProviderError));
-          return;
+        if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
+          nextProvidersError = providersJson?.error || "SNS 로그인 목록을 불러오지 못했습니다.";
+        } else {
+          nextProviders = providersJson.providers;
         }
-        const providersFromApi = json.providers;
+        const settingsJson = (await settingsRes.clone().json().catch(() => null)) as
+          | { ok?: boolean; settings?: Array<{ provider?: string; enabled?: boolean }> }
+          | null;
+        if (settingsRes.ok && settingsJson?.ok && Array.isArray(settingsJson.settings)) {
+          const passwordSetting = settingsJson.settings.find((item) => item.provider === "password");
+          if (passwordSetting) {
+            nextPasswordEnabled = passwordSetting.enabled === true;
+          }
+        }
+      } catch {
+        nextProvidersError = "SNS 로그인 목록을 불러오지 못했습니다.";
+      } finally {
+        if (cancelled) return;
         setProviders((prev) => {
           if (
-            prev.length === providersFromApi.length &&
+            prev.length === nextProviders.length &&
             prev.every((p, i) => {
-              const next = providersFromApi[i];
+              const next = nextProviders[i];
               return (
                 next != null &&
                 p.provider === next.provider &&
@@ -174,39 +224,22 @@ function LoginPageContent() {
           ) {
             return prev;
           }
-          return providersFromApi;
+          return nextProviders;
         });
-      } catch {
-        const nextProviderError = "SNS 로그인 목록을 불러오지 못했습니다.";
-        setProvidersError((prev) => (prev === nextProviderError ? prev : nextProviderError));
-      } finally {
+        setProvidersError((prev) => (prev === nextProvidersError ? prev : nextProvidersError));
+        setPasswordEnabled((prev) => (prev === nextPasswordEnabled ? prev : nextPasswordEnabled));
+        loginBootstrapSnapshot = {
+          providers: nextProviders,
+          providersError: nextProvidersError,
+          passwordEnabled: nextPasswordEnabled,
+          cachedAt: Date.now(),
+        };
         setProvidersLoading((prev) => (prev ? false : prev));
       }
     })();
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await runSingleFlight("login:auth-login-settings:get", () =>
-          fetch("/api/auth/login-settings", {
-            credentials: "include",
-            cache: "no-store",
-          })
-        );
-        const json = (await res.clone().json().catch(() => null)) as
-          | { ok?: boolean; settings?: Array<{ provider?: string; enabled?: boolean }> }
-          | null;
-        if (!res.ok || !json?.ok || !Array.isArray(json.settings)) return;
-        const passwordSetting = json.settings.find((item) => item.provider === "password");
-        if (passwordSetting) {
-          const nextPasswordEnabled = passwordSetting.enabled === true;
-          setPasswordEnabled((prev) => (prev === nextPasswordEnabled ? prev : nextPasswordEnabled));
-        }
-      } catch {
-        /* 비밀번호 설정 조회 실패 시 기본 노출 유지 */
-      }
-    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

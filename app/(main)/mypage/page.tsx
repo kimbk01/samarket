@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { loadMypageServer } from "@/lib/my/load-mypage-server";
+import { loadMypageServerShell } from "@/lib/my/load-mypage-server";
 import { MyContent } from "../my/MyContent";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 
 async function MypageServerBody() {
-  const initialMyPageData = await loadMypageServer();
+  const initialMyPageData = await loadMypageServerShell();
   return <MyContent initialMyPageData={initialMyPageData} />;
 }
 

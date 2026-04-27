@@ -56,6 +56,21 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
   const [recentOrderCount, setRecentOrderCount] = useState(0);
   const [openTick, setOpenTick] = useState(0);
   const [fulfillmentMode, setFulfillmentMode] = useState<"pickup" | "local_delivery">("pickup");
+  const isSameStoreHead = (a: StoreHead | null, b: StoreHead | null): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return (
+      a.id === b.id &&
+      a.slug === b.slug &&
+      a.store_name === b.store_name &&
+      a.profile_image_url === b.profile_image_url &&
+      a.is_open === b.is_open &&
+      a.delivery_available === b.delivery_available &&
+      a.pickup_available === b.pickup_available &&
+      a.rating_avg === b.rating_avg &&
+      a.review_count === b.review_count
+    );
+  };
 
   const storeRoot = `/stores/${encodeURIComponent(decoded)}`;
   const infoPath = `/stores/${encodeURIComponent(decoded)}/info`;
@@ -105,12 +120,12 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
       const silent = !!opts?.silent;
       if (!decoded) {
         if (!silent) {
-          setLoading(false);
-          setStore(null);
+          setLoading((prev) => (prev ? false : prev));
+          setStore((prev) => (prev === null ? prev : null));
         }
         return;
       }
-      if (!silent) setLoading(true);
+      if (!silent) setLoading((prev) => (prev ? prev : true));
       try {
         const { json } = await fetchStorePublicBySlugDeduped(decoded);
         const j = json as {
@@ -120,20 +135,24 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
         };
         if (!j?.ok || !j.store) {
           if (!silent) {
-            setStore(null);
-            setFavoriteCount(0);
-            setRecentOrderCount(0);
+            setStore((prev) => (prev === null ? prev : null));
+            setFavoriteCount((prev) => (prev === 0 ? prev : 0));
+            setRecentOrderCount((prev) => (prev === 0 ? prev : 0));
           }
         } else {
-          setStore(j.store);
-          setViewerFavorited(!!j.meta?.viewer_favorited);
-          setFavoriteCount(Number(j.meta?.favorite_count) || 0);
-          setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
+          const nextStore = j.store;
+          const nextViewerFavorited = !!j.meta?.viewer_favorited;
+          const nextFavoriteCount = Number(j.meta?.favorite_count) || 0;
+          const nextRecentOrderCount = Number(j.meta?.recent_order_count) || 0;
+          setStore((prev) => (isSameStoreHead(prev, nextStore) ? prev : nextStore));
+          setViewerFavorited((prev) => (prev === nextViewerFavorited ? prev : nextViewerFavorited));
+          setFavoriteCount((prev) => (prev === nextFavoriteCount ? prev : nextFavoriteCount));
+          setRecentOrderCount((prev) => (prev === nextRecentOrderCount ? prev : nextRecentOrderCount));
         }
       } catch {
-        if (!silent) setStore(null);
+        if (!silent) setStore((prev) => (prev === null ? prev : null));
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent) setLoading((prev) => (prev ? false : prev));
       }
     },
     [decoded]

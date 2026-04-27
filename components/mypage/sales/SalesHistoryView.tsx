@@ -26,25 +26,44 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   const [viewerId, setViewerId] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [tab, setTab] = useState<SellerManageTabId>(initialTab ?? "selling");
+  const isSameSalesRows = (prev: SalesHistoryRow[], next: SalesHistoryRow[]): boolean => {
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i += 1) {
+      const a = prev[i];
+      const b = next[i];
+      if (
+        a.postId !== b.postId ||
+        a.chatId !== b.chatId ||
+        a.status !== b.status ||
+        a.title !== b.title ||
+        a.price !== b.price ||
+        a.updatedAt !== b.updatedAt
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
 
   const load = useCallback((opts?: { silent?: boolean; force?: boolean }) => {
     const silent = !!opts?.silent;
-    setViewerId(getCurrentUser()?.id?.trim() ?? "");
-    if (!silent) setLoadError(null);
-    if (!silent) setLoading(true);
+    const nextViewerId = getCurrentUser()?.id?.trim() ?? "";
+    setViewerId((prev) => (prev === nextViewerId ? prev : nextViewerId));
+    if (!silent) setLoadError((prev) => (prev === null ? prev : null));
+    if (!silent) setLoading((prev) => (prev ? prev : true));
     fetchTradeHistorySalesBySession({ force: !!opts?.force })
       .then((items) => {
-        setLoadError(null);
-        setItems(items);
+        setLoadError((prev) => (prev === null ? prev : null));
+        setItems((prev) => (isSameSalesRows(prev, items) ? prev : items));
       })
       .catch(() => {
         if (!silent) {
-          setItems([]);
-          setLoadError("판매 내역을 불러오지 못했어요.");
+          setItems((prev) => (prev.length === 0 ? prev : []));
+          setLoadError((prev) => (prev === "판매 내역을 불러오지 못했어요." ? prev : "판매 내역을 불러오지 못했어요."));
         }
       })
       .finally(() => {
-        if (!silent) setLoading(false);
+        if (!silent) setLoading((prev) => (prev ? false : prev));
       });
   }, []);
 
@@ -68,7 +87,7 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   useEffect(() => {
-    if (initialTab) setTab(initialTab);
+    if (initialTab) setTab((prev) => (prev === initialTab ? prev : initialTab));
   }, [initialTab]);
 
   const counts = useMemo(() => countSellerManageTabs(items), [items]);

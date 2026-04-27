@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 
 type Props = {
@@ -25,6 +26,16 @@ export function LoginProviderButtons({
   emptyText,
   onSelectProvider,
 }: Props) {
+  const handleProviderClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const raw = e.currentTarget.dataset.provider?.trim() ?? "";
+      if (raw === "google" || raw === "kakao" || raw === "naver" || raw === "apple" || raw === "facebook") {
+        onSelectProvider(raw);
+      }
+    },
+    [onSelectProvider]
+  );
+
   if (providers.length === 0) {
     return emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null;
   }
@@ -34,8 +45,9 @@ export function LoginProviderButtons({
         <button
           key={provider.provider}
           type="button"
+          data-provider={provider.provider}
           disabled={disabled}
-          onClick={() => onSelectProvider(provider.provider)}
+          onClick={handleProviderClick}
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
         >
           {busyProvider === provider.provider

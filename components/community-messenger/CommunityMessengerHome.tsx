@@ -365,19 +365,19 @@ export function CommunityMessengerHome({
     setFriendUserSearchAttempted((prev) => (prev ? false : prev));
   }, []);
   const resetGroupCreateDraft = useCallback(() => {
-    setGroupTitle("");
-    setGroupMembers([]);
-    setOpenGroupTitle("");
-    setOpenGroupSummary("");
-    setOpenGroupPassword("");
-    setOpenGroupMemberLimit("200");
-    setOpenGroupDiscoverable(true);
-    setOpenGroupJoinPolicy("password");
-    setOpenGroupIdentityPolicy("alias_allowed");
-    setOpenGroupCreatorIdentityMode("real_name");
-    setOpenGroupCreatorAliasName("");
-    setOpenGroupCreatorAliasBio("");
-    setOpenGroupCreatorAliasAvatarUrl("");
+    setGroupTitle((prev) => (prev === "" ? prev : ""));
+    setGroupMembers((prev) => (prev.length === 0 ? prev : []));
+    setOpenGroupTitle((prev) => (prev === "" ? prev : ""));
+    setOpenGroupSummary((prev) => (prev === "" ? prev : ""));
+    setOpenGroupPassword((prev) => (prev === "" ? prev : ""));
+    setOpenGroupMemberLimit((prev) => (prev === "200" ? prev : "200"));
+    setOpenGroupDiscoverable((prev) => (prev ? prev : true));
+    setOpenGroupJoinPolicy((prev) => (prev === "password" ? prev : "password"));
+    setOpenGroupIdentityPolicy((prev) => (prev === "alias_allowed" ? prev : "alias_allowed"));
+    setOpenGroupCreatorIdentityMode((prev) => (prev === "real_name" ? prev : "real_name"));
+    setOpenGroupCreatorAliasName((prev) => (prev === "" ? prev : ""));
+    setOpenGroupCreatorAliasBio((prev) => (prev === "" ? prev : ""));
+    setOpenGroupCreatorAliasAvatarUrl((prev) => (prev === "" ? prev : ""));
   }, []);
   const resetJoinOpenGroupDraft = useCallback(() => {
     setJoinPassword("");

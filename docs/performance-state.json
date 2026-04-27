@@ -1,9 +1,27 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-26T13:44:00.000Z",
-  "currentTarget": "messenger",
+  "updatedAt": "2026-04-27T20:20:00.000Z",
+  "currentTarget": "trade",
   "inProgress": null,
   "bottlenecks": [
+    {
+      "id": "community_feed_first_page_setposts_noop_rewrite_on_reentry",
+      "severity": "addressed",
+      "file": "components/community/CommunityFeed.tsx",
+      "summary": "Community feed first-page refresh rewrote posts even when cache and fetched rows matched; added row-equality no-op guard to prevent repeated rerender cost"
+    },
+    {
+      "id": "login_bootstrap_refetch_settings_providers_on_reentry",
+      "severity": "addressed",
+      "file": "app/login/LoginPageClient.tsx",
+      "summary": "Repeated /login entries always refetched providers and login settings; added single bootstrap load and short-lived snapshot cache to remove recurrent bootstrap latency"
+    },
+    {
+      "id": "myinfo_mypage_route_await_full_server_payload_on_nav",
+      "severity": "addressed",
+      "file": "app/(main)/mypage/page.tsx",
+      "summary": "Bottom-nav /mypage entry awaited loadMypageServer on route server body; switched to loadMypageServerShell to remove initial blocking await path"
+    },
     {
       "id": "myinfo_purchase_detail_get_async_inside_flight",
       "severity": "addressed",
@@ -822,6 +840,486 @@
     "2026-04-26: PurchaseDetailView — GET /api/my/purchases/:chatId runSingleFlight(fetch만) + credentials + clone.json"
   ],
   "completed": [
+    {
+      "domain": "community",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "community feed first-page refresh reapplied posts state even when fetched rows matched cached rows on repeated re-entry",
+      "before": "CommunityFeed fetchPage(append=false) always called setPosts(mergedForCache) after first-page fetch, even when cached rows and fetched rows were effectively identical.",
+      "after": "CommunityFeed now compares first-page rows (id/updated_at/created_at/content) and skips no-op setPosts rewrites when payload is unchanged on re-entry.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: community feed 초기/더보기 fetch 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 캐시와 동일한 1페이지 응답에서 posts setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 게시물 변경(updated_at/content) 시 기존처럼 목록 갱신 유지."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "login entry refetched provider and password-login settings APIs on every revisit, repeating bootstrap latency",
+      "before": "LoginPageClient mounted separate providers/settings effects and always refetched both endpoints with no reuse on repeated /login entries.",
+      "after": "LoginPageClient now loads providers+settings in one bootstrap effect and reuses a 30s module snapshot cache, so repeated /login entries restore login options without network round trips.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 로그인 엔트리/비밀번호·소셜 흐름 계약 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: /login 재진입 시 30초 내 providers/settings 재요청 없이 캐시 스냅샷 즉시 적용."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 캐시 미스·만료 시 기존 API fetch 경로와 오류 처리 유지."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage route awaited full server payload on first navigation from bottom tab, delaying shell render",
+      "before": "Mypage route server body awaited loadMypageServer(), which bundles hub extras and dashboard counts before first paint.",
+      "after": "Mypage route server body now awaits loadMypageServerShell(), so first paint uses lightweight shell data and client-side hydration completes extras progressively.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: mypage 라우팅/컴포넌트 계약 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 하단 내정보 진입 시 서버 선행 await 범위를 shell 로 축소."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: MyContent initialMyPageData 타입/렌더 경로 유지."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "reason": "device settings load rewrites audio and video device lists even when enumerate payload is unchanged",
+      "before": "Messenger device settings load directly rewrote audio/video device arrays on each enumerateDevices call.",
+      "after": "Messenger device settings load now compares device id/label lists and skips no-op audio/video list rewrites.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 장치 로드/저장/테스트 플로우 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: enumerate 결과 동일 시 device list setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 장치 목록 변경 시 선택 UI 갱신 유지."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "components/stores/StoreCartEntrySwitch.tsx",
+      "reason": "cart entry detect rewrites entry state on load path even when next state is unchanged",
+      "before": "Store cart entry detect wrote load/real/fallback entry state directly in each branch.",
+      "after": "Store cart entry detect now compares entry state and skips no-op writes for load/real/fallback transitions.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: cart 진입 스위치 분기와 silent detect 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 entry 상태에서 setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 실데이터/폴백 상태 전환 동작 유지."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx",
+      "reason": "sales card async actions clear actionBusy and menuOpen with unconditional writes after each action path",
+      "before": "Sales history card action flows wrote actionBusy null and menuOpen false unconditionally in each action finally path.",
+      "after": "Sales history card action finally paths now use no-op guards for actionBusy/menuOpen cleanup writes.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 판매 액션 요청/완료 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 완료 시 actionBusy/menuOpen 동일값 재기입 no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 액션 완료 후 메뉴 닫힘/버튼 복구 동작 유지."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/post-detail/CommunityPostDetailStatsActions.tsx",
+      "reason": "post save status sync rewrites saved state on mount even when local snapshot matches current state",
+      "before": "Post detail stats actions mounted with direct setSaved(isPostSavedLocal(postId)) write.",
+      "after": "Post detail stats actions now compares local snapshot and skips saved state write when unchanged.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 저장/공감/소셜 액션 렌더 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 저장 상태일 때 setSaved no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 저장 상태 변동 시 버튼 UI 반영 유지."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "components/auth/PasswordLoginForm.tsx",
+      "reason": "login form change handlers forward value on every input event without same-value guard",
+      "before": "Password login form forwarded identifier/password change values on each input event without same-value guard.",
+      "after": "Password login form now uses guarded handlers and skips forwarding when value is unchanged.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 로그인 폼 제출/입력 비활성 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: identifier/password 동일값 입력 이벤트에서 상위 setState 전달 생략."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 값 변경 입력 시 기존처럼 onIdentifierChange/onPasswordChange 호출 유지."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "components/my/MyHeaderNotificationInbox.tsx",
+      "reason": "notification inbox refresh rewrites rows with equivalent payload even when group content is unchanged",
+      "before": "Header inbox refresh directly rewrote rows for 200/401/error paths even when inbox payload was unchanged.",
+      "after": "Header inbox refresh now compares row identity fields and skips rows rewrite on equivalent payload, including empty fallback paths.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 알림 로드/열림/이벤트 갱신 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 rows payload에서 setRows no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 읽음/삭제/401/예외 경로의 rows 반영 유지."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "reason": "call kind sync writes speakerEnabled with direct assignments on each effect branch",
+      "before": "Call kind sync effect directly wrote speakerEnabled true/false on branch transitions.",
+      "after": "Call kind sync effect now computes target speaker flag and applies no-op guarded setSpeakerEnabled writes.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: callKind 동기화 분기와 부트스트랩 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 speaker 상태에서 setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: callKind 변경(video/audio) 시 스피커 토글 반영 유지."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "components/stores/StoreSlugStickyBar.tsx",
+      "reason": "sticky store header refresh reapplies store/favorite/order counts even when payload is unchanged",
+      "before": "Store slug sticky header load reapplied store/viewerFavorited/favoriteCount/recentOrderCount/loading state on each refresh.",
+      "after": "Store slug sticky header load now compares normalized sticky snapshot fields and skips unchanged store/count/loading writes.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: sticky 헤더 로드/복귀 refresh 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 payload에서 store·count 상태 재기입 no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 매장/즐겨찾기/주문수 값 변경 시 업데이트 유지."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/mypage/sales/SalesHistoryView.tsx",
+      "reason": "sales history load reapplies full items state even when payload is unchanged",
+      "before": "Sales history load applied viewerId/items/loading/error writes directly even when payload and tab were unchanged.",
+      "after": "Sales history load now uses row-identity and scalar no-op guards so unchanged payload skips viewer/items/loading/error rewrites.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 판매 내역 로드/탭 필터/복귀 새로고침 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 판매 rows payload에서 setItems no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 판매 내역 변경 payload와 탭 변경 반영 유지."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/CommunityCard.tsx",
+      "reason": "community feed card memo uses default shallow prop compare so cards rerender when post object identity changes",
+      "before": "CommunityCard used React.memo default shallow prop compare, so new post object identity could rerender cards even when displayed fields were unchanged.",
+      "after": "CommunityCard now uses a field-based memo comparator to skip rerender when visible post fields are unchanged.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 카드 레이아웃 분기/링크 계산 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 객체 참조만 바뀌는 경우 카드 재렌더 차단 비교자 추가."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 표시 필드 변경(카운트/제목/스킨 등) 시에는 정상 재렌더."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "components/auth/LoginProviderButtons.tsx",
+      "reason": "provider button list creates per-item inline click closures each render",
+      "before": "Login provider list created per-item inline onClick closures inside providers.map on each render.",
+      "after": "Login provider list now uses one shared click handler with data-provider to avoid per-item closure recreation each render.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 제공자 버튼 렌더/선택 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: map 내부 인라인 onClick 클로저 생성 제거."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: google/kakao/naver/apple/facebook provider 선택 전달 유지."
+        }
+      ]
+    },
+    {
+      "domain": "myinfo",
+      "file": "components/my/MyServicesCategoryGrid.tsx",
+      "reason": "service category load reapplies categories state even when payload is unchanged",
+      "before": "My services category load always applied setCategories(list) after fetch even when category payload was unchanged.",
+      "after": "My services category load now compares row identity fields and skips setCategories on unchanged payload.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 카테고리 로드/에러/로딩 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 카테고리 payload에서 setCategories no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 카테고리 변경 payload는 기존처럼 반영."
+        }
+      ]
+    },
+    {
+      "domain": "messenger",
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "reason": "group create draft reset writes default states unconditionally when step closes",
+      "before": "Group create draft reset always wrote default values when groupCreateStep returned to closed.",
+      "after": "Group create draft reset now applies per-field no-op guards and skips unchanged default writes.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 그룹 생성 플로우/닫힘 리셋 조건 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 닫힘 단계에서 기본값 동일 시 setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 그룹 생성 재시작 시 초깃값 복원 동작 유지."
+        }
+      ]
+    },
+    {
+      "domain": "delivery",
+      "file": "components/stores/StoreDetailPublic.tsx",
+      "reason": "store detail refresh reapplies store/products/canSell state even when payload is unchanged",
+      "before": "Store detail load reapplied store/products/canSell and dbOff on each successful fetch even for unchanged payload.",
+      "after": "Store detail load now compares normalized store/product slices and skips no-op state writes for unchanged payload.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 상세 load 흐름과 silent refresh 경로 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 payload에서 store/products/canSell/dbOff no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: payload 변경 시 기존처럼 상세/메뉴 카드 갱신."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "listing refresh always creates a new post object even when fields are unchanged, causing avoidable rerender work",
+      "before": "refreshListingFields always returned a newly spread post object even when listing fields had no effective change.",
+      "after": "refreshListingFields now computes normalized next values first and returns prev when status/listing/type/updatedAt/reservedBuyerId are unchanged.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: listing fields refresh API 경로와 이벤트 트리거 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 필드 payload에서 setPost no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 상태 변경 payload에서는 기존처럼 post 필드 갱신."
+        }
+      ]
+    },
+    {
+      "domain": "community",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "comments refresh applies setComments even when payload is unchanged, causing avoidable rerender work",
+      "before": "refreshComments always called setComments with API payload even when comment rows matched existing state.",
+      "after": "refreshComments now compares comment rows and skips setState when id/content/created_at/author_name are unchanged.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 댓글 fetch 경로와 force refresh 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 payload에서 comments setState no-op 처리."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 댓글 목록 갱신/등록 후 강제 새로고침 동작 유지."
+        }
+      ]
+    },
+    {
+      "domain": "login",
+      "file": "app/login/page.tsx",
+      "reason": "login route suspense fallback is null so first paint can remain blank before client login bundle resolves",
+      "before": "Login route used Suspense fallback null so initial route could render blank until LoginPageClient became ready.",
+      "after": "Login route now renders MainFormRouteLoading as Suspense fallback so first paint shows immediate loading UI instead of blank screen.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: login RSC 엔트리는 그대로 유지되고 fallback 컴포넌트만 교체됨."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: null fallback 제거로 최초 진입 공백 화면 경로가 코드상 제거됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: LoginPageClient 흐름/세션 복원/라우팅 로직 변경 없음."
+        }
+      ]
+    },
     {
       "domain": "delivery",
       "file": "components/stores/StoreReviewsSection.tsx",
@@ -8010,6 +8508,166 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-04-27T20:20:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityFeed.tsx",
+      "reason": "community feed first-page refresh reapplied posts state even when fetched rows matched cached rows on repeated re-entry",
+      "result": "Added first-page feed row equality guard before setPosts and moved currentTarget to trade"
+    },
+    {
+      "at": "2026-04-27T20:12:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/login/LoginPageClient.tsx",
+      "reason": "login entry refetched provider and password-login settings APIs on every revisit, repeating bootstrap latency",
+      "result": "Added single bootstrap load + 30s snapshot cache for login settings/providers and moved currentTarget to community"
+    },
+    {
+      "at": "2026-04-27T20:04:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "app/(main)/mypage/page.tsx",
+      "reason": "mypage route awaited full server payload on first navigation from bottom tab, delaying shell render",
+      "result": "Switched /mypage route to loadMypageServerShell for first paint and moved currentTarget to login"
+    },
+    {
+      "at": "2026-04-27T20:49:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "reason": "device settings load rewrites audio and video device lists even when enumerate payload is unchanged",
+      "result": "Added no-op guards for messenger device list enumerate writes and moved currentTarget to myinfo"
+    },
+    {
+      "at": "2026-04-27T20:47:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreCartEntrySwitch.tsx",
+      "reason": "cart entry detect rewrites entry state on load path even when next state is unchanged",
+      "result": "Added no-op guards for cart-entry state transitions and moved currentTarget to messenger"
+    },
+    {
+      "at": "2026-04-27T20:41:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx",
+      "reason": "sales card async actions clear actionBusy and menuOpen with unconditional writes after each action path",
+      "result": "Added no-op guards for sales card action cleanup writes and moved currentTarget to delivery"
+    },
+    {
+      "at": "2026-04-27T20:39:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/post-detail/CommunityPostDetailStatsActions.tsx",
+      "reason": "post save status sync rewrites saved state on mount even when local snapshot matches current state",
+      "result": "Added no-op guard for post detail saved state sync and moved currentTarget to trade"
+    },
+    {
+      "at": "2026-04-27T20:33:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "components/auth/PasswordLoginForm.tsx",
+      "reason": "login form change handlers forward value on every input event without same-value guard",
+      "result": "Added no-op guarded input change handlers for password login form and moved currentTarget to community"
+    },
+    {
+      "at": "2026-04-27T20:28:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/my/MyHeaderNotificationInbox.tsx",
+      "reason": "notification inbox refresh rewrites rows with equivalent payload even when group content is unchanged",
+      "result": "Added no-op guards for header notification inbox rows refresh and moved currentTarget to login"
+    },
+    {
+      "at": "2026-04-27T20:26:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "reason": "call kind sync writes speakerEnabled with direct assignments on each effect branch",
+      "result": "Added no-op guard for call kind speaker sync and moved currentTarget to myinfo"
+    },
+    {
+      "at": "2026-04-27T20:20:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreSlugStickyBar.tsx",
+      "reason": "sticky store header refresh reapplies store/favorite/order counts even when payload is unchanged",
+      "result": "Added no-op guards for sticky store header state writes and moved currentTarget to messenger"
+    },
+    {
+      "at": "2026-04-27T20:18:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/mypage/sales/SalesHistoryView.tsx",
+      "reason": "sales history load reapplies full items state even when payload is unchanged",
+      "result": "Added no-op guards for sales-history viewer/items/loading/error writes and moved currentTarget to delivery"
+    },
+    {
+      "at": "2026-04-27T20:12:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityCard.tsx",
+      "reason": "community feed card memo uses default shallow prop compare so cards rerender when post object identity changes",
+      "result": "Added field-based memo comparator for community cards and moved currentTarget to trade"
+    },
+    {
+      "at": "2026-04-27T20:08:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "components/auth/LoginProviderButtons.tsx",
+      "reason": "provider button list creates per-item inline click closures each render",
+      "result": "Replaced per-item inline provider click closures with shared handler and moved currentTarget to community"
+    },
+    {
+      "at": "2026-04-27T20:02:00.000Z",
+      "domain": "myinfo",
+      "action": "complete",
+      "file": "components/my/MyServicesCategoryGrid.tsx",
+      "reason": "service category load reapplies categories state even when payload is unchanged",
+      "result": "Added no-op guard for my-services category list updates and moved currentTarget to login"
+    },
+    {
+      "at": "2026-04-27T19:57:00.000Z",
+      "domain": "messenger",
+      "action": "complete",
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "reason": "group create draft reset writes default states unconditionally when step closes",
+      "result": "Added no-op guards for messenger group-create draft reset writes and moved currentTarget to myinfo"
+    },
+    {
+      "at": "2026-04-27T19:55:00.000Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "components/stores/StoreDetailPublic.tsx",
+      "reason": "store detail refresh reapplies store/products/canSell state even when payload is unchanged",
+      "result": "Added normalized equality guards for store detail refresh writes and moved currentTarget to messenger"
+    },
+    {
+      "at": "2026-04-27T19:50:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "listing refresh always creates a new post object even when fields are unchanged, causing avoidable rerender work",
+      "result": "Added normalized equality guard for trade detail listing refresh writes and moved currentTarget to delivery"
+    },
+    {
+      "at": "2026-04-27T19:48:00.000Z",
+      "domain": "community",
+      "action": "complete",
+      "file": "components/community/CommunityPostDetailClient.tsx",
+      "reason": "comments refresh applies setComments even when payload is unchanged, causing avoidable rerender work",
+      "result": "Added equality guard for community post comments refresh and moved currentTarget to trade"
+    },
+    {
+      "at": "2026-04-27T19:43:00.000Z",
+      "domain": "login",
+      "action": "complete",
+      "file": "app/login/page.tsx",
+      "reason": "login route suspense fallback is null so first paint can remain blank before client login bundle resolves",
+      "result": "Replaced login Suspense null fallback with MainFormRouteLoading and moved currentTarget to community"
+    },
     {
       "at": "2026-04-26T13:44:00.000Z",
       "domain": "messenger",

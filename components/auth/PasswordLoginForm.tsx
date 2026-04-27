@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+
 type Props = {
   identifier: string;
   password: string;
@@ -29,6 +31,20 @@ export function PasswordLoginForm({
      */
   const inputClassName =
     "mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:opacity-60";
+  const handleIdentifierChange = useCallback(
+    (value: string) => {
+      if (value === identifier) return;
+      onIdentifierChange(value);
+    },
+    [identifier, onIdentifierChange]
+  );
+  const handlePasswordChange = useCallback(
+    (value: string) => {
+      if (value === password) return;
+      onPasswordChange(value);
+    },
+    [password, onPasswordChange]
+  );
   return (
     <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate autoComplete="off">
       <fieldset disabled={disabled} className="space-y-4">
@@ -39,7 +55,7 @@ export function PasswordLoginForm({
             inputMode="email"
             autoComplete="off"
             value={identifier}
-            onChange={(e) => onIdentifierChange(e.target.value)}
+            onChange={(e) => handleIdentifierChange(e.target.value)}
             placeholder="이메일 또는 로그인 ID"
             required
             className={inputClassName}
@@ -51,7 +67,7 @@ export function PasswordLoginForm({
             type="password"
             autoComplete="new-password"
             value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
+            onChange={(e) => handlePasswordChange(e.target.value)}
             required
             className={inputClassName}
           />

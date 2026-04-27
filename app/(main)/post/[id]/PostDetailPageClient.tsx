@@ -51,26 +51,43 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
       const row = (await res.clone().json()) as ApiPostRow;
       setPost((prev) => {
         if (!prev || prev.id !== id) return prev;
+        const nextStatus =
+          typeof row.status === "string" && row.status
+            ? (row.status as PostWithMeta["status"])
+            : prev.status;
+        const nextSellerListingState =
+          row.seller_listing_state === null
+            ? undefined
+            : typeof row.seller_listing_state === "string"
+              ? row.seller_listing_state
+              : prev.seller_listing_state;
+        const nextType =
+          typeof row.type === "string" && row.type
+            ? (row.type as PostWithMeta["type"])
+            : prev.type;
+        const nextUpdatedAt =
+          typeof row.updated_at === "string" && row.updated_at ? row.updated_at : prev.updated_at;
+        const nextReservedBuyerId =
+          row.reserved_buyer_id === null || row.reserved_buyer_id === undefined
+            ? undefined
+            : typeof row.reserved_buyer_id === "string"
+              ? row.reserved_buyer_id.trim() || undefined
+              : prev.reserved_buyer_id;
+        if (
+          prev.status === nextStatus &&
+          prev.seller_listing_state === nextSellerListingState &&
+          prev.type === nextType &&
+          prev.updated_at === nextUpdatedAt &&
+          prev.reserved_buyer_id === nextReservedBuyerId
+        ) {
+          return prev;
+        }
         const next: PostWithMeta = { ...prev };
-        if (typeof row.status === "string" && row.status) {
-          next.status = row.status as PostWithMeta["status"];
-        }
-        if (row.seller_listing_state === null) {
-          next.seller_listing_state = undefined;
-        } else if (typeof row.seller_listing_state === "string") {
-          next.seller_listing_state = row.seller_listing_state;
-        }
-        if (typeof row.type === "string" && row.type) {
-          next.type = row.type as PostWithMeta["type"];
-        }
-        if (typeof row.updated_at === "string" && row.updated_at) {
-          next.updated_at = row.updated_at;
-        }
-        if (row.reserved_buyer_id === null || row.reserved_buyer_id === undefined) {
-          next.reserved_buyer_id = undefined;
-        } else if (typeof row.reserved_buyer_id === "string") {
-          next.reserved_buyer_id = row.reserved_buyer_id.trim() || undefined;
-        }
+        next.status = nextStatus;
+        next.seller_listing_state = nextSellerListingState;
+        next.type = nextType;
+        next.updated_at = nextUpdatedAt;
+        next.reserved_buyer_id = nextReservedBuyerId;
         return next;
       });
     } catch {

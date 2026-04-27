@@ -110,7 +110,23 @@ export function CommunityPostDetailClient({
       });
       const data = result.json as { ok?: boolean; comments?: CommunityCommentDTO[] };
       if (result.status >= 200 && result.status < 300 && data.ok && data.comments) {
-        setComments(data.comments);
+        setComments((prev) => {
+          const next = data.comments ?? [];
+          if (prev.length !== next.length) return next;
+          for (let i = 0; i < prev.length; i += 1) {
+            const a = prev[i];
+            const b = next[i];
+            if (
+              a?.id !== b?.id ||
+              a?.content !== b?.content ||
+              a?.created_at !== b?.created_at ||
+              a?.author_name !== b?.author_name
+            ) {
+              return next;
+            }
+          }
+          return prev;
+        });
       }
     },
     [post.id]

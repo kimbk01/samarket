@@ -19,7 +19,22 @@ export function MyServicesCategoryGrid() {
     setError((prev) => (prev === null ? prev : null));
     try {
       const list = await getActiveCategories();
-      setCategories(list);
+      setCategories((prev) => {
+        if (prev.length !== list.length) return list;
+        for (let i = 0; i < prev.length; i += 1) {
+          const a = prev[i];
+          const b = list[i];
+          if (
+            a?.id !== b?.id ||
+            a?.name !== b?.name ||
+            a?.slug !== b?.slug ||
+            a?.is_active !== b?.is_active
+          ) {
+            return list;
+          }
+        }
+        return prev;
+      });
     } catch (e) {
       setError((e as Error).message ?? "카테고리를 불러올 수 없습니다.");
     } finally {

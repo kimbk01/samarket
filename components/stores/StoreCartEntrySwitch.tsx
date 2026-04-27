@@ -18,12 +18,17 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
   );
 
   const [state, setState] = useState<EntryState>({ kind: "load" });
+  const isSameEntryState = (a: EntryState, b: EntryState): boolean => {
+    if (a.kind !== b.kind) return false;
+    if (a.kind === "fallback" && b.kind === "fallback") return a.hint === b.hint;
+    return true;
+  };
 
   const detect = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
       if (!silent) {
-        setState({ kind: "load" });
+        setState((prev) => (isSameEntryState(prev, { kind: "load" }) ? prev : { kind: "load" }));
       }
       try {
         const { json: raw } = await fetchStorePublicBySlugDeduped(normalizedSlug);
@@ -38,13 +43,19 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
             if (next.kind === "fallback" && prev.kind === "real") {
               return prev;
             }
-            return next;
+            return isSameEntryState(prev, next) ? prev : next;
           });
         } else {
-          setState(next);
+          setState((prev) => (isSameEntryState(prev, next) ? prev : next));
         }
       } catch {
-        if (!silent) setState({ kind: "fallback", hint: "network" });
+        if (!silent) {
+          setState((prev) =>
+            isSameEntryState(prev, { kind: "fallback", hint: "network" })
+              ? prev
+              : { kind: "fallback", hint: "network" }
+          );
+        }
       }
     },
     [normalizedSlug]

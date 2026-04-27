@@ -436,13 +436,14 @@ export function CommunityMessengerCallClient({
     const b = callKindBootRef.current;
     if (b.sid !== session.id) {
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
-      setSpeakerEnabled(session.callKind === "video");
+      const nextSpeakerEnabled = session.callKind === "video";
+      setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
       return;
     }
     if (b.kind !== session.callKind) {
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
-      if (session.callKind === "video") setSpeakerEnabled(true);
-      else setSpeakerEnabled(false);
+      const nextSpeakerEnabled = session.callKind === "video";
+      setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
     }
   }, [session?.id, session?.callKind]);
 

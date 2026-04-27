@@ -77,6 +77,41 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
   const [fulfillmentMode, setFulfillmentMode] = useState<StorePublicFulfillmentMode>("pickup");
   const [activeTab, setActiveTab] = useState<"menu" | "review">("menu");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const isSameStoreDetail = (a: StoreDetail | null, b: StoreDetail | null): boolean => {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return (
+      a.id === b.id &&
+      a.slug === b.slug &&
+      a.updated_at === b.updated_at &&
+      a.is_open === b.is_open &&
+      a.delivery_available === b.delivery_available &&
+      a.pickup_available === b.pickup_available &&
+      a.rating_avg === b.rating_avg &&
+      a.review_count === b.review_count
+    );
+  };
+  const isSameProductCards = (
+    prev: StoreDetailProductCard[],
+    next: StoreDetailProductCard[]
+  ): boolean => {
+    if (prev.length !== next.length) return false;
+    for (let i = 0; i < prev.length; i += 1) {
+      const a = prev[i];
+      const b = next[i];
+      if (
+        a.id !== b.id ||
+        a.price !== b.price ||
+        a.discount_price !== b.discount_price ||
+        a.stock_qty !== b.stock_qty ||
+        a.track_inventory !== b.track_inventory ||
+        a.is_featured !== b.is_featured
+      ) {
+        return false;
+      }
+    }
+    return true;
+  };
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
@@ -103,15 +138,17 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
           products?: unknown;
           meta?: { source?: string; canSell?: boolean };
         };
-        setDbOff(j?.meta?.source === "supabase_unconfigured");
+        const nextDbOff = j?.meta?.source === "supabase_unconfigured";
+        setDbOff((prev) => (prev === nextDbOff ? prev : nextDbOff));
         if (j?.ok && j.store) {
-          setStore(j.store);
-          setProducts(
-            sortStoreDetailProductCardsForDisplay(
-              Array.isArray(j.products) ? parseStoreDetailProducts(j.products) : []
-            )
+          const nextStore = j.store;
+          const nextProducts = sortStoreDetailProductCardsForDisplay(
+            Array.isArray(j.products) ? parseStoreDetailProducts(j.products) : []
           );
-          setCanSell(!!j.meta?.canSell);
+          const nextCanSell = !!j.meta?.canSell;
+          setStore((prev) => (isSameStoreDetail(prev, nextStore) ? prev : nextStore));
+          setProducts((prev) => (isSameProductCards(prev, nextProducts) ? prev : nextProducts));
+          setCanSell((prev) => (prev === nextCanSell ? prev : nextCanSell));
         } else {
           if (!silent) {
             setStore(null);
