@@ -295,6 +295,11 @@ function LoginPageContent() {
     setError((prev) => (prev === "" ? prev : ""));
     setOauthBusy((prev) => (prev === provider ? prev : provider));
     try {
+      if (provider === "naver") {
+        const startUrl = withNextSearchParam("/api/auth/naver/start", next ?? null);
+        window.location.assign(startUrl);
+        return;
+      }
       const supabase = getSupabaseClient();
       if (!supabase) {
         const nextError = "Supabase 설정이 없습니다.";
@@ -329,38 +334,6 @@ function LoginPageContent() {
         const authorizeUrl = data?.url?.trim() ?? "";
         if (!authorizeUrl) {
           const nextError = "카카오 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
-          setError((prev) => (prev === nextError ? prev : nextError));
-          return;
-        }
-        window.location.assign(authorizeUrl);
-        return;
-      }
-      if (provider === "naver") {
-        const configuredScope =
-          providers.find((item) => item.provider === "naver")?.scope?.trim() ?? "";
-        const naverScope = configuredScope || "name email";
-        const { data, error: oauthError } = await withTimeout(
-          supabase.auth.signInWithOAuth({
-            provider: "custom:naver" as any,
-            options: {
-              redirectTo: callbackUrl,
-              queryParams: {
-                scope: naverScope,
-              },
-              skipBrowserRedirect: true,
-            },
-          }),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_TIMEOUT_MESSAGE
-        );
-        if (oauthError) {
-          const nextError = oauthError.message || "소셜 로그인을 시작하지 못했습니다.";
-          setError((prev) => (prev === nextError ? prev : nextError));
-          return;
-        }
-        const authorizeUrl = data?.url?.trim() ?? "";
-        if (!authorizeUrl) {
-          const nextError = "소셜 로그인 시작 URL을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.";
           setError((prev) => (prev === nextError ? prev : nextError));
           return;
         }

@@ -52,8 +52,7 @@ export function isOauthLoginProvider(provider: LoginSettingProvider): provider i
 
 export function mapProviderToSupabaseOAuth(
   provider: Exclude<LoginSettingProvider, "password">
-): "google" | "kakao" | "custom:naver" | "apple" | "facebook" {
-  if (provider === "naver") return "custom:naver";
+): "google" | "kakao" | "naver" | "apple" | "facebook" {
   return provider;
 }
 
