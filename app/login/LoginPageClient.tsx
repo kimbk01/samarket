@@ -15,11 +15,15 @@ import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-f
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
+const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
 const LOGIN_ENSURE_SOFT_WAIT_MS = 0;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
+const IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE =
+  "로그인 ID 확인이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.";
 
 function mapPasswordLoginErrorMessage(raw: string): string {
   const message = String(raw ?? "").trim();
@@ -45,7 +49,15 @@ function mapPasswordResolveErrorCodeToMessage(code: string, fallback: string): s
   if (code === "login_identifier_lookup_failed") {
     return "로그인 식별자를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }
+  if (code === "rate_limited" || code === "too_many_requests") {
+    return "요청이 많아 잠시 차단되었습니다. 잠시 후 다시 시도해 주세요.";
+  }
   return fallback;
+}
+
+function mapHttpStatusToResolveErrorCode(status: number): string {
+  if (status === 429) return "rate_limited";
+  return "";
 }
 
 function mapAuthErrorMessage(code: string, detail?: string): string {
@@ -99,6 +111,7 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
 
   const showLoginError = (message: string, withPopup = false) => {
     setError((prev) => (prev === message ? prev : message));
@@ -224,109 +237,148 @@ function LoginPageContent() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    /**
+     * 이중 제출 가드: input은 disabled 상태지만 PasswordManager 자동입력·
+     * Enter 연속 입력으로 form.onSubmit이 다시 호출될 수 있다.
+     */
+    if (loading) return;
     setError((prev) => (prev === "" ? prev : ""));
-    setLoading((prev) => (prev ? prev : true));
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      const nextError = "Supabase 설정이 없습니다.";
-      showLoginError(nextError, true);
-      setLoading((prev) => (prev ? false : prev));
-      return;
-    }
-    let signInEmail = "";
+    setLoading(true);
+    setPasswordLoginStatus("로그인 ID를 확인하고 있어요...");
+
+    let shouldNavigate = false;
     try {
-      const resolveRes = await runSingleFlight(
-        `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
-        () =>
-          fetch("/api/auth/password-login/resolve-identifier", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ identifier }),
-          })
-      );
-      const resolveJson = (await resolveRes.json().catch(() => null)) as
-        | { identifier?: string; error?: string; code?: string }
-        | null;
-      if (!resolveRes.ok) {
-        const fallbackError = mapPasswordLoginErrorMessage(
-          resolveJson?.error ?? "로그인 식별자를 확인하지 못했습니다."
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        showLoginError("Supabase 설정이 없습니다.", true);
+        return;
+      }
+
+      let signInEmail = "";
+      try {
+        const resolveRes = await runSingleFlight(
+          `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
+          () =>
+            fetchWithTimeout("/api/auth/password-login/resolve-identifier", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ identifier }),
+              timeoutMs: LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS,
+            })
         );
-        const nextError = mapPasswordResolveErrorCodeToMessage(
-          String(resolveJson?.code ?? "").trim(),
-          fallbackError
-        );
+        const resolveJson = (await resolveRes.json().catch(() => null)) as
+          | { identifier?: string; error?: string; code?: string }
+          | null;
+        if (!resolveRes.ok) {
+          const fallbackError = mapPasswordLoginErrorMessage(
+            resolveJson?.error ?? "로그인 식별자를 확인하지 못했습니다."
+          );
+          const codeFromBody = String(resolveJson?.code ?? "").trim();
+          const codeFromStatus = mapHttpStatusToResolveErrorCode(resolveRes.status);
+          const code = codeFromBody || codeFromStatus;
+          const nextError = mapPasswordResolveErrorCodeToMessage(code, fallbackError);
+          showLoginError(nextError, true);
+          return;
+        }
+        signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
+      } catch (resolveError) {
+        const nextError =
+          resolveError instanceof DOMException && resolveError.name === "AbortError"
+            ? IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE
+            : "로그인 식별자를 확인하지 못했습니다.";
         showLoginError(nextError, true);
-        setLoading((prev) => (prev ? false : prev));
         return;
       }
-      signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
-    } catch {
-      const nextError = "로그인 식별자를 확인하지 못했습니다.";
-      showLoginError(nextError, true);
-      setLoading((prev) => (prev ? false : prev));
-      return;
-    }
-    if (!signInEmail) {
-      const nextError = "이메일 또는 아이디를 입력하세요.";
-      showLoginError(nextError, true);
-      setLoading((prev) => (prev ? false : prev));
-      return;
-    }
-    let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
-    try {
-      signInResult = await withTimeout(
-        supabase.auth.signInWithPassword({ email: signInEmail, password }),
-        AUTH_REQUEST_TIMEOUT_MS,
-        AUTH_TIMEOUT_MESSAGE
+
+      if (!signInEmail) {
+        showLoginError("이메일 또는 아이디를 입력하세요.", true);
+        return;
+      }
+
+      setPasswordLoginStatus("비밀번호를 확인하고 있어요...");
+      let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+      try {
+        signInResult = await withTimeout(
+          supabase.auth.signInWithPassword({ email: signInEmail, password }),
+          AUTH_REQUEST_TIMEOUT_MS,
+          AUTH_TIMEOUT_MESSAGE
+        );
+      } catch (signInError) {
+        if (signInError instanceof Error && signInError.message === AUTH_TIMEOUT_MESSAGE) {
+          showLoginError(AUTH_TIMEOUT_MESSAGE, true);
+          return;
+        }
+        showLoginError(
+          mapPasswordLoginErrorMessage(describeSupabaseFetchFailure(signInError).userMessage),
+          true
+        );
+        return;
+      }
+
+      const err = signInResult.error;
+      if (err) {
+        const net = describeSupabaseFetchFailure(err);
+        const message =
+          net.code !== "unknown"
+            ? mapPasswordLoginErrorMessage(net.userMessage)
+            : mapPasswordLoginErrorMessage(err.message || "로그인에 실패했습니다.");
+        showLoginError(message, true);
+        return;
+      }
+
+      const session = signInResult.data.session;
+      if (!session) {
+        showLoginError(
+          "세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.",
+          true
+        );
+        return;
+      }
+
+      const loginUntilNavT0 = performance.now();
+      const fetchAuthT0 = performance.now();
+      const ensurePromise = fetchProfileEnsureDeduped().catch(() => null);
+      // 로그인 직후 체감 속도를 위해 짧게만 기다리고 즉시 이동한다.
+      await Promise.race([
+        ensurePromise,
+        new Promise((resolve) => window.setTimeout(resolve, LOGIN_ENSURE_SOFT_WAIT_MS)),
+      ]);
+      void fetchAuthSessionNoStore()
+        .then(() => {
+          recordAppWidePhaseLastMs(
+            "login_fetch_auth_session_ms",
+            Math.round(performance.now() - fetchAuthT0)
+          );
+        })
+        .catch(() => {
+          // Ignore session sync failures here.
+        });
+      recordAppWidePhaseLastMs(
+        "login_until_navigation_ms",
+        Math.round(performance.now() - loginUntilNavT0)
       );
-    } catch (e) {
-      setLoading((prev) => (prev ? false : prev));
-      if (e instanceof Error && e.message === AUTH_TIMEOUT_MESSAGE) {
-        showLoginError(AUTH_TIMEOUT_MESSAGE, true);
-        return;
+      shouldNavigate = true;
+    } catch (unexpected) {
+      /**
+       * 어떤 예외가 나도 cleanup이 finally에서 보장되도록 최후 안전망.
+       * 사용자에게는 명확히 알리고 콘솔로 진단 흔적을 남긴다.
+       */
+      const message =
+        unexpected instanceof Error && unexpected.message
+          ? `로그인 처리 중 오류: ${unexpected.message}`
+          : "로그인 처리 중 알 수 없는 오류가 발생했습니다.";
+      showLoginError(message, true);
+      if (typeof console !== "undefined") {
+        console.error("[samarket:login] unexpected handleEmailSubmit failure", unexpected);
       }
-      const nextError = mapPasswordLoginErrorMessage(describeSupabaseFetchFailure(e).userMessage);
-      showLoginError(nextError, true);
-      return;
-    }
-    const err = signInResult.error;
-    if (err) {
-      setLoading((prev) => (prev ? false : prev));
-      const net = describeSupabaseFetchFailure(err);
-      if (net.code !== "unknown") {
-        showLoginError(mapPasswordLoginErrorMessage(net.userMessage), true);
-        return;
+    } finally {
+      setLoading(false);
+      setPasswordLoginStatus((prev) => (prev === "" ? prev : ""));
+      if (shouldNavigate) {
+        router.replace(postLoginDestination);
       }
-      const nextError = mapPasswordLoginErrorMessage(err.message || "로그인에 실패했습니다.");
-      showLoginError(nextError, true);
-      return;
     }
-    const session = signInResult.data.session;
-    if (!session) {
-      setLoading((prev) => (prev ? false : prev));
-      const nextError = "세션이 저장되지 않았습니다. 쿠키·시크릿 모드를 확인한 뒤 다시 시도해 주세요.";
-      showLoginError(nextError, true);
-      return;
-    }
-    const loginUntilNavT0 = performance.now();
-    const fetchAuthT0 = performance.now();
-    const ensurePromise = fetchProfileEnsureDeduped().catch(() => null);
-    // 로그인 직후 체감 속도를 위해 짧게만 기다리고 즉시 이동한다.
-    await Promise.race([
-      ensurePromise,
-      new Promise((resolve) => window.setTimeout(resolve, LOGIN_ENSURE_SOFT_WAIT_MS)),
-    ]);
-    void fetchAuthSessionNoStore()
-      .then(() => {
-        recordAppWidePhaseLastMs("login_fetch_auth_session_ms", Math.round(performance.now() - fetchAuthT0));
-      })
-      .catch(() => {
-        // Ignore session sync failures here.
-      });
-    recordAppWidePhaseLastMs("login_until_navigation_ms", Math.round(performance.now() - loginUntilNavT0));
-    setLoading((prev) => (prev ? false : prev));
-    router.replace(postLoginDestination);
   };
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
@@ -448,6 +500,8 @@ function LoginPageContent() {
               identifier={identifier}
               password={password}
               error={error}
+              loading={loading}
+              loadingText={passwordLoginStatus}
               disabled={loading || Boolean(oauthBusy)}
               onIdentifierChange={setIdentifier}
               onPasswordChange={setPassword}

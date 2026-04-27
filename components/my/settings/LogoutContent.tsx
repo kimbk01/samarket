@@ -26,17 +26,36 @@ export function LogoutActionTrigger({
   const handleLogout = async () => {
     setSubmitting((prev) => (prev ? prev : true));
     setError((prev) => (prev === null ? prev : null));
-    const result = await performClientLogout();
-    setSubmitting((prev) => (prev ? false : prev));
 
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    /**
+     * 클라이언트 측 로그아웃이 어떤 이유로든 1.5s 안에 끝나지 않으면
+     * 무조건 /login 으로 보내 UI가 절대 정지하지 않게 한다.
+     */
+    const safetyForceNavigate = window.setTimeout(() => {
+      setSubmitting((prev) => (prev ? false : prev));
+      setOpen((prev) => (prev ? false : prev));
+      router.replace("/login");
+      router.refresh();
+    }, 6_000);
+
+    try {
+      const result = await performClientLogout();
+      window.clearTimeout(safetyForceNavigate);
+      setSubmitting((prev) => (prev ? false : prev));
+
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+
+      setOpen((prev) => (prev ? false : prev));
+      router.replace("/login");
+      router.refresh();
+    } catch (e) {
+      window.clearTimeout(safetyForceNavigate);
+      setSubmitting((prev) => (prev ? false : prev));
+      setError(e instanceof Error ? e.message : "로그아웃 처리 중 알 수 없는 오류가 발생했습니다.");
     }
-
-    setOpen((prev) => (prev ? false : prev));
-    router.replace("/login");
-    router.refresh();
   };
 
   return (
