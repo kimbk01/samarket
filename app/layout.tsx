@@ -12,13 +12,15 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "SAMarket",
-  description:
-    "필리핀 거주 한국인을 위한 중고거래·커뮤니티·스토어 주문·채팅 플랫폼",
-  applicationName: "SAMarket",
+  title: "dibaY",
+  description: "dibaY marketplace",
+  applicationName: "dibaY",
+  icons: {
+    icon: "/favicon.ico",
+  },
   appleWebApp: {
     capable: true,
-    title: "SAMarket",
+    title: "dibaY",
     statusBarStyle: "default",
   },
   formatDetection: {

@@ -92,7 +92,7 @@ export function AdminTradeCompletionPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={t("admin_page_trade_completion")} />
+      <AdminPageHeader titleKey="admin_page_trade_completion" />
       <p className="sam-text-body-secondary text-sam-muted">
         {t("admin_page_trade_completion_desc")}
       </p>

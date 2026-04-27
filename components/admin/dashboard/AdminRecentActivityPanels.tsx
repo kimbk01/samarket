@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translate } from "@/lib/i18n/messages";
 import type {
   RecentProduct,
   RecentUser,
@@ -11,8 +13,8 @@ import type {
 } from "@/lib/types/admin-dashboard";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
-  PRODUCT_STATUS_LABELS,
-  REPORT_STATUS_LABELS,
+  PRODUCT_STATUS_LABEL_KEYS,
+  REPORT_STATUS_LABEL_KEYS,
 } from "@/lib/admin-dashboard/admin-dashboard-utils";
 
 interface AdminRecentActivityPanelsProps {
@@ -65,10 +67,11 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
   reviews,
   loading,
 }: AdminRecentActivityPanelsProps) {
-  const emptyLabel = loading ? "불러오는 중…" : "없음";
+  const { t } = useI18n();
+  const emptyLabel = loading ? t("admin_dashboard_loading") : t("admin_dashboard_empty");
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      <AdminCard title="최근 등록 상품">
+      <AdminCard title={translate("ko", "admin_dashboard_recent_products")}>
         <ul className="space-y-2">
           {products.length === 0 ? (
             <li className="sam-text-body-secondary text-sam-muted">{emptyLabel}</li>
@@ -82,7 +85,9 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
                   {p.title}
                 </Link>
                 <span className="sam-text-xxs text-sam-muted">
-                  {PRODUCT_STATUS_LABELS[p.status] ?? p.status} · {formatDate(p.createdAt)}
+                  {(PRODUCT_STATUS_LABEL_KEYS[p.status]
+                    ? t(PRODUCT_STATUS_LABEL_KEYS[p.status]!)
+                    : p.status) + " · " + formatDate(p.createdAt)}
                 </span>
               </li>
             ))
@@ -92,11 +97,11 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           href="/admin/products"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
-          전체 →
+          {t("admin_dashboard_view_all")}
         </Link>
       </AdminCard>
 
-      <AdminCard title="최근 가입 회원">
+      <AdminCard title={translate("ko", "admin_dashboard_recent_users")}>
         <ul className="space-y-2">
           {users.length === 0 ? (
             <li className="sam-text-body-secondary text-sam-muted">{emptyLabel}</li>
@@ -120,11 +125,11 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           href="/admin/users"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
-          전체 →
+          {t("admin_dashboard_view_all")}
         </Link>
       </AdminCard>
 
-      <AdminCard title="최근 신고">
+      <AdminCard title={translate("ko", "admin_dashboard_recent_reports")}>
         <ul className="space-y-2">
           {reports.length === 0 ? (
             <li className="sam-text-body-secondary text-sam-muted">{emptyLabel}</li>
@@ -138,7 +143,9 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
                   [{r.targetType}] {r.reasonLabel}
                 </Link>
                 <span className="sam-text-xxs text-sam-muted">
-                  {REPORT_STATUS_LABELS[r.status] ?? r.status} · {formatDate(r.createdAt)}
+                  {(REPORT_STATUS_LABEL_KEYS[r.status]
+                    ? t(REPORT_STATUS_LABEL_KEYS[r.status]!)
+                    : r.status) + " · " + formatDate(r.createdAt)}
                 </span>
               </li>
             ))
@@ -148,11 +155,11 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           href="/admin/reports"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
-          전체 →
+          {t("admin_dashboard_view_all")}
         </Link>
       </AdminCard>
 
-      <AdminCard title="최근 채팅방">
+      <AdminCard title={translate("ko", "admin_dashboard_recent_chats")}>
         <ul className="space-y-2">
           {chats.length === 0 ? (
             <li className="sam-text-body-secondary text-sam-muted">{emptyLabel}</li>
@@ -176,11 +183,11 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           href="/admin/chats"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
-          전체 →
+          {t("admin_dashboard_view_all")}
         </Link>
       </AdminCard>
 
-      <AdminCard title="최근 리뷰">
+      <AdminCard title={translate("ko", "admin_dashboard_recent_reviews")}>
         <ul className="space-y-2">
           {reviews.length === 0 ? (
             <li className="sam-text-body-secondary text-sam-muted">{emptyLabel}</li>
@@ -204,7 +211,7 @@ export const AdminRecentActivityPanels = memo(function AdminRecentActivityPanels
           href="/admin/reviews"
           className="mt-2 block sam-text-helper text-signature hover:underline"
         >
-          전체 →
+          {t("admin_dashboard_view_all")}
         </Link>
       </AdminCard>
     </div>

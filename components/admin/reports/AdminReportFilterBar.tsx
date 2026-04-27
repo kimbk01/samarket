@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReportStatus, ReportTargetType } from "@/lib/types/report";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   TARGET_TYPE_OPTIONS,
   REPORT_STATUS_OPTIONS,
@@ -19,6 +20,7 @@ interface AdminReportFilterBarProps {
 }
 
 export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBarProps) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-wrap items-center gap-3">
       <select
@@ -30,7 +32,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
       >
         {TARGET_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -43,7 +45,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
       >
         {REPORT_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -54,7 +56,7 @@ export function AdminReportFilterBar({ filters, onChange }: AdminReportFilterBar
       >
         {REASON_CODE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>

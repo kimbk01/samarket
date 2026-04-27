@@ -190,7 +190,7 @@ export async function sendPhoneOtpForUser(
   const otpRow = await upsertPhoneOtpChallenge(sb, userId, normalizedPhone, otpCodeHash, expiresAtIso);
   if (!otpRow.ok) return otpRow;
 
-  const smsMessage = `[SAMarket] 인증번호 ${otpCode} (유효 ${Math.floor(settings.otp_ttl_seconds / 60)}분)`;
+  const smsMessage = `[dibaY] 인증번호 ${otpCode} (유효 ${Math.floor(settings.otp_ttl_seconds / 60)}분)`;
   const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
   if (!smsSent.ok) {
     return { ok: false, status: 502, message: smsSent.error || "OTP 발송에 실패했습니다." };

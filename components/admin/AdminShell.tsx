@@ -7,6 +7,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTestSwitcher } from "@/components/admin/AdminTestSwitcher";
 import { AdminNotificationBell } from "@/components/admin/order-notifications/AdminNotificationBell";
 import { AdminShellToolbar } from "@/components/admin/AdminShellToolbar";
+import { AdminLanguageToggle } from "@/components/admin/AdminLanguageToggle";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               sidebarExpanded={sidebarExpanded}
               onSidebarExpandedChange={setSidebarExpanded}
             />
+            <AdminLanguageToggle />
             <AdminNotificationBell />
             <AdminTestSwitcher />
             <Link

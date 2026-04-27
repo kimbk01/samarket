@@ -28,6 +28,7 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   const [tab, setTab] = useState<SellerManageTabId>(initialTab ?? "selling");
   const isSameSalesRows = (prev: SalesHistoryRow[], next: SalesHistoryRow[]): boolean => {
     if (prev.length !== next.length) return false;
+    const rowStamp = (r: SalesHistoryRow) => r.postUpdatedAt ?? r.updatedAt ?? null;
     for (let i = 0; i < prev.length; i += 1) {
       const a = prev[i];
       const b = next[i];
@@ -37,7 +38,14 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
         a.status !== b.status ||
         a.title !== b.title ||
         a.price !== b.price ||
-        a.updatedAt !== b.updatedAt
+        a.lastMessageAt !== b.lastMessageAt ||
+        a.sellerCompletedAt !== b.sellerCompletedAt ||
+        a.buyerConfirmedAt !== b.buyerConfirmedAt ||
+        rowStamp(a) !== rowStamp(b) ||
+        a.tradeFlowStatus !== b.tradeFlowStatus ||
+        a.hasBuyerReview !== b.hasBuyerReview ||
+        a.sellerListingState !== b.sellerListingState ||
+        a.noActiveChat !== b.noActiveChat
       ) {
         return false;
       }

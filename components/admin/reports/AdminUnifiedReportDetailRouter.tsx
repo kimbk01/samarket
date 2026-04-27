@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReportByIdFromDb } from "@/lib/admin-reports/getReportsFromDb";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
 import { AdminCommunityReportDetailClient } from "@/components/admin/community/AdminCommunityReportDetailClient";
@@ -10,6 +11,7 @@ type Phase = "loading" | "legacy" | "community" | "none";
 
 /** 통합 신고 상세: `reports` 우선, 없으면 `community_reports` */
 export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string }) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>("loading");
   const [communityRow, setCommunityRow] = useState<CommunityReportAdminRow | null>(null);
 
@@ -46,10 +48,10 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
   }, [reportId]);
 
   if (phase === "loading") {
-    return <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>;
+    return <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>;
   }
   if (phase === "none") {
-    return <div className="py-8 text-center sam-text-body text-sam-muted">신고를 찾을 수 없습니다.</div>;
+    return <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_report_not_found")}</div>;
   }
   if (phase === "legacy") {
     return <AdminReportDetailPage reportId={reportId.trim()} />;
@@ -57,5 +59,5 @@ export function AdminUnifiedReportDetailRouter({ reportId }: { reportId: string 
   if (phase === "community" && communityRow) {
     return <AdminCommunityReportDetailClient initialRow={communityRow} />;
   }
-  return <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>;
+  return <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>;
 }

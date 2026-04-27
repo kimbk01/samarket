@@ -2,16 +2,44 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  MEETING_EVENT_TYPE_LABELS,
   MEETING_EVENT_TYPES,
   formatMeetingEventDescription,
   isMeetingEventType,
+  type MeetingEventTypeSlug,
 } from "@/lib/neighborhood/meeting-event-format";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminMeetingEventRow } from "@/lib/neighborhood/types";
 import { philifeAppPaths } from "@domain/philife/paths";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+
+const MEETING_EVENT_TYPE_KEYS = {
+  join_requested: "admin_meeting_event_type_join_requested",
+  join_approved: "admin_meeting_event_type_join_approved",
+  join_rejected: "admin_meeting_event_type_join_rejected",
+  member_joined: "admin_meeting_event_type_member_joined",
+  member_left: "admin_meeting_event_type_member_left",
+  member_kicked: "admin_meeting_event_type_member_kicked",
+  member_banned: "admin_meeting_event_type_member_banned",
+  member_unbanned: "admin_meeting_event_type_member_unbanned",
+  member_attendance_updated: "admin_meeting_event_type_member_attendance_updated",
+  notice_created: "admin_meeting_event_type_notice_created",
+  notice_updated: "admin_meeting_event_type_notice_updated",
+  notice_deleted: "admin_meeting_event_type_notice_deleted",
+  meeting_closed: "admin_meeting_event_type_meeting_closed",
+  meeting_reopened: "admin_meeting_event_type_meeting_reopened",
+  meeting_ended: "admin_meeting_event_type_meeting_ended",
+  meeting_cancelled: "admin_meeting_event_type_meeting_cancelled",
+} as const satisfies Record<MeetingEventTypeSlug, MessageKey>;
+
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
 
 export function AdminPhilifeMeetingEventsClient() {
+  const { t, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
   const [meetingId, setMeetingId] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("");
   const [events, setEvents] = useState<AdminMeetingEventRow[]>([]);
@@ -48,7 +76,7 @@ export function AdminPhilifeMeetingEventsClient() {
           error?: string;
         };
         if (!res.ok || !j.ok) {
-          setErr(typeof j.error === "string" ? j.error : "불러오기 실패");
+          setErr(typeof j.error === "string" ? j.error : t("admin_meeting_events_fetch_failed"));
           if (!opts.append) setEvents([]);
           return;
         }
@@ -63,14 +91,13 @@ export function AdminPhilifeMeetingEventsClient() {
         setLoading(false);
       }
     },
-    [buildQuery, offset]
+    [buildQuery, offset, t]
   );
 
   const onSearch = () => void load({ append: false });
 
   useEffect(() => {
     void load({ append: false });
-    // 최초 마운트 시에만 전역 최근 로그를 불러옵니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -85,29 +112,31 @@ export function AdminPhilifeMeetingEventsClient() {
     window.location.assign(`/api/admin/meeting-events?${sp.toString()}`);
   };
 
+  const emptyDash = t("admin_users_empty_placeholder");
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-app/80 p-3">
         <label className="flex flex-col gap-1 sam-text-helper text-sam-muted">
-          모임 ID (UUID)
+          {t("admin_meeting_events_meeting_id_label")}
           <input
             value={meetingId}
             onChange={(e) => setMeetingId(e.target.value)}
-            placeholder="비우면 전체"
+            placeholder={t("admin_meeting_events_meeting_id_placeholder")}
             className="min-w-[240px] rounded border border-sam-border bg-sam-surface px-2 py-1.5 font-mono sam-text-helper"
           />
         </label>
         <label className="flex flex-col gap-1 sam-text-helper text-sam-muted">
-          유형
+          {t("admin_meeting_events_type_label")}
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="min-w-[10rem] rounded border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary"
           >
-            <option value="">전체</option>
-            {MEETING_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {MEETING_EVENT_TYPE_LABELS[t]}
+            <option value="">{t("admin_report_filter_all")}</option>
+            {MEETING_EVENT_TYPES.map((ev) => (
+              <option key={ev} value={ev}>
+                {t(MEETING_EVENT_TYPE_KEYS[ev])}
               </option>
             ))}
           </select>
@@ -118,14 +147,14 @@ export function AdminPhilifeMeetingEventsClient() {
           onClick={onSearch}
           className="rounded-ui-rect bg-sky-600 px-4 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
         >
-          조회
+          {t("admin_meeting_events_search")}
         </button>
         <button
           type="button"
           onClick={downloadCsv}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
-          CSV 내려받기 (최대 500건)
+          {t("admin_meeting_events_csv")}
         </button>
       </div>
       {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
@@ -133,20 +162,20 @@ export function AdminPhilifeMeetingEventsClient() {
         <table className="min-w-full text-left sam-text-helper text-sam-fg">
           <thead className="bg-sam-app sam-text-xxs uppercase text-sam-muted">
             <tr>
-              <th className="px-2 py-2">시각</th>
-              <th className="px-2 py-2">모임</th>
-              <th className="px-2 py-2">유형</th>
-              <th className="px-2 py-2">내용</th>
+              <th className="px-2 py-2">{t("admin_meeting_events_col_time")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_events_col_meeting")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_events_col_type")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_events_col_body")}</th>
             </tr>
           </thead>
           <tbody>
             {events.map((e) => {
               const time =
                 e.created_at && !Number.isNaN(Date.parse(e.created_at))
-                  ? new Date(e.created_at).toLocaleString("ko-KR")
+                  ? new Date(e.created_at).toLocaleString(dateLocale)
                   : e.created_at;
               const typeLabel = isMeetingEventType(e.event_type)
-                ? MEETING_EVENT_TYPE_LABELS[e.event_type]
+                ? t(MEETING_EVENT_TYPE_KEYS[e.event_type])
                 : e.event_type;
               const desc = formatMeetingEventDescription(e);
               return (
@@ -154,7 +183,7 @@ export function AdminPhilifeMeetingEventsClient() {
                   <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted">{time}</td>
                   <td className="max-w-[200px] px-2 py-2">
                     <div className="truncate font-medium text-sam-fg" title={e.meeting_title ?? ""}>
-                      {e.meeting_title || "—"}
+                      {e.meeting_title || emptyDash}
                     </div>
                     <div className="font-mono sam-text-xxs text-sam-meta">{e.meeting_id.slice(0, 8)}…</div>
                     <Link
@@ -163,7 +192,7 @@ export function AdminPhilifeMeetingEventsClient() {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      모임 상세
+                      {t("admin_meeting_events_meeting_detail")}
                     </Link>
                   </td>
                   <td className="whitespace-nowrap px-2 py-2">{typeLabel}</td>
@@ -175,7 +204,7 @@ export function AdminPhilifeMeetingEventsClient() {
         </table>
       </div>
       {events.length === 0 && !loading ? (
-        <p className="sam-text-body-secondary text-sam-muted">해당 조건에 맞는 기록이 없습니다.</p>
+        <p className="sam-text-body-secondary text-sam-muted">{t("admin_meeting_events_empty")}</p>
       ) : null}
       {hasMore ? (
         <button
@@ -184,7 +213,7 @@ export function AdminPhilifeMeetingEventsClient() {
           onClick={() => void load({ append: true })}
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2 sam-text-body-secondary disabled:opacity-50"
         >
-          {loading ? "불러오는 중…" : "더보기"}
+          {loading ? t("common_loading") : t("admin_meeting_events_load_more")}
         </button>
       ) : null}
     </div>

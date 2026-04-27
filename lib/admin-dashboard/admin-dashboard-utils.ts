@@ -1,40 +1,42 @@
 /**
- * 19단계: 대시보드 라벨/옵션
+ * 대시보드 상태 키 → i18n MessageKey (표시는 `t(labelKey)`).
  */
 
-export const PRODUCT_STATUS_LABELS: Record<string, string> = {
-  active: "판매중",
-  reserved: "예약중",
-  sold: "판매완료",
-  hidden: "숨김",
-  blinded: "블라인드",
-  deleted: "삭제",
+import type { MessageKey } from "@/lib/i18n/messages";
+
+export const PRODUCT_STATUS_LABEL_KEYS: Partial<Record<string, MessageKey>> = {
+  active: "admin_dashboard_product_active",
+  reserved: "admin_dashboard_product_reserved",
+  sold: "admin_dashboard_product_sold",
+  hidden: "admin_dashboard_product_hidden",
+  blinded: "admin_dashboard_product_blinded",
+  deleted: "admin_dashboard_product_deleted",
 };
 
-export const USER_STATUS_LABELS: Record<string, string> = {
-  active: "정상",
-  warned: "경고",
-  suspended: "정지",
-  banned: "영구정지",
-  premium: "프리미엄",
-  admin: "관리자",
+export const USER_STATUS_LABEL_KEYS: Partial<Record<string, MessageKey>> = {
+  active: "admin_dashboard_user_active",
+  warned: "admin_dashboard_user_warned",
+  suspended: "admin_dashboard_user_suspended",
+  banned: "admin_dashboard_user_banned",
+  premium: "admin_dashboard_user_premium",
+  admin: "admin_dashboard_user_admin",
 };
 
-export const REPORT_STATUS_LABELS: Record<string, string> = {
-  pending: "대기",
-  reviewed: "검토완료",
-  rejected: "반려",
+export const REPORT_STATUS_LABEL_KEYS: Partial<Record<string, MessageKey>> = {
+  pending: "admin_dashboard_report_pending",
+  reviewed: "admin_dashboard_report_reviewed",
+  rejected: "admin_dashboard_report_rejected",
 };
 
-export const CHAT_STATUS_LABELS: Record<string, string> = {
-  active: "활성",
-  blocked: "차단",
-  reported: "신고됨",
-  archived: "보관",
+export const CHAT_STATUS_LABEL_KEYS: Partial<Record<string, MessageKey>> = {
+  active: "admin_dashboard_chat_active",
+  blocked: "admin_dashboard_chat_blocked",
+  reported: "admin_dashboard_chat_reported",
+  archived: "admin_dashboard_chat_archived",
 };
 
-export const DATE_RANGE_OPTIONS = [
-  { value: "7", label: "최근 7일" },
-  { value: "14", label: "최근 14일" },
-  { value: "30", label: "최근 30일" },
-] as const;
+export const DATE_RANGE_OPTIONS: readonly { value: string; labelKey: MessageKey }[] = [
+  { value: "7", labelKey: "admin_dashboard_range_7" },
+  { value: "14", labelKey: "admin_dashboard_range_14" },
+  { value: "30", labelKey: "admin_dashboard_range_30" },
+];

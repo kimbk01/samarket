@@ -10,19 +10,6 @@ export interface ReportActionLogItem {
   adminNickname: string;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  reject: "반려",
-  warn: "경고",
-  chat_ban: "채팅 제한",
-  product_hide: "게시글 숨김",
-  account_suspend: "계정 일시 정지",
-  account_ban: "계정 영구 정지",
-};
-
-export function labelReportActionType(code: string): string {
-  return ACTION_LABELS[code] ?? code;
-}
-
 export async function getReportActionsFromDb(reportId: string): Promise<ReportActionLogItem[]> {
   const supabase = getSupabaseClient();
   if (!supabase) return [];

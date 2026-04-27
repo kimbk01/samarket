@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { DashboardTrendItem } from "@/lib/types/admin-dashboard";
 
 interface AdminTrendChartProps {
@@ -15,9 +16,11 @@ function formatDate(s: string) {
 
 export const AdminTrendChart = memo(function AdminTrendChart({
   data,
-  title = "일별 추이",
+  title,
   loading,
 }: AdminTrendChartProps) {
+  const { t } = useI18n();
+  const chartTitle = title ?? t("admin_dashboard_trend_default");
   const maxVal = Math.max(
     1,
     ...data.flatMap((d) => [
@@ -30,9 +33,9 @@ export const AdminTrendChart = memo(function AdminTrendChart({
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      {title && (
-        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{title}</h2>
-      )}
+      {chartTitle ? (
+        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{chartTitle}</h2>
+      ) : null}
       <div className="space-y-2">
         {loading &&
           data.map((d) => (
@@ -54,7 +57,7 @@ export const AdminTrendChart = memo(function AdminTrendChart({
                   width: `${(d.newProducts / maxVal) * 100}%`,
                   minWidth: d.newProducts > 0 ? "4px" : "0",
                 }}
-                title={`상품 ${d.newProducts}`}
+                title={t("admin_dashboard_trend_tip_product", { count: d.newProducts })}
               />
               <div
                 className="h-6 rounded bg-emerald-500/30"
@@ -62,7 +65,7 @@ export const AdminTrendChart = memo(function AdminTrendChart({
                   width: `${(d.newUsers / maxVal) * 100}%`,
                   minWidth: d.newUsers > 0 ? "4px" : "0",
                 }}
-                title={`회원 ${d.newUsers}`}
+                title={t("admin_dashboard_trend_tip_user", { count: d.newUsers })}
               />
               <div
                 className="h-6 rounded bg-amber-500/30"
@@ -70,7 +73,7 @@ export const AdminTrendChart = memo(function AdminTrendChart({
                   width: `${(d.reports / maxVal) * 100}%`,
                   minWidth: d.reports > 0 ? "4px" : "0",
                 }}
-                title={`신고 ${d.reports}`}
+                title={t("admin_dashboard_trend_tip_report", { count: d.reports })}
               />
               <div
                 className="h-6 rounded bg-sam-primary-soft/30"
@@ -78,17 +81,17 @@ export const AdminTrendChart = memo(function AdminTrendChart({
                   width: `${(d.completedTransactions / maxVal) * 100}%`,
                   minWidth: d.completedTransactions > 0 ? "4px" : "0",
                 }}
-                title={`거래 ${d.completedTransactions}`}
+                title={t("admin_dashboard_trend_tip_trade", { count: d.completedTransactions })}
               />
             </div>
           </div>
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-3 sam-text-xxs text-sam-muted">
-        <span>■ 상품</span>
-        <span>■ 회원</span>
-        <span>■ 신고</span>
-        <span>■ 거래</span>
+        <span>■ {t("admin_dashboard_trend_legend_product")}</span>
+        <span>■ {t("admin_dashboard_trend_legend_user")}</span>
+        <span>■ {t("admin_dashboard_trend_legend_report")}</span>
+        <span>■ {t("admin_dashboard_trend_legend_trade")}</span>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminKpiCards } from "@/components/admin/dashboard/AdminKpiCards";
 import { DashboardUrgentBlock } from "@/components/admin/dashboard/DashboardUrgentBlock";
@@ -16,7 +17,6 @@ import {
 import { mergeDashboardPayloadPreserveRefs } from "@/lib/admin-dashboard/merge-dashboard-payload-preserve-refs";
 import type { DashboardPayload } from "@/lib/types/admin-dashboard";
 import { fetchAdminDashboardStatsDeduped } from "@/lib/admin/fetch-admin-dashboard-stats-deduped";
-
 type LoadState = "loading" | "ready" | "error";
 
 export function AdminDashboardPage({
@@ -25,6 +25,7 @@ export function AdminDashboardPage({
   /** RSC에서 관리자 확인 후 한 번 조회 — 클라이언트 첫 `/api/admin/stats/dashboard` 생략 */
   initialDashboardPayload?: DashboardPayload | null;
 }) {
+  const { t } = useI18n();
   const serverSeeded =
     initialDashboardPayload != null && isDashboardApiPayload(initialDashboardPayload);
 
@@ -68,7 +69,7 @@ export function AdminDashboardPage({
 
   return (
     <div className="sam-page-stack">
-      <AdminPageHeader title="대시보드" />
+      <AdminPageHeader titleKey="admin_menu_dashboard" />
 
       {loadState === "error" && (
         <div
@@ -76,29 +77,35 @@ export function AdminDashboardPage({
           role="alert"
         >
           <p className="font-medium">
-            운영 지표를 불러오지 못했습니다.
+            {t("admin_dashboard_stats_error_title")}
           </p>
           <p className="mt-1 text-sam-muted">
-            Supabase 서비스 키·DB 연결·관리자 권한을 확인한 뒤 다시 시도해 주세요.
-            {lastErrorAt ? ` (오류 시각 ${lastErrorAt.slice(0, 19).replace("T", " ")})` : ""}
+            {t("admin_dashboard_stats_error_hint")}
+            {lastErrorAt
+              ? ` (${t("admin_dashboard_stats_error_time")} ${lastErrorAt.slice(0, 19).replace("T", " ")})`
+              : ""}
           </p>
           <button
             type="button"
             onClick={() => load({ showLoading: true })}
             className="sam-btn sam-btn--outline sam-btn--sm mt-3"
           >
-            다시 불러오기
+            {t("admin_dashboard_retry")}
           </button>
         </div>
       )}
 
       <section>
-        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">오늘 운영 현황</h2>
+        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">
+          {t("admin_dashboard_section_today")}
+        </h2>
         <AdminKpiCards stats={payload.stats} loading={loading} />
       </section>
       <DashboardUrgentBlock />
       <section>
-        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">영역별 바로가기</h2>
+        <h2 className="mb-3 sam-text-body-secondary font-medium text-sam-muted">
+          {t("admin_dashboard_section_shortcuts")}
+        </h2>
         <DashboardQuickLinksBySection />
       </section>
       <AdminStatusSummaryPanels
@@ -120,7 +127,7 @@ export function AdminDashboardPage({
         <div className="lg:col-span-2">
           <AdminTrendChart
             data={payload.trend}
-            title="일별 추이 (최근 7일)"
+            title={t("admin_dashboard_trend_7d")}
             loading={loading}
           />
         </div>

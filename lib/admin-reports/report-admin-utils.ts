@@ -2,39 +2,40 @@
  * 12단계: 관리자 신고 필터·액션 타입 유틸
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { Report, ReportStatus, ReportTargetType } from "@/lib/types/report";
 
-export const TARGET_TYPE_OPTIONS: { value: ReportTargetType | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "product", label: "상품·게시글 신고" },
-  { value: "community", label: "커뮤니티 피드" },
-  { value: "chat", label: "채팅 신고" },
-  { value: "user", label: "사용자 신고" },
+export const TARGET_TYPE_OPTIONS: { value: ReportTargetType | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "product", labelKey: "admin_report_filter_target_product" },
+  { value: "community", labelKey: "admin_report_filter_target_community" },
+  { value: "chat", labelKey: "admin_report_filter_target_chat" },
+  { value: "user", labelKey: "admin_report_filter_target_user" },
 ];
 
-export const REPORT_STATUS_OPTIONS: { value: ReportStatus | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "pending", label: "대기" },
-  { value: "reviewing", label: "검토중" },
-  { value: "reviewed", label: "검토완료" },
-  { value: "resolved", label: "처리완료" },
-  { value: "rejected", label: "반려" },
-  { value: "sanctioned", label: "제재완료" },
+export const REPORT_STATUS_OPTIONS: { value: ReportStatus | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "pending", labelKey: "admin_dashboard_report_pending" },
+  { value: "reviewing", labelKey: "admin_report_status_reviewing" },
+  { value: "reviewed", labelKey: "admin_dashboard_report_reviewed" },
+  { value: "resolved", labelKey: "admin_report_status_resolved" },
+  { value: "rejected", labelKey: "admin_dashboard_report_rejected" },
+  { value: "sanctioned", labelKey: "admin_report_status_sanctioned" },
 ];
 
-const REASON_LABELS: { code: string; label: string }[] = [
-  { code: "spam", label: "스팸" },
-  { code: "fraud", label: "사기" },
-  { code: "abusive_language", label: "욕설·비방" },
-  { code: "no_show", label: "무응답·노쇼" },
-  { code: "inappropriate_item", label: "부적절한 상품" },
-  { code: "fake_listing", label: "허위 게시" },
-  { code: "other", label: "기타" },
+const REASON_ENTRIES: { code: string; labelKey: MessageKey }[] = [
+  { code: "spam", labelKey: "admin_report_reason_spam" },
+  { code: "fraud", labelKey: "admin_report_reason_fraud" },
+  { code: "abusive_language", labelKey: "admin_report_reason_abusive_language" },
+  { code: "no_show", labelKey: "admin_report_reason_no_show" },
+  { code: "inappropriate_item", labelKey: "admin_report_reason_inappropriate_item" },
+  { code: "fake_listing", labelKey: "admin_report_reason_fake_listing" },
+  { code: "other", labelKey: "admin_report_reason_other" },
 ];
 
-export const REASON_CODE_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "전체" },
-  ...REASON_LABELS.map((o) => ({ value: o.code, label: o.label })),
+export const REASON_CODE_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_report_filter_all" },
+  ...REASON_ENTRIES.map((o) => ({ value: o.code, labelKey: o.labelKey })),
 ];
 
 export function filterReports(
@@ -57,18 +58,3 @@ export function filterReports(
   }
   return list;
 }
-
-export const MODERATION_ACTION_LABELS: Record<string, string> = {
-  review_only: "검토완료",
-  reject_report: "반려",
-  reject: "반려",
-  warn: "경고",
-  suspend: "일시정지",
-  ban: "영구정지",
-  blind_product: "상품 블라인드",
-  delete_product: "상품 삭제",
-  chat_ban: "채팅 제한",
-  product_hide: "게시글 숨김",
-  account_suspend: "계정 일시 정지",
-  account_ban: "계정 영구 정지",
-};

@@ -8,7 +8,7 @@ export async function GET() {
     {
       ok: false,
       error: "legacy_oauth_start_disabled",
-      message: "SAMarket OAuth flow is standardized to Supabase Auth signInWithOAuth.",
+      message: "dibaY OAuth flow is standardized to Supabase Auth signInWithOAuth.",
     },
     { status: 410 }
   );

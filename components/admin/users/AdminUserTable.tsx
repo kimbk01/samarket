@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { memo, useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { AdminModerationStatusBadge } from "@/components/admin/AdminModerationStatusBadge";
-import type { AdminUserSortKey, AdminUserSortOrder } from "@/lib/admin-users/admin-user-utils";
+import {
+  ADMIN_USER_PROVIDER_LABEL_KEY,
+  type AdminUserSortKey,
+  type AdminUserSortOrder,
+} from "@/lib/admin-users/admin-user-utils";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
-const MEMBER_TYPE_LABELS: Record<AdminUser["memberType"], string> = {
-  normal: "일반",
-  premium: "특별",
-  admin: "관리자",
+const MEMBER_TYPE_SHORT_KEYS: Record<AdminUser["memberType"], MessageKey> = {
+  normal: "admin_users_member_type_normal_short",
+  premium: "admin_users_member_type_premium_short",
+  admin: "admin_users_member_type_admin_short",
 };
+
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
 
 interface AdminUserTableProps {
   users: AdminUser[];
@@ -31,17 +42,6 @@ const PROVIDER_BADGE_CLASS: Record<string, string> = {
   email: "border-[#d7e3ff] bg-[#eef4ff] text-[#1c1e21]",
   manual: "border-[#cfd6df] bg-[#f8fafc] text-[#475467]",
   unknown: "border-[#dadde1] bg-[#f7f8fa] text-[#65676b]",
-};
-
-const PROVIDER_LABEL: Record<string, string> = {
-  google: "구글",
-  kakao: "카카오톡",
-  naver: "네이버",
-  apple: "애플",
-  facebook: "페이스북",
-  email: "이메일",
-  manual: "수동 관리",
-  unknown: "확인 필요",
 };
 
 function GoogleProviderIcon() {
@@ -98,21 +98,28 @@ function ProviderIcon({ provider }: { provider: string }) {
   return <DefaultProviderIcon provider={provider} />;
 }
 
-function ProviderBadge({ user }: { user: AdminUser }) {
+function ProviderBadge({
+  user,
+  t,
+}: {
+  user: AdminUser;
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+}) {
   const provider = user.authProvider ?? "unknown";
+  const labelKey = ADMIN_USER_PROVIDER_LABEL_KEY[provider] ?? ADMIN_USER_PROVIDER_LABEL_KEY.unknown;
   return (
     <span className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${PROVIDER_BADGE_CLASS[provider] ?? PROVIDER_BADGE_CLASS.unknown}`}>
       <ProviderIcon provider={provider} />
-      <span>{PROVIDER_LABEL[provider] ?? user.providerLabel ?? provider}</span>
+      <span>{t(labelKey)}</span>
     </span>
   );
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "-";
+function formatDateTime(value: string | null | undefined, localeTag: string, emptyDash: string): string {
+  if (!value) return emptyDash;
   const time = new Date(value).getTime();
-  if (!Number.isFinite(time)) return "-";
-  return new Date(time).toLocaleString("ko-KR", {
+  if (!Number.isFinite(time)) return emptyDash;
+  return new Date(time).toLocaleString(localeTag, {
     year: "2-digit",
     month: "2-digit",
     day: "2-digit",
@@ -162,6 +169,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   showMemberUuid: boolean;
   onEditMember: (user: AdminUser) => void;
 }) {
+  const { t, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
+  const emptyCell = t("admin_users_empty_placeholder");
   const handleCopyLogin = useCallback(() => {
     const value = u.loginIdentifier ?? u.loginUsername ?? "";
     if (!value) return;
@@ -179,17 +189,17 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
   return (
     <tr className="group border-b border-[#e6eaf0] bg-white hover:bg-[#f8fbff]">
       <td className="sticky left-0 z-10 min-w-[132px] border-r border-[#e9edf3] whitespace-nowrap bg-white px-3 py-3 group-hover:bg-[#f8fbff]">
-        <ProviderBadge user={u} />
+        <ProviderBadge user={u} t={t} />
       </td>
       <td className="sticky left-[132px] z-10 min-w-[230px] border-r border-[#e9edf3] whitespace-nowrap bg-white px-3 py-3 group-hover:bg-[#f8fbff]">
-        <span className="text-[13px] font-semibold text-[#101828]">{u.loginIdentifier ?? u.loginUsername ?? "—"}</span>
+        <span className="text-[13px] font-semibold text-[#101828]">{u.loginIdentifier ?? u.loginUsername ?? emptyCell}</span>
         {u.loginIdentifier || u.loginUsername ?
           <button
             type="button"
             className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
             onClick={handleCopyLogin}
           >
-            복사
+            {t("admin_users_action_copy")}
           </button>
         : null}
         {showMemberUuid ? (
@@ -200,7 +210,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
             href={`/admin/users/${u.id}`}
             className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
           >
-            상세
+            {t("admin_users_action_detail")}
           </Link>
         : null}
         {showMemberUuid ? (
@@ -209,20 +219,24 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
             className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
             onClick={handleCopyUuid}
           >
-            UUID 복사
+            {t("admin_users_action_copy_uuid")}
           </button>
         ) : null}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 font-semibold text-[#101828]">{u.nickname}</td>
-      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || "-"}</td>
-      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || "-"}</td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || emptyCell}</td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || emptyCell}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">
         <span
           className={`rounded-full px-2.5 py-1 font-bold ${
             u.phoneVerified ? "bg-[#e7f3ff] text-[#1877f2]" : "bg-[#f0f2f5] text-[#65676b]"
           }`}
         >
-          {u.phoneVerified ? "완료" : u.verificationStatus === "pending" ? "대기" : "미인증"}
+          {u.phoneVerified
+            ? t("admin_users_phone_status_verified")
+            : u.verificationStatus === "pending"
+              ? t("admin_users_phone_status_pending")
+              : t("admin_users_phone_status_none")}
         </span>
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">
@@ -236,20 +250,20 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           }`}
         >
           {u.phoneVerified && String(u.memberStatus ?? "").toLowerCase() === "active"
-            ? "정상회원"
+            ? t("admin_users_member_state_active")
             : !u.phoneVerified
-              ? "전화미인증"
+              ? t("admin_users_member_state_need_phone")
               : String(u.memberStatus ?? "").toLowerCase() === "pending"
-                ? "대기회원"
-                : (u.memberStatus ?? "대기회원")}
+                ? t("admin_users_member_state_pending")
+                : (u.memberStatus ?? t("admin_users_member_state_pending"))}
         </span>
       </td>
-      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#101828]">{MEMBER_TYPE_LABELS[u.memberType]}</td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#101828]">{t(MEMBER_TYPE_SHORT_KEYS[u.memberType])}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3">
         <AdminModerationStatusBadge status={u.moderationStatus} />
       </td>
       <td className="max-w-[min(280px,32vw)] truncate border-r border-[#e9edf3] px-3 py-3 text-[#475467]" title={u.location ?? undefined}>
-        {u.location?.trim() ? u.location : "—"}
+        {u.location?.trim() ? u.location : emptyCell}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-right">
         <p className="font-bold text-[#1877f2]">{(u.pointBalance ?? 0).toLocaleString()}P</p>
@@ -257,7 +271,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           href={`/admin/users/${u.id}?tab=points`}
           className="text-[11px] text-[#65676b] hover:text-[#1877f2] hover:underline"
         >
-          내역
+          {t("admin_users_points_link")}
         </Link>
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-right text-[#475467]">
@@ -265,10 +279,10 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-right text-[#475467]">{u.reportCount}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs tabular-nums text-[#475467]">
-        {formatDateTime(u.joinedAt)}
+        {formatDateTime(u.joinedAt, dateLocale, emptyCell)}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs tabular-nums text-[#475467]">
-        {formatDateTime(u.lastSignInAt ?? u.lastActiveAt)}
+        {formatDateTime(u.lastSignInAt ?? u.lastActiveAt, dateLocale, emptyCell)}
       </td>
       <td className="whitespace-nowrap px-3 py-3 align-top">
         <button
@@ -276,7 +290,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           className="rounded-full border border-[#dbe7ff] bg-[#e7f3ff] px-3 py-1 text-xs font-bold text-[#1877f2] shadow-sm transition hover:bg-[#dbe7ff]"
           onClick={handleEdit}
         >
-          수정
+          {t("admin_users_action_edit")}
         </button>
       </td>
     </tr>
@@ -293,27 +307,28 @@ export function AdminUserTable({
   onSortChange,
   showMemberUuid = false,
 }: AdminUserTableProps) {
+  const { t } = useI18n();
   return (
     <div className="max-w-full overflow-x-auto rounded-xl border border-[#d0d7e2] bg-white shadow-sm">
       <table className="min-w-[1630px] border-collapse font-sans text-[13px] leading-normal">
         <thead>
           <tr className="border-b border-[#d0d7e2] bg-[#f6f8fb]">
-            <SortHeader label="가입수단" sortId="provider" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-0 z-20 bg-[#f6f8fb]" />
-            <SortHeader label="로그인 아이디" sortId="loginIdentifier" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-[132px] z-20 min-w-[230px] bg-[#f6f8fb]" />
-            <SortHeader label="닉네임" sortId="nickname" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">이메일</th>
-            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">전화번호</th>
-            <SortHeader label="전화 인증" sortId="phoneVerified" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">회원상태</th>
-            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">구분</th>
-            <SortHeader label="상태" sortId="moderationStatus" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">지역</th>
-            <SortHeader label="포인트" sortId="points" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <SortHeader label="상품/판매" sortId="products" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <SortHeader label="신고" sortId="reports" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <SortHeader label="가입일" sortId="joined" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <SortHeader label="최근 로그인" sortId="lastSignIn" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <th className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">작업</th>
+            <SortHeader label={t("admin_users_col_provider")} sortId="provider" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-0 z-20 bg-[#f6f8fb]" />
+            <SortHeader label={t("admin_users_col_login_id")} sortId="loginIdentifier" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} className="sticky left-[132px] z-20 min-w-[230px] bg-[#f6f8fb]" />
+            <SortHeader label={t("admin_users_col_nickname")} sortId="nickname" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_email")}</th>
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_phone")}</th>
+            <SortHeader label={t("admin_users_col_phone_verify")} sortId="phoneVerified" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_member_status")}</th>
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_member_type")}</th>
+            <SortHeader label={t("admin_users_col_moderation")} sortId="moderationStatus" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_region")}</th>
+            <SortHeader label={t("admin_users_col_points")} sortId="points" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <SortHeader label={t("admin_users_col_products_sales")} sortId="products" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <SortHeader label={t("admin_users_col_reports")} sortId="reports" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <SortHeader label={t("admin_users_col_joined")} sortId="joined" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <SortHeader label={t("admin_users_col_last_login")} sortId="lastSignIn" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
+            <th className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_actions")}</th>
           </tr>
         </thead>
         <tbody>

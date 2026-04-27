@@ -6,8 +6,8 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "SAMarket",
-    short_name: "SAMarket",
+    name: "dibaY",
+    short_name: "dibaY",
     description: "필리핀 거주 한국인을 위한 중고거래·커뮤니티·스토어·메신저",
     start_url: "/",
     scope: "/",

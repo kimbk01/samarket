@@ -34,7 +34,7 @@ export function groupInboxItemsByDateSection(
   const todayStart = startOfLocalDay(now);
   const yesterdayStart = todayStart - 86400000;
 
-  const locale = language === "ko" ? "ko-KR" : language === "zh-CN" ? "zh-CN" : "en-US";
+  const locale = language === "ko" ? "ko-KR" : "en-US";
 
   const buckets = new Map<string, InboxGroupItem[]>();
   const discovery: string[] = [];

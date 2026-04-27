@@ -16,7 +16,7 @@ const serverUrl =
 
 const config: CapacitorConfig = {
   appId: "io.samarket.app",
-  appName: "SAMarket",
+  appName: "dibaY",
   webDir: "capacitor-www",
   ...(serverUrl
     ? {

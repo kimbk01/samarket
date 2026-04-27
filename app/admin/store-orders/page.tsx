@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AdminLoadingFallbackSm } from "@/components/admin/AdminLoadingFallback";
 import { AdminStoreOrdersPage } from "@/components/admin/stores/AdminStoreOrdersPage";
 
 export default async function AdminStoreOrdersRoutePage({
@@ -11,7 +12,7 @@ export default async function AdminStoreOrdersRoutePage({
 
   return (
     <div className="p-4 md:p-6">
-      <Suspense fallback={<p className="text-sm text-sam-muted">불러오는 중…</p>}>
+      <Suspense fallback={<AdminLoadingFallbackSm />}>
         <AdminStoreOrdersPage initialFilters={orderId ? { orderId } : undefined} />
       </Suspense>
     </div>

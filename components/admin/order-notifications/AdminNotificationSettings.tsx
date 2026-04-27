@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   fetchMeNotificationSettingsGet,
   invalidateMeNotificationSettingsGetFlight,
@@ -55,6 +56,7 @@ function Row({
 }
 
 export function AdminNotificationSettings() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
   const [tableMissing, setTableMissing] = useState(false);
@@ -122,13 +124,13 @@ export function AdminNotificationSettings() {
   );
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("admin_order_notif_loading")}</p>;
   }
 
   if (unauthorized) {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        로그인한 계정의 인앱 알림 설정입니다. 관리자 콘솔에도 동일 세션이 필요합니다.
+        {t("admin_order_notif_settings_login_hint")}
       </p>
     );
   }
@@ -136,9 +138,7 @@ export function AdminNotificationSettings() {
   if (!s || tableMissing) {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        {tableMissing
-          ? "`user_notification_settings` 테이블이 없습니다."
-          : "설정을 불러오지 못했습니다."}
+        {tableMissing ? t("admin_order_notif_settings_table_missing") : t("admin_order_notif_settings_load_failed")}
       </p>
     );
   }
@@ -146,29 +146,45 @@ export function AdminNotificationSettings() {
   return (
     <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="border-b border-sam-border-soft px-4 py-3">
-        <h2 className="text-sm font-bold text-sam-fg">인앱 알림 (계정)</h2>
+        <h2 className="text-sm font-bold text-sam-fg">{t("admin_order_notif_settings_title")}</h2>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          `user_notification_settings` 에 저장됩니다.{" "}
+          {t("admin_order_notif_settings_stored_prefix")}{" "}
           <Link href="/my/settings/notifications" className="font-medium text-signature underline">
-            마이페이지 알림 설정
-          </Link>
-          과 동일합니다.
+            {t("admin_order_notif_settings_mypage_link")}
+          </Link>{" "}
+          {t("admin_order_notif_settings_same_suffix")}
         </p>
       </div>
       <Row
-        label="거래 채팅"
+        label={t("admin_order_notif_row_trade_chat")}
         checked={s.trade_chat_enabled}
         onChange={(v) => void patch({ trade_chat_enabled: v })}
       />
       <Row
-        label="커뮤니티 채팅"
+        label={t("admin_order_notif_row_community_chat")}
         checked={s.community_chat_enabled}
         onChange={(v) => void patch({ community_chat_enabled: v })}
       />
-      <Row label="주문 알림" checked={s.order_enabled} onChange={(v) => void patch({ order_enabled: v })} />
-      <Row label="매장 알림" checked={s.store_enabled} onChange={(v) => void patch({ store_enabled: v })} />
-      <Row label="인앱 알림음" checked={s.sound_enabled} onChange={(v) => void patch({ sound_enabled: v })} />
-      <Row label="진동" checked={s.vibration_enabled} onChange={(v) => void patch({ vibration_enabled: v })} />
+      <Row
+        label={t("admin_order_notif_row_order")}
+        checked={s.order_enabled}
+        onChange={(v) => void patch({ order_enabled: v })}
+      />
+      <Row
+        label={t("admin_order_notif_row_store")}
+        checked={s.store_enabled}
+        onChange={(v) => void patch({ store_enabled: v })}
+      />
+      <Row
+        label={t("admin_order_notif_row_sound")}
+        checked={s.sound_enabled}
+        onChange={(v) => void patch({ sound_enabled: v })}
+      />
+      <Row
+        label={t("admin_order_notif_row_vibration")}
+        checked={s.vibration_enabled}
+        onChange={(v) => void patch({ vibration_enabled: v })}
+      />
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getUserSettings,
   LANGUAGE_NAMES,
@@ -14,39 +13,20 @@ import {
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import { normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 
-const FALLBACK_LANGS = [
+const LANGUAGE_SEGMENTS: Array<{ code: AppLanguageCode; name: string }> = [
   { code: "ko", name: LANGUAGE_NAMES.ko },
   { code: "en", name: LANGUAGE_NAMES.en },
-  { code: "zh-CN", name: LANGUAGE_NAMES["zh-CN"] },
 ];
 
 export function LanguageSettingsContent() {
   const { language, setLanguage, t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
-  const [list, setList] = useState(FALLBACK_LANGS);
   const [current, setCurrent] = useState<AppLanguageCode>(language);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      void supabase
-        .from("app_supported_languages")
-        .select("code,name")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true })
-        .then(({ data }) => {
-          if (!cancelled && Array.isArray(data) && data.length > 0) {
-            setList(data as typeof FALLBACK_LANGS);
-          } else {
-            setList(FALLBACK_LANGS);
-          }
-        });
-    } else {
-      setList(FALLBACK_LANGS);
-    }
     const applyCurrent = () => {
       const s = getUserSettings(userId);
       setCurrent(normalizeAppLanguage(s.preferred_language ?? language));
@@ -85,23 +65,33 @@ export function LanguageSettingsContent() {
 
   return (
     <div className="space-y-3">
-      <ul className="divide-y divide-sam-border-soft">
-        {list.map((c) => (
-          <li key={c.code}>
+      <div className="flex w-full max-w-[420px] items-center gap-3">
+        {LANGUAGE_SEGMENTS.map((c) => {
+          const active = current === c.code;
+          return (
             <button
+              key={c.code}
               type="button"
               disabled={busy}
-              className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg disabled:opacity-60"
+              aria-pressed={active}
+              className={`group relative flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border px-4 transition-all duration-150 disabled:opacity-60 ${
+                active
+                  ? "border-transparent bg-gradient-to-r from-fuchsia-500 via-orange-400 to-amber-300 text-white shadow-[0_6px_18px_rgba(219,39,119,0.28)]"
+                  : "border-sam-border bg-sam-surface text-sam-muted hover:border-sam-border-strong hover:text-sam-fg"
+              }`}
               onClick={() => void select(c.code as AppLanguageCode)}
             >
-              <span>{c.name}</span>
-              {current === c.code && (
-                <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
-              )}
+              <span className={`truncate sam-text-body font-semibold ${active ? "pr-8" : ""}`}>{c.name}</span>
+              {active ? (
+                <span className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white text-amber-500 shadow-sm">
+                  ✓
+                </span>
+              ) : null}
             </button>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
+      <p className="sam-text-helper text-sam-meta">{t("common_selected")}</p>
       {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
     </div>
   );

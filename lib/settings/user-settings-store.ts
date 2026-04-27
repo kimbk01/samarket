@@ -155,7 +155,6 @@ export function subscribeUserSettings(
 export const LANGUAGE_NAMES: Record<string, string> = {
   ko: "한국어",
   en: "English",
-  "zh-CN": "简体中文",
 };
 
 export const COUNTRY_NAMES: Record<string, string> = {

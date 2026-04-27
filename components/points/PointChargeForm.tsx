@@ -123,7 +123,7 @@ export function PointChargeForm({ plans, onSuccess, onClose }: PointChargeFormPr
             <div className="rounded-ui-rect bg-amber-50 px-3 py-2.5 sam-text-helper text-amber-800">
               <p className="font-semibold">계좌 입금 안내</p>
               <p>입금 후 관리자 확인 시 포인트가 지급됩니다.</p>
-              <p className="mt-1 font-mono">BDO 0123-4567-8901 · SAMarket Philippines</p>
+              <p className="mt-1 font-mono">BDO 0123-4567-8901 · dibaY Philippines</p>
             </div>
             <input
               type="text"

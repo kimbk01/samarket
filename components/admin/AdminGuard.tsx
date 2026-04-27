@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 async function fetchServerAdminAccess(): Promise<boolean> {
@@ -20,6 +21,7 @@ async function fetchServerAdminAccess(): Promise<boolean> {
  * - 클라이언트 캐시/공개 env/테스트 세션으로 관리자 판정하지 않는다.
  */
 export function AdminGuard({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [allowed, setAllowed] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -57,7 +59,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
   if (checking) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center sam-text-body text-sam-muted">
-        확인 중…
+        {t("common_loading")}
       </div>
     );
   }

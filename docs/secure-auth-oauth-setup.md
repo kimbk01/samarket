@@ -4,12 +4,12 @@
 
 1. Supabase Dashboard -> `Authentication` -> `URL Configuration`
 2. `Site URL`:
-   - production: `https://samarket.vercel.app`
+   - production: `https://dibaY.vercel.app`
 3. `Redirect URLs`:
-   - `https://samarket.vercel.app/**`
+   - `https://dibaY.vercel.app/**`
    - `http://localhost:3000/**`
 
-SAMarket은 Supabase Auth OAuth 단일 구조입니다. OAuth 완료 후 앱은 `/auth/callback` 으로 복귀합니다.
+dibaY는 Supabase Auth OAuth 단일 구조입니다. OAuth 완료 후 앱은 `/auth/callback` 으로 복귀합니다.
 
 ## Google
 

@@ -1,4 +1,4 @@
-export const SUPPORTED_APP_LANGUAGES = ["ko", "en", "zh-CN"] as const;
+export const SUPPORTED_APP_LANGUAGES = ["ko", "en"] as const;
 
 export type AppLanguageCode = (typeof SUPPORTED_APP_LANGUAGES)[number];
 
@@ -14,10 +14,6 @@ const LANGUAGE_ALIASES: Record<string, AppLanguageCode> = {
   en: "en",
   "en-us": "en",
   "en-gb": "en",
-  zh: "zh-CN",
-  "zh-cn": "zh-CN",
-  "zh-hans": "zh-CN",
-  "zh-sg": "zh-CN",
 };
 
 export function normalizeAppLanguage(input: unknown): AppLanguageCode {

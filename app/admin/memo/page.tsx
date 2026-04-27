@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   MANUAL_DURING_TEST,
   BEFORE_PRODUCTION,
@@ -8,18 +10,17 @@ import {
 
 function MemoList({
   items,
-  sectionLabel,
+  sectionTitleKey,
 }: {
   items: MemoItem[];
-  sectionLabel: string;
+  sectionTitleKey: MessageKey;
 }) {
+  const { t: tr } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-5">
-      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">
-        {sectionLabel}
-      </h2>
+      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{tr(sectionTitleKey)}</h2>
       {items.length === 0 ? (
-        <p className="sam-text-body text-sam-muted">등록된 항목이 없습니다.</p>
+        <p className="sam-text-body text-sam-muted">{tr("admin_memo_empty")}</p>
       ) : (
         <ul className="space-y-3">
           {items.map((item) => (
@@ -50,36 +51,27 @@ function MemoList({
   );
 }
 
-/**
- * 관리자 메모: 테스트 기간 수동 적용 항목 / 실서비스 전 처리 목록
- * - 체크(적용 완료) 반영은 production-memo.ts에서 applied: true 로 설정.
- * - 적용 요청: 대화에서 "N번 적용해줘"라고 하면 코드 반영 후 해당 항목을 applied 로 표시해 줌.
- */
 export default function AdminMemoPage() {
+  const { t: tr } = useI18n();
   return (
     <div className="space-y-8 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-sam-fg">실서비스 메모</h1>
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">
-          테스트 기간 수동 적용 항목·실서비스 전 처리 목록. 적용 시 대화에서
-          &quot;N번 적용해줘&quot; 요청하면 코드 반영 후 체크 표시해 드립니다.
-        </p>
+        <h1 className="text-xl font-semibold text-sam-fg">{tr("admin_memo_page_title")}</h1>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">{tr("admin_memo_page_intro")}</p>
       </div>
 
-      <MemoList
-        items={MANUAL_DURING_TEST}
-        sectionLabel="테스트 기간 중 임의로 수동 적용된 부분"
-      />
-      <MemoList
-        items={BEFORE_PRODUCTION}
-        sectionLabel="실서비스 전 처리해야 할 부분"
-      />
+      <MemoList items={MANUAL_DURING_TEST} sectionTitleKey="admin_memo_section_manual" />
+      <MemoList items={BEFORE_PRODUCTION} sectionTitleKey="admin_memo_section_before_prod" />
 
       <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
-        <p className="font-medium">적용 방법</p>
+        <p className="font-medium">{tr("admin_memo_apply_how_title")}</p>
         <ul className="mt-1 list-inside list-disc space-y-0.5 text-amber-700">
-          <li>항목 추가·수정: <code className="rounded bg-amber-100 px-1">web/lib/admin/production-memo.ts</code> 편집</li>
-          <li>적용 완료(체크): 대화에서 &quot;1번 적용해줘&quot; 등 요청 → 코드 반영 후 해당 항목에 <code>applied: true</code> 설정</li>
+          <li>
+            {tr("admin_memo_apply_li_edit_before")}
+            <code className="rounded bg-amber-100 px-1">lib/admin/production-memo.ts</code>
+            {tr("admin_memo_apply_li_edit_after")}
+          </li>
+          <li>{tr("admin_memo_apply_li_done")}</li>
         </ul>
       </div>
     </div>

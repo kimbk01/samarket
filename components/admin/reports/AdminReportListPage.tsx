@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReportsForAdminFromDb } from "@/lib/admin-reports/getReportsFromDb";
 import type { Report } from "@/lib/types/report";
 import { filterReports } from "@/lib/admin-reports/report-admin-utils";
@@ -16,6 +17,7 @@ const DEFAULT_FILTERS: AdminReportFilters = {
 };
 
 export function AdminReportListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminReportFilters>(DEFAULT_FILTERS);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,18 +48,15 @@ export function AdminReportListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader
-        title="통합 신고 목록"
-        description="기존 reports와 커뮤니티 피드 신고(community_reports)를 한 표에 시간순으로 모읍니다. 상세보기에서 유형에 맞게 처리합니다."
-      />
+      <AdminPageHeader titleKey="admin_report_list_title" descriptionKey="admin_report_list_description" />
       <AdminReportFilterBar filters={filters} onChange={setFilters} />
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("admin_dashboard_loading")}
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          조건에 맞는 신고가 없습니다.
+          {t("admin_report_list_empty_filtered")}
         </div>
       ) : (
         <AdminReportTable reports={filtered} />

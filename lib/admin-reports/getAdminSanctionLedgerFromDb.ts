@@ -24,15 +24,6 @@ export interface AdminSanctionLedgerRow {
   admin_note: string | null;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  reject: "반려",
-  warn: "경고",
-  chat_ban: "채팅 제한",
-  product_hide: "상품 숨김",
-  account_suspend: "계정 정지",
-  account_ban: "영구 정지",
-};
-
 /**
  * 관리자 제재 원장 조회 (view: admin_sanction_ledger 또는 report_actions + reports 조인)
  * Part 5 SQL 실행 후 사용. 뷰가 없으면 report_actions + reports 직접 조인으로 폴백.
@@ -94,8 +85,4 @@ export async function getAdminSanctionLedgerFromDb(
   } catch {
     return [];
   }
-}
-
-export function getActionTypeLabel(type: string): string {
-  return ACTION_LABELS[type] ?? type;
 }

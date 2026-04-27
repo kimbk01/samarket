@@ -39,8 +39,6 @@ const AppLanguageContext = createContext<AppLanguageContextValue | null>(null);
 
 function resolveInitialLanguage(): AppLanguageCode {
   if (typeof window === "undefined") return DEFAULT_APP_LANGUAGE;
-  const stored = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
-  if (stored) return normalizeAppLanguage(stored);
   const userId = getCurrentUser()?.id;
   if (userId) {
     const userSettings = getUserSettings(userId);
@@ -48,6 +46,8 @@ function resolveInitialLanguage(): AppLanguageCode {
       return normalizeAppLanguage(userSettings.preferred_language);
     }
   }
+  const stored = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
+  if (stored) return normalizeAppLanguage(stored);
   return detectBrowserAppLanguage();
 }
 

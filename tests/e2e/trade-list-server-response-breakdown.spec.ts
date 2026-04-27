@@ -90,7 +90,7 @@ async function ensureLoggedIn(
 test.describe("trade list server response breakdown", () => {
   test("capture deployed server response breakdown", async ({ browser }) => {
     test.setTimeout(300_000);
-    const origin = "https://samarket.vercel.app";
+    const origin = process.env.E2E_REMOTE_ORIGIN?.trim() || "https://dibaY.vercel.app";
     const page = await browser.newPage();
     await ensureLoggedIn(page, origin, "aaaa", "1234");
     const result = await page.evaluate(async () => {

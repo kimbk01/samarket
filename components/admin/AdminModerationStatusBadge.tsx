@@ -1,12 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { ModerationStatus } from "@/lib/types/report";
 
-const LABELS: Record<ModerationStatus, string> = {
-  normal: "정상",
-  warned: "경고",
-  suspended: "일시정지",
-  banned: "영구정지",
+const LABEL_KEYS: Record<ModerationStatus, MessageKey> = {
+  normal: "admin_user_mod_normal",
+  warned: "admin_user_mod_warned",
+  suspended: "admin_user_mod_suspended",
+  banned: "admin_user_mod_badge_banned",
 };
 
 const CLASSES: Record<ModerationStatus, string> = {
@@ -25,11 +27,12 @@ export function AdminModerationStatusBadge({
   status,
   className = "",
 }: AdminModerationStatusBadgeProps) {
+  const { t } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
-      {LABELS[status]}
+      {t(LABEL_KEYS[status])}
     </span>
   );
 }

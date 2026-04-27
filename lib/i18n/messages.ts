@@ -4,6 +4,8 @@ import { commonMessages } from "./catalog/common";
 import { myMessages } from "./catalog/my";
 import { navigationMessages } from "./catalog/navigation";
 import { notificationMessages } from "./catalog/notifications";
+import koJson from "@/messages/ko.json";
+import enJson from "@/messages/en.json";
 
 export const MESSAGES = {
   ko: {
@@ -12,6 +14,7 @@ export const MESSAGES = {
     ...navigationMessages.ko,
     ...notificationMessages.ko,
     ...adminMessages.ko,
+    ...koJson,
   },
   en: {
     ...commonMessages.en,
@@ -19,13 +22,7 @@ export const MESSAGES = {
     ...navigationMessages.en,
     ...notificationMessages.en,
     ...adminMessages.en,
-  },
-  "zh-CN": {
-    ...commonMessages["zh-CN"],
-    ...myMessages["zh-CN"],
-    ...navigationMessages["zh-CN"],
-    ...notificationMessages["zh-CN"],
-    ...adminMessages["zh-CN"],
+    ...enJson,
   },
 } as const;
 
@@ -40,7 +37,7 @@ export function translate(
   key: MessageKey,
   vars?: Record<string, string | number>
 ): string {
-  const template = String(MESSAGES[language][key] ?? MESSAGES.ko[key] ?? key);
+  const template = String(MESSAGES[language][key] ?? MESSAGES.ko[key] ?? "");
   if (!vars) return template;
   return Object.entries(vars).reduce<string>(
     (acc, [name, value]) => acc.replaceAll(`{${name}}`, String(value)),

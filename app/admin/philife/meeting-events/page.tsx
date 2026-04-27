@@ -1,26 +1,26 @@
-import Link from "next/link";
+"use client";
+
 import { AdminPhilifeMeetingEventsClient } from "@/components/admin/community/AdminPhilifeMeetingEventsClient";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function AdminPhilifeMeetingEventsPage() {
+  const { t } = useI18n();
   return (
     <AdminGuard>
       <div className="space-y-6 p-4">
-        <AdminPageHeader
-          title="커뮤니티 — 모임 운영 로그"
-          description="전체 모임의 가입·승인·차단·공지 등 감사 로그를 조회합니다. CSV로 내려받을 수 있습니다."
-        />
+        <AdminPageHeader titleKey="admin_meeting_events_page_title" descriptionKey="admin_meeting_events_page_desc" />
         <div className="flex flex-wrap gap-3 sam-text-body">
           <HistoryBackTextLink
             fallbackHref="/admin/philife/meetings"
             className="text-sky-700 underline"
           >
-            ← 모임 관리
+            {t("admin_meeting_events_nav_meetings")}
           </HistoryBackTextLink>
           <HistoryBackTextLink fallbackHref="/admin/philife" className="text-sky-700 underline">
-            ← 커뮤니티
+            {t("admin_meeting_events_nav_philife")}
           </HistoryBackTextLink>
         </div>
         <AdminPhilifeMeetingEventsClient />

@@ -35,8 +35,13 @@ function adminOrderHref(r: Row): string {
   return "/admin/delivery-orders";
 }
 
+function localeForAdmin(language: string): string {
+  if (language === "en") return "en-US";
+  return "ko-KR";
+}
+
 export function AdminNotificationList() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -132,13 +137,13 @@ export function AdminNotificationList() {
   };
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("admin_order_notif_loading")}</p>;
   }
 
   if (error === "unauthorized") {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        관리자로 로그인한 뒤 알림을 확인하세요.
+        {t("admin_order_notif_login_prompt")}
       </p>
     );
   }
@@ -146,22 +151,20 @@ export function AdminNotificationList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-2">
-        <p className="text-sm text-sam-muted">
-          Supabase `notifications` 원장 기준 인앱 알림입니다. 주문·매장·시스템 알림이 포함될 수 있습니다.
-        </p>
+        <p className="text-sm text-sam-muted">{t("admin_order_notif_intro")}</p>
         {rows.some((r) => !r.is_read) ? (
           <button
             type="button"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg"
             onClick={() => void markAllRead()}
           >
-            전체 읽음
+            {t("admin_order_notif_mark_all_read")}
           </button>
         ) : null}
       </div>
       {rows.length === 0 ? (
         <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">
-          알림이 없습니다.
+          {t("admin_order_notif_empty")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -182,7 +185,7 @@ export function AdminNotificationList() {
                     {kindLabel ?? typeLabel}
                     {kindLabel ? <span className="text-sam-muted"> · {typeLabel}</span> : null}
                   </span>
-                  <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
+                  <span>{new Date(r.created_at).toLocaleString(localeForAdmin(language))}</span>
                 </div>
                 <p className="mt-1 text-sm font-bold text-sam-fg">{r.title}</p>
                 {r.body ? <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
@@ -194,7 +197,7 @@ export function AdminNotificationList() {
                       if (!r.is_read) void markRead(r.id);
                     }}
                   >
-                    바로가기
+                    {t("admin_order_notif_shortcut")}
                   </Link>
                   {!r.is_read ? (
                     <button
@@ -202,7 +205,7 @@ export function AdminNotificationList() {
                       className="text-xs text-sam-muted underline"
                       onClick={() => void markRead(r.id)}
                     >
-                      읽음
+                      {t("admin_order_notif_mark_read")}
                     </button>
                   ) : null}
                 </div>
@@ -213,7 +216,7 @@ export function AdminNotificationList() {
       )}
       <p className="text-xs text-sam-muted">
         <Link href="/admin/order-notifications/settings" className="text-signature underline">
-          알림 설정
+          {t("admin_order_notif_settings_link")}
         </Link>
       </p>
     </div>

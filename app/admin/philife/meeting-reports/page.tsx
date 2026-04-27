@@ -1,5 +1,5 @@
 import { AdminGuard } from "@/components/admin/AdminGuard";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { AdminPhilifeMeetingReportsHeader } from "@/components/admin/philife/AdminPhilifeMeetingReportsHeader";
 import { AdminMeetingReportsPage } from "@/components/admin/philife/AdminMeetingReportsPage";
 import { listMeetingReportsForAdmin } from "@/lib/neighborhood/admin-meeting-reports";
 
@@ -11,10 +11,7 @@ export default async function AdminPhilifeMeetingReportsRoute() {
   return (
     <AdminGuard>
       <div className="space-y-6 p-4">
-        <AdminPageHeader
-          title="모임 신고 관리"
-          description="meeting_reports 테이블 — 피드·앨범·채팅·멤버 신고 검토 및 조치"
-        />
+        <AdminPhilifeMeetingReportsHeader />
         <AdminMeetingReportsPage initialRows={rows} />
       </div>
     </AdminGuard>

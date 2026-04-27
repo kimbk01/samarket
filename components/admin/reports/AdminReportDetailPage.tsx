@@ -3,30 +3,29 @@
 import { useCallback, useState, useEffect } from "react";
 import type { Report } from "@/lib/types/report";
 import { getReportByIdFromDb } from "@/lib/admin-reports/getReportsFromDb";
-import {
-  getReportActionsFromDb,
-  labelReportActionType,
-} from "@/lib/admin-reports/getReportActionsFromDb";
+import { getReportActionsFromDb } from "@/lib/admin-reports/getReportActionsFromDb";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import Link from "next/link";
 import { AdminSanctionPanel } from "./AdminSanctionPanel";
-import { MODERATION_ACTION_LABELS } from "@/lib/admin-reports/report-admin-utils";
-
-const STATUS_DISPLAY: Record<string, string> = {
-  pending: "대기",
-  reviewing: "검토중",
-  reviewed: "검토완료",
-  resolved: "처리완료",
-  rejected: "반려",
-  sanctioned: "제재완료",
-};
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  REPORT_STATUS_LABEL_KEYS,
+  REPORT_TARGET_TYPE_LABEL_KEYS,
+  messageKeyForReportAction,
+} from "@/lib/admin-reports/report-admin-i18n-keys";
 
 interface AdminReportDetailPageProps {
   reportId: string;
 }
 
+function localeForDetail(language: string): string {
+  if (language === "en") return "en-US";
+  return "ko-KR";
+}
+
 export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) {
+  const { t, language } = useI18n();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLogs, setActionLogs] = useState<
@@ -53,58 +52,50 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
 
   if (loading && !report) {
     return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        불러오는 중…
-      </div>
+      <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_dashboard_loading")}</div>
     );
   }
 
   if (!report) {
     return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        신고를 찾을 수 없습니다.
-      </div>
+      <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_report_not_found")}</div>
     );
   }
 
+  const targetTypeKey = REPORT_TARGET_TYPE_LABEL_KEYS[report.targetType] ?? "admin_report_target_user";
+  const statusKey = REPORT_STATUS_LABEL_KEYS[report.status];
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="신고 상세" backHref="/admin/reports" />
+      <AdminPageHeader titleKey="admin_report_detail_title" backHref="/admin/reports" />
 
-      <AdminCard title="신고 정보">
+      <AdminCard titleKey="admin_report_card_info">
         <dl className="grid gap-2 sam-text-body">
           <div>
-            <dt className="text-sam-muted">ID</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_id")}</dt>
             <dd className="font-medium text-sam-fg">{report.id}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">유형</dt>
-            <dd>
-              {report.targetType === "product"
-                ? "상품·게시글"
-                : report.targetType === "chat"
-                  ? "채팅"
-                  : report.targetType === "community"
-                    ? "커뮤니티 피드"
-                    : "사용자"}
-            </dd>
+            <dt className="text-sam-muted">{t("admin_report_dt_type")}</dt>
+            <dd>{t(targetTypeKey)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">대상</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_target")}</dt>
             <dd className="truncate">{report.targetTitle ?? report.targetId}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">사유</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_reason")}</dt>
             <dd>
               {report.reasonLabel}
               {report.detail ? (
-                <span className="mt-1 block whitespace-pre-wrap sam-text-body-secondary text-sam-muted">{report.detail}</span>
+                <span className="mt-1 block whitespace-pre-wrap sam-text-body-secondary text-sam-muted">
+                  {report.detail}
+                </span>
               ) : null}
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">상태</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_status")}</dt>
             <dd>
               <span
                 className={`inline-block rounded px-2 py-0.5 sam-text-helper ${
@@ -115,40 +106,43 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
                       : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
-                {STATUS_DISPLAY[report.status] ?? report.status}
+                {statusKey ? t(statusKey) : report.status}
               </span>
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">신고일</dt>
-            <dd>
-              {new Date(report.createdAt).toLocaleString("ko-KR")}
-            </dd>
+            <dt className="text-sam-muted">{t("admin_report_dt_reported_at")}</dt>
+            <dd>{new Date(report.createdAt).toLocaleString(localeForDetail(language))}</dd>
           </div>
         </dl>
       </AdminCard>
 
-      <AdminCard title="신고자 / 대상자">
+      <AdminCard titleKey="admin_report_card_parties">
         <dl className="grid gap-2 sam-text-body">
           <div>
-            <dt className="text-sam-muted">신고자</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_reporter")}</dt>
             <dd>
               {report.reporterNickname ?? report.reporterId} ({report.reporterId})
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">피신고자(게시글 작성자) ID</dt>
+            <dt className="text-sam-muted">{t("admin_report_dt_target_user")}</dt>
             <dd className="font-mono sam-text-body-secondary">{report.targetUserId || "—"}</dd>
           </div>
           {report.targetType === "product" && report.targetId && (
             <div>
-              <dt className="text-sam-muted">게시글</dt>
+              <dt className="text-sam-muted">{t("admin_report_dt_post")}</dt>
               <dd className="flex flex-wrap gap-3">
-                <Link href={`/post/${report.targetId}`} className="text-signature hover:underline" target="_blank" rel="noreferrer">
-                  웹에서 글 보기
+                <Link
+                  href={`/post/${report.targetId}`}
+                  className="text-signature hover:underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t("admin_report_link_open_post")}
                 </Link>
                 <Link href="/admin/community/posts" className="sam-text-body-secondary text-sam-muted hover:underline">
-                  게시글 관리 목록
+                  {t("admin_report_link_posts_admin_list")}
                 </Link>
               </dd>
             </div>
@@ -156,12 +150,8 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
         </dl>
       </AdminCard>
 
-      <AdminCard title="처리 · 제재 (DB 연동)">
-        <p className="mb-3 sam-text-body-secondary text-sam-muted">
-          반려·경고·채팅 제한·<strong>게시글 숨김</strong>(posts.status → hidden)·계정 정지 등은{" "}
-          <code className="sam-text-xxs">report_actions</code>에 기록되고, 해당 시{" "}
-          <code className="sam-text-xxs">sanctions</code>에 제재가 쌓입니다.
-        </p>
+      <AdminCard titleKey="admin_report_card_resolve">
+        <p className="mb-3 sam-text-body-secondary text-sam-muted">{t("admin_report_sanctions_intro")}</p>
         <AdminSanctionPanel
           reportId={report.id}
           targetUserId={report.targetUserId}
@@ -169,36 +159,42 @@ export function AdminReportDetailPage({ reportId }: AdminReportDetailPageProps) 
           onActionSuccess={refreshDetail}
         />
       </AdminCard>
-      <AdminCard title="처리 이력 (report_actions)">
+      <AdminCard titleKey="admin_report_card_log">
         {actionLogs.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">처리 이력이 없습니다.</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_report_no_logs")}</p>
         ) : (
           <ul className="space-y-2">
-            {actionLogs.map((a) => (
-              <li
-                key={a.id}
-                className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
-              >
-                <span className="font-medium text-sam-fg">
-                  {MODERATION_ACTION_LABELS[a.actionType] ?? labelReportActionType(a.actionType)}
-                </span>
-                <span className="text-sam-muted">{new Date(a.createdAt).toLocaleString("ko-KR")}</span>
-                <span className="text-sam-muted">· {a.adminNickname}</span>
-                {a.actionNote ? (
-                  <span className="w-full text-sam-muted">메모: {a.actionNote}</span>
-                ) : null}
-              </li>
-            ))}
+            {actionLogs.map((a) => {
+              const mk = messageKeyForReportAction(a.actionType);
+              const actionLabel = mk ? t(mk) : a.actionType;
+              return (
+                <li
+                  key={a.id}
+                  className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
+                >
+                  <span className="font-medium text-sam-fg">{actionLabel}</span>
+                  <span className="text-sam-muted">
+                    {new Date(a.createdAt).toLocaleString(localeForDetail(language))}
+                  </span>
+                  <span className="text-sam-muted">· {a.adminNickname}</span>
+                  {a.actionNote ? (
+                    <span className="w-full text-sam-muted">
+                      {t("admin_report_memo_with_note", { note: a.actionNote } as Record<string, string | number>)}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </AdminCard>
       {report.targetType === "chat" && report.targetId && (
-        <AdminCard title="관련 채팅">
+        <AdminCard titleKey="admin_report_card_chat">
           <Link
             href={`/admin/chats/${report.targetId}`}
             className="sam-text-body font-medium text-signature hover:underline"
           >
-            채팅방 상세 보기
+            {t("admin_report_chat_open_detail")}
           </Link>
         </AdminCard>
       )}

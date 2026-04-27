@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { AdminLoadingFallback } from "@/components/admin/AdminLoadingFallback";
 import { AdminPostsManagementPage } from "@/components/admin/posts-management/AdminPostsManagementPage";
 import { fetchAdminPostsManagementProducts } from "@/lib/admin-products/admin-posts-management-data";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -15,7 +16,7 @@ export default async function AdminPostsManagementRoute() {
   const initialProducts = await loadPostsServerSide();
 
   return (
-    <Suspense fallback={<div className="p-4 text-sam-muted">로딩 중…</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <AdminPostsManagementPage initialProducts={initialProducts} />
     </Suspense>
   );

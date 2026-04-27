@@ -300,7 +300,7 @@ test.describe("trade list local vs vercel", () => {
   test("capture local and vercel trade list metrics", async ({ browser, baseURL }) => {
     test.setTimeout(300_000);
     const localOrigin = baseURL ?? "http://127.0.0.1:3000";
-    const remoteOrigin = "https://samarket.vercel.app";
+    const remoteOrigin = process.env.E2E_REMOTE_ORIGIN?.trim() || "https://dibaY.vercel.app";
 
     const localPage = await browser.newPage();
     const remotePage = await browser.newPage();

@@ -22,6 +22,8 @@ export interface SalesHistoryRow {
   postId: string;
   /** product_chats 행이 없을 때 true — 채팅/거래완료 등 비활성 */
   noActiveChat?: boolean;
+  /** 판매자(글 소유자) — API에서 내려옴 */
+  sellerId?: string;
   buyerId: string;
   buyerNickname: string;
   title: string;
@@ -30,12 +32,19 @@ export interface SalesHistoryRow {
   sellerListingState?: string;
   thumbnail: string;
   lastMessageAt: string | null;
+  lastMessagePreview?: string;
   tradeFlowStatus?: string;
+  chatMode?: string;
   createdAt: string | null;
   sellerCompletedAt: string | null;
   buyerConfirmedAt: string | null;
   hasBuyerReview: boolean;
   buyerConfirmSource?: string | null;
+  soldBuyerId?: string | null;
+  /** 게시글 요약의 수정 시각 — `/api/my/sales` 의 `postUpdatedAt` */
+  postUpdatedAt?: string | null;
+  /** `postUpdatedAt` 과 동일 의미(레거시·빌드 호환) */
+  updatedAt?: string | null;
 }
 
 export function SalesHistoryCard({

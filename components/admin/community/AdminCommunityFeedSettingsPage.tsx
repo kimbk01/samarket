@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunityFeedOps } from "@/lib/community-feed/community-ops-settings";
 
 export function AdminCommunityFeedSettingsPage() {
+  const { t: tr } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bannedText, setBannedText] = useState("");
@@ -51,14 +53,14 @@ export function AdminCommunityFeedSettingsPage() {
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error ?? "저장 실패");
+        alert(j.error ?? tr("admin_topics_err_save"));
         return;
       }
       if (j.settings) {
         setOps(j.settings);
         setBannedText((j.settings as CommunityFeedOps).banned_words.join("\n"));
       }
-      alert("저장했습니다.");
+      alert(tr("admin_feed_settings_saved_ok"));
     } finally {
       setSaving(false);
     }
@@ -67,32 +69,30 @@ export function AdminCommunityFeedSettingsPage() {
   if (loading || !ops) {
     return (
       <div className="space-y-4">
-        <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
-        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+        <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/philife/sections" />
+        <p className="sam-text-body-secondary text-sam-muted">{tr("common_loading")}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="피드 운영 설정" backHref="/admin/philife/sections" />
-      <AdminCard title="커뮤니티 피드 (admin_settings · community_feed_ops)">
-        <p className="mb-4 sam-text-body-secondary text-sam-muted">
-          금칙어·본문 길이·하루 글 수·댓글 도배 간격을 설정합니다. 사용자 글/댓글 API에 반영됩니다.
-        </p>
+      <AdminPageHeader titleKey="admin_feed_settings_page_title" backHref="/admin/philife/sections" />
+      <AdminCard titleKey="admin_feed_settings_card_title">
+        <p className="mb-4 sam-text-body-secondary text-sam-muted">{tr("admin_feed_settings_intro")}</p>
         <form onSubmit={onSave} className="max-w-xl space-y-4 sam-text-body-secondary">
           <label className="flex flex-col gap-1">
-            <span className="font-medium text-sam-fg">금칙어 (한 줄에 하나, 부분 일치)</span>
+            <span className="font-medium text-sam-fg">{tr("admin_feed_settings_banned_label")}</span>
             <textarea
               className="min-h-[120px] rounded border border-sam-border px-2 py-2 font-mono sam-text-helper"
               value={bannedText}
               onChange={(e) => setBannedText(e.target.value)}
-              placeholder="예시단어"
+              placeholder={tr("admin_feed_settings_banned_placeholder")}
             />
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">제목 최대 길이</span>
+              <span className="text-sam-muted">{tr("admin_feed_settings_max_title")}</span>
               <input
                 type="number"
                 className="rounded border border-sam-border px-2 py-1.5"
@@ -103,7 +103,7 @@ export function AdminCommunityFeedSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">본문 최대 길이</span>
+              <span className="text-sam-muted">{tr("admin_feed_settings_max_content")}</span>
               <input
                 type="number"
                 className="rounded border border-sam-border px-2 py-1.5"
@@ -114,7 +114,7 @@ export function AdminCommunityFeedSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">댓글 최대 길이</span>
+              <span className="text-sam-muted">{tr("admin_feed_settings_max_comment")}</span>
               <input
                 type="number"
                 className="rounded border border-sam-border px-2 py-1.5"
@@ -125,7 +125,7 @@ export function AdminCommunityFeedSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">하루 글 개수 상한 (0 = 무제한)</span>
+              <span className="text-sam-muted">{tr("admin_feed_settings_max_posts_day")}</span>
               <input
                 type="number"
                 className="rounded border border-sam-border px-2 py-1.5"
@@ -136,7 +136,7 @@ export function AdminCommunityFeedSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1 sm:col-span-2">
-              <span className="text-sam-muted">댓글 최소 간격(초, 0 = 제한 없음)</span>
+              <span className="text-sam-muted">{tr("admin_feed_settings_min_comment_interval")}</span>
               <input
                 type="number"
                 className="max-w-xs rounded border border-sam-border px-2 py-1.5"
@@ -152,7 +152,7 @@ export function AdminCommunityFeedSettingsPage() {
             disabled={saving}
             className="rounded bg-sam-ink px-4 py-2 text-white disabled:opacity-50"
           >
-            {saving ? "저장 중…" : "저장"}
+            {saving ? tr("common_saving") : tr("common_save")}
           </button>
         </form>
       </AdminCard>

@@ -501,7 +501,7 @@ function LoginPageContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
-        <h1 className="text-center text-lg font-semibold text-sam-fg">로그인</h1>
+        <h1 className="text-center text-lg font-semibold text-sam-fg">dibaY 로그인</h1>
         <p className="mt-1 text-center sam-text-body-secondary text-sam-muted">
           관리자 설정에 따라 로그인 방식이 표시됩니다.
         </p>

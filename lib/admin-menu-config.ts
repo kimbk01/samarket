@@ -1,4 +1,5 @@
 import { adminMenu, type AdminMenuItem as SidebarAdminMenuItem } from "@/components/admin/admin-menu";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type AdminRole = "operator" | "manager" | "master";
 
@@ -58,24 +59,6 @@ function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string
   return out;
 }
 
-function lookupLabelByHref(href: string, fallback: string): string {
-  const queue = [...adminMenu];
-  while (queue.length > 0) {
-    const item = queue.shift();
-    if (!item) break;
-    if (item.path === href) return item.title;
-    if (item.children?.length) queue.push(...item.children);
-  }
-  return fallback;
-}
-
-function buildQuickLinks(hrefs: readonly string[], fallbackLabels: readonly string[]) {
-  return hrefs.map((href, index) => ({
-    href,
-    label: lookupLabelByHref(href, fallbackLabels[index] ?? href),
-  }));
-}
-
 const OPS_ITEMS = topChildren("operations");
 const ADS_ITEMS = topChildren("ads");
 const POINT_ITEMS = topChildren("points");
@@ -98,32 +81,27 @@ export const OPS_MENU_GROUPS: OpsMenuGroup[] = [
   { groupLabel: getTopMenu("operations").title, items: flattenMenuLinks(OPS_ITEMS) },
 ];
 
-export const OPS_QUICK_LINKS_PRIORITY = buildQuickLinks(
-  [
-    "/admin/operations",
-    "/admin/reports",
-    "/admin/products",
-    "/admin/users",
-    "/admin/boards",
-    "/admin/point-charges",
-    "/admin/chats",
-    "/admin/ad-applications",
-    "/admin/settings",
-  ],
-  ["운영 허브", "통합 신고·제재", "상품관리", "회원관리", "게시판관리", "포인트충전", "채팅관리", "광고신청 관리", "설정관리"]
-);
+/** 대시보드 바로가기 — 라벨은 `t(labelKey)` 로 표시 */
+export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
+  { href: "/admin/operations", labelKey: "admin_quicklink_ops_hub" },
+  { href: "/admin/reports", labelKey: "admin_quicklink_reports_ops" },
+  { href: "/admin/products", labelKey: "admin_menu_trade_products" },
+  { href: "/admin/users", labelKey: "admin_menu_users" },
+  { href: "/admin/boards", labelKey: "admin_menu_boards" },
+  { href: "/admin/point-charges", labelKey: "admin_menu_points_charge" },
+  { href: "/admin/chats", labelKey: "admin_menu_chat" },
+  { href: "/admin/ad-applications", labelKey: "admin_menu_ads_applications" },
+  { href: "/admin/settings", labelKey: "admin_menu_settings_general" },
+];
 
-export const MANAGE_QUICK_LINKS_PRIORITY = buildQuickLinks(
-  [
-    "/admin/ops-board",
-    "/admin/recommendation-reports",
-    "/admin/recommendation-experiments",
-    "/admin/ops-docs",
-    "/admin/ops-knowledge",
-    "/admin/ops-maturity",
-  ],
-  ["운영보드", "추천보고서", "A/B실험", "운영문서", "지식베이스", "운영성숙도"]
-);
+export const MANAGE_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
+  { href: "/admin/ops-board", labelKey: "admin_menu_manage_ops_board" },
+  { href: "/admin/recommendation-reports", labelKey: "admin_menu_manage_reports" },
+  { href: "/admin/recommendation-experiments", labelKey: "admin_menu_manage_ab" },
+  { href: "/admin/ops-docs", labelKey: "admin_menu_manage_docs" },
+  { href: "/admin/ops-knowledge", labelKey: "admin_menu_manage_kb" },
+  { href: "/admin/ops-maturity", labelKey: "admin_menu_manage_maturity" },
+];
 
 export const ADMIN_MENU_SECTIONS: AdminMenuSection[] = [
   { id: "dashboard", label: getTopMenu("dashboard").title, requiredRole: "operator", items: [] },

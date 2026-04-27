@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunitySectionAdminRow } from "@/lib/community-feed/types";
@@ -15,6 +16,7 @@ export function AdminCommunitySectionsPage({
   philifeNeighborhoodSectionSlug: string;
 }) {
   const router = useRouter();
+  const { t: tr } = useI18n();
   const [sections, setSections] = useState(initial);
   const [philifeSectionSlug, setPhilifeSectionSlug] = useState(initialPhilifeSlug);
   const [busy, setBusy] = useState(false);
@@ -54,8 +56,8 @@ export function AdminCommunitySectionsPage({
       if (!j.ok) {
         alert(
           j.error === "unknown_or_inactive_section"
-            ? "활성화된 섹션 목록에 없는 slug입니다. 아래 표에서 slug를 확인하세요."
-            : j.error ?? "저장 실패"
+            ? tr("admin_sections_err_unknown_inactive_section")
+            : j.error ?? tr("admin_topics_err_save")
         );
         return;
       }
@@ -82,7 +84,7 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error === "slug_duplicate" ? "이미 사용 중인 slug입니다." : j.error ?? "저장 실패");
+        alert(j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save"));
         return;
       }
       setName("");
@@ -112,7 +114,7 @@ export function AdminCommunitySectionsPage({
       });
       const j = await res.json();
       if (!j.ok) {
-        alert(j.error === "slug_duplicate" ? "이미 사용 중인 slug입니다." : j.error ?? "저장 실패");
+        alert(j.error === "slug_duplicate" ? tr("admin_topics_err_slug_duplicate") : j.error ?? tr("admin_topics_err_save"));
         return;
       }
       setEdit(null);
@@ -123,7 +125,7 @@ export function AdminCommunitySectionsPage({
   }
 
   async function removeRow(id: string) {
-    if (!confirm("이 섹션을 삭제할까요? 글이 있으면 삭제되지 않습니다.")) return;
+    if (!confirm(tr("admin_sections_confirm_delete"))) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/community/sections/${id}`, {
@@ -133,9 +135,7 @@ export function AdminCommunitySectionsPage({
       const j = await res.json();
       if (!j.ok) {
         alert(
-          j.error === "section_has_posts"
-            ? "이 섹션에 연결된 글이 있어 삭제할 수 없습니다. 비활성화하세요."
-            : j.error ?? "삭제 실패"
+          j.error === "section_has_posts" ? tr("admin_sections_err_has_posts") : j.error ?? tr("admin_sections_err_delete")
         );
         return;
       }
@@ -147,19 +147,21 @@ export function AdminCommunitySectionsPage({
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="피드 섹션 관리" backHref="/admin/boards" />
-      <AdminCard title="동네 피드에 쓸 섹션 (필라이프·앱 연동)">
+      <AdminPageHeader titleKey="admin_sections_page_title" backHref="/admin/boards" />
+      <AdminCard titleKey="admin_sections_card_philife_title">
         <p className="mb-3 sam-text-body-secondary text-sam-muted">
-          커뮤니티 동네 피드 칩·글쓰기 주제·모임 만들기 주제는 이 slug의{" "}
+          {tr("admin_sections_intro_a")}
           <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
-            피드 주제
+            {tr("admin_sections_intro_link_topics")}
           </a>
-          와 연동됩니다. 미설정 시 기본 <code className="rounded bg-sam-surface-muted px-1">dongnae</code>입니다. 저장 위치:{" "}
+          {tr("admin_sections_intro_b")}
+          <code className="rounded bg-sam-surface-muted px-1">dongnae</code>
+          {tr("admin_sections_intro_c")}
           <code className="rounded bg-sam-surface-muted px-1">admin_settings.philife_neighborhood_section</code>
         </p>
         <form onSubmit={savePhilifeNeighborhoodSection} className="flex flex-wrap items-end gap-2 sam-text-body-secondary">
           <label className="flex flex-col gap-0.5">
-            <span className="text-sam-muted">섹션 slug</span>
+            <span className="text-sam-muted">{tr("admin_sections_label_section_slug")}</span>
             <select
               className="min-w-[200px] rounded border border-sam-border px-2 py-1.5 font-mono sam-text-helper"
               value={
@@ -173,13 +175,13 @@ export function AdminCommunitySectionsPage({
               }
               onChange={(e) => setPhilifeSectionSlug(e.target.value)}
             >
-              <option value="">— 활성 섹션 선택 —</option>
+              <option value="">{tr("admin_sections_select_active_placeholder")}</option>
               {philifeSectionSlug &&
                 !sections.some(
                   (s) => s.is_active && normalizeSectionSlug(s.slug) === normalizeSectionSlug(philifeSectionSlug)
                 ) && (
                   <option value={philifeSectionSlug}>
-                    {philifeSectionSlug} (비활성·다시 지정 필요)
+                    {tr("admin_sections_option_inactive", { slug: philifeSectionSlug })}
                   </option>
                 )}
               {sections
@@ -196,32 +198,32 @@ export function AdminCommunitySectionsPage({
             disabled={busy || !philifeSectionSlug.trim()}
             className="rounded bg-sam-ink px-3 py-1.5 text-white disabled:opacity-50"
           >
-            저장
+            {tr("common_save")}
           </button>
         </form>
       </AdminCard>
-      <AdminCard title="섹션 추가">
+      <AdminCard titleKey="admin_sections_card_add_title">
         <form onSubmit={onCreate} className="flex flex-wrap items-end gap-2 sam-text-body-secondary">
           <label className="flex flex-col gap-0.5">
-            <span className="text-sam-muted">이름</span>
+            <span className="text-sam-muted">{tr("admin_topics_label_name")}</span>
             <input
               className="rounded border border-sam-border px-2 py-1.5"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="커뮤니티"
+              placeholder={tr("admin_sections_placeholder_section_name")}
             />
           </label>
           <label className="flex flex-col gap-0.5">
-            <span className="text-sam-muted">slug (비우면 이름 기준)</span>
+            <span className="text-sam-muted">{tr("admin_sections_label_slug_from_name")}</span>
             <input
               className="rounded border border-sam-border px-2 py-1.5 font-mono sam-text-helper"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="dongnae"
+              placeholder={tr("admin_sections_placeholder_slug_example")}
             />
           </label>
           <label className="flex flex-col gap-0.5">
-            <span className="text-sam-muted">정렬</span>
+            <span className="text-sam-muted">{tr("admin_topics_label_sort")}</span>
             <input
               type="number"
               className="w-20 rounded border border-sam-border px-2 py-1.5"
@@ -231,33 +233,30 @@ export function AdminCommunitySectionsPage({
           </label>
           <label className="flex items-center gap-1.5 pb-1.5">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            활성
+            {tr("admin_topics_checkbox_active")}
           </label>
           <button
             type="submit"
             disabled={busy}
             className="rounded bg-sam-ink px-3 py-1.5 text-white disabled:opacity-50"
           >
-            추가
+            {tr("admin_topics_btn_add")}
           </button>
         </form>
       </AdminCard>
-      <AdminCard title="섹션 목록 (community_sections)">
+      <AdminCard titleKey="admin_sections_list_title">
         {sections.length === 0 ? (
-          <p className="sam-text-body-secondary text-amber-800">
-            마이그레이션 <code className="rounded bg-sam-surface-muted px-1">20260321120000_community_feed_daangn.sql</code>을
-            적용하세요.
-          </p>
+          <p className="sam-text-body-secondary text-amber-800">{tr("admin_sections_empty_migration")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">slug</th>
-                  <th className="py-2 pr-2 font-medium">이름</th>
-                  <th className="py-2 pr-2 font-medium">정렬</th>
-                  <th className="py-2 pr-2 font-medium">활성</th>
-                  <th className="py-2 font-medium">작업</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_sections_col_slug")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_topics_col_name")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_topics_col_sort")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_topics_col_active")}</th>
+                  <th className="py-2 font-medium">{tr("admin_topics_col_actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,10 +299,10 @@ export function AdminCommunitySectionsPage({
                           className="mr-2 text-blue-600 hover:underline disabled:opacity-50"
                           onClick={saveEdit}
                         >
-                          저장
+                          {tr("common_save")}
                         </button>
                         <button type="button" className="text-sam-muted hover:underline" onClick={() => setEdit(null)}>
-                          취소
+                          {tr("admin_topics_btn_cancel")}
                         </button>
                       </td>
                     </tr>
@@ -319,14 +318,14 @@ export function AdminCommunitySectionsPage({
                           className="mr-2 text-blue-600 hover:underline"
                           onClick={() => setEdit({ ...s })}
                         >
-                          수정
+                          {tr("admin_topics_btn_edit")}
                         </button>
                         <button
                           type="button"
                           className="text-red-600 hover:underline"
                           onClick={() => removeRow(s.id)}
                         >
-                          삭제
+                          {tr("admin_topics_btn_delete")}
                         </button>
                       </td>
                     </tr>
@@ -338,11 +337,11 @@ export function AdminCommunitySectionsPage({
         )}
         <p className="mt-4 sam-text-body-secondary">
           <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
-            주제 관리 →
+            {tr("admin_sections_footer_topics")}
           </a>{" "}
           ·{" "}
           <a href="/admin/philife/settings" className="font-medium text-blue-600 hover:underline">
-            피드 운영 설정 →
+            {tr("admin_sections_footer_feed_settings")}
           </a>
         </p>
       </AdminCard>

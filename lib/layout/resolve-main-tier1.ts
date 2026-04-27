@@ -43,7 +43,7 @@ function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTie
  */
 export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subpage | null {
   const raw = (pathname ?? "").split("?")[0]!.trim();
-  if (!raw) return { ...DEFAULT, titleText: "SAMarket" };
+  if (!raw) return { ...DEFAULT, titleText: "dibaY" };
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;

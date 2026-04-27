@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useMemo, useState, useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  ADMIN_USER_PROVIDER_LABEL_KEY,
   filterAndSortUsers,
   normalizeAdminUserSortKey,
   normalizeAdminUserSortOrder,
@@ -51,47 +53,36 @@ const PROVIDER_SUMMARY_ORDER: AdminAuthProvider[] = [
   "unknown",
 ];
 
-const PROVIDER_SUMMARY_META: Record<
-  AdminAuthProvider,
-  { label: string; shortLabel: string; className: string }
-> = {
+const PROVIDER_SUMMARY_META: Record<AdminAuthProvider, { shortLabel: string; className: string }> = {
   google: {
-    label: "구글",
     shortLabel: "G",
     className: "border-[#d7e3ff] bg-white text-[#1877f2]",
   },
   kakao: {
-    label: "카카오톡",
     shortLabel: "K",
     className: "border-[#f4d35e] bg-[#fff8d8] text-[#7a5a00]",
   },
   naver: {
-    label: "네이버",
     shortLabel: "N",
     className: "border-[#bdecc8] bg-[#ecf8ef] text-[#128a3a]",
   },
   apple: {
-    label: "애플",
     shortLabel: "A",
     className: "border-[#dadde1] bg-white text-[#050505]",
   },
   facebook: {
-    label: "페이스북",
     shortLabel: "f",
     className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
   },
   email: {
-    label: "이메일",
     shortLabel: "@",
     className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
   },
   manual: {
-    label: "수동 관리",
     shortLabel: "M",
     className: "border-[#cfd6df] bg-[#f8fafc] text-[#475467]",
   },
   unknown: {
-    label: "확인 필요",
     shortLabel: "?",
     className: "border-[#dadde1] bg-[#f7f8fa] text-[#65676b]",
   },
@@ -102,6 +93,8 @@ function normalizeSummaryProvider(provider: AdminUser["authProvider"]): AdminAut
 }
 
 export function AdminUserListPage() {
+  const { t, language } = useI18n();
+  const countLocale = language === "en" ? "en-US" : "ko-KR";
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -159,12 +152,12 @@ export function AdminUserListPage() {
       };
       if (res.status === 401) {
         setMembersFromApi([]);
-        setMembersError("로그인이 필요합니다. 다시 로그인 후 시도해 주세요.");
+        setMembersError(t("admin_users_error_login_required"));
         return;
       }
       if (res.status === 403) {
         setMembersFromApi([]);
-        setMembersError(data.error || "관리자만 조회할 수 있습니다.");
+        setMembersError(data.error || t("admin_users_error_admin_only"));
         return;
       }
       if (!res.ok) {
@@ -172,8 +165,8 @@ export function AdminUserListPage() {
         setMembersError(
           data.error ||
             (data.code === "supabase_service_unconfigured"
-              ? "SUPABASE_SERVICE_ROLE_KEY가 없어 회원 목록을 불러올 수 없습니다."
-              : "회원 목록을 불러오지 못했습니다.")
+              ? t("admin_users_error_service_role_missing")
+              : t("admin_users_error_fetch_failed"))
         );
         return;
       }
@@ -181,11 +174,11 @@ export function AdminUserListPage() {
       setMembersFromApi(list);
     } catch {
       setMembersFromApi([]);
-      setMembersError("회원 목록 요청에 실패했습니다. 네트워크 또는 서버 로그를 확인해 주세요.");
+      setMembersError(t("admin_users_error_network"));
     } finally {
       setMembersLoading(false);
     }
-  }, [adminUserId, membersKey]);
+  }, [adminUserId, membersKey, t]);
 
   useEffect(() => {
     if (tab !== "members") return;
@@ -257,7 +250,7 @@ export function AdminUserListPage() {
   }, []);
 
   const handleCleanup = useCallback(async () => {
-    if (!adminUserId || !confirm("관리자(role=admin) 계정만 남기고 나머지 테스트 회원을 삭제합니다. 계속할까요?")) return;
+    if (!adminUserId || !confirm(t("admin_users_cleanup_confirm"))) return;
     setCleanupLoading(true);
     try {
       const res = await fetch("/api/admin/users/cleanup", {
@@ -270,18 +263,18 @@ export function AdminUserListPage() {
       if (data.ok) {
         refreshMembers();
       } else {
-        alert(data.error || "정리 실패");
+        alert(data.error || t("admin_users_cleanup_failed"));
       }
     } catch {
-      alert("요청 실패");
+      alert(t("admin_users_request_failed"));
     } finally {
       setCleanupLoading(false);
     }
-  }, [adminUserId, refreshMembers]);
+  }, [adminUserId, refreshMembers, t]);
 
   return (
     <div className="space-y-4 bg-[#f0f2f5] text-[#050505]">
-      <AdminPageHeader title="회원 관리" />
+      <AdminPageHeader titleKey="admin_users_page_title" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex rounded-full border border-[#dadde1] bg-white p-1 shadow-sm">
           <button
@@ -289,14 +282,14 @@ export function AdminUserListPage() {
             onClick={() => setTab("members")}
             className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "members" ? "bg-[#1877f2] text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
           >
-            회원
+            {t("admin_users_tab_members")}
           </button>
           <button
             type="button"
             onClick={() => setTab("staff")}
             className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "staff" ? "bg-[#1877f2] text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
           >
-            관리자
+            {t("admin_users_tab_staff")}
           </button>
         </div>
         <div className="flex items-center gap-2">
@@ -307,7 +300,7 @@ export function AdminUserListPage() {
                 onClick={() => setShowCreateMember(true)}
                 className="rounded-full bg-[#1877f2] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#166fe5]"
               >
-                수동 입력
+                {t("admin_users_manual_create")}
               </button>
               {isMaster && (
                 <button
@@ -316,7 +309,7 @@ export function AdminUserListPage() {
                   disabled={cleanupLoading}
                   className="rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] transition hover:bg-[#ffe7e5] disabled:opacity-50"
                 >
-                  {cleanupLoading ? "처리 중…" : "테스트 회원 정리 (aaaa만 유지)"}
+                  {cleanupLoading ? t("common_saving") : t("admin_users_cleanup_button")}
                 </button>
               )}
             </>
@@ -327,7 +320,7 @@ export function AdminUserListPage() {
               onClick={() => setShowCreateAdmin(true)}
               className="rounded-full bg-[#1877f2] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#166fe5]"
             >
-              관리자 수동 생성
+              {t("admin_users_create_admin")}
             </button>
           )}
         </div>
@@ -336,32 +329,41 @@ export function AdminUserListPage() {
       {tab === "members" && (
         <>
           <div className="rounded-2xl border border-[#dadde1] bg-white px-4 py-3 text-sm leading-relaxed text-[#65676b] shadow-sm">
-            <p className="font-bold text-[#050505]">회원 목록</p>
+            <p className="font-bold text-[#050505]">{t("admin_users_member_list_title")}</p>
             <p className="mt-1">
-              로그인 아이디 또는{" "}
-              <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">아이디@{MANUAL_MEMBER_EMAIL_DOMAIN}</code> + 비밀번호 →{" "}
+              {t("admin_users_member_list_help_a")}
+              <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">
+                {t("admin_users_manual_email_pattern", { domain: MANUAL_MEMBER_EMAIL_DOMAIN })}
+              </code>
+              {t("admin_users_member_list_help_b")}
               <Link href="/login" className="font-bold text-[#1877f2] underline">
                 /login
               </Link>
-              . 로컬에서 배포와 같은 회원 DB인지{" "}
+              {t("admin_users_member_list_help_c")}
               <a href="/api/system/supabase-project" className="font-bold text-[#1877f2] underline">
                 /api/system/supabase-project
-              </a>{" "}
-              로 <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">projectRef</code> 비교.
+              </a>
+              {t("admin_users_member_list_help_d")}
+              <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">projectRef</code>
+              {t("admin_users_member_list_help_e")}
             </p>
           </div>
           <div className="rounded-xl border border-[#d0d7e2] bg-white p-4 font-sans shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e9edf3] pb-3">
               <div>
-                <p className="text-xs font-bold tracking-[0.04em] text-[#667085]">회원 현황</p>
+                <p className="text-xs font-bold tracking-[0.04em] text-[#667085]">{t("admin_users_member_summary_title")}</p>
                 <p className="mt-1 text-2xl font-black tabular-nums text-[#101828]">
-                  총 {memberSummary.total.toLocaleString()}명
+                  {t("admin_users_member_summary_total", {
+                    count: memberSummary.total.toLocaleString(countLocale),
+                  })}
                 </p>
               </div>
               <div className="rounded-lg border border-[#d7e3ff] bg-[#eef4ff] px-3 py-2 text-right">
-                <p className="text-xs font-bold text-[#1877f2]">현재 표시</p>
+                <p className="text-xs font-bold text-[#1877f2]">{t("admin_users_member_summary_visible_label")}</p>
                 <p className="text-lg font-black tabular-nums text-[#101828]">
-                  {memberSummary.visible.toLocaleString()}명
+                  {t("admin_users_member_summary_visible_count", {
+                    count: memberSummary.visible.toLocaleString(countLocale),
+                  })}
                 </p>
               </div>
             </div>
@@ -381,7 +383,7 @@ export function AdminUserListPage() {
                         {memberSummary.counts[provider].toLocaleString()}
                       </span>
                     </div>
-                    <p className="mt-1 truncate text-xs font-bold">{meta.label}</p>
+                    <p className="mt-1 truncate text-xs font-bold">{t(ADMIN_USER_PROVIDER_LABEL_KEY[provider])}</p>
                   </div>
                 );
               })}
@@ -399,23 +401,23 @@ export function AdminUserListPage() {
           />
           {membersError ? (
             <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">
-              <p className="font-bold">회원 목록을 표시할 수 없습니다.</p>
+              <p className="font-bold">{t("admin_users_list_error_title")}</p>
               <p className="mt-1">{membersError}</p>
               <button
                 type="button"
                 onClick={refreshMembers}
                 className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
               >
-                다시 불러오기
+                {t("admin_users_retry")}
               </button>
             </div>
           ) : membersLoading ? (
             <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
-              회원 목록을 불러오는 중입니다.
+              {t("admin_users_loading_list")}
             </div>
           ) : filtered.length === 0 ? (
             <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
-              조건에 맞는 회원이 없습니다. 수동 입력으로 회원을 추가해 보세요.
+              {t("admin_users_empty_filtered")}
             </div>
           ) : (
             <AdminUserTable
@@ -434,8 +436,8 @@ export function AdminUserListPage() {
         <>
           {staffList.length === 0 ? (
             <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
-              등록된 관리자가 없습니다.
-              {isMaster && " 상단의 ‘관리자 수동 생성’으로 추가하세요."}
+              {t("admin_users_staff_empty")}
+              {isMaster ? t("admin_users_staff_empty_master_hint") : null}
             </div>
           ) : (
             <AdminStaffTable

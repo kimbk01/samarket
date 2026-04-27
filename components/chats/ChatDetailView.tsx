@@ -1301,7 +1301,7 @@ export function ChatDetailView({
               if (typeof window !== "undefined" && "Notification" in window) {
                 const showNote = () => {
                   try {
-                    new Notification("SAMarket", {
+                    new Notification("dibaY", {
                       body: "주문자가 주문 내용 일치를 확인했습니다.",
                       tag: `store-order-match-${room.id}:${m.id}`,
                     });

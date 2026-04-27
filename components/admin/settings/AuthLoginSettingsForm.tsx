@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublicMeta, OAuthProvider } from "@/lib/auth/auth-providers";
 import type { AuthLoginSetting } from "@/lib/auth/login-settings";
 import type { AuthDuplicateLoginPolicy } from "@/lib/auth/session-policy";
@@ -26,6 +27,7 @@ function getProviderTitle(provider: OAuthProvider): string {
 }
 
 export function AuthLoginSettingsForm() {
+  const { t } = useI18n();
   const [providers, setProviders] = useState<EditableProvider[]>([]);
   const [legacySettings, setLegacySettings] = useState<AuthLoginSetting[]>([]);
   const [sessionPolicy, setSessionPolicy] = useState<AuthDuplicateLoginPolicy | null>(null);
@@ -278,8 +280,8 @@ export function AuthLoginSettingsForm() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="Auth 로그인 설정" />
-      <AdminCard title="설정 구분">
+      <AdminPageHeader titleKey="admin_auth_settings_title" />
+      <AdminCard title={t("admin_auth_settings_section_title")}>
         <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
@@ -290,7 +292,7 @@ export function AuthLoginSettingsForm() {
                 : "border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            OAuth 설정
+            {t("admin_auth_settings_oauth_tab")}
           </button>
           <button
             type="button"
@@ -301,7 +303,7 @@ export function AuthLoginSettingsForm() {
                 : "border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            중복 로그인 정책
+            {t("admin_auth_settings_policy_tab")}
           </button>
           <button
             type="button"
@@ -312,15 +314,15 @@ export function AuthLoginSettingsForm() {
                 : "border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            전화 인증
+            {t("admin_auth_settings_phone_tab")}
           </button>
         </div>
       </AdminCard>
 
       {activeSection === "oauth" ? (
-        <AdminCard title="SNS OAuth Provider 설정">
+        <AdminCard title={t("admin_auth_settings_oauth_card_title")}>
         {loading ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-3">
             {providers.map((row) => (
@@ -418,8 +420,7 @@ export function AuthLoginSettingsForm() {
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                     />
                     <span className="mt-1 block sam-text-helper text-sam-muted">
-                      SAMARKET은 Supabase Auth 방식입니다. 카카오/구글/네이버/애플/페이스북 개발자 콘솔에는
-                      samarket.vercel.app/api/auth/... 주소가 아니라 Supabase Callback URL을 등록해야 합니다.
+                      {t("admin_auth_settings_oauth_callback_guide")}
                     </span>
                   </label>
                 </div>
@@ -445,7 +446,7 @@ export function AuthLoginSettingsForm() {
                     disabled={providerSaving[row.provider] === true}
                     className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
                   >
-                    {providerSaving[row.provider] ? "저장 중…" : `${getProviderTitle(row.provider)} 저장`}
+                    {providerSaving[row.provider] ? t("common_saving") : `${getProviderTitle(row.provider)} ${t("common_save")}`}
                   </button>
                 </div>
               </div>
@@ -455,9 +456,9 @@ export function AuthLoginSettingsForm() {
         )}
       </AdminCard>
       ) : activeSection === "policy" ? (
-      <AdminCard title="중복 로그인 정책">
+      <AdminCard title={t("admin_auth_settings_policy_card_title")}>
         {loading || !sessionPolicy ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-3">
             <p className="sam-text-body-secondary text-sam-muted">
@@ -513,16 +514,16 @@ export function AuthLoginSettingsForm() {
                 disabled={policySaving || legacySettings.length === 0}
                 className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
-                {policySaving ? "저장 중…" : "저장"}
+                {policySaving ? t("common_saving") : t("common_save")}
               </button>
             </div>
           </div>
         )}
       </AdminCard>
       ) : (
-      <AdminCard title="전화 인증 설정">
+      <AdminCard title={t("admin_auth_settings_phone_card_title")}>
         {loading || !phoneSettings ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-3">
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
@@ -648,7 +649,7 @@ export function AuthLoginSettingsForm() {
                 disabled={phoneSaving}
                 className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
-                {phoneSaving ? "저장 중…" : "전화 인증 설정 저장"}
+                {phoneSaving ? t("common_saving") : t("admin_auth_settings_phone_save")}
               </button>
             </div>
           </div>

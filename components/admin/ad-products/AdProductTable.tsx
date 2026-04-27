@@ -2,19 +2,38 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { AdProduct } from "@/lib/ads/types";
-import { AD_TYPE_LABELS } from "@/lib/ads/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { AdProduct, AdType } from "@/lib/ads/types";
+
+const AD_TYPE_KEYS: Record<AdType, MessageKey> = {
+  top_fixed: "admin_ad_type_top_fixed",
+  mid_insert: "admin_ad_type_mid_insert",
+  highlight: "admin_ad_type_highlight",
+};
 
 interface AdProductTableProps {
   products: AdProduct[];
 }
 
 export function AdProductTable({ products }: AdProductTableProps) {
+  const { t: tr } = useI18n();
   const router = useRouter();
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<AdProduct>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const headers: MessageKey[] = [
+    "admin_ad_products_col_name",
+    "admin_ad_products_col_board",
+    "admin_ad_products_col_type",
+    "admin_ad_products_col_duration",
+    "admin_ad_products_col_points",
+    "admin_ad_products_col_priority",
+    "admin_ad_products_col_active",
+    "admin_ad_products_col_manage",
+  ];
 
   const startEdit = (p: AdProduct) => {
     setEditing(p.id);
@@ -33,7 +52,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "저장 실패");
+        setErr(j.error ?? tr("admin_ad_products_err_save"));
         return;
       }
       setEditing(null);
@@ -44,7 +63,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
   };
 
   if (products.length === 0) {
-    return <p className="py-8 text-center sam-text-body-secondary text-sam-muted">광고 상품이 없습니다.</p>;
+    return <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{tr("admin_ad_products_empty")}</p>;
   }
 
   return (
@@ -55,9 +74,9 @@ export function AdProductTable({ products }: AdProductTableProps) {
       <table className="w-full min-w-[700px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            {["상품명", "게시판", "유형", "기간", "포인트", "기본 순위", "활성", "관리"].map((h) => (
-              <th key={h} className="px-3 py-2 text-left font-semibold text-sam-muted">
-                {h}
+            {headers.map((key) => (
+              <th key={key} className="px-3 py-2 text-left font-semibold text-sam-muted">
+                {tr(key)}
               </th>
             ))}
           </tr>
@@ -79,8 +98,8 @@ export function AdProductTable({ products }: AdProductTableProps) {
                     <span className="font-medium text-sam-fg">{p.name}</span>
                   )}
                 </td>
-                <td className="px-3 py-2 text-sam-muted">{p.boardKey ?? "전체"}</td>
-                <td className="px-3 py-2 text-sam-muted">{AD_TYPE_LABELS[p.adType]}</td>
+                <td className="px-3 py-2 text-sam-muted">{p.boardKey ?? tr("admin_ad_products_board_all")}</td>
+                <td className="px-3 py-2 text-sam-muted">{tr(AD_TYPE_KEYS[p.adType])}</td>
                 <td className="px-3 py-2 text-sam-muted">
                   {isEditing ? (
                     <input
@@ -93,7 +112,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       className="w-16 rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   ) : (
-                    `${p.durationDays}일`
+                    tr("admin_ad_products_duration_days", { days: p.durationDays })
                   )}
                 </td>
                 <td className="px-3 py-2 text-right">
@@ -138,7 +157,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                         p.isActive ? "bg-emerald-100 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
-                      {p.isActive ? "활성" : "비활성"}
+                      {p.isActive ? tr("admin_ad_products_status_active") : tr("admin_ad_products_status_inactive")}
                     </span>
                   )}
                 </td>
@@ -151,14 +170,14 @@ export function AdProductTable({ products }: AdProductTableProps) {
                         onClick={() => void save()}
                         className="rounded bg-sky-600 px-2 py-1 sam-text-xxs font-semibold text-white disabled:opacity-50"
                       >
-                        저장
+                        {tr("common_save")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setEditing(null)}
                         className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted"
                       >
-                        취소
+                        {tr("common_cancel")}
                       </button>
                     </div>
                   ) : (
@@ -167,7 +186,7 @@ export function AdProductTable({ products }: AdProductTableProps) {
                       onClick={() => startEdit(p)}
                       className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-fg hover:bg-sam-app"
                     >
-                      수정
+                      {tr("admin_ad_products_btn_edit")}
                     </button>
                   )}
                 </td>

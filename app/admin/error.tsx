@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -9,6 +10,7 @@ interface ErrorProps {
 }
 
 export default function AdminError({ error, reset }: ErrorProps) {
+  const { t } = useI18n();
   useEffect(() => {
     console.error("[AdminError]", error);
   }, [error]);
@@ -16,10 +18,10 @@ export default function AdminError({ error, reset }: ErrorProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <p className="sam-text-body font-medium text-sam-fg">
-        관리자 페이지에서 오류가 발생했어요
+        {t("admin_error_title")}
       </p>
       <p className="mt-2 sam-text-body-secondary text-sam-muted">
-        잠시 후 다시 시도하거나 관리자 메인으로 이동해 주세요.
+        {t("admin_error_hint")}
       </p>
       <div className="mt-8 flex flex-col gap-3">
         <button
@@ -27,10 +29,10 @@ export default function AdminError({ error, reset }: ErrorProps) {
           onClick={reset}
           className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          다시 시도
+          {t("admin_error_retry")}
         </button>
         <Link href="/admin" className="sam-text-body font-medium text-signature">
-          관리자 홈으로
+          {t("admin_error_home")}
         </Link>
       </div>
     </div>

@@ -35,7 +35,7 @@ export function AdminUserFilterBar({
   onSortChange,
   onSortOrderChange,
 }: AdminUserFilterBarProps) {
-  const { tt, t } = useI18n();
+  const { t } = useI18n();
   const searchPlaceholder = showMemberUuid
     ? t("admin_search_member_with_uuid")
     : t("admin_search_member");
@@ -61,7 +61,7 @@ export function AdminUserFilterBar({
       >
         {AUTH_PROVIDER_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -77,7 +77,7 @@ export function AdminUserFilterBar({
       >
         {PHONE_VERIFIED_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -93,7 +93,7 @@ export function AdminUserFilterBar({
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -109,7 +109,7 @@ export function AdminUserFilterBar({
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {tt(o.label)}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -128,7 +128,7 @@ export function AdminUserFilterBar({
             checked={showMemberUuid}
             onChange={(e) => onShowMemberUuidChange(e.target.checked)}
           />
-          회원 UUID 표시
+          {t("admin_user_show_uuid")}
         </label>
       ) : null}
       <select
@@ -145,7 +145,7 @@ export function AdminUserFilterBar({
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
-            {tt(o.label)}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -161,8 +161,8 @@ export function AdminUserFilterBar({
         }
         className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
       >
-        <option value="desc">내림차순</option>
-        <option value="asc">오름차순</option>
+        <option value="desc">{t("admin_user_sort_desc")}</option>
+        <option value="asc">{t("admin_user_sort_asc")}</option>
       </select>
     </div>
   );

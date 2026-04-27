@@ -16,12 +16,12 @@ export default function Icon() {
           justifyContent: "center",
           background: "#7360f2",
           color: "#ffffff",
-          fontSize: 280,
+          fontSize: 150,
           fontWeight: 700,
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        S
+        dY
       </div>
     ),
     { ...size }

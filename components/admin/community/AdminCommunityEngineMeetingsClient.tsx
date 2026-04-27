@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 type Row = Record<string, unknown>;
 
@@ -30,7 +32,14 @@ type ChatSummaryPayload = {
   error?: string;
 };
 
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
+
 export function AdminCommunityEngineMeetingsClient() {
+  const { t, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
+  const emptyCell = t("admin_users_empty_placeholder");
   const [rows, setRows] = useState<Row[]>([]);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -46,7 +55,7 @@ export function AdminCommunityEngineMeetingsClient() {
       const res = await fetch("/api/admin/community/engine/meetings?limit=60", { cache: "no-store" });
       const j = (await res.json()) as { ok?: boolean; meetings?: Row[]; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "불러오기 실패");
+        setErr(j.error ?? t("admin_meeting_engine_err_load"));
         setRows([]);
         return;
       }
@@ -54,7 +63,7 @@ export function AdminCommunityEngineMeetingsClient() {
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -77,7 +86,7 @@ export function AdminCommunityEngineMeetingsClient() {
       });
       const j = (await res.json()) as ChatSummaryPayload;
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "요약 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_insight"));
         return;
       }
       setInsight(j);
@@ -98,7 +107,7 @@ export function AdminCommunityEngineMeetingsClient() {
       });
       const j = (await res.json()) as ChatSummaryPayload;
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "요약 갱신 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_insight_refresh"));
         return;
       }
       setInsight(j);
@@ -121,7 +130,7 @@ export function AdminCommunityEngineMeetingsClient() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "채팅 조치 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_chat_action"));
         return;
       }
       await refetchInsight(meetingId);
@@ -133,23 +142,18 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const bulkHideRoomMessages = async (meetingId: string, roomId: string) => {
-    if (
-      !confirm(
-        "시스템 메시지를 제외한, 아직 숨기지 않은 메시지를 이 방에서 일괄 숨김 처리합니다. 계속할까요?",
-      )
-    )
-      return;
+    if (!confirm(t("admin_meeting_engine_confirm_bulk_hide"))) return;
     setRoomBusyKey(`${meetingId}:bulkhide:${roomId}`);
     setInsightErr("");
     try {
       const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(roomId)}/messages/bulk-hide`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "모임 엔진 관리 일괄 숨김" }),
+        body: JSON.stringify({ reason: t("admin_meeting_engine_reason_bulk_hide") }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; hidden_count?: number };
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "일괄 숨김 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_bulk_hide"));
         return;
       }
       await refetchInsight(meetingId);
@@ -161,23 +165,18 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const bulkUnhideRoomMessages = async (meetingId: string, roomId: string) => {
-    if (
-      !confirm(
-        "관리자로 숨김 처리된 비시스템 메시지를 이 방에서 일괄 다시 보이게 합니다. 계속할까요?",
-      )
-    )
-      return;
+    if (!confirm(t("admin_meeting_engine_confirm_bulk_unhide"))) return;
     setRoomBusyKey(`${meetingId}:bulkunhide:${roomId}`);
     setInsightErr("");
     try {
       const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(roomId)}/messages/bulk-unhide`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "모임 엔진 관리 일괄 숨김 해제" }),
+        body: JSON.stringify({ reason: t("admin_meeting_engine_reason_bulk_unhide") }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; unhidden_count?: number };
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "일괄 숨김 해제 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_bulk_unhide"));
         return;
       }
       await refetchInsight(meetingId);
@@ -189,7 +188,7 @@ export function AdminCommunityEngineMeetingsClient() {
   };
 
   const deleteExtraMeetingChat = async (meetingId: string, mcrId: string) => {
-    if (!confirm("이 부가 채팅방과 메시지를 삭제합니다. 계속할까요?")) return;
+    if (!confirm(t("admin_meeting_engine_confirm_delete_extra"))) return;
     setRoomBusyKey(`${meetingId}:del:${mcrId}`);
     setInsightErr("");
     try {
@@ -199,7 +198,7 @@ export function AdminCommunityEngineMeetingsClient() {
       );
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setInsightErr(j.error ?? "삭제 실패");
+        setInsightErr(j.error ?? t("admin_meeting_engine_err_delete"));
         return;
       }
       await refetchInsight(meetingId);
@@ -230,7 +229,7 @@ export function AdminCommunityEngineMeetingsClient() {
         body: JSON.stringify(body),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) setErr(j.error ?? "실패");
+      if (!res.ok || !j.ok) setErr(j.error ?? t("admin_meeting_engine_err_generic"));
       else await load();
     } finally {
       setBusyId(null);
@@ -244,22 +243,22 @@ export function AdminCommunityEngineMeetingsClient() {
         onClick={() => void load()}
         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary"
       >
-        새로고침
+        {t("admin_meeting_engine_refresh")}
       </button>
       {err ? <p className="sam-text-body-secondary text-red-600">{err}</p> : null}
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="min-w-full text-left sam-text-helper text-sam-fg">
           <thead className="bg-sam-app sam-text-xxs uppercase text-sam-muted">
             <tr>
-              <th className="px-2 py-2">제목</th>
-              <th className="px-2 py-2">상태</th>
-              <th className="px-2 py-2">플랫폼 승인</th>
-              <th className="px-2 py-2">참여 방식</th>
-              <th className="px-2 py-2">노출</th>
-              <th className="px-2 py-2">정원</th>
-              <th className="px-2 py-2">신고</th>
-              <th className="px-2 py-2">채팅방</th>
-              <th className="px-2 py-2">액션</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_title")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_status")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_platform_approval")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_entry")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_visibility")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_capacity")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_reports")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_chat_room")}</th>
+              <th className="px-2 py-2">{t("admin_meeting_engine_col_actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -272,45 +271,56 @@ export function AdminCommunityEngineMeetingsClient() {
               const reportCount = Number(r.meeting_report_count ?? 0) + Number(r.post_report_count ?? 0);
               const entryLabel =
                 ep === "approve"
-                  ? "승인제"
+                  ? t("admin_meeting_engine_entry_approve")
                   : ep === "invite_only"
-                    ? "초대·승인"
+                    ? t("admin_meeting_engine_entry_invite")
                     : ep === "password"
-                      ? "비밀번호"
-                      : "오픈";
+                      ? t("admin_meeting_engine_entry_password")
+                      : t("admin_meeting_engine_entry_open");
               return (
                 <Fragment key={id}>
                   <tr className="border-t border-sam-border-soft">
                     <td className="max-w-[180px] truncate px-2 py-2">
                       {String(r.title ?? "")}
                       {isSample ? (
-                        <span className="ml-1 rounded bg-signature/10 px-1 py-0.5 sam-text-xxs text-sam-fg" title="is_sample_data=true">
-                          DB샘플
+                        <span
+                          className="ml-1 rounded bg-signature/10 px-1 py-0.5 sam-text-xxs text-sam-fg"
+                          title={t("admin_meeting_engine_sample_title")}
+                        >
+                          {t("admin_meeting_engine_sample_badge")}
                         </span>
                       ) : null}
                     </td>
                     <td className="px-2 py-2">{String(r.status ?? "")}</td>
                     <td className="px-2 py-2">
-                      {approval === "approved" ? "승인" : approval === "rejected" ? "반려" : "대기"}
+                      {approval === "approved"
+                        ? t("admin_meeting_engine_approval_approved")
+                        : approval === "rejected"
+                          ? t("admin_meeting_engine_approval_rejected")
+                          : t("admin_meeting_engine_approval_pending")}
                     </td>
                     <td className="px-2 py-2 sam-text-xxs text-sam-fg">
                       {entryLabel}
                       {ep === "password" && r.has_password ? (
-                        <span className="ml-1 text-emerald-700">설정됨</span>
+                        <span className="ml-1 text-emerald-700">{t("admin_meeting_engine_password_set")}</span>
                       ) : null}
                       {ep === "password" && !r.has_password ? (
-                        <span className="ml-1 text-amber-700">비번 미설정</span>
+                        <span className="ml-1 text-amber-700">{t("admin_meeting_engine_password_missing")}</span>
                       ) : null}
                     </td>
-                    <td className="px-2 py-2">{postStatus === "hidden" || r.post_hidden === true ? "숨김" : "노출"}</td>
+                    <td className="px-2 py-2">
+                      {postStatus === "hidden" || r.post_hidden === true
+                        ? t("admin_meeting_engine_visibility_hidden")
+                        : t("admin_meeting_engine_visibility_visible")}
+                    </td>
                     <td className="px-2 py-2">{String(r.max_members ?? "")}</td>
                     <td className="px-2 py-2">
                       {reportCount > 0 ? (
                         <Link href="/admin/philife/meeting-reports" className="text-red-700 underline">
-                          {reportCount}건
+                          {t("admin_meeting_engine_report_count", { count: reportCount })}
                         </Link>
                       ) : (
-                        "0건"
+                        t("admin_meeting_engine_report_count", { count: 0 })
                       )}
                     </td>
                     <td className="max-w-[120px] truncate px-2 py-2 font-mono sam-text-xxs">
@@ -318,7 +328,7 @@ export function AdminCommunityEngineMeetingsClient() {
                         ? String(r.community_messenger_room_id)
                         : r.chat_room_id != null
                           ? String(r.chat_room_id)
-                          : "—"}
+                          : emptyCell}
                     </td>
                     <td className="flex flex-wrap gap-1 px-2 py-2">
                       <button
@@ -327,23 +337,35 @@ export function AdminCommunityEngineMeetingsClient() {
                         className={`rounded px-2 py-0.5 ${insightId === id ? "bg-signature/20" : "bg-signature/5"}`}
                         onClick={() => void loadInsight(id)}
                       >
-                        {insightId === id ? "요약 닫기" : "채팅 요약"}
+                        {insightId === id ? t("admin_meeting_engine_insight_close") : t("admin_meeting_engine_insight_open")}
                       </button>
                       <button
                         type="button"
                         disabled={busyId === id}
                         className="rounded bg-emerald-100 px-2 py-0.5"
-                        onClick={() => void patch(id, { platformApprovalStatus: "approved", postStatus: "active", postHidden: false })}
+                        onClick={() =>
+                          void patch(id, {
+                            platformApprovalStatus: "approved",
+                            postStatus: "active",
+                            postHidden: false,
+                          })
+                        }
                       >
-                        승인
+                        {t("admin_meeting_engine_action_approve")}
                       </button>
                       <button
                         type="button"
                         disabled={busyId === id}
                         className="rounded bg-amber-100 px-2 py-0.5"
-                        onClick={() => void patch(id, { platformApprovalStatus: "rejected", postStatus: "hidden", postHidden: true })}
+                        onClick={() =>
+                          void patch(id, {
+                            platformApprovalStatus: "rejected",
+                            postStatus: "hidden",
+                            postHidden: true,
+                          })
+                        }
                       >
-                        반려
+                        {t("admin_meeting_engine_action_reject")}
                       </button>
                       <button
                         type="button"
@@ -351,7 +373,7 @@ export function AdminCommunityEngineMeetingsClient() {
                         className="rounded bg-sam-surface-muted px-2 py-0.5"
                         onClick={() => void patch(id, { postStatus: "hidden", postHidden: true })}
                       >
-                        숨김
+                        {t("admin_meeting_engine_action_hide")}
                       </button>
                       <button
                         type="button"
@@ -359,7 +381,7 @@ export function AdminCommunityEngineMeetingsClient() {
                         className="rounded bg-sky-100 px-2 py-0.5"
                         onClick={() => void patch(id, { postStatus: "active", postHidden: false })}
                       >
-                        노출
+                        {t("admin_meeting_engine_action_show")}
                       </button>
                       <button
                         type="button"
@@ -367,7 +389,7 @@ export function AdminCommunityEngineMeetingsClient() {
                         className="rounded bg-red-100 px-2 py-0.5"
                         onClick={() => void patch(id, { status: "ended", isClosed: true })}
                       >
-                        강제 종료
+                        {t("admin_meeting_engine_action_force_end")}
                       </button>
                       <button
                         type="button"
@@ -375,7 +397,7 @@ export function AdminCommunityEngineMeetingsClient() {
                         className="rounded bg-sky-100 px-2 py-0.5"
                         onClick={() => void patch(id, { status: "open", isClosed: false })}
                       >
-                        재오픈
+                        {t("admin_meeting_engine_action_reopen")}
                       </button>
                     </td>
                   </tr>
@@ -383,17 +405,18 @@ export function AdminCommunityEngineMeetingsClient() {
                     <tr className="border-t border-sam-border bg-signature/5">
                       <td colSpan={9} className="px-3 py-3 sam-text-helper text-sam-fg">
                         {insightLoading ? (
-                          <p className="text-sam-muted">불러오는 중…</p>
+                          <p className="text-sam-muted">{t("common_loading")}</p>
                         ) : insightErr ? (
                           <p className="text-red-600">{insightErr}</p>
                         ) : insight ? (
                           <div className="space-y-2">
-                            <p className="font-semibold text-sam-fg">모임 채팅 검토</p>
+                            <p className="font-semibold text-sam-fg">{t("admin_meeting_engine_insight_title")}</p>
                             <p className="sam-text-xxs text-sam-muted">
-                              연결된 채팅{" "}
-                              <span className="font-mono">{insight.total_linked_rooms ?? 0}</span>개 · 부가 방{" "}
-                              <span className="font-mono">{insight.extra_room_count ?? 0}</span> · 비공개{" "}
-                              <span className="font-mono">{insight.private_room_count ?? 0}</span>
+                              {t("admin_meeting_engine_insight_stats", {
+                                linked: insight.total_linked_rooms ?? 0,
+                                extra: insight.extra_room_count ?? 0,
+                                priv: insight.private_room_count ?? 0,
+                              })}
                             </p>
                             {insight.schema_note ? (
                               <p className="sam-text-xxs text-amber-800">{insight.schema_note}</p>
@@ -406,6 +429,10 @@ export function AdminCommunityEngineMeetingsClient() {
                                 const blk = room.is_blocked === true;
                                 const mcr = room.meeting_chat_room_id ?? null;
                                 const isExtra = room.role !== "main" && !!mcr;
+                                const lastAt =
+                                  room.last_message_at != null
+                                    ? new Date(room.last_message_at).toLocaleString(dateLocale)
+                                    : "";
                                 return (
                                   <li
                                     key={room.room_id}
@@ -416,21 +443,24 @@ export function AdminCommunityEngineMeetingsClient() {
                                         {room.title ?? room.room_id.slice(0, 8)}
                                       </span>
                                       <span className="ml-2 sam-text-xxs text-sam-muted">
-                                        {room.role === "main" ? "기본" : "부가"}
-                                        {room.is_private ? " · 비공개" : ""}
-                                        {ro ? " · 읽기전용" : ""}
-                                        {lk ? " · 잠금" : ""}
-                                        {blk ? " · 차단" : ""}
+                                        {room.role === "main" ? t("admin_meeting_engine_room_main") : t("admin_meeting_engine_room_extra")}
+                                        {room.is_private ? t("admin_meeting_engine_room_private") : ""}
+                                        {ro ? t("admin_meeting_engine_room_readonly") : ""}
+                                        {lk ? t("admin_meeting_engine_room_locked") : ""}
+                                        {blk ? t("admin_meeting_engine_room_blocked") : ""}
                                       </span>
                                       <div className="mt-0.5 font-mono sam-text-xxs text-sam-meta">{room.room_id}</div>
                                     </div>
                                     <div className="shrink-0 sam-text-xxs text-sam-muted">
                                       <div className="text-right">
-                                        메시지 {room.message_count} · 숨김 {room.hidden_message_count} · 신고{" "}
-                                        {room.report_count}
+                                        {t("admin_meeting_engine_room_msg_stats", {
+                                          messages: room.message_count,
+                                          hidden: room.hidden_message_count,
+                                          reports: room.report_count,
+                                        })}
                                         {room.last_message_at ? (
                                           <div className="sam-text-xxs text-sam-meta">
-                                            마지막 {new Date(room.last_message_at).toLocaleString("ko-KR")}
+                                            {t("admin_meeting_engine_room_last", { at: lastAt })}
                                           </div>
                                         ) : null}
                                       </div>
@@ -439,7 +469,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                           href={`/admin/chats/${encodeURIComponent(room.room_id)}`}
                                           className="rounded bg-signature/5 px-2 py-0.5 text-sam-fg underline-offset-2 hover:underline"
                                         >
-                                          관리자 채팅
+                                          {t("admin_meeting_engine_open_admin_chat")}
                                         </Link>
                                         <button
                                           type="button"
@@ -447,7 +477,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                           className="rounded bg-orange-50 px-2 py-0.5 text-orange-900"
                                           onClick={() => void bulkHideRoomMessages(mid, room.room_id)}
                                         >
-                                          메시지 일괄 숨김
+                                          {t("admin_meeting_engine_bulk_hide_msgs")}
                                         </button>
                                         <button
                                           type="button"
@@ -455,7 +485,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                           className="rounded bg-lime-50 px-2 py-0.5 text-lime-900"
                                           onClick={() => void bulkUnhideRoomMessages(mid, room.room_id)}
                                         >
-                                          숨김 일괄 해제
+                                          {t("admin_meeting_engine_bulk_unhide_msgs")}
                                         </button>
                                         <button
                                           type="button"
@@ -465,7 +495,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                             void postRoomAction(mid, room.room_id, ro ? "readonly_off" : "readonly_on")
                                           }
                                         >
-                                          {ro ? "읽기전용 해제" : "읽기전용"}
+                                          {ro ? t("admin_meeting_engine_readonly_off") : t("admin_meeting_engine_readonly_on")}
                                         </button>
                                         <button
                                           type="button"
@@ -475,7 +505,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                             void postRoomAction(mid, room.room_id, lk ? "unarchive_room" : "archive_room")
                                           }
                                         >
-                                          {lk ? "잠금 해제" : "잠금"}
+                                          {lk ? t("admin_meeting_engine_lock_off") : t("admin_meeting_engine_lock_on")}
                                         </button>
                                         <button
                                           type="button"
@@ -485,7 +515,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                             void postRoomAction(mid, room.room_id, blk ? "unblock_room" : "block_room")
                                           }
                                         >
-                                          {blk ? "차단 해제" : "방 차단"}
+                                          {blk ? t("admin_meeting_engine_block_off") : t("admin_meeting_engine_block_on")}
                                         </button>
                                         {isExtra ? (
                                           <button
@@ -494,7 +524,7 @@ export function AdminCommunityEngineMeetingsClient() {
                                             className="rounded bg-red-50 px-2 py-0.5 text-red-800"
                                             onClick={() => void deleteExtraMeetingChat(mid, mcr!)}
                                           >
-                                            부가 방 삭제
+                                            {t("admin_meeting_engine_delete_extra_room")}
                                           </button>
                                         ) : null}
                                       </div>
@@ -504,7 +534,7 @@ export function AdminCommunityEngineMeetingsClient() {
                               })}
                             </ul>
                             {(insight.rooms ?? []).length === 0 ? (
-                              <p className="sam-text-xxs text-sam-muted">연결된 채팅방이 없습니다.</p>
+                              <p className="sam-text-xxs text-sam-muted">{t("admin_meeting_engine_no_linked_rooms")}</p>
                             ) : null}
                           </div>
                         ) : null}

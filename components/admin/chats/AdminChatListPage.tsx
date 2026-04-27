@@ -14,6 +14,7 @@ import {
   type AdminChatFilters,
 } from "@/lib/admin-chats/admin-chat-utils";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminChatFilterBar } from "./AdminChatFilterBar";
 import { AdminChatTable } from "./AdminChatTable";
@@ -110,11 +111,11 @@ function getInitialFilters(mode: ChatListMode): AdminChatFilters {
   return DEFAULT_FILTERS;
 }
 
-function getTitle(mode: ChatListMode): string {
-  if (mode === "trade") return "거래채팅";
-  if (mode === "reported") return "신고채팅";
-  if (mode === "business" || mode === "community" || mode === "group") return "제거된 채팅";
-  return "전체채팅";
+function getTitleKey(mode: ChatListMode): MessageKey {
+  if (mode === "trade") return "admin_chat_list_title_trade";
+  if (mode === "reported") return "admin_chat_list_title_reported";
+  if (mode === "business" || mode === "community" || mode === "group") return "admin_chat_removed";
+  return "admin_chat_list_title_all";
 }
 
 interface AdminChatListPageProps {
@@ -123,7 +124,7 @@ interface AdminChatListPageProps {
 }
 
 export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
-  const { t, tt } = useI18n();
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminChatFilters>(() => getInitialFilters(mode));
   const [searchQuery, setSearchQuery] = useState("");
   const [rooms, setRooms] = useState<AdminChatRoom[]>([]);
@@ -382,7 +383,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={tt(getTitle(mode))} />
+      <AdminPageHeader titleKey={getTitleKey(mode)} />
       <AdminChatFilterBar
         filters={filters}
         searchQuery={searchQuery}

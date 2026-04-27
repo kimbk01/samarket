@@ -2,8 +2,21 @@
  * 14단계: 관리자 회원 필터·검색·정렬
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
 import type { ModerationStatus } from "@/lib/types/report";
+
+/** 가입수단·표·요약 카드 공통 라벨 키 */
+export const ADMIN_USER_PROVIDER_LABEL_KEY: Record<AdminAuthProvider, MessageKey> = {
+  google: "admin_user_provider_google",
+  kakao: "admin_user_provider_kakao",
+  naver: "admin_user_provider_naver",
+  apple: "admin_user_provider_apple",
+  facebook: "admin_user_provider_facebook",
+  email: "admin_user_provider_email",
+  manual: "admin_user_provider_manual",
+  unknown: "admin_user_provider_unknown",
+};
 
 export type AdminUserSortKey =
   | "joined"
@@ -41,59 +54,59 @@ export function normalizeAdminUserSortOrder(value: string | null | undefined): A
 
 export const MODERATION_STATUS_OPTIONS: {
   value: ModerationStatus | "";
-  label: string;
+  labelKey: MessageKey;
 }[] = [
-  { value: "", label: "전체" },
-  { value: "normal", label: "정상" },
-  { value: "warned", label: "경고" },
-  { value: "suspended", label: "일시정지" },
-  { value: "banned", label: "탈퇴/영구정지" },
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "normal", labelKey: "admin_user_mod_normal" },
+  { value: "warned", labelKey: "admin_user_mod_warned" },
+  { value: "suspended", labelKey: "admin_user_mod_suspended" },
+  { value: "banned", labelKey: "admin_user_mod_filter_banned" },
 ];
 
 export const AUTH_PROVIDER_OPTIONS: {
   value: AdminAuthProvider | "";
-  label: string;
+  labelKey: MessageKey;
 }[] = [
-  { value: "", label: "가입수단 전체" },
-  { value: "google", label: "Google" },
-  { value: "kakao", label: "Kakao" },
-  { value: "naver", label: "Naver" },
-  { value: "apple", label: "Apple" },
-  { value: "facebook", label: "Facebook" },
-  { value: "email", label: "Email" },
-  { value: "manual", label: "Manual" },
+  { value: "", labelKey: "admin_user_filter_auth_all" },
+  { value: "google", labelKey: "admin_user_provider_google" },
+  { value: "kakao", labelKey: "admin_user_provider_kakao" },
+  { value: "naver", labelKey: "admin_user_provider_naver" },
+  { value: "apple", labelKey: "admin_user_provider_apple" },
+  { value: "facebook", labelKey: "admin_user_provider_facebook" },
+  { value: "email", labelKey: "admin_user_provider_email" },
+  { value: "manual", labelKey: "admin_user_provider_manual" },
 ];
 
 export const PHONE_VERIFIED_OPTIONS: {
   value: "" | "verified" | "unverified";
-  label: string;
+  labelKey: MessageKey;
 }[] = [
-  { value: "", label: "전화 인증 전체" },
-  { value: "verified", label: "인증 완료" },
-  { value: "unverified", label: "미인증" },
+  { value: "", labelKey: "admin_user_filter_phone_all" },
+  { value: "verified", labelKey: "admin_user_filter_phone_verified" },
+  { value: "unverified", labelKey: "admin_user_filter_phone_unverified" },
 ];
 
 export const MEMBER_TYPE_OPTIONS: {
   value: AdminUser["memberType"] | "";
-  label: string;
+  labelKey: MessageKey;
 }[] = [
-  { value: "", label: "전체" },
-  { value: "normal", label: "일반회원" },
-  { value: "premium", label: "특별회원" },
-  { value: "admin", label: "관리자" },
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "normal", labelKey: "admin_user_member_type_normal" },
+  { value: "premium", labelKey: "admin_user_member_type_premium" },
+  { value: "admin", labelKey: "admin_user_member_type_admin" },
 ];
 
-export const SORT_OPTIONS: { value: AdminUserSortKey; label: string }[] = [
-  { value: "joined", label: "최근가입순" },
-  { value: "lastSignIn", label: "최근 로그인순" },
-  { value: "provider", label: "가입수단순" },
-  { value: "loginIdentifier", label: "로그인 아이디순" },
-  { value: "nickname", label: "닉네임순" },
-  { value: "phoneVerified", label: "전화 인증순" },
-  { value: "moderationStatus", label: "상태순" },
-  { value: "products", label: "상품많은순" },
-  { value: "reports", label: "신고많은순" },
-  { value: "points", label: "포인트많은순" },
+export const SORT_OPTIONS: { value: AdminUserSortKey; labelKey: MessageKey }[] = [
+  { value: "joined", labelKey: "admin_user_sort_joined" },
+  { value: "lastSignIn", labelKey: "admin_user_sort_last_signin" },
+  { value: "provider", labelKey: "admin_user_sort_provider" },
+  { value: "loginIdentifier", labelKey: "admin_user_sort_login_id" },
+  { value: "nickname", labelKey: "admin_user_sort_nickname" },
+  { value: "phoneVerified", labelKey: "admin_user_sort_phone_verified" },
+  { value: "moderationStatus", labelKey: "admin_user_sort_moderation" },
+  { value: "products", labelKey: "admin_user_sort_products" },
+  { value: "reports", labelKey: "admin_user_sort_reports" },
+  { value: "points", labelKey: "admin_user_sort_points" },
 ];
 
 export interface AdminUserFilters {

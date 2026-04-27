@@ -317,7 +317,7 @@ function SearchResultRow({
             {user.label}
           </p>
           <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-            {user.subtitle ?? "SAMarket"}
+            {user.subtitle ?? "dibaY"}
           </p>
         </div>
       </button>

@@ -253,7 +253,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={t("admin_page_chat_detail")} backHref="/admin/chats" />
+      <AdminPageHeader titleKey="admin_page_chat_detail" backHref="/admin/chats" />
 
       <AdminCard title={t("admin_chat_room_info_card")}>
         <div className="flex gap-4">

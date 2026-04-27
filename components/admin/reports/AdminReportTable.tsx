@@ -1,23 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Report } from "@/lib/types/report";
-
-const TARGET_LABEL: Record<Report["targetType"], string> = {
-  product: "상품·게시글",
-  chat: "채팅",
-  user: "사용자",
-  community: "커뮤니티",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: "대기",
-  reviewing: "검토중",
-  reviewed: "검토완료",
-  resolved: "처리완료",
-  rejected: "반려",
-  sanctioned: "제재완료",
-};
+import {
+  REPORT_STATUS_LABEL_KEYS,
+  REPORT_TARGET_TYPE_LABEL_KEYS,
+} from "@/lib/admin-reports/report-admin-i18n-keys";
 
 const STATUS_CLASS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -28,27 +17,33 @@ const STATUS_CLASS: Record<string, string> = {
   sanctioned: "bg-red-50 text-red-700",
 };
 
+function localeForTable(language: string): string {
+  if (language === "en") return "en-US";
+  return "ko-KR";
+}
+
 interface AdminReportTableProps {
   reports: Report[];
 }
 
 export function AdminReportTable({ reports }: AdminReportTableProps) {
+  const { t, language } = useI18n();
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고 id</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">출처</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고일</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">신고자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상 타입</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상품명</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">사유</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">처리자</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">상세보기</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_id")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_source")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_date")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_reporter")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_target_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_target_party")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_product")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_reason")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_report_th_resolver")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_report_th_detail")}</th>
           </tr>
         </thead>
         <tbody>
@@ -58,15 +53,17 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                 {r.id.slice(0, 8)}…
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-helper text-sam-muted">
-                {r.reportSource === "community_feed" ? "피드" : "DB"}
+                {r.reportSource === "community_feed" ? t("admin_report_source_feed") : t("admin_report_source_db")}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(r.createdAt).toLocaleString("ko-KR")}
+                {new Date(r.createdAt).toLocaleString(localeForTable(language))}
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
                 {r.reporterNickname ?? r.reporterId}
               </td>
-              <td className="px-3 py-2.5 text-sam-fg">{TARGET_LABEL[r.targetType]}</td>
+              <td className="px-3 py-2.5 text-sam-fg">
+                {t(REPORT_TARGET_TYPE_LABEL_KEYS[r.targetType] ?? "admin_report_target_user")}
+              </td>
               <td className="max-w-[100px] truncate px-3 py-2.5 text-sam-fg">
                 {r.targetTitle ?? r.targetId}
               </td>
@@ -78,7 +75,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.status] ?? "bg-sam-surface-muted text-sam-fg"}`}
                 >
-                  {STATUS_LABEL[r.status] ?? r.status}
+                  {REPORT_STATUS_LABEL_KEYS[r.status] ? t(REPORT_STATUS_LABEL_KEYS[r.status]!) : r.status}
                 </span>
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -89,7 +86,7 @@ export function AdminReportTable({ reports }: AdminReportTableProps) {
                   href={`/admin/reports/${r.id}`}
                   className="sam-text-body-secondary font-medium text-signature hover:underline"
                 >
-                  상세보기
+                  {t("admin_report_detail_cta")}
                 </Link>
               </td>
             </tr>

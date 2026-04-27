@@ -3,9 +3,22 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { CommunityReportAdminRow } from "@/lib/community-feed/admin-community-reports";
+
+const FEED_REPORT_ACTION_STATUS_KEYS = {
+  reviewing: "admin_report_status_reviewing",
+  resolved: "admin_report_status_resolved",
+  dismissed: "admin_feed_reports_status_dismissed",
+} as const satisfies Record<"reviewing" | "resolved" | "dismissed", MessageKey>;
+
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
 
 export function AdminCommunityReportsPage({
   initialRows,
@@ -15,6 +28,9 @@ export function AdminCommunityReportsPage({
   highlightId?: string;
 }) {
   const router = useRouter();
+  const { t: tr, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
+  const dash = tr("admin_users_empty_placeholder");
   const [rows, setRows] = useState(initialRows);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [patchErr, setPatchErr] = useState("");
@@ -27,8 +43,8 @@ export function AdminCommunityReportsPage({
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.classList.add("bg-amber-50");
-      const t = window.setTimeout(() => el.classList.remove("bg-amber-50"), 2500);
-      return () => window.clearTimeout(t);
+      const timeoutId = window.setTimeout(() => el.classList.remove("bg-amber-50"), 2500);
+      return () => window.clearTimeout(timeoutId);
     }
   }, [highlightId, rows]);
 
@@ -47,10 +63,10 @@ export function AdminCommunityReportsPage({
         setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
         router.refresh();
       } else {
-        setPatchErr(j.error ?? `상태 변경 실패 (${res.status})`);
+        setPatchErr(j.error ?? tr("admin_feed_reports_patch_fail", { status: res.status }));
       }
     } catch {
-      setPatchErr("네트워크 오류가 발생했습니다.");
+      setPatchErr(tr("admin_feed_reports_network_err"));
     } finally {
       setBusyId(null);
     }
@@ -58,27 +74,25 @@ export function AdminCommunityReportsPage({
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="커뮤니티 피드 신고" backHref="/admin/philife/topics" />
-      <AdminCard title="community_reports">
-        <p className="mb-3 sam-text-body-secondary text-sam-muted">
-          사용자가 피드 글에서 접수한 신고입니다. 글 제목을 누르면 앱 상세로 이동합니다.
-        </p>
+      <AdminPageHeader titleKey="admin_feed_reports_page_title" backHref="/admin/philife/topics" />
+      <AdminCard titleKey="admin_feed_reports_card_title">
+        <p className="mb-3 sam-text-body-secondary text-sam-muted">{tr("admin_feed_reports_intro")}</p>
         {patchErr ? (
           <p className="mb-2 rounded bg-red-50 px-3 py-2 sam-text-helper text-red-700">{patchErr}</p>
         ) : null}
         {rows.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">접수된 신고가 없습니다.</p>
+          <p className="sam-text-body-secondary text-sam-muted">{tr("admin_feed_reports_empty")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-left sam-text-helper">
               <thead>
                 <tr className="border-b border-sam-border text-sam-muted">
-                  <th className="py-2 pr-2 font-medium">일시</th>
-                  <th className="py-2 pr-2 font-medium">대상</th>
-                  <th className="py-2 pr-2 font-medium">글/대상</th>
-                  <th className="py-2 pr-2 font-medium">사유</th>
-                  <th className="py-2 pr-2 font-medium">상태</th>
-                  <th className="py-2 font-medium">처리</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_time")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_target")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_post")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_reason")}</th>
+                  <th className="py-2 pr-2 font-medium">{tr("admin_feed_reports_col_status")}</th>
+                  <th className="py-2 font-medium">{tr("admin_feed_reports_col_actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -91,7 +105,7 @@ export function AdminCommunityReportsPage({
                     className="border-b border-sam-border-soft align-top transition-colors duration-500"
                   >
                     <td className="py-2 pr-2 whitespace-nowrap text-sam-muted">
-                      {r.created_at ? new Date(r.created_at).toLocaleString("ko-KR") : "—"}
+                      {r.created_at ? new Date(r.created_at).toLocaleString(dateLocale) : dash}
                     </td>
                     <td className="py-2 pr-2 font-mono sam-text-xxs">
                       {r.target_type}
@@ -109,7 +123,7 @@ export function AdminCommunityReportsPage({
                           {r.post_title}
                         </Link>
                       ) : (
-                        <span className="text-sam-meta">—</span>
+                        <span className="text-sam-meta">{dash}</span>
                       )}
                     </td>
                     <td className="py-2 pr-2 text-sam-fg">
@@ -127,7 +141,7 @@ export function AdminCommunityReportsPage({
                             onClick={() => void patch(r.id, s)}
                             className="rounded border border-sam-border px-2 py-0.5 sam-text-xxs hover:bg-sam-app disabled:opacity-40"
                           >
-                            {s}
+                            {tr(FEED_REPORT_ACTION_STATUS_KEYS[s])}
                           </button>
                         ))}
                       </div>

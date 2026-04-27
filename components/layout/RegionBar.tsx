@@ -236,7 +236,7 @@ export function RegionBar({
     ) : stringTitle ? (
       <span className="truncate sam-text-page-title">{stringTitle}</span>
     ) : (
-      <span className="truncate sam-text-page-title">SAMarket</span>
+      <span className="truncate sam-text-page-title">dibaY</span>
     );
 
   const right =

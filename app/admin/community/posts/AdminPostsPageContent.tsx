@@ -1,19 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminPosts } from "@/lib/admin-posts/getAdminPosts";
 import { updatePostStatusAdmin } from "@/lib/admin-posts/updatePostAdmin";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-
-const STATUS_OPTIONS: { value: PostWithMeta["status"]; label: string }[] = [
-  { value: "active", label: "판매중" },
-  { value: "reserved", label: "예약중" },
-  { value: "sold", label: "거래완료" },
-  { value: "hidden", label: "숨김" },
-];
 
 type PostsTab = "trade" | "community";
 
@@ -30,13 +24,31 @@ type CommunityPostRow = {
   created_at?: string | null;
 };
 
-const COMMUNITY_STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "active", label: "게시" },
-  { value: "hidden", label: "숨김" },
-  { value: "deleted", label: "삭제" },
-];
-
 export function AdminPostsPageContent() {
+  const { t: tr } = useI18n();
+  const dash = tr("admin_users_empty_placeholder");
+
+  const statusTradeOptions = useMemo(
+    () =>
+      [
+        { value: "active" as const, labelKey: "admin_trade_post_status_active" as const },
+        { value: "reserved" as const, labelKey: "admin_trade_post_status_reserved" as const },
+        { value: "sold" as const, labelKey: "admin_trade_post_status_sold" as const },
+        { value: "hidden" as const, labelKey: "admin_trade_post_status_hidden" as const },
+      ] as const,
+    []
+  );
+
+  const communityStatusOptions = useMemo(
+    () =>
+      [
+        { value: "active", labelKey: "admin_community_post_status_active" as const },
+        { value: "hidden", labelKey: "admin_feed_posts_action_hide" as const },
+        { value: "deleted", labelKey: "admin_feed_posts_action_delete" as const },
+      ] as const,
+    []
+  );
+
   const [tab, setTab] = useState<PostsTab>("community");
   const [posts, setPosts] = useState<PostWithMeta[]>([]);
   const [communityRows, setCommunityRows] = useState<CommunityPostRow[]>([]);
@@ -66,7 +78,7 @@ export function AdminPostsPageContent() {
       });
       const j = (await res.json()) as { ok?: boolean; posts?: CommunityPostRow[]; error?: string };
       if (!res.ok || !j.ok) {
-        setCommunityErr(j.error ?? "동네 글 목록을 불러오지 못했습니다.");
+        setCommunityErr(j.error ?? tr("admin_posts_err_community_load"));
         setCommunityRows([]);
         return;
       }
@@ -75,7 +87,7 @@ export function AdminPostsPageContent() {
       setCommunityErr((e as Error).message);
       setCommunityRows([]);
     }
-  }, []);
+  }, [tr]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,7 +130,7 @@ export function AdminPostsPageContent() {
         });
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          setCommunityErr(j.error ?? "상태 변경에 실패했습니다.");
+          setCommunityErr(j.error ?? tr("admin_posts_err_community_patch"));
           return;
         }
         setSelectedCommunity((prev) => {
@@ -131,7 +143,7 @@ export function AdminPostsPageContent() {
         setCommunityBusyId(null);
       }
     },
-    [loadCommunity]
+    [loadCommunity, tr]
   );
 
   const communityIdsVisible = communityRows.map((r) => String(r.id));
@@ -195,11 +207,7 @@ export function AdminPostsPageContent() {
   const bulkDeleteCommunity = useCallback(async () => {
     const ids = [...selectedCommunity];
     if (ids.length === 0) return;
-    if (
-      !window.confirm(
-        `선택 ${ids.length}개 동네·커뮤니티 글을 DB에서 영구 삭제합니다.\n연결된 모임·댓글 등은 DB CASCADE 정책에 따라 함께 정리될 수 있습니다. 계속할까요?`
-      )
-    ) {
+    if (!window.confirm(tr("admin_posts_confirm_bulk_delete_community", { count: ids.length }))) {
       return;
     }
     setBulkBusy(true);
@@ -219,31 +227,30 @@ export function AdminPostsPageContent() {
         notFoundOrSkipped?: string[];
       };
       if (!res.ok || !j.ok) {
-        setCommunityErr(j.error ?? "일괄 삭제에 실패했습니다.");
+        setCommunityErr(j.error ?? tr("admin_posts_err_community_bulk_delete"));
         return;
       }
       setSelectedCommunity(new Set());
+      const skipped =
+        j.notFoundOrSkipped?.length ?
+          tr("admin_posts_msg_skipped_suffix", { skipped: j.notFoundOrSkipped.length })
+        : "";
       setActionMsg(
-        `DB에서 ${j.deletedCount ?? 0}건 삭제했습니다.${
-          j.notFoundOrSkipped?.length
-            ? ` (없음·건너뜀 ${j.notFoundOrSkipped.length}건)`
-            : ""
-        }`
+        tr("admin_posts_msg_bulk_deleted_community", {
+          deleted: j.deletedCount ?? 0,
+          skipped,
+        })
       );
       await loadCommunity();
     } finally {
       setBulkBusy(false);
     }
-  }, [selectedCommunity, loadCommunity]);
+  }, [selectedCommunity, loadCommunity, tr]);
 
   const bulkDeleteTrade = useCallback(async () => {
     const ids = [...selectedTrade];
     if (ids.length === 0) return;
-    if (
-      !window.confirm(
-        `선택 ${ids.length}개 거래 글을 DB에서 영구 삭제합니다.\n찜·채팅 등 연관 데이터는 DB 제약에 따라 함께 삭제되거나 남을 수 있습니다. 계속할까요?`
-      )
-    ) {
+    if (!window.confirm(tr("admin_posts_confirm_bulk_delete_trade", { count: ids.length }))) {
       return;
     }
     setBulkBusy(true);
@@ -262,26 +269,29 @@ export function AdminPostsPageContent() {
         notFoundOrSkipped?: string[];
       };
       if (!res.ok || !j.ok) {
-        setActionMsg(j.error ?? "거래 글 일괄 삭제에 실패했습니다.");
+        setActionMsg(j.error ?? tr("admin_posts_err_trade_bulk_delete"));
         return;
       }
       setSelectedTrade(new Set());
+      const skipped =
+        j.notFoundOrSkipped?.length ?
+          tr("admin_posts_msg_skipped_suffix", { skipped: j.notFoundOrSkipped.length })
+        : "";
       setActionMsg(
-        `거래 posts DB에서 ${j.deletedCount ?? 0}건 삭제했습니다.${
-          j.notFoundOrSkipped?.length
-            ? ` (없음·건너뜀 ${j.notFoundOrSkipped.length}건)`
-            : ""
-        }`
+        tr("admin_posts_msg_bulk_deleted_trade", {
+          deleted: j.deletedCount ?? 0,
+          skipped,
+        })
       );
       await loadTrade();
     } finally {
       setBulkBusy(false);
     }
-  }, [selectedTrade, loadTrade]);
+  }, [selectedTrade, loadTrade, tr]);
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="커뮤니티 게시글" />
+      <AdminPageHeader titleKey="admin_posts_page_title" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border pb-2">
         <button
@@ -293,7 +303,7 @@ export function AdminPostsPageContent() {
               : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
           }`}
         >
-          동네·커뮤니티
+          {tr("admin_posts_tab_community")}
         </button>
         <button
           type="button"
@@ -304,7 +314,7 @@ export function AdminPostsPageContent() {
               : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
           }`}
         >
-          거래 글 (posts)
+          {tr("admin_posts_tab_trade")}
         </button>
       </div>
 
@@ -316,27 +326,25 @@ export function AdminPostsPageContent() {
 
       {tab === "community" ? (
         <p className="sam-text-body-secondary text-sam-muted">
-          <code className="rounded bg-sam-surface-muted px-1">community_posts</code> 기준 목록입니다. 앱{" "}
+          <code className="rounded bg-sam-surface-muted px-1">community_posts</code>
+          {tr("admin_posts_help_community_before_link")}
           <Link href="/philife" className="text-signature hover:underline">
             /philife
           </Link>
-          는 같은 테이블을 쓰며, 상단 주제 탭(전체·모임·주제별)에 맞게 피드가 나뉩니다. 동네(지역) 고정 UI는 추후
-          적용 예정이며, 그때 사용자 동네와 목록이 더 일치합니다. 게시 상태 <strong>삭제</strong>는 소프트 삭제이고,{" "}
-          <strong>선택 후 DB 삭제</strong>는 행을 영구 제거합니다.
+          {tr("admin_posts_help_community_after_link")}
         </p>
       ) : (
         <p className="sam-text-body-secondary text-sam-muted">
-          <strong className="font-semibold text-sam-fg">거래 마켓 글</strong>은{" "}
-          <code className="rounded bg-sam-surface-muted px-1">posts</code> 테이블이며 필라이프 피드와{" "}
-          <strong className="font-semibold text-sam-fg">별도</strong>입니다. 커뮤니티 글은 위의「동네·커뮤니티」탭을
-          이용해 주세요.
+          {tr("admin_posts_help_trade_before_code")}
+          <code className="rounded bg-sam-surface-muted px-1">posts</code>
+          {tr("admin_posts_help_trade_after_code")}
         </p>
       )}
 
       {tab === "community" && !loading && communityRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <span className="sam-text-body-secondary text-sam-fg">
-            선택 <strong>{selectedCommunity.size}</strong>개
+            {tr("admin_posts_bulk_selected", { count: selectedCommunity.size })}
           </span>
           <button
             type="button"
@@ -344,7 +352,7 @@ export function AdminPostsPageContent() {
             onClick={() => void bulkDeleteCommunity()}
             className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
           >
-            선택 항목 DB에서 영구 삭제
+            {tr("admin_posts_bulk_delete_db")}
           </button>
         </div>
       ) : null}
@@ -352,7 +360,7 @@ export function AdminPostsPageContent() {
       {tab === "trade" && !loading && posts.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
           <span className="sam-text-body-secondary text-sam-fg">
-            선택 <strong>{selectedTrade.size}</strong>개
+            {tr("admin_posts_bulk_selected", { count: selectedTrade.size })}
           </span>
           <button
             type="button"
@@ -360,17 +368,17 @@ export function AdminPostsPageContent() {
             onClick={() => void bulkDeleteTrade()}
             className="rounded-ui-rect bg-red-600 px-3 py-1.5 sam-text-body-secondary font-medium text-white disabled:opacity-40"
           >
-            선택 항목 DB에서 영구 삭제
+            {tr("admin_posts_bulk_delete_db")}
           </button>
         </div>
       ) : null}
 
       {loading ? (
-        <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중…</div>
+        <div className="py-12 text-center sam-text-body text-sam-muted">{tr("common_loading")}</div>
       ) : tab === "trade" ? (
         posts.length === 0 ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-            게시글이 없습니다.
+            {tr("admin_posts_empty_trade")}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -384,15 +392,15 @@ export function AdminPostsPageContent() {
                       checked={allTradeSelected}
                       onChange={(e) => toggleAllTrade(e.target.checked)}
                       className="rounded border-sam-border"
-                      title="현재 목록 전체 선택"
-                      aria-label="거래 글 전체 선택"
+                      title={tr("admin_posts_title_select_all_visible")}
+                      aria-label={tr("admin_posts_aria_select_all_trade")}
                     />
                   </th>
-                  <th className="p-3 font-medium text-sam-fg">제목</th>
-                  <th className="p-3 font-medium text-sam-fg">타입</th>
-                  <th className="p-3 font-medium text-sam-fg">상태</th>
-                  <th className="p-3 font-medium text-sam-fg">등록일</th>
-                  <th className="p-3 font-medium text-sam-fg">관리</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_type")}</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_created")}</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -404,7 +412,7 @@ export function AdminPostsPageContent() {
                         checked={selectedTrade.has(p.id)}
                         onChange={(e) => toggleTradeRow(p.id, e.target.checked)}
                         className="rounded border-sam-border"
-                        aria-label={`선택 ${p.title.slice(0, 20)}`}
+                        aria-label={tr("admin_posts_aria_select_row", { label: p.title.slice(0, 20) })}
                       />
                     </td>
                     <td className="p-3">
@@ -421,9 +429,9 @@ export function AdminPostsPageContent() {
                         }
                         className="rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                       >
-                        {STATUS_OPTIONS.map((o) => (
+                        {statusTradeOptions.map((o) => (
                           <option key={o.value} value={o.value}>
-                            {o.label}
+                            {tr(o.labelKey)}
                           </option>
                         ))}
                       </select>
@@ -435,7 +443,7 @@ export function AdminPostsPageContent() {
                         onClick={() => handleStatusChange(p.id, "hidden")}
                         className="sam-text-body-secondary text-red-600 hover:underline"
                       >
-                        숨김
+                        {tr("admin_feed_posts_action_hide")}
                       </button>
                     </td>
                   </tr>
@@ -453,7 +461,7 @@ export function AdminPostsPageContent() {
           ) : null}
           {communityRows.length === 0 && !communityErr ? (
             <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-              동네·커뮤니티 글이 없습니다.
+              {tr("admin_posts_empty_community")}
             </div>
           ) : communityRows.length > 0 ? (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -467,23 +475,24 @@ export function AdminPostsPageContent() {
                         checked={allCommunitySelected}
                         onChange={(e) => toggleAllCommunity(e.target.checked)}
                         className="rounded border-sam-border"
-                        title="현재 목록 전체 선택"
-                        aria-label="동네 글 전체 선택"
+                        title={tr("admin_posts_title_select_all_visible")}
+                        aria-label={tr("admin_posts_aria_select_all_community")}
                       />
                     </th>
-                    <th className="p-3 font-medium text-sam-fg">제목</th>
-                    <th className="p-3 font-medium text-sam-fg">주제</th>
-                    <th className="p-3 font-medium text-sam-fg">동네</th>
-                    <th className="p-3 font-medium text-sam-fg">상태</th>
-                    <th className="p-3 font-medium text-sam-fg">신고</th>
-                    <th className="p-3 font-medium text-sam-fg">등록</th>
-                    <th className="p-3 font-medium text-sam-fg">관리</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_topic")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_region")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_reported")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_registered")}</th>
+                    <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_manage")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {communityRows.map((r) => {
                     const id = String(r.id ?? "");
                     const busy = communityBusyId === id;
+                    const titleStr = String(r.title ?? "");
                     return (
                       <tr key={id} className="border-b border-sam-border-soft">
                         <td className="px-2 py-2 text-center">
@@ -493,7 +502,7 @@ export function AdminPostsPageContent() {
                             onChange={(e) => toggleCommunityRow(id, e.target.checked)}
                             disabled={bulkBusy}
                             className="rounded border-sam-border"
-                            aria-label={`선택 ${String(r.title ?? "").slice(0, 24)}`}
+                            aria-label={tr("admin_posts_aria_select_row", { label: titleStr.slice(0, 24) })}
                           />
                         </td>
                         <td className="max-w-[220px] p-3">
@@ -501,20 +510,20 @@ export function AdminPostsPageContent() {
                             href={`/philife/${encodeURIComponent(id)}`}
                             className="font-medium text-signature hover:underline"
                           >
-                            {String(r.title ?? "(제목 없음)")}
+                            {titleStr ? titleStr : tr("admin_posts_no_title")}
                           </Link>
                           {r.is_sample_data === true ? (
                             <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 sam-text-xxs text-amber-900">
-                              샘플
+                              {tr("admin_feed_posts_sample_badge")}
                             </span>
                           ) : null}
                         </td>
-                        <td className="p-3 text-sam-muted">{String(r.category ?? "—")}</td>
+                        <td className="p-3 text-sam-muted">{String(r.category ?? dash)}</td>
                         <td
                           className="max-w-[140px] truncate p-3 text-sam-muted"
                           title={String(r.region_label ?? "")}
                         >
-                          {String(r.region_label ?? "—")}
+                          {String(r.region_label ?? dash)}
                         </td>
                         <td className="p-3">
                           <select
@@ -523,9 +532,9 @@ export function AdminPostsPageContent() {
                             onChange={(e) => void patchCommunityPost(id, e.target.value)}
                             className="max-w-[7rem] rounded border border-sam-border px-2 py-1 sam-text-body-secondary"
                           >
-                            {COMMUNITY_STATUS_OPTIONS.map((o) => (
+                            {communityStatusOptions.map((o) => (
                               <option key={o.value} value={o.value}>
-                                {o.label}
+                                {tr(o.labelKey)}
                               </option>
                             ))}
                           </select>
@@ -534,11 +543,11 @@ export function AdminPostsPageContent() {
                           {r.is_reported === true ? (
                             <span className="rounded bg-amber-100 px-1.5 text-amber-900">Y</span>
                           ) : (
-                            "—"
+                            dash
                           )}
                         </td>
                         <td className="whitespace-nowrap p-3 text-sam-muted">
-                          {r.created_at ? formatTimeAgo(r.created_at) : "—"}
+                          {r.created_at ? formatTimeAgo(r.created_at) : dash}
                         </td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-1">
@@ -548,7 +557,7 @@ export function AdminPostsPageContent() {
                               onClick={() => void patchCommunityPost(id, "hidden")}
                               className="sam-text-helper text-amber-700 hover:underline"
                             >
-                              숨김
+                              {tr("admin_feed_posts_action_hide")}
                             </button>
                             <button
                               type="button"
@@ -556,7 +565,7 @@ export function AdminPostsPageContent() {
                               onClick={() => void patchCommunityPost(id, "deleted")}
                               className="sam-text-helper text-red-600 hover:underline"
                             >
-                              삭제
+                              {tr("admin_feed_posts_action_delete")}
                             </button>
                             <button
                               type="button"
@@ -564,7 +573,7 @@ export function AdminPostsPageContent() {
                               onClick={() => void patchCommunityPost(id, "active")}
                               className="sam-text-helper text-emerald-700 hover:underline"
                             >
-                              복구
+                              {tr("admin_feed_posts_action_restore")}
                             </button>
                           </div>
                         </td>

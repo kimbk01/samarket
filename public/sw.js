@@ -1,5 +1,5 @@
 /* global self, clients */
-/* SAMarket Web Push — VAPID 페이로드는 JSON { title, body, url, icon, tag, call_push_kind } */
+/* dibaY Web Push — VAPID 페이로드는 JSON { title, body, url, icon, tag, call_push_kind } */
 
 self.addEventListener("message", function (event) {
   const d = event.data || {};
@@ -17,7 +17,7 @@ self.addEventListener("message", function (event) {
 });
 
 self.addEventListener("push", function (event) {
-  let payload = { title: "SAMarket", body: "", url: "/", icon: "/icon", tag: "kasama-push" };
+  let payload = { title: "dibaY", body: "", url: "/", icon: "/icon", tag: "kasama-push" };
   try {
     if (event.data) {
       const j = event.data.json();
@@ -26,7 +26,7 @@ self.addEventListener("push", function (event) {
   } catch {
     /* ignore */
   }
-  const title = typeof payload.title === "string" ? payload.title : "SAMarket";
+  const title = typeof payload.title === "string" ? payload.title : "dibaY";
   const body = typeof payload.body === "string" ? payload.body : "";
   const url = typeof payload.url === "string" && payload.url ? payload.url : "/";
   const icon = typeof payload.icon === "string" && payload.icon ? payload.icon : "/icon";
