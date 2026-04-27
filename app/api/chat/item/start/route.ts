@@ -5,8 +5,7 @@
  * **상품 단위 방**: `chat_rooms` 에 `room_type=item_trade`, `item_id`, `seller_id`, `buyer_id` 로
  * 동일 쌍·동일 상품에 대해 기본은 한 방 재사용(재문의). 친구 관계여도 **물품 거래 스레드**는
  * `community_messenger_rooms.direct_key` 가 친구 DM 과 분리된다(`trade_item:` / `trade_pc:`).
- * 동일 상품·동일 쌍의 **여러 방**: `chat_rooms` 다중 행 허용. 기본은 `updated_at` 최신 방 재사용.
- * Body `forceNewThread: true` 이면 기존 방을 건너뛰고 **항상 새 `item_trade` 행**을 만든다.
+ * 동일 상품·동일 쌍은 항상 최근 `updated_at` 방 1개를 재사용한다.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -36,13 +35,12 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-  let body: { itemId?: string; forceNewThread?: boolean };
+  let body: { itemId?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
   }
-  const forceNewThread = body.forceNewThread === true;
   const itemId = typeof body.itemId === "string" ? body.itemId.trim() : "";
   if (!itemId) {
     return NextResponse.json({ ok: false, error: "itemId 필요" }, { status: 400 });
@@ -100,18 +98,16 @@ export async function POST(req: NextRequest) {
       .eq("user_id", sellerId)
       .eq("blocked_user_id", buyerId)
       .maybeSingle(),
-    forceNewThread
-      ? Promise.resolve({ data: null, error: null })
-      : sbAny
-          .from("chat_rooms")
-          .select("id")
-          .eq("room_type", "item_trade")
-          .eq("item_id", itemId)
-          .eq("seller_id", sellerId)
-          .eq("buyer_id", buyerId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+    sbAny
+      .from("chat_rooms")
+      .select("id")
+      .eq("room_type", "item_trade")
+      .eq("item_id", itemId)
+      .eq("seller_id", sellerId)
+      .eq("buyer_id", buyerId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const block1 = block1Res.data;
   const block2 = block2Res.data;
@@ -121,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   const existing = existingRes.data as { id?: string } | null;
 
-  if (existing?.id && !forceNewThread) {
+  if (existing?.id) {
     // Reopen: participant hidden/left 복구
     const { data: participants } = await sbAny
       .from("chat_room_participants")

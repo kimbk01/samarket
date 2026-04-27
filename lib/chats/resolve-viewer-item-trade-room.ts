@@ -15,7 +15,7 @@ export type ViewerItemTradeRoomResult = {
  *
  * **당근형 거래방 경계**: 친구 DM·커뮤니티 메신저와 별개(메신저 `direct_key` 가 쌍-only 가 아님).
  * 동일 판매자·구매자라도 `item_id`(상품)가 다르면 다른 `item_trade` 행.
- * 동일 상품·동일 쌍은 기본 **최근 `updated_at` 방** 하나를 반환. `POST /api/chat/item/start` + `forceNewThread` 로 추가 행 가능.
+ * 동일 상품·동일 쌍은 **최근 `updated_at` 방** 하나를 반환하고 재사용한다.
  */
 export async function resolveViewerItemTradeRoom(
   sb: SupabaseClient,

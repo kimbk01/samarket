@@ -15,6 +15,7 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
+import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
@@ -111,6 +112,7 @@ export function RegionBar({
   const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
+  const rep = useRepresentativeAddressLine();
   if (!ruleSet.showRegionBar) {
     return null;
   }
@@ -150,12 +152,32 @@ export function RegionBar({
               <div className="flex w-10 shrink-0 justify-start">
                 <MyHubHeaderInfoHubTrigger />
               </div>
-              <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-                <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
-                  <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
+              <div className="min-w-0 flex-1 overflow-hidden pl-1 pr-2 text-left">
+                <h1 className="flex min-w-0 w-full items-center justify-start overflow-hidden text-sam-fg">
+                  {rep.status === "loading" ? (
+                    <span className="sam-text-body-secondary truncate text-sam-muted">지역 불러오는 중…</span>
+                  ) : (
+                    <Link
+                      href="/mypage/addresses"
+                      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-sam-primary-soft px-3 py-1.5 text-[13px] font-semibold text-sam-primary"
+                      aria-label={`주소 관리, 현재 ${rep.line?.trim() || "내 지역"}`}
+                    >
+                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 21s-6-5.2-6-10a6 6 0 1112 0c0 4.8-6 10-6 10z"
+                        />
+                        <circle cx="12" cy="11" r="2.2" />
+                      </svg>
+                      <span className="min-w-0 truncate">
+                        {rep.line?.trim() || "내 지역 설정"}
+                      </span>
+                    </Link>
+                  )}
                 </h1>
               </div>
-              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
+              <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
                 <TradeHeaderComposeButton />
                 <PhilifeHeaderNotificationInbox />
                 <PhilifeHeaderMessengerButton />

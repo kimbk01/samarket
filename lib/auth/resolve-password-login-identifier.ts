@@ -1,4 +1,7 @@
-import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
+import {
+  buildManualMemberAuthEmail,
+  resolveManualMemberSignInEmail,
+} from "@/lib/auth/manual-member-email";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export type ResolvedPasswordLoginIdentifier =
@@ -6,7 +9,8 @@ export type ResolvedPasswordLoginIdentifier =
   | { ok: false; status: number; error: string };
 
 export async function resolvePasswordLoginIdentifier(raw: string): Promise<ResolvedPasswordLoginIdentifier> {
-  const normalized = raw.trim().toLowerCase();
+  const trimmed = raw.trim();
+  const normalized = trimmed.toLowerCase();
   if (!normalized) return { ok: false, status: 400, error: "이메일 또는 아이디를 입력하세요." };
   if (normalized.includes("@")) {
     return { ok: true, identifier: normalized };
@@ -31,7 +35,12 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     auth_provider?: string | null;
   } | null;
   if (!row) {
-    return { ok: false, status: 400, error: "아이디 또는 이메일을 확인해 주세요." };
+    /**
+     * profiles 행이 누락/지연된 수동 회원도 로그인 가능하도록
+     * 관리자 수동 회원 이메일 규칙으로 폴백한다.
+     * 실제 인증 성패는 signInWithPassword에서 최종 판정된다.
+     */
+    return { ok: true, identifier: resolveManualMemberSignInEmail(trimmed) };
   }
   const authLoginEmail = String(row?.auth_login_email ?? "").trim().toLowerCase();
   if (authLoginEmail) return { ok: true, identifier: authLoginEmail };
@@ -42,5 +51,5 @@ export async function resolvePasswordLoginIdentifier(raw: string): Promise<Resol
     const username = String(row?.username ?? "").trim().toLowerCase();
     if (username) return { ok: true, identifier: buildManualMemberAuthEmail(username) };
   }
-  return { ok: false, status: 400, error: "아이디 또는 이메일을 확인해 주세요." };
+  return { ok: true, identifier: resolveManualMemberSignInEmail(trimmed) };
 }

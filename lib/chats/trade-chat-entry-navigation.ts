@@ -54,8 +54,6 @@ export function openCreateTradeChat(
   router: TradeChatRouterLike,
   input: {
     productId: string;
-    /** 동일 상품·동일 쌍에서 추가 `item_trade` 스레드 */
-    forceNewThread?: boolean;
   }
 ): void {
   const productId = input.productId.trim();
@@ -66,9 +64,7 @@ export function openCreateTradeChat(
     let successNavigatedToRoom = false;
     setTradeChatEntryCreatingOverlayState({ visible: true, phase: "resolving" });
     try {
-      const result = await createOrGetChatRoom(productId, {
-        ...(input.forceNewThread ? { forceNewThread: true } : {}),
-      });
+      const result = await createOrGetChatRoom(productId);
       if (result.ok && result.roomId) {
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
         const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);

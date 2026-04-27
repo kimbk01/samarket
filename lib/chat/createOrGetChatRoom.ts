@@ -21,8 +21,8 @@ export type CreateOrGetChatRoomResult =
   | { ok: true; roomId: string; roomSource: ChatRoomSource; messengerRoomId?: string }
   | { ok: false; error: string };
 
-function inflightKey(userId: string, productId: string, forceNewThread?: boolean): string {
-  return `${userId}:${productId.trim()}:${forceNewThread ? "new" : "reuse"}`;
+function inflightKey(userId: string, productId: string): string {
+  return `${userId}:${productId.trim()}:reuse`;
 }
 
 /**
@@ -56,13 +56,11 @@ export function prepareTradeChatRoom(productId: string): void {
 /**
  * 당근형 거래 채팅: 채팅방 생성 또는 기존 방 반환
  * - 동일 **상품(post id)** + 판매자 + 구매자 → 기본은 최근 `item_trade` 방 재사용(reopen)
- * - `forceNewThread: true` → 동일 쌍이라도 **새 `item_trade` 행** (추가 문의 스레드)
  * - 상품이 바뀌면 다른 방(친구 관계와 무관)
  * - POST /api/trade/chat/entry/resolve 단일 계약 → 서버가 item/start + 레거시 product_chats 폴백 처리
  */
 export async function createOrGetChatRoom(
-  productId: string,
-  opts?: { forceNewThread?: boolean }
+  productId: string
 ): Promise<CreateOrGetChatRoomResult> {
   const user = getCurrentUser();
   if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
@@ -79,8 +77,7 @@ export async function createOrGetChatRoom(
     }
   }
 
-  const forceNewThread = opts?.forceNewThread === true;
-  const key = inflightKey(user.id, productId, forceNewThread);
+  const key = inflightKey(user.id, productId);
   for (const [k, entry] of itemRoomCache) {
     if (entry.expiresAt <= Date.now()) {
       itemRoomCache.delete(k);
@@ -100,7 +97,7 @@ export async function createOrGetChatRoom(
   const running = inflightByUserProduct.get(key);
   if (running) return running;
 
-  const p = executeTradeChatStart(productId, key, forceNewThread).finally(() => {
+  const p = executeTradeChatStart(productId, key).finally(() => {
     inflightByUserProduct.delete(key);
   });
   inflightByUserProduct.set(key, p);
@@ -109,8 +106,7 @@ export async function createOrGetChatRoom(
 
 async function executeTradeChatStart(
   productId: string,
-  cacheKey: string,
-  forceNewThread?: boolean
+  cacheKey: string
 ): Promise<CreateOrGetChatRoomResult> {
   try {
     const res = await fetch("/api/trade/chat/entry/resolve", {
@@ -118,7 +114,6 @@ async function executeTradeChatStart(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         productId,
-        ...(forceNewThread ? { forceNewThread: true } : {}),
       }),
     });
     const data = (await res.json().catch(() => ({}))) as {

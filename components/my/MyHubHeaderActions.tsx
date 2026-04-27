@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MyHeaderNotificationInbox } from "@/components/my/MyHeaderNotificationInbox";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { useMypageInfoHubPanel } from "@/contexts/MypageInfoHubPanelContext";
 import {
@@ -156,7 +157,7 @@ export function MyHubHeaderActions() {
   return (
     <Suspense fallback={<MyHubHeaderActionsFallback />}>
       <div className={HUB_TRAILING_ROW_CLASS}>
-        <MyHubHeaderInAppSoundInner />
+        <MyHeaderNotificationInbox />
         <MyHubHeaderInfoHubTrigger />
       </div>
     </Suspense>

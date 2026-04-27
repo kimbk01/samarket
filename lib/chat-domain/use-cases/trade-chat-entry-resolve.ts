@@ -56,12 +56,10 @@ async function postUpstream(
 export async function resolveTradeChatEntry(
   req: NextRequest,
   userId: string,
-  productId: string,
-  opts?: { forceNewThread?: boolean }
+  productId: string
 ): Promise<ResolveTradeChatEntryResult> {
   const itemStart = await postUpstream(req, "/api/chat/item/start", {
     itemId: productId,
-    ...(opts?.forceNewThread ? { forceNewThread: true } : {}),
   });
   const itemRoomId = pickString(itemStart.payload.roomId);
   const itemMessengerId = pickString(itemStart.payload.messengerRoomId);

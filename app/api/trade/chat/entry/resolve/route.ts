@@ -7,8 +7,6 @@ export const dynamic = "force-dynamic";
 
 type EntryResolveBody = {
   productId?: string;
-  /** 동일 상품·동일 쌍에서 추가 `item_trade` 스레드 */
-  forceNewThread?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -27,8 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "productId 필요" }, { status: 400 });
   }
 
-  const forceNewThread = body.forceNewThread === true;
-  const result = await resolveTradeChatEntry(req, auth.userId, productId, { forceNewThread });
+  const result = await resolveTradeChatEntry(req, auth.userId, productId);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error },
