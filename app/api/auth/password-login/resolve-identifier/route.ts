@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   }
   const resolved = await resolvePasswordLoginIdentifier(identifier);
   if (!resolved.ok) {
-    return jsonError(resolved.error, resolved.status);
+    return jsonError(resolved.error, { status: resolved.status, code: resolved.code });
   }
   return jsonOk({ identifier: resolved.identifier });
 }
