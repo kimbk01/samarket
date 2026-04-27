@@ -542,7 +542,23 @@ export function AuthLoginSettingsForm() {
               </label>
               <label className="sam-text-body text-sam-fg">
                 <span className="mb-1 block sam-text-helper text-sam-muted">Provider</span>
-                <input value="supabase" disabled className="w-full rounded-ui-rect border border-sam-border px-3 py-2 bg-sam-app" />
+                <select
+                  value={phoneSettings.provider}
+                  onChange={(e) =>
+                    setPhoneSettings((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            provider: e.target.value === "supabase" ? "supabase" : "semaphore",
+                          }
+                        : prev
+                    )
+                  }
+                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
+                >
+                  <option value="semaphore">semaphore</option>
+                  <option value="supabase">supabase</option>
+                </select>
               </label>
               <label className="sam-text-body text-sam-fg">
                 <span className="mb-1 block sam-text-helper text-sam-muted">SMS 발신자명(표시용)</span>
@@ -614,10 +630,15 @@ export function AuthLoginSettingsForm() {
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
               />
             </label>
-            <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-              실제 SMS 발송은 Supabase Dashboard &gt; Authentication &gt; Providers &gt; Phone 에서 SMS Provider 설정이 필요합니다.
-              설정이 없으면 OTP 발송 API는 실패합니다. (Phone Provider 활성화/ SMS Provider 설정 필요, 필리핀 번호는 +63 국제번호로 발송)
-            </div>
+            {phoneSettings.provider === "supabase" ? (
+              <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+                Supabase Dashboard &gt; Authentication &gt; Phone Provider 설정이 필요합니다.
+              </div>
+            ) : (
+              <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+                Semaphore API Key는 Vercel Environment Variables에 설정해야 합니다.
+              </div>
+            )}
             {phoneError ? <p className="sam-text-body-secondary text-red-600">{phoneError}</p> : null}
             {phoneSuccess ? <p className="sam-text-body-secondary text-emerald-600">{phoneSuccess}</p> : null}
             <div className="flex justify-end">

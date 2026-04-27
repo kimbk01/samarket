@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createHash, randomInt } from "node:crypto";
 import { loadAuthPhoneSettings, type AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
 import {
   isValidPhilippinesMobilePhone,
   normalizePhilippinesPhoneNumber,
 } from "@/lib/phone/philippines-phone";
-import { checkTwilioVerificationCode, sendTwilioVerificationCode } from "@/lib/auth/twilio-verify";
+import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
 type ServiceResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
 
@@ -12,7 +13,7 @@ type VerifyOtpResult = {
   phone: string;
   member_status: "active";
   phone_verified: true;
-  verification_method: "supabase_phone_otp" | "twilio_verify";
+  verification_method: "semaphore_local";
 };
 
 function invalidPhoneResult(): ServiceResult<never> {
@@ -42,6 +43,15 @@ type ProfileOtpState = {
   phone_verification_attempt_count?: number | null;
 };
 
+type PhoneOtpChallengeRow = {
+  user_id: string;
+  phone: string;
+  otp_code_hash: string;
+  otp_expires_at: string;
+  attempt_count: number;
+  verified_at?: string | null;
+};
+
 async function loadProfileOtpState(sb: SupabaseClient, userId: string): Promise<ServiceResult<ProfileOtpState>> {
   const { data, error } = await sb
     .from("profiles")
@@ -66,6 +76,84 @@ async function bumpOtpAttemptCount(sb: SupabaseClient, userId: string, nextCount
       updated_at: new Date().toISOString(),
     })
     .eq("id", userId);
+}
+
+function getOtpHashSecret(): string {
+  const raw = process.env.PHONE_OTP_HASH_SECRET?.trim();
+  return raw && raw.length > 0 ? raw : "samarket-phone-otp-hash";
+}
+
+function createOtpCode(): string {
+  return String(randomInt(100000, 1000000));
+}
+
+function hashOtpCode(phone: string, otpCode: string): string {
+  const secret = getOtpHashSecret();
+  return createHash("sha256")
+    .update(`${phone}:${otpCode}:${secret}`)
+    .digest("hex");
+}
+
+async function upsertPhoneOtpChallenge(
+  sb: SupabaseClient,
+  userId: string,
+  phone: string,
+  otpCodeHash: string,
+  expiresAtIso: string
+): Promise<ServiceResult<null>> {
+  const { error } = await sb.from("phone_otp_challenges").upsert(
+    {
+      user_id: userId,
+      phone,
+      otp_code_hash: otpCodeHash,
+      otp_expires_at: expiresAtIso,
+      attempt_count: 0,
+      verified_at: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) return { ok: false, status: 500, message: error.message };
+  return { ok: true, data: null };
+}
+
+async function loadPhoneOtpChallenge(sb: SupabaseClient, userId: string): Promise<ServiceResult<PhoneOtpChallengeRow | null>> {
+  const { data, error } = await sb
+    .from("phone_otp_challenges")
+    .select("user_id, phone, otp_code_hash, otp_expires_at, attempt_count, verified_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) return { ok: false, status: 500, message: error.message };
+  return { ok: true, data: (data as PhoneOtpChallengeRow | null) ?? null };
+}
+
+async function updatePhoneOtpChallengeAttempts(
+  sb: SupabaseClient,
+  userId: string,
+  nextAttemptCount: number
+): Promise<ServiceResult<null>> {
+  const { error } = await sb
+    .from("phone_otp_challenges")
+    .update({
+      attempt_count: Math.max(0, nextAttemptCount),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+  if (error) return { ok: false, status: 500, message: error.message };
+  return { ok: true, data: null };
+}
+
+async function markPhoneOtpChallengeVerified(sb: SupabaseClient, userId: string): Promise<ServiceResult<null>> {
+  const nowIso = new Date().toISOString();
+  const { error } = await sb
+    .from("phone_otp_challenges")
+    .update({
+      verified_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("user_id", userId);
+  if (error) return { ok: false, status: 500, message: error.message };
+  return { ok: true, data: null };
 }
 
 export async function sendPhoneOtpForUser(
@@ -95,19 +183,17 @@ export async function sendPhoneOtpForUser(
     }
   }
 
-  const send = await sb.auth.signInWithOtp({
-    phone: normalizedPhone,
-    options: {
-      shouldCreateUser: false,
-    },
-  });
-  let verificationMethod: "supabase_phone_otp" | "twilio_verify" = "supabase_phone_otp";
-  if (send.error) {
-    const twilioFallback = await sendTwilioVerificationCode(normalizedPhone);
-    if (!twilioFallback.ok) {
-      return { ok: false, status: 400, message: send.error.message || twilioFallback.error || "OTP 발송에 실패했습니다." };
-    }
-    verificationMethod = "twilio_verify";
+  const otpCode = createOtpCode();
+  const otpCodeHash = hashOtpCode(normalizedPhone, otpCode);
+  const expiresAtIso = new Date(Date.now() + settings.otp_ttl_seconds * 1000).toISOString();
+
+  const otpRow = await upsertPhoneOtpChallenge(sb, userId, normalizedPhone, otpCodeHash, expiresAtIso);
+  if (!otpRow.ok) return otpRow;
+
+  const smsMessage = `[SAMarket] 인증번호 ${otpCode} (유효 ${Math.floor(settings.otp_ttl_seconds / 60)}분)`;
+  const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
+  if (!smsSent.ok) {
+    return { ok: false, status: 502, message: smsSent.error || "OTP 발송에 실패했습니다." };
   }
 
   const nowIso = new Date().toISOString();
@@ -117,7 +203,7 @@ export async function sendPhoneOtpForUser(
       phone: normalizedPhone,
       phone_verified: false,
       phone_verified_at: null,
-      phone_verification_method: verificationMethod,
+      phone_verification_method: "semaphore_local",
       phone_verification_requested_at: nowIso,
       phone_verification_attempt_count: 0,
       updated_at: nowIso,
@@ -153,19 +239,28 @@ export async function verifyPhoneOtpForUser(
     return { ok: false, status: 429, message: "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요." };
   }
 
-  const verified = await sb.auth.verifyOtp({
-    phone: normalizedPhone,
-    token: String(otp).trim(),
-    type: "sms",
-  });
-  let verificationMethod: "supabase_phone_otp" | "twilio_verify" = "supabase_phone_otp";
-  if (verified.error) {
-    const twilioFallback = await checkTwilioVerificationCode(normalizedPhone, String(otp).trim());
-    if (!twilioFallback.ok || twilioFallback.status !== "approved") {
-      await bumpOtpAttemptCount(sb, userId, attempted + 1);
-      return { ok: false, status: 400, message: "인증번호가 올바르지 않습니다." };
-    }
-    verificationMethod = "twilio_verify";
+  const challengeResult = await loadPhoneOtpChallenge(sb, userId);
+  if (!challengeResult.ok) return challengeResult;
+  const challenge = challengeResult.data;
+  if (!challenge) {
+    return { ok: false, status: 400, message: "먼저 인증번호를 요청해 주세요." };
+  }
+  if (challenge.phone !== normalizedPhone) {
+    return { ok: false, status: 400, message: "요청한 전화번호와 인증 대상 번호가 다릅니다." };
+  }
+  if (new Date(challenge.otp_expires_at).getTime() < Date.now()) {
+    return { ok: false, status: 400, message: "인증번호가 만료되었습니다. 다시 요청해 주세요." };
+  }
+  if (challenge.attempt_count >= settings.max_attempts) {
+    await bumpOtpAttemptCount(sb, userId, challenge.attempt_count);
+    return { ok: false, status: 429, message: "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요." };
+  }
+
+  const providedHash = hashOtpCode(normalizedPhone, String(otp).trim());
+  if (providedHash !== challenge.otp_code_hash) {
+    await updatePhoneOtpChallengeAttempts(sb, userId, challenge.attempt_count + 1);
+    await bumpOtpAttemptCount(sb, userId, attempted + 1);
+    return { ok: false, status: 400, message: "인증번호가 올바르지 않습니다." };
   }
 
   const nowIso = new Date().toISOString();
@@ -178,12 +273,14 @@ export async function verifyPhoneOtpForUser(
       member_status: "active",
       verified_member_at: nowIso,
       status: "verified_user",
-      phone_verification_method: verificationMethod,
+      phone_verification_method: "semaphore_local",
       phone_verification_attempt_count: 0,
       updated_at: nowIso,
     })
     .eq("id", userId);
   if (error) return { ok: false, status: 500, message: error.message };
+  const marked = await markPhoneOtpChallengeVerified(sb, userId);
+  if (!marked.ok) return marked;
 
   return {
     ok: true,
@@ -191,7 +288,7 @@ export async function verifyPhoneOtpForUser(
       phone: normalizedPhone,
       member_status: "active",
       phone_verified: true,
-      verification_method: verificationMethod,
+      verification_method: "semaphore_local",
     },
   };
 }

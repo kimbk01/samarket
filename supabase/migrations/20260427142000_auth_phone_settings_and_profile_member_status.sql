@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.auth_phone_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   enabled boolean NOT NULL DEFAULT false,
   country_code text NOT NULL DEFAULT 'PH',
-  provider text NOT NULL DEFAULT 'supabase',
+  provider text NOT NULL DEFAULT 'semaphore_local',
   sms_from_name text,
   otp_ttl_seconds int NOT NULL DEFAULT 300,
   resend_cooldown_seconds int NOT NULL DEFAULT 60,
@@ -67,7 +67,7 @@ INSERT INTO public.auth_phone_settings (
 SELECT
   false,
   'PH',
-  'supabase',
+  'semaphore_local',
   300,
   60,
   5

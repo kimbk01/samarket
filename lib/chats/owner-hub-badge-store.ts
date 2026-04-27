@@ -50,6 +50,8 @@ const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 180_000;
 const MIN_VISIBILITY_FETCH_GAP_MS = 45_000;
 /** 메신저 참가자 이벤트(source=community_messenger) 강제 갱신 최소 간격 */
 const MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS = 5_000;
+/** 메신저 이벤트에서도 최근 배지 스냅샷이 신선하면 `cmFresh=1` 강제를 피한다. */
+const MESSENGER_PARTICIPANT_FORCE_STALE_MS = 30_000;
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
 const listeners = new Set<() => void>();
@@ -61,6 +63,7 @@ let initialHydrateIdleId: number | null = null;
 let hubStarted = false;
 let globalEventsAttached = false;
 let lastFetchStartedAt = 0;
+let lastFetchCompletedAt = 0;
 let lastEventRefreshAt = 0;
 let eventForceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 /** 메신저 `community_messenger_participants` unread — 5초 이벤트 갭·일반 허브 스케줄과 분리해 탭 배지 즉시성 */
@@ -202,9 +205,11 @@ export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
       samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", { ok: res.ok });
       applyFromNetwork(data);
       broadcastOwnerHubBadgeSnapshot(data);
+      lastFetchCompletedAt = Date.now();
     } catch {
       applyFromNetwork(null);
       broadcastOwnerHubBadgeSnapshot(null);
+      lastFetchCompletedAt = Date.now();
     }
   });
 }
@@ -223,6 +228,7 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
    * 첫 이벤트는 즉시 반영하고, 이후 5초 창에서는 trailing 1회만 허용한다.
    */
   const now = Date.now();
+  const shouldForceFresh = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
   const elapsed = now - lastMessengerParticipantForceRefreshAt;
   if (elapsed >= MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS) {
     lastMessengerParticipantForceRefreshAt = now;
@@ -231,17 +237,19 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
       messengerHubBadgeCoalesceTimer = null;
     }
     /**
-     * 메신저 unread 증가는 사용자 체감상 즉시성이 핵심이라 서버 단기 캐시를 우회한다.
-     * 5초 코얼레싱으로 과호출을 막으므로 정확도 우선으로 강제 재조회한다.
+     * 탭 전환 체감 저하를 막기 위해 메신저 이벤트마다 `cmFresh=1`를 강제하지 않는다.
+     * 최근 스냅샷이 충분히 신선하면 일반 조회로 합류하고, stale 구간에서만 강제 fresh를 허용한다.
      */
-    void fetchOwnerHubBadgeNow(true);
+    void fetchOwnerHubBadgeNow(shouldForceFresh);
     return;
   }
   if (messengerHubBadgeCoalesceTimer != null) return;
   messengerHubBadgeCoalesceTimer = setTimeout(() => {
     messengerHubBadgeCoalesceTimer = null;
     lastMessengerParticipantForceRefreshAt = Date.now();
-    void fetchOwnerHubBadgeNow(true);
+    const trailingShouldForceFresh =
+      Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
+    void fetchOwnerHubBadgeNow(trailingShouldForceFresh);
   }, MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS - elapsed);
 }
 

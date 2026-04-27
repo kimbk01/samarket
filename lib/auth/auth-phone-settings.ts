@@ -4,7 +4,7 @@ export type AuthPhoneSettings = {
   id?: string;
   enabled: boolean;
   country_code: "PH";
-  provider: "supabase";
+  provider: "supabase" | "semaphore";
   sms_from_name: string | null;
   otp_ttl_seconds: number;
   resend_cooldown_seconds: number;
@@ -17,7 +17,7 @@ export type AuthPhoneSettings = {
 export const DEFAULT_AUTH_PHONE_SETTINGS: AuthPhoneSettings = {
   enabled: false,
   country_code: "PH",
-  provider: "supabase",
+  provider: "semaphore",
   sms_from_name: null,
   otp_ttl_seconds: 300,
   resend_cooldown_seconds: 60,
@@ -31,6 +31,13 @@ function toClampedInt(value: unknown, fallback: number, min: number, max: number
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
+function normalizeProvider(value: unknown): "supabase" | "semaphore" {
+  const provider = String(value ?? "").trim().toLowerCase();
+  if (provider === "supabase") return "supabase";
+  if (provider === "semaphore" || provider === "semaphore_local") return "semaphore";
+  return DEFAULT_AUTH_PHONE_SETTINGS.provider;
+}
+
 export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>): AuthPhoneSettings {
   const guide = String(raw.guide_text ?? DEFAULT_AUTH_PHONE_SETTINGS.guide_text).trim();
   const from = String(raw.sms_from_name ?? "").trim();
@@ -38,7 +45,7 @@ export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>):
     ...DEFAULT_AUTH_PHONE_SETTINGS,
     enabled: raw.enabled === true,
     country_code: "PH",
-    provider: "supabase",
+    provider: normalizeProvider(raw.provider),
     sms_from_name: from || null,
     otp_ttl_seconds: toClampedInt(raw.otp_ttl_seconds, DEFAULT_AUTH_PHONE_SETTINGS.otp_ttl_seconds, 60, 1800),
     resend_cooldown_seconds: toClampedInt(
@@ -60,6 +67,7 @@ export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
     .select(
       "id, enabled, country_code, provider, sms_from_name, otp_ttl_seconds, resend_cooldown_seconds, max_attempts, guide_text, created_at, updated_at"
     )
+    .eq("country_code", "PH")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();

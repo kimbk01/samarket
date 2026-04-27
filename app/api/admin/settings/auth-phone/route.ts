@@ -37,7 +37,7 @@ export async function PATCH(req: NextRequest) {
     {
       ...normalized,
       country_code: "PH",
-      provider: "supabase",
+      provider: normalized.provider,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "country_code,provider" }

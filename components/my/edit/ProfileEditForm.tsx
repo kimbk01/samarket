@@ -61,6 +61,7 @@ export function ProfileEditForm() {
   const [addressListErr, setAddressListErr] = useState(false);
   const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<{
     enabled: boolean;
+    provider: "supabase" | "semaphore";
     guide_text: string;
     resend_cooldown_seconds: number;
   } | null>(null);
@@ -88,13 +89,23 @@ export function ProfileEditForm() {
       .then(async (res) => {
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
-          verification?: { settings?: { enabled?: boolean; guide_text?: string; resend_cooldown_seconds?: number } };
+          verification?: {
+            settings?: {
+              enabled?: boolean;
+              provider?: string;
+              guide_text?: string;
+              resend_cooldown_seconds?: number;
+            };
+          };
         };
         if (!res.ok || !j.ok) return null;
         const s = j.verification?.settings;
         if (!s) return null;
+        const provider: "supabase" | "semaphore" =
+          s.provider === "supabase" ? "supabase" : "semaphore";
         return {
           enabled: s.enabled === true,
+          provider,
           guide_text: String(s.guide_text ?? ""),
           resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60) || 60,
         };

@@ -8,6 +8,7 @@ import {
 
 type VerificationSettings = {
   enabled: boolean;
+  provider?: "supabase" | "semaphore" | string;
   guide_text: string;
   resend_cooldown_seconds: number;
 };
@@ -107,7 +108,16 @@ export function PhoneVerificationBox({
     }
   };
 
-  if (!settings?.enabled) {
+  if (!settings) {
+    return (
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+        <p className="sam-text-body font-semibold text-sam-fg">전화번호 인증</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">설정을 불러오는 중입니다…</p>
+      </div>
+    );
+  }
+
+  if (!settings.enabled) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
         <p className="sam-text-body font-semibold text-sam-fg">전화번호 인증</p>
