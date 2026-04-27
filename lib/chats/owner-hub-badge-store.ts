@@ -231,18 +231,17 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
       messengerHubBadgeCoalesceTimer = null;
     }
     /**
-     * community_messenger 이벤트는 빈도가 높아 `cmFresh=1` 강제 우회가 누적되면
-     * 탭 전환 시점에 허브 배지 계산이 본문 API와 경쟁한다.
-     * 여기서는 서버 단기 캐시를 활용한 일반 갱신으로 수렴시킨다.
+     * 메신저 unread 증가는 사용자 체감상 즉시성이 핵심이라 서버 단기 캐시를 우회한다.
+     * 5초 코얼레싱으로 과호출을 막으므로 정확도 우선으로 강제 재조회한다.
      */
-    void fetchOwnerHubBadgeNow(false);
+    void fetchOwnerHubBadgeNow(true);
     return;
   }
   if (messengerHubBadgeCoalesceTimer != null) return;
   messengerHubBadgeCoalesceTimer = setTimeout(() => {
     messengerHubBadgeCoalesceTimer = null;
     lastMessengerParticipantForceRefreshAt = Date.now();
-    void fetchOwnerHubBadgeNow(false);
+    void fetchOwnerHubBadgeNow(true);
   }, MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS - elapsed);
 }
 

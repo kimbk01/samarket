@@ -142,12 +142,12 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
 
 /** 일반 인앱 알림(오너 전용 매장주문 제외) — 상단 종·마이 허더 등, 구매자 매장주문 포함 */
 export const myGeneralNotificationUnreadStore = createNotificationUnreadBadgeStore(
-  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1"
+  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_chat_message=1"
 );
 
 /** 하단 네비 「내정보」탭 — 구매자 매장주문(배송 중 등) 알림 미읽음은 제외 */
 export const myBottomNavNotificationUnreadStore = createNotificationUnreadBadgeStore(
-  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1"
+  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1&exclude_chat_message=1"
 );
 
 /** 매장 사업자 전용 매장주문 인앱 알림 */

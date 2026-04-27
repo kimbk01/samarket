@@ -1,4 +1,10 @@
-type UnreadCountMode = "all" | "consumer" | "owner_store_commerce" | "bottom_nav";
+type UnreadCountMode =
+  | "all"
+  | "consumer"
+  | "consumer_no_chat"
+  | "owner_store_commerce"
+  | "bottom_nav"
+  | "bottom_nav_no_chat";
 
 const TTL_MS = 10_000;
 

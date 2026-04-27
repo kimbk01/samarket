@@ -25,11 +25,12 @@ export function resolveMessagingGlobalChromeFromPath(
    * 상단 알림 벨 Realtime — `mountGlobalRealtimeChrome` 만 켜면 `/community`·`/market` 등에서 구독이 꺼진다.
    * 메신저 participants 는 `MainShellMessengerParticipantBridge` 가 항상 켜므로 여기서는 알림 테이블만 확장한다.
    */
-  const isHome = pathname === "/" || pathname === "/home";
-  const mountMainShellNotificationsRealtime =
-    f.mountGlobalRealtimeChrome ||
-    isHome ||
-    (f.showBottomNav && !f.isCommunityMessengerCallPage);
+  /**
+   * 알림 INSERT/UPDATE Realtime 는 화면 위치와 무관하게 항상 살아 있어야
+   * (친구/메신저/거래 포함) 어디서든 벨/뱃지 동기화가 끊기지 않는다.
+   * 통화 전용 화면만 예외로 두어 통화 UI 집중도를 유지한다.
+   */
+  const mountMainShellNotificationsRealtime = !f.isCommunityMessengerCallPage;
 
   /**
    * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.

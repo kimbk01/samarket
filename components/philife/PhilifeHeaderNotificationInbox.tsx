@@ -142,7 +142,7 @@ export function PhilifeHeaderNotificationInbox() {
       if (force) {
         invalidateMeNotificationsListDedupedCache();
       }
-      const { status, json: raw } = await fetchMeNotificationsListDeduped({ force });
+      const { status, json: raw } = await fetchMeNotificationsListDeduped({ force, excludeChatMessages: true });
       const j = raw as { ok?: boolean; notifications?: Row[] };
       if (status === 401) {
         setRows([]);
@@ -258,7 +258,7 @@ export function PhilifeHeaderNotificationInbox() {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mark_my_notifications_read_excluding_owner_commerce: true }),
+      body: JSON.stringify({ mark_my_notifications_read_excluding_owner_and_chat: true }),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && j?.ok) {

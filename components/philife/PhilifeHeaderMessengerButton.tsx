@@ -8,6 +8,7 @@ import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessenge
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 
 /**
  * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
@@ -26,6 +27,8 @@ export function PhilifeHeaderMessengerButton() {
   );
   const label = t("nav_bottom_messenger");
   const useStack = isMessengerFromHeaderStackSurface(pathname);
+  const ownerHub = useOwnerHubBadgeBreakdown();
+  const unread = Math.max(0, Number(ownerHub.communityMessengerUnread) || 0);
 
   const openMessengerStack = useCallback(() => {
     if (!guardBeforeNavigate()) return;
@@ -38,10 +41,15 @@ export function PhilifeHeaderMessengerButton() {
         <button
           type="button"
           onClick={openMessengerStack}
-          className="sam-header-action h-10 w-10 text-sam-fg"
+          className="sam-header-action relative h-10 w-10 text-sam-fg"
           aria-label={label}
         >
           <BottomNavMessengerChatIcon className="h-5 w-5" />
+          {unread > 0 ? (
+            <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          ) : null}
         </button>
       </div>
     );
@@ -51,7 +59,7 @@ export function PhilifeHeaderMessengerButton() {
     <div className="flex w-10 shrink-0 items-center justify-end">
       <Link
         href={href}
-        className="sam-header-action h-10 w-10 text-sam-fg"
+        className="sam-header-action relative h-10 w-10 text-sam-fg"
         aria-label={label}
         prefetch
         onClick={(e) => {
@@ -59,6 +67,11 @@ export function PhilifeHeaderMessengerButton() {
         }}
       >
         <BottomNavMessengerChatIcon className="h-5 w-5" />
+        {unread > 0 ? (
+          <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
+            {unread > 99 ? "99+" : unread}
+          </span>
+        ) : null}
       </Link>
     </div>
   );

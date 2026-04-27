@@ -16,6 +16,10 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function isChatMessageNotificationRow(row: { notification_type?: unknown } | null | undefined): boolean {
+  return String(row?.notification_type ?? "").trim().toLowerCase() === "chat";
+}
+
 function isUnreachableUpstreamError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
   if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|fetch failed|network/i.test(msg)) return true;
@@ -56,11 +60,16 @@ export async function GET(req: NextRequest) {
   if (searchParams.get("unread_count_only") === "1") {
     const excludeOwner = searchParams.get("exclude_owner_store_commerce") === "1";
     const excludeBuyerStore = searchParams.get("exclude_buyer_store_commerce") === "1";
+    const excludeChatMessage = searchParams.get("exclude_chat_message") === "1";
     const ownerOnly = searchParams.get("owner_store_commerce_unread_only") === "1";
     const mode: UnreadCountMode = ownerOnly
       ? "owner_store_commerce"
+      : excludeOwner && excludeBuyerStore && excludeChatMessage
+        ? "bottom_nav_no_chat"
       : excludeOwner && excludeBuyerStore
         ? "bottom_nav"
+        : excludeOwner && excludeChatMessage
+          ? "consumer_no_chat"
         : excludeOwner
           ? "consumer"
           : "all";
@@ -85,7 +94,7 @@ export async function GET(req: NextRequest) {
 
         const { data, error } = await sb
           .from("notifications")
-          .select("id, meta")
+          .select("id, meta, notification_type")
           .eq("user_id", userId)
           .eq("is_read", false)
           .limit(UNREAD_SCAN_CAP);
@@ -119,6 +128,21 @@ export async function GET(req: NextRequest) {
               !isOwnerStoreCommerceNotificationRow(r) && !isBuyerStoreCommerceNotificationRow(r)
           ).length;
         }
+        if (mode === "bottom_nav_no_chat") {
+          return rows.filter(
+            (r) =>
+              !isOwnerStoreCommerceNotificationRow(r) &&
+              !isBuyerStoreCommerceNotificationRow(r) &&
+              !isChatMessageNotificationRow(r)
+          ).length;
+        }
+        if (mode === "consumer_no_chat") {
+          return rows.filter(
+            (r) =>
+              !isOwnerStoreCommerceNotificationRow(r) &&
+              !isChatMessageNotificationRow(r)
+          ).length;
+        }
         return rows.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).length;
       });
 
@@ -143,6 +167,7 @@ export async function GET(req: NextRequest) {
   }
 
   const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
+  const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
   /** 매장 오너 전용 목록은 최근 건을 넉넉히 가져온 뒤 `meta.store_id` 로 좁힘 */
   const listLimit = ownerStoreId ? 500 : excludeOwnerList ? 200 : 80;
@@ -173,6 +198,9 @@ export async function GET(req: NextRequest) {
       } else if (excludeOwnerList) {
         list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
       }
+      if (excludeChatMessageList) {
+        list = list.filter((r) => !isChatMessageNotificationRow(r));
+      }
       return NextResponse.json({ ok: true, notifications: list });
     }
     const { data: rowsBare, error: eBare } = await sb
@@ -188,6 +216,9 @@ export async function GET(req: NextRequest) {
       } else if (excludeOwnerList) {
         list = list.slice(0, 80);
       }
+      if (excludeChatMessageList) {
+        list = list.filter((r) => !isChatMessageNotificationRow(r));
+      }
       return NextResponse.json({ ok: true, notifications: list });
     }
     console.error("[GET notifications]", error);
@@ -200,6 +231,9 @@ export async function GET(req: NextRequest) {
   } else if (excludeOwnerList) {
     notifications = notifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
   }
+  if (excludeChatMessageList) {
+    notifications = notifications.filter((r) => !isChatMessageNotificationRow(r));
+  }
 
   return NextResponse.json({ ok: true, notifications });
 }
@@ -210,6 +244,8 @@ type PatchBody = {
   mark_all_read?: boolean;
   /** /my/notifications 목록에 맞춰, 매장 오너 전용 매장주문 알림은 읽음 처리하지 않음 */
   mark_my_notifications_read_excluding_owner_commerce?: boolean;
+  /** 헤더 종(벨) 전용: 채팅 메시지(notification_type=chat)는 제외하고 읽음 처리 */
+  mark_my_notifications_read_excluding_owner_and_chat?: boolean;
   /** 매장 사업자가 주문 관리로 들어올 때(종·알림 바로가기) 오너 전용 매장주문 알림만 일괄 읽음 */
   mark_all_owner_store_commerce_read?: boolean;
   ids?: string[];
@@ -329,6 +365,38 @@ export async function PATCH(req: NextRequest) {
     }
     const ids = (data ?? [])
       .filter((r) => !isOwnerStoreCommerceNotificationRow(r))
+      .map((r) => r.id as string)
+      .filter(Boolean);
+    if (ids.length === 0) {
+      return NextResponse.json({ ok: true, updated: 0 });
+    }
+    const { error: uErr } = await sb
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .in("id", ids);
+    if (uErr) {
+      return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
+    }
+    invalidateNotificationUnreadCountCache(userId);
+    return NextResponse.json({ ok: true, updated: ids.length });
+  }
+
+  if (body.mark_my_notifications_read_excluding_owner_and_chat === true) {
+    const { data, error } = await sb
+      .from("notifications")
+      .select("id, meta, notification_type")
+      .eq("user_id", userId)
+      .eq("is_read", false)
+      .limit(500);
+    if (error) {
+      if (error.message?.includes("meta") && error.message.includes("does not exist")) {
+        return NextResponse.json({ ok: true, updated: 0 });
+      }
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+    const ids = (data ?? [])
+      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isChatMessageNotificationRow(r))
       .map((r) => r.id as string)
       .filter(Boolean);
     if (ids.length === 0) {
