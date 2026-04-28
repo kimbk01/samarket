@@ -8,7 +8,7 @@
  * 1) Open redirect: `next=https://attacker.example` → 외부로 송출
  * 2) 인증 루프: `next=/login` 또는 `next=/auth/callback` → 무한 루프
  *
- * 정상 입력: `/`, `/home`, `/trade/123`, `/community/55?tab=hot` 등 동일 출처 경로.
+ * 정상 입력: `/`, `/philife`, `/trade/123`, `/community/55?tab=hot` 등 동일 출처 경로.
  */
 
 const NEXT_PATH_MAX_LENGTH = 1024;

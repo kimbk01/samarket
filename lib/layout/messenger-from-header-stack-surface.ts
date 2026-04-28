@@ -5,7 +5,7 @@
 export function isMessengerFromHeaderStackSurface(pathname: string | null | undefined): boolean {
   const p = (pathname?.split("?")[0] ?? "").trim();
   if (p === "/philife") return true;
-  if (p === "/home") return true;
+  if (p === "/philife") return true;
   if (p === "/market") return true;
   if (p.startsWith("/market/")) return true;
   return false;

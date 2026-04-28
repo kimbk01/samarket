@@ -1,5 +1,5 @@
 /**
- * `/api/home/posts` GET 과 동일한 조회 로직 — RSC 시드와 공유해 첫 페인트 중복 요청을 줄인다.
+ * `/api/philife/posts` GET 과 동일한 조회 로직 — RSC 시드와 공유해 첫 페인트 중복 요청을 줄인다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
@@ -116,7 +116,7 @@ export type ResolveHomePostsGetDataOptions = {
    * 이미 같은 요청(`req` 쿠키 맥락)에서 `getOptionalAuthenticatedUserId()`로 확정한 뷰어 ID.
    * - 속성을 생략하거나 값이 `undefined`이면 이 함수 안에서 세션을 한 번 조회한다.
    * - `null`(비로그인) 또는 비어 있지 않은 문자열이면 그대로 쓰며 세션을 다시 열지 않는다.
-   *   (`GET /api/home/posts` 가 헤더용 인증과 favorites용 인증을 한 갈래로 맞추기 위함.)
+ *   (`GET /api/philife/posts` 가 헤더용 인증과 favorites용 인증을 한 갈래로 맞추기 위함.)
    */
   precomputedViewerUserId?: string | null;
   diagnostics?: ResolveHomePostsServerDiagnostics;
@@ -138,7 +138,7 @@ export type ResolveHomePostsServerDiagnostics = {
 };
 
 /**
- * GET /api/home/posts 와 동일 페이로드. Supabase 미구성 시 빈 결과.
+ * GET /api/philife/posts 와 동일 페이로드. Supabase 미구성 시 빈 결과.
  */
 export async function resolveHomePostsGetData(
   req: NextRequest,

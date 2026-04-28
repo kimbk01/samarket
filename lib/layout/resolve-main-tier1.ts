@@ -22,7 +22,7 @@ export type ResolvedMainTier1Subpage = {
 
 const DEFAULT: ResolvedMainTier1Subpage = {
   showBack: true,
-  backHref: "/home",
+  backHref: "/philife",
   preferHistoryBack: true,
   ariaLabel: "이전 화면",
   titleText: "",
@@ -34,7 +34,7 @@ function backMypage(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainT
 }
 
 function backHome(overrides: Partial<ResolvedMainTier1Subpage>): ResolvedMainTier1Subpage {
-  return { ...DEFAULT, backHref: "/home", ...overrides };
+  return { ...DEFAULT, backHref: "/philife", ...overrides };
 }
 
 /**
@@ -47,7 +47,6 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
-  if (p === "/home") return null;
   if (p === "/philife") return null;
   if (p === "/community") return null;
   if (p === "/stores") return null;
@@ -88,7 +87,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       showBack: false,
       hideBack: true,
-      backHref: "/home",
+      backHref: "/philife",
       titleText: "주문",
       showHubQuickActions: false,
     };
@@ -143,19 +142,19 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backHome({ titleText: "내 커뮤니티 활동", showHubQuickActions: true });
   }
 
-  if (p === "/home/reviews" || starts(p, "/home/reviews/")) {
+  if (p === "/mypage/reviews" || starts(p, "/mypage/reviews/")) {
     return backHome({ titleText: "후기 관리", showHubQuickActions: true });
   }
 
-  if (p === "/home/purchases") {
+  if (p === "/mypage/purchases") {
     return backHome({ titleText: "거래 관리", showHubQuickActions: true });
   }
 
-  if (/^\/home\/purchases\/[^/]+$/.test(p)) {
+  if (/^\/mypage\/purchases\/[^/]+$/.test(p)) {
     return backHome({ titleText: "구매 상세", showHubQuickActions: true });
   }
 
-  if (p === "/home/sales" || starts(p, "/home/sales/")) {
+  if (p === "/mypage/sales" || starts(p, "/mypage/sales/")) {
     return backHome({ titleText: "거래 관리", showHubQuickActions: true });
   }
 
@@ -313,7 +312,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (/^\/post\/[^/]+$/.test(p)) {
     return {
       ...DEFAULT,
-      backHref: "/home",
+      backHref: "/philife",
       preferHistoryBack: true,
       ariaLabel: "이전 화면",
       titleText: "거래",
@@ -339,6 +338,6 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     }
   }
 
-  const back = p.startsWith("/my/") || p.startsWith("/mypage") ? "/mypage" : "/home";
+  const back = p.startsWith("/my/") || p.startsWith("/mypage") ? "/mypage" : "/philife";
   return { ...DEFAULT, backHref: back, titleText: "", showHubQuickActions: true };
 }

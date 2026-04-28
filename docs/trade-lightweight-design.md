@@ -39,7 +39,7 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 | 원칙 | 실천 |
 |------|------|
 | **라우트당 로더 1개** | 같은 화면에서 `getHomeChipCategories` + `getPostsForHome`처럼 **출처가 갈라지면**, 서버에서 `{ chips, posts, favoriteMap }` 형태로 **한 번에** 내려주는 API/RSC를 우선한다. |
-| **적용됨 (`/home`)** | `app/(main)/home/page.tsx`(RSC)가 `resolveHomePostsGetData`로 첫 피드를 채우고, `HomeProductList`에 넘겨 **마운트 직후 `getPostsForHome` 재호출을 생략**한다. `primeHomePostsCache`로 클라이언트 캐시와 키를 맞춤. |
+| **적용됨 (`/market`)** | `app/(main)/market/page.tsx`(RSC)가 `resolveHomePostsGetData`로 첫 피드를 채우고, `HomeProductList`에 넘겨 **마운트 직후 `getPostsForHome` 재호출을 생략**한다. `primeHomePostsCache`로 클라이언트 캐시와 키를 맞춤. |
 | **중복 요청 방지** | 클라이언트 `useEffect` + fetch 여러 개보다, **서버 단일 fetch** 또는 **명시적 단일 키**의 `runSingleFlight`만 사용한다. |
 | **캐시 키 단순화** | `getPostsForHome`의 캐시 키처럼 **의미 있는 소수의 축**(page, sort, tradeMarketParent 등)만 쓰고, 버전 접미사(`:v3`)로 정책 변경 시 일괄 무효화한다. |
 
@@ -57,19 +57,19 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 
 ## 6. 캐싱 계층
 
-1. **HTTP**: `Cache-Control` / `Vary`는 `app/api/home/posts` 등 기존 패턴을 따른다.
+1. **HTTP**: `Cache-Control` / `Vary`는 `app/api/philife/posts` 등 기존 패턴을 따른다.
 2. **앱 메모리**: 짧은 TTL(수십 초) + 키 단순. **탭 복귀 시 무분별 refetch 금지** — 최소 간격(기존 `MIN_SILENT_REFRESH_GAP_MS` 같은 정책) 유지.
 3. **DB**: 거래 루트·`trade_category_id` 조합에 맞는 **인덱스**를 쿼리와 함께 검토한다.
 
 ## 7. 이행 순서 (리스크 낮게)
 
-1. **읽기 전용** 경로부터: 홈 `/home` 또는 `/market/[slug]` 중 하나만 RSC 첫 페이로드 도입.
+1. **읽기 전용** 경로부터: 홈 `/philife` 또는 `/market/[slug]` 중 하나만 RSC 첫 페이로드 도입.
 2. **중복 클라이언트 fetch 제거**만으로도 체감이 난다.
 3. 그다음 **목록 클라이언트 컴포넌트 분할**(카드 단위 인터랙션).
 
 ## 8. 관련 기존 코드 (참고만)
 
-- 홈 피드: `components/home/HomeProductList.tsx`, `lib/posts/getPostsForHome.ts`, `app/api/home/posts/route.ts`
+- 홈 피드: `components/home/HomeProductList.tsx`, `lib/posts/getPostsForHome.ts`, `app/api/philife/posts/route.ts`
 - 마켓: `app/(main)/market/[slug]/page.tsx`, `components/market/MarketCategoryFeed.tsx`
 - 칩/탭: `lib/trade/tabs/use-trade-tabs.ts`, `lib/categories/getHomeChipCategories.ts`
 

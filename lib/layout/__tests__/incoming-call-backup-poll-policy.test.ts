@@ -4,7 +4,7 @@ import { shouldRunIncomingCallBackupHttpPoll } from "@/lib/layout/incoming-call-
 describe("shouldRunIncomingCallBackupHttpPoll", () => {
   it("always allows when direct callee is ringing", () => {
     expect(shouldRunIncomingCallBackupHttpPoll("/philife", true)).toBe(true);
-    expect(shouldRunIncomingCallBackupHttpPoll("/home", true)).toBe(true);
+    expect(shouldRunIncomingCallBackupHttpPoll("/market", true)).toBe(true);
   });
 
   it("blocks login surface", () => {
@@ -21,7 +21,7 @@ describe("shouldRunIncomingCallBackupHttpPoll", () => {
   });
 
   it("suppresses backup poll on general feed surfaces", () => {
-    expect(shouldRunIncomingCallBackupHttpPoll("/home", false)).toBe(false);
+    expect(shouldRunIncomingCallBackupHttpPoll("/market", false)).toBe(false);
     expect(shouldRunIncomingCallBackupHttpPoll("/philife", false)).toBe(false);
     expect(shouldRunIncomingCallBackupHttpPoll("/stores", false)).toBe(false);
     expect(shouldRunIncomingCallBackupHttpPoll("/mypage", false)).toBe(false);

@@ -16,7 +16,7 @@ const SHELL_PUSH_X = PANEL_WIDTH;
 const PEEK_STRIP_WIDTH = "10vw";
 
 /**
- * `/home`·`/market/…` 에서 헤더 `+` → 거래 내역을 **좌→우 슬라이드**로 연는다.
+ * `/market/…` 에서 헤더 `+` → 거래 내역을 **좌→우 슬라이드**로 연는다.
  * 패널은 뷰포트 **90%** 너비이고, 본문은 **90vw만** 오른쪽으로 밀려 **덮지 않고** 이전 페이지가 오른쪽 10% 띠로 남는다(포털 고정 패널 + transform 병행).
  */
 export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode }) {

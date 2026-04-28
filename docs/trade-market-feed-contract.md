@@ -10,7 +10,7 @@
 
 반면 관리자 상품 목록·`trade-expand-ids`는 **`trade_category_id` 집합**을 기준으로 하고, 실제 목록 API로 검증된 것은 **`/api/trade/feed` → `fetchTradeFeedPage` → `fetchPostsRangeForTradeCategories`** 체인이었다.
 
-즉, **“임시로 다른 API를 썼다”가 아니라**, 마켓·무한스크롤·bootstrap 첫 화면은 **거래 피드 전용 쿼리 모듈**을 단일 소스로 두는 것이 맞다. 홈 전체(`/home` · `tradeMarketParent` 없음)는 `GET /api/home/posts`가 담당한다.
+즉, **“임시로 다른 API를 썼다”가 아니라**, 마켓·무한스크롤·bootstrap 첫 화면은 **거래 피드 전용 쿼리 모듈**을 단일 소스로 두는 것이 맞다. 홈 전체(`/philife` · `tradeMarketParent` 없음)는 `GET /api/philife/posts`가 담당한다.
 
 ## 단일 소스 (Canonical)
 
@@ -18,7 +18,7 @@
 |------|------|
 | 마켓 목록·페이지네이션·bootstrap `initialFeed` | `GET /api/trade/feed` → `fetchTradeFeedPage` → `lib/posts/trade-posts-range-query.ts` |
 | 카테고리 트리 확장 (루트 아래 하위 id) | `fetchTradeCategoryDescendantNodes` + `computeMarketFilterIds` (또는 `expandTradeCategoryIdsForRoot`) |
-| 홈 “전체” 등 (거래 부모 없음) | `GET /api/home/posts` → `resolveHomePostsPayload` |
+| 홈 “전체” 등 (거래 부모 없음) | `GET /api/philife/posts` → `resolveHomePostsPayload` |
 
 클라이언트: 비주제·비알바 마켓은 `PostListByCategory`가 `getPostsByTradeCategoryIds`만 사용한다 (`getPostsForHome`의 `tradeMarketParent` 경로는 마켓과 섞지 않음).
 

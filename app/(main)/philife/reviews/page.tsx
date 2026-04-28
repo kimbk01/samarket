@@ -4,14 +4,14 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 export const dynamic = "force-dynamic";
 
-export default function HomeReviewsPage() {
+export default function PhilifeReviewsPage() {
   return (
     <div className="min-h-screen bg-background">
-      <MySubpageHeader title="후기 관리" backHref="/home" />
+      <MySubpageHeader title="후기 관리" backHref="/philife" />
       <div className="mx-auto max-w-lg space-y-4 px-4 py-6 pb-24">
         <p className="sam-text-body leading-relaxed text-sam-muted">
           <strong className="text-sam-fg">내가 남긴 거래 후기</strong>는 아래에서 확인할 수 있어요. 새 후기는{" "}
-          <Link href="/home/purchases" className="font-medium text-signature underline">
+          <Link href="/mypage/purchases" className="font-medium text-signature underline">
             구매내역
           </Link>
           에서 <strong className="text-sam-fg">거래완료 확인</strong> 후 평가·후기를 작성할 수 있어요.
@@ -22,7 +22,7 @@ export default function HomeReviewsPage() {
           <ul className="space-y-2">
             <li>
               <Link
-                href="/home/purchases"
+                href="/mypage/purchases"
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 구매내역
@@ -30,7 +30,7 @@ export default function HomeReviewsPage() {
             </li>
             <li>
               <Link
-                href="/home/sales"
+                href="/mypage/sales"
                 className="block rounded-ui-rect border border-sam-border bg-sam-primary-soft px-3 py-2.5 sam-text-body font-medium text-foreground"
               >
                 판매내역

@@ -11,7 +11,7 @@ function startsWithPath(pathname: string, prefix: string): boolean {
 /**
  * TRADE 탭 플로팅 다이얼·홈형 하단 스크롤 패딩 적용 경로.
  * - `/market`, `/market/*` — 상단 거래 메뉴·카테고리 피드와 동일(운영에서 `/market/[slug]`만 늘어도 자동 포함)
- * - `/home/purchases`, `/home/sales`, `/home/reviews` — 홈에서 연 개인거래 숏컷
+ * - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷
  */
 export function isTradeFloatingMenuSurface(pathname: string | null | undefined): boolean {
   const raw = typeof pathname === "string" ? pathname : "";
@@ -21,10 +21,10 @@ export function isTradeFloatingMenuSurface(pathname: string | null | undefined):
   if (normalizeAppPathnameForTier1(safePath) === "/") return true;
   if (safePath === "/market" || startsWithPath(safePath, "/market")) return true;
   if (
-    startsWithPath(safePath, "/home/purchases") ||
-    startsWithPath(safePath, "/home/sales") ||
-    safePath === "/home/reviews" ||
-    startsWithPath(safePath, "/home/reviews/")
+    startsWithPath(safePath, "/mypage/purchases") ||
+    startsWithPath(safePath, "/mypage/sales") ||
+    safePath === "/mypage/reviews" ||
+    startsWithPath(safePath, "/mypage/reviews/")
   ) {
     return true;
   }

@@ -18,6 +18,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+
 const HomeFeedViewExperimental = dynamic(
   () =>
     import("@/components/home-feed/HomeFeedViewExperimental").then((m) => ({
@@ -26,7 +27,7 @@ const HomeFeedViewExperimental = dynamic(
   { ssr: true, loading: () => null }
 );
 
-function HomeTradeFeedBody({
+function MarketTradeFeedBody({
   initialHomeTradeFeed,
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
@@ -43,7 +44,7 @@ function HomeTradeFeedBody({
   return <HomeFeedViewExperimental />;
 }
 
-export function HomeContent({
+export function MarketContent({
   initialHomeTradeFeed,
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
@@ -86,7 +87,7 @@ export function HomeContent({
     if (h) void router.push(h, { scroll: false });
   }, [tabs, activeIndex, router]);
 
-  const { setSwipeableEl: setHomeFeedSwipeable } = useMobileHorizontalSwipePanel({
+  const { setSwipeableEl: setMarketFeedSwipeable } = useMobileHorizontalSwipePanel({
     enabled: feedSwipeOn,
     swipeableRef: feedSwipeableRef,
     onCommitNext: swipeToNext,
@@ -116,7 +117,6 @@ export function HomeContent({
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [tabs, activeIndex, router]);
 
-  /** 스와이프 직후 리스트 공백을 줄이기 위해 인접 목적지 RSC를 즉시 선행 요청한다. */
   useEffect(() => {
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
@@ -173,11 +173,10 @@ export function HomeContent({
     recordTradeListMetricOnce("trade_list_hydration_complete_ms");
   }, []);
 
-  // `HomeProductList` `<ul>` — `PHILIFE_FEED_LIST_WRAP`만으로 탭~첫 카드 간격(커뮤니티 `CommunityFeed`와 동일, `TRADE_GAP_MENU_TO_POSTS` 없음)
   return (
     <div className="min-w-0 w-full max-w-full">
-      <div ref={setHomeFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
-        <HomeTradeFeedBody
+      <div ref={setMarketFeedSwipeable} className="will-change-transform touch-pan-y min-w-0 w-full max-w-full">
+        <MarketTradeFeedBody
           key={`home-feed:${tradeState || "latest"}`}
           initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
         />

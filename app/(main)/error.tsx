@@ -29,7 +29,7 @@ export default function AppError({ error, reset }: ErrorProps) {
         >
           다시 시도
         </button>
-        <Link href="/home" className="sam-text-body font-medium text-signature">
+        <Link href="/philife" className="sam-text-body font-medium text-signature">
           홈으로 이동
         </Link>
       </div>

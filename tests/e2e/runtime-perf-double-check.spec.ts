@@ -46,7 +46,7 @@ async function testLoginViaUi(
   await region.getByPlaceholder("아이디").fill(username);
   await region.getByPlaceholder("비밀번호").fill(password);
   await Promise.all([
-    page.waitForURL((u) => u.pathname === "/home" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
+    page.waitForURL((u) => u.pathname === "/philife" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
     region.getByRole("button", { name: "로그인" }).click(),
   ]);
 }
@@ -58,7 +58,7 @@ async function runScenarioBlock(
 ): Promise<Record<string, unknown>> {
   const rows: Record<string, unknown> = { run: runLabel };
 
-  await page.goto(`${baseURL}/home`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${baseURL}/philife`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(800);
   let s = await readSnap(page);
   rows.after_home_trade = {
@@ -148,7 +148,7 @@ async function runScenarioBlock(
     rows.after_chat_input = { note: "skip_no_room" };
   }
 
-  await page.goto(`${baseURL}/home`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${baseURL}/philife`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(400);
   await page.goto(`${baseURL}/philife`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(400);

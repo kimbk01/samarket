@@ -58,7 +58,7 @@ export function TradeChatCallHeaderButtons(props: {
                 : typeof json.code === "string" && json.code.trim()
                   ? json.code.trim()
                   : "";
-            const next = pathname.trim() || "/home";
+            const next = pathname.trim() || "/philife";
             if (redirectForBlockedAction(router, rawErr || undefined, next)) return;
             const code = typeof json.code === "string" ? json.code : "";
             onErrorMessage(
@@ -77,7 +77,7 @@ export function TradeChatCallHeaderButtons(props: {
           router
         );
         if (!result.ok) {
-          const next = pathname.trim() || "/home";
+          const next = pathname.trim() || "/philife";
           if (redirectForBlockedAction(router, result.userMessage, next)) return;
           onErrorMessage(result.userMessage);
         }

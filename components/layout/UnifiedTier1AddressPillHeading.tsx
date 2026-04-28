@@ -6,7 +6,7 @@ import type { RepresentativeAddressLineState } from "@/hooks/use-representative-
 const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
 
 /**
- * 거래 홈(`/home` 등)·필라이프(`/philife`) 1단 공통 — 대표 주소 한 줄을 **알약 링크**로 표시.
+ * 거래/필라이프(`/philife`) 1단 공통 — 대표 주소 한 줄을 **알약 링크**로 표시.
  */
 export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAddressLineState }) {
   if (rep.status === "loading") {

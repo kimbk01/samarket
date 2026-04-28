@@ -112,7 +112,7 @@ export function FavoriteProductsView({
           홈이나 상품 상세에서 하트를 눌러 관심 상품을 담아 보세요.
         </p>
         {!embedded ? (
-          <a href="/home" className="mt-4 text-[14px] font-medium text-signature">
+          <a href="/philife" className="mt-4 text-[14px] font-medium text-signature">
             홈으로 가기
           </a>
         ) : null}

@@ -68,7 +68,7 @@ test.describe("messenger home verification counts", () => {
       return s;
     };
 
-    await page.goto("/home", { waitUntil: "domcontentloaded" });
+    await page.goto("/philife", { waitUntil: "domcontentloaded" });
     await snap("after_home_first");
 
     const bootWait = page.waitForResponse(
@@ -81,7 +81,7 @@ test.describe("messenger home verification counts", () => {
     const afterFirstMessenger = await snap("after_messenger_first_entry");
     expect(afterFirstMessenger).not.toBeNull();
 
-    await page.goto("/home", { waitUntil: "domcontentloaded" });
+    await page.goto("/philife", { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(500);
     const bootWait2 = page.waitForResponse(
       (r) => r.url().includes("/api/community-messenger/bootstrap") && r.request().method() === "GET",

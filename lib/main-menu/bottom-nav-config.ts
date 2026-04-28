@@ -126,7 +126,7 @@ export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_C
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
   "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
 
-/** 거래 플로팅 다이얼(`/home`·`/market/*` 등) — 탭 위 추가 여유 */
+/** 거래 플로팅 다이얼(`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
   "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
 
@@ -174,7 +174,7 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
 } as const;
 
 /**
- * `/home` 거래 플로팅 다이얼(`HomeTradeHubFloatingBar`) — 틸 메인 FAB 기준 bottom.
+ * `/market` 거래 플로팅 다이얼(`HomeTradeHubFloatingBar`) — 틸 메인 FAB 기준 bottom.
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
@@ -208,7 +208,7 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
   },
   { id: "my", href: "/mypage", label: "내정보", labelKey: "nav_bottom_my", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때
-  // { id: "home", href: "/home", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
+  // { id: "home", href: "/market", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
 ];
 
 /** `BOTTOM_NAV_ITEMS` 순 — 스와이프/인접 이동용 (해당 `id` 기준) */
@@ -220,7 +220,7 @@ export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next
   return null;
 }
 
-/** 거래 탐색(/home·/market·/home/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */
+/** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */
 export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "거래";
 

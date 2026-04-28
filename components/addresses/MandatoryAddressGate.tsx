@@ -31,7 +31,7 @@ function isAuthEntryPath(path: string): boolean {
 }
 
 /**
- * pathname만 바뀌는 일반 이동(/home ↔ /market 등)마다 GET 하지 않고,
+ * pathname만 바뀌는 일반 이동(/philife ↔ /market 등)마다 GET 하지 않고,
  * 아래 경우에만 서버에 재확인합니다.
  * - 최초 마운트
  * - 주소·지도 제외 경로 → 일반 경로로 진입(주소 등록 플로우 종료)

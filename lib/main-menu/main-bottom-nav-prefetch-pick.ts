@@ -9,7 +9,6 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   const h = tabHref.split("?")[0]?.trim() ?? "";
   if (!p || !h) return false;
   if (p === h || p.startsWith(`${h}/`)) return true;
-  if (h === "/home" && (p === "/market" || p.startsWith("/market/"))) return true;
   return false;
 }
 

@@ -13,7 +13,7 @@ export default function NotFound() {
         주소가 잘못되었거나 페이지가 이동되었어요.
       </p>
       <Link
-        href="/home"
+        href="/philife"
         className="mt-8 rounded-ui-rect bg-signature px-6 py-2.5 sam-text-body font-medium text-white"
       >
         홈으로 이동

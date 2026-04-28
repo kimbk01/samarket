@@ -11,15 +11,15 @@ describe("isBottomNavTabActive", () => {
     const marketHref = "/market";
     expect(isBottomNavTabActive("/market", marketHref)).toBe(true);
     expect(isBottomNavTabActive("/market/jobs", marketHref)).toBe(true);
-    expect(isBottomNavTabActive("/home", marketHref)).toBe(false);
+    expect(isBottomNavTabActive("/philife", marketHref)).toBe(false);
     expect(isBottomNavTabActive("/philife", marketHref)).toBe(false);
   });
 
-  it("거래 탭 — 레거시 /home 저장본도 /market 별칭 허용", () => {
-    const homeHref = "/home";
-    expect(isBottomNavTabActive("/market", homeHref)).toBe(true);
-    expect(isBottomNavTabActive("/market/jobs", homeHref)).toBe(true);
-    expect(isBottomNavTabActive("/philife", homeHref)).toBe(false);
+  it("거래 탭 — /philife href 는 /market 별칭이 아니다", () => {
+    const homeHref = "/philife";
+    expect(isBottomNavTabActive("/market", homeHref)).toBe(false);
+    expect(isBottomNavTabActive("/market/jobs", homeHref)).toBe(false);
+    expect(isBottomNavTabActive("/philife", homeHref)).toBe(true);
   });
 
   it("접두 경로 일치", () => {

@@ -93,7 +93,7 @@ export function OrdersHubContent() {
         title={tt("주문")}
         backButtonProps={{
           preferHistoryBack: true,
-          backHref: "/home",
+          backHref: "/philife",
           ariaLabel: tt("이전 화면"),
         }}
         actions={<CommerceCartHeaderLink />}

@@ -9,15 +9,15 @@ interface PageProps {
   params: Promise<{ chatId: string }>;
 }
 
-export default function HomePurchaseDetailPage({ params }: PageProps) {
+export default function PhilifePurchaseDetailPage({ params }: PageProps) {
   return (
     <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <HomePurchaseDetailPageBody params={params} />
+      <PhilifePurchaseDetailPageBody params={params} />
     </Suspense>
   );
 }
 
-async function HomePurchaseDetailPageBody({ params }: PageProps) {
+async function PhilifePurchaseDetailPageBody({ params }: PageProps) {
   const { chatId: raw } = await params;
   const chatId = parseRoomId(raw);
   if (!chatId) {
@@ -32,11 +32,11 @@ async function HomePurchaseDetailPageBody({ params }: PageProps) {
     <div className="min-h-screen bg-background">
       <MySubpageHeader
         title="구매 상세"
-        backHref="/home/purchases"
+        backHref="/mypage/purchases"
         stickyBelow={<HomePurchaseSalesHubTabs />}
       />
       <div className="mx-auto max-w-4xl space-y-2 px-4 py-4 pb-24">
-        <PurchaseDetailView chatId={chatId} purchasesListPath="/home/purchases" />
+        <PurchaseDetailView chatId={chatId} purchasesListPath="/mypage/purchases" />
       </div>
     </div>
   );

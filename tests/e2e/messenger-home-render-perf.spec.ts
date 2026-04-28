@@ -87,7 +87,7 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
       await roomLink.waitFor({ state: "visible", timeout: 30_000 });
     }
 
-    await page.goto(`${baseURL ?? "http://localhost:3000"}/home`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseURL ?? "http://localhost:3000"}/philife`, { waitUntil: "domcontentloaded" });
     await page.goto(`${baseURL ?? "http://localhost:3000"}/community-messenger`, { waitUntil: "domcontentloaded" });
     await roomLink.waitFor({ state: "visible", timeout: 60_000 });
 

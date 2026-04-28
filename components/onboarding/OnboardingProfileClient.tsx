@@ -12,7 +12,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
  * 로그인 직후 닉네임/필수 프로필이 비어있으면 도착하는 화면 (스펙 1-B, 8).
  *
  * - 닉네임만 받는 최소 폼. 다른 필드는 `/my/edit` 에서 수정한다.
- * - 저장 성공 시 `router.replace(next || /home)` 으로 강제 이동한다 (스펙 9).
+ * - 저장 성공 시 `router.replace(next || /philife)` 으로 강제 이동한다 (스펙 9).
  * - 저장 중 버튼 disabled, 실패 시 폼 유지 + 에러 표시.
  */
 export function OnboardingProfileClient({ initialNickname }: { initialNickname: string }) {

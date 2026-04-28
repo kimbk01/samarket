@@ -15,10 +15,10 @@ export interface GetPostsForHomeOptions {
   type?: "trade" | "community" | "service" | "feature" | null;
   /**
    * 거래 1차 메뉴(중고거래·부동산 등) UUID — 서버에서 하위 카테고리까지 펼쳐 필터.
-   * 미지정이면 `/home` 전체 피드.
+   * 미지정이면 전체 거래 피드.
    */
   tradeMarketParentId?: string | null;
-  /** `/home` 전체 거래 정렬/상태 필터 */
+  /** 전체 거래 정렬/상태 필터 */
   tradeState?: HomeTradeStateFilter;
 }
 
@@ -190,7 +190,7 @@ export async function getPostsForHome(
       const dbg = samarketRuntimeDebugEnabled();
       const wallT0 = dbg ? performance.now() : 0;
       const tNet0 = dbg ? performance.now() : 0;
-      const res = await fetch(`/api/home/posts?${params.toString()}`, {
+      const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
         signal: opts.signal,
       });
@@ -256,7 +256,7 @@ export async function getPostsForHome(
       const dbg = samarketRuntimeDebugEnabled();
       const wallT0 = dbg ? performance.now() : 0;
       const tNet0 = dbg ? performance.now() : 0;
-      const res = await fetch(`/api/home/posts?${params.toString()}`, {
+      const res = await fetch(`/api/philife/posts?${params.toString()}`, {
         credentials: "include",
       });
       if (dbg) {

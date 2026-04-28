@@ -71,7 +71,7 @@ async function testLoginViaUi(
   await passInput.fill(password);
   const loginButton = page.getByRole("button", { name: "로그인", exact: true });
   await Promise.all([
-    page.waitForURL((u) => u.pathname === "/home" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
+    page.waitForURL((u) => u.pathname === "/philife" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
     loginButton.click(),
   ]);
 }
@@ -99,7 +99,7 @@ test.describe("trade list server response breakdown", () => {
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
       };
-      const res = await fetch("/api/home/posts?page=1&sort=latest&home_diag=1", {
+      const res = await fetch("/api/philife/posts?page=1&sort=latest&philife_diag=1", {
         credentials: "include",
         cache: "no-store",
       });

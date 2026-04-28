@@ -30,7 +30,7 @@ export function PurchaseDetailView({
   purchasesListPath = "/mypage/purchases",
 }: {
   chatId: string;
-  /** 목록으로 링크 (홈 허브: `/home/purchases`) */
+  /** 목록으로 링크 (`/mypage/purchases`) */
   purchasesListPath?: string;
 }) {
   const router = useRouter();

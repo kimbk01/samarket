@@ -105,7 +105,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (loading) {
     return (
       <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-        <MyPageHeader backFallbackHref="/home" />
+        <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             내정보를 불러오는 중이에요.
@@ -118,7 +118,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!data) {
     return (
       <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-        <MyPageHeader backFallbackHref="/home" />
+        <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             로그인이 필요합니다.
@@ -133,7 +133,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MyPageHeader centerTitle="내정보" centerSubtitle={null} backFallbackHref="/home" />
+      <MyPageHeader centerTitle="내정보" centerSubtitle={null} backFallbackHref="/philife" />
       <div
         className={`${APP_MAIN_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col`}
       >

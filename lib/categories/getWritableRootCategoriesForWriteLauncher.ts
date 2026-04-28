@@ -11,7 +11,7 @@ const TYPE_ORDER: CategoryType[] = ["trade", "service", "community", "feature"];
  * 관리자 `/admin/menus/trade`에서 항목별로 켜고, 런처 순서·아이콘(icon_key)을 맞춥니다.
  *
  * TRADE 루트는 `getHomeChipCategories()`(상단 「전체」 옆 탭)과 **동일한 순서**를 우선 적용합니다.
- * `/home` 에서 경로 슬러그 없이 런처만 열릴 때, 첫 줄이 탭의 첫 거래 메뉴(보통 중고거래)와 어긋나
+ * `/market` 에서 경로 슬러그 없이 런처만 열릴 때, 첫 줄이 탭의 첫 거래 메뉴(보통 중고거래)와 어긋나
  * 다른 루트로 저장되는 일을 줄입니다.
  */
 export async function getWritableRootCategoriesForWriteLauncher(): Promise<CategoryWithSettings[]> {

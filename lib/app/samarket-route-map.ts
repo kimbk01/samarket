@@ -31,7 +31,7 @@ export const BUILTIN_TAB_TO_SURFACE: Record<BottomNavBuiltinTabId, SamarketSurfa
 };
 
 export function mainTabHref(tabId: BottomNavBuiltinTabId): string {
-  return BOTTOM_NAV_ITEMS.find((i) => i.id === tabId)?.href ?? "/home";
+  return BOTTOM_NAV_ITEMS.find((i) => i.id === tabId)?.href ?? "/philife";
 }
 
 /** 표면 기본 진입 URL — 내장 탭과 1:1 (운영 커스텀 탭은 추후 resolve 계층에서 덮어쓰기) */
@@ -41,7 +41,7 @@ export function surfaceEntryPath(surface: SamarketSurface): string {
   ).find(([, s]) => s === surface);
   if (entry) return mainTabHref(entry[0]);
   if (surface === "orders") return SAMARKET_ROUTES.orders.hub;
-  return "/home";
+  return "/philife";
 }
 
 /** 하단 탭 밖에서 자주 쓰는 경로 (App Router 기준) */

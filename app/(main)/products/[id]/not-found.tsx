@@ -8,7 +8,7 @@ export default function ProductNotFound() {
         삭제되었거나 존재하지 않는 상품이에요.
       </p>
       <Link
-        href="/home"
+        href="/philife"
         className="mt-6 rounded-ui-rect bg-signature px-6 py-2.5 sam-text-body font-medium text-white"
       >
         홈으로

@@ -1,6 +1,6 @@
 /**
- * `/home` 첫 페인트 직후 — 하단 탭·내 매장 목록·거래 건수·거래 채팅 목록 캐시를 예열.
- * 홈 피드 첫 페이지는 RSC + `HomeProductList` 의 `primeHomePostsCache` 가 담당 — 여기서 `/api/home/posts` 를
+ * `/philife` 첫 페인트 직후 — 하단 탭·내 매장 목록·거래 건수·거래 채팅 목록 캐시를 예열.
+ * 홈 피드 첫 페이지는 RSC + `HomeProductList` 의 `primeHomePostsCache` 가 담당 — 여기서 `/api/philife/posts` 를
  * 다시 예열하면 idle 타이밍에 중복 네트워크가 나기 쉬워 제외함.
  * 각 호출은 자체 runSingleFlight/TTL 을 쓰므로 BottomNav·OwnerLite·FAB 과 겹쳐도 네트워크는 한 갈래로 합쳐짐.
  */

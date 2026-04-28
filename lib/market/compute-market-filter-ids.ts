@@ -3,7 +3,7 @@
  * `MarketCategoryFeed` · `/api/categories/market-bootstrap` 에서 동일 로직 유지.
  *
  * `activeChildren` 은 **루트 아래 모든 깊이의 활성 trade 하위 id/slug**(show_in_home_chips 와 무관).
- * 직계만 넣으면 리프 UUID 로 저장된 글이 마켓 탭에서 빠지고, `/home` 전체 피드와만 불일치함.
+ * 직계만 넣으면 리프 UUID 로 저장된 글이 마켓 탭에서 빠지고, 전체 피드와만 불일치함.
  */
 
 export function computeMarketFilterIds(params: {

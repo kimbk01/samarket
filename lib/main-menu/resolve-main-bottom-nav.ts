@@ -88,10 +88,7 @@ function isValidTabId(id: string): boolean {
 
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
   const hrefRaw = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
-  const normalizedBuiltinHref =
-    /** 거래 탭 레거시 저장본(`/home`)은 새 정책(`/market`)으로 자동 승격. */
-    base.id === "home" && hrefRaw === "/home" ? base.href : hrefRaw;
-  const href = normalizeBuiltinMessengerTabHref(base.id, normalizedBuiltinHref);
+  const href = normalizeBuiltinMessengerTabHref(base.id, hrefRaw);
   const label = trimLabel(raw.label, base.label);
   let icon: BottomNavIconKey = isIconKey(raw.icon) ? raw.icon : base.icon;
   /* 예전 TRADE 탭이 라벨만 TRADE이고 icon=home(집)으로 저장된 경우 → trade 아이콘으로 통일 */
@@ -120,7 +117,7 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
 function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | null {
   const id = typeof raw.id === "string" ? raw.id.trim() : "";
   if (!isCustomBottomNavTabId(id)) return null;
-  const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : "/home";
+  const href = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : "/philife";
   const icon = isIconKey(raw.icon) ? raw.icon : "home";
   return {
     id,
@@ -241,7 +238,7 @@ export function validateMainBottomNavPayload(body: unknown): { ok: true; payload
       return mainBottomNavAdminRowToStoredItem(mergeRow(base, r));
     }
     const custom = mergeCustomRow(r);
-    if (!custom) return { id, visible: true, label: "메뉴", href: "/home", icon: "home" as BottomNavIconKey };
+    if (!custom) return { id, visible: true, label: "메뉴", href: "/philife", icon: "home" as BottomNavIconKey };
     return mainBottomNavAdminRowToStoredItem(custom);
   });
 

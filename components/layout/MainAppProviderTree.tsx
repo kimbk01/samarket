@@ -39,7 +39,7 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
 
-/** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/home` 등에서는 localStorage hydrate effect 비용 생략 */
+/** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/philife` 등에서는 localStorage hydrate effect 비용 생략 */
 function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
   const mountCart = pathname.startsWith("/stores") || pathname.startsWith("/mypage");

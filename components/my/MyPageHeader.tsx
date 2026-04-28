@@ -13,7 +13,7 @@ type Props = {
  * CTA 스트립은 프로필·탭에서 담당하므로 여기서는 숨깁니다.
  */
 export function MyPageHeader({
-  backFallbackHref = "/home",
+  backFallbackHref = "/philife",
   centerTitle,
   centerSubtitle,
 }: Props) {

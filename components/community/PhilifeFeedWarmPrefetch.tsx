@@ -39,7 +39,7 @@ export function PhilifeFeedWarmPrefetch() {
   const tickRef = useRef(0);
 
   /**
-   * deps: `viewerSig`·`warmShellDomain`·`router` — `/home`→`/market` 같이 **같은 거래 셸** 안에서는
+   * deps: `viewerSig`·`warmShellDomain`·`router` — `/market` 내부 이동처럼 **같은 거래 셸** 안에서는
    * `warmShellDomain` 불변이라 타이머를 리셋하지 않는다. 실행·가드에는 `pathnameRef` 로 최신 경로를 본다.
    */
   useEffect(() => {

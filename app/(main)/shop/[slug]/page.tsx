@@ -13,7 +13,7 @@ export default function ShopSlugRoute() {
   if (!slug) {
     return (
       <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
-        <Link href="/home" className="text-signature">홈으로</Link>
+        <Link href="/philife" className="text-signature">홈으로</Link>
       </div>
     );
   }

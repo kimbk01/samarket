@@ -71,7 +71,7 @@ export function resolveConditionalAppShellFlags(
   regionBarInLayout: boolean
 ): ConditionalAppShellResolvedFlags {
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
-  const isHome = pathname === "/" || pathname === "/home";
+  const isHome = pathname === "/" || pathname === "/philife";
   const isSettings = pathname?.startsWith("/my/settings") ?? false;
   const isLogout = pathname === "/my/logout";
   const isMyEdit = isProfileEditPath(pathname);

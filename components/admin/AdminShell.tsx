@@ -35,7 +35,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <AdminNotificationBell />
             <AdminTestSwitcher />
             <Link
-              href="/home"
+              href="/philife"
               className="sam-btn sam-btn--outline sam-btn--sm"
             >
               {t("common_homepage")}

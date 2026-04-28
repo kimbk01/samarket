@@ -1,5 +1,5 @@
 import { TradeListPageMountProbe } from "@/components/home/TradeListPageMountProbe";
-import { HomeContent } from "../home/HomeContent";
+import { MarketContent } from "./MarketContent";
 
 /**
  * 거래 전체 리스트 — RSC `await` 제거 (네이티브급 탭 전환 체감).
@@ -18,7 +18,7 @@ export default function MarketPage() {
     <div className="min-h-screen bg-sam-app">
       <div className="min-w-0 max-w-full overflow-x-hidden pt-0 pb-4">
         <TradeListPageMountProbe />
-        <HomeContent />
+        <MarketContent />
       </div>
     </div>
   );

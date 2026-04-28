@@ -577,7 +577,7 @@ export function PostDetailView({
     };
   }, []);
 
-  const [backHref, setBackHref] = useState("/home");
+  const [backHref, setBackHref] = useState("/philife");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
   const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(() =>
     sellerProfile?.id
@@ -758,7 +758,7 @@ export function PostDetailView({
           <div className="flex items-center">
             <AppBackButton preferHistoryBack backHref={backHref} ariaLabel="이전 화면" />
             <Link
-              href="/home"
+              href="/philife"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
               aria-label="홈"
             >

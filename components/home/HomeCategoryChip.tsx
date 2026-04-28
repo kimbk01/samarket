@@ -47,9 +47,8 @@ export function HomeCategoryChip({
           const decodedHref = safeDec(href.split("?")[0] ?? "");
           return (
             decodedPath === decodedHref ||
-            (decodedHref !== "/home" &&
+            (decodedHref !== "/philife" &&
               decodedHref !== "/community" &&
-              decodedHref !== "/philife" &&
               decodedPath.startsWith(`${decodedHref}/`))
           );
         })();

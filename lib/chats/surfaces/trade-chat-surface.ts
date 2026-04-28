@@ -35,7 +35,7 @@ export const TRADE_CHAT_SURFACE = {
   composePath: "/mypage/trade/chat/compose",
   listEmptyMessage: "받은 거래채팅이 없어요.",
   listEmptyMessageKey: "nav_chat_trade_empty",
-  emptyCtaHref: "/home",
+  emptyCtaHref: "/philife",
   emptyCtaLabel: "거래 둘러보기",
   emptyCtaLabelKey: "nav_chat_trade_cta",
 } as const;

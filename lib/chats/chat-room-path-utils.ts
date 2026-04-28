@@ -29,7 +29,7 @@ export function orderChatUnreadSoundBaselineKey(pathname: string | null): string
   if (p.startsWith("/stores")) return "stores";
   if (p.startsWith("/orders")) return "orders";
   if (p.startsWith("/philife")) return "philife";
-  if (p === "/home" || p.startsWith("/market")) return "trade:feed";
+  if (p === "/philife" || p.startsWith("/market")) return "trade:feed";
   if (p.startsWith("/community")) return "community";
   return "other";
 }

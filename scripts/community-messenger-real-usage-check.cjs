@@ -469,7 +469,7 @@ async function runBottomNavScenario(page) {
       homeSync: 0,
     },
   };
-  const targets = ["/home", "/community-messenger", "/my"];
+  const targets = ["/market", "/community-messenger", "/my"];
   await waitForHomeReady(page);
 
   for (let roundIndex = 0; roundIndex < 3; roundIndex += 1) {

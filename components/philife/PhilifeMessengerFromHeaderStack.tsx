@@ -18,7 +18,7 @@ const CommunityMessengerHome = dynamic(
 );
 
 /**
- * `/philife`·`/home`·`/market/…` 일 때: 헤더 **메신저** 아이콘은 URL 이동 대신 `section=chats` 셸을 **풀뷰포트**로 연다(하단 탭
+ * `/philife`·`/market/…` 일 때: 헤더 **메신저** 아이콘은 URL 이동 대신 `section=chats` 셸을 **풀뷰포트**로 연다(하단 탭
  * `community-messenger` 풀 경로와 별개 UX). 옛 방식(본문만 200% 슬라이드)은 1·2단 `AppStickyHeader`
  * 아래에만 메신저가 잡혀 — `fixed inset-0` + `z` 상위로 **전체**를 덮어 “메신저만” 보이게 한다.
  */

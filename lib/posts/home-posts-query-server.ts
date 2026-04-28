@@ -1,5 +1,5 @@
 /**
- * `/api/home/posts` 조회 코어.
+ * `/api/philife/posts` 조회 코어.
  * 거래 `trade_category_id` 필터 문자열은 마켓 피드와 동일 규칙·청크(`trade-posts-category-filter`).
  * 마켓 탭 목록 단일 소스는 `fetchPostsRangeForTradeCategories` / `GET /api/trade/feed` — `docs/trade-market-feed-contract.md`.
  */

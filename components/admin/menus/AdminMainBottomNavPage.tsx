@@ -119,7 +119,7 @@ export function AdminMainBottomNavPage() {
         id,
         visible: true,
         label: "새 메뉴",
-        href: "/home",
+        href: "/philife",
         icon: "home",
       };
       return [...prev, row];

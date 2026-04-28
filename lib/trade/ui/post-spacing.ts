@@ -10,7 +10,7 @@
  */
 
 /**
- * 마켓 리스트도 `/home`과 동일하게 `<ul>`의 `PHILIFE_FEED_LIST_WRAP`(`pt-1`)만 사용한다.
+ * 마켓 리스트도 기존 피드와 동일하게 `<ul>`의 `PHILIFE_FEED_LIST_WRAP`(`pt-1`)만 사용한다.
  * 래퍼에서 상단 패딩을 추가하지 않는다.
  */
 export const TRADE_GAP_MENU_TO_POSTS_CLASS = "pt-0";

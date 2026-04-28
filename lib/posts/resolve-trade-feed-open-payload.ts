@@ -46,7 +46,7 @@ export async function resolveTradeFeedOpenPayload(
   }
 
   /**
-   * 메뉴 분류(/market/*) 피드도 홈(/home)과 동일하게 작성자 닉네임을 보강한다.
+   * 메뉴 분류(/market/*) 피드도 동일하게 작성자 닉네임을 보강한다.
    * - 1차: read client
    * - 2차(필요 시): service client
    */

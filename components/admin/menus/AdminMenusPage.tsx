@@ -153,7 +153,7 @@ export function AdminMenusPage() {
       <p className="sam-text-body-secondary text-sam-muted">
         앱 하단 탭에서 경로를 <span className="font-mono sam-text-helper text-sam-fg">/market/…</span> 로 둔 항목은
         여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
-        <span className="font-mono sam-text-helper"> /home</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
+        <span className="font-mono sam-text-helper"> /philife</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
         <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
           메인 하단 탭 메뉴
         </Link>

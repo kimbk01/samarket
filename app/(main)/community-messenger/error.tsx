@@ -29,7 +29,7 @@ export default function CommunityMessengerError({
           다시 시도
         </button>
         <Link
-          href="/home"
+          href="/philife"
           className="rounded-ui-rect border border-sam-border-default px-4 py-2 text-sm text-sam-text-primary"
         >
           홈으로

@@ -56,6 +56,12 @@ function mapPasswordLoginErrorMessage(raw: string): string {
 
 function mapPasswordResolveErrorCodeToMessage(code: string, fallback: string): string {
   if (code === "identifier_required") return "이메일 또는 아이디를 입력해 주세요.";
+  if (code === "login_identifier_not_found") {
+    return "입력한 로그인 아이디를 찾을 수 없습니다. 아이디를 다시 확인해 주세요.";
+  }
+  if (code === "login_identifier_conflict") {
+    return "동일 로그인 아이디가 중복되어 확인이 필요합니다. 관리자에게 문의해 주세요.";
+  }
   if (code === "password_login_blocked_for_social_account") {
     return "이 계정은 SNS 전용 계정입니다. 아래 SNS 로그인 버튼으로 로그인해 주세요.";
   }
@@ -286,6 +292,14 @@ function LoginPageContent() {
         showLoginError("Supabase 설정이 없습니다.", true);
         return;
       }
+      if (!identifier.trim()) {
+        showLoginError("이메일 또는 아이디를 입력해 주세요.", true);
+        return;
+      }
+      if (!password) {
+        showLoginError("비밀번호를 입력해 주세요.", true);
+        return;
+      }
 
       let signInEmail = "";
       try {
@@ -352,10 +366,16 @@ function LoginPageContent() {
       const err = signInResult.error;
       if (err) {
         const net = describeSupabaseFetchFailure(err);
-        const message =
+        const normalizedRaw = String(err.message ?? "").trim().toLowerCase();
+        let message =
           net.code !== "unknown"
             ? mapPasswordLoginErrorMessage(net.userMessage)
             : mapPasswordLoginErrorMessage(err.message || "로그인에 실패했습니다.");
+        if (normalizedRaw.includes("invalid login credentials")) {
+          message = identifier.includes("@")
+            ? "가입되지 않은 이메일이거나 비밀번호가 올바르지 않습니다."
+            : "비밀번호가 올바르지 않습니다.";
+        }
         showLoginError(message, true);
         return;
       }

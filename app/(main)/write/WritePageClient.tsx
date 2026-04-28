@@ -123,7 +123,7 @@ export default function WritePageClient() {
 
   const closeWriteSheetToHome = useCallback(() => {
     runExitThen(() => {
-      router.replace("/home");
+      router.replace("/philife");
     });
   }, [router, runExitThen]);
 
@@ -142,7 +142,7 @@ export default function WritePageClient() {
     <>
       <WriteScreenTier1Sync
         title="글쓰기"
-        backHref="/home"
+        backHref="/philife"
         onRequestClose={() => tryCloseFromFlowRef.current()}
         subtitle={tierSubtitle}
       />

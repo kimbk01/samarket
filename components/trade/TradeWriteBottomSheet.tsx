@@ -10,11 +10,11 @@ import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 const SHEET_EXIT_MS = 520;
 
 /**
- * `/home`·`/market/…` — 거래 글쓰기를 `PhilifeWriteBottomSheet` 와 동일한 스티키 헤더錨·슬라이드로 표시.
+ * `/market/…` — 거래 글쓰기를 `PhilifeWriteBottomSheet` 와 동일한 스티키 헤더錨·슬라이드로 표시.
  */
 export function TradeWriteBottomSheet() {
   const router = useRouter();
-  const pathname = usePathname() ?? "/home";
+  const pathname = usePathname() ?? "/philife";
   const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft } = useTradeWriteSheet();
   const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);

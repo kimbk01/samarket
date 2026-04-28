@@ -12,7 +12,7 @@ export function AdminAccessDeniedPanel() {
       <p className="mt-2 sam-text-body-secondary text-sam-muted">
         {t("admin_access_denied_desc")}
       </p>
-      <Link href="/home" className="mt-4 sam-text-body font-medium text-signature underline">
+      <Link href="/philife" className="mt-4 sam-text-body font-medium text-signature underline">
         {t("common_homepage")}
       </Link>
     </div>

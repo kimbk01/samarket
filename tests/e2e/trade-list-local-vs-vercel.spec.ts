@@ -96,7 +96,7 @@ async function testLoginViaUi(
   await passInput.fill(password);
   const loginButton = page.getByRole("button", { name: "로그인", exact: true });
   await Promise.all([
-    page.waitForURL((u) => u.pathname === "/home" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
+    page.waitForURL((u) => u.pathname === "/philife" || u.pathname.startsWith("/mypage"), { timeout: 60_000 }),
     loginButton.click(),
   ]);
 }
@@ -115,7 +115,7 @@ async function ensureLoggedIn(
 async function measureTradeApi(page: import("@playwright/test").Page, origin: string): Promise<TradeApiMetrics> {
   return page.evaluate(async () => {
     const t0 = performance.now();
-    const res = await fetch("/api/home/posts?page=1&sort=latest", {
+    const res = await fetch("/api/philife/posts?page=1&sort=latest", {
       credentials: "include",
       cache: "no-store",
     });
@@ -211,7 +211,7 @@ async function measureTradeRender(page: import("@playwright/test").Page, origin:
       start();
     }
   });
-  await page.goto(`${origin}/home`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${origin}/philife`, { waitUntil: "domcontentloaded" });
   await expect
     .poll(
       async () =>

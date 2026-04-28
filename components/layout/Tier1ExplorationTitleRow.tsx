@@ -21,7 +21,7 @@ type Tier1ExplorationTitleRowProps = {
 
 /**
  * 메인 1단 중앙 타이틀 — `페이지명 · (지역·동네…)` 형태, 주소 탭 시 주소 관리로 이동.
- * `MySubpageHeader`·`RegionBar`(/home)에서 필라이프와 동일 톤으로 사용.
+ * `MySubpageHeader`·`RegionBar`에서 필라이프와 동일 톤으로 사용.
  */
 export function Tier1ExplorationTitleRow({
   segmentTitle,

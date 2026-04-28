@@ -37,7 +37,7 @@ function parseJobKind(raw: string | null): JobListingKindFilter | undefined {
 
 /**
  * GET /api/trade/feed — 거래 마켓 카테고리 피드 (목록 단일 소스).
- * `fetchTradeFeedPage` → `fetchPostsRangeForTradeCategories` — 홈 `GET /api/home/posts` 와 구현이 다르다.
+ * `fetchTradeFeedPage` → `fetchPostsRangeForTradeCategories` — 홈 `GET /api/philife/posts` 와 구현이 다르다.
  * 계약: `docs/trade-market-feed-contract.md`
  *
  * Query:

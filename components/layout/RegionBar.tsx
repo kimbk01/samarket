@@ -175,7 +175,7 @@ export function RegionBar({
           className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
         >
           <div className="flex w-[44px] shrink-0 items-center justify-start self-stretch">
-            <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
+            <AppBackButton preferHistoryBack backHref="/philife" ariaLabel={t("tier1_back")} />
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden px-1 text-center">
             <h1 className="flex min-h-0 min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">

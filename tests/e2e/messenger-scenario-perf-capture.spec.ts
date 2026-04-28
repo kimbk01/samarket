@@ -52,7 +52,7 @@ test.describe("messenger scenario perf capture", () => {
     const origin = baseURL ?? "http://127.0.0.1:3000";
 
     /**
-     * UI `TestLoginBar` 는 성공 시 `/home` 으로 `assign` 해 `/home` 에서 부트스트랩이 먼저 나가
+     * UI `TestLoginBar` 는 성공 시 `/philife` 로 `assign` 해 `/philife` 에서 부트스트랩이 먼저 나가
      * `goto(/community-messenger)` 직후 GET 레이스를 깨기 쉽다.
      * `fetch(test-login)` + sessionStorage 는 `messenger-home-render-perf.spec.ts` 와 동일하게 HttpOnly+클라 힌트를 맞춘다.
      */

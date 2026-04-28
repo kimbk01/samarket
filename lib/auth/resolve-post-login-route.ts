@@ -10,7 +10,7 @@ import type { OnboardingStatus } from "@/lib/auth/get-onboarding-status";
  *    B. 동의 미완료(약관·개인정보) → `/auth/consent?next=...`
  *    C. 닉네임/필수 프로필 미완   → `/onboarding/profile?next=...`
  *    D. 대표 주소 미설정          → `/onboarding/address?next=...`
- *    E. 모두 완료                  → `next || POST_LOGIN_PATH(/home)`
+ *    E. 모두 완료                  → `next || POST_LOGIN_PATH(/philife)`
  *
  *  전화번호 인증(스펙 1-D)은 *읽기는 허용*이므로 이 단계에서는 강제하지 않는다.
  *  쓰기 액션 시 별도 게이트(`buildPhoneVerificationHref`) 가 처리한다.

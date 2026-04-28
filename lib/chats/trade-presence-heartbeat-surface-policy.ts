@@ -11,12 +11,12 @@ export const TRADE_PRESENCE_HEARTBEAT_SUPPRESSED_TAIL_MS = 60_000;
 
 /**
  * 거래 채팅·거래 허브 채팅·메신저 **1:1 방**(거래 도킹 가능) 표면에서만 주기적 POST 를 허용한다.
- * `/community/*` 피드·`/home`·일반 `/mypage/*`·메신저 목록 홈은 제외.
+ * `/community/*` 피드·`/philife`·일반 `/mypage/*`·메신저 목록 홈은 제외.
  */
 export function shouldRunTradePresenceHttpHeartbeat(pathname: string | null): boolean {
   if (!pathname) return false;
-  if (pathname === "/" || pathname === "/home") return false;
-  if (pathname.startsWith("/home/")) return false;
+  if (pathname === "/" || pathname === "/philife") return false;
+  if (pathname.startsWith("/philife/")) return false;
   if (pathname.startsWith("/community")) return false;
   if (pathname.startsWith("/chats/") && pathname !== "/chats/new" && pathname !== "/chats/order") {
     return true;

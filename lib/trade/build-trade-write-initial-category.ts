@@ -1,5 +1,5 @@
 /**
- * 거래 탐색 표면(`/home`, `/market/…`)에서 글쓰기 시트에 넘길 `?category=` 와 동일한 값(거래는 UUID).
+ * 거래 탐색 표면(`/market/…`)에서 글쓰기 시트에 넘길 `?category=` 와 동일한 값(거래는 UUID).
  */
 export function buildTradeWriteInitialCategoryFromPathname(pathname: string | null | undefined): string {
   const clean = (pathname?.split("?")[0] ?? "").trim();

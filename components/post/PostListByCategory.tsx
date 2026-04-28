@@ -133,7 +133,7 @@ export function PostListByCategory({
           !tradeTopicParam.trim();
 
         if (useHomePostsApi) {
-          /** `/api/home/posts` 가 아니라 `/api/trade/feed` — 마켓 bootstrap·관리자 trade-expand 와 동일 id·쿼리 */
+          /** `/api/philife/posts` 가 아니라 `/api/trade/feed` — 마켓 bootstrap·관리자 trade-expand 와 동일 id·쿼리 */
           const next = await getPostsByTradeCategoryIds([], {
             page: pageNum,
             sort,

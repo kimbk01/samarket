@@ -60,7 +60,7 @@ test.describe("dibaY rename smoke", () => {
     expect(chatRes && chatRes.status()).toBeLessThan(500);
 
     // 5) 게시글 → 정상
-    const postsRes = await request.get(`${origin}/api/home/posts?page=1&sort=latest`);
+    const postsRes = await request.get(`${origin}/api/philife/posts?page=1&sort=latest`);
     expect(postsRes.ok()).toBeTruthy();
     const postsJson = (await postsRes.json()) as { posts?: Array<{ id?: string }> };
     const firstId = postsJson.posts?.find((p) => typeof p.id === "string" && p.id.length > 0)?.id;
