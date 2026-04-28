@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
-import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
+import { getCurrentUser, getHydrationSafeCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode, NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
@@ -24,7 +23,7 @@ import {
   philifePostLikeUrl,
   philifePostViewUrl,
 } from "@domain/philife/api";
-import { updateCommentInTree } from "@/lib/neighborhood/comment-tree";
+import { appendReplyToCommentTree, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
@@ -57,6 +56,7 @@ import {
   COMMUNITY_MODAL_PANEL_CLASS,
   COMMUNITY_OVERLAY_BACKDROP_CLASS,
   PHILIFE_DETAIL_PAGE_ROOT_CLASS,
+  PHILIFE_FEED_INSET_X_CLASS,
   PHILIFE_DETAIL_POST_SLAB_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 
@@ -76,6 +76,7 @@ const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
 const meetingToolbarWrap =
   "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-sam-md [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[length:var(--sam-text-body-size)] [&>button]:font-medium [&>button]:leading-[var(--sam-font-body-line)] [&>button]:text-sam-fg";
+const DELETED_COMMENT_TEXT = "댓글이 삭제 되었습니다.";
 
 export function CommunityDetail({
   post,
@@ -99,6 +100,7 @@ export function CommunityDetail({
   const [postUrl, setPostUrl] = useState("");
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
+  const viewerIsAdmin = !!me && isAdminUser(me);
   const [comments, setComments] = useState(initialComments);
   const [commentsLoading, setCommentsLoading] = useState(
     !initialCommentsLoaded && initialComments.length === 0
@@ -108,6 +110,7 @@ export function CommunityDetail({
   const [busy, setBusy] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [scrollSig, setScrollSig] = useState(0);
+  const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
@@ -126,6 +129,10 @@ export function CommunityDetail({
   }, [pathname]);
 
   const tier1Title = meeting ? "모임" : post.category_label?.trim() || "커뮤니티";
+  const backToFeedHref =
+    !meeting && !post.is_meetup && post.category?.trim()
+      ? `${philifeAppPaths.home}?category=${encodeURIComponent(post.category.trim())}`
+      : philifeAppPaths.home;
   const hashtags = useMemo(
     () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
     [post.title, post.content, meeting, post.is_meetup]
@@ -394,14 +401,22 @@ export function CommunityDetail({
         const res = await fetch(philifePostCommentUrl(post.id, commentId), { method: "DELETE" });
         const data = (await res.json()) as { ok?: boolean };
         if (res.ok && data.ok) {
+          /** 하드 삭제 응답이어도 UI는 tombstone으로 남겨 "삭제됨" 문구를 유지 */
+          setComments((cur) =>
+            updateCommentInTree(cur, commentId, {
+              content: DELETED_COMMENT_TEXT,
+              is_edited: false,
+              like_count: 0,
+              liked_by_viewer: false,
+            })
+          );
           invalidateCommunityPostCommentsDeduped(post.id);
-          await refreshComments({ silent: true, force: true });
         }
       } finally {
         setBusy(false);
       }
     },
-    [me?.id, post.id, refreshComments]
+    [me?.id, post.id]
   );
 
   const submitComment = useCallback(async () => {
@@ -437,17 +452,42 @@ export function CommunityDetail({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: t, parentId }),
         });
-        const data = (await res.json()) as { ok?: boolean };
+        const data = (await res.json()) as { ok?: boolean; id?: string };
         if (data.ok) {
+          const now = new Date().toISOString();
+          const insertedId =
+            typeof data.id === "string" && data.id.trim()
+              ? data.id.trim()
+              : `local-reply:${parentId}:${Date.now()}`;
+          const optimistic: NeighborhoodCommentNode = {
+            id: insertedId,
+            post_id: post.id,
+            user_id: me?.id ?? "unknown",
+            parent_id: parentId,
+            content: t,
+            created_at: now,
+            updated_at: now,
+            is_edited: false,
+            author_name: me?.nickname?.trim() || me?.display_name?.trim() || "나",
+            like_count: 0,
+            liked_by_viewer: false,
+            children: [],
+          };
+          setComments((cur) => appendReplyToCommentTree(cur, parentId, optimistic));
+          setFocusCommentId(null);
+          if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => setFocusCommentId(parentId));
+          } else {
+            setFocusCommentId(parentId);
+          }
           invalidateCommunityPostCommentsDeduped(post.id);
-          await refreshComments({ silent: true, force: true });
-          setScrollSig((s) => s + 1);
+          void refreshComments({ silent: true, force: true });
         }
       } finally {
         setBusy(false);
       }
     },
-    [post.id, refreshComments]
+    [post.id, refreshComments, me?.id, me?.nickname, me?.display_name]
   );
 
   const onDeletePost = async () => {
@@ -503,6 +543,7 @@ export function CommunityDetail({
     <div className={`${PHILIFE_DETAIL_PAGE_ROOT_CLASS} ${MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS}`}>
       <CommunityPostDetailHeader
         titleText={tier1Title}
+        backHref={backToFeedHref}
         onOpenReport={openReport}
         onDelete={onDeletePost}
         canDelete={!!me?.id && me.id === post.author_id}
@@ -510,11 +551,9 @@ export function CommunityDetail({
         postUrl={postUrl}
       />
 
-      <article
-        ref={articleRef}
-        className={`w-full min-w-0 ${PHILIFE_DETAIL_POST_SLAB_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`}
-      >
-        <div className="max-w-3xl">
+      <article ref={articleRef} className={`w-full min-w-0 ${PHILIFE_FEED_INSET_X_CLASS}`}>
+        <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} w-full min-w-0`}>
+          <div className="max-w-3xl">
           <CommunityPostCategoryRow
             label={meeting ? "모임" : post.category_label}
             isQuestion={post.is_question && !meeting}
@@ -616,8 +655,9 @@ export function CommunityDetail({
           )}
           {deleteErr ? <p className="px-4 pb-2 text-[12px] text-[#E25555]">{deleteErr}</p> : null}
 
-          <CommunityCommentSection
+            <CommunityCommentSection
             roots={comments}
+            focusCommentId={focusCommentId}
             scrollToBottomSignal={scrollSig}
             commentsLoading={commentsLoading}
             locked={commentsLocked}
@@ -627,6 +667,7 @@ export function CommunityDetail({
                 : "모임 참여 후 댓글을 작성할 수 있어요."
             }
             viewerUserId={me?.id ?? null}
+            viewerIsAdmin={viewerIsAdmin}
             onCommentLike={onCommentLike}
             onCommentEdit={onCommentEdit}
             onCommentDelete={onCommentDelete}
@@ -648,10 +689,11 @@ export function CommunityDetail({
             }
           />
 
-          {!meeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
-          {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
-          <CommunityInlineAdCard />
-          <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
+            {!meeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
+            {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
+            <CommunityInlineAdCard />
+            <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
+          </div>
         </div>
       </article>
 

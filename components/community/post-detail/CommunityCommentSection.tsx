@@ -33,11 +33,13 @@ function sortRoots(roots: NeighborhoodCommentNode[], mode: CommentSortMode): Nei
 
 type Props = {
   roots: NeighborhoodCommentNode[];
+  focusCommentId?: string | null;
   scrollToBottomSignal: number;
   commentsLoading: boolean;
   locked?: boolean;
   lockMessage?: string;
   viewerUserId?: string | null;
+  viewerIsAdmin?: boolean;
   onCommentLike: (commentId: string) => void | Promise<void>;
   onCommentEdit: (commentId: string, content: string) => void | Promise<void>;
   onCommentDelete: (commentId: string) => void | Promise<void>;
@@ -59,11 +61,13 @@ const sortTabBase = "rounded-[4px] px-3 py-1.5 text-[13px] font-semibold transit
 
 export function CommunityCommentSection({
   roots,
+  focusCommentId = null,
   scrollToBottomSignal,
   commentsLoading,
   locked = false,
   lockMessage = "",
   viewerUserId = null,
+  viewerIsAdmin = false,
   onCommentLike,
   onCommentEdit,
   onCommentDelete,
@@ -81,6 +85,18 @@ export function CommunityCommentSection({
     if (scrollToBottomSignal <= 0) return;
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [scrollToBottomSignal]);
+
+  useEffect(() => {
+    if (!focusCommentId) return;
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(`comment-${focusCommentId}`);
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      el.scrollIntoView();
+    }
+  }, [focusCommentId]);
 
   if (locked) {
     return (
@@ -162,6 +178,7 @@ export function CommunityCommentSection({
                 <CommunityCommentItem
                   node={node}
                   viewerUserId={viewerUserId}
+                  viewerIsAdmin={viewerIsAdmin}
                   onLike={onCommentLike}
                   onEdit={onCommentEdit}
                   onDelete={onCommentDelete}

@@ -36,3 +36,11 @@ export function updateCommentInTree(
 ): NeighborhoodCommentNode[] {
   return walkMap(roots, id, (n) => ({ ...n, ...patch, children: n.children }));
 }
+
+export function appendReplyToCommentTree(
+  roots: NeighborhoodCommentNode[],
+  parentId: string,
+  reply: NeighborhoodCommentNode
+): NeighborhoodCommentNode[] {
+  return walkMap(roots, parentId, (n) => ({ ...n, children: [...n.children, reply] }));
+}

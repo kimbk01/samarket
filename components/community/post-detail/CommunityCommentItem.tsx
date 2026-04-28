@@ -29,6 +29,7 @@ type Props = {
   node: NeighborhoodCommentNode;
   depth?: number;
   viewerUserId?: string | null;
+  viewerIsAdmin?: boolean;
   onLike: (commentId: string) => void | Promise<void>;
   onEdit: (commentId: string, content: string) => void | Promise<void>;
   onDelete: (commentId: string) => void | Promise<void>;
@@ -46,6 +47,7 @@ export function CommunityCommentItem({
   node,
   depth = 0,
   viewerUserId = null,
+  viewerIsAdmin = false,
   onLike,
   onEdit,
   onDelete,
@@ -63,6 +65,13 @@ export function CommunityCommentItem({
   const [replyDraft, setReplyDraft] = useState("");
   const me = viewerUserId?.trim() ?? "";
   const isOwner = me.length > 0 && isSameUserId(node.user_id, me);
+  const isDeleteAllowed = isOwner || viewerIsAdmin;
+  const normalized = (node.content ?? "").trim();
+  const isDeleted =
+    normalized === "댓글이 삭제 되었습니다." ||
+    normalized === "댓글이 삭제 되엇습니다." ||
+    normalized === "댓글이 삭제 되었습니다" ||
+    normalized === "댓글이 삭제 되엇습니다";
   const isReplyOpen = replyOpenCommentId === node.id;
 
   const timeRel = useMemo(() => {
@@ -74,6 +83,18 @@ export function CommunityCommentItem({
   useEffect(() => {
     if (!isReplyOpen) setReplyDraft((prev) => (prev === "" ? prev : ""));
   }, [isReplyOpen]);
+
+  useEffect(() => {
+    if (!isReplyOpen) return;
+    if (typeof document === "undefined") return;
+    const el = document.getElementById(`comment-${node.id}`);
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      el.scrollIntoView();
+    }
+  }, [isReplyOpen, node.id]);
 
   const onSave = useCallback(async () => {
     const t = draft.trim();
@@ -116,6 +137,16 @@ export function CommunityCommentItem({
     await onSubmitReply(node.id, t);
     onReplyOpenChange(null);
     setReplyDraft("");
+    if (typeof document !== "undefined") {
+      const el = document.getElementById(`comment-${node.id}`);
+      if (el) {
+        try {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch {
+          el.scrollIntoView();
+        }
+      }
+    }
   };
 
   return (
@@ -134,7 +165,7 @@ export function CommunityCommentItem({
                 {timeStamp || timeRel}
                 {node.is_edited ? <span className="text-[#9CA3AF]"> · 수정</span> : null}
               </time>
-              {isOwner && !editing ? (
+              {isDeleteAllowed && !editing && !isDeleted ? (
                 <button
                   type="button"
                   className="rounded-[4px] p-0.5 text-[#E25555] hover:bg-rose-50"
@@ -185,9 +216,15 @@ export function CommunityCommentItem({
                 </button>
               </div>
             </div>
-          ) : node.content ? (
-            <p className="mt-1 break-words text-[14px] font-normal leading-[1.5] text-[#1F2430]">{node.content}</p>
-          ) : null}
+          ) : (
+            <p
+              className={`mt-1 break-words text-[14px] font-normal leading-[1.5] ${
+                isDeleted ? "text-[#9CA3AF]" : "text-[#1F2430]"
+              }`}
+            >
+              {isDeleted ? "댓글이 삭제 되었습니다." : node.content}
+            </p>
+          )}
 
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2 text-[12px] font-normal text-[#6B7280]">
@@ -197,12 +234,13 @@ export function CommunityCommentItem({
                   node.liked_by_viewer ? "text-[#7360F2]" : "hover:bg-[#F7F8FA]"
                 }`}
                 aria-pressed={node.liked_by_viewer}
+                disabled={isDeleted}
                 onClick={() => void onLike(node.id)}
               >
                 <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.7} fill={node.liked_by_viewer ? "currentColor" : "none"} />
                 공감 {Math.max(0, node.like_count || 0).toLocaleString("ko-KR")}
               </button>
-              {me ? (
+              {me && !isDeleted ? (
                 <button
                   type="button"
                   disabled={commentBusy}
@@ -212,7 +250,7 @@ export function CommunityCommentItem({
                   {isReplyOpen ? "답글 취소" : "답글 쓰기"}
                 </button>
               ) : null}
-              {isOwner && !editing ? (
+              {isOwner && !editing && !isDeleted ? (
                 <button
                   type="button"
                   className="inline-flex items-center gap-0.5 rounded-[4px] px-2 py-0.5 hover:bg-[#F7F8FA]"
@@ -232,11 +270,12 @@ export function CommunityCommentItem({
           </div>
 
           {isReplyOpen && me ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-2 py-2">
+            <div className="mt-1.5 rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-1.5 py-1.5">
+              <div className="flex items-center gap-1.5">
               <ReplyLGlyph />
               <input
                 type="text"
-                className={`min-h-[2.5rem] min-w-0 flex-1 ${PHILIFE_FB_INPUT_CLASS}`}
+                className="min-h-[2rem] min-w-0 flex-1 border-0 border-b border-[#D1D5DB] bg-transparent px-1 py-0.5 text-[13px] font-normal leading-[1.2] text-[#1F2430] outline-none ring-0 placeholder:text-[12px] placeholder:text-[#9CA3AF] focus:border-[#7360F2]"
                 value={replyDraft}
                 disabled={commentBusy}
                 onChange={(e) => setReplyDraft(e.target.value)}
@@ -250,22 +289,17 @@ export function CommunityCommentItem({
                 autoComplete="off"
                 enterKeyHint="send"
               />
-              <button
-                type="button"
-                disabled={commentBusy}
-                className={`shrink-0 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
-                onClick={() => onReplyOpenChange(null)}
-              >
-                취소
-              </button>
+              </div>
+              <div className="mt-1.5 flex items-center justify-end">
               <button
                 type="button"
                 disabled={commentBusy || !replyDraft.trim()}
-                className={`shrink-0 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+                className={`shrink-0 min-h-[2rem] px-3 text-[13px] ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
                 onClick={() => void submitInlineReply()}
               >
-                댓글 작성
+                답글
               </button>
+              </div>
             </div>
           ) : null}
         </div>
@@ -299,6 +333,7 @@ export function CommunityCommentItem({
                       node={c}
                       depth={depth + 1}
                       viewerUserId={viewerUserId}
+                      viewerIsAdmin={viewerIsAdmin}
                       onLike={onLike}
                       onEdit={onEdit}
                       onDelete={onDelete}

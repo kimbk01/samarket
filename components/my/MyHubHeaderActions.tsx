@@ -16,7 +16,14 @@ const HUB_TRAILING_ROW_CLASS = "flex w-[88px] shrink-0 items-center justify-end 
 
 function HamburgerMenuIcon() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+    <svg
+      className="block h-5 w-5 align-middle"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
       <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -28,7 +35,7 @@ function HubHeaderSettingsHamburgerFallback() {
   return (
     <Link
       href={buildMypageInfoHubHref()}
-      className="sam-header-action h-10 w-10 text-sam-fg"
+      className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-fg"
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />
@@ -47,7 +54,7 @@ export function MyHubHeaderInfoHubTrigger() {
     <button
       type="button"
       onClick={openInfoHub}
-      className="sam-header-action h-10 w-10 text-sam-fg"
+      className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-fg"
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getCurrentUser,
   getHydrationSafeCurrentUser,
@@ -24,6 +23,7 @@ import { hasInterleavedMarkdownImageSyntax } from "@/lib/philife/interleaved-bod
 import {
   PHILIFE_DETAIL_BODY_CLASS,
   PHILIFE_DETAIL_COMMENTS_WRAP_CLASS,
+  PHILIFE_FEED_INSET_X_CLASS,
   PHILIFE_DETAIL_META_CLASS,
   PHILIFE_DETAIL_PAGE_ROOT_CLASS,
   PHILIFE_DETAIL_POST_SLAB_CLASS,
@@ -55,20 +55,28 @@ export function CommunityPostDetailClient({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const tier1Title = post.is_meetup ? "모임" : post.topic_name?.trim() || "커뮤니티";
+  const backToFeedHref = (() => {
+    const topic = post.topic_slug?.trim();
+    if (!post.is_meetup && topic) {
+      return `${philifeAppPaths.home}?category=${encodeURIComponent(topic)}`;
+    }
+    return philifeAppPaths.home;
+  })();
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       tier1: {
         titleText: tier1Title,
-        backHref: philifeAppPaths.home,
-        preferHistoryBack: true,
+        backHref: backToFeedHref,
+        /** 글쓰기 -> 보기 진입에서도 항상 커뮤니티 피드(해당 주제)로 복귀 */
+        preferHistoryBack: false,
         ariaLabel: "피드로",
         showHubQuickActions: true,
       },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, tier1Title]);
+  }, [setMainTier1Extras, tier1Title, backToFeedHref]);
 
   useEffect(() => {
     void (async () => {
@@ -177,7 +185,7 @@ export function CommunityPostDetailClient({
 
   return (
     <div className={`${PHILIFE_DETAIL_PAGE_ROOT_CLASS} pb-24`}>
-      <article className={`w-full min-w-0 pb-4 pt-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
+      <article className={`w-full min-w-0 pb-4 pt-2 ${PHILIFE_FEED_INSET_X_CLASS}`}>
         <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} p-4`}>
           <div className="flex flex-wrap items-center gap-2">
             <span

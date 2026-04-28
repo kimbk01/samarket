@@ -132,7 +132,7 @@ export const PHILIFE_FEED_FILTER_STRIP_CLASS =
 
 /** 상세 본문·툴바 묶음 */
 export const PHILIFE_DETAIL_POST_SLAB_CLASS =
-  "overflow-hidden border-b border-sam-border bg-sam-surface";
+  "overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface";
 
 /** 댓글 블록 */
 export const PHILIFE_DETAIL_COMMENTS_WRAP_CLASS =

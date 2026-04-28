@@ -8,6 +8,7 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import { COMMUNITY_DROPDOWN_PANEL_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 type ActionRefs = {
+  backHref: string;
   onOpenReport: () => void;
   onDelete?: () => void;
   canDelete: boolean;
@@ -113,7 +114,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                   className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#1F2430] hover:bg-[#F7F8FA]"
                   onClick={() => {
                     setMoreOpen((prev) => (prev ? false : prev));
-                    void router.push(philifeAppPaths.home);
+                    void router.push(r.current.backHref || philifeAppPaths.home);
                   }}
                 >
                   목록으로
@@ -129,6 +130,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
 
 type Props = {
   titleText: string;
+  backHref: string;
   onOpenReport: () => void;
   onDelete?: () => void;
   canDelete: boolean;
@@ -138,6 +140,7 @@ type Props = {
 
 export function CommunityPostDetailHeader({
   titleText,
+  backHref,
   onOpenReport,
   onDelete,
   canDelete,
@@ -145,8 +148,8 @@ export function CommunityPostDetailHeader({
   postUrl,
 }: Props) {
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const r = useRef<ActionRefs>({ onOpenReport, onDelete, canDelete, canReport, postUrl });
-  r.current = { onOpenReport, onDelete, canDelete, canReport, postUrl };
+  const r = useRef<ActionRefs>({ backHref, onOpenReport, onDelete, canDelete, canReport, postUrl });
+  r.current = { backHref, onOpenReport, onDelete, canDelete, canReport, postUrl };
 
   const rightSlot = useMemo(() => <DetailHeaderRight r={r} />, []);
 
@@ -155,15 +158,16 @@ export function CommunityPostDetailHeader({
     setMainTier1Extras({
       tier1: {
         titleText: titleText || "커뮤니티",
-        backHref: philifeAppPaths.home,
-        preferHistoryBack: true,
+        backHref,
+        /** 글쓰기 -> 보기 진입에서도 항상 커뮤니티 피드(해당 주제)로 복귀 */
+        preferHistoryBack: false,
         ariaLabel: "피드로",
         showHubQuickActions: false,
         rightSlot,
       },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, titleText, rightSlot]);
+  }, [setMainTier1Extras, titleText, backHref, rightSlot]);
 
   return null;
 }
