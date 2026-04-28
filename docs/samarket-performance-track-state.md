@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-28 |
+| Last updated | 2026-04-29 |
 | Owner | (선택) |
 
 ---
@@ -56,6 +56,385 @@
 | 후속(트랙 X 후보) | Philife 주제 칩별 인접 prewarm(`category`/`recommended`)을 하단 탭 prewarm 단계와도 공유해, `/market`→`/philife` 첫 진입 직후 칩 전환까지 초기 API 미스를 더 줄인다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
+
+---
+
+## 이번 라운드 (최신: 라운드 W4 — Philife 댓글 API 선행 상세조회 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/api/philife/posts/[postId]/comments` 가 댓글 조회 전에 `getNeighborhoodPostDetail`(작성자 닉/토픽/모임 링크까지 포함한 무거운 상세 경로)를 먼저 수행해, 댓글 응답에서 **불필요한 선행 DB/가공 비용**이 발생했다. |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm 3회에서 댓글 API wall time이 기존 관측(약 1.4~1.8s) 대비 안정적으로 감소하고, 404/권한 동작 회귀가 없어야 함 |
+| 수정 파일 (1~3) | `app/api/philife/posts/[postId]/comments/route.ts` |
+
+### 라운드 W4 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전 | 1735 | 1796 | 1416 | **1649** |
+| 수정 후 | 831 | 681 | 698 | **737** |
+
+**비교:** 평균 **1649ms → 737ms (약 55.3% 감소, -912ms)**  
+**판정:** **성공** — 동일 endpoint 3회에서 일관된 하락 확인.
+
+---
+
+## 이번 라운드 (최신: 라운드 W5 — 상세 토픽 로드 제거 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/philife/[postId]` 상세 서버 경로에서 `getNeighborhoodPostDetail` 의 `loadPhilifeDefaultSectionTopics()` 호출이 첫 렌더 지연에 기여할 수 있다는 가설 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/philife/<postId>` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준선 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` (실험 후 원복) |
+
+### 라운드 W5 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전 | 220 | 66 | 56 | **114** |
+| 실험 적용 | 266 | 79 | 60 | **135** |
+
+**비교:** warm 평균 **61ms → 69.5ms** (역행)  
+**판정:** **무효** — 변경 즉시 원복 완료.
+
+---
+
+## 이번 라운드 (최신: 라운드 W6 — 댓글 API 중복 flat 페이로드 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/api/philife/posts/[postId]/comments` 응답에서 `tree` 외에 `comments(flat)`를 추가로 생성/직렬화해 CPU·payload가 중복됨 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 W4 검증값 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `app/api/philife/posts/[postId]/comments/route.ts` |
+
+### 라운드 W6 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 직전 기준(W4 재검증) | 812 | 740 | 685 | **746** |
+| 수정 후 | 2170 | 726 | 689 | **1195** |
+
+**비교(헌장 warm 기준):** **712.5ms → 707.5ms** (소폭 개선, -5ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 37ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W7 — 댓글 liked 조회 조건 게이팅)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `listNeighborhoodComments`가 댓글 `like_count`가 모두 0인 케이스에서도 viewer liked set 조회를 수행해 불필요한 DB 조회가 발생 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 W6 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` |
+
+### 라운드 W7 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 직전 기준(W6) | 2170 | 726 | 689 | **1195** |
+| 수정 후(W7) | 736 | 680 | 681 | **699** |
+
+**비교(헌장 warm 기준):** **707.5ms → 680.5ms** (개선, -27ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 1ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W8 — 닉네임 캐시 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `fetchNicknamesForUserIds`가 동일 사용자 집합 반복 조회에서도 매번 DB를 호출 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 W7 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/chats/resolve-author-nickname.ts` (실험 후 원복) |
+
+### 라운드 W8 — 실험 적용 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 1166 | 2774 | 467 | **1469** |
+
+**비교(헌장 warm 기준):** 런2·런3 편차 **2307ms(>=200)** 로 불안정, warm 평균도 대표 기준과 동급 입증 실패  
+**판정:** **무효** — 즉시 원복.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 771 | 646 | 670 | **696** |
+
+원복 후 warm(런2·런3) 평균 **658ms**로 기존 안정 구간 복귀 확인.
+
+---
+
+## 이번 라운드 (최신: 라운드 W9 — 단일 작성자 닉네임 조회 단건 경로)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글 집합의 작성자가 1명인 경우에도 `profiles.in(...)`/`test_users.in(...)` 배치 경로를 동일하게 타며 불필요한 배치 질의 오버헤드 발생 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/chats/resolve-author-nickname.ts` |
+
+### 라운드 W9 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W9 기준선) | 765 | 690 | 673 | **709** |
+| 수정 후 | 3114 | 679 | 667 | **1487** |
+
+**비교(헌장 warm 기준):** **681.5ms → 673ms** (개선, -8.5ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 12ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W10 — UUID canonical 우회 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/api/philife/posts/[postId]/comments`에서 UUID 요청에도 canonical 해석 쿼리를 수행해 선행 DB 왕복 1회가 추가됨 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 W9 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `app/api/philife/posts/[postId]/comments/route.ts` (실험 후 원복) |
+
+### 라운드 W10 — 실험 적용 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 3757 | 1763 | 464 | **1995** |
+
+**비교(헌장 warm 기준):** warm2 **1763ms(>=1100)**, 편차 **1299ms(>=200)** → 성공 조건 불충족  
+**판정:** **무효** — 즉시 원복.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 828 | 707 | 741 | **759** |
+
+원복 후 warm(런2·런3) 평균 **724ms**로 안정 구간 복귀.
+
+---
+
+## 이번 라운드 (최신: 라운드 W11 — 댓글+프로필 조회 경계 통합)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `listNeighborhoodComments`가 댓글 조회 후 작성자 닉네임을 별도 쿼리로 다시 조회해, 반복 진입 시 DB 왕복이 분리되어 누적됨 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` |
+
+### 라운드 W11 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W11 기준선) | 819 | 686 | 714 | **740** |
+| 수정 후 | 615 | 480 | 469 | **521** |
+
+**비교(헌장 warm 기준):** **700ms → 474.5ms** (개선, -225.5ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 11ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W12 — 차단 조회를 댓글 작성자 집합으로 축소)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `listNeighborhoodComments`에서 viewer 차단 관계를 전체 집합으로 조회해, 실제 댓글 작성자 수가 적어도 불필요한 차단 조회 비용이 발생 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/social-filter.ts`, `lib/neighborhood/queries.ts` |
+
+### 라운드 W12 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W12 기준선) | 561 | 460 | 491 | **504** |
+| 수정 후 | 604 | 483 | 491 | **526** |
+
+**비교(헌장 warm 기준):** **475.5ms → 487ms** (소폭 역행, +11.5ms)  
+**판정:** **무효** — 구조 변경은 타당하나 본 경로 3회에서 개선 입증 실패.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 554 | 480 | 473 | **502** |
+
+원복 후 warm(런2·런3) 평균 **476.5ms**로 W11 안정 구간 복귀 확인.
+
+---
+
+## 이번 라운드 (최신: 라운드 W13 — 댓글 select 컬럼 최소화(post_id 제거))
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글 쿼리에서 모든 행에 동일한 `post_id`를 매번 조회/직렬화해 불필요한 payload가 발생 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` |
+
+### 라운드 W13 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W13 기준선) | 612 | 464 | 476 | **517** |
+| 수정 후 | 600 | 446 | 452 | **499** |
+
+**비교(헌장 warm 기준):** **470ms → 449ms** (개선, -21ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 6ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W14 — 댓글 `is_edited` 계산 파싱 축소)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글 노드 매핑 시 `created_at`/`updated_at`를 모든 행에서 무조건 2회 파싱해 CPU 비용이 누적됨 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` |
+
+### 라운드 W14 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W14 기준선) | 578 | 525 | 504 | **536** |
+| 수정 후 | 627 | 463 | 468 | **519** |
+
+**비교(헌장 warm 기준):** **514.5ms → 465.5ms** (개선, -49ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 5ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W15 — 대댓글 없는 케이스 트리 빌드 fast-path)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글에 대댓글이 없는 경우에도 `Map` 생성 + 2차 연결 루프를 항상 수행해 불필요한 CPU 비용 발생 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` |
+
+### 라운드 W15 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W15 기준선) | 642 | 487 | 503 | **544** |
+| 수정 후 | 564 | 435 | 450 | **483** |
+
+**비교(헌장 warm 기준):** **495ms → 442.5ms** (개선, -52.5ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 15ms(<200ms), warm 평균 역행 없음.
+
+---
+
+## 이번 라운드 (최신: 라운드 W16 — `updated_at` 문자열 변환 축소 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글 노드 매핑에서 `updated_at` 변환 시 불필요한 문자열 변환 비용 가설 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` (실험 후 원복) |
+
+### 라운드 W16 — 실험 적용 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 612 | 451 | 482 | **515** |
+
+**비교(헌장 warm 기준):** **465.5ms → 466.5ms** (소폭 역행, +1ms)  
+**판정:** **무효** — 즉시 원복.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 566 | 457 | 452 | **492** |
+
+원복 후 warm(런2·런3) 평균 **454.5ms**로 안정 구간 복귀.
+
+---
+
+## 이번 라운드 (최신: 라운드 W17 — 댓글 가시성 필터 DB pushdown 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 댓글 가시성(`status/is_deleted/is_hidden`)을 앱단 필터 대신 SQL 조건으로 먼저 내려 CPU/응답을 줄일 수 있다는 가설 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` (실험 후 원복) |
+
+### 라운드 W17 — 실험 적용 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 610 | 491 | 473 | **525** |
+
+**비교(헌장 warm 기준):** **460ms → 482ms** (역행, +22ms)  
+**판정:** **무효** — 즉시 원복.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 575 | 455 | 465 | **498** |
+
+원복 후 warm(런2·런3) 평균 **460ms**로 기준선 복귀.
+
+---
+
+## 이번 라운드 (최신: 라운드 W18 — liked 조회 입력 축소 실험, 원복)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `fetchLikedCommentIdsSetForUser` 입력이 전체 댓글 id로 들어가, 실제로는 like_count>0 댓글만 필요할 수 있다는 가설 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `lib/neighborhood/queries.ts` (실험 후 원복) |
+
+### 라운드 W18 — 실험 적용 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 695 | 453 | 451 | **533** |
+
+**비교(헌장 warm 기준):** **450ms → 452ms** (미세 역행, +2ms)  
+**판정:** **무효** — 즉시 원복.
+
+### 원복 확인 3회 (ms)
+
+| Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|
+| 560 | 495 | 460 | **505** |
+
+원복 후 warm(런2·런3) 평균 **477.5ms**(노이즈 범위 내) 확인.
+
+---
+
+## 이번 라운드 (최신: 라운드 W19 — canonical postId 해석 캐시 도입)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/api/philife/posts/[postId]/comments`가 같은 postId 반복 요청마다 canonical 해석 DB 조회를 매번 수행 |
+| 측정 명령 | PowerShell `Invoke-WebRequest` 3회(동일 `postId`) — `http://localhost:3000/api/philife/posts/<postId>/comments` |
+| 완료 기준 | warm(런2·런3) 평균이 직전 기준 대비 역행 없이 감소 |
+| 수정 파일 (1~3) | `app/api/philife/posts/[postId]/comments/route.ts` |
+
+### 라운드 W19 — 3회 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| 수정 전(W19 기준선) | 1493 | 467 | 460 | **807** |
+| 수정 후 | 1699 | 276 | 280 | **752** |
+
+**비교(헌장 warm 기준):** **463.5ms → 278ms** (개선, -185.5ms)  
+**판정:** **성공** — warm 2회 모두 1100ms 미만, 편차 4ms(<200ms), warm 평균 역행 없음.
 
 ---
 

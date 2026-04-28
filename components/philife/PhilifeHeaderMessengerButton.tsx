@@ -51,10 +51,10 @@ export function PhilifeHeaderMessengerButton() {
         <button
           type="button"
           onClick={openMessengerStack}
-          className="sam-header-action relative min-h-9 min-w-9 h-9 w-9 shrink-0 text-sam-fg"
+          className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
           aria-label={label}
         >
-          <BottomNavMessengerChatIcon className="h-5 w-5" />
+          <BottomNavMessengerChatIcon className="h-6 w-6" />
           {unread > 0 ? (
             <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
               {unread > 99 ? "99+" : unread}
@@ -69,7 +69,7 @@ export function PhilifeHeaderMessengerButton() {
     <div className="inline-flex shrink-0 items-center">
       <Link
         href={href}
-        className="sam-header-action relative min-h-9 min-w-9 h-9 w-9 shrink-0 text-sam-fg"
+        className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
         aria-label={label}
         prefetch
         onClick={(e) => {
@@ -84,7 +84,7 @@ export function PhilifeHeaderMessengerButton() {
           }
         }}
       >
-        <BottomNavMessengerChatIcon className="h-5 w-5" />
+        <BottomNavMessengerChatIcon className="h-6 w-6" />
         {unread > 0 ? (
           <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
             {unread > 99 ? "99+" : unread}

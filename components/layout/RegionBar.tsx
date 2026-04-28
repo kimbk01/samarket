@@ -15,10 +15,9 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
-import { UnifiedTier1AddressPillHeading } from "@/components/layout/UnifiedTier1AddressPillHeading";
-import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
+import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
@@ -100,7 +99,6 @@ export function RegionBar({
   const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
-  const rep = useRepresentativeAddressLine();
   if (!ruleSet.showRegionBar) {
     return null;
   }
@@ -117,12 +115,9 @@ export function RegionBar({
     const segmentTitle = isPhilifeFeed
       ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY)
       : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
-    const tier1TitleAndAddress = (
-      <h1 className="flex min-h-0 min-w-0 w-full flex-row items-center gap-2 overflow-hidden text-sam-fg">
+    const tier1TitleOnly = (
+      <h1 className="flex h-full min-h-0 min-w-0 w-full flex-row items-center gap-2 overflow-hidden text-sam-fg">
         <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
-        <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
-          <UnifiedTier1AddressPillHeading rep={rep} />
-        </div>
       </h1>
     );
     return (
@@ -132,33 +127,35 @@ export function RegionBar({
         >
           {isPhilifeFeed ? (
             <>
-              <div className="flex w-10 shrink-0 items-center justify-start self-stretch">
+              <div className="flex h-full w-10 shrink-0 items-center justify-start">
                 <MyHubHeaderInfoHubTrigger />
               </div>
-              <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden pr-1 text-left ml-[length:1pt]">
-                {tier1TitleAndAddress}
+              <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
+                {tier1TitleOnly}
               </div>
-              <div className="ml-auto flex shrink-0 flex-none items-center justify-end self-stretch pl-0.5">
-                <div className="inline-flex shrink-0 items-center gap-0">
+              <div className="ml-auto flex h-full w-[160px] shrink-0 flex-none items-center justify-end pl-0 -mr-1">
+                <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
                   <PhilifeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
+                  <PhilifeHeaderAddressMenuButton />
                 </div>
               </div>
             </>
           ) : (
             <>
-              <div className="flex w-10 shrink-0 items-center justify-start self-stretch">
+              <div className="flex h-full w-10 shrink-0 items-center justify-start">
                 <MyHubHeaderInfoHubTrigger />
               </div>
-              <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden pr-1 text-left ml-[length:1pt]">
-                {tier1TitleAndAddress}
+              <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
+                {tier1TitleOnly}
               </div>
-              <div className="ml-auto flex shrink-0 flex-none items-center justify-end self-stretch pl-0.5">
-                <div className="inline-flex shrink-0 items-center gap-0">
+              <div className="ml-auto flex h-full w-[160px] shrink-0 flex-none items-center justify-end pl-0 -mr-1">
+                <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
                   <TradeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
+                  <PhilifeHeaderAddressMenuButton />
                 </div>
               </div>
             </>

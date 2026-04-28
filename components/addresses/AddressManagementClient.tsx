@@ -38,6 +38,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     fullAddress: string;
     addressDetail?: string | null;
   } | null>(null);
+  const shouldShowMigrationHint =
+    !!loadErr &&
+    /(user_addresses|relation|schema cache|table_missing|마이그레이션)/i.test(loadErr);
 
   useEffect(() => {
     if (!pathname || pathname.startsWith("/address/select")) return;
@@ -100,8 +103,25 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       const a = await runSingleFlight("me:addresses:list", () =>
         fetch("/api/me/addresses", { credentials: "include" })
       );
-      const aj = (await a.json()) as { ok?: boolean; addresses?: UserAddressDTO[]; error?: string };
+      if (a.status === 401) {
+        setLoadErr("로그인이 필요합니다. 현재 접속한 주소(도메인)에서 다시 로그인해 주세요.");
+        return;
+      }
+      const contentType = a.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        if (a.redirected || a.url.includes("/login")) {
+          setLoadErr("로그인이 필요합니다. 현재 접속한 주소(도메인)에서 다시 로그인해 주세요.");
+        } else {
+          setLoadErr("주소 목록 응답 형식이 올바르지 않습니다.");
+        }
+        return;
+      }
+      const aj = (await a.clone().json()) as { ok?: boolean; addresses?: UserAddressDTO[]; error?: string };
       if (!a.ok || !aj.ok) {
+        if (aj.error === "user_addresses_table_missing") {
+          setLoadErr("user_addresses_table_missing");
+          return;
+        }
         setLoadErr(typeof aj.error === "string" ? aj.error : tt("목록을 불러오지 못했어요."));
         return;
       }
@@ -112,7 +132,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
       }
     } catch {
-      setLoadErr(tt("네트워크 오류가 났어요."));
+      setLoadErr("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       if (showWait) setListBootstrapping(false);
     }
@@ -196,11 +216,15 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <div className="mx-auto max-w-none space-y-4 px-0 py-0 pb-0">
           {loadErr ? (
             <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-              {loadErr}
-              <p className="mt-2 sam-text-helper text-amber-900/90">
-                Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
-                확인해 주세요.
-              </p>
+              {loadErr === "user_addresses_table_missing"
+                ? "주소 테이블(user_addresses)이 없습니다."
+                : loadErr}
+              {shouldShowMigrationHint ? (
+                <p className="mt-2 sam-text-helper text-amber-900/90">
+                  Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
+                  확인해 주세요.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -238,11 +262,15 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div className="flex min-w-0 flex-col gap-4 py-4">
             {loadErr ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-                {loadErr}
-                <p className="mt-2 sam-text-helper text-amber-900/90">
-                  Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
-                  확인해 주세요.
-                </p>
+                {loadErr === "user_addresses_table_missing"
+                  ? "주소 테이블(user_addresses)이 없습니다."
+                  : loadErr}
+                {shouldShowMigrationHint ? (
+                  <p className="mt-2 sam-text-helper text-amber-900/90">
+                    Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
+                    확인해 주세요.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

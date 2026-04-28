@@ -75,7 +75,7 @@ export function ProfileEditForm() {
       fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
     )
       .then(async (res) => {
-        const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
+        const j = (await res.clone().json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
         if (res.ok && j.ok && Array.isArray(j.addresses)) {
           return { ok: true as const, rows: j.addresses };
         }

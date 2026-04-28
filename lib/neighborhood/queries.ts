@@ -26,7 +26,10 @@ import type {
   MeetingFeedPostDTO,
   MeetingAlbumItemDTO,
 } from "@/lib/neighborhood/types";
-import { fetchBlockedAuthorIdsForViewer, fetchNeighborFollowTargetIds } from "@/lib/neighborhood/social-filter";
+import {
+  fetchBlockedAuthorIdsForViewer,
+  fetchNeighborFollowTargetIds,
+} from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
@@ -777,7 +780,9 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
     sb
       .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count")
+      .select(
+        "id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count, profiles(nickname, username)"
+      )
       .eq("post_id", postId)
       .order("created_at", { ascending: true }),
   ]);
@@ -786,7 +791,9 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
   if (err && isMissingDbColumnError(err, "like_count")) {
     const r2 = await sb
       .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status")
+      .select(
+        "id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, profiles(nickname, username)"
+      )
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     data = (r2.data as unknown[] | null) ?? null;
@@ -794,7 +801,9 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
   } else if (err && isMissingDbColumnError(err, "updated_at")) {
     const r2b = await sb
       .from("community_comments")
-      .select("id, post_id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count")
+      .select(
+        "id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count, profiles(nickname, username)"
+      )
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     data = (r2b.data as unknown[] | null) ?? null;
@@ -808,35 +817,65 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
     rows = rows.filter((r) => !blockExclude.has(String(r.user_id ?? "")));
   }
 
+  const profileNameByUid = new Map<string, string>();
+  for (const row of rows) {
+    const uid = String(row.user_id ?? "");
+    if (!uid) continue;
+    const profileRaw = row.profiles as Record<string, unknown> | Record<string, unknown>[] | null | undefined;
+    const profile = Array.isArray(profileRaw) ? (profileRaw[0] ?? null) : profileRaw;
+    if (!profile || typeof profile !== "object") continue;
+    const pnick = String(profile.nickname ?? "").trim();
+    const puname = String(profile.username ?? "").trim();
+    const resolved = pnick || puname;
+    if (resolved) profileNameByUid.set(uid, resolved);
+  }
   const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
+  const missingProfileUids = uids.filter((uid) => !profileNameByUid.has(uid));
   const commentIds = rows.map((r) => String(r.id));
+  const hasAnyLikedComment = rows.some(
+    (r) => Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)) > 0
+  );
   const [nickMap, likedSet] = await Promise.all([
-    fetchNicknamesForUserIds(sb as never, uids),
-    v && commentIds.length > 0 ? fetchLikedCommentIdsSetForUser(sb, v, commentIds) : Promise.resolve(new Set<string>()),
+    missingProfileUids.length > 0 ? fetchNicknamesForUserIds(sb as never, missingProfileUids) : Promise.resolve(new Map<string, string>()),
+    v && commentIds.length > 0 && hasAnyLikedComment
+      ? fetchLikedCommentIdsSetForUser(sb, v, commentIds)
+      : Promise.resolve(new Set<string>()),
   ]);
 
+  let hasAnyReply = false;
   const nodes: NeighborhoodCommentNode[] = rows.map((r) => {
     const uid = String(r.user_id ?? "");
     const id = String(r.id);
+    const parentId = r.parent_id != null ? String(r.parent_id) : null;
+    if (parentId) hasAnyReply = true;
     const created = String(r.created_at ?? "");
     const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
-    const t0 = new Date(created).getTime();
-    const t1 = new Date(upd).getTime();
+    const isPossiblyEdited = upd !== created;
+    let isEdited = false;
+    if (isPossiblyEdited) {
+      const t0 = Date.parse(created);
+      const t1 = Date.parse(upd);
+      isEdited = !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000;
+    }
     return {
       id,
-      post_id: String(r.post_id ?? ""),
+      post_id: postId,
       user_id: uid,
-      parent_id: r.parent_id != null ? String(r.parent_id) : null,
+      parent_id: parentId,
       content: String(r.content ?? ""),
       created_at: created,
       updated_at: upd,
-      is_edited: !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
-      author_name: nickMap.get(uid) ?? uid.slice(0, 8),
+      is_edited: isEdited,
+      author_name: profileNameByUid.get(uid) ?? nickMap.get(uid) ?? uid.slice(0, 8),
       like_count: Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)),
       liked_by_viewer: v.length > 0 && likedSet.has(id),
       children: [],
     };
   });
+
+  if (!hasAnyReply) {
+    return nodes;
+  }
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const roots: NeighborhoodCommentNode[] = [];

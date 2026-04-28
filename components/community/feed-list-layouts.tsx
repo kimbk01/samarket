@@ -251,9 +251,10 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
     <article className={`min-h-0 ${PHILIFE_FB_CARD_CLASS}`}>
       <Link
         href={href}
-        prefetch={false}
+        prefetch
         onMouseEnter={prefetchOnIntent}
         onTouchStart={prefetchOnIntent}
+        onPointerDown={prefetchOnIntent}
         onClick={() => {
           beginRouteEntryPerf("community_detail", href);
           prefetchOnIntent();

@@ -86,12 +86,12 @@ export function TradeHeaderComposeButton() {
 
   return (
     <>
-      <div ref={menuRef} className="relative flex w-10 shrink-0 items-center justify-end">
+      <div ref={menuRef} className="relative flex shrink-0 items-center justify-end">
         <button
           ref={triggerRef}
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
           aria-label={t("nav_write_aria")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"
@@ -166,7 +166,7 @@ function ActionRow({
 function PlusInSquareIcon() {
   return (
     <svg
-      className="h-5 w-5"
+      className="h-6 w-6"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

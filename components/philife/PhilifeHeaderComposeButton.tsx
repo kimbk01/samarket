@@ -25,7 +25,7 @@ function PhilifeHeaderComposeButtonFallback() {
   return (
     <Link
       href={philifeAppPaths.write}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:opacity-90"
+      className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
       aria-label={t("tier1_community_write")}
     >
       <PlusInSquareIcon />
@@ -48,7 +48,7 @@ function PhilifeHeaderComposeButtonInner() {
     return (
       <Link
         href={href}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
+        className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
         aria-label={aria}
         onClick={(e) => {
           if (!guardBeforeNavigate()) e.preventDefault();
@@ -66,7 +66,7 @@ function PhilifeHeaderComposeButtonInner() {
         if (!guardBeforeNavigate()) return;
         openWriteSheet(category);
       }}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
+      className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
       aria-label={aria}
     >
       <PlusInSquareIcon />
@@ -77,7 +77,7 @@ function PhilifeHeaderComposeButtonInner() {
 function PlusInSquareIcon() {
   return (
     <svg
-      className="h-5 w-5"
+      className="h-6 w-6"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

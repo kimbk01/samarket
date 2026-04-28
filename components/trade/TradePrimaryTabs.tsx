@@ -236,7 +236,7 @@ function TradePrimaryTabsInner({
                       role="option"
                       aria-selected={tradeState === opt.key}
                       onClick={() => setTradeState(opt.key as "latest" | "active" | "reserved" | "sold")}
-                      className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
+                      className="block w-full px-3 py-2 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-fg transition hover:bg-sam-surface-muted"
                     >
                       {opt.label}
                     </button>

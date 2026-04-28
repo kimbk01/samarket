@@ -42,6 +42,32 @@ export async function fetchNicknamesForUserIds(
   const map = new Map<string, string>();
   const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
   if (ids.length === 0) return map;
+  if (ids.length === 1) {
+    const onlyId = ids[0];
+    if (metrics) metrics.profileSelect += 1;
+    const { data: profile } = await sbAny
+      .from("profiles")
+      .select("id, nickname, username")
+      .eq("id", onlyId)
+      .maybeSingle();
+    const profileName = profile ? nonEmptyString((profile as Record<string, unknown>).nickname) ?? nonEmptyString((profile as Record<string, unknown>).username) : undefined;
+    if (profileName) {
+      map.set(onlyId, profileName);
+      return map;
+    }
+    if (metrics) metrics.testUsersSelect += 1;
+    const { data: testUser } = await sbAny
+      .from("test_users")
+      .select("id, display_name, username")
+      .eq("id", onlyId)
+      .maybeSingle();
+    const testName = testUser
+      ? nonEmptyString((testUser as Record<string, unknown>).display_name) ??
+        nonEmptyString((testUser as Record<string, unknown>).username)
+      : undefined;
+    if (testName) map.set(onlyId, testName);
+    return map;
+  }
 
   if (metrics) metrics.profileSelect += 1;
   const { data: profiles } = await sbAny.from("profiles").select("id, nickname, username").in("id", ids);

@@ -40,7 +40,7 @@ export function prefetchMeAddressListIntoCache(): void {
   void runSingleFlight("me:addresses:list", () =>
     fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
   )
-    .then((r) => r.json() as Promise<{ ok?: boolean; addresses?: UserAddressDTO[] }>)
+    .then((r) => r.clone().json() as Promise<{ ok?: boolean; addresses?: UserAddressDTO[] }>)
     .then((j) => {
       if (j?.ok === true && Array.isArray(j.addresses) && j.addresses.length > 0) {
         writeCachedMeAddressList(j.addresses);

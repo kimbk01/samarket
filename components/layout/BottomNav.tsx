@@ -668,7 +668,7 @@ export function BottomNav({
     .join(" ");
 
   const nav = (
-    <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
+    <nav className={outerClass} aria-label="주요 메뉴">
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
           {tabs.map((tab) => {

@@ -117,6 +117,8 @@ export function CommunityDetail({
   const [deleteErr, setDeleteErr] = useState("");
   const mountedAtRef = useRef<number>(perfNow());
   const firstCommentsReadyLoggedRef = useRef(false);
+  const commentsFetchDoneAtRef = useRef<number | null>(null);
+  const commentsSetAtRef = useRef<number | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -276,7 +278,9 @@ export function CommunityDetail({
               })()
             : null;
         if (!roots) return;
+        commentsFetchDoneAtRef.current = perfNow();
         setComments(roots);
+        commentsSetAtRef.current = perfNow();
         logClientPerf("community-detail.comments", {
           postId: post.id,
           silent,
@@ -299,10 +303,17 @@ export function CommunityDetail({
     if (firstCommentsReadyLoggedRef.current) return;
     if (commentsLoading) return;
     firstCommentsReadyLoggedRef.current = true;
+    const now = perfNow();
+    const fetchDoneAt = commentsFetchDoneAtRef.current;
+    const commentsSetAt = commentsSetAtRef.current;
     logClientPerf("community-detail.first-ready", {
       postId: post.id,
       commentsCount: comments.length,
-      sinceMountMs: Math.round(perfNow() - mountedAtRef.current),
+      sinceMountMs: Math.round(now - mountedAtRef.current),
+      fetchDoneToReadyMs:
+        fetchDoneAt != null ? Math.max(0, Math.round(now - fetchDoneAt)) : null,
+      commentsSetToReadyMs:
+        commentsSetAt != null ? Math.max(0, Math.round(now - commentsSetAt)) : null,
     });
   }, [commentsLoading, comments.length, post.id]);
 

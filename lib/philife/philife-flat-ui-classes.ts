@@ -55,14 +55,14 @@ export const PHILIFE_TOPIC_TAB_ROW_CLASS = [
 
 /** 전역 정렬(최신순·추천순) 칩 — 피드 2단에서는 항상 `PILL_ACTIVE`만 씀(내부색·테두리가 선택과 동일하게 상시). */
 export const PHILIFE_TOPIC_TAB_PILL_IDLE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-semibold text-sam-muted transition-colors";
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-semibold text-sam-muted transition-colors";
 
 export const PHILIFE_TOPIC_TAB_PILL_ACTIVE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-primary-border bg-sam-primary-soft px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-extrabold text-sam-primary transition-colors";
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-primary-border bg-sam-primary-soft px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition-colors";
 
 /** 그 외 주제 탭 — 비선택: 테두리 없음 / 선택: 알약(위 `PILL_ACTIVE`와 동일 시각) */
 export const PHILIFE_TOPIC_TAB_SUBJECT_IDLE =
-  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border-0 bg-transparent px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-extrabold text-sam-fg transition-colors";
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border-0 bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-fg transition-colors";
 
 export const PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE = PHILIFE_TOPIC_TAB_PILL_ACTIVE;
 

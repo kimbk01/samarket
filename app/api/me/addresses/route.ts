@@ -8,6 +8,18 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function normalizeAddressApiErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "load_failed");
+  const msg = raw.toLowerCase();
+  if (
+    msg.includes("user_addresses") &&
+    (msg.includes("does not exist") || msg.includes("relation") || msg.includes("schema cache"))
+  ) {
+    return "user_addresses_table_missing";
+  }
+  return raw;
+}
+
 function parseCoord(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v.trim()) {
@@ -67,7 +79,7 @@ export async function GET() {
     const addresses = await listUserAddresses(sb, userId);
     return NextResponse.json({ ok: true, addresses });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "load_failed";
+    const msg = normalizeAddressApiErrorMessage(e);
     return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }
@@ -100,7 +112,7 @@ export async function POST(req: NextRequest) {
     const row = await createUserAddress(sb, userId, payload);
     return NextResponse.json({ ok: true, address: row });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "create_failed";
+    const msg = normalizeAddressApiErrorMessage(e);
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 }
