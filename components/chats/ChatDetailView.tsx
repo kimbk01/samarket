@@ -9,6 +9,7 @@ import { allowMockChatMessageFallback } from "@/lib/config/deploy-surface";
 import { getMessages } from "@/lib/chats/mock-chat-messages";
 import { getMessagesFromDb } from "@/lib/chats/getMessagesFromDb";
 import { sendChatMessage } from "@/lib/chat/sendChatMessage";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
@@ -1601,9 +1602,12 @@ export function ChatDetailView({
 
   const sendBuyerOrderMatchAck = useCallback(async () => {
     const r = await postChatText(STORE_ORDER_MATCH_ACK_MESSAGE);
-    if (!r.ok) setSendError(r.error ?? "확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.");
+    if (!r.ok) {
+      if (redirectForBlockedAction(router, r.error, pathname ?? "")) return false;
+      setSendError(r.error ?? "확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.");
+    }
     return r.ok;
-  }, [postChatText]);
+  }, [postChatText, router, pathname]);
 
   const handleSend = useCallback(
     async (message: string) => {
@@ -1614,10 +1618,11 @@ export function ChatDetailView({
       }
       const r = await postChatText(message);
       if (!r.ok) {
+        if (redirectForBlockedAction(router, r.error, pathname ?? "")) return;
         setSendError(r.error ?? "전송에 실패했습니다. 다시 시도해 주세요.");
       }
     },
-    [canWriteTradeMessage, postChatText]
+    [canWriteTradeMessage, postChatText, router, pathname]
   );
 
   const handleSendImageFile = useCallback(
@@ -1685,9 +1690,10 @@ export function ChatDetailView({
             });
           } else {
             dropOptimisticMessage(optimistic.id);
-            setSendError(
-              typeof data?.error === "string" ? data.error : "전송에 실패했습니다. 다시 시도해 주세요."
-            );
+            const err =
+              typeof data?.error === "string" ? data.error : "전송에 실패했습니다. 다시 시도해 주세요.";
+            if (redirectForBlockedAction(router, err, pathname ?? "")) return;
+            setSendError(err);
           }
           return;
         }
@@ -1709,6 +1715,7 @@ export function ChatDetailView({
           });
         } else {
           dropOptimisticMessage(optimistic.id);
+          if (redirectForBlockedAction(router, sendRes.error, pathname ?? "")) return;
           setSendError(sendRes.error || "전송에 실패했습니다. 다시 시도해 주세요.");
         }
       } catch {
@@ -1727,6 +1734,8 @@ export function ChatDetailView({
       appendOptimisticMessage,
       confirmOptimisticMessage,
       dropOptimisticMessage,
+      pathname,
+      router,
     ]
   );
 

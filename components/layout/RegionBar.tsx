@@ -15,6 +15,7 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
+import { UnifiedTier1AddressPillHeading } from "@/components/layout/UnifiedTier1AddressPillHeading";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
@@ -74,20 +75,9 @@ function StoresRootTier1Right() {
   );
 }
 
-function UnifiedTier1Shell({
-  embedded,
-  hideBottomBorder,
-  children,
-}: {
-  embedded?: boolean;
-  hideBottomBorder?: boolean;
-  children: ReactNode;
-}) {
-  const noBorder = embedded || hideBottomBorder;
+function UnifiedTier1Shell({ children }: { children: ReactNode }) {
   return (
-    <header
-      className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px] ${noBorder ? "" : "border-b border-sam-border"}`}
-    >
+    <header className="w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]">
       {children}
     </header>
   );
@@ -95,11 +85,9 @@ function UnifiedTier1Shell({
 
 /** Main tier-1 chrome: 커뮤니티(`/philife`)·거래 탐색·배달 루트(`/stores`)는 `Tier1ExplorationTitleRow`(지역 한 줄·`/mypage/addresses`). */
 export function RegionBar({
-  embedded,
   /** When `AppStickyHeader` already computed rules, pass to avoid duplicate `getMobileTopTier1RuleSet` calls. */
   tier1RuleSet: tier1RuleSetProp,
 }: {
-  embedded?: boolean;
   tier1RuleSet?: MobileTopTier1RuleSet;
 }) {
   const { tt, t } = useI18n();
@@ -126,61 +114,52 @@ export function RegionBar({
 
   if (isUnifiedExplorationTier1) {
     const isPhilifeFeed = pathNoQuery === "/philife";
-    const segmentTitle =
-      isPhilifeFeed ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
+    const segmentTitle = isPhilifeFeed
+      ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY)
+      : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
+    const tier1TitleAndAddress = (
+      <h1 className="flex min-h-0 min-w-0 w-full flex-row items-center gap-2 overflow-hidden text-sam-fg">
+        <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
+        <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
+          <UnifiedTier1AddressPillHeading rep={rep} />
+        </div>
+      </h1>
+    );
     return (
-      <UnifiedTier1Shell embedded={embedded}>
-        <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
+      <UnifiedTier1Shell>
+        <div
+          className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-0 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
+        >
           {isPhilifeFeed ? (
             <>
-              <div className="flex w-10 shrink-0 justify-start">
+              <div className="flex w-10 shrink-0 items-center justify-start self-stretch">
                 <MyHubHeaderInfoHubTrigger />
               </div>
-              <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-                <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
-                  <Tier1ExplorationTitleRow segmentTitle={segmentTitle} />
-                </h1>
+              <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden pr-1 text-left ml-[length:1pt]">
+                {tier1TitleAndAddress}
               </div>
-              <div className="flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
-                <PhilifeHeaderComposeButton />
-                <PhilifeHeaderNotificationInbox />
-                <PhilifeHeaderMessengerButton />
+              <div className="ml-auto flex shrink-0 flex-none items-center justify-end self-stretch pl-0.5">
+                <div className="inline-flex shrink-0 items-center gap-0">
+                  <PhilifeHeaderComposeButton />
+                  <PhilifeHeaderNotificationInbox />
+                  <PhilifeHeaderMessengerButton />
+                </div>
               </div>
             </>
           ) : (
             <>
-              <div className="flex w-10 shrink-0 justify-start">
+              <div className="flex w-10 shrink-0 items-center justify-start self-stretch">
                 <MyHubHeaderInfoHubTrigger />
               </div>
-              <div className="min-w-0 flex-1 overflow-hidden pl-1 pr-2 text-left">
-                <h1 className="flex min-w-0 w-full items-center justify-start overflow-hidden text-sam-fg">
-                  {rep.status === "loading" ? (
-                    <span className="sam-text-body-secondary truncate text-sam-muted">지역 불러오는 중…</span>
-                  ) : (
-                    <Link
-                      href="/mypage/addresses"
-                      className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-sam-primary-soft px-3 py-1.5 text-[13px] font-semibold text-sam-primary"
-                      aria-label={`주소 관리, 현재 ${rep.line?.trim() || "내 지역"}`}
-                    >
-                      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 21s-6-5.2-6-10a6 6 0 1112 0c0 4.8-6 10-6 10z"
-                        />
-                        <circle cx="12" cy="11" r="2.2" />
-                      </svg>
-                      <span className="min-w-0 truncate">
-                        {rep.line?.trim() || "내 지역 설정"}
-                      </span>
-                    </Link>
-                  )}
-                </h1>
+              <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden pr-1 text-left ml-[length:1pt]">
+                {tier1TitleAndAddress}
               </div>
-              <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end gap-1 pr-0.5">
-                <TradeHeaderComposeButton />
-                <PhilifeHeaderNotificationInbox />
-                <PhilifeHeaderMessengerButton />
+              <div className="ml-auto flex shrink-0 flex-none items-center justify-end self-stretch pl-0.5">
+                <div className="inline-flex shrink-0 items-center gap-0">
+                  <TradeHeaderComposeButton />
+                  <PhilifeHeaderNotificationInbox />
+                  <PhilifeHeaderMessengerButton />
+                </div>
               </div>
             </>
           )}
@@ -191,17 +170,21 @@ export function RegionBar({
 
   if (pathNoQuery === "/stores") {
     return (
-      <UnifiedTier1Shell embedded={embedded}>
-        <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-          <div className="flex w-[44px] shrink-0 justify-start">
+      <UnifiedTier1Shell>
+        <div
+          className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
+        >
+          <div className="flex w-[44px] shrink-0 items-center justify-start self-stretch">
             <AppBackButton preferHistoryBack backHref="/home" ariaLabel={t("tier1_back")} />
           </div>
-          <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-            <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
+          <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden px-1 text-center">
+            <h1 className="flex min-h-0 min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
               <Tier1ExplorationTitleRow segmentTitle={t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY)} />
             </h1>
           </div>
-          <StoresRootTier1Right />
+          <div className="flex shrink-0 items-center self-stretch">
+            <StoresRootTier1Right />
+          </div>
         </div>
       </UnifiedTier1Shell>
     );
@@ -241,33 +224,34 @@ export function RegionBar({
 
   const right =
     o?.rightSlot != null ? (
-      <div className="flex min-w-[44px] shrink-0 items-center justify-end">{o.rightSlot}</div>
+      <div className="flex min-w-[44px] shrink-0 items-center justify-end self-stretch">{o.rightSlot}</div>
     ) : showHub ? (
-      <MyHubHeaderActions />
+      <div className="flex shrink-0 items-center self-stretch">
+        <MyHubHeaderActions />
+      </div>
     ) : (
-      <div className="h-9 w-9 shrink-0" aria-hidden />
+      <div className="h-9 w-9 shrink-0 self-center" aria-hidden />
     );
 
-  const hideTier1BottomBorder = o?.hideTier1BottomBorder === true;
   const alignTitleStart = o?.alignTier1TitleStart === true;
   const titleColClass = alignTitleStart
-    ? "min-w-0 flex-1 overflow-hidden pl-0 pr-1 text-left"
-    : "min-w-0 flex-1 overflow-hidden px-1 text-center";
+    ? "flex min-h-0 min-w-0 flex-1 flex-col justify-center self-stretch overflow-hidden pl-0 pr-1 text-left"
+    : "flex min-h-0 min-w-0 flex-1 flex-col justify-center self-stretch overflow-hidden px-1 text-center";
   const h1Class = alignTitleStart
     ? "flex min-w-0 w-full flex-col items-start justify-center overflow-hidden text-sam-fg"
     : "flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg";
   const tier1RowGapClass = alignTitleStart ? "gap-0.5" : "gap-2";
 
   return (
-    <UnifiedTier1Shell embedded={embedded} hideBottomBorder={hideTier1BottomBorder}>
+    <UnifiedTier1Shell>
       <div
-        className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center ${tier1RowGapClass} overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
+        className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center ${tier1RowGapClass} overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
       >
         <div
           className={
             o?.leftSlot != null
-              ? "flex w-auto min-w-[44px] max-w-[min(200px,50vw)] shrink-0 items-center justify-start"
-              : "flex w-[44px] shrink-0 justify-start"
+              ? "flex w-auto min-w-[44px] max-w-[min(200px,50vw)] shrink-0 items-center justify-start self-stretch"
+              : "flex w-[44px] shrink-0 items-center justify-start self-stretch"
           }
         >
           {o?.leftSlot != null ? (

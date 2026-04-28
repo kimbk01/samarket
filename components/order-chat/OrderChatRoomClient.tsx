@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -22,6 +22,7 @@ import type {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { fetchOrderChatGetDeduped } from "@/lib/order-chat/fetch-order-chat-get-deduped";
 
 type Snapshot = {
@@ -61,6 +62,7 @@ export function OrderChatRoomClient({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
 
   const messengerBridgeErrorMessage = (code: string) => {
     if (code === "friend_required") return t("nav_messenger_order_bridge_friend_required");
@@ -322,6 +324,8 @@ export function OrderChatRoomClient({
                     if (r.ok) {
                       router.push(r.href);
                     } else {
+                      const next = pathname.trim() || backHref;
+                      if (redirectForBlockedAction(router, r.error, next)) return;
                       setToast(messengerBridgeErrorMessage(r.error));
                       setTimeout(() => setToast(null), 4200);
                     }

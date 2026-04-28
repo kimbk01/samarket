@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 
@@ -106,6 +107,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const isJoined = await resolveJoinedStatus(sb, id, auth.userId);
   if (!isJoined) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+
+  const access = await assertVerifiedMemberForAction(sb as never, auth.userId);
+  if (!access.ok) {
+    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  }
 
   const uid = auth.userId.trim();
   const { data: mRow } = await sb

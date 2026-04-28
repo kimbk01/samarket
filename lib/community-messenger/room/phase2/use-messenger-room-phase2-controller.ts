@@ -34,6 +34,8 @@ import {
   getMessengerRoomActionErrorMessage,
   pickMessengerApiErrorField,
 } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/room/messenger-room-auth-blocked-redirect";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import {
@@ -326,6 +328,15 @@ export function useMessengerRoomPhase2Controller() {
     [t]
   );
 
+  const redirectIfMessengerAuthBlocked = useCallback(
+    (res: Response, json: { error?: unknown; code?: unknown }) =>
+      tryRedirectMessengerRoomAuthBlocked(router, res, json, {
+        pathname: pathname ?? "",
+        streamRoomId,
+      }),
+    [router, pathname, streamRoomId]
+  );
+
   /** 동일 메시지에 대한 반응 POST 중복(연타)만 막는다 — 메시지마다 독립 */
   const messageReactionToggleBusyIdsRef = useRef<Set<string>>(new Set());
 
@@ -388,6 +399,7 @@ export function useMessengerRoomPhase2Controller() {
     setRoomMessages,
     scrollMessengerToBottom,
     onOutboundMessageConfirmed: onMessengerOutboundConfirmed,
+    tryRedirectAuthBlocked: redirectIfMessengerAuthBlocked,
   });
 
   const toggleRoomMute = useCallback(async () => {
@@ -402,6 +414,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -409,7 +422,7 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, streamRoomId, snapshot]);
+  }, [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, streamRoomId, snapshot]);
 
   const toggleRoomArchive = useCallback(async () => {
     if (!snapshot) return;
@@ -423,6 +436,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -440,7 +454,7 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, streamRoomId, snapshot]);
+  }, [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, streamRoomId, snapshot]);
 
   const openCallPermissionHelp = useCallback(() => {
     if (openCommunityMessengerPermissionSettings()) return;
@@ -514,6 +528,10 @@ export function useMessengerRoomPhase2Controller() {
           logClientPerf("messenger-call.dial.push", { phase: "room_managed_session_open", roomId: rid, kind });
           const result = await startOutgoingCallSessionAndOpen({ roomId: rid, peerUserId: null, kind }, router);
           if (!result.ok) {
+            const next =
+              (pathname ?? "").trim() ||
+              `/community-messenger/rooms/${encodeURIComponent(streamRoomId)}`;
+            if (redirectForBlockedAction(router, result.userMessage, next)) return;
             setManagedDirectCallError(result.userMessage);
           }
         } catch {
@@ -525,7 +543,7 @@ export function useMessengerRoomPhase2Controller() {
       })();
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall]
+    [isGroupRoom, openDirectCallPage, pathname, roomId, roomUnavailable, router, snapshot?.activeCall, streamRoomId]
   );
 
   useEffect(() => {
@@ -577,6 +595,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -595,6 +614,7 @@ export function useMessengerRoomPhase2Controller() {
     openGroupPassword,
     openGroupSummary,
     openGroupTitle,
+    redirectIfMessengerAuthBlocked,
     refresh,
     streamRoomId,
     snapshot,
@@ -609,6 +629,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -619,7 +640,8 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, isOpenGroupRoom, streamRoomId, router, t]);
+  }, [getRoomActionErrorMessage, isOpenGroupRoom, redirectIfMessengerAuthBlocked, streamRoomId, router, t]);
+
   const openMembersForOwnerTransfer = useCallback(() => {
     if (activeSheet) {
       setActiveSheet("members");
@@ -712,6 +734,7 @@ export function useMessengerRoomPhase2Controller() {
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -750,6 +773,7 @@ export function useMessengerRoomPhase2Controller() {
     [
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
+      redirectIfMessengerAuthBlocked,
       refresh,
       roomMessagesRef,
       streamRoomId,
@@ -818,6 +842,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -846,6 +871,7 @@ export function useMessengerRoomPhase2Controller() {
       dismissRoomSheet,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
+      redirectIfMessengerAuthBlocked,
       refresh,
       roomMessagesRef,
       streamRoomId,
@@ -932,6 +958,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -960,6 +987,7 @@ export function useMessengerRoomPhase2Controller() {
       dismissRoomSheet,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
+      redirectIfMessengerAuthBlocked,
       refresh,
       roomMessagesRef,
       streamRoomId,
@@ -1040,6 +1068,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         if (!res.ok || !json.ok) {
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1067,6 +1096,7 @@ export function useMessengerRoomPhase2Controller() {
       dismissRoomSheet,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
+      redirectIfMessengerAuthBlocked,
       refresh,
       roomMessagesRef,
       streamRoomId,
@@ -1146,6 +1176,7 @@ export function useMessengerRoomPhase2Controller() {
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1155,7 +1186,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, setReplyToMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setReplyToMessage, setRoomMessages, streamRoomId]
   );
 
   const deleteRoomMessageForEveryone = useCallback(
@@ -1173,6 +1204,7 @@ export function useMessengerRoomPhase2Controller() {
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1182,7 +1214,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, setReplyToMessage, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, streamRoomId]
   );
 
   const toggleMessageReaction = useCallback(
@@ -1214,6 +1246,7 @@ export function useMessengerRoomPhase2Controller() {
           error?: string;
         };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1224,7 +1257,7 @@ export function useMessengerRoomPhase2Controller() {
         busy.delete(mid);
       }
     },
-    [getRoomActionErrorMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setRoomMessages, streamRoomId]
   );
 
   const deleteRoomMessage = useCallback(
@@ -1240,6 +1273,7 @@ export function useMessengerRoomPhase2Controller() {
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1250,7 +1284,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, setReplyToMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, setRoomMessages, streamRoomId]
   );
 
   const blockPeerFromMessage = useCallback(
@@ -1265,6 +1299,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(json.error ?? "차단 처리에 실패했습니다.", { variant: "error" });
           return;
         }
@@ -1274,7 +1309,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [refresh]
+    [redirectIfMessengerAuthBlocked, refresh]
   );
 
   const inviteMembers = useCallback(async () => {
@@ -1288,6 +1323,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -1297,7 +1333,7 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, inviteIds, refresh, streamRoomId]);
+  }, [getRoomActionErrorMessage, inviteIds, redirectIfMessengerAuthBlocked, refresh, streamRoomId]);
 
   const savePrivateGroupNotice = useCallback(async () => {
     if (!isPrivateGroupRoom && !isOpenGroupRoom) return;
@@ -1310,6 +1346,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -1318,7 +1355,15 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, isOpenGroupRoom, isPrivateGroupRoom, privateGroupNoticeDraft, refresh, streamRoomId]);
+  }, [
+    getRoomActionErrorMessage,
+    isOpenGroupRoom,
+    isPrivateGroupRoom,
+    privateGroupNoticeDraft,
+    redirectIfMessengerAuthBlocked,
+    refresh,
+    streamRoomId,
+  ]);
 
   const savePrivateGroupPermissions = useCallback(async () => {
     if (!isPrivateGroupRoom) return;
@@ -1339,6 +1384,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
         return;
       }
@@ -1355,6 +1401,7 @@ export function useMessengerRoomPhase2Controller() {
     groupAllowMemberInvite,
     groupAllowMemberUpload,
     isPrivateGroupRoom,
+    redirectIfMessengerAuthBlocked,
     refresh,
     streamRoomId,
   ]);
@@ -1370,6 +1417,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1379,7 +1427,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId]
   );
 
   const transferGroupOwner = useCallback(
@@ -1394,6 +1442,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1403,7 +1452,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId]
   );
 
   const startDirectChatWithMember = useCallback(
@@ -1417,6 +1466,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
         if (!res.ok || !json.ok || !json.roomId) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1426,7 +1476,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, router]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, router]
   );
 
   /** 발신 — 멤버 시트 등. 세션 POST 후 `/calls/:id` 로만 이동. */
@@ -1444,6 +1494,10 @@ export function useMessengerRoomPhase2Controller() {
           logClientPerf("messenger-call.dial.push", { phase: "member_sheet_session_open", peerUserId: peer, kind });
           const result = await startOutgoingCallSessionAndOpen({ roomId: null, peerUserId: peer, kind }, router);
           if (!result.ok) {
+            const next =
+              (pathname ?? "").trim() ||
+              `/community-messenger/rooms/${encodeURIComponent(streamRoomId)}`;
+            if (redirectForBlockedAction(router, result.userMessage, next)) return;
             showMessengerSnackbar(result.userMessage, { variant: "error" });
           }
         } catch {
@@ -1455,7 +1509,7 @@ export function useMessengerRoomPhase2Controller() {
       })();
       return true;
     },
-    [router]
+    [pathname, router, streamRoomId]
   );
 
   const removeGroupMember = useCallback(
@@ -1470,6 +1524,7 @@ export function useMessengerRoomPhase2Controller() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -1479,7 +1534,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, refresh, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId]
   );
 
   const startGroupCall = useCallback(
@@ -1558,13 +1613,14 @@ export function useMessengerRoomPhase2Controller() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
         showMessengerSnackbar(json.error ?? "신고 접수에 실패했습니다.", { variant: "error" });
         return;
       }
       setMemberActionTarget(null);
       showMessengerSnackbar("신고가 접수되었습니다.", { variant: "success" });
     },
-    [roomId]
+    [redirectIfMessengerAuthBlocked, roomId]
   );
 
   const getMessageCopyText = useCallback((item: CommunityMessengerMessage & { pending?: boolean }) => {

@@ -9,6 +9,11 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  clientHasVerifiedContactForInteractive,
+  openPhoneVerificationRequiredDialog,
+} from "@/lib/auth/phone-verification-gate-client";
 
 type PhilifeWriteSheetContextValue = {
   isOpen: boolean;
@@ -34,12 +39,21 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
   const [initialCategory, setInitialCategory] = useState("");
   const [blockingDraft, setBlockingDraft] = useState(false);
 
-  const open = useCallback((category: string) => {
-    setInitialCategory((category ?? "").trim());
-    setOpenEpoch((e) => e + 1);
-    setBlockingDraft(false);
-    setIsOpen(true);
-  }, []);
+  const open = useCallback(
+    (category: string) => {
+      const user = getCurrentUser();
+      if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+        const q = typeof window !== "undefined" ? window.location.search : "";
+        openPhoneVerificationRequiredDialog({ next: `${pathname}${q}` });
+        return;
+      }
+      setInitialCategory((category ?? "").trim());
+      setOpenEpoch((e) => e + 1);
+      setBlockingDraft(false);
+      setIsOpen(true);
+    },
+    [pathname]
+  );
 
   const close = useCallback(() => {
     setBlockingDraft(false);

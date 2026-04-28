@@ -39,6 +39,13 @@ export function invalidateAddressDefaultsSnapshotCache(): void {
   forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
 }
 
+/** TTL 안 스냅샷 — 동기 읽기(탭 전환 시 주소 알약 깜빡임 방지). */
+export function peekFreshAddressDefaultsSnapshot(): AddressDefaultsSnapshot | null {
+  const now = Date.now();
+  if (!cachedSnapshot || cachedSnapshot.expiresAt <= now) return null;
+  return cloneSnapshot(cachedSnapshot.value);
+}
+
 export async function fetchAddressDefaultsSnapshot(
   opts?: { force?: boolean }
 ): Promise<AddressDefaultsSnapshot | null> {

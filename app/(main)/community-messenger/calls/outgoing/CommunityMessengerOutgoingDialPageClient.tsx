@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitoring/client";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 
@@ -32,6 +33,7 @@ function readOutgoingDialParamsFromLocation(): OutgoingDialParams {
  */
 export function CommunityMessengerOutgoingDialPageClient() {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [dial, setDial] = useState<OutgoingDialParams | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelledRef = useRef(false);
@@ -77,6 +79,8 @@ export function CommunityMessengerOutgoingDialPageClient() {
           ms: Math.round(t1 - t0),
         });
         if (!result.ok) {
+          const next = pathname.trim() || "/community-messenger";
+          if (redirectForBlockedAction(router, result.userMessage, next)) return;
           setError(result.userMessage);
           return;
         }
@@ -103,7 +107,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
       cancelledRef.current = true;
       ac.abort();
     };
-  }, [dial, router]);
+  }, [dial, pathname, router]);
 
   if (error) {
     return (

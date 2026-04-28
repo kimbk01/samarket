@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { canUseVerifiedMemberFeatures, loadMemberAccessState } from "@/lib/auth/member-access";
 import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -26,11 +27,16 @@ export async function GET() {
   }
 
   try {
-    const satisfied = await isMandatoryAddressGateSatisfied(sb, userId);
+    const [satisfied, accessState] = await Promise.all([
+      isMandatoryAddressGateSatisfied(sb, userId),
+      loadMemberAccessState(sb as never, userId),
+    ]);
     return NextResponse.json({
       ok: true,
       authenticated: true,
       needsBlock: !satisfied,
+      /** 글쓰기·채팅 등 — 전화(또는 관리자 동등) 완료 여부(읽기 전용과 구분 안내용) */
+      fullInteractiveMemberOk: canUseVerifiedMemberFeatures(accessState),
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "gate_check_failed";

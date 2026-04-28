@@ -410,11 +410,11 @@ export function PhilifeHeaderNotificationInbox() {
       );
 
   return (
-    <div className="flex w-10 shrink-0 items-center justify-end">
+    <div className="inline-flex shrink-0 items-center">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="sam-header-action relative h-10 w-10 text-sam-fg"
+        className="sam-header-action relative min-h-9 min-w-9 h-9 w-9 shrink-0 text-sam-fg"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

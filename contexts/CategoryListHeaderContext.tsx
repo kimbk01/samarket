@@ -4,7 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -68,7 +68,7 @@ export function useRegisterCategoryListStickyHeader(
   categoryRef.current = category;
   const categoryIdentity = category?.id ?? "";
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!setConfig) return;
     if (!enabled) {
       setConfig(null);
@@ -94,7 +94,7 @@ export function useRegisterTradeSecondaryTabs(
   nodeRef.current = node;
   const driver = syncKey !== undefined ? syncKey : node;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!setTradeSecondaryTabs) return;
     if (!enabled || nodeRef.current == null) {
       setTradeSecondaryTabs(null);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
@@ -43,6 +43,7 @@ import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { AD_TYPE_LABELS } from "@/lib/ads/types";
 import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 /** 모임 생성 섹션 제목 타이포 통일 */
@@ -113,6 +114,7 @@ export function PhilifeNeighborhoodWriteForm({
   onSheetBlockingDraftChange,
 }: PhilifeNeighborhoodWriteFormProps) {
   const router = useRouter();
+  const pathname = usePathname() ?? "/philife";
   const { currentRegion } = useRegion();
   const fileRef = useRef<HTMLInputElement>(null);
   const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>([]);
@@ -658,7 +660,9 @@ export function PhilifeNeighborhoodWriteForm({
         return;
       }
       if (!res.ok || !j.ok || !j.id) {
-        setErr(j.error ?? "등록에 실패했습니다.");
+        const msg = j.error ?? "등록에 실패했습니다.";
+        if (redirectForBlockedAction(router, msg, pathname)) return;
+        setErr(msg);
         return;
       }
       /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */

@@ -47,7 +47,7 @@ export function AppStickyHeader() {
     >
       {categorySticky ? (
           <div className="border-b border-sam-border bg-sam-surface/95">
-            <RegionBar embedded tier1RuleSet={topTier1RuleSet} />
+            <RegionBar tier1RuleSet={topTier1RuleSet} />
             <CategoryListSubheader
               backHref={categorySticky.backHref}
               category={categorySticky.category}

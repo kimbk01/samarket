@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readActiveSessionIdCookie, sessionReplacedResponse, setActiveSessionCookie, createActiveSessionId } from "@/lib/auth/active-session";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
-import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import { hasPhilippinePhoneVerification, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { invalidateUserSessionRegistry, syncUserSessionRegistry, validateUserSessionRegistry } from "@/lib/auth/user-session-registry";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { jsonError } from "@/lib/http/api-route";
@@ -11,7 +11,6 @@ import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import type { ProfileRow } from "@/lib/profile/types";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { isVerifiedMember } from "@/lib/auth/member-status";
 
 export async function requireAuth(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
@@ -78,7 +77,16 @@ export async function requirePhoneVerified(
   if (isPrivilegedAdminRole(profile.role)) {
     return { ok: true, profile };
   }
-  if (isVerifiedMember({ phone_verified: profile.phone_verified, member_status: profile.member_status })) {
+  if (
+    hasPhilippinePhoneVerification({
+      role: profile.role,
+      phone_verified: profile.phone_verified === true,
+      phone_verified_at: profile.phone_verified_at ?? null,
+      provider: profile.provider ?? profile.auth_provider,
+      auth_provider: profile.auth_provider,
+      email: profile.email,
+    })
+  ) {
     return { ok: true, profile };
   }
   return {

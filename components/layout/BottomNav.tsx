@@ -58,6 +58,11 @@ import {
   isBottomNavTabActive,
   pickMainBottomNavPrefetchHrefs,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  clientHasVerifiedContactForInteractive,
+  openPhoneVerificationRequiredDialog,
+} from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
 /** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
@@ -599,14 +604,15 @@ export function BottomNav({
     };
   }, [bottomNavPrefetchDomain]);
 
-  if (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname)) return null;
-
   const [portalToBody, setPortalToBody] = useState(false);
   useLayoutEffect(() => {
     if (bodyPortal) setPortalToBody(true);
   }, [bodyPortal]);
 
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+
+  const hideBottomNavShell =
+    isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null);
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
@@ -622,8 +628,17 @@ export function BottomNav({
     <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
-          {tabs.map((tab) =>
-            tab.icon === "stores" ? (
+          {tabs.map((tab) => {
+            const guardNav = () => {
+              if (!guardBeforeNavigate()) return false;
+              if (!tab.href.includes("/community-messenger")) return true;
+              const user = getCurrentUser();
+              if (!user?.id) return true;
+              if (clientHasVerifiedContactForInteractive(user)) return true;
+              openPhoneVerificationRequiredDialog({ next: tab.href });
+              return false;
+            };
+            return tab.icon === "stores" ? (
               <BottomNavTabStores
                 key={tab.id}
                 tab={tab}
@@ -631,7 +646,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
-                guardBeforeNavigate={guardBeforeNavigate}
+                guardBeforeNavigate={guardNav}
               />
             ) : (
               <BottomNavTabStandard
@@ -641,14 +656,16 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
-                guardBeforeNavigate={guardBeforeNavigate}
+                guardBeforeNavigate={guardNav}
               />
-            )
-          )}
+            );
+          })}
         </div>
       </div>
     </nav>
   );
+
+  if (hideBottomNavShell) return null;
 
   if (bodyPortal && portalToBody && typeof document !== "undefined") {
     return createPortal(nav, document.body);

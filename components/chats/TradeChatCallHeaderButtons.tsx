@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   tradeChatCallPolicyAllowsVideo,
   tradeChatCallPolicyAllowsVoice,
@@ -26,6 +27,7 @@ export function TradeChatCallHeaderButtons(props: {
 }) {
   const { policy, productChatRoomId, communityMessengerRoomId, onErrorMessage } = props;
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [busy, setBusy] = useState(false);
 
   const startCall = useCallback(
@@ -50,6 +52,14 @@ export function TradeChatCallHeaderButtons(props: {
             code?: string;
           };
           if (!res.ok || json.ok !== true || typeof json.roomId !== "string" || !json.roomId.trim()) {
+            const rawErr =
+              typeof json.error === "string" && json.error.trim()
+                ? json.error.trim()
+                : typeof json.code === "string" && json.code.trim()
+                  ? json.code.trim()
+                  : "";
+            const next = pathname.trim() || "/home";
+            if (redirectForBlockedAction(router, rawErr || undefined, next)) return;
             const code = typeof json.code === "string" ? json.code : "";
             onErrorMessage(
               code === "not_participant"
@@ -67,6 +77,8 @@ export function TradeChatCallHeaderButtons(props: {
           router
         );
         if (!result.ok) {
+          const next = pathname.trim() || "/home";
+          if (redirectForBlockedAction(router, result.userMessage, next)) return;
           onErrorMessage(result.userMessage);
         }
       } catch {
@@ -75,7 +87,7 @@ export function TradeChatCallHeaderButtons(props: {
         setBusy(false);
       }
     },
-    [busy, communityMessengerRoomId, onErrorMessage, productChatRoomId, router]
+    [busy, communityMessengerRoomId, onErrorMessage, pathname, productChatRoomId, router]
   );
 
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;

@@ -1,4 +1,6 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
+import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 
@@ -141,12 +143,28 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
         signal: args.signal,
       })
     );
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
-    if (res.status === 401 || res.status === 403) {
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      roomId?: string;
+      error?: string;
+      code?: string;
+    };
+    if (res.status === 401) {
       return { ok: false, userMessage: "로그인이 필요합니다." };
     }
+    if (isPhoneVerificationRequiredApiPayload(json)) {
+      return { ok: false, userMessage: String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE };
+    }
+    if (res.status === 403) {
+      const err = String(json.error ?? "").trim();
+      return { ok: false, userMessage: err || "요청을 처리할 수 없습니다." };
+    }
     if (!res.ok || !json.ok || !json.roomId) {
-      return { ok: false, userMessage: "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요." };
+      const err = String(json.error ?? "").trim();
+      return {
+        ok: false,
+        userMessage: err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      };
     }
     roomId = String(json.roomId);
   }
@@ -167,9 +185,13 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     error?: string;
+    code?: string;
     session?: CommunityMessengerCallSession;
   };
   if (!res.ok || !json.ok || !json.session?.id) {
+    if (isPhoneVerificationRequiredApiPayload(json)) {
+      return { ok: false, userMessage: String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE };
+    }
     if (json.error === "group_call_not_supported_yet") {
       return { ok: false, userMessage: "그룹 통화 실연결은 다음 단계에서 지원합니다." };
     }

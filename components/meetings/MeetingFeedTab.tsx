@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 import { MeetingReportModal } from "@/components/meetings/MeetingReportModal";
@@ -50,6 +51,7 @@ export function MeetingFeedTab({
 }: MeetingFeedTabProps) {
   const { tt } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [isPending, startTransition] = useTransition();
   const canWrite = Boolean(isHost) || allowFeed !== false;
 
@@ -163,6 +165,7 @@ export function MeetingFeedTab({
       });
       const j = (await res.json()) as { ok: boolean; post?: MeetingFeedPostDTO; error?: string };
       if (!j.ok) {
+        if (redirectForBlockedAction(router, j.error, pathname)) return;
         const code = (j as { error?: string }).error;
         setErr(
           code === "too_long"

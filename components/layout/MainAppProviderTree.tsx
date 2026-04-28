@@ -7,6 +7,7 @@ import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarke
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
+import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerificationRequiredDialog";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
@@ -134,6 +135,7 @@ export function MainAppProviderTree({
       <MessengerBootstrapEarlyWarm />
       <OwnerHubBadgeRuntime />
       <MandatoryAddressGate />
+      <PhoneVerificationRequiredDialog />
       <FavoriteProvider>
         <NotificationSurfaceProvider>
           <MainShellMessengerParticipantBridge regionBarInLayout={true} />

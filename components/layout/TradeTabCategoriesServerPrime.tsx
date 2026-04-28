@@ -12,7 +12,7 @@ export function TradeTabCategoriesServerPrime({
 }: {
   initialCategories: CategoryWithSettings[] | null;
 }) {
-  if (initialCategories && initialCategories.length > 0) {
+  if (initialCategories) {
     primeTradeTabCategoriesCache(initialCategories);
   }
   return null;

@@ -39,6 +39,8 @@ export type UseMessengerRoomVoiceRecordingParams = {
   scrollMessengerToBottom: () => void;
   /** 음성 전송 확정 시 텍스트·스티커와 동일하게 홈 목록·허브 뱃지 동기화 */
   onOutboundMessageConfirmed?: (message: CommunityMessengerMessage) => void;
+  /** 로그인·전화 인증 필요 시 스낵바 대신 방 공통 리다이렉트 */
+  tryRedirectAuthBlocked?: (res: Response, json: { error?: unknown; code?: unknown }) => boolean;
 };
 
 /**
@@ -58,6 +60,7 @@ export function useMessengerRoomVoiceRecording({
   setRoomMessages,
   scrollMessengerToBottom,
   onOutboundMessageConfirmed,
+  tryRedirectAuthBlocked,
 }: UseMessengerRoomVoiceRecordingParams) {
   const apiRoom = (apiRoomId?.trim() || roomId.trim()).trim();
   const voiceFinalizingRef = useRef(false);
@@ -240,6 +243,7 @@ export function useMessengerRoomVoiceRecording({
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
           setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          if (tryRedirectAuthBlocked?.(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
@@ -267,6 +271,7 @@ export function useMessengerRoomVoiceRecording({
       apiRoomId,
       getRoomActionErrorMessage,
       onOutboundMessageConfirmed,
+      tryRedirectAuthBlocked,
       roomId,
       roomMembersDisplay,
       scrollMessengerToBottom,

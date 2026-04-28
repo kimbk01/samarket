@@ -15,13 +15,18 @@ const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
 type Tier1ExplorationTitleRowProps = {
   /** 탐색 피드 화면 명 — 예: 필라이프, 홈 */
   segmentTitle: string;
+  /** `start`: 1단 좌측 정렬(햄버거 옆). 기본은 가운데. */
+  align?: "start" | "center";
 };
 
 /**
  * 메인 1단 중앙 타이틀 — `페이지명 · (지역·동네…)` 형태, 주소 탭 시 주소 관리로 이동.
  * `MySubpageHeader`·`RegionBar`(/home)에서 필라이프와 동일 톤으로 사용.
  */
-export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitleRowProps) {
+export function Tier1ExplorationTitleRow({
+  segmentTitle,
+  align = "center",
+}: Tier1ExplorationTitleRowProps) {
   const { currentRegion } = useRegion();
   const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
@@ -33,8 +38,9 @@ export function Tier1ExplorationTitleRow({ segmentTitle }: Tier1ExplorationTitle
       ? "…"
       : rep.line?.trim() || fallback;
 
+  const justify = align === "start" ? "justify-start" : "justify-center";
   return (
-    <span className="flex w-full min-w-0 max-w-full items-center justify-center gap-1.5 overflow-hidden">
+    <span className={`flex w-full min-w-0 max-w-full items-center ${justify} gap-1.5 overflow-hidden`}>
       <span className="sam-text-page-title shrink-0 leading-none">{segmentTitle}</span>
       <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
         ·

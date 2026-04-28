@@ -7,7 +7,9 @@ import type { Profile } from "@/lib/types/profile";
 import {
   bypassesPhilippinePhoneVerificationGate,
 } from "@/lib/auth/member-access";
-import { hasStoreTermsConsent, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import { openPhoneVerificationRequiredDialog } from "@/lib/auth/phone-verification-gate-client";
+import { isPhoneVerificationRequiredError } from "@/lib/auth/phone-verification-required-detect";
+import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -43,14 +45,7 @@ export function isLoginRequiredError(error: string | null | undefined): boolean 
   return msg.includes("로그인이 필요") || msg.includes("unauthorized");
 }
 
-export function isPhoneVerificationRequiredError(error: string | null | undefined): boolean {
-  const msg = String(error ?? "");
-  return (
-    msg.includes(STORE_PHONE_GATE_MESSAGE) ||
-    (msg.includes("전화번호") && msg.includes("인증")) ||
-    (msg.includes("필리핀") && msg.includes("인증"))
-  );
-}
+export { isPhoneVerificationRequiredError };
 
 export function isSessionReplacedError(error: string | null | undefined): boolean {
   const msg = String(error ?? "");
@@ -74,9 +69,7 @@ export function redirectForBlockedAction(
     return true;
   }
   if (isPhoneVerificationRequiredError(error)) {
-    if (confirmMove("전화번호 인증 후 이용 가능합니다.\n전화번호 인증하러 가시겠습니까?")) {
-      router.push(buildPhoneVerificationHref(next));
-    }
+    openPhoneVerificationRequiredDialog({ next });
     return true;
   }
   return false;
@@ -89,13 +82,23 @@ export function ensureClientAccessOrRedirect(
 ): boolean {
   if (!user?.id) {
     if (confirmMove("로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?")) {
-      router.replace?.(buildLoginHref(next)) ?? router.push(buildLoginHref(next));
+      const href = buildLoginHref(next);
+      if (typeof router.replace === "function") {
+        router.replace(href);
+      } else {
+        router.push(href);
+      }
     }
     return false;
   }
   if (!hasStoreTermsConsent(user)) {
     if (confirmMove("서비스 이용약관과 개인정보처리방침 동의가 필요합니다.\n동의 화면으로 이동하시겠습니까?")) {
-      router.replace?.(buildConsentHref(next)) ?? router.push(buildConsentHref(next));
+      const href = buildConsentHref(next);
+      if (typeof router.replace === "function") {
+        router.replace(href);
+      } else {
+        router.push(href);
+      }
     }
     return false;
   }
@@ -105,13 +108,15 @@ export function ensureClientAccessOrRedirect(
       !bypassesPhilippinePhoneVerificationGate({
         role: user.role,
         phone_verified: false,
+        phone_verified_at: user.phone_verified_at ?? null,
         auth_provider: user.provider ?? user.auth_provider,
+        provider: user.provider ?? user.auth_provider,
         email: user.email,
       })
     ) {
-      if (confirmMove("전화번호 인증 후 이용 가능합니다.\n전화번호 인증하러 가시겠습니까?")) {
-        router.replace?.(buildPhoneVerificationHref(next)) ?? router.push(buildPhoneVerificationHref(next));
-      }
+      openPhoneVerificationRequiredDialog({
+        next: next?.trim() || currentHrefFallback(),
+      });
       return false;
     }
   }

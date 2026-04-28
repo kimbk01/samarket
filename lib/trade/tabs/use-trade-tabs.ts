@@ -9,14 +9,18 @@ import type { TradePrimaryTab } from "./types";
 
 let cachedTradePrimaryCategories: CategoryWithSettings[] | null = null;
 let tradePrimaryCategoriesFlight: Promise<CategoryWithSettings[]> | null = null;
+let tradePrimaryCategoriesPrimed = false;
 
 /** RSC `layout` — `getHomeTradeChipCategoriesForServer` 와 동기(같은 쿼리). `AppStickyHeader` 보다 먼저 프라임. */
 export function primeTradeTabCategoriesCache(categories: CategoryWithSettings[]): void {
-  if (!categories.length) return;
+  tradePrimaryCategoriesPrimed = true;
   cachedTradePrimaryCategories = categories;
 }
 
 async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
+  if (tradePrimaryCategoriesPrimed) {
+    return cachedTradePrimaryCategories ?? [];
+  }
   if (cachedTradePrimaryCategories) {
     return cachedTradePrimaryCategories;
   }
@@ -25,6 +29,7 @@ async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
   }
   tradePrimaryCategoriesFlight = getHomeChipCategories()
     .then((list) => {
+      tradePrimaryCategoriesPrimed = true;
       cachedTradePrimaryCategories = list;
       return list;
     })
@@ -38,13 +43,13 @@ export function useTradeTabs(pathname: string) {
   const [tradeCategories, setTradeCategories] = useState<CategoryWithSettings[]>(
     cachedTradePrimaryCategories ?? []
   );
-  const [loading, setLoading] = useState(cachedTradePrimaryCategories == null);
+  const [loading, setLoading] = useState(!tradePrimaryCategoriesPrimed);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    if (cachedTradePrimaryCategories?.length) {
-      setTradeCategories(cachedTradePrimaryCategories);
+    if (tradePrimaryCategoriesPrimed) {
+      setTradeCategories(cachedTradePrimaryCategories ?? []);
       setLoading(false);
       return;
     }

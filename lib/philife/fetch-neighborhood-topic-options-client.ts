@@ -2,6 +2,9 @@
 
 import { philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
+
+export type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
 const PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT = "philife:neighborhood-topic-options";
 /** 어드민 토픽 편집 직후 칩·글쓰기 주제에 반영되기까지 허용 지연(서버 캐시는 어드민 API에서 클리어) */
@@ -13,23 +16,6 @@ let topicOptionsCache:
       expiresAt: number;
     }
   | null = null;
-
-export type PhilifeNeighborhoodTopicOptionsJson = {
-  ok?: boolean;
-  feedChips?: {
-    slug: string;
-    name: string;
-    is_feed_sort?: boolean;
-    sort_slot?: "recommend" | "popular" | null;
-  }[];
-  writeTopics?: { slug: string; name: string }[];
-  /** false면 상단「전체」칩 생략(기본 true / 생략 시 true) */
-  showAllFeedTab?: boolean;
-  /** false면「관심이웃 글만 보기」필터 띠 전체 비노출(기본 true) */
-  showNeighborOnlyFilter?: boolean;
-  source?: string;
-  error?: string;
-};
 
 function isTopicOptionsPayloadUsable(
   payload: PhilifeNeighborhoodTopicOptionsJson
@@ -86,4 +72,21 @@ export function fetchPhilifeNeighborhoodTopicOptionsForWrite(): Promise<PhilifeN
  */
 export function warmPhilifeNeighborhoodTopicOptions(): void {
   void fetchPhilifeNeighborhoodTopicOptions().catch(() => {});
+}
+
+/** TTL 안의 캐시 — 동기 읽기(경로 전환 직후 2단 탭 깜빡임 방지). */
+export function peekPhilifeNeighborhoodTopicOptionsFromCache(): PhilifeNeighborhoodTopicOptionsJson | null {
+  if (!topicOptionsCache || topicOptionsCache.expiresAt <= Date.now()) return null;
+  return topicOptionsCache.value;
+}
+
+/** RSC·프리패치가 채운 시드를 클라 TTL 캐시에 반영(API 응답과 동일 단일 출처). */
+export function seedPhilifeNeighborhoodTopicOptionsCache(
+  json: PhilifeNeighborhoodTopicOptionsJson
+): void {
+  if (!isTopicOptionsPayloadUsable(json)) return;
+  topicOptionsCache = {
+    value: json,
+    expiresAt: Date.now() + PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_TTL_MS,
+  };
 }

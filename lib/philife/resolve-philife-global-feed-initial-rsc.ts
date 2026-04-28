@@ -4,6 +4,12 @@
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  getPhilifeShowAllFeedTabServer,
+  getPhilifeShowNeighborOnlyFilterServer,
+} from "@/lib/community-feed/philife-neighborhood-section";
+import {
+  buildPhilifeFeedChipsFromTopics,
+  buildPhilifeWriteTopicOptionsFromTopics,
   isPhilifeFeedCategorySlugAllowedByTopics,
   loadPhilifeDefaultSectionTopics,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -11,6 +17,7 @@ import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { NEIGHBORHOOD_FEED_PAGE_SIZE } from "@/lib/philife/neighborhood-feed-client-url";
+import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
 export type PhilifeGlobalFeedInitialRsc = {
   /** `philifeFeedViewerSig` 와 일치할 때만 클라이언트가 시드 적용(로그인/비로그인) */
@@ -22,6 +29,11 @@ export type PhilifeGlobalFeedInitialRsc = {
   hasMore: boolean;
   nextOffset: number | null;
   pagingOffsetAdvance: number;
+  /**
+   * 피드 목록과 동일 RSC 경로에서 주제 옵션을 채움 — 클라 마운트 전 2단 탭 공백 방지.
+   * (`/api/philife/neighborhood-topic-options` 와 동일 페이로드 형태)
+   */
+  topicOptionsSeed?: PhilifeNeighborhoodTopicOptionsJson;
 };
 
 /**
@@ -60,12 +72,26 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
     String(feedSort),
   ].join(":");
 
-  const listResult = await runSingleFlight(listQueryKey, async () => {
+  const { listResult, topicOptionsSeed } = await runSingleFlight(listQueryKey, async () => {
     const topics = await loadPhilifeDefaultSectionTopics();
     if (category && !isPhilifeFeedCategorySlugAllowedByTopics(topics, category)) {
       throw new Error("invalid_category");
     }
-    return listNeighborhoodFeed({
+    const [showAllFeedTab, showNeighborOnlyFilter] = await Promise.all([
+      getPhilifeShowAllFeedTabServer(),
+      getPhilifeShowNeighborOnlyFilterServer(),
+    ]);
+    const feedChips = topics.length > 0 ? buildPhilifeFeedChipsFromTopics(topics) : [];
+    const writeTopics = topics.length > 0 ? buildPhilifeWriteTopicOptionsFromTopics(topics) : [];
+    const topicOptionsSeed: PhilifeNeighborhoodTopicOptionsJson = {
+      ok: true,
+      feedChips,
+      writeTopics,
+      showAllFeedTab,
+      showNeighborOnlyFilter,
+      source: "rsc_seed",
+    };
+    const listResult = await listNeighborhoodFeed({
       allLocations: true,
       ...(category ? { category } : {}),
       offset,
@@ -75,6 +101,7 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
       feedSort,
       topics,
     });
+    return { listResult, topicOptionsSeed };
   });
   const { posts, hasMore, pagingOffsetAdvance } = listResult;
   return {
@@ -85,5 +112,6 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
     hasMore,
     nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
     pagingOffsetAdvance,
+    topicOptionsSeed,
   };
 }

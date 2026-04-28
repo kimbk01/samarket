@@ -682,6 +682,9 @@ export function TradeWriteForm({
           ]);
           uploadedFileResults = uploaded;
           if (!phoneGate.ok) {
+            const next =
+              pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`);
+            if (redirectForBlockedAction(router, phoneGate.error, next)) return;
             setErrors({ submit: phoneGate.error });
             return;
           }

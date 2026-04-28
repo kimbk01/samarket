@@ -8,6 +8,11 @@ import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessenge
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  clientHasVerifiedContactForInteractive,
+  openPhoneVerificationRequiredDialog,
+} from "@/lib/auth/phone-verification-gate-client";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 
 /**
@@ -32,16 +37,21 @@ export function PhilifeHeaderMessengerButton() {
 
   const openMessengerStack = useCallback(() => {
     if (!guardBeforeNavigate()) return;
+    const user = getCurrentUser();
+    if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+      openPhoneVerificationRequiredDialog({ next: href });
+      return;
+    }
     stack.open();
-  }, [stack, guardBeforeNavigate]);
+  }, [stack, guardBeforeNavigate, href]);
 
   if (useStack) {
     return (
-      <div className="flex w-10 shrink-0 items-center justify-end">
+      <div className="inline-flex shrink-0 items-center">
         <button
           type="button"
           onClick={openMessengerStack}
-          className="sam-header-action relative h-10 w-10 text-sam-fg"
+          className="sam-header-action relative min-h-9 min-w-9 h-9 w-9 shrink-0 text-sam-fg"
           aria-label={label}
         >
           <BottomNavMessengerChatIcon className="h-5 w-5" />
@@ -56,14 +66,22 @@ export function PhilifeHeaderMessengerButton() {
   }
 
   return (
-    <div className="flex w-10 shrink-0 items-center justify-end">
+    <div className="inline-flex shrink-0 items-center">
       <Link
         href={href}
-        className="sam-header-action relative h-10 w-10 text-sam-fg"
+        className="sam-header-action relative min-h-9 min-w-9 h-9 w-9 shrink-0 text-sam-fg"
         aria-label={label}
         prefetch
         onClick={(e) => {
-          if (!guardBeforeNavigate()) e.preventDefault();
+          if (!guardBeforeNavigate()) {
+            e.preventDefault();
+            return;
+          }
+          const user = getCurrentUser();
+          if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+            e.preventDefault();
+            openPhoneVerificationRequiredDialog({ next: href });
+          }
         }}
       >
         <BottomNavMessengerChatIcon className="h-5 w-5" />

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -31,6 +31,7 @@ import {
   MessengerSearchSheet,
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
@@ -179,6 +180,7 @@ export function CommunityMessengerHome({
   bumpMessengerRenderPerf("messenger_home_render");
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const { requestClose: closePhilifeHeaderMessenger } = usePhilifeHeaderMessengerStack();
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
@@ -653,6 +655,14 @@ export function CommunityMessengerHome({
           navigateToCommunityRoom(json.roomId);
           return;
         }
+        const apiErr =
+          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        if (
+          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+        ) {
+          return;
+        }
         if (res.status === 401 || res.status === 403) {
           setAuthRequired(true);
           setPageError(t("nav_messenger_login_required"));
@@ -663,7 +673,16 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.chats, data?.me?.id, getMessengerActionErrorMessage, navigateToCommunityRoom, reviveDirectRoomForEntry, t]
+    [
+      data?.chats,
+      data?.me?.id,
+      getMessengerActionErrorMessage,
+      navigateToCommunityRoom,
+      pathname,
+      reviveDirectRoomForEntry,
+      router,
+      t,
+    ]
   );
 
   /** 1:1 발신 — 세션 생성 후 `/calls/:sessionId` 로만 이동(`calls/outgoing` 중간 화면 없음). `peerLabelForDial` 은 확인 모달 표시명. */
@@ -691,6 +710,8 @@ export function CommunityMessengerHome({
             router
           );
           if (!result.ok) {
+            const next = pathname.trim() || "/community-messenger";
+            if (redirectForBlockedAction(router, result.userMessage, next)) return;
             setActionError(result.userMessage);
           }
         } catch {
@@ -701,7 +722,7 @@ export function CommunityMessengerHome({
       })();
       return true;
     },
-    [data?.chats, reviveDirectRoomForEntry, router]
+    [data?.chats, pathname, reviveDirectRoomForEntry, router]
   );
 
   const searchUsers = useCallback(async () => {
@@ -994,7 +1015,12 @@ export function CommunityMessengerHome({
         const res = await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendUserId)}/favorite`, {
           method: "POST",
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; isFavorite?: boolean };
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          isFavorite?: boolean;
+          error?: string;
+          code?: string;
+        };
         if (res.ok && json.ok) {
           const nextFavorite = json.isFavorite === true;
           setData((prev) => {
@@ -1018,12 +1044,27 @@ export function CommunityMessengerHome({
               : prev
           );
           void refresh(true);
+          return;
         }
+        const apiErr =
+          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        if (
+          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+        ) {
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          setAuthRequired(true);
+          setPageError(t("nav_messenger_login_required"));
+          return;
+        }
+        setActionError(getMessengerActionErrorMessage(json.error));
       } finally {
         setBusyId(null);
       }
     },
-    [refresh]
+    [getMessengerActionErrorMessage, pathname, refresh, router, t]
   );
 
   const toggleHiddenFriend = useCallback(
@@ -1104,15 +1145,38 @@ export function CommunityMessengerHome({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
-        if (res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && json.ok) {
           void refresh(true);
           void searchUsers();
+          return;
         }
+        const apiErr =
+          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        if (
+          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+        ) {
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          setAuthRequired(true);
+          setPageError(t("nav_messenger_login_required"));
+          return;
+        }
+        setActionError(getMessengerActionErrorMessage(json.error));
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, searchUsers]
+    [
+      getMessengerActionErrorMessage,
+      pathname,
+      refresh,
+      router,
+      searchUsers,
+      t,
+    ]
   );
 
   const createPrivateGroup = useCallback(async () => {
@@ -1138,6 +1202,14 @@ export function CommunityMessengerHome({
         navigateToCommunityRoom(json.roomId);
         return;
       }
+      const apiErr =
+        typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+      const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+      if (
+        redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+      ) {
+        return;
+      }
       if (res.status === 401 || res.status === 403) {
         setAuthRequired(true);
         setPageError(t("nav_messenger_login_required"));
@@ -1147,7 +1219,17 @@ export function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, groupMembers, groupTitle, navigateToCommunityRoom, refresh, resetGroupCreateDraft, t]);
+  }, [
+    getMessengerActionErrorMessage,
+    groupMembers,
+    groupTitle,
+    navigateToCommunityRoom,
+    pathname,
+    refresh,
+    resetGroupCreateDraft,
+    router,
+    t,
+  ]);
 
   const createOpenGroup = useCallback(async () => {
     if (!openGroupTitle.trim()) return;
@@ -1184,6 +1266,14 @@ export function CommunityMessengerHome({
         navigateToCommunityRoom(json.roomId);
         return;
       }
+      const apiErr =
+        typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+      const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+      if (
+        redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+      ) {
+        return;
+      }
       if (res.status === 401 || res.status === 403) {
         setAuthRequired(true);
         setPageError(t("nav_messenger_login_required"));
@@ -1207,8 +1297,10 @@ export function CommunityMessengerHome({
     openGroupPassword,
     openGroupSummary,
     openGroupTitle,
+    pathname,
     refresh,
     resetGroupCreateDraft,
+    router,
     t,
   ]);
 

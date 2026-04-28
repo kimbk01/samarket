@@ -4,7 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { fetchPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
+import {
+  fetchPhilifeNeighborhoodTopicOptions,
+  peekPhilifeNeighborhoodTopicOptionsFromCache,
+  seedPhilifeNeighborhoodTopicOptionsCache,
+} from "@/lib/philife/fetch-neighborhood-topic-options-client";
+import {
+  buildFeedChipsFromPhilifeTopicOptionsJson,
+  isPhilifeRecommendSortCategory,
+  type PhilifeFeedTopicChip,
+  PHILIFE_FEED_ALL_TAB_CHIP,
+} from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
@@ -14,6 +24,10 @@ import {
   PHILIFE_FEED_FILTER_STRIP_CLASS,
   PHILIFE_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
+  PHILIFE_TOPIC_TAB_PILL_ACTIVE,
+  PHILIFE_TOPIC_TAB_ROW_CLASS,
+  PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE,
+  PHILIFE_TOPIC_TAB_SUBJECT_IDLE,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { CommunityCard } from "./CommunityCard";
@@ -30,7 +44,6 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
 import { getBottomNavAdjacentHref } from "@/lib/main-menu/bottom-nav-config";
-import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -78,11 +91,6 @@ function philifePerfDiag(event: string, extra: Record<string, unknown>): void {
   console.debug(`[community-feed:perf-diag] ${event}`, extra);
 }
 
-function isPhilifeRecommendSortCategory(slug: string): boolean {
-  const s = slug.trim().toLowerCase();
-  return s === "recommend" || s === "recommended";
-}
-
 function resolvePhilifeFeedSortForQuery(
   categoryRaw: string,
   sortRaw: string
@@ -96,21 +104,6 @@ function resolvePhilifeFeedSortForQuery(
   return normalizeFeedSort(sortRaw || undefined);
 }
 
-type PhilifeFeedTopicChip = {
-  slug: string;
-  label: string;
-  is_feed_sort: boolean;
-  sort_slot: "recommend" | "popular" | null;
-};
-
-/** 상단 첫 칩: 주제 없음(전역) — 라벨은 `최신순` / `추천순` 만 표기(“전체” 문구 없음) */
-const PHILIFE_FEED_ALL_TAB_CHIP: PhilifeFeedTopicChip = {
-  slug: "",
-  label: "최신순",
-  is_feed_sort: false,
-  sort_slot: null,
-};
-
 function philifeGlobalFeedSortLabel(mode: "latest" | "recommended"): string {
   return mode === "recommended" ? "추천순" : "최신순";
 }
@@ -122,13 +115,94 @@ function isGlobalSortDropdownChip(c: { slug: string }): boolean {
 
 function resolveActiveTopicTabIndex(list: PhilifeFeedTopicChip[], categoryRaw: string): number {
   if (!list.length) return 0;
-  const c = categoryRaw.trim();
+  const c = categoryRaw.trim().toLowerCase();
   if (!c || isPhilifeRecommendSortCategory(c)) {
     const g = list.findIndex((t) => t.slug === "");
     return g >= 0 ? g : 0;
   }
-  const ix = list.findIndex((t) => t.slug === c);
+  const ix = list.findIndex((t) => (t.slug ?? "").trim().toLowerCase() === c);
   return ix >= 0 ? ix : 0;
+}
+
+/**
+ * `scrollLeft === 0`일 때 뷰 안에 **완전히** 들어오는 마지막 탭 인덱스까지 = **홈 범위**(최신순~질문있어요 등).
+ * - 그 범위의 탭을 고르면 **`scrollLeft = 0`** 으로 복귀(앞으로 밀렸던 줄이 원위치).
+ * - 그보다 오른쪽 탭만: 오른쪽 잘림 → 한 단계 전진 + peel; 왼쪽 잘림 → 대칭 후퇴 대신 **선택 탭이 왼쪽에 오도록** `scrollLeft`만 맞춤.
+ */
+function scrollPhilifeTopicTabStrip(
+  root: HTMLElement,
+  sel: HTMLElement,
+  activeIndex: number,
+  padPx: number
+): void {
+  const max = Math.max(0, root.scrollWidth - root.clientWidth);
+  const tabs = Array.from(root.querySelectorAll<HTMLElement>('[role="tab"]'));
+  if (!tabs.length) return;
+
+  const boundary = root.clientWidth - padPx * 2;
+  let maxVisibleAtHome = -1;
+  for (let i = 0; i < tabs.length; i += 1) {
+    const el = tabs[i]!;
+    const right = el.offsetLeft + el.offsetWidth;
+    if (right <= boundary + 10) maxVisibleAtHome = i;
+    else break;
+  }
+  if (maxVisibleAtHome < 0) maxVisibleAtHome = 0;
+
+  if (activeIndex <= maxVisibleAtHome) {
+    if (max > 0) root.scrollTo({ left: 0, behavior: "auto" });
+    return;
+  }
+
+  if (max <= 0) return;
+
+  const rootRect = root.getBoundingClientRect();
+  const selRect = sel.getBoundingClientRect();
+  const lo = rootRect.left + padPx;
+  const hi = rootRect.right - padPx;
+
+  if (selRect.left >= lo - 0.5 && selRect.right <= hi + 0.5) return;
+
+  if (selRect.right > hi + 0.5) {
+    let sl = root.scrollLeft;
+    const peel = selRect.right - hi + 6;
+    const step = Math.min(max - sl, Math.max(peel, root.clientWidth * 0.68));
+    sl = Math.min(max, sl + step);
+    root.scrollTo({ left: sl, behavior: "auto" });
+    const rr = root.getBoundingClientRect();
+    const sr = sel.getBoundingClientRect();
+    if (sr.right > rr.right - padPx - 0.5) {
+      root.scrollTo({
+        left: Math.min(max, root.scrollLeft + (sr.right - (rr.right - padPx) + 4)),
+        behavior: "auto",
+      });
+    }
+    return;
+  }
+
+  if (selRect.left < lo - 0.5) {
+    let x = 0;
+    let n: HTMLElement | null = sel;
+    while (n && n !== root) {
+      x += n.offsetLeft;
+      n = n.offsetParent as HTMLElement | null;
+    }
+    let target: number;
+    if (n === root) {
+      target = Math.max(0, Math.min(max, x - padPx));
+    } else {
+      target = Math.max(0, Math.min(max, root.scrollLeft + (selRect.left - rootRect.left) - padPx));
+    }
+    root.scrollTo({ left: target, behavior: "auto" });
+    const rr = root.getBoundingClientRect();
+    const sr = sel.getBoundingClientRect();
+    if (sr.left < rr.left + padPx - 0.5) {
+      root.scrollTo({
+        left: Math.max(0, root.scrollLeft - (rr.left + padPx - sr.left + 4)),
+        behavior: "auto",
+      });
+    }
+  }
 }
 
 function philifeDiagSnapshot(tag: string): void {
@@ -255,8 +329,19 @@ export function CommunityFeed({
   const initialFeedLoadTokenRef = useRef(0);
   /** meetingId 딥링크 effect 중복/StrictMode 대응(항상 ref 는 다른 useEffect 앞에 선언) */
   const meetingDeepLinkSeq = useRef(0);
+  /** 2단 탭 가로 스크롤 정렬 — StrictMode 이펙트 재실행 시 stale rAF 무시 */
+  const topicTabScrollGenRef = useRef(0);
 
-  const [chips, setChips] = useState<PhilifeFeedTopicChip[]>([]);
+  const [chips, setChips] = useState<PhilifeFeedTopicChip[]>(() => {
+    const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
+    if (peeked) return buildFeedChipsFromPhilifeTopicOptionsJson(peeked).chips;
+    const seed = initialGlobalFeedRsc?.topicOptionsSeed;
+    if (seed) {
+      seedPhilifeNeighborhoodTopicOptionsCache(seed);
+      return buildFeedChipsFromPhilifeTopicOptionsJson(seed).chips;
+    }
+    return [];
+  });
   const [recommendMenuOpen, setRecommendMenuOpen] = useState(false);
   const [recommendMenuPos, setRecommendMenuPos] = useState<{
     top: number;
@@ -264,9 +349,19 @@ export function CommunityFeed({
   } | null>(null);
   const recommendMenuRef = useRef<HTMLButtonElement | null>(null);
   const recommendMenuPanelRef = useRef<HTMLUListElement | null>(null);
-  const [chipsLoadDone, setChipsLoadDone] = useState(false);
-  /** 주제 옵션 API: false면「관심이웃 글만 보기」띠(체크+문구) 전체 비노출. 기본 true(로드 전). */
-  const [showNeighborOnlyStrip, setShowNeighborOnlyStrip] = useState(true);
+  const [chipsLoadDone, setChipsLoadDone] = useState(
+    () =>
+      Boolean(peekPhilifeNeighborhoodTopicOptionsFromCache()) ||
+      Boolean(initialGlobalFeedRsc?.topicOptionsSeed)
+  );
+  /** 주제 옵션 API: false면「관심이웃 글만 보기」띠(체크+문구) 전체 비노출. */
+  const [showNeighborOnlyStrip, setShowNeighborOnlyStrip] = useState(() => {
+    const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
+    if (peeked) return peeked.showNeighborOnlyFilter !== false;
+    const seed = initialGlobalFeedRsc?.topicOptionsSeed;
+    if (seed) return seed.showNeighborOnlyFilter !== false;
+    return true;
+  });
 
   useEffect(() => {
     setCategory((prev) => (prev === categoryParam ? prev : categoryParam));
@@ -414,46 +509,13 @@ export function CommunityFeed({
       try {
         const j = await fetchPhilifeNeighborhoodTopicOptions();
         if (cancelled) return;
-        if (!cancelled) {
-          setShowNeighborOnlyStrip(j?.showNeighborOnlyFilter !== false);
-        }
-        if (j?.ok && Array.isArray(j.feedChips)) {
-          const rest: PhilifeFeedTopicChip[] = j.feedChips
-            .map((x) => {
-              const s = (x.slug ?? "").trim();
-              const isFs = x.is_feed_sort === true;
-              const sort_slot: "recommend" | "popular" | null =
-                x.sort_slot === "recommend" || x.sort_slot === "popular"
-                  ? x.sort_slot
-                  : isFs
-                    ? isPhilifeRecommendSortCategory(s)
-                      ? "recommend"
-                      : s.toLowerCase() === "popular"
-                        ? "popular"
-                        : null
-                    : null;
-              return {
-                slug: x.slug,
-                label: x.name,
-                is_feed_sort: isFs,
-                sort_slot,
-              };
-            })
-            .filter((chip) => {
-              const s = (chip.slug ?? "").trim().toLowerCase();
-              if (isPhilifeRecommendSortCategory(s)) return false;
-              if (chip.is_feed_sort && chip.sort_slot === "recommend") return false;
-              return true;
-            });
-          const allTab = j.showAllFeedTab !== false;
-          const next = allTab ? [PHILIFE_FEED_ALL_TAB_CHIP, ...rest] : rest;
-          if (!cancelled) setChips(next);
-          /** 전역 칩 없이 주제만 올 때 — URL/상태가 전역(빈 category)이면 첫 주제로 */
-          if (!cancelled && !allTab && next.length) {
-            setCategory((c) => (c === "" || !next.some((t) => t.slug === c) ? next[0]!.slug : c));
-          }
-        } else {
-          if (!cancelled) setChips([PHILIFE_FEED_ALL_TAB_CHIP]);
+        const { chips: next, showNeighborOnlyStrip: strip } = buildFeedChipsFromPhilifeTopicOptionsJson(j);
+        setShowNeighborOnlyStrip(strip);
+        setChips(next);
+        const allTab = j?.showAllFeedTab !== false;
+        /** 전역 칩 없이 주제만 올 때 — URL/상태가 전역(빈 category)이면 첫 주제로 */
+        if (!allTab && next.length) {
+          setCategory((c) => (c === "" || !next.some((t) => t.slug === c) ? next[0]!.slug : c));
         }
       } catch {
         if (!cancelled) {
@@ -690,6 +752,7 @@ export function CommunityFeed({
     [category, neighborOnly, viewerSig, recSortKey, isAllTabView]
   );
 
+  /** 주제·필터 시 피드 리셋. `categoryParam`은 deps에 넣지 않음 — `category` 낙관 갱신 후 URL이 따라올 때 이중 페치·목록 깜빡임 방지. */
   useLayoutEffect(() => {
     feedSessionRef.current += 1;
     const session = feedSessionRef.current;
@@ -757,7 +820,7 @@ export function CommunityFeed({
     return () => {
       feedAbortRef.current?.abort();
     };
-  }, [category, categoryParam, neighborOnly, viewerSig, recSortKey, fetchPage, initialGlobalFeedRsc]);
+  }, [category, neighborOnly, viewerSig, recSortKey, fetchPage, initialGlobalFeedRsc]);
 
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
@@ -842,7 +905,7 @@ export function CommunityFeed({
     (nextSlug: string) => {
       const t = nextSlug.trim();
       if (t !== category.trim() && !guardBeforeNavigate()) return;
-      setCategory(nextSlug);
+      setCategory(t);
       const sp = new URLSearchParams(searchKeyForNav);
       if (t) sp.set("category", t);
       else sp.delete("category");
@@ -870,13 +933,31 @@ export function CommunityFeed({
   }, []);
 
   const topicTablistRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * 홈 범위 탭이면 `scrollLeft` 복귀, 오른쪽 바깥 탭만 전진·왼쪽 잘리면 선택 기준 스크롤.
+   * `scrollPhilifeTopicTabStrip` + 세대 ref + 이중 rAF.
+   */
   useLayoutEffect(() => {
     if (!chipsLoadDone) return;
-    const root = topicTablistRef.current;
-    if (!root) return;
-    const sel = root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    sel?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }, [chipsLoadDone, activeTopicTabIndex, recSortKey, category]);
+    const myGen = ++topicTabScrollGenRef.current;
+    const toCancel: number[] = [];
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => {
+        if (topicTabScrollGenRef.current !== myGen) return;
+        const root = topicTablistRef.current;
+        if (!root) return;
+        const sel = root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+        if (!sel) return;
+        scrollPhilifeTopicTabStrip(root, sel, activeTopicTabIndex, 6);
+      });
+      toCancel.push(r2);
+    });
+    toCancel.push(r1);
+    return () => {
+      topicTabScrollGenRef.current += 1;
+      for (const id of toCancel) cancelAnimationFrame(id);
+    };
+  }, [chipsLoadDone, activeTopicTabIndex, category]);
 
   const swipeToNextTab = useCallback(() => {
     if (!chips.length) return;
@@ -925,60 +1006,60 @@ export function CommunityFeed({
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <div
                   ref={topicTablistRef}
-                  className={`${Sam.tabs.barScroll} w-full max-w-full`}
+                  className={PHILIFE_TOPIC_TAB_ROW_CLASS}
                   role="tablist"
                   aria-label="피드 주제"
                 >
                   {!chipsLoadDone ? (
-                    <div className="flex min-h-[var(--sam-segment-tab-height)] w-full min-w-0 items-stretch border-b border-sam-border" aria-hidden>
-                      <span className="min-w-16 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
-                      <span className="min-w-20 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
-                      <span className="min-w-14 flex-1 animate-pulse border-b-2 border-transparent py-2 text-center" />
+                    <div className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1 py-1.5" aria-hidden>
+                      <span className="h-8 w-14 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                      <span className="h-8 w-20 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
+                      <span className="h-8 w-16 shrink-0 animate-pulse rounded-full bg-sam-muted/25" />
                     </div>
                   ) : (
                     chips.map((c) => {
-                      const on = c.slug === "" ? isAllTabView : category === c.slug;
+                      const catKey = category.trim().toLowerCase();
+                      const slugKey = (c.slug ?? "").trim().toLowerCase();
+                      const on = c.slug === "" ? isAllTabView : catKey === slugKey;
                       const sortModeLabel =
                         c.slug === "" ? philifeGlobalFeedSortLabel(recSortKey) : c.label;
+                      const subjectChipClass = on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE;
                       if (isGlobalSortDropdownChip(c)) {
                         return (
-                          <div key={c.slug || "rec"} className="relative flex min-w-0 max-w-[min(12rem,45vw)] shrink-0">
-                            <button
-                              ref={recommendMenuRef}
-                              type="button"
-                              role="tab"
-                              aria-selected={on}
-                              aria-label={`${sortModeLabel}, 정렬 옵션`}
-                              aria-haspopup="listbox"
-                              aria-expanded={on && recommendMenuOpen}
-                              className={`${
-                                on ? Sam.tabs.tabActive : Sam.tabs.tab
-                              } inline-flex w-full min-w-0 max-w-full items-center justify-center gap-0.5 px-1`}
-                              onClick={() => {
-                                if (category.trim() !== "") {
-                                  applyCategoryTab("");
-                                  setRecommendMenuOpen(false);
-                                  return;
-                                }
-                                setRecommendMenuOpen((v) => !v);
-                              }}
-                            >
-                              <span className="min-w-0 flex-1 truncate px-0.5">{sortModeLabel}</span>
-                              {recSortKey === "recommended" ? (
-                                <ChevronUp
-                                  className={`h-3.5 w-3.5 shrink-0 ${on ? "text-sam-primary" : "text-sam-muted"}`}
-                                  strokeWidth={2.4}
-                                  aria-hidden
-                                />
-                              ) : (
-                                <ChevronDown
-                                  className={`h-3.5 w-3.5 shrink-0 ${on ? "text-sam-primary" : "text-sam-muted"}`}
-                                  strokeWidth={2.4}
-                                  aria-hidden
-                                />
-                              )}
-                            </button>
-                          </div>
+                          <button
+                            key={c.slug || "rec"}
+                            ref={recommendMenuRef}
+                            type="button"
+                            role="tab"
+                            aria-selected={on}
+                            aria-label={`${sortModeLabel}, 정렬 옵션`}
+                            aria-haspopup="listbox"
+                            aria-expanded={on && recommendMenuOpen}
+                            className={PHILIFE_TOPIC_TAB_PILL_ACTIVE}
+                            onClick={() => {
+                              if (category.trim() !== "") {
+                                applyCategoryTab("");
+                                setRecommendMenuOpen(false);
+                                return;
+                              }
+                              setRecommendMenuOpen((v) => !v);
+                            }}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{sortModeLabel}</span>
+                            {recSortKey === "recommended" ? (
+                              <ChevronUp
+                                className="h-3.5 w-3.5 shrink-0 text-sam-primary"
+                                strokeWidth={2.4}
+                                aria-hidden
+                              />
+                            ) : (
+                              <ChevronDown
+                                className="h-3.5 w-3.5 shrink-0 text-sam-primary"
+                                strokeWidth={2.4}
+                                aria-hidden
+                              />
+                            )}
+                          </button>
                         );
                       }
                       return (
@@ -988,9 +1069,9 @@ export function CommunityFeed({
                           role="tab"
                           aria-selected={on}
                           onClick={() => applyCategoryTab(c.slug === "" ? "" : c.slug)}
-                          className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
+                          className={subjectChipClass}
                         >
-                          <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate px-0.5">{c.label}</span>
+                          <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate">{c.label}</span>
                         </button>
                       );
                     })

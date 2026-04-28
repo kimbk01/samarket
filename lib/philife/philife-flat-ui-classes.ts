@@ -43,6 +43,29 @@ export const PHILIFE_FEED_INSET_X_CLASS = "px-2";
 /** `PHILIFE_FEED_INSET_X_CLASS` 부모 안에서 가로 풀폭까지 늘리기(스티키 탭 등) */
 export const PHILIFE_FEED_INSET_NEG_X_CLASS = "-mx-2";
 
+/**
+ * Philife 2단 주제 — 알약 탭 한 줄.
+ * `justify-start` + 가로 스크롤로, 선택 변경 시 탭을 뷰포트 **좌측**으로 맞추는 동작과 맞는다.
+ * 탭 사이는 `gap-1`(4px).
+ */
+export const PHILIFE_TOPIC_TAB_ROW_CLASS = [
+  "flex min-h-10 w-full max-w-full min-w-0 flex-nowrap items-center justify-start gap-1",
+  "overflow-x-auto border-b border-sam-border bg-sam-surface py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+].join(" ");
+
+/** 전역 정렬(최신순·추천순) 칩 — 피드 2단에서는 항상 `PILL_ACTIVE`만 씀(내부색·테두리가 선택과 동일하게 상시). */
+export const PHILIFE_TOPIC_TAB_PILL_IDLE =
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-border bg-sam-surface px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-semibold text-sam-muted transition-colors";
+
+export const PHILIFE_TOPIC_TAB_PILL_ACTIVE =
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border border-sam-primary-border bg-sam-primary-soft px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-extrabold text-sam-primary transition-colors";
+
+/** 그 외 주제 탭 — 비선택: 테두리 없음 / 선택: 알약(위 `PILL_ACTIVE`와 동일 시각) */
+export const PHILIFE_TOPIC_TAB_SUBJECT_IDLE =
+  "inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 rounded-full border-0 bg-transparent px-2.5 py-1 text-left text-[length:calc(13px-1pt)] font-extrabold text-sam-fg transition-colors";
+
+export const PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE = PHILIFE_TOPIC_TAB_PILL_ACTIVE;
+
 /** 피드 글 목록 바깥 래퍼 — 카드 간격 (`<ul>` 용) */
 export const PHILIFE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1 [&>li]:list-none`;
 

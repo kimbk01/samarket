@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -56,26 +57,32 @@ export function MandatoryAddressGate() {
   const pathRef = useRef(pathname);
   const prevPathForGateRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
+  const [fullInteractiveMemberOk, setFullInteractiveMemberOk] = useState(true);
 
   const applyGateJson = useCallback(async (res: Response) => {
     if (res.status === 401) {
       setBlocked(false);
+      setFullInteractiveMemberOk(true);
       return;
     }
     if (!res.ok) {
       setBlocked(false);
+      setFullInteractiveMemberOk(true);
       return;
     }
     const j = (await res.clone().json()) as {
       ok?: boolean;
       authenticated?: boolean;
       needsBlock?: boolean;
+      fullInteractiveMemberOk?: boolean;
     };
     if (!j.ok) {
       setBlocked(false);
+      setFullInteractiveMemberOk(true);
       return;
     }
     setBlocked(j.authenticated === true && j.needsBlock === true);
+    setFullInteractiveMemberOk(j.fullInteractiveMemberOk !== false);
   }, []);
 
   const runGateFetch = useCallback(async () => {
@@ -159,6 +166,13 @@ export function MandatoryAddressGate() {
           로그인 후 서비스(거래·동네·배달)를 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해야
           합니다. 아래에서 주소를 입력해 주세요.
         </p>
+        {!fullInteractiveMemberOk ? (
+          <p className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 sam-text-body leading-relaxed text-sam-fg">
+            동네·거래 <strong className="font-semibold">글쓰기</strong>와 커뮤니티 메신저{" "}
+            <strong className="font-semibold">채팅</strong>은 전화번호 인증을 마친 뒤에 이용할 수 있습니다. 주소를
+            저장한 뒤 마이페이지에서 인증을 완료해 주세요.
+          </p>
+        ) : null}
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
@@ -167,6 +181,21 @@ export function MandatoryAddressGate() {
           >
             주소 입력하기
           </button>
+          {!fullInteractiveMemberOk ? (
+            <button
+              type="button"
+              onClick={() =>
+                router.push(
+                  buildPhoneVerificationHref(
+                    `${pathname}${typeof window !== "undefined" ? window.location.search : ""}`
+                  )
+                )
+              }
+              className="w-full rounded-ui-rect border border-sam-primary/35 bg-sam-primary-soft py-3.5 sam-text-body font-semibold text-sam-fg"
+            >
+              전화 인증하기
+            </button>
+          ) : null}
           <LogoutActionTrigger variant="outlined_button" />
         </div>
       </div>

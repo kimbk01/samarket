@@ -4,41 +4,46 @@ import {
   PHONE_VERIFICATION_REQUIRED_MESSAGE,
   bypassesPhilippinePhoneVerificationGate,
 } from "@/lib/auth/member-access";
+import type { ProfileRow } from "@/lib/profile/types";
+import type { Profile } from "@/lib/types/profile";
+
+function bypassFromProfileRow(
+  p: Pick<ProfileRow, "role" | "phone_verified" | "phone_verified_at" | "provider" | "auth_provider" | "email">
+): boolean {
+  return bypassesPhilippinePhoneVerificationGate({
+    role: p.role,
+    phone_verified: p.phone_verified === true,
+    phone_verified_at: p.phone_verified_at ?? null,
+    provider: p.provider ?? p.auth_provider,
+    auth_provider: p.auth_provider,
+    email: p.email,
+  });
+}
+
+function bypassFromClientProfile(p: Profile): boolean {
+  return bypassesPhilippinePhoneVerificationGate({
+    role: p.role,
+    phone_verified: p.phone_verified === true,
+    phone_verified_at: p.phone_verified_at ?? null,
+    provider: p.provider ?? p.auth_provider,
+    auth_provider: p.auth_provider ?? null,
+    email: p.email ?? null,
+  });
+}
 
 /**
  * 글 등록·수정 전 전화 인증 게이트.
- * - 클라이언트 프로필 캐시에 `phone_verified`·`role` 이 있으면 `/api/me/profile` 왕복 생략(체감 지연 감소).
+ * - 클라이언트 프로필 캐시가 `hasPhilippinePhoneVerification` 이면 `/api/me/profile` 왕복 생략.
  */
 export async function assertPhoneAllowsPostWrite(): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   const cached = getCurrentUser();
-  if (cached) {
-    if (
-      bypassesPhilippinePhoneVerificationGate({
-        role: cached.role,
-        phone_verified: cached.phone_verified === true,
-        auth_provider: cached.auth_provider,
-        email: cached.email,
-      })
-    ) {
-      return { ok: true };
-    }
-    if (cached.phone_verified === false) {
-      return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
-    }
+  if (cached && bypassFromClientProfile(cached)) {
+    return { ok: true };
   }
-
   const profile = await getMyProfile();
-  if (
-    profile &&
-    !bypassesPhilippinePhoneVerificationGate({
-      role: profile.role,
-      phone_verified: profile.phone_verified === true,
-      auth_provider: profile.auth_provider ?? null,
-      email: profile.email,
-    })
-  ) {
+  if (!profile || !bypassFromProfileRow(profile)) {
     return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
   }
   return { ok: true };
