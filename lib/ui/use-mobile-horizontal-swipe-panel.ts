@@ -13,6 +13,8 @@ const OUT_MS = 280;
 const EASE = "cubic-bezier(0.25, 0.72, 0.2, 1)";
 const SPRING_MS = 320;
 const BACK_EASE = "cubic-bezier(0.33, 0.9, 0.22, 1)";
+const COMMIT_NAV_DELAY_MS = 0;
+const COMMIT_CLEANUP_MS = OUT_MS + 140;
 
 type Mode = "undecided" | "vertical" | "horizontal";
 
@@ -54,6 +56,9 @@ export function useMobileHorizontalSwipePanel({
   const modeRef = useRef<Mode>("undecided");
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commitInFlightRef = useRef(false);
 
   const setSwipeableEl: RefCallback<HTMLDivElement> = (node) => {
     swipeableRef.current = node;
@@ -69,16 +74,48 @@ export function useMobileHorizontalSwipePanel({
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current);
+        navTimerRef.current = null;
+      }
+      if (cleanupTimerRef.current) {
+        clearTimeout(cleanupTimerRef.current);
+        cleanupTimerRef.current = null;
+      }
     };
 
     const reset = () => {
+      commitInFlightRef.current = false;
       el.style.transition = "none";
       el.style.transform = "translate3d(0,0,0)";
       el.style.willChange = "auto";
       dragXRef.current = 0;
     };
 
+    const commitSwipe = (direction: "next" | "prev") => {
+      if (commitInFlightRef.current) return;
+      commitInFlightRef.current = true;
+      clearT();
+      const width = el.offsetWidth || (typeof window !== "undefined" ? window.innerWidth : 400);
+      const targetX = direction === "next" ? -width : width;
+      el.style.willChange = "transform";
+      el.style.transition = `transform ${OUT_MS}ms ${EASE}`;
+      requestAnimationFrame(() => {
+        el.style.transform = `translate3d(${targetX}px,0,0)`;
+      });
+      navTimerRef.current = setTimeout(() => {
+        navTimerRef.current = null;
+        if (direction === "next") onNextRef.current();
+        else onPrevRef.current();
+      }, COMMIT_NAV_DELAY_MS);
+      cleanupTimerRef.current = setTimeout(() => {
+        cleanupTimerRef.current = null;
+        reset();
+      }, COMMIT_CLEANUP_MS);
+    };
+
     const onTouchStart = (e: Event) => {
+      if (commitInFlightRef.current) return;
       const te = e as TouchEvent;
       if (te.touches.length !== 1) return;
       const t0 = te.touches[0]!;
@@ -90,6 +127,7 @@ export function useMobileHorizontalSwipePanel({
     };
 
     const onTouchMove = (e: Event) => {
+      if (commitInFlightRef.current) return;
       const te = e as TouchEvent;
       if (te.touches.length !== 1) return;
       if (!startRef.current) return;
@@ -121,6 +159,7 @@ export function useMobileHorizontalSwipePanel({
     };
 
     const onTouchEnd = () => {
+      if (commitInFlightRef.current) return;
       if (modeRef.current !== "horizontal") {
         startRef.current = null;
         modeRef.current = "undecided";
@@ -132,19 +171,11 @@ export function useMobileHorizontalSwipePanel({
       modeRef.current = "undecided";
 
       if (x < -COMMIT_PX && canNextRef.current) {
-        /**
-         * 병목 제거: 기존엔 스와이프 아웃 애니메이션 종료(최대 `OUT_MS`) 후 라우팅을 시작해
-         * 전환 시작 자체가 늦었다. 커밋 순간 즉시 라우팅을 시작하고, 잔여 transform만 초기화한다.
-         */
-        clearT();
-        onNextRef.current();
-        reset();
+        commitSwipe("next");
         return;
       }
       if (x > COMMIT_PX && canPrevRef.current) {
-        clearT();
-        onPrevRef.current();
-        reset();
+        commitSwipe("prev");
         return;
       }
       if (x !== 0) {
@@ -173,6 +204,7 @@ export function useMobileHorizontalSwipePanel({
     };
 
     const onTouchCancel = () => {
+      if (commitInFlightRef.current) return;
       clearT();
       startRef.current = null;
       modeRef.current = "undecided";

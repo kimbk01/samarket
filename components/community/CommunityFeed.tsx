@@ -1103,9 +1103,9 @@ export function CommunityFeed({
       applyCategoryTab(isGlobalSortDropdownChip(next) ? "" : next.slug);
       return;
     }
-    const href = getBottomNavAdjacentHref("community", "next") ?? "/home";
+    const href = getBottomNavAdjacentHref("community", "next") ?? "/market";
     if (!guardBeforeNavigate()) return;
-    void router.push(href);
+    void router.push(href, { scroll: false });
   }, [chips, activeTopicTabIndex, applyCategoryTab, router, guardBeforeNavigate]);
 
   const swipeToPrevTab = useCallback(() => {
@@ -1211,6 +1211,26 @@ export function CommunityFeed({
     }, 120);
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [chips, activeTopicTabIndex, sortParam, neighborOnly, viewerSig, router]);
+
+  /** idle 대기 전, 경계 스와이프 목적지와 인접 주제를 즉시 prewarm해 첫 리스트 지연을 줄인다. */
+  useEffect(() => {
+    if (!chips.length) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const nextBottomHref = getBottomNavAdjacentHref("community", "next");
+    const prevBottomHref = getBottomNavAdjacentHref("community", "prev");
+    if (nextBottomHref) void router.prefetch(nextBottomHref);
+    if (prevBottomHref) void router.prefetch(prevBottomHref);
+    const immediate = chips
+      .map((chip, idx) => ({ chip, dist: Math.abs(idx - activeTopicTabIndex) }))
+      .filter((item) => item.dist > 0)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 2)
+      .map((item) => item.chip);
+    for (const chip of immediate) {
+      prefetchCategoryFeedByIntent(chip);
+    }
+  }, [chips, activeTopicTabIndex, prefetchCategoryFeedByIntent, router]);
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS}>

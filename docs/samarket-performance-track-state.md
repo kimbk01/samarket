@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-26 |
+| Last updated | 2026-04-28 |
 | Owner | (선택) |
 
 ---
@@ -48,9 +48,12 @@
 
 | 항목 | 내용 |
 |------|------|
-| 트랙 이름 | 메신저·앱 체감 + 서버 부하 — **고빈도 API 반복 비용(스냅샷/뱃지) 상위 병목** |
-| **트랙 상태** | **진행 중** — 라운드 **V-fix**(2026-04-23) 코드 반영: 잘못된 핫패스 회수 + 근본 병목만 유지. |
-| 한 줄 요약 | **라운드 U:** 커뮤니티(`/philife`) RSC 시드·초기 부팅. **라운드 V(교정):** 근본 병목은 `community_messenger_participants` → `applyRoomSummaryPatched` 가 **`unreadCount`만 바뀌는데도 매번 `sortRoomOrder(전체 방)`**을 호출한 점(코드로 확정). `lastMessageAt`(피드 정렬 키)이 바뀔 때만 전체 정렬. `applyIncomingMessageEvent`는 새 객체 때문에 `===`로 **항상 정렬**되던 분기를 동일 규칙으로 교정. 키 상한(280) 가지치기는 **초과 시에만** `seedBootstrap`/`seedRoomSnapshot`에서 실행(핫 Realtime 경로에서 매 패치 정렬·가지치기 제거). |
+| 트랙 이름 | 하단 탭 즉시 리스트 — **RSC await 와 클라 데이터 캐시 분리 미스 근본 정리** (라운드 W) |
+| **트랙 상태** | **진행 중 (라운드 W→W3 반영 완료)** — `/stores` + `/philife` 글로벌/토픽 prewarm, 키보드 탭 진입 prewarm까지 연결. 실측 3회 대기 (2026-04-28) |
+| 이번 원인 1개 | `/market`, `/philife` 페이지가 **page-level `await`** 으로 Supabase 까지 막은 뒤 RSC 를 보낸다. dev `Link prefetch` 는 `loading.tsx` 경계만 덮어 매 탭 탭에서 200~500ms 서버 왕복이 다시 발생했고, `router.prefetch` 는 RSC 만 데우므로 클라 데이터 캐시(`homePostsCache`/`tradeFeedClientCache`) 는 비어 있어 마운트 직후 또 한 번 fetch 됐다 → **라우트·서버·클라 캐시 3종 분리** 가 매 탭 탭마다 어딘가는 미스를 만든다. |
+| 이번 조치 | 1) `app/(main)/market/page.tsx`·`app/(main)/philife/page.tsx` 에서 **page-level `await` 를 전면 제거** — 서버는 즉시 셸만 보내고 클라가 캐시 히트 시 즉시, 미스 시 `loading.tsx` 후 1회 fetch. 2) `lib/main-menu/bottom-nav-tap-prewarm-data.ts` 신설 — `pointerdown`/idle 양 단계에서 `router.prefetch` 와 별도로 `getPostsForHome`/`getPostsByTradeCategoryIds` 클라 캐시를 함께 데움(이미 캐시되면 noop). 3) `BottomNav.tsx` 두 탭 컴포넌트 + idle prefetch chain 모두에서 helper 호출. 4) `lib/stores/store-home-feed-client-cache.ts` 신설 + `StoreNearbyFeedSection.tsx` 캐시를 공용화해 `/stores` 탭에서도 prewarm 데이터가 실제 첫 렌더 캐시에 사용되도록 구조 고정. 5) `/philife` 글로벌 피드(`globalFeed=1`, latest) + topic-options 를 하단 탭 prewarm에서 직접 선요청해 `writePhilifeFeedCache`/topic TTL 캐시를 채움. 6) 하단 탭 키보드 진입(Enter/Space)에도 동일 prewarm 경로를 연결해 입력 방식 차이에 따른 체감 편차 제거. |
+| 관측 포인트 | `trade_list_*` (samarket-runtime-debug), `bumpAppWidePerf("trade_list_fetch_*")`, dev 콘솔에서 동일 탭 2회 진입 시 `getPostsForHome` 네트워크가 사라지는지 확인 (single-flight + 45s TTL). |
+| 후속(트랙 X 후보) | Philife 주제 칩별 인접 prewarm(`category`/`recommended`)을 하단 탭 prewarm 단계와도 공유해, `/home`→`/philife` 첫 진입 직후 칩 전환까지 초기 API 미스를 더 줄인다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
 

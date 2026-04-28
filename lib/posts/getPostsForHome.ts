@@ -29,6 +29,7 @@ export interface GetPostsForHomeResult {
 }
 
 const HOME_POSTS_TTL_MS = 45_000;
+const HOME_POSTS_SESSION_CACHE_KEY_PREFIX = "samarket:home-posts:v1:";
 
 type HomePostsCacheEntry = {
   data: GetPostsForHomeResult;
@@ -40,6 +41,55 @@ const HOME_CLIENT_POSTS_CACHE_MAX_KEYS = 80;
 
 function capHomePostsClientCache(): void {
   pruneByExpiresAtAndMaxSize(homePostsCache, Date.now(), HOME_CLIENT_POSTS_CACHE_MAX_KEYS);
+}
+
+function canUseSessionStorage(): boolean {
+  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+}
+
+function makeSessionCacheKey(cacheKey: string): string {
+  return `${HOME_POSTS_SESSION_CACHE_KEY_PREFIX}${cacheKey}`;
+}
+
+function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | null {
+  if (!canUseSessionStorage()) return null;
+  try {
+    const raw = window.sessionStorage.getItem(makeSessionCacheKey(cacheKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      expiresAt?: number;
+      data?: GetPostsForHomeResult;
+    };
+    if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
+    if (parsed.expiresAt <= Date.now()) {
+      window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
+      return null;
+    }
+    const data = parsed.data;
+    if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
+    return {
+      posts: data.posts,
+      hasMore: data.hasMore === true,
+      favoriteMap: data.favoriteMap ?? {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeHomePostsSessionCache(cacheKey: string, data: GetPostsForHomeResult): void {
+  if (!canUseSessionStorage()) return;
+  try {
+    window.sessionStorage.setItem(
+      makeSessionCacheKey(cacheKey),
+      JSON.stringify({
+        expiresAt: Date.now() + HOME_POSTS_TTL_MS,
+        data,
+      })
+    );
+  } catch {
+    /* quota/private mode */
+  }
 }
 
 function normalizeOptions(options: GetPostsForHomeOptions = {}) {
@@ -62,9 +112,35 @@ export function peekCachedPostsForHome(
   if (!cached) return null;
   if (cached.expiresAt <= Date.now()) {
     homePostsCache.delete(cacheKey);
-    return null;
+  } else {
+    return cached.data;
   }
-  return cached.data;
+  const sessionHit = readHomePostsSessionCache(cacheKey);
+  if (!sessionHit) return null;
+  homePostsCache.set(cacheKey, {
+    data: sessionHit,
+    expiresAt: Date.now() + HOME_POSTS_TTL_MS,
+  });
+  capHomePostsClientCache();
+  return sessionHit;
+}
+
+/**
+ * 정확 키 캐시 미스 시에도 최근 성공 목록을 즉시 보여주기 위한 fallback.
+ * - 만료되지 않은 항목 중 가장 최근 항목을 선택
+ * - 빈 목록은 제외(빈값 깜빡임 방지)
+ */
+export function peekRecentHomePostsFallback(): GetPostsForHomeResult | null {
+  const now = Date.now();
+  let latest: { at: number; data: GetPostsForHomeResult } | null = null;
+  for (const entry of homePostsCache.values()) {
+    if (entry.expiresAt <= now) continue;
+    if (!entry.data.posts?.length) continue;
+    if (!latest || entry.expiresAt > latest.at) {
+      latest = { at: entry.expiresAt, data: entry.data };
+    }
+  }
+  return latest?.data ?? null;
 }
 
 /** RSC 시드와 클라이언트 캐시 키를 맞춰 첫 로드 후 재방문 시 중복 요청을 줄인다 */
@@ -78,6 +154,7 @@ export function primeHomePostsCache(
     expiresAt: Date.now() + HOME_POSTS_TTL_MS,
   });
   capHomePostsClientCache();
+  writeHomePostsSessionCache(cacheKey, data);
 }
 
 /**
@@ -144,6 +221,7 @@ export async function getPostsForHome(
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,
       });
       capHomePostsClientCache();
+      writeHomePostsSessionCache(cacheKey, result);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
         recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));
@@ -208,6 +286,7 @@ export async function getPostsForHome(
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,
       });
       capHomePostsClientCache();
+      writeHomePostsSessionCache(cacheKey, result);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
         recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));

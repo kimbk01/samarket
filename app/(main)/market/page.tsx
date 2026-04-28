@@ -1,34 +1,25 @@
-import { Suspense } from "react";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { TradeListPageMountProbe } from "@/components/home/TradeListPageMountProbe";
-import { resolveHomePostsGetData } from "@/lib/posts/home-posts-route-core";
-import { buildHomeTradeSeedRequest } from "@/lib/trade/build-home-trade-seed-request";
-import { MainHomeShellLoading } from "@/components/layout/MainRouteLoading";
 import { HomeContent } from "../home/HomeContent";
 
-/** Trade all list: server seed + client hydration without extra first network round-trip. */
-async function MarketTradeFeedShell() {
-  const [req, viewerUserId] = await Promise.all([
-    buildHomeTradeSeedRequest(),
-    getOptionalAuthenticatedUserId(),
-  ]);
-  const initialHomeTradeFeed = await resolveHomePostsGetData(req, { precomputedViewerUserId: viewerUserId });
+/**
+ * 거래 전체 리스트 — RSC `await` 제거 (네이티브급 탭 전환 체감).
+ *
+ * 이전 구조: page-level `await resolveHomePostsGetData(...)` 가 매 진입마다
+ * Supabase·favorites·profiles 조회를 직렬 실행 → dev `Link prefetch` 는
+ * loading 경계만 덮어 매 탭 탭에서 200~500ms 서버 왕복이 다시 발생했다.
+ *
+ * 새 구조: 서버는 즉시 셸만 반환하고, 클라 `HomeProductList` 가
+ * `peekCachedPostsForHome` 캐시 히트 시 **즉시** 그린다. 미스이면 같은 틱에
+ * 단일 `getPostsForHome` 으로 채우면서 라우트 `loading.tsx` 가 깜박인다.
+ * 인접 탭·하단 nav `pointerdown` 에서 클라 캐시를 미리 데워 첫 방문도 짧다.
+ */
+export default function MarketPage() {
   return (
     <div className="min-h-screen bg-sam-app">
       <div className="min-w-0 max-w-full overflow-x-hidden pt-0 pb-4">
         <TradeListPageMountProbe />
-        <Suspense fallback={<MainHomeShellLoading />}>
-          <HomeContent initialHomeTradeFeed={initialHomeTradeFeed} />
-        </Suspense>
+        <HomeContent />
       </div>
     </div>
-  );
-}
-
-export default function MarketPage() {
-  return (
-    <Suspense fallback={<MainHomeShellLoading />}>
-      <MarketTradeFeedShell />
-    </Suspense>
   );
 }

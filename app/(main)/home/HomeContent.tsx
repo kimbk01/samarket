@@ -11,6 +11,8 @@ import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug"
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
+import { getPostsByTradeCategoryIds, peekCachedTradeFeed } from "@/lib/posts/getPostsByCategory";
+import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -112,6 +114,52 @@ export function HomeContent({
       }
     }, 300);
     return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, router]);
+
+  /** 스와이프 직후 리스트 공백을 줄이기 위해 인접 목적지 RSC를 즉시 선행 요청한다. */
+  useEffect(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+    const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+    if (next) void router.prefetch(next);
+    if (prev) void router.prefetch(prev);
+    const prewarmTradeSurfaceHref = (href: string) => {
+      const pathOnly = (href.split("?")[0] ?? "").trim();
+      if (!pathOnly) return;
+      if (pathOnly === "/market") {
+        const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+        if (!hit?.posts?.length) {
+          void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
+        }
+        return;
+      }
+      const m = pathOnly.match(/^\/market\/([^/]+)$/);
+      if (!m) return;
+      let parent = m[1]!;
+      try {
+        parent = decodeURIComponent(parent);
+      } catch {
+        /* noop */
+      }
+      const hit = peekCachedTradeFeed([], {
+        page: 1,
+        sort: "latest",
+        tradeMarketParent: parent,
+        topic: "",
+      });
+      if (!hit?.posts?.length) {
+        void getPostsByTradeCategoryIds([], {
+          page: 1,
+          sort: "latest",
+          tradeMarketParent: parent,
+          topic: "",
+        });
+      }
+    };
+    if (next) prewarmTradeSurfaceHref(next);
+    if (prev) prewarmTradeSurfaceHref(prev);
   }, [tabs, activeIndex, router]);
 
   useEffect(() => {

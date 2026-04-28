@@ -50,6 +50,7 @@ import {
   shouldEnableNextLinkPrefetchOnMainNav,
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
+import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
@@ -235,6 +236,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           } catch {
             /* noop */
           }
+          /** RSC 프리페치와 별도로 클라 데이터 캐시도 함께 데워 첫 진입 즉시 렌더 */
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
         }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
@@ -248,6 +255,18 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           }
           triggerLightTapFeedback();
           onNavigationIntent(tab.id);
+          if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+            try {
+              void router.prefetch(tab.href);
+            } catch {
+              /* noop */
+            }
+            try {
+              prewarmBottomNavTapTargetClientCache(tab.href);
+            } catch {
+              /* noop */
+            }
+          }
         }
       }}
       onClick={(e) => {
@@ -359,6 +378,12 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           } catch {
             /* noop */
           }
+          /** RSC 프리페치와 별도로 클라 데이터 캐시도 함께 데워 첫 진입 즉시 렌더 */
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
         }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
@@ -372,6 +397,18 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           }
           triggerLightTapFeedback();
           onNavigationIntent(tab.id);
+          if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+            try {
+              void router.prefetch(tab.href);
+            } catch {
+              /* noop */
+            }
+            try {
+              prewarmBottomNavTapTargetClientCache(tab.href);
+            } catch {
+              /* noop */
+            }
+          }
         }
       }}
       onClick={(e) => {
@@ -583,6 +620,12 @@ export function BottomNav({
             const pathOnly = (href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
             if (pathOnly === "/community-messenger") {
               warmMessengerListBootstrapClient();
+            }
+            /** idle 프리페치 사이클에서도 클라 데이터 캐시를 함께 데워 RSC·DATA 캐시 분리 미스 방지 */
+            try {
+              prewarmBottomNavTapTargetClientCache(href);
+            } catch {
+              /* noop */
             }
           } catch {
             /* no-op */

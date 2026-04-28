@@ -11,6 +11,7 @@ import type { PostListMenuAction } from "@/components/post/PostListMenuBottomShe
 import {
   getPostsForHome,
   peekCachedPostsForHome,
+  peekRecentHomePostsFallback,
   primeHomePostsCache,
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
@@ -57,7 +58,7 @@ export function HomeProductList({
     tradeState === "latest"
       ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
       : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
-  const cachedInitial = boot;
+  const cachedInitial = boot ?? peekRecentHomePostsFallback();
   const [listState, setListState] = useState<ListState>(() =>
     cachedInitial ? (cachedInitial.posts.length === 0 ? "empty" : "idle") : "loading"
   );
@@ -392,10 +393,20 @@ export function HomeProductList({
 
 function LoadingState() {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
-      <p className="mt-3 text-[14px] text-sam-muted">로딩 중...</p>
-    </div>
+    <ul className="space-y-3 px-2 py-2" aria-busy="true" aria-label="거래 목록 로딩">
+      {[0, 1, 2, 3].map((k) => (
+        <li key={k} className="rounded-ui-rect border border-sam-border/70 bg-ui-surface p-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="h-14 w-14 shrink-0 animate-pulse rounded-ui-rect bg-sam-border-soft" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-3/4 animate-pulse rounded bg-sam-border-soft" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-sam-border-soft/80" />
+              <div className="h-3 w-1/3 animate-pulse rounded bg-sam-border-soft/70" />
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

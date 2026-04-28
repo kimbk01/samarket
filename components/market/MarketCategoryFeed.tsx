@@ -19,18 +19,19 @@ import {
 } from "@/lib/trade/ui/post-spacing";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
-import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getPostsByTradeCategoryIds, peekCachedTradeFeed } from "@/lib/posts/getPostsByCategory";
+import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
+import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 
 /**
  * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
@@ -70,6 +71,17 @@ export function MarketCategoryFeed({
   const topicPrefetchAtRef = useRef<Record<string, number>>({});
   const initialPrewarmDoneRef = useRef(false);
   const { tabs, activeIndex } = useTradeTabs(pathname);
+  const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
+  const [feedSwipeOn, setFeedSwipeOn] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const sync = () => setFeedSwipeOn(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     setChildren(initialChildren ?? []);
@@ -143,23 +155,33 @@ export function MarketCategoryFeed({
   }, [category.id, topicRaw, postSort]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
-  const onNavigate = useCallback(
-    (href: string) => {
-      router.push(href, { scroll: false });
-    },
-    [router]
+
+  const canSwipeNext = useMemo(
+    () => resolveTradeSwipeTarget(tabs, activeIndex, "next") != null,
+    [tabs, activeIndex]
   );
-  const onEdgeNext = useCallback(() => {
+  const canSwipePrev = useMemo(
+    () => resolveTradeSwipeTarget(tabs, activeIndex, "prev") != null,
+    [tabs, activeIndex]
+  );
+
+  const swipeToNext = useCallback(() => {
     const href = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-    if (href) router.push(href, { scroll: false });
-  }, [tabs, activeIndex, router]);
-  const onEdgePrev = useCallback(() => {
+    if (href) void router.push(href, { scroll: false });
+  }, [tabs, activeIndex, router, postSort]);
+
+  const swipeToPrev = useCallback(() => {
     const href = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-    if (href) router.push(href, { scroll: false });
+    if (href) void router.push(href, { scroll: false });
   }, [tabs, activeIndex, router]);
-  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onNavigate, {
-    onEdgeNext,
-    onEdgePrev,
+
+  const { setSwipeableEl: setMarketFeedSwipeable } = useMobileHorizontalSwipePanel({
+    enabled: feedSwipeOn,
+    swipeableRef: feedSwipeableRef,
+    onCommitNext: swipeToNext,
+    onCommitPrev: swipeToPrev,
+    canGoNext: canSwipeNext,
+    canGoPrev: canSwipePrev,
   });
 
   useEffect(() => {
@@ -181,6 +203,53 @@ export function MarketCategoryFeed({
       }
     }, 300);
     return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, router]);
+
+  /** `/market/*` 스와이프 시 다음 화면의 RSC 준비를 idle 전 즉시 시작한다. */
+  useEffect(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+    const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+    if (next) void router.prefetch(next);
+    if (prev) void router.prefetch(prev);
+    const prewarmTradeSurfaceHref = (href: string) => {
+      const pathOnly = (href.split("?")[0] ?? "").trim();
+      if (!pathOnly) return;
+      if (pathOnly === "/market") {
+        /** /market 루트는 HomeProductList(getPostsForHome) 캐시를 먼저 채워 즉시 리스트 렌더를 유도 */
+        const homeHit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+        if (!homeHit?.posts?.length) {
+          void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
+        }
+        return;
+      }
+      const m = pathOnly.match(/^\/market\/([^/]+)$/);
+      if (!m) return;
+      let parent = m[1]!;
+      try {
+        parent = decodeURIComponent(parent);
+      } catch {
+        /* noop */
+      }
+      const hit = peekCachedTradeFeed([], {
+        page: 1,
+        sort: postSort,
+        tradeMarketParent: parent,
+        topic: "",
+      });
+      if (!hit?.posts?.length) {
+        void getPostsByTradeCategoryIds([], {
+          page: 1,
+          sort: postSort,
+          tradeMarketParent: parent,
+          topic: "",
+        });
+      }
+    };
+    if (next) prewarmTradeSurfaceHref(next);
+    if (prev) prewarmTradeSurfaceHref(prev);
   }, [tabs, activeIndex, router]);
 
   useEffect(() => {
@@ -336,7 +405,10 @@ export function MarketCategoryFeed({
     children.length > 0 ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS : TRADE_GAP_MENU_TO_POSTS_CLASS;
 
   return (
-    <div className="touch-pan-y" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      ref={setMarketFeedSwipeable}
+      className="will-change-transform touch-pan-y min-w-0 w-full max-w-full"
+    >
       <div className={`${TRADE_CONTENT_SHELL_CLASS} ${postsTopGapClass}`}>
         <PostListByCategory
           categoryId={category.id}

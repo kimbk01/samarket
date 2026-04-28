@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  peekStoreHomeFeedClientCache,
+  primeStoreHomeFeedClientCache,
+} from "@/lib/stores/store-home-feed-client-cache";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -19,16 +23,6 @@ import {
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { isConstrainedNetwork } from "@/lib/ui/network-policy";
-
-const STORE_HOME_FEED_TTL_MS = 30_000;
-
-type StoreHomeFeedCacheEntry = {
-  stores: StoreHomeFeedItem[];
-  meta: { source?: string } | null;
-  expiresAt: number;
-};
-
-const storeHomeFeedCache = new Map<string, StoreHomeFeedCacheEntry>();
 
 function splitFeedSections(stores: StoreHomeFeedItem[]) {
   const seen = new Set<string>();
@@ -130,8 +124,8 @@ export function StoreNearbyFeedSection({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      const cached = storeHomeFeedCache.get(fetchSuffix);
-      const hasFreshCache = Boolean(cached && cached.expiresAt > Date.now());
+      const cached = peekStoreHomeFeedClientCache(fetchSuffix);
+      const hasFreshCache = Boolean(cached);
       if (cached && hasFreshCache) {
         setStores(cached.stores);
         setMeta(cached.meta);
@@ -148,10 +142,9 @@ export function StoreNearbyFeedSection({
           const j = json as { stores: StoreHomeFeedItem[]; meta?: { source?: string } };
           const nextStores = j.stores;
           const nextMeta = (j.meta ?? null) as { source?: string } | null;
-          storeHomeFeedCache.set(fetchSuffix, {
+          primeStoreHomeFeedClientCache(fetchSuffix, {
             stores: nextStores,
             meta: nextMeta,
-            expiresAt: Date.now() + STORE_HOME_FEED_TTL_MS,
           });
           setStores(nextStores);
           setMeta(nextMeta);
