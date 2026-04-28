@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRegion } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
@@ -87,6 +87,8 @@ export function StoresHub() {
     kind: "loading",
   });
   const [recentOrder, setRecentOrder] = useState<RecentOrderPreview | null>(null);
+  const buyerHubRequestIdRef = useRef(0);
+  const buyerHubAbortRef = useRef<AbortController | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
 
@@ -125,8 +127,15 @@ export function StoresHub() {
   }, [primaryRegion, userGeo]);
 
   const loadBuyerHub = useCallback(async () => {
+    const requestId = ++buyerHubRequestIdRef.current;
+    buyerHubAbortRef.current?.abort();
+    const controller = new AbortController();
+    buyerHubAbortRef.current = controller;
     try {
-      const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersHubSummaryDeduped();
+      const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersHubSummaryDeduped({
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
       if (ordersStatus === 401) {
         setBuyerOrderSummary({ kind: "idle" });
         setRecentOrder((prev) => (prev === null ? prev : null));
@@ -160,9 +169,15 @@ export function StoresHub() {
         orderChatRooms: Math.max(0, Number(hub.orderChatRooms) || 0),
         unreadChats: Math.max(0, Number(hub.unreadChats) || 0),
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
       setBuyerOrderSummary({ kind: "idle" });
       setRecentOrder((prev) => (prev === null ? prev : null));
+    } finally {
+      if (buyerHubAbortRef.current === controller) {
+        buyerHubAbortRef.current = null;
+      }
     }
   }, []);
 
@@ -177,6 +192,12 @@ export function StoresHub() {
   }, [loadBuyerHub]);
 
   useRefetchOnPageShowRestore(() => void loadBuyerHub());
+
+  useEffect(() => {
+    return () => {
+      buyerHubAbortRef.current?.abort();
+    };
+  }, []);
 
   const activeStoreOrderBadge =
     buyerOrderSummary.kind === "ready" ? buyerOrderSummary.activeOrders : 0;

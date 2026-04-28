@@ -112,8 +112,19 @@ export async function fetchStoresBrowseDeduped(queryString: string): Promise<Sto
 }
 
 /** GET /api/stores/home-feed… (쿼리 포함 전체 path 뒷부분, 예: `?lat=…` 또는 빈 문자열) */
-export async function fetchStoresHomeFeedDeduped(pathAndQuery: string): Promise<StoreApiJsonResponse> {
+export async function fetchStoresHomeFeedDeduped(
+  pathAndQuery: string,
+  opts: { signal?: AbortSignal } = {}
+): Promise<StoreApiJsonResponse> {
   const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
+  if (opts.signal) {
+    const res = await fetch(`/api/stores/home-feed${suffix}`, {
+      cache: "no-store",
+      signal: opts.signal,
+    });
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  }
   return runSingleFlight(`stores:api:home-feed:${suffix}`, async () => {
     const res = await fetch(`/api/stores/home-feed${suffix}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
@@ -207,7 +218,18 @@ export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: st
 }
 
 /** GET /api/me/store-orders?hub_summary=1 — stores hub buyer card (lightweight) */
-export async function fetchMeStoreOrdersHubSummaryDeduped(): Promise<StoreApiJsonResponse> {
+export async function fetchMeStoreOrdersHubSummaryDeduped(
+  opts: { signal?: AbortSignal } = {}
+): Promise<StoreApiJsonResponse> {
+  if (opts.signal) {
+    const res = await fetch("/api/me/store-orders?hub_summary=1", {
+      credentials: "include",
+      cache: "no-store",
+      signal: opts.signal,
+    });
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  }
   return runSingleFlight("me:store-orders:hub-summary:get", async () => {
     const res = await fetch("/api/me/store-orders?hub_summary=1", {
       credentials: "include",

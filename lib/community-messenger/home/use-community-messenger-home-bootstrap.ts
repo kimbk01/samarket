@@ -72,6 +72,10 @@ export function useCommunityMessengerHomeBootstrap({
   const silentThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** `refresh(false)` 가 Strict Mode·중복 effect 로 겹칠 때 동일 네트워크 라운드 방지 */
   const bootstrapNonSilentInFlightRef = useRef(false);
+  const refreshRequestIdRef = useRef(0);
+  const refreshAbortRef = useRef<AbortController | null>(null);
+  const deferredCallLogRequestIdRef = useRef(0);
+  const deferredCallLogAbortRef = useRef<AbortController | null>(null);
 
   /**
    * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
@@ -98,6 +102,8 @@ export function useCommunityMessengerHomeBootstrap({
 
   useEffect(() => {
     return () => {
+      refreshAbortRef.current?.abort();
+      deferredCallLogAbortRef.current?.abort();
       if (silentThrottleCoalesceTimerRef.current != null) {
         clearTimeout(silentThrottleCoalesceTimerRef.current);
         silentThrottleCoalesceTimerRef.current = null;
@@ -117,11 +123,17 @@ export function useCommunityMessengerHomeBootstrap({
 
   /** 서버 `deferCallLog` 분기 — `listCommunityMessengerCallLogs` 단일 왕복 */
   const mergeDeferredMessengerCallLogs = useCallback(async () => {
+    const requestId = ++deferredCallLogRequestIdRef.current;
+    deferredCallLogAbortRef.current?.abort();
+    const controller = new AbortController();
+    deferredCallLogAbortRef.current = controller;
     try {
       const res = await fetch("/api/community-messenger/bootstrap?callsLog=1", {
         cache: "no-store",
         credentials: "include",
+        signal: controller.signal,
       });
+      if (controller.signal.aborted || requestId !== deferredCallLogRequestIdRef.current) return;
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         calls?: CommunityMessengerCallLog[];
@@ -140,8 +152,13 @@ export function useCommunityMessengerHomeBootstrap({
         primeBootstrapCache(merged);
         return merged;
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       /* ignore */
+    } finally {
+      if (deferredCallLogAbortRef.current === controller) {
+        deferredCallLogAbortRef.current = null;
+      }
     }
   }, []);
 
@@ -225,6 +242,10 @@ export function useCommunityMessengerHomeBootstrap({
     if (!silent) {
       bootstrapNonSilentInFlightRef.current = true;
     }
+    const requestId = ++refreshRequestIdRef.current;
+    refreshAbortRef.current?.abort();
+    const controller = new AbortController();
+    refreshAbortRef.current = controller;
     samarketMessengerHomeDebugEvent("messenger_home_refresh_start", { silent });
     let refreshDataOk = false;
     let bootstrapClientOk = false;
@@ -240,7 +261,8 @@ export function useCommunityMessengerHomeBootstrap({
     try {
       if (silent) {
         const tSilentFetch = typeof performance !== "undefined" ? performance.now() : null;
-        const { res, json } = await fetchCommunityMessengerHomeSilentLists();
+        const { res, json } = await fetchCommunityMessengerHomeSilentLists({ signal: controller.signal });
+        if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
         if (res.status === 429) {
           const ra = res.headers.get("Retry-After");
           const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
@@ -269,7 +291,8 @@ export function useCommunityMessengerHomeBootstrap({
               return;
             }
             samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "fresh" });
-            const resFull = await fetchCommunityMessengerBootstrapClient("fresh");
+            const resFull = await fetchCommunityMessengerBootstrapClient("fresh", { signal: controller.signal });
+            if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
             const jsonFull = await parseBootstrapJson<CommunityMessengerBootstrap & {
               ok?: boolean;
               error?: string;
@@ -317,7 +340,10 @@ export function useCommunityMessengerHomeBootstrap({
         samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", {
           mode: useLiteBootstrap ? "lite" : "full",
         });
-        const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full");
+        const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full", {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
         const json = await parseBootstrapJson<CommunityMessengerBootstrap & {
           ok?: boolean;
           error?: string;
@@ -388,6 +414,9 @@ export function useCommunityMessengerHomeBootstrap({
         }
       }
     } finally {
+      if (refreshAbortRef.current === controller) {
+        refreshAbortRef.current = null;
+      }
       if (refreshDataOk) {
         samarketMessengerHomeDebugEvent("messenger_home_refresh_success", {
           silent,

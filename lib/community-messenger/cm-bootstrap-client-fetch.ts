@@ -61,7 +61,8 @@ function captureResponseSizeBytes(response: Response, requestUrl: string): void 
 }
 
 export function fetchCommunityMessengerBootstrapClient(
-  mode: CommunityMessengerClientBootstrapMode
+  mode: CommunityMessengerClientBootstrapMode,
+  opts: { signal?: AbortSignal } = {}
 ): Promise<Response> {
   /**
    * 빠른 탭 왕복(거래 ↔ 커뮤니티)에서는 최근 부트스트랩이 이미 session/memory cache에 있다.
@@ -84,14 +85,14 @@ export function fetchCommunityMessengerBootstrapClient(
       : mode === "lite"
         ? "/api/community-messenger/bootstrap?lite=1"
         : "/api/community-messenger/bootstrap";
-  return runSingleFlight(flightKey(mode), async () => {
+  const runFetch = async (signal?: AbortSignal): Promise<Response> => {
     tryTrackFirstMenuListFetchStart();
     bumpAppWidePerf("messenger_list_fetch_start");
     beginMessengerBootstrapClientPhase(mode);
     const t0 = performance.now();
     recordMessengerHomeBootstrapClientNetworkFetch(mode);
     const tNet0 = performance.now();
-    const res = await fetch(url, { cache: "no-store", credentials: "include" });
+    const res = await fetch(url, { cache: "no-store", credentials: "include", ...(signal ? { signal } : {}) });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
     captureResponseSizeBytes(res, url);
     bumpAppWidePerf("messenger_list_fetch_success");
@@ -111,5 +112,11 @@ export function fetchCommunityMessengerBootstrapClient(
       });
     });
     return res;
+  };
+  if (opts.signal) {
+    return runFetch(opts.signal);
+  }
+  return runSingleFlight(flightKey(mode), async () => {
+    return runFetch();
   });
 }

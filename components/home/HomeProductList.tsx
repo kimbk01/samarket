@@ -70,6 +70,10 @@ export function HomeProductList({
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const lastLoadedAtRef = useRef(0);
+  const latestRequestIdRef = useRef(0);
+  const latestAbortRef = useRef<AbortController | null>(null);
+  const silentRequestIdRef = useRef(0);
+  const silentAbortRef = useRef<AbortController | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   const initialVisibleExpansionDoneRef = useRef(false);
@@ -79,6 +83,10 @@ export function HomeProductList({
   });
 
   const load = useCallback(async () => {
+    const requestId = ++latestRequestIdRef.current;
+    latestAbortRef.current?.abort();
+    const controller = new AbortController();
+    latestAbortRef.current = controller;
     await runSingleFlight("home-product-list:load", async () => {
       if (lastLoadedAtRef.current === 0) {
         setListState("loading");
@@ -91,7 +99,8 @@ export function HomeProductList({
         tradeFetchT0 = performance.now();
       }
       try {
-        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS);
+        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS, { signal: controller.signal });
+        if (controller.signal.aborted || requestId !== latestRequestIdRef.current) return;
         setPosts(res.posts);
         setFavoriteMap(res.favoriteMap);
         lastLoadedAtRef.current = Date.now();
@@ -112,9 +121,15 @@ export function HomeProductList({
             });
           });
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (controller.signal.aborted || requestId !== latestRequestIdRef.current) return;
         /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
         setListState("error");
+      } finally {
+        if (latestAbortRef.current === controller) {
+          latestAbortRef.current = null;
+        }
       }
     });
   }, []);
@@ -164,15 +179,26 @@ export function HomeProductList({
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
       return;
     }
+    const requestId = ++silentRequestIdRef.current;
+    silentAbortRef.current?.abort();
+    const controller = new AbortController();
+    silentAbortRef.current = controller;
 
     await runSingleFlight("home-product-list:silent-refresh", async () => {
       try {
-        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS);
+        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS, { signal: controller.signal });
+        if (controller.signal.aborted || requestId !== silentRequestIdRef.current) return;
         setPosts(res.posts);
         setFavoriteMap(res.favoriteMap);
         lastLoadedAtRef.current = Date.now();
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (controller.signal.aborted || requestId !== silentRequestIdRef.current) return;
         /* 기존 목록 유지 */
+      } finally {
+        if (silentAbortRef.current === controller) {
+          silentAbortRef.current = null;
+        }
       }
     });
   }, []);
@@ -204,6 +230,8 @@ export function HomeProductList({
 
   useEffect(() => {
     return () => {
+      latestAbortRef.current?.abort();
+      silentAbortRef.current?.abort();
       if (toastTimerRef.current != null) {
         clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;

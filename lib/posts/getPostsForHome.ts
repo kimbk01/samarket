@@ -85,12 +85,73 @@ export function primeHomePostsCache(
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
  */
 export async function getPostsForHome(
-  options: GetPostsForHomeOptions = {}
+  options: GetPostsForHomeOptions = {},
+  opts: { signal?: AbortSignal } = {}
 ): Promise<GetPostsForHomeResult> {
   const { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
+  }
+
+  if (opts.signal) {
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        sort,
+      });
+      if (typeFilter) {
+        params.set("type", typeFilter);
+      }
+      if (tradeMarketParent) {
+        params.set("tradeMarketParent", tradeMarketParent);
+      }
+      if (tradeState && tradeState !== "latest") {
+        params.set("tradeState", tradeState);
+      }
+
+      const dbg = samarketRuntimeDebugEnabled();
+      const wallT0 = dbg ? performance.now() : 0;
+      const tNet0 = dbg ? performance.now() : 0;
+      const res = await fetch(`/api/home/posts?${params.toString()}`, {
+        credentials: "include",
+        signal: opts.signal,
+      });
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_network_ms", Math.round(performance.now() - tNet0));
+      }
+      if (!res.ok) {
+        return { posts: [], hasMore: false, favoriteMap: {} };
+      }
+
+      const tJson0 = dbg ? performance.now() : 0;
+      const data = (await res.json()) as {
+        posts?: PostWithMeta[];
+        hasMore?: boolean;
+        favoriteMap?: Record<string, boolean>;
+      };
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
+      }
+      const tBuild0 = dbg ? performance.now() : 0;
+      const result = {
+        posts: Array.isArray(data.posts) ? data.posts : [],
+        hasMore: data.hasMore === true,
+        favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
+      };
+      homePostsCache.set(cacheKey, {
+        data: result,
+        expiresAt: Date.now() + HOME_POSTS_TTL_MS,
+      });
+      capHomePostsClientCache();
+      if (dbg) {
+        recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
+        recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));
+      }
+      return result;
+    } catch {
+      return { posts: [], hasMore: false, favoriteMap: {} };
+    }
   }
 
   return runSingleFlight(`home-posts-fetch:${cacheKey}`, async () => {

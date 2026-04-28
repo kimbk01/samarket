@@ -26,7 +26,20 @@ export type CommunityMessengerHomeSilentListsPayload = {
   };
 };
 
-export function fetchCommunityMessengerHomeSilentLists(): Promise<CommunityMessengerHomeSilentListsPayload> {
+export function fetchCommunityMessengerHomeSilentLists(
+  opts: { signal?: AbortSignal } = {}
+): Promise<CommunityMessengerHomeSilentListsPayload> {
+  if (opts.signal) {
+    return (async () => {
+      recordMessengerHomeHomeSyncNetworkFetch();
+      const res = await fetch("/api/community-messenger/home-sync", {
+        cache: "no-store",
+        signal: opts.signal,
+      });
+      const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
+      return { res, json };
+    })();
+  }
   return runSingleFlight(FLIGHT_KEY, async () => {
     recordMessengerHomeHomeSyncNetworkFetch();
     const res = await fetch("/api/community-messenger/home-sync", { cache: "no-store" });

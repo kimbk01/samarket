@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -111,6 +111,8 @@ export function StoreNearbyFeedSection({
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<{ source?: string } | null>(null);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchSuffix = useMemo(() => {
     const base = querySuffix.startsWith("?") ? querySuffix.slice(1) : querySuffix;
@@ -124,8 +126,13 @@ export function StoreNearbyFeedSection({
   const loadFeed = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
+      const requestId = ++requestIdRef.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       const cached = storeHomeFeedCache.get(fetchSuffix);
-      if (cached && cached.expiresAt > Date.now()) {
+      const hasFreshCache = Boolean(cached && cached.expiresAt > Date.now());
+      if (cached && hasFreshCache) {
         setStores(cached.stores);
         setMeta(cached.meta);
         setLoading(false);
@@ -133,9 +140,10 @@ export function StoreNearbyFeedSection({
           return;
         }
       }
-      if (!silent) setLoading(true);
+      if (!silent && !hasFreshCache) setLoading(true);
       try {
-        const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix);
+        const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix, { signal: controller.signal });
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return;
         if (json && typeof json === "object" && (json as { ok?: boolean }).ok && Array.isArray((json as { stores?: unknown }).stores)) {
           const j = json as { stores: StoreHomeFeedItem[]; meta?: { source?: string } };
           const nextStores = j.stores;
@@ -150,10 +158,13 @@ export function StoreNearbyFeedSection({
         } else {
           if (!silent) setStores([]);
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (requestId !== requestIdRef.current || controller.signal.aborted) return;
         if (!silent) setStores([]);
       } finally {
-        if (!silent) setLoading(false);
+        if (abortRef.current === controller) abortRef.current = null;
+        if (!silent && requestId === requestIdRef.current) setLoading(false);
       }
     },
     [fetchSuffix]
@@ -161,6 +172,9 @@ export function StoreNearbyFeedSection({
 
   useLayoutEffect(() => {
     void loadFeed();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [loadFeed]);
 
   useRefetchOnPageShowRestore(() => void loadFeed({ silent: true }));
