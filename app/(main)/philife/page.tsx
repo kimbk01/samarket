@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
 
 /**
@@ -15,5 +16,9 @@ import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClient
  * 라우트 전환과 데이터 fetch 가 병렬 진행돼 체감 지연이 줄어든다.
  */
 export default function PhilifePage() {
-  return <PhilifeFeedClientEntry />;
+  return (
+    <Suspense fallback={null}>
+      <PhilifeFeedClientEntry />
+    </Suspense>
+  );
 }
