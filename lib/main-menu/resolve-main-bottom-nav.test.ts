@@ -79,6 +79,19 @@ describe("resolveMainBottomNavDisplayItems", () => {
     });
     expect(items.find((i) => i.id === "home")).toMatchObject({ icon: "trade" });
   });
+
+  it("거래 탭 레거시 href=/home 저장본이면 /market으로 승격", () => {
+    const items = resolveMainBottomNavDisplayItems({
+      items: [
+        { id: "home", visible: true, label: "거래", href: "/home", icon: "trade" },
+        { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
+        { id: "stores", visible: true, label: "배달", href: "/stores", icon: "stores" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
+        { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
+      ],
+    });
+    expect(items.find((i) => i.id === "home")?.href).toBe("/market");
+  });
 });
 
 describe("validateMainBottomNavPayload", () => {

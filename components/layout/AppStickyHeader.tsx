@@ -25,7 +25,6 @@ export function AppStickyHeader() {
   const { topTier1RuleSet, isTradeMenuSurface } = useMemo(() => {
     const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
     const isTradeMenuSurface =
-      pathname === "/home" ||
       pathname === "/market" ||
       (pathname?.startsWith("/market/") ?? false);
     return { topTier1RuleSet, isTradeMenuSurface };

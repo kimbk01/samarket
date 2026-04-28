@@ -88,7 +88,10 @@ function isValidTabId(id: string): boolean {
 
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
   const hrefRaw = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
-  const href = normalizeBuiltinMessengerTabHref(base.id, hrefRaw);
+  const normalizedBuiltinHref =
+    /** 거래 탭 레거시 저장본(`/home`)은 새 정책(`/market`)으로 자동 승격. */
+    base.id === "home" && hrefRaw === "/home" ? base.href : hrefRaw;
+  const href = normalizeBuiltinMessengerTabHref(base.id, normalizedBuiltinHref);
   const label = trimLabel(raw.label, base.label);
   let icon: BottomNavIconKey = isIconKey(raw.icon) ? raw.icon : base.icon;
   /* 예전 TRADE 탭이 라벨만 TRADE이고 icon=home(집)으로 저장된 경우 → trade 아이콘으로 통일 */

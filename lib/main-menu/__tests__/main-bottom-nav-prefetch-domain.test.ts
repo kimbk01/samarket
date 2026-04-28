@@ -10,7 +10,6 @@ describe("mainBottomNavPrefetchTriggerKey", () => {
   });
 
   it("거래 허브·마켓은 trade", () => {
-    expect(mainBottomNavPrefetchTriggerKey("/home")).toBe("trade");
     expect(mainBottomNavPrefetchTriggerKey("/market")).toBe("trade");
     expect(mainBottomNavPrefetchTriggerKey("/market/jobs")).toBe("trade");
   });

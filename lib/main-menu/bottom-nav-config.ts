@@ -194,7 +194,7 @@ export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
   { id: "community", href: "/philife", label: "커뮤니티", labelKey: "nav_bottom_community", icon: "community" },
-  { id: "home", href: "/home", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
+  { id: "home", href: "/market", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
   { id: "stores", href: "/stores", label: "배달", labelKey: "nav_bottom_delivery", icon: "stores" },
   {
     id: "chat",

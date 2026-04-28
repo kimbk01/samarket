@@ -77,8 +77,8 @@ export function useTradeTabs(pathname: string) {
       {
         key: "all",
         label: "전체",
-        href: "/home",
-        isActive: pathname === "/home",
+        href: "/market",
+        isActive: pathname === "/market",
       },
       ...tradeCategories.map((category) => ({
         key: category.id,

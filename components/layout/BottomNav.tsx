@@ -65,10 +65,10 @@ import {
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 
-/** `/home` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
+/** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
   if (!pathname) return true;
-  if (pathname === "/home" && targetHref !== "/home") return false;
+  if (pathname === "/market" && targetHref !== "/market") return false;
   return true;
 }
 

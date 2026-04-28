@@ -56,7 +56,7 @@ export function ConditionalAppShell({
   const messengerRoomKeyboardHidesNav =
     isCommunityMessengerRoomPathname(pathname) && messengerSuppressBottomNav;
   const showBottomNavBase = f.showBottomNav && !messengerRoomKeyboardHidesNav;
-  /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래 홈·마켓 동일 */
+  /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래(`/market*`) 동일 */
   const showBottomNavEffective =
     showBottomNavBase && !(isMessengerStackSurface && headerMessengerFromPhilife);
   const bottomNavScrollHideEnabled =

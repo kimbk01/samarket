@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -78,14 +78,6 @@ function TradePrimaryTabsInner({
     ? tradeStateRaw
     : "latest";
   const allSortLabel = tradeState === "active" ? "판매중" : tradeState === "reserved" ? "예약중" : tradeState === "sold" ? "거래 완료" : "최신순";
-  const allHref = useMemo(() => {
-    const sp = new URLSearchParams(searchParams.toString());
-    if (tradeState === "latest") sp.delete("tradeState");
-    else sp.set("tradeState", tradeState);
-    const qs = sp.toString();
-    return qs ? `/home?${qs}` : "/home";
-  }, [searchParams, tradeState]);
-
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
       if (next !== tradeState && !guardBeforeNavigate()) return;
@@ -93,7 +85,7 @@ function TradePrimaryTabsInner({
       if (next === "latest") sp.delete("tradeState");
       else sp.set("tradeState", next);
       const qs = sp.toString();
-      void router.replace(qs ? `/home?${qs}` : "/home", { scroll: false });
+      void router.replace(qs ? `/market?${qs}` : "/market", { scroll: false });
       setAllSortOpen(false);
     },
     [router, searchParams, tradeState, guardBeforeNavigate]
@@ -175,18 +167,18 @@ function TradePrimaryTabsInner({
       >
         {tabs.map((tab) => {
           if (tab.key === "all") {
-            const onHome = pathname === "/home";
+            const onAllTrade = pathname === "/market";
             return (
               <button
                 key={tab.key}
                 type="button"
                 role="tab"
-                aria-selected={onHome}
+                aria-selected={onAllTrade}
                 aria-haspopup="listbox"
                 aria-expanded={allSortOpen}
                 ref={allSortButtonRef}
                 onClick={() => setAllSortOpen((v) => !v)}
-                className={`${onHome ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`}
+                className={`${onAllTrade ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`}
               >
                 <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{allSortLabel}</span>
                 {allSortOpen ? (

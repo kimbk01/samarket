@@ -19,7 +19,7 @@ export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBo
   const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
   const p = raw.replace(/\/+$/, "") || "/";
   if (p === "/" || !p) return "root";
-  if (p === "/home" || p === "/market" || p.startsWith("/market/")) return "trade";
+  if (p === "/market" || p.startsWith("/market/")) return "trade";
   if (p === "/philife" || p.startsWith("/philife/")) return "philife";
   if (p === "/stores" || p.startsWith("/stores/")) return "stores";
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return "messenger";

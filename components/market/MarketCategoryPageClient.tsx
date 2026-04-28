@@ -19,7 +19,7 @@ export function MarketCategoryPageClient({
       key={layoutKey}
       slugOrId={slugOrId}
       expectedType="trade"
-      backHref="/home"
+      backHref="/market"
       tradeServerSeed={tradeServerSeed}
     >
       {(category, extra) => (

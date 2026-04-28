@@ -47,6 +47,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   const p = normalizeAppPathnameForTier1(pathname);
 
   if (isTradeFloatingMenuSurface(p)) return null;
+  if (p === "/home") return null;
   if (p === "/philife") return null;
   if (p === "/community") return null;
   if (p === "/stores") return null;
