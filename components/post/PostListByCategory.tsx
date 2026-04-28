@@ -1,9 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
+  peekCachedTradeFeed,
   primeTradeFeedCache,
   type PostSort,
 } from "@/lib/posts/getPostsByCategory";
@@ -23,6 +24,8 @@ const ReportReasonModal = dynamic(
 );
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
+import { PHILIFE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 
 interface PostListByCategoryProps {
   categoryId: string;
@@ -58,19 +61,6 @@ export function PostListByCategory({
   jobsListingKind,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
-  const [posts, setPosts] = useState<PostWithMeta[]>([]);
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
-  const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
-  const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
-  const [reportPostId, setReportPostId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(1);
-  /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
-  const listFeedEpochRef = useRef(0);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -91,6 +81,37 @@ export function PostListByCategory({
       jobsListingKind,
     ]
   );
+
+  const initialCachedFeed = useMemo(() => {
+    if (!categoryId) return null;
+    return tradeFeedServerResolution
+      ? peekCachedTradeFeed([], {
+          page: 1,
+          sort,
+          jobsListingKind,
+          tradeMarketParent: categoryId,
+          topic: tradeTopicParam,
+        })
+      : peekCachedTradeFeed(effectiveIds, { page: 1, sort, jobsListingKind });
+  }, [categoryId, tradeFeedServerResolution, effectiveIds, sort, jobsListingKind, tradeTopicParam]);
+
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => initialCachedFeed?.posts ?? []);
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
+    () => initialCachedFeed?.favoriteMap ?? {}
+  );
+  const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
+  const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
+  const [reportPostId, setReportPostId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [loading, setLoading] = useState(() => !initialCachedFeed);
+  const [hasMore, setHasMore] = useState(() => initialCachedFeed?.hasMore === true);
+  const [page, setPage] = useState(1);
+  /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
+  const listFeedEpochRef = useRef(0);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listRootRef = useRef<HTMLUListElement | null>(null);
+  const firstCardPaintStartRef = useRef(0);
+  const firstCardPaintFeedKeyRef = useRef("");
 
   const load = useCallback(
     async (pageNum: number = 1) => {
@@ -263,6 +284,24 @@ export function PostListByCategory({
         }
         return;
       }
+      const cached = tradeFeedServerResolution
+        ? peekCachedTradeFeed([], {
+            page: 1,
+            sort,
+            jobsListingKind,
+            tradeMarketParent: categoryId,
+            topic: tradeTopicParam,
+          })
+        : peekCachedTradeFeed(effectiveIds, { page: 1, sort, jobsListingKind });
+      if (cached) {
+        setPosts(cached.posts);
+        setHasMore(cached.hasMore);
+        setHiddenPostIds(new Set());
+        setNotInterestedPostIds(new Set());
+        setFavoriteMap(cached.favoriteMap ?? {});
+        setLoading(false);
+        return;
+      }
       await load(1);
     })();
 
@@ -270,6 +309,31 @@ export function PostListByCategory({
       cancelled = true;
     };
   }, [feedKey, initialTradeFeed?.feedKey, load]);
+
+  useLayoutEffect(() => {
+    firstCardPaintFeedKeyRef.current = feedKey;
+    firstCardPaintStartRef.current = performance.now();
+  }, [feedKey]);
+
+  useEffect(() => {
+    if (loading || posts.length === 0) return;
+    if (firstCardPaintFeedKeyRef.current !== feedKey) return;
+    const root = listRootRef.current;
+    if (!root) return;
+    const firstCard = root.querySelector('a[href^="/post/"], article, li');
+    if (!firstCard) return;
+    const startedAt = firstCardPaintStartRef.current;
+    if (!Number.isFinite(startedAt) || startedAt <= 0) return;
+    queueMicrotask(() => {
+      if (typeof requestAnimationFrame !== "function") return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          recordTradeListMetric("trade_list_swipe_first_card_paint_ms", performance.now() - startedAt);
+          firstCardPaintStartRef.current = 0;
+        });
+      });
+    });
+  }, [feedKey, loading, posts.length]);
 
   useEffect(() => {
     const onFav = (e: Event) => {
@@ -372,7 +436,7 @@ export function PostListByCategory({
 
   return (
     <>
-      <ul className="m-0 min-w-0 w-full max-w-full list-none divide-y divide-sam-border p-0">
+      <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${PHILIFE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post) =>
           notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">

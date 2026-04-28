@@ -7,10 +7,15 @@ import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
 import { isProductionDeploy } from "@/lib/config/deploy-surface";
-import { getBottomNavAdjacentHref } from "@/lib/main-menu/bottom-nav-config";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
+import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 const HomeFeedViewExperimental = dynamic(
   () =>
     import("@/components/home-feed/HomeFeedViewExperimental").then((m) => ({
@@ -62,34 +67,20 @@ export function HomeContent({
   }, []);
 
   const canSwipeNext = useMemo(() => {
-    if (tabs.length === 0 || activeIndex < 0) return false;
-    if (activeIndex < tabs.length - 1) return true;
-    return getBottomNavAdjacentHref("home", "next") != null;
-  }, [tabs.length, activeIndex]);
+    return resolveTradeSwipeTarget(tabs, activeIndex, "next") != null;
+  }, [tabs, activeIndex]);
 
   const canSwipePrev = useMemo(() => {
-    if (tabs.length === 0 || activeIndex < 0) return false;
-    if (activeIndex > 0) return true;
-    return getBottomNavAdjacentHref("home", "prev") != null;
-  }, [tabs.length, activeIndex]);
+    return resolveTradeSwipeTarget(tabs, activeIndex, "prev") != null;
+  }, [tabs, activeIndex]);
 
   const swipeToNext = useCallback(() => {
-    if (tabs.length === 0 || activeIndex < 0) return;
-    if (activeIndex < tabs.length - 1) {
-      void router.push(tabs[activeIndex + 1]!.href, { scroll: false });
-      return;
-    }
-    const h = getBottomNavAdjacentHref("home", "next");
+    const h = resolveTradeSwipeTarget(tabs, activeIndex, "next");
     if (h) void router.push(h, { scroll: false });
   }, [tabs, activeIndex, router]);
 
   const swipeToPrev = useCallback(() => {
-    if (tabs.length === 0 || activeIndex < 0) return;
-    if (activeIndex > 0) {
-      void router.push(tabs[activeIndex - 1]!.href, { scroll: false });
-      return;
-    }
-    const h = getBottomNavAdjacentHref("home", "prev");
+    const h = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
     if (h) void router.push(h, { scroll: false });
   }, [tabs, activeIndex, router]);
 
@@ -105,6 +96,23 @@ export function HomeContent({
   useLayoutEffect(() => {
     recordTradeListMetricOnce("trade_list_home_content_render_end_ms");
   }, []);
+
+  useEffect(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      const targets = new Set<string>();
+      const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+      const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+      if (next) targets.add(next);
+      if (prev) targets.add(prev);
+      for (const href of targets) {
+        void router.prefetch(href);
+      }
+    }, 300);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, router]);
 
   useEffect(() => {
     const cancelWarm = warmMainShellData();

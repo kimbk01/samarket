@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-27T20:20:00.000Z",
-  "currentTarget": "trade",
+  "updatedAt": "2026-04-28T03:24:00.000Z",
+  "currentTarget": "delivery",
   "inProgress": null,
   "bottlenecks": [
     {
@@ -840,6 +840,30 @@
     "2026-04-26: PurchaseDetailView — GET /api/my/purchases/:chatId runSingleFlight(fetch만) + credentials + clone.json"
   ],
   "completed": [
+    {
+      "domain": "trade",
+      "file": "components/home/TradeTopicChipsRow.tsx",
+      "reason": "trade market topic chips explicitly disabled route prefetch, causing cold first transition on topic switch",
+      "before": "TradeTopicChipsRow rendered each topic Link with prefetch={false}, so every first topic transition waited for uncached route/data loading.",
+      "after": "TradeTopicChipsRow now enables Link prefetch for topic chips, warming adjacent market topic transitions before user tap/swipe commit.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: topic chip 네비게이션 흐름 유지, prefetch 플래그만 변경."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: topic 링크의 prefetch 비활성 조건 제거로 cold route 진입 조건 축소."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: MarketCategoryFeed에서 동일 컴포넌트를 재사용하며 URL/topic 매핑 로직 변화 없음."
+        }
+      ]
+    },
     {
       "domain": "community",
       "file": "components/community/CommunityFeed.tsx",
@@ -8508,6 +8532,14 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-04-28T03:24:00.000Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/home/TradeTopicChipsRow.tsx",
+      "reason": "trade market topic chips explicitly disabled route prefetch, causing cold first transition on topic switch",
+      "result": "Enabled topic Link prefetch and moved currentTarget to delivery"
+    },
     {
       "at": "2026-04-27T20:20:00.000Z",
       "domain": "community",

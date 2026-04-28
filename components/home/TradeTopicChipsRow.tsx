@@ -12,6 +12,8 @@ interface TradeTopicChipsRowProps {
   selectedTopicKey: string | null;
   /** topic 링크에 함께 붙일 쿼리(알바 `jk` 등) */
   extraQuery?: Record<string, string>;
+  /** 메뉴 터치/호버 시 부모에서 데이터 선예열 */
+  onTopicIntent?: (topicKey: string) => void;
 }
 
 /**
@@ -22,6 +24,7 @@ export function TradeTopicChipsRow({
   topics,
   selectedTopicKey,
   extraQuery,
+  onTopicIntent,
 }: TradeTopicChipsRowProps) {
   const base = marketBasePath.replace(/\/$/, "");
 
@@ -47,7 +50,11 @@ export function TradeTopicChipsRow({
             scroll={false}
             role="tab"
             aria-selected={on}
-            prefetch={false}
+            prefetch
+            onMouseEnter={() => onTopicIntent?.(raw)}
+            onTouchStart={() => onTopicIntent?.(raw)}
+            onPointerDown={() => onTopicIntent?.(raw)}
+            onFocus={() => onTopicIntent?.(raw)}
             className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             {t.name}

@@ -7,6 +7,7 @@ import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients
 import { fetchTradeFeedPage, type TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
 import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-server-cache";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 
 export type TradeFeedOpenRequestOptions = {
   page: number;
@@ -41,6 +42,18 @@ export async function resolveTradeFeedOpenPayload(
     const alt = await fetchTradeFeedPage(serviceSb, categoryIds, opts);
     if (alt.posts.length > 0) {
       result = alt;
+    }
+  }
+
+  /**
+   * 메뉴 분류(/market/*) 피드도 홈(/home)과 동일하게 작성자 닉네임을 보강한다.
+   * - 1차: read client
+   * - 2차(필요 시): service client
+   */
+  if (result.posts.length > 0) {
+    await enrichPostsAuthorNicknamesFromProfiles(readSb as any, result.posts as PostWithMeta[]);
+    if (serviceSb && serviceSb !== readSb) {
+      await enrichPostsAuthorNicknamesFromProfiles(serviceSb as any, result.posts as PostWithMeta[]);
     }
   }
 

@@ -38,8 +38,12 @@ const POST_LIST_ROW1_CHIP_BASE = APP_FEED_LIST_ROW1_PILL_LIST;
 
 export const POST_LIST_CHIP_GRAY = `${POST_LIST_ROW1_CHIP_BASE} bg-gray-100 text-gray-700`;
 export const POST_LIST_CHIP_GRAY_SM = POST_LIST_CHIP_GRAY;
+/** 리스트 상태배지(판매중/문의중)와 동일한 축소 폰트 톤 */
+export const POST_LIST_CHIP_GRAY_STATUS_MATCH = `${POST_LIST_CHIP_GRAY} text-[length:calc(12px-1pt)]`;
 export const POST_LIST_CHIP_AMBER = `${POST_LIST_ROW1_CHIP_BASE} bg-amber-100 text-amber-800`;
 export const POST_LIST_CHIP_BLUE = `${POST_LIST_ROW1_CHIP_BASE} bg-blue-50 text-blue-700`;
+export const POST_LIST_CHIP_AMBER_STATUS_MATCH = `${POST_LIST_CHIP_AMBER} text-[length:calc(12px-1pt)]`;
+export const POST_LIST_CHIP_BLUE_STATUS_MATCH = `${POST_LIST_CHIP_BLUE} text-[length:calc(12px-1pt)]`;
 
 /** 피드 카드 본문 타이포 — 커뮤니티 `ListTitleOnly`와 정렬(15px semibold #050505) */
 export const POST_LIST_TITLE_CLASS =
@@ -47,12 +51,13 @@ export const POST_LIST_TITLE_CLASS =
 /**
  * 일반 중고 2단(제목) 등 — 커뮤니티 카드 제목과 동일
  */
-export const POST_LIST_TRADE_TITLE_CLASS = POST_LIST_TITLE_CLASS;
+export const POST_LIST_TRADE_TITLE_CLASS =
+  "mt-0.5 line-clamp-2 text-left text-[13px] font-medium leading-snug text-[#050505]";
 /**
  * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일(마진 없음)
  */
 export const POST_LIST_EXCHANGE_HEADLINE_CLASS =
-  "line-clamp-2 shrink-0 text-left text-[15px] font-semibold leading-snug text-[#050505]";
+  "line-clamp-2 shrink-0 text-left text-[13px] font-medium leading-snug text-[#050505]";
 /**
  * 중고차 리스트 2단(차량명·연식) — `POST_LIST_TRADE_TITLE_CLASS`와 동일
  */
@@ -66,9 +71,17 @@ export const POST_LIST_PRICE_TEXT_CLASS =
 
 /** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
+/**
+ * 거래 리스트 공통 금액 줄(중고거래/중고차/부동산/환전/일자리).
+ * 제목과 분리해 금액만 일괄 조정할 때 이 상수만 수정한다.
+ */
+export const POST_LIST_TRADE_PRICE_CLASS = POST_LIST_PRICE_CLASS;
 /** 부동산 3단(스pec)·보조 본문 — 커뮤니티 `ListBodyPreview`(13px #6B7280) */
 export const POST_LIST_SUBLINE_CLASS =
   "mt-0.5 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[#6B7280]";
+/** 부동산 스펙 줄(주택·sq·방·욕실) — 작성자 줄과 동일 폰트 크기 */
+export const POST_LIST_REAL_ESTATE_SPEC_CLASS =
+  "mt-0.5 line-clamp-2 text-left text-[11px] font-normal leading-[1.45] text-[#6B7280]";
 /** 환전 리스트 3단(환율) — `POST_LIST_SUBLINE_CLASS`와 동일 */
 export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
 /**
@@ -76,6 +89,9 @@ export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
  */
 export const POST_LIST_META_LINE_CLASS =
   "text-[12px] font-normal leading-[1.4] text-[#6B7280]";
+/** 리스트 작성자(닉네임) 줄 — 메뉴/전체 공통 */
+export const POST_LIST_SELLER_LINE_CLASS =
+  "text-[11px] font-medium leading-[1.4] text-[#050505]";
 
 /** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;
@@ -102,7 +118,7 @@ export interface PostListBodyBlock {
   className: string;
   text: string;
   /** 판매자 닉네임 전용 줄 — 부동산·알바·환전 본문·채팅 압축에서 구분 */
-  row?: "seller";
+  row?: "seller" | "real_estate_price";
 }
 
 export interface PostListPreviewModel {
@@ -117,7 +133,12 @@ export interface PostListPreviewModel {
    * PostCard 하단 — 환전만 null.
    * `sellerLine`: 주소·시간 줄(ul) **위** — `profiles`/author_nickname 기반 **닉네임만**(숫자 ID 미표시).
    */
-  listFooter: { sellerLine?: string | null; ulClassName: string; items: string[] } | null;
+  listFooter: {
+    sellerLine?: string | null;
+    sellerLineClassName?: string;
+    ulClassName: string;
+    items: string[];
+  } | null;
   /** 알바: 1단 `판매중 | 구인유형` — 배지 직후 `|` */
   showPipeAfterListingBadge?: boolean;
 }
@@ -148,8 +169,20 @@ function buildListFooter(
   locationLabel: string | null,
   locale: string,
   createdAt: string
-): { sellerLine: string | null; ulClassName: string; items: string[] } {
-  const sellerLine = sellerNicknameOnlyFromPost(post);
+): {
+  sellerLine: string | null;
+  sellerLineClassName?: string;
+  ulClassName: string;
+  items: string[];
+} {
+  const sellerRaw = sellerNicknameOnlyFromPost(post);
+  const sellerLine = sellerRaw
+    ? variant === "trade"
+      ? sellerRaw
+      : sellerRaw
+    : null;
+  const sellerLineClassName =
+    variant === "trade" || variant === "uc" ? POST_LIST_SELLER_LINE_CLASS : POST_LIST_META_LINE_CLASS;
   const t = createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : "";
   const chatCount = post.comment_count;
   const favCount = post.favorite_count;
@@ -167,7 +200,7 @@ function buildListFooter(
   }
   /** ul 은 `sellerLine` 아래 두 번째 줄 — 블록 전체 `mt-1` 은 PostListPreviewColumn 래퍼에서 */
   const ulClassName = `flex flex-wrap items-center gap-x-2 gap-y-0.5 ${POST_LIST_META_LINE_CLASS}`;
-  return { sellerLine, ulClassName, items };
+  return { sellerLine, sellerLineClassName, ulClassName, items };
 }
 
 /** 부동산 리스트 2단 — 매매가 또는 보증금 | 월세(리스트는 `POST_LIST_PRICE_CLASS`로 표시) */
@@ -265,17 +298,20 @@ export function buildPostListPreviewModel(
     const row4 = `${locationLabel || "위치 미입력"}${timePart ? ` | ${timePart}` : ""}`.trim();
 
     const listingChips: ListingChip[] = [];
-    if (dealType) listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY });
+    if (dealType) {
+      listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+    }
 
     const blocks: PostListBodyBlock[] = [
       {
-        className: POST_LIST_PRICE_CLASS,
+        className: POST_LIST_TRADE_PRICE_CLASS,
         text: row2Price || "금액 문의",
+        row: "real_estate_price",
       },
     ];
     if (row3)
       blocks.push({
-        className: POST_LIST_SUBLINE_CLASS,
+        className: POST_LIST_REAL_ESTATE_SPEC_CLASS,
         text: row3,
       });
     const sellerNick = sellerNicknameOnlyFromPost(post);
@@ -327,7 +363,7 @@ export function buildPostListPreviewModel(
       });
     }
     blocks.push({
-      className: POST_LIST_PRICE_CLASS,
+      className: POST_LIST_TRADE_PRICE_CLASS,
       text: usedCarPriceLabel ?? "가격 문의",
     });
 
@@ -363,14 +399,14 @@ export function buildPostListPreviewModel(
 
     const listingChips: ListingChip[] = [];
     if (listingKindLabel) {
-      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
+      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER_STATUS_MATCH });
     }
     const wt = str(meta.work_term);
     if (wt === "short" || wt === "one_day") {
-      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY });
+      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
     }
     if (meta.same_day_pay === true) {
-      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE });
+      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE_STATUS_MATCH });
     }
 
     const timePart =
@@ -379,21 +415,21 @@ export function buildPostListPreviewModel(
         : "";
     const row4 = `${workAddressLabel || "위치 미입력"}${timePart ? ` | ${timePart}` : ""}`.trim();
 
-    /** 2단 공고 제목 — 15px semibold #050505 (`POST_LIST_TRADE_TITLE_CLASS`) */
+    /** 2단 공고 제목 — 일반 중고 제목과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
     const blocks: PostListBodyBlock[] = [
       {
         className: POST_LIST_TRADE_TITLE_CLASS,
         text: str(post.title) || "상품",
       },
       {
-        className: POST_LIST_PRICE_CLASS,
+        className: POST_LIST_TRADE_PRICE_CLASS,
         text: jobsPayLabel ?? "금액 문의",
       },
     ];
     const jobSellerNick = sellerNicknameOnlyFromPost(post);
     if (jobSellerNick) {
       blocks.push({
-        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
+        className: `mt-0.5 ${POST_LIST_SELLER_LINE_CLASS}`,
         text: jobSellerNick,
         row: "seller",
       });
@@ -440,10 +476,10 @@ export function buildPostListPreviewModel(
       },
     ];
 
-    /** 2단 페소 금액 — `POST_LIST_PRICE_CLASS` */
+    /** 2단 페소 금액 — `POST_LIST_TRADE_PRICE_CLASS` */
     const blocks: PostListBodyBlock[] = [
       {
-        className: POST_LIST_PRICE_CLASS,
+        className: POST_LIST_TRADE_PRICE_CLASS,
         text: phpText,
       },
       /** 3단 환율 — 13px #6B7280 (`POST_LIST_EXCHANGE_RATE_CLASS`) */
@@ -476,7 +512,9 @@ export function buildPostListPreviewModel(
   }
 
   const listingChips: ListingChip[] = [];
-  if (skinLabel) listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY_SM });
+  if (skinLabel && skinLabel !== "일반") {
+    listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY_SM });
+  }
   if (isDirectDeal) listingChips.push({ text: "직거래", className: POST_LIST_CHIP_BLUE });
 
   const tradePriceLabel = rowPriceLabel(priceOk, isFree, currency);
@@ -489,7 +527,7 @@ export function buildPostListPreviewModel(
   ];
   if (priceOk != null || isFree || isTradePost) {
     blocks.push({
-      className: POST_LIST_PRICE_CLASS,
+      className: POST_LIST_TRADE_PRICE_CLASS,
       text: tradePriceLabel ?? "가격 문의",
     });
   }

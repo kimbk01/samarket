@@ -61,6 +61,7 @@ export async function resolvePhilifeGlobalFeedInitialForRsc(
   const limit = NEIGHBORHOOD_FEED_PAGE_SIZE;
   const listQueryKey = [
     "community:neighborhood-feed:list",
+    "rsc-seed",
     listKeyViewerSegment,
     "global",
     "all",

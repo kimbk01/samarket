@@ -10,14 +10,13 @@
  */
 
 /**
- * TRADE 메뉴 탭만 있을 때(2단 없음): 탭 하단 ~ 첫 콘텐츠.
- * `/home`의 `HomeProductList`는 `PHILIFE_FEED_LIST_WRAP`(`pt-1`)이 있으므로 **추가하지 않음**; 마켓
- * `MarketCategoryFeed` 등 리스트 상단 패딩이 없는 셸은 이 값으로 간격을 맞춤.
+ * 마켓 리스트도 `/home`과 동일하게 `<ul>`의 `PHILIFE_FEED_LIST_WRAP`(`pt-1`)만 사용한다.
+ * 래퍼에서 상단 패딩을 추가하지 않는다.
  */
-export const TRADE_GAP_MENU_TO_POSTS_CLASS = "pt-2";
+export const TRADE_GAP_MENU_TO_POSTS_CLASS = "pt-0";
 
-/** 2단 카테고리 앱바 있을 때: 앱바 ~ 첫 게시물 = spacing 3 */
-export const TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS = "pt-3";
+/** 2단 카테고리 앱바가 있어도 동일 규칙(추가 상단 패딩 없음). */
+export const TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS = "pt-0";
 
 /** 기존 import 호환 */
 export const TRADE_POSTS_GAP_WITHOUT_SECONDARY_TABS_CLASS = TRADE_GAP_MENU_TO_POSTS_CLASS;

@@ -227,7 +227,7 @@ export function TradeSellerListingStepDiagram({
         })}
       </div>
 
-      <div className="flex w-full min-w-0 items-start pt-0.5">
+      <div className="flex w-full min-w-0 items-center pt-0.5">
         {TRADE_LISTING_CHAT_STEPS.map((step, i) => {
           const isCurrent = i === currentIdx;
           const labelClass =
@@ -240,8 +240,12 @@ export function TradeSellerListingStepDiagram({
           return (
             <Fragment key={`lbl-${step.state}`}>
               {i > 0 ? <div className="min-w-[4px] flex-1 shrink-0" aria-hidden /> : null}
-              <div className={`${STEP_COL_W} flex justify-center`}>
-                <p className={`w-full text-center text-[10px] leading-tight ${labelClass}`}>{STEP_ROW_LABELS[i]}</p>
+              <div className={`${STEP_COL_W} flex items-center justify-center`}>
+                <p
+                  className={`inline-flex min-h-[1rem] w-full items-center justify-center text-center text-[10px] leading-tight ${labelClass}`}
+                >
+                  {STEP_ROW_LABELS[i]}
+                </p>
               </div>
             </Fragment>
           );

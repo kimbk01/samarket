@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getChildCategories, getChildCategoriesForFeedFilter } from "@/lib/categories/getChildCategories";
@@ -22,14 +22,15 @@ import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { JobListingKindTabs, type JobListingKindTab } from "@/components/market/JobListingKindTabs";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import type { PostWithMeta } from "@/lib/posts/schema";
-
-function parseJobListingKindParam(raw: string | null): JobListingKindTab {
-  const t = (raw ?? "").trim().toLowerCase();
-  return t === "work" ? "work" : "hire";
-}
+import { getPostsByTradeCategoryIds, peekCachedTradeFeed } from "@/lib/posts/getPostsByCategory";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
+import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 
 /**
  * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
@@ -61,12 +62,13 @@ export function MarketCategoryFeed({
   const router = useRouter();
   const searchParams = useSearchParams();
   const topicRaw = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
-  const jobKindTab = parseJobListingKindParam(searchParams.get("jk"));
   const [children, setChildren] = useState<CategoryWithSettings[]>(() => initialChildren ?? []);
   /** null = 아직 로드 전 · [] = 직계 하위 없음(부모 id 만 필터) */
   const [filterRows, setFilterRows] = useState<FeedFilterChild[] | null>(() =>
     initialChildrenForFilter !== undefined ? initialChildrenForFilter : null
   );
+  const topicPrefetchAtRef = useRef<Record<string, number>>({});
+  const initialPrewarmDoneRef = useRef(false);
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
   useEffect(() => {
@@ -135,18 +137,10 @@ export function MarketCategoryFeed({
   }, [filterRows, topicRaw]);
 
   const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
-  const isJobMarket =
-    category.icon_key === "job" || category.icon_key === "jobs" || category.slug === "job";
   const postSort = sortKeyToHomePostSort("latest");
   const feedKey = useMemo(() => {
-    if (filterRows === null) return "";
-    return computeTradeFeedKeyForMarketParent(
-      category.id,
-      topicRaw,
-      postSort,
-      isJobMarket ? jobKindTab : undefined
-    );
-  }, [filterRows, category.id, topicRaw, postSort, isJobMarket, jobKindTab]);
+    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort);
+  }, [category.id, topicRaw, postSort]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
   const onNavigate = useCallback(
@@ -155,7 +149,151 @@ export function MarketCategoryFeed({
     },
     [router]
   );
-  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onNavigate);
+  const onEdgeNext = useCallback(() => {
+    const href = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+    if (href) router.push(href, { scroll: false });
+  }, [tabs, activeIndex, router]);
+  const onEdgePrev = useCallback(() => {
+    const href = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+    if (href) router.push(href, { scroll: false });
+  }, [tabs, activeIndex, router]);
+  const { onTouchStart, onTouchEnd } = useSwipeTabNavigation(tabs, activeIndex, onNavigate, {
+    onEdgeNext,
+    onEdgePrev,
+  });
+
+  useEffect(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      const targets = new Set<string>();
+      const nextTabHref = tabs[activeIndex + 1]?.href;
+      const prevTabHref = tabs[activeIndex - 1]?.href;
+      if (nextTabHref) targets.add(nextTabHref);
+      if (prevTabHref) targets.add(prevTabHref);
+      const edgeNext = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+      const edgePrev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+      if (edgeNext) targets.add(edgeNext);
+      if (edgePrev) targets.add(edgePrev);
+      for (const href of targets) {
+        void router.prefetch(href);
+      }
+    }, 300);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, router]);
+
+  useEffect(() => {
+    if (tabs.length === 0 || activeIndex < 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      const neighborKeys: string[] = [];
+      const next = tabs[activeIndex + 1];
+      const prev = tabs[activeIndex - 1];
+      if (next && next.key !== "all") neighborKeys.push(next.key);
+      if (prev && prev.key !== "all") neighborKeys.push(prev.key);
+      for (const parentCategoryId of neighborKeys) {
+        const hit = peekCachedTradeFeed([], {
+          page: 1,
+          sort: postSort,
+          tradeMarketParent: parentCategoryId,
+          topic: "",
+        });
+        if (hit?.posts?.length) continue;
+        void getPostsByTradeCategoryIds([], {
+          page: 1,
+          sort: postSort,
+          tradeMarketParent: parentCategoryId,
+          topic: "",
+        });
+      }
+    }, 380);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, postSort]);
+
+  const prefetchTopicFeed = useCallback(
+    (topicKey: string) => {
+      const topic = topicKey.trim();
+      if (!topic) return;
+      if (isConstrainedNetwork()) return;
+      const cacheHit = peekCachedTradeFeed([], {
+        page: 1,
+        sort: postSort,
+        tradeMarketParent: category.id,
+        topic,
+      });
+      if (cacheHit?.posts?.length) return;
+      const now = Date.now();
+      const throttleKey = `${category.id}\u001f${topic}\u001f${postSort}`;
+      const last = topicPrefetchAtRef.current[throttleKey] ?? 0;
+      if (now - last < 10_000) return;
+      topicPrefetchAtRef.current[throttleKey] = now;
+      void getPostsByTradeCategoryIds([], {
+        page: 1,
+        sort: postSort,
+        tradeMarketParent: category.id,
+        topic,
+      });
+    },
+    [category.id, postSort]
+  );
+
+  useEffect(() => {
+    if (children.length === 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (initialPrewarmDoneRef.current) return;
+    initialPrewarmDoneRef.current = true;
+    const initialTargets = children
+      .map((c) => (c.slug?.trim() || c.id).normalize("NFC"))
+      .filter(Boolean)
+      .slice(0, 3);
+    for (const key of initialTargets) {
+      prefetchTopicFeed(key);
+    }
+  }, [children, prefetchTopicFeed]);
+
+  useEffect(() => {
+    if (children.length === 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const selectedIndex = children.findIndex((c) => {
+      const slug = c.slug?.trim().normalize("NFC");
+      return (slug && slug === topicRaw) || c.id === topicRaw;
+    });
+    const center = selectedIndex >= 0 ? selectedIndex : 0;
+    const immediateTargets = children
+      .map((c, index) => ({ key: (c.slug?.trim() || c.id).normalize("NFC"), dist: Math.abs(index - center) }))
+      .filter((item) => item.key && item.dist > 0)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 2);
+    for (const item of immediateTargets) {
+      prefetchTopicFeed(item.key);
+    }
+  }, [children, topicRaw, prefetchTopicFeed]);
+
+  useEffect(() => {
+    if (children.length === 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const selectedIndex = children.findIndex((c) => {
+      const slug = c.slug?.trim().normalize("NFC");
+      return (slug && slug === topicRaw) || c.id === topicRaw;
+    });
+    const center = selectedIndex >= 0 ? selectedIndex : 0;
+    const ordered = children
+      .map((c, index) => ({ key: (c.slug?.trim() || c.id).normalize("NFC"), dist: Math.abs(index - center) }))
+      .filter((item) => item.key && item.dist > 0)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 3);
+    const idleId = scheduleWhenBrowserIdle(() => {
+      for (const item of ordered) {
+        prefetchTopicFeed(item.key);
+      }
+    }, 120);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [children, topicRaw, prefetchTopicFeed]);
   const secondaryHeaderNode = useMemo(() => {
     const topicBlock =
       children.length > 0 ? (
@@ -170,69 +308,44 @@ export function MarketCategoryFeed({
               marketBasePath={marketBase}
               topics={children}
               selectedTopicKey={topicKeyForChips}
-              extraQuery={isJobMarket ? { jk: jobKindTab } : undefined}
+              onTopicIntent={prefetchTopicFeed}
             />
           </HorizontalDragScroll>
         </div>
       ) : null;
-
-    const jobBlock = isJobMarket ? (
-      <div className={children.length > 0 ? "border-b border-sam-border" : ""}>
-        <div className={APP_MAIN_HEADER_INNER_CLASS}>
-          <JobListingKindTabs
-            category={category}
-            selectedKind={jobKindTab}
-            topicKey={topicKeyForChips}
-          />
-        </div>
-      </div>
-    ) : null;
-
-    if (!jobBlock && !topicBlock) return null;
+    if (!topicBlock) return null;
 
     return (
       <div className={TRADE_SECONDARY_TABS_SHELL_CLASS}>
         <div className="flex w-full min-w-0 flex-col">
-          {jobBlock}
           {topicBlock}
         </div>
       </div>
     );
-  }, [children, marketBase, topicKeyForChips, isJobMarket, category.id, category.type, category.slug, jobKindTab]);
+  }, [children, marketBase, topicKeyForChips]);
 
   const tradeSecondaryTabsSyncKey = useMemo(
     () =>
-      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${jobKindTab}\u0000${children.map((c) => c.id).join(",")}\u0000${isJobMarket ? 1 : 0}`,
-    [category.id, topicKeyForChips, jobKindTab, children, isJobMarket]
+      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}`,
+    [category.id, topicKeyForChips, children]
   );
 
-  useRegisterTradeSecondaryTabs(
-    isJobMarket || children.length > 0,
-    secondaryHeaderNode,
-    tradeSecondaryTabsSyncKey
-  );
+  useRegisterTradeSecondaryTabs(children.length > 0, secondaryHeaderNode, tradeSecondaryTabsSyncKey);
 
   const postsTopGapClass =
-    isJobMarket || children.length > 0
-      ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS
-      : TRADE_GAP_MENU_TO_POSTS_CLASS;
+    children.length > 0 ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS : TRADE_GAP_MENU_TO_POSTS_CLASS;
 
   return (
     <div className="touch-pan-y" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className={`${TRADE_CONTENT_SHELL_CLASS} ${postsTopGapClass}`}>
-        {filterRows === null ? (
-          <div className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>
-        ) : (
-          <PostListByCategory
-            categoryId={category.id}
-            tradeFeedServerResolution
-            tradeTopicParam={topicRaw}
-            category={category}
-            sort={postSort}
-            jobsListingKind={isJobMarket ? jobKindTab : undefined}
-            initialTradeFeed={initialTradeFeed}
-          />
-        )}
+        <PostListByCategory
+          categoryId={category.id}
+          tradeFeedServerResolution
+          tradeTopicParam={topicRaw}
+          category={category}
+          sort={postSort}
+          initialTradeFeed={initialTradeFeed}
+        />
       </div>
     </div>
   );

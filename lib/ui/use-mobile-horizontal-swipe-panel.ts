@@ -132,51 +132,19 @@ export function useMobileHorizontalSwipePanel({
       modeRef.current = "undecided";
 
       if (x < -COMMIT_PX && canNextRef.current) {
-        const w = typeof window !== "undefined" ? window.innerWidth : 400;
-        el.style.transition = `transform ${OUT_MS}ms ${EASE}`;
-        el.style.transform = `translate3d(${-w}px,0,0)`;
-        let didRun = false;
-        const runOnce = () => {
-          if (didRun) return;
-          didRun = true;
-          clearT();
-          onNextRef.current();
-          reset();
-        };
-        const done = (ev: TransitionEvent) => {
-          if (ev.propertyName !== "transform") return;
-          el.removeEventListener("transitionend", done);
-          runOnce();
-        };
-        el.addEventListener("transitionend", done);
-        timerRef.current = setTimeout(() => {
-          el.removeEventListener("transitionend", done);
-          runOnce();
-        }, OUT_MS + 100);
+        /**
+         * 병목 제거: 기존엔 스와이프 아웃 애니메이션 종료(최대 `OUT_MS`) 후 라우팅을 시작해
+         * 전환 시작 자체가 늦었다. 커밋 순간 즉시 라우팅을 시작하고, 잔여 transform만 초기화한다.
+         */
+        clearT();
+        onNextRef.current();
+        reset();
         return;
       }
       if (x > COMMIT_PX && canPrevRef.current) {
-        const w = typeof window !== "undefined" ? window.innerWidth : 400;
-        el.style.transition = `transform ${OUT_MS}ms ${EASE}`;
-        el.style.transform = `translate3d(${w}px,0,0)`;
-        let didRun = false;
-        const runOnce = () => {
-          if (didRun) return;
-          didRun = true;
-          clearT();
-          onPrevRef.current();
-          reset();
-        };
-        const done = (ev: TransitionEvent) => {
-          if (ev.propertyName !== "transform") return;
-          el.removeEventListener("transitionend", done);
-          runOnce();
-        };
-        el.addEventListener("transitionend", done);
-        timerRef.current = setTimeout(() => {
-          el.removeEventListener("transitionend", done);
-          runOnce();
-        }, OUT_MS + 100);
+        clearT();
+        onPrevRef.current();
+        reset();
         return;
       }
       if (x !== 0) {

@@ -16,9 +16,19 @@ export function useSwipeTabNavigation(
   tabs: Array<{ href: string }>,
   activeIndex: number,
   onNavigate: (href: string) => void,
-  minDx = DEFAULT_SWIPE_MIN_DX,
-  maxDy = DEFAULT_SWIPE_MAX_DY
+  opts?: {
+    minDx?: number;
+    maxDy?: number;
+    onEdgeNext?: () => void;
+    onEdgePrev?: () => void;
+  }
 ) {
+  const minDx = opts?.minDx ?? DEFAULT_SWIPE_MIN_DX;
+  const maxDy = opts?.maxDy ?? DEFAULT_SWIPE_MAX_DY;
+  const onEdgeNextRef = useRef(opts?.onEdgeNext);
+  const onEdgePrevRef = useRef(opts?.onEdgePrev);
+  onEdgeNextRef.current = opts?.onEdgeNext;
+  onEdgePrevRef.current = opts?.onEdgePrev;
   const touchStartRef = useRef<{ x: number; y: number; target: EventTarget | null } | null>(null);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
@@ -46,11 +56,19 @@ export function useSwipeTabNavigation(
       if (Math.abs(dx) < minDx) return;
       if (Math.abs(dy) > maxDy) return;
       if (Math.abs(dx) <= Math.abs(dy)) return;
-      if (activeIndex < 0) return;
+      if (activeIndex < 0) {
+        if (dx < 0) onEdgeNextRef.current?.();
+        else onEdgePrevRef.current?.();
+        return;
+      }
 
       const nextIndex = dx < 0 ? activeIndex + 1 : activeIndex - 1;
       const nextTab = tabs[nextIndex];
-      if (!nextTab) return;
+      if (!nextTab) {
+        if (dx < 0) onEdgeNextRef.current?.();
+        else onEdgePrevRef.current?.();
+        return;
+      }
       onNavigate(nextTab.href);
     },
     [activeIndex, maxDy, minDx, onNavigate, tabs]

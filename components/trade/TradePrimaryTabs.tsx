@@ -8,6 +8,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
+  PHILIFE_TOPIC_TAB_PILL_IDLE,
   PHILIFE_TOPIC_TAB_PILL_ACTIVE,
   PHILIFE_TOPIC_TAB_ROW_CLASS,
   PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE,
@@ -174,45 +175,26 @@ function TradePrimaryTabsInner({
       >
         {tabs.map((tab) => {
           if (tab.key === "all") {
-            if (pathname === "/home") {
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected
-                  aria-haspopup="listbox"
-                  aria-expanded={allSortOpen}
-                  ref={allSortButtonRef}
-                  onClick={() => setAllSortOpen((v) => !v)}
-                  className={`${PHILIFE_TOPIC_TAB_PILL_ACTIVE} inline-flex items-center gap-1`}
-                >
-                  <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{allSortLabel}</span>
-                  {allSortOpen ? (
-                    <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
-                  ) : (
-                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
-                  )}
-                </button>
-              );
-            }
+            const onHome = pathname === "/home";
             return (
-              <Link
+              <button
                 key={tab.key}
-                href={allHref}
-                ref={(el) => {
-                  tabRefs.current[tab.key] = el;
-                }}
+                type="button"
                 role="tab"
-                aria-selected={tab.isActive}
-                prefetch={false}
-                className={tab.isActive ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
-                onClick={(e) => {
-                  if (!tab.isActive && !guardBeforeNavigate()) e.preventDefault();
-                }}
+                aria-selected={onHome}
+                aria-haspopup="listbox"
+                aria-expanded={allSortOpen}
+                ref={allSortButtonRef}
+                onClick={() => setAllSortOpen((v) => !v)}
+                className={`${onHome ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`}
               >
-                <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">전체</span>
-              </Link>
+                <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{allSortLabel}</span>
+                {allSortOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
+                )}
+              </button>
             );
           }
           return (
