@@ -28,7 +28,7 @@ import {
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
-import { PHILIFE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -297,8 +297,8 @@ export function HomeProductList({
   const showError = listState === "error";
   const showLoading = listState === "loading";
   const rootClass = "min-w-0 w-full max-w-full";
-  /** `/philife` 피드 `<ul>`과 동일 — 가로 `px-2` 한 겹(부모 `HomeContent`는 가로 패딩 없음) */
-  const listClass = PHILIFE_FEED_LIST_WRAP_CLASS;
+  /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
+  const listClass = TRADE_FEED_LIST_WRAP_CLASS;
   const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
 
   if (!showLoading && !showError && !showEmpty) {
@@ -397,7 +397,7 @@ function LoadingState() {
       {[0, 1, 2, 3].map((k) => (
         <li key={k} className="rounded-ui-rect border border-sam-border/70 bg-ui-surface p-3 shadow-sm">
           <div className="flex items-start gap-3">
-            <div className="h-14 w-14 shrink-0 animate-pulse rounded-ui-rect bg-sam-border-soft" />
+            <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-[4px] bg-sam-border-soft sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]" />
             <div className="min-w-0 flex-1 space-y-2">
               <div className="h-4 w-3/4 animate-pulse rounded bg-sam-border-soft" />
               <div className="h-3 w-1/2 animate-pulse rounded bg-sam-border-soft/80" />

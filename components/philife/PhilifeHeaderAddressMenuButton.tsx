@@ -7,7 +7,12 @@ import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
 import { useRegion } from "@/contexts/RegionContext";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { buildAddressManagementListPrimaryLine } from "@/lib/addresses/user-address-format";
-import { readCachedMeAddressList, writeCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
+import {
+  describeMeAddressesListFailure,
+  fetchMeAddressesListSingleFlight,
+  readCachedMeAddressList,
+  writeCachedMeAddressList,
+} from "@/lib/addresses/address-list-client-cache";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   formatNeighborhoodRegionSubtitle,
@@ -120,15 +125,14 @@ export function PhilifeHeaderAddressMenuButton() {
     let ignore = false;
     setListLoading(true);
     setListError(null);
-    void fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
-      .then((res) => res.json().then((j) => ({ ok: res.ok, j })))
-      .then(({ ok, j }) => {
+    void fetchMeAddressesListSingleFlight()
+      .then((result) => {
         if (ignore) return;
-        const rows = Array.isArray(j?.addresses) ? (j.addresses as UserAddressDTO[]) : [];
-        if (!ok || j?.ok !== true) {
-          setListError(typeof j?.error === "string" ? j.error : "주소 목록을 불러오지 못했어요.");
+        if (!result.ok) {
+          setListError(describeMeAddressesListFailure(result, "주소 목록을 불러오지 못했어요."));
           return;
         }
+        const rows = result.rows;
         setList(rows);
         if (rows.length > 0) writeCachedMeAddressList(rows);
       })

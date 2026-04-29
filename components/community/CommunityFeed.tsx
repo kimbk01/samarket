@@ -49,6 +49,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -917,6 +918,20 @@ export function CommunityFeed({
     [setPhilifeRecommendSort]
   );
 
+  const onPhilifeGlobalSortChipTap = useCallback(() => {
+    setRecommendMenuOpen(false);
+    applyRecommendSort("latest");
+  }, [applyRecommendSort]);
+
+  const onPhilifeGlobalSortChipLongPress = useCallback(() => {
+    setRecommendMenuOpen(true);
+  }, []);
+
+  const philifeGlobalSortChipGestures = useLongPressOrTap({
+    onTap: onPhilifeGlobalSortChipTap,
+    onLongPress: onPhilifeGlobalSortChipLongPress,
+  });
+
   /** 주제 탭: 상태 + `?category=` 동기화 — 새로고침·공유 시에도 동일 주제, 시드/캐시 키와도 맞음 */
   const applyCategoryTab = useCallback(
     (nextSlug: string) => {
@@ -1262,6 +1277,15 @@ export function CommunityFeed({
                         c.slug === "" ? philifeGlobalFeedSortLabel(recSortKey) : c.label;
                       const subjectChipClass = on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE;
                       if (isGlobalSortDropdownChip(c)) {
+                        const globalSortInteractionProps =
+                          category.trim() !== ""
+                            ? {
+                                onClick: () => {
+                                  applyCategoryTab("");
+                                  setRecommendMenuOpen(false);
+                                },
+                              }
+                            : philifeGlobalSortChipGestures.buttonProps;
                         return (
                           <button
                             key={c.slug || "rec"}
@@ -1269,21 +1293,26 @@ export function CommunityFeed({
                             type="button"
                             role="tab"
                             aria-selected={on}
-                            aria-label={`${sortModeLabel}, 정렬 옵션`}
+                            aria-label={`${sortModeLabel}. 한 번 탭하면 최신순으로 바로 정렬하고, 길게 누르면 추천순 등 다른 정렬을 고를 수 있어요.`}
                             aria-haspopup="listbox"
-                            aria-expanded={on && recommendMenuOpen}
+                            aria-expanded={recommendMenuOpen}
                             className={PHILIFE_TOPIC_TAB_PILL_ACTIVE}
-                            onClick={() => {
-                              if (category.trim() !== "") {
-                                applyCategoryTab("");
-                                setRecommendMenuOpen(false);
-                                return;
+                            {...globalSortInteractionProps}
+                            onPointerDown={(e) => {
+                              prefetchCategoryFeedByIntent(c);
+                              if (category.trim() === "") {
+                                philifeGlobalSortChipGestures.buttonProps.onPointerDown?.(e);
                               }
-                              setRecommendMenuOpen((v) => !v);
+                            }}
+                            onKeyDown={(e) => {
+                              if (category.trim() !== "") return;
+                              if (e.key === "ArrowDown") {
+                                e.preventDefault();
+                                setRecommendMenuOpen(true);
+                              }
                             }}
                             onMouseEnter={() => prefetchCategoryFeedByIntent(c)}
                             onTouchStart={() => prefetchCategoryFeedByIntent(c)}
-                            onPointerDown={() => prefetchCategoryFeedByIntent(c)}
                             onFocus={() => prefetchCategoryFeedByIntent(c)}
                           >
                             <span className="min-w-0 flex-1 truncate">{sortModeLabel}</span>

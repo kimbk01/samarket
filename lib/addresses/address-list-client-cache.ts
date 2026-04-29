@@ -6,6 +6,14 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const KEY = "samarket:me-addresses-list-cache:v1";
+const ADDRESSES_SINGLE_FLIGHT_KEY = "me:addresses:list";
+
+export type MeAddressesListFetchResult = {
+  ok: boolean;
+  status: number;
+  rows: UserAddressDTO[];
+  error: string | null;
+};
 
 function isRow(x: unknown): x is UserAddressDTO {
   return typeof x === "object" && x != null && typeof (x as UserAddressDTO).id === "string";
@@ -34,16 +42,73 @@ export function writeCachedMeAddressList(rows: UserAddressDTO[]): void {
   }
 }
 
+/** `fetchMeAddressesListSingleFlight` 결과가 실패일 때 사용자 표시용 메시지 — 화면 간 문구 일치 */
+export function describeMeAddressesListFailure(result: MeAddressesListFetchResult, fallback: string): string {
+  if (result.status === 401 || result.error === "login_required") {
+    return "로그인이 필요합니다. 현재 접속한 주소(도메인)에서 다시 로그인해 주세요.";
+  }
+  if (result.error === "invalid_response") {
+    return "주소 목록 응답 형식이 올바르지 않습니다.";
+  }
+  if (result.error === "user_addresses_table_missing") {
+    return "user_addresses_table_missing";
+  }
+  if (result.error === "network_error") {
+    return "네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  return (typeof result.error === "string" && result.error ? result.error : fallback);
+}
+
+export function fetchMeAddressesListSingleFlight(): Promise<MeAddressesListFetchResult> {
+  return runSingleFlight(ADDRESSES_SINGLE_FLIGHT_KEY, async () => {
+    try {
+      const res = await fetch("/api/me/addresses", { credentials: "include", cache: "no-store" });
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        return {
+          ok: false,
+          status: res.status || 0,
+          rows: [],
+          error: res.redirected || res.url.includes("/login") ? "login_required" : "invalid_response",
+        } satisfies MeAddressesListFetchResult;
+      }
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        addresses?: UserAddressDTO[];
+        error?: string;
+      };
+      if (res.ok && j.ok && Array.isArray(j.addresses)) {
+        return {
+          ok: true,
+          status: res.status,
+          rows: j.addresses,
+          error: null,
+        } satisfies MeAddressesListFetchResult;
+      }
+      return {
+        ok: false,
+        status: res.status,
+        rows: [],
+        error: typeof j.error === "string" && j.error ? j.error : "load_failed",
+      } satisfies MeAddressesListFetchResult;
+    } catch {
+      return {
+        ok: false,
+        status: 0,
+        rows: [],
+        error: "network_error",
+      } satisfies MeAddressesListFetchResult;
+    }
+  });
+}
+
 /** 글쓰기 등에서 주소 화면으로 가기 전에 목록 API만 미리 호출 */
 export function prefetchMeAddressListIntoCache(): void {
   if (typeof window === "undefined") return;
-  void runSingleFlight("me:addresses:list", () =>
-    fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
-  )
-    .then((r) => r.clone().json() as Promise<{ ok?: boolean; addresses?: UserAddressDTO[] }>)
-    .then((j) => {
-      if (j?.ok === true && Array.isArray(j.addresses) && j.addresses.length > 0) {
-        writeCachedMeAddressList(j.addresses);
+  void fetchMeAddressesListSingleFlight()
+    .then((result) => {
+      if (result.ok && result.rows.length > 0) {
+        writeCachedMeAddressList(result.rows);
       }
     })
     .catch(() => {});

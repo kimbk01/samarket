@@ -24,7 +24,7 @@ const ReportReasonModal = dynamic(
 );
 import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
-import { PHILIFE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 
 interface PostListByCategoryProps {
@@ -436,7 +436,7 @@ export function PostListByCategory({
 
   return (
     <>
-      <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${PHILIFE_FEED_LIST_WRAP_CLASS}`}>
+      <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post) =>
           notInterestedPostIds.has(post.id) ? (
             <li key={post.id} className="min-w-0">

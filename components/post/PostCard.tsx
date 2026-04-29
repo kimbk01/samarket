@@ -14,6 +14,7 @@ import {
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
   bumpTradeListProductCardRenderCount,
@@ -29,6 +30,8 @@ import {
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { formatPostListingLocationLine } from "@/lib/posts/post-listing-location-label";
+import { formatTimeAgo } from "@/lib/utils/format";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -61,6 +64,7 @@ export const PostCard = memo(function PostCard({
   }
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const currency = getAppSettings().defaultCurrency || "KRW";
   const viewerId = getCurrentUser()?.id ?? null;
@@ -85,10 +89,26 @@ export const PostCard = memo(function PostCard({
     (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
   const isExchangeThumb = listPreview?.thumbnailMode === "exchange";
 
+  const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
+  const locationLine = formatPostListingLocationLine(post.region, post.city);
+  const timeLabel =
+    post.created_at && !Number.isNaN(Date.parse(post.created_at))
+      ? formatTimeAgo(post.created_at, "ko-KR")
+      : "";
+  const viewCount = typeof post.view_count === "number" ? post.view_count : 0;
+  const listKind = listPreview?.listKind ?? "trade";
+  const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
+  const useFramedImageThumb =
+    listKind === "trade" || listKind === "used-car" || listKind === "real-estate";
+
   useLayoutEffect(() => {
     if (!isFirstCard) return;
     recordTradeListMetricOnce("trade_list_first_card_render_end_ms");
   }, [isFirstCard]);
+
+  useEffect(() => {
+    setThumbnailFailed(false);
+  }, [post.id, thumbnailUrl]);
 
   useEffect(() => {
     if (!isFirstCard) return;
@@ -112,22 +132,107 @@ export const PostCard = memo(function PostCard({
     <div
       className={`flex flex-col ${PHILIFE_FB_CARD_CLASS}`}
     >
-      <div className="relative flex gap-3 sam-card-pad">
-        <div
-          className="absolute right-[var(--sam-card-padding)] top-[var(--sam-card-padding)] z-[1] flex items-center gap-1"
-          onClick={(e) => e.preventDefault()}
-          role="presentation"
+      <div className="px-3 pb-0 pt-1 sm:px-4">
+        <Link
+          href={detailHref}
+          prefetch
+          onPointerEnter={() => {
+            void router.prefetch(detailHref);
+          }}
+          onFocus={() => {
+            void router.prefetch(detailHref);
+          }}
+          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+          className="flex min-w-0 items-stretch gap-1.5 sm:gap-2"
         >
+          <div className={`${TRADE_FEED_THUMB_BOX_CLASS} bg-sam-surface-muted`}>
+            {isExchangeThumb || listKind === "exchange" ? (
+              <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
+                FX
+              </div>
+            ) : hasUsableThumbnail ? (
+              useFramedImageThumb ? (
+                <div className="h-full w-full rounded-[3px] bg-amber-100 p-0.5 shadow-sm">
+                  <img
+                    ref={isFirstCard ? imageRef : undefined}
+                    src={thumbnailUrl}
+                    alt=""
+                    width={88}
+                    height={88}
+                    className="h-full w-full rounded-[2px] object-contain object-center"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
+                    onLoad={() => {
+                      if (!isFirstCard) return;
+                      recordTradeListImageRequestRangeFromResources(
+                        imageRef.current?.currentSrc || thumbnailUrl || null
+                      );
+                    }}
+                    onError={() => setThumbnailFailed(true)}
+                  />
+                </div>
+              ) : (
+                <img
+                  ref={isFirstCard ? imageRef : undefined}
+                  src={thumbnailUrl}
+                  alt=""
+                  width={88}
+                  height={88}
+                  className="h-full w-full object-contain object-center"
+                  loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
+                  onLoad={() => {
+                    if (!isFirstCard) return;
+                    recordTradeListImageRequestRangeFromResources(
+                      imageRef.current?.currentSrc || thumbnailUrl || null
+                    );
+                  }}
+                  onError={() => setThumbnailFailed(true)}
+                />
+              )
+            ) : listKind === "jobs" ? (
+              <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
+                JOB
+              </div>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[11px] text-sam-meta" aria-hidden>이미지</div>
+            )}
+          </div>
+          <div className="flex min-h-full min-w-0 flex-1 flex-col justify-end">
+            {listPreview ? (
+              <PostListPreviewColumn
+                listingPost={post}
+                preview={listPreview}
+                matchThumbnailHeight
+                omitListFooter
+                stretchPreviewToThumbnailColumn={false}
+                compactSpacing
+              />
+            ) : null}
+          </div>
+        </Link>
+      </div>
+      <div className="mt-0 flex min-w-0 items-center justify-between gap-1.5 px-3 pb-1 sm:px-4">
+        <p
+          className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+          title={[authorDisplay, locationLine ?? "", timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+        >
+          <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
+          {locationLine ? <> · {locationLine}</> : null}
+          {timeLabel ? <> · {timeLabel}</> : null}
+          <> · </>조회 {viewCount}
+        </p>
+        <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
           <PostFavoriteButton
             postId={post.id}
             authorUserId={post.author_id}
             favorited={!!isFavorite}
             onFavoriteChange={
-              onFavoriteChange
-                ? (fav) => onFavoriteChange(post.id, fav)
-                : undefined
+              onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
             }
-            iconClassName="h-5 w-5"
+            iconClassName="h-4 w-4"
           />
           <button
             type="button"
@@ -142,55 +247,9 @@ export const PostCard = memo(function PostCard({
             <span className="text-[18px] leading-none">⋮</span>
           </button>
         </div>
-        <Link
-          href={detailHref}
-          onPointerEnter={() => {
-            void router.prefetch(detailHref);
-          }}
-          onFocus={() => {
-            void router.prefetch(detailHref);
-          }}
-          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
-          className="flex min-w-0 flex-1 gap-3"
-        >
-          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-sam-md bg-sam-surface-muted">
-            {thumbnailUrl ? (
-              <img
-                ref={isFirstCard ? imageRef : undefined}
-                src={thumbnailUrl}
-                alt=""
-                width={100}
-                height={100}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                onLoad={() => {
-                  if (!isFirstCard) return;
-                  recordTradeListImageRequestRangeFromResources(
-                    imageRef.current?.currentSrc || thumbnailUrl || null
-                  );
-                }}
-              />
-            ) : isExchangeThumb ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-sam-primary-soft text-2xl font-semibold text-sam-fg" aria-hidden><span>₱</span><span className="text-[10px] text-sam-muted">↔</span><span>₩</span></div>
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta">이미지</div>
-            )}
-          </div>
-          <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
-            {listPreview ? (
-              <PostListPreviewColumn
-                listingPost={post}
-                preview={listPreview}
-                matchThumbnailHeight
-              />
-            ) : null}
-          </div>
-        </Link>
       </div>
       {footer ? (
-        <div className="border-t border-sam-border-soft bg-sam-surface sam-card-pad-x py-3">{footer}</div>
+        <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2 sm:px-4">{footer}</div>
       ) : null}
       {menuOpen ? (
         <PostListMenuBottomSheet

@@ -118,7 +118,7 @@ export interface PostListBodyBlock {
   className: string;
   text: string;
   /** 판매자 닉네임 전용 줄 — 부동산·알바·환전 본문·채팅 압축에서 구분 */
-  row?: "seller" | "real_estate_price";
+  row?: "seller" | "real_estate_price" | "meta_tail";
 }
 
 export interface PostListPreviewModel {
@@ -291,12 +291,6 @@ export function buildPostListPreviewModel(
     ].filter(Boolean);
     const row3 = parts3.join(" · ");
 
-    const timePart =
-      createdAt && !Number.isNaN(Date.parse(createdAt))
-        ? formatTimeAgo(createdAt, locale)
-        : "";
-    const row4 = `${locationLabel || "위치 미입력"}${timePart ? ` | ${timePart}` : ""}`.trim();
-
     const listingChips: ListingChip[] = [];
     if (dealType) {
       listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
@@ -314,19 +308,6 @@ export function buildPostListPreviewModel(
         className: POST_LIST_REAL_ESTATE_SPEC_CLASS,
         text: row3,
       });
-    const sellerNick = sellerNicknameOnlyFromPost(post);
-    if (sellerNick) {
-      blocks.push({
-        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
-        text: sellerNick,
-        row: "seller",
-      });
-    }
-    blocks.push({
-      className: POST_LIST_META_TEXT_CLASS,
-      text: row4,
-    });
-
     return {
       thumbnailMode: "none",
       listKind: "real-estate",
@@ -334,7 +315,7 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
-      listFooter: null,
+      listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
   }
@@ -409,12 +390,6 @@ export function buildPostListPreviewModel(
       listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE_STATUS_MATCH });
     }
 
-    const timePart =
-      createdAt && !Number.isNaN(Date.parse(createdAt))
-        ? formatTimeAgo(createdAt, locale)
-        : "";
-    const row4 = `${workAddressLabel || "위치 미입력"}${timePart ? ` | ${timePart}` : ""}`.trim();
-
     /** 2단 공고 제목 — 일반 중고 제목과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
     const blocks: PostListBodyBlock[] = [
       {
@@ -426,19 +401,6 @@ export function buildPostListPreviewModel(
         text: jobsPayLabel ?? "금액 문의",
       },
     ];
-    const jobSellerNick = sellerNicknameOnlyFromPost(post);
-    if (jobSellerNick) {
-      blocks.push({
-        className: `mt-0.5 ${POST_LIST_SELLER_LINE_CLASS}`,
-        text: jobSellerNick,
-        row: "seller",
-      });
-    }
-    blocks.push({
-      className: POST_LIST_META_TEXT_CLASS,
-      text: row4,
-    });
-
     return {
       thumbnailMode: "none",
       listKind: "jobs",
@@ -446,7 +408,7 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
-      listFooter: null,
+      listFooter: buildListFooter(post, "trade", workAddressLabel || "위치 미입력", locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
   }
@@ -458,12 +420,6 @@ export function buildPostListPreviewModel(
         ? `${CURRENCY_SYMBOLS.PHP} ${phpAmount.toLocaleString()}`
         : "금액 문의";
     const rateText = rateLine ? `환율 ${rateLine}` : "환율 미지정";
-
-    const locTime =
-      `${locationLabel || "위치 미입력"} | ${createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, locale) : ""}`.replace(
-        /\s*\|\s*$/,
-        ""
-      );
 
     /** 1단 `페소 팝니다|삽니다` — 15px semibold #050505 */
     const titleStr = str(post.title);
@@ -488,17 +444,6 @@ export function buildPostListPreviewModel(
         text: rateText,
       },
     ];
-    const exSellerNick = sellerNicknameOnlyFromPost(post);
-    if (exSellerNick) {
-      blocks.push({
-        className: `mt-0.5 ${POST_LIST_META_LINE_CLASS}`,
-        text: exSellerNick,
-        row: "seller",
-      });
-    }
-    /** 4단 위치|시간 — `POST_LIST_EXCHANGE_META_CLASS` */
-    blocks.push({ className: POST_LIST_EXCHANGE_META_CLASS, text: locTime });
-
     return {
       thumbnailMode: "exchange",
       listKind: "exchange",
@@ -506,7 +451,7 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
-      listFooter: null,
+      listFooter: buildListFooter(post, "trade", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: true,
     };
   }

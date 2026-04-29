@@ -65,6 +65,7 @@ import {
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -120,25 +121,6 @@ const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { cou
     </span>
   );
 });
-
-function scrollAppShellToTop(): void {
-  if (typeof document === "undefined") return;
-  const mainEl = document.querySelector("main");
-  try {
-    mainEl?.scrollTo?.({ top: 0, behavior: "auto" });
-  } catch {
-    try {
-      mainEl?.scrollTo?.(0, 0);
-    } catch {
-      /* noop */
-    }
-  }
-  try {
-    window.scrollTo({ top: 0, behavior: "auto" });
-  } catch {
-    window.scrollTo(0, 0);
-  }
-}
 
 function onBottomNavTabActivate(
   pathname: string | null,

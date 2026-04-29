@@ -152,6 +152,7 @@ import {
   writeTradeWriteFormSessionDraft,
   type TradeWriteFormSessionDraftBuildArgs,
 } from "@/lib/posts/trade-write-form-session-draft";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -777,6 +778,7 @@ export function TradeWriteForm({
                 : undefined,
           });
           if (res.ok) {
+            invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
             if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) {
@@ -788,6 +790,7 @@ export function TradeWriteForm({
           const res = await createPost(payload, createPreflight);
           if (res.ok) {
             clearTradeWriteFormSessionDraft(category.id);
+            invalidateHomePostsCache();
             onSuccess(res.id);
           } else {
             if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;

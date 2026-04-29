@@ -168,11 +168,18 @@ function ListMetaKarrot({
   );
 }
 
+/**
+ * 커뮤니티 `ListThumb` · 거래 `PostCard` 공통 — 카테고리·주제와 무관 단일 규격.
+ * 반응형: 72px → sm 80px (`h-20`) → md 88px 정사각형.
+ */
+export const COMMUNITY_FEED_LIST_THUMB_BOX_CLASS =
+  "relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-[4px] sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]";
+
 /** 리스트: 72~88px 정사각형 고정(세로형 원본도 object-cover, 메타행과 겹침 방지) */
 function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
   const showMore = totalImages > 1;
   return (
-    <div className="relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-[4px] sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]">
+    <div className={COMMUNITY_FEED_LIST_THUMB_BOX_CLASS}>
       <img
         src={url}
         alt=""

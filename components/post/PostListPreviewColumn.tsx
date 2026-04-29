@@ -24,11 +24,26 @@ export function PostListPreviewColumn({
    * 1단(배지·칩)~마지막 줄(본문/푸터) 사이 여백을 썸네일 열 높이에 맞춰 균등 분배
    */
   matchThumbnailHeight = false,
+  /**
+   * 피드 카드 하단에 작성자·지역·시간을 한 번만 두려면 본문 내 `listFooter`(닉네임·주소 ul) 생략.
+   * 채팅·관련상품 미니카드 등은 기본(false) 유지.
+   */
+  omitListFooter = false,
+  /**
+   * 기본 true — 우측 본문 열을 썸네일 높이만큼 채움(채팅 상단 카드 등).
+   * false — 본문 높이만큼만 차지·거래 피드 카드에서 썸네일 아래 빈 공간 제거(커뮤니티 리스트와 동일 체감).
+   */
+  stretchPreviewToThumbnailColumn = true,
+  /** 거래 피드 카드용 초밀도 간격 (배지줄/본문줄 사이 세로 간격 최소화) */
+  compactSpacing = false,
 }: {
   listingPost: TradeListingPostLike;
   preview: PostListPreviewModel;
   omitListingBadge?: boolean;
   matchThumbnailHeight?: boolean;
+  omitListFooter?: boolean;
+  stretchPreviewToThumbnailColumn?: boolean;
+  compactSpacing?: boolean;
 }) {
   function renderRealEstatePriceLine(text: string) {
     const src = text.trim();
@@ -70,9 +85,9 @@ export function PostListPreviewColumn({
       : null;
 
   const listFooterBlock =
-    hasFooter && lf ? (
+    !omitListFooter && hasFooter && lf ? (
       <div
-        className={`min-w-0 shrink-0 space-y-0.5 ${matchThumbnailHeight ? "mt-0" : "mt-0.5"}`}
+        className={`min-w-0 shrink-0 ${compactSpacing ? "space-y-0 mt-0" : `space-y-0.5 ${matchThumbnailHeight ? "mt-0" : "mt-0.5"}`}`}
       >
         {footerSeller ? (
           <p className={`truncate ${footerSellerClass}`} title={footerSeller}>
@@ -94,11 +109,11 @@ export function PostListPreviewColumn({
       <div
         className={
           matchThumbnailHeight
-            ? `shrink-0 ${preview.listingRowClassName} flex-col items-start gap-y-1`
-            : `${preview.listingRowClassName} flex-col items-start gap-y-1`
+            ? `shrink-0 ${preview.listingRowClassName} flex-col items-start ${compactSpacing ? "gap-y-0.5" : "gap-y-1"}`
+            : `${preview.listingRowClassName} flex-col items-start ${compactSpacing ? "gap-y-0.5" : "gap-y-1"}`
         }
       >
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={`flex flex-wrap items-center ${compactSpacing ? "gap-1" : "gap-1.5"}`}>
           {!omitListingBadge ? <TradeListingStatusBadge post={listingPost} /> : null}
           {preview.showPipeAfterListingBadge &&
           !omitListingBadge &&
@@ -112,7 +127,7 @@ export function PostListPreviewColumn({
             <span className={POST_LIST_PRICE_TEXT_CLASS}>{preview.listingBold}</span>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={`flex flex-wrap items-center ${compactSpacing ? "gap-1" : "gap-1.5"}`}>
           {preview.listingChips.slice(1).map((c, i) => (
             <span key={`${c.text}-${i + 1}`} className={c.className}>
               {c.text}
@@ -147,9 +162,13 @@ export function PostListPreviewColumn({
       </div>
     );
 
+  const previewStackClass = stretchPreviewToThumbnailColumn
+    ? `flex min-h-0 flex-1 flex-col justify-start ${compactSpacing ? "gap-y-0" : "gap-y-0.5"}`
+    : `flex flex-col justify-start ${compactSpacing ? "gap-y-0" : "gap-y-0.5"}`;
+
   const inner = matchThumbnailHeight ? (
     <>
-      <div className="flex min-h-0 flex-1 flex-col justify-start gap-y-0.5">
+      <div className={previewStackClass}>
         {listingRow}
         {preview.bodyBlocks.map((b, i) => (
           <p key={i} className={`${stripPostListBlockTopMargin(b.className)} shrink-0`}>
@@ -172,7 +191,10 @@ export function PostListPreviewColumn({
   );
 
   if (matchThumbnailHeight) {
-    return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">{inner}</div>;
+    const outerPreviewClass = stretchPreviewToThumbnailColumn
+      ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
+      : "flex min-h-0 min-w-0 flex-1 flex-col";
+    return <div className={outerPreviewClass}>{inner}</div>;
   }
 
   return inner;

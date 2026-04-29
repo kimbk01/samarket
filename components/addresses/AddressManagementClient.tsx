@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -16,7 +15,12 @@ import {
 } from "@/lib/map/map-address-pick-storage";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
-import { readCachedMeAddressList, writeCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
+import {
+  describeMeAddressesListFailure,
+  fetchMeAddressesListSingleFlight,
+  readCachedMeAddressList,
+  writeCachedMeAddressList,
+} from "@/lib/addresses/address-list-client-cache";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
@@ -72,11 +76,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
       void (async () => {
         try {
-          const res = await runSingleFlight("me:addresses:list", () =>
-            fetch("/api/me/addresses", { credentials: "include" })
-          );
-          const j = (await res.json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
-          const found = res.ok && j.ok ? j.addresses?.find((a) => a.id === ctx.addressId) : undefined;
+          const result = await fetchMeAddressesListSingleFlight();
+          const found = result.ok ? result.rows.find((a) => a.id === ctx.addressId) : undefined;
           if (found) {
             setMapBootstrap(boot);
             setEditorMode("edit");
@@ -100,39 +101,17 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     const showWait = listRef.current.length === 0;
     if (showWait) setListBootstrapping(true);
     try {
-      const a = await runSingleFlight("me:addresses:list", () =>
-        fetch("/api/me/addresses", { credentials: "include" })
-      );
-      if (a.status === 401) {
-        setLoadErr("로그인이 필요합니다. 현재 접속한 주소(도메인)에서 다시 로그인해 주세요.");
+      const result = await fetchMeAddressesListSingleFlight();
+      if (!result.ok) {
+        setLoadErr(describeMeAddressesListFailure(result, tt("목록을 불러오지 못했어요.")));
         return;
       }
-      const contentType = a.headers.get("content-type") ?? "";
-      if (!contentType.includes("application/json")) {
-        if (a.redirected || a.url.includes("/login")) {
-          setLoadErr("로그인이 필요합니다. 현재 접속한 주소(도메인)에서 다시 로그인해 주세요.");
-        } else {
-          setLoadErr("주소 목록 응답 형식이 올바르지 않습니다.");
-        }
-        return;
-      }
-      const aj = (await a.clone().json()) as { ok?: boolean; addresses?: UserAddressDTO[]; error?: string };
-      if (!a.ok || !aj.ok) {
-        if (aj.error === "user_addresses_table_missing") {
-          setLoadErr("user_addresses_table_missing");
-          return;
-        }
-        setLoadErr(typeof aj.error === "string" ? aj.error : tt("목록을 불러오지 못했어요."));
-        return;
-      }
-      const rows = aj.addresses ?? [];
+      const rows = result.rows;
       setList(rows);
       if (rows.length > 0) writeCachedMeAddressList(rows);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
       }
-    } catch {
-      setLoadErr("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       if (showWait) setListBootstrapping(false);
     }

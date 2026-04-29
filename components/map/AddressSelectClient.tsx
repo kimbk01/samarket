@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRouter } from "next/navigation";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
@@ -33,6 +32,7 @@ import {
   ADDR_SETTINGS_BODY,
 } from "@/lib/ui/address-flow-viber";
 import Link from "next/link";
+import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 
 type LatLng = { lat: number; lng: number };
 
@@ -118,12 +118,9 @@ export function AddressSelectClient() {
 
   const loadAddresses = useCallback(async () => {
     try {
-      const res = await runSingleFlight("me:addresses:list", () =>
-        fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
-      );
-      const j = (await res.clone().json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
-      if (res.ok && j.ok && Array.isArray(j.addresses)) {
-        setServerAddresses(j.addresses);
+      const result = await fetchMeAddressesListSingleFlight();
+      if (result.ok) {
+        setServerAddresses(result.rows);
       }
     } catch {
       /* ignore */

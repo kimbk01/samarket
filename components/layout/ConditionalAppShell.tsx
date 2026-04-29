@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useMemo } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
@@ -17,6 +17,11 @@ import {
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
+import {
+  mainBottomNavPrefetchTriggerKey,
+  type MainBottomNavPrefetchDomain,
+} from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { RegionBar } from "./RegionBar";
@@ -45,6 +50,21 @@ export function ConditionalAppShell({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
+  /** 하단 탭 전환(커뮤니티↔거래↔배달↔내정보 등) 시 별도 도메인으로 바뀌면 본문 스크롤 위치가 남지 않게 한다 */
+  const prevBottomNavPrefetchDomainRef = useRef<MainBottomNavPrefetchDomain | null>(null);
+  useLayoutEffect(() => {
+    const next = mainBottomNavPrefetchTriggerKey(pathname ?? null);
+    if (prevBottomNavPrefetchDomainRef.current === null) {
+      prevBottomNavPrefetchDomainRef.current = next;
+      return;
+    }
+    const prev = prevBottomNavPrefetchDomainRef.current;
+    prevBottomNavPrefetchDomainRef.current = next;
+    if (prev !== next) {
+      scrollAppShellToTopAfterShellNavigation();
+    }
+  }, [pathname]);
+
   const f = useMemo(
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]

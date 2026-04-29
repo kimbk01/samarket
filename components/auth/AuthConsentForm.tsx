@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import type { Profile } from "@/lib/types/profile";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 
 export function AuthConsentForm() {
@@ -37,6 +41,32 @@ export function AuthConsentForm() {
         return;
       }
       invalidateMeProfileDedupedCache();
+      try {
+        const resEnsure = await fetchProfileEnsureDeduped();
+        const raw = (await resEnsure.json().catch(() => null)) as {
+          ok?: boolean;
+          profile?: Partial<Profile> & { id?: string };
+        } | null;
+        if (resEnsure.ok && raw?.ok && raw.profile?.id) {
+          const p = raw.profile;
+          const prev = getCurrentUser();
+          const merged: Profile = {
+            ...(prev ?? {
+              id: p.id,
+              email: "",
+              nickname: "",
+              avatar_url: null,
+              temperature: 50,
+            }),
+            ...p,
+            id: p.id,
+            temperature: typeof p.temperature === "number" ? p.temperature : prev?.temperature ?? 50,
+          };
+          setSupabaseProfileCache(merged);
+        }
+      } catch {
+        /* 캐시 갱신 실패는 다음 세션/ensure 에 위임 */
+      }
       router.replace(next);
     } catch {
       const nextError = "동의를 저장하지 못했습니다.";

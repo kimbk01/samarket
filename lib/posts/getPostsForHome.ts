@@ -158,6 +158,30 @@ export function primeHomePostsCache(
 }
 
 /**
+ * 글 등록/수정 직후 최신 거래 목록이 즉시 보이도록 홈 목록 캐시를 비운다.
+ * - in-memory Map
+ * - sessionStorage(`samarket:home-posts:v1:*`)
+ */
+export function invalidateHomePostsCache(): void {
+  homePostsCache.clear();
+  if (!canUseSessionStorage()) return;
+  try {
+    const prefix = HOME_POSTS_SESSION_CACHE_KEY_PREFIX;
+    const removeKeys: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const key = window.sessionStorage.key(i);
+      if (!key || !key.startsWith(prefix)) continue;
+      removeKeys.push(key);
+    }
+    for (const key of removeKeys) {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
  * 홈/물건 등록 리스트용 게시글 조회 (어드민 posts와 동일 테이블)
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
  */

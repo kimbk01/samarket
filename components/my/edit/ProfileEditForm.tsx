@@ -23,6 +23,7 @@ import {
 import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 
 function validate(p: { nickname: string }): { nickname?: string } {
   const errors: { nickname?: string } = {};
@@ -71,13 +72,10 @@ export function ProfileEditForm() {
     setAddressListErr((prev) => (prev ? false : prev));
     const pick = consumeMapAddressPick();
 
-    const addressesPromise = runSingleFlight("me:addresses:list", () =>
-      fetch("/api/me/addresses", { credentials: "include", cache: "no-store" })
-    )
-      .then(async (res) => {
-        const j = (await res.clone().json()) as { ok?: boolean; addresses?: UserAddressDTO[] };
-        if (res.ok && j.ok && Array.isArray(j.addresses)) {
-          return { ok: true as const, rows: j.addresses };
+    const addressesPromise = fetchMeAddressesListSingleFlight()
+      .then((result) => {
+        if (result.ok) {
+          return { ok: true as const, rows: result.rows };
         }
         return { ok: false as const, rows: [] as UserAddressDTO[] };
       })

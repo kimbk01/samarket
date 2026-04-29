@@ -14,6 +14,12 @@ describe("mainBottomNavPrefetchTriggerKey", () => {
     expect(mainBottomNavPrefetchTriggerKey("/market/jobs")).toBe("trade");
   });
 
+  it("레거시 /community 는 필라이프와 동일 도메인", () => {
+    expect(mainBottomNavPrefetchTriggerKey("/community")).toBe("philife");
+    expect(mainBottomNavPrefetchTriggerKey("/community/post/x")).toBe("philife");
+    expect(mainBottomNavPrefetchTriggerKey("/community-messenger")).toBe("messenger");
+  });
+
   it("메신저·마이·배달·기타", () => {
     expect(mainBottomNavPrefetchTriggerKey("/community-messenger")).toBe("messenger");
     expect(mainBottomNavPrefetchTriggerKey("/community-messenger/rooms/x")).toBe("messenger");

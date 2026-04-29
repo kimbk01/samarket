@@ -6,6 +6,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
+import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
@@ -55,25 +56,7 @@ export async function POST(request: NextRequest) {
     const state = await ensureAuthProfileRow(writeSb, user).catch(async () => {
       const fallback = serviceSb ? await ensureProfileForUserId(serviceSb, user.id) : null;
       if (!fallback) throw new Error("profile_ensure_failed");
-      const row = fallback as {
-        id: string;
-        email?: string | null;
-        username?: string | null;
-        nickname?: string | null;
-        avatar_url?: string | null;
-        role?: string | null;
-        member_type?: string | null;
-        status?: string | null;
-        phone?: string | null;
-        phone_country_code?: string | null;
-        phone_number?: string | null;
-        phone_verified?: boolean | null;
-        phone_verified_at?: string | null;
-        phone_verification_status?: string | null;
-        auth_login_email?: string | null;
-        auth_provider?: string | null;
-        provider?: string | null;
-      };
+      const row = fallback as ProfileRow;
       return {
         userId: row.id,
         email: row.email ?? null,
@@ -92,6 +75,10 @@ export async function POST(request: NextRequest) {
         authLoginEmail: row.auth_login_email ?? row.email ?? null,
         authProvider: row.auth_provider ?? null,
         provider: row.provider ?? null,
+        termsAcceptedAt: row.terms_accepted_at ?? null,
+        termsVersion: row.terms_version ?? null,
+        privacyAcceptedAt: row.privacy_accepted_at ?? null,
+        privacyVersion: row.privacy_version ?? null,
       };
     });
     const response = jsonOk({
@@ -114,6 +101,10 @@ export async function POST(request: NextRequest) {
         provider: state.provider ?? state.authProvider ?? null,
         auth_provider: state.authProvider,
         temperature: 50,
+        terms_accepted_at: state.termsAcceptedAt ?? null,
+        terms_version: state.termsVersion ?? null,
+        privacy_accepted_at: state.privacyAcceptedAt ?? null,
+        privacy_version: state.privacyVersion ?? null,
       },
     });
     const rotateSession = request.nextUrl.searchParams.get("rotate_session") === "1";

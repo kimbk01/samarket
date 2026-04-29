@@ -22,6 +22,7 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -97,6 +98,21 @@ function TradePrimaryTabsInner({
     const rect = el.getBoundingClientRect();
     setAllSortMenuPos({ top: rect.bottom + 6, left: rect.left });
   }, []);
+
+  const onTradeAllSortChipTap = useCallback(() => {
+    setAllSortOpen(false);
+    setTradeState("latest");
+  }, [setTradeState]);
+
+  const onTradeAllSortChipLongPress = useCallback(() => {
+    updateAllSortMenuPos();
+    setAllSortOpen(true);
+  }, [updateAllSortMenuPos]);
+
+  const tradeAllSortChipGestures = useLongPressOrTap({
+    onTap: onTradeAllSortChipTap,
+    onLongPress: onTradeAllSortChipLongPress,
+  });
 
   useEffect(() => {
     if (loading || tabs.length < 2) return;
@@ -176,8 +192,16 @@ function TradePrimaryTabsInner({
                 aria-selected={onAllTrade}
                 aria-haspopup="listbox"
                 aria-expanded={allSortOpen}
+                aria-label={`${allSortLabel}. 한 번 탭하면 최신순 정렬로 바로 적용하고, 길게 누르면 판매중·예약중 등 다른 정렬을 고를 수 있어요.`}
                 ref={allSortButtonRef}
-                onClick={() => setAllSortOpen((v) => !v)}
+                {...tradeAllSortChipGestures.buttonProps}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    updateAllSortMenuPos();
+                    setAllSortOpen(true);
+                  }
+                }}
                 className={`${onAllTrade ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`}
               >
                 <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{allSortLabel}</span>
