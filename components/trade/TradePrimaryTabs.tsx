@@ -45,7 +45,7 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
     );
   }
   return (
-    <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface">
+    <div className="min-w-0 overflow-x-hidden bg-sam-surface">
       <div className={APP_MAIN_HEADER_INNER_CLASS}>
         <div className={PHILIFE_TOPIC_TAB_ROW_CLASS} aria-hidden>
           <span className="inline-flex min-h-8 min-w-16 animate-pulse rounded-full border border-sam-border bg-sam-surface-muted px-2.5 py-1" />
@@ -237,7 +237,7 @@ function TradePrimaryTabsInner({
 
   if (embedInAppHeader) {
     return (
-      <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface">
+      <div className="min-w-0 overflow-x-hidden bg-sam-surface">
         <div className={APP_MAIN_HEADER_INNER_CLASS}>{scrollBody}</div>
         {allSortOpen && allSortMenuPos && typeof document !== "undefined"
           ? createPortal(

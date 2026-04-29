@@ -39,7 +39,7 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 | 원칙 | 실천 |
 |------|------|
 | **라우트당 로더 1개** | 같은 화면에서 `getHomeChipCategories` + `getPostsForHome`처럼 **출처가 갈라지면**, 서버에서 `{ chips, posts, favoriteMap }` 형태로 **한 번에** 내려주는 API/RSC를 우선한다. |
-| **적용됨 (`/market`)** | `app/(main)/market/page.tsx`(RSC)가 `resolveHomePostsGetData`로 첫 피드를 채우고, `HomeProductList`에 넘겨 **마운트 직후 `getPostsForHome` 재호출을 생략**한다. `primeHomePostsCache`로 클라이언트 캐시와 키를 맞춤. |
+| **적용됨 (`/market`)** | 페이지는 즉시 셸만 내리고, `HomeProductList`가 `peekCachedPostsForHome`·세션·`primeHomePostsCache`로 **첫 페인트 전 캐시**를 맞춘 뒤 필요 시에만 `getPostsForHome` 1회로 채운다. 상세 불변조건은 **§9**. |
 | **중복 요청 방지** | 클라이언트 `useEffect` + fetch 여러 개보다, **서버 단일 fetch** 또는 **명시적 단일 키**의 `runSingleFlight`만 사용한다. |
 | **캐시 키 단순화** | `getPostsForHome`의 캐시 키처럼 **의미 있는 소수의 축**(page, sort, tradeMarketParent 등)만 쓰고, 버전 접미사(`:v3`)로 정책 변경 시 일괄 무효화한다. |
 
@@ -72,5 +72,19 @@ SAMarket은 **상용 운영**을 전제로 한 빌더이므로, 거래 축의 **
 - 홈 피드: `components/home/HomeProductList.tsx`, `lib/posts/getPostsForHome.ts`, `app/api/philife/posts/route.ts`
 - 마켓: `app/(main)/market/[slug]/page.tsx`, `components/market/MarketCategoryFeed.tsx`
 - 칩/탭: `lib/trade/tabs/use-trade-tabs.ts`, `lib/categories/getHomeChipCategories.ts`
+
+## 9. 거래 홈 전체 목록 (`/market` · `HomeProductList`) — **재발 방지 불변조건**
+
+아래는 이미 한 번 드러난 **이중 fetch·캐시 미스·체감 지연**을 막기 위한 계약이다. PR·리뷰에서 목록·`getPostsForHome`·prewarm 터치 시 **전부 확인**한다.
+
+| # | 불변조건 | 위반 시 증상 |
+|---|----------|-------------|
+| **9-1** | **`getPostsForHome`에 `AbortSignal`을 넘기지 않는다** (거래 홈 전체 목록·동일 `cacheKey` prewarm 경로). 네트워크 합류는 구현 내부의 `runSingleFlight(\`home-posts-fetch:${cacheKey}\`)` 한 곳만 쓴다. | `signal` 분기가 단일 비행을 우회해 **prewarm + 마운트** 등으로 **같은 `/api/philife/posts` 요청이 2번** 나간다. |
+| **9-2** | **`peekCachedPostsForHome`는 메모리 Map 미스여도** TTL 내 **`sessionStorage` 복원을 시도**한다. “메모리 없음 → 즉시 null” 패턴 금지. | 새로고침·탭 복귀 후 **유효 세션이 있어도** 매번 스켈레톤만 보이다 네트워크 대기. |
+| **9-3** | **`HomeProductList` 바깥에서** `runSingleFlight('home-product-list:load' …)`처럼 **`cacheKey`·`tradeState`와 무관한 고정 키**로 전체 load를 감싸지 않는다. | 다른 인스턴스·이전 탭의 Promise에 합류하거나 **stale `setState`** 위험. 합류 키는 `getPostsForHome`의 `cacheKey` 축에만 둔다. |
+| **9-4** | **prewarm**(`bottom-nav-tap-prewarm-data`, `MarketContent` idle 등)의 옵션은 목록 첫 페인트와 **`normalizeOptions`로 같은 키**가 되게 맞춘다 (`page`·`sort`·`type`·`tradeState` 등). | prewarm이 쳐도 **마운트가 또 네트워크**를 친다. |
+| **9-5** | 이미 **전체 `posts` 시드**(메모리·세션·RSC prime)가 있으면 **8장+rAF 등 의도적 “나중에 펼침”**을 두지 않는다. 점진 렌더는 **콜드 네트워크 이후** 경로에만 한정한다. | “전체 리스트가 한꺼번에 안 뜨는” 체감. |
+
+**Cursor 규칙(에이전트용 요약)**: `.cursor/rules/trade-home-list-invariants.mdc`
 
 이 문서는 **새로 짜는 거래 관련 코드**의 기본 준수 사항으로 삼고, 기존 파일은 점진적으로 맞춘다. PR·리뷰에서 네 축을 짚을 때 [`TRADE_LIGHTWEIGHT_GOALS`](../lib/trade/trade-lightweight-goals.ts) 를 참조할 수 있다.

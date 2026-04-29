@@ -184,6 +184,14 @@ export function HomeTradeHubFloatingBar() {
     return () => window.removeEventListener("keydown", onKey);
   }, [hubSheet, closeHubSheet]);
 
+  const pathNoQueryFab = pathname.split("?")[0] ?? "";
+  if (
+    pathNoQueryFab === "/market/trade-meet-spot" ||
+    pathNoQueryFab.startsWith("/market/trade-meet-spot/")
+  ) {
+    return null;
+  }
+
   const shellZ = "z-[21]";
 
   return (

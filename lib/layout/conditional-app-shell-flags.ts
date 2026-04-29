@@ -47,6 +47,8 @@ export type ConditionalAppShellResolvedFlags = {
   isCommunityMessengerSurface: boolean;
   isOrdersHub: boolean;
   isTradeFloatingSurface: boolean;
+  /** `/market/trade-meet-spot` — 전역 하단 탭·플로팅 FAB 숨김 */
+  isTradeMeetSpotPickRoute: boolean;
   isChatsHubSurface: boolean;
   hideBarAndFloat: boolean;
   hideRegionBar: boolean;
@@ -113,6 +115,8 @@ export function resolveConditionalAppShellFlags(
   const isCommunityMessengerSurface =
     pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
   const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
+  /** 거래 희망 장소 풀페이지 — 하단 탭·거래 허브 FAB 가 지도·확인 버튼을 가리지 않게 숨김 */
+  const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
   const isChatsHubSurface = pathname === "/mypage/trade/chat";
   const hideBarAndFloat = isSettings || isLogout || isMyEdit;
@@ -133,7 +137,8 @@ export function resolveConditionalAppShellFlags(
     !isCommunityApp &&
     !isCommunityMessengerSurface &&
     !isOrdersHub &&
-    !isTradeFloatingSurface;
+    !isTradeFloatingSurface &&
+    !isTradeMeetSpotPickRoute;
   /** 메신저 채팅방은 하단 탭 유지 — 기타 채팅 상세·통화 전용은 숨김 */
   const suppressBottomNavForChatDetail = isChatRoomDetail && !isCommunityMessengerRoom;
   /**
@@ -148,7 +153,8 @@ export function resolveConditionalAppShellFlags(
     !isProductDetail &&
     !isStoreProductDetail &&
     /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
-    !isPersonalProductComposerPage;
+    !isPersonalProductComposerPage &&
+    !isTradeMeetSpotPickRoute;
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
   const showOwnerLiteStoreBar =
     showBottomNav &&
@@ -189,11 +195,13 @@ export function resolveConditionalAppShellFlags(
     ? "pb-0"
     : isCommunityMessengerSurface
       ? "pb-0"
-      : showBottomNav || isPostDetail
-        ? isTradeFloatingSurface
-          ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
-          : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-        : "pb-4";
+      : isTradeMeetSpotPickRoute
+        ? "pb-0"
+        : showBottomNav || isPostDetail
+          ? isTradeFloatingSurface
+            ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
+            : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+          : "pb-4";
 
   return {
     // home(첫 진입)에서는 글로벌 realtime chrome을 기본으로 끈다(배지/사운드는 허브에서만).
@@ -222,6 +230,7 @@ export function resolveConditionalAppShellFlags(
     isCommunityMessengerSurface,
     isOrdersHub,
     isTradeFloatingSurface,
+    isTradeMeetSpotPickRoute,
     isChatsHubSurface,
     hideBarAndFloat,
     hideRegionBar,

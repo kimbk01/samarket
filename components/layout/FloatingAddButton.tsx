@@ -16,9 +16,15 @@ export function FloatingAddButton() {
   const launcherCategoriesLoading = writeCtx?.launcherCategoriesLoading ?? true;
   const hasLauncherTopics = (writeCtx?.launcherRootCategories?.length ?? 0) > 0;
   const hideFabOnTradeSurface = isTradeFloatingMenuSurface(pathname);
+  const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";
 
   /** 거래 탭 표면은 FAB를 숨기고 상단 `+` 메뉴로 통일 */
   if (hideFabOnTradeSurface) {
+    return null;
+  }
+
+  /** 거래 희망 장소 풀페이지 — 글로벌 FAB 미마운트(레거시·중복 경로 대비) */
+  if (pathNoQuery === "/market/trade-meet-spot" || pathNoQuery.startsWith("/market/trade-meet-spot/")) {
     return null;
   }
 

@@ -3,6 +3,8 @@
  * @see trade-write-address-return-flag.ts
  */
 
+import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
+
 const STORAGE_VERSION = 1 as const;
 const KEY_PREFIX = "samarket:trade-write-form";
 
@@ -43,6 +45,7 @@ export type TradeWriteFormSessionDraftBuildArgs = {
   exchangeRate: string;
   tradeChatCallPolicy: string;
   descriptionAppend: string;
+  tradeMeetSpot?: TradeMeetSpotValue | null;
 };
 
 export type TradeWriteFormSessionDraftV1 = {
@@ -83,6 +86,7 @@ export type TradeWriteFormSessionDraftV1 = {
   exchangeRate: string;
   tradeChatCallPolicy: string;
   descriptionAppend: string;
+  tradeMeetSpot?: TradeMeetSpotValue | null;
 };
 
 function storageKey(categoryId: string): string {
@@ -121,7 +125,8 @@ export function tradeWriteSessionDraftLooksFilled(p: TradeWriteFormSessionDraftB
       p.currency.trim() ||
       p.exchangeRate.trim() ||
       p.descriptionAppend.trim() ||
-      p.usedCarTrade != null
+      p.usedCarTrade != null ||
+      (p.tradeMeetSpot?.displayLine?.trim() ?? "").length > 0
   );
 }
 
@@ -196,6 +201,9 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
     exchangeRate: args.exchangeRate,
     tradeChatCallPolicy: args.tradeChatCallPolicy,
     descriptionAppend: args.descriptionAppend,
+    ...(args.tradeMeetSpot && args.tradeMeetSpot.displayLine.trim()
+      ? { tradeMeetSpot: args.tradeMeetSpot }
+      : {}),
   };
 }
 

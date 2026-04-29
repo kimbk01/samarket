@@ -153,23 +153,34 @@ export async function proxy(request: NextRequest) {
   });
 
   /**
-   * 세션 검증: `getClaims()` — 비대칭 JWT(Elliptic/RSA)면 JWKS 로컬 검증으로 Auth 서버 왕복을 줄일 수 있음.
-   * 대칭 HS 알고리즘 프로젝트는 내부적으로 getUser()로 동일하게 검증(동작·보안 수준 유지).
-   * @see https://supabase.com/docs/reference/javascript/auth-getclaims
+   * 세션 검증: `getUser()` + fail-open 정책.
+   *
+   * 프록시는 HTML 페이지 게이트일 뿐 — 실제 데이터 보호는 API Route Handler 가 담당.
+   * 일시 실패(메모리 부족·네트워크·동시 refresh token rotation race)에도 `/login` 으로
+   * 튕기면 폼 데이터 손실·루프가 발생하므로, **쿠키가 존재하는 한 일시 실패는 통과**시킨다.
+   *
+   * - user 확인 성공 → 통과 (쿠키 갱신 포함)
+   * - user null + error 없음 → 진짜 미인증 → `/login`
+   * - user null + error 있음 → 일시 실패 → 통과 (API 가 401 로 처리)
+   * - 예외 → 일시 실패 → 통과
    */
   try {
-    const { data, error } = await supabase.auth.getClaims();
-    const sub =
-      data?.claims && typeof data.claims === "object" && "sub" in data.claims
-        ? String((data.claims as { sub?: unknown }).sub ?? "").trim()
-        : "";
-    if (error || !sub) {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (user?.id) {
+      return preventAuthPageCache(response);
+    }
+
+    if (!error) {
       return redirectToLogin(request);
     }
+
     return preventAuthPageCache(response);
   } catch {
-    /** 네트워크·JWT 파싱 등 실패 시 열어 두지 않고 로그인으로 (fail-closed) */
-    return redirectToLogin(request);
+    return preventAuthPageCache(response);
   }
 }
 

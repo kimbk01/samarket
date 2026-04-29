@@ -14,6 +14,7 @@ import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
 import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
+import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
 
@@ -289,7 +290,9 @@ export function WriteSheetFlowInner({
   };
 
   return (
-    <div className="mx-auto w-full max-w-[480px] space-y-4 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-3">
+    <div
+      className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-3`}
+    >
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <label
           htmlFor="write-category-select"
@@ -315,7 +318,7 @@ export function WriteSheetFlowInner({
       </div>
       {!categoryKey ? (
         <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-          <p className="px-4 py-10 text-center sam-text-body text-sam-muted">카테고리를 선택 하세요</p>
+          <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 선택 하세요</p>
         </div>
       ) : (
         <div

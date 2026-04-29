@@ -13,12 +13,12 @@ import {
   peekCachedPostsForHome,
   peekRecentHomePostsFallback,
   primeHomePostsCache,
+  type GetPostsForHomeOptions,
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
 import type { HomeTradeStateFilter } from "@/lib/posts/getPostsForHome";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
 import {
   bumpAppWidePerf,
@@ -44,6 +44,20 @@ function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter 
 
 const INITIAL_VISIBLE_CARD_COUNT = 8;
 
+/**
+ * SSR + 클라이언트 첫 렌더에서만 사용 — 메모리/sessionStorage 캐시를 읽지 않음.
+ * 그렇지 않으면 서버(캐시 없음) ≠ 클라(캐시 히트) 로 `<ul>` 트리가 달라져 hydration 오류가 난다.
+ */
+function getHydrationSafeBoot(
+  tradeState: HomeTradeStateFilter,
+  initialHomeTradeFeed: GetPostsForHomeResult | null | undefined
+): GetPostsForHomeResult | null {
+  if (tradeState === "latest") {
+    return initialHomeTradeFeed ?? null;
+  }
+  return null;
+}
+
 export function HomeProductList({
   initialHomeTradeFeed,
 }: {
@@ -54,17 +68,13 @@ export function HomeProductList({
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null, tradeState };
   const { tt } = useI18n();
-  const boot =
-    tradeState === "latest"
-      ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
-      : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
-  const cachedInitial = boot ?? peekRecentHomePostsFallback();
+  const hydrationSeed = getHydrationSafeBoot(tradeState, initialHomeTradeFeed);
   const [listState, setListState] = useState<ListState>(() =>
-    cachedInitial ? (cachedInitial.posts.length === 0 ? "empty" : "idle") : "loading"
+    hydrationSeed ? (hydrationSeed.posts.length === 0 ? "empty" : "idle") : "loading"
   );
-  const [posts, setPosts] = useState<PostWithMeta[]>(() => cachedInitial?.posts ?? []);
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => hydrationSeed?.posts ?? []);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
-    () => cachedInitial?.favoriteMap ?? {}
+    () => hydrationSeed?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());
@@ -72,83 +82,98 @@ export function HomeProductList({
   const [toast, setToast] = useState<string | null>(null);
   const lastLoadedAtRef = useRef(0);
   const latestRequestIdRef = useRef(0);
-  const latestAbortRef = useRef<AbortController | null>(null);
   const silentRequestIdRef = useRef(0);
-  const silentAbortRef = useRef<AbortController | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
-  const initialVisibleExpansionDoneRef = useRef(false);
+  /** 시드·세션·메모리 캐시 히트면 첫 페인트부터 전체 행을 그림(8장+rAF 펼침은 콜드 네트워크 경로만) */
+  const initialHasFullSeed = Boolean(hydrationSeed?.posts?.length);
+  const initialVisibleExpansionDoneRef = useRef(initialHasFullSeed);
   const [visibleCount, setVisibleCount] = useState(() => {
-    const initialCount = cachedInitial?.posts.length ?? 0;
-    return initialCount > 0 ? Math.min(initialCount, INITIAL_VISIBLE_CARD_COUNT) : 0;
+    const initialCount = hydrationSeed?.posts.length ?? 0;
+    if (initialCount <= 0) return 0;
+    if (initialHasFullSeed) return initialCount;
+    return Math.min(initialCount, INITIAL_VISIBLE_CARD_COUNT);
   });
 
   const load = useCallback(async () => {
     const requestId = ++latestRequestIdRef.current;
-    latestAbortRef.current?.abort();
-    const controller = new AbortController();
-    latestAbortRef.current = controller;
-    await runSingleFlight("home-product-list:load", async () => {
-      if (lastLoadedAtRef.current === 0) {
-        setListState("loading");
-      }
-      const firstNetworkList = lastLoadedAtRef.current === 0;
-      let tradeFetchT0 = 0;
+    const listOpts: GetPostsForHomeOptions = { sort: "latest", type: null, tradeState };
+    /**
+     * `getPostsForHome` 는 signal 없이 호출해야 `home-posts-fetch:${cacheKey}` 단일 비행에 합류한다.
+     * signal 분기는 이 단일 비행을 우회해, BottomNav·MarketContent prewarm 과 **이중 fetch**가 났다.
+     */
+    if (lastLoadedAtRef.current === 0) {
+      setListState("loading");
+    }
+    const firstNetworkList = lastLoadedAtRef.current === 0;
+    let tradeFetchT0 = 0;
+    if (firstNetworkList) {
+      tryTrackFirstMenuListFetchStart();
+      bumpAppWidePerf("trade_list_fetch_start");
+      tradeFetchT0 = performance.now();
+    }
+    try {
+      const res = await getPostsForHome(listOpts);
+      if (requestId !== latestRequestIdRef.current) return;
+      setPosts(res.posts);
+      setFavoriteMap(res.favoriteMap);
+      lastLoadedAtRef.current = Date.now();
+      setListState(res.posts.length === 0 ? "empty" : "idle");
       if (firstNetworkList) {
-        tryTrackFirstMenuListFetchStart();
-        bumpAppWidePerf("trade_list_fetch_start");
-        tradeFetchT0 = performance.now();
-      }
-      try {
-        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS, { signal: controller.signal });
-        if (controller.signal.aborted || requestId !== latestRequestIdRef.current) return;
-        setPosts(res.posts);
-        setFavoriteMap(res.favoriteMap);
-        lastLoadedAtRef.current = Date.now();
-        setListState(res.posts.length === 0 ? "empty" : "idle");
-        if (firstNetworkList) {
-          bumpAppWidePerf("trade_list_fetch_success");
-          recordAppWidePhaseLastMs("trade_list_fetch_ms", Math.round(performance.now() - tradeFetchT0));
-          tryTrackFirstMenuListFetchSuccess();
-          bumpAppWidePerf("trade_list_render");
-          tryTrackFirstMenuListRender();
-          const paintT0 = tradeFetchT0;
-          queueMicrotask(() => {
-            if (typeof requestAnimationFrame !== "function") return;
+        bumpAppWidePerf("trade_list_fetch_success");
+        recordAppWidePhaseLastMs("trade_list_fetch_ms", Math.round(performance.now() - tradeFetchT0));
+        tryTrackFirstMenuListFetchSuccess();
+        bumpAppWidePerf("trade_list_render");
+        tryTrackFirstMenuListRender();
+        const paintT0 = tradeFetchT0;
+        queueMicrotask(() => {
+          if (typeof requestAnimationFrame !== "function") return;
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                recordAppWidePhaseLastMs("trade_list_to_paint_ms", Math.round(performance.now() - paintT0));
-              });
+              recordAppWidePhaseLastMs("trade_list_to_paint_ms", Math.round(performance.now() - paintT0));
             });
           });
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (controller.signal.aborted || requestId !== latestRequestIdRef.current) return;
-        /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
-        setListState("error");
-      } finally {
-        if (latestAbortRef.current === controller) {
-          latestAbortRef.current = null;
-        }
+        });
       }
-    });
-  }, []);
+    } catch {
+      if (requestId !== latestRequestIdRef.current) return;
+      /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
+      setListState("error");
+    }
+  }, [tradeState]);
 
-  /** RSC 시드를 페인트 전에 캐시에 넣어 같은 틱의 다른 effect·자식이 `getPostsForHome` 를 칠 때 네트워크 합류 */
+  /**
+   * 클라이언트에서만 메모리·sessionStorage 캐시를 병합한다.
+   * 첫 렌더는 `hydrationSeed`만 사용해 서버 HTML과 일치시킨다.
+   */
   useLayoutEffect(() => {
     if (initialHomeTradeFeed) {
-      primeHomePostsCache(HOME_POST_LIST_OPTIONS, initialHomeTradeFeed);
+      primeHomePostsCache({ sort: "latest", type: null, tradeState }, initialHomeTradeFeed);
     }
-    if (cachedInitial && lastLoadedAtRef.current === 0) {
-      lastLoadedAtRef.current = Date.now();
-    }
-  }, [cachedInitial, initialHomeTradeFeed]);
 
-  useLayoutEffect(() => {
-    if (cachedInitial) return;
+    const boot =
+      tradeState === "latest"
+        ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
+        : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
+    const merged = boot ?? peekRecentHomePostsFallback();
+
+    if (merged) {
+      setPosts(merged.posts);
+      setFavoriteMap(merged.favoriteMap ?? {});
+      setListState(merged.posts.length === 0 ? "empty" : "idle");
+      lastLoadedAtRef.current = Date.now();
+
+      const seedFull = Boolean(merged.posts?.length);
+      initialVisibleExpansionDoneRef.current = seedFull;
+      const ic = merged.posts.length;
+      if (ic <= 0) setVisibleCount(0);
+      else if (seedFull) setVisibleCount(ic);
+      else setVisibleCount(Math.min(ic, INITIAL_VISIBLE_CARD_COUNT));
+      return;
+    }
+
     void load();
-  }, [cachedInitial, load]);
+  }, [tradeState, initialHomeTradeFeed, load]);
 
   useEffect(() => {
     if (posts.length <= 0) {
@@ -181,28 +206,17 @@ export function HomeProductList({
       return;
     }
     const requestId = ++silentRequestIdRef.current;
-    silentAbortRef.current?.abort();
-    const controller = new AbortController();
-    silentAbortRef.current = controller;
-
-    await runSingleFlight("home-product-list:silent-refresh", async () => {
-      try {
-        const res = await getPostsForHome(HOME_POST_LIST_OPTIONS, { signal: controller.signal });
-        if (controller.signal.aborted || requestId !== silentRequestIdRef.current) return;
-        setPosts(res.posts);
-        setFavoriteMap(res.favoriteMap);
-        lastLoadedAtRef.current = Date.now();
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (controller.signal.aborted || requestId !== silentRequestIdRef.current) return;
-        /* 기존 목록 유지 */
-      } finally {
-        if (silentAbortRef.current === controller) {
-          silentAbortRef.current = null;
-        }
-      }
-    });
-  }, []);
+    try {
+      const res = await getPostsForHome({ sort: "latest", type: null, tradeState });
+      if (requestId !== silentRequestIdRef.current) return;
+      setPosts(res.posts);
+      setFavoriteMap(res.favoriteMap);
+      lastLoadedAtRef.current = Date.now();
+    } catch {
+      if (requestId !== silentRequestIdRef.current) return;
+      /* 기존 목록 유지 */
+    }
+  }, [tradeState]);
 
   /** bfcache 복원 + 탭/앱 복귀 + 포커스만 바뀌는 복귀 — 한 훅·동일 디바운스 정책 */
   useRefetchOnPageShowRestore(() => void refreshSilent(), {
@@ -231,8 +245,6 @@ export function HomeProductList({
 
   useEffect(() => {
     return () => {
-      latestAbortRef.current?.abort();
-      silentAbortRef.current?.abort();
       if (toastTimerRef.current != null) {
         clearTimeout(toastTimerRef.current);
         toastTimerRef.current = null;
@@ -393,7 +405,7 @@ export function HomeProductList({
 
 function LoadingState() {
   return (
-    <ul className="space-y-3 px-2 py-2" aria-busy="true" aria-label="거래 목록 로딩">
+    <ul className={TRADE_FEED_LIST_WRAP_CLASS} aria-busy="true" aria-label="거래 목록 로딩">
       {[0, 1, 2, 3].map((k) => (
         <li key={k} className="rounded-ui-rect border border-sam-border/70 bg-ui-surface p-3 shadow-sm">
           <div className="flex items-start gap-3">

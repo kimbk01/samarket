@@ -30,6 +30,7 @@ import {
 } from "@/lib/jobs/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
+import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
@@ -38,6 +39,7 @@ import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
+import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -389,10 +391,7 @@ export function JobsWriteForm({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
-      >
+      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_CLASS}>
         <div className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
           <p className="sam-text-body-secondary text-sam-muted">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
         </div>
@@ -708,14 +707,13 @@ export function JobsWriteForm({
 
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
           <p className="mb-2 sam-text-body font-semibold text-sam-fg">상세 설명</p>
-          <textarea
+          <AutoGrowTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             readOnly={showDescriptionAppend}
             placeholder="하는 일, 분위기, 준비물 등을 적어 주세요."
-            rows={5}
             maxLength={JOB_DESCRIPTION_MAX}
-            className={`w-full resize-none rounded-ui-rect border px-3 py-2.5 sam-text-body ${
+            className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body min-h-[120px] ${
               errors.description ? "border-red-400 bg-red-50" : "border-sam-border"
             } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : ""}`}
           />
@@ -725,12 +723,11 @@ export function JobsWriteForm({
             <div className="mt-3">
               <p className="mb-1 sam-text-body-secondary font-medium text-sam-fg">추가 안내 (선택)</p>
               <p className="mb-2 sam-text-helper text-sam-muted">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
-              <textarea
+              <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="예) 면접 장소 변경, 준비물 추가 안내"
-                rows={3}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body min-h-[88px]"
               />
             </div>
           ) : null}

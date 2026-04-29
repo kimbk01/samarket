@@ -38,6 +38,23 @@ export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS = APP_MYPAGE_SUBPAGE_BODY_CLAS
 export const APP_MAIN_FEED_STACK_CLASS = `min-h-0 min-w-0 w-full max-w-full flex flex-col gap-1 pt-1 ${PHILIFE_FEED_INSET_X_CLASS}`;
 
 /**
+ * 거래 글쓰기·상품 등록 폼 가로 정렬 — `/market` 피드 `<ul>` 과 동일 `PHILIFE_FEED_INSET_X`.
+ * 고정 `max-w-[480px]` 를 쓰지 않아 메인 컬럼·태블릿 가로 리사이즈에 맞춰 진폭이 넓어진다.
+ */
+export const APP_TRADE_WRITE_HORIZONTAL_CLASS = `min-w-0 w-full max-w-full ${PHILIFE_FEED_INSET_X_CLASS}`;
+
+/** 풀페이지 거래 글쓰기 `<form>` 루트(연속 섹션형) — 가로·상하만; `space-y-*` 없음 */
+export const APP_TRADE_WRITE_FORM_ROOT_CLASS = `${APP_TRADE_WRITE_HORIZONTAL_CLASS} py-2`;
+
+/** 일반 거래 글 폼 — 블록 간 간격 최소화(스크롤 부담 완화) */
+export const APP_TRADE_WRITE_FORM_CLASS = `${APP_TRADE_WRITE_FORM_ROOT_CLASS} space-y-2`;
+
+/**
+ * 뷰포트 풀폭 시트(`TradeWriteBottomSheet`) 안 본문 — 스크롤 영역이 메인 피드와 동일 `max-w` 체인을 쓴다.
+ */
+export const APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS = `${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 w-full`;
+
+/**
  * 메인 하단 탭이 있는 화면 본문 — 컬럼 + 피드 인셋만.
  * 하단 탭 위 `padding-bottom`은 `ConditionalAppShell`의 `<main>`(mainBottomClass)에서 이미
  * `MAIN_SCROLL_PADDING` 으로 한 번만 적용되므로, 여기서는 중복하지 않는다.

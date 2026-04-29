@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
+import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 
 const SHEET_EXIT_MS = 520;
@@ -15,7 +16,7 @@ const SHEET_EXIT_MS = 520;
 export function TradeWriteBottomSheet() {
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
-  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft } = useTradeWriteSheet();
+  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft, initialCategory } = useTradeWriteSheet();
   const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -42,8 +43,8 @@ export function TradeWriteBottomSheet() {
       setIsExiting(false);
       return;
     }
-    /** 거래 시트는 항상 빈 카테고리로 시작 — 마켓 URL 등으로 특정 주제가 고정되지 않게 */
-    setSheetCategoryKey("");
+    /** `open("")` 이면 카테고리 선택부터, 지도 복귀 등 `open(카테고리키)` 이면 해당 주제로 바로 폼 */
+    setSheetCategoryKey((initialCategory ?? "").trim());
     setIsExiting(false);
     measure();
     setEnterDraw(false);
@@ -56,6 +57,9 @@ export function TradeWriteBottomSheet() {
     const onScroll = () => measure();
     window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onScroll, true);
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    vv?.addEventListener("resize", onResize);
+    vv?.addEventListener("scroll", onResize);
     const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
     if (el && ro) ro.observe(el);
@@ -66,9 +70,11 @@ export function TradeWriteBottomSheet() {
       }
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll, true);
+      vv?.removeEventListener("resize", onResize);
+      vv?.removeEventListener("scroll", onResize);
       ro?.disconnect();
     };
-  }, [isOpen, measure, openEpoch]);
+  }, [isOpen, measure, openEpoch, initialCategory]);
 
   const lockBody = isOpen;
   useEffect(() => {
@@ -164,18 +170,20 @@ export function TradeWriteBottomSheet() {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-          <WriteSheetFlowInner
-            key={openEpoch}
-            mode="tradeSheet"
-            categoryKey={sheetCategoryKey}
-            onTradeSheetCategoryChange={setSheetCategoryKey}
-            pathnameForAuth={pathname}
-            onUserRequestClose={() => {
-              void exitAndClose();
-            }}
-            onSuccessNavigate={onSuccessNavigate}
-            onTradeSheetBlockingDraftChange={setBlockingDraft}
-          />
+          <div className={APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS}>
+            <WriteSheetFlowInner
+              key={openEpoch}
+              mode="tradeSheet"
+              categoryKey={sheetCategoryKey}
+              onTradeSheetCategoryChange={setSheetCategoryKey}
+              pathnameForAuth={pathname}
+              onUserRequestClose={() => {
+                void exitAndClose();
+              }}
+              onSuccessNavigate={onSuccessNavigate}
+              onTradeSheetBlockingDraftChange={setBlockingDraft}
+            />
+          </div>
         </div>
       </div>
     </div>

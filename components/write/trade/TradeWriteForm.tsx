@@ -137,11 +137,21 @@ import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
 import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
+import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
+import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import {
+  clearTradeMeetSpotPickDraft,
+  clearTradeMeetSpotPickResult,
+  consumeTradeMeetSpotPickResult,
+  peekTradeMeetSpotPickResult,
+  seedTradeMeetSpotDraftForNavigation,
+} from "@/lib/posts/trade-meet-spot-pick-storage";
+import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   buildTradeWriteFormSessionDraft,
@@ -153,6 +163,16 @@ import {
   type TradeWriteFormSessionDraftBuildArgs,
 } from "@/lib/posts/trade-write-form-session-draft";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  KARROT_INNER_BOX,
+  KARROT_LABEL,
+  KARROT_PILL_ACTIVE,
+  KARROT_PILL_IDLE,
+  KARROT_SECTION,
+} from "./trade-karrot-classes";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -167,6 +187,106 @@ interface TradeWriteFormProps {
   tradePolicy?: TradePolicyClient | null;
 }
 
+const TRADE_MEET_SPOT_SCROLL_RESTORE_KEY = "samarket:tradeMeetSpotScrollRestore:v1";
+const TRADE_MEET_SPOT_SCROLL_ANCHOR_ID = "trade-meet-spot-scroll-anchor";
+const TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY = "samarket:tradeMeetSpotFocusOnReturn:v1";
+
+function findNearestScrollableParent(el: HTMLElement | null): HTMLElement | null {
+  if (!el) return null;
+  let p: HTMLElement | null = el.parentElement;
+  while (p) {
+    const style = window.getComputedStyle(p);
+    const canScroll =
+      (style.overflowY === "auto" || style.overflowY === "scroll") && p.scrollHeight > p.clientHeight;
+    if (canScroll) return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+function scrollTradeMeetSpotAnchorIntoView(): void {
+  if (typeof window === "undefined") return;
+  const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID) as HTMLElement | null;
+  if (!anchor) return;
+  const scrollParent = findNearestScrollableParent(anchor);
+  if (scrollParent) {
+    const parentRect = scrollParent.getBoundingClientRect();
+    const anchorRect = anchor.getBoundingClientRect();
+    const delta = anchorRect.top - parentRect.top - Math.max(16, Math.floor(parentRect.height * 0.18));
+    scrollParent.scrollTo({ top: Math.max(0, scrollParent.scrollTop + delta), behavior: "auto" });
+  } else {
+    anchor.scrollIntoView({ block: "center", behavior: "auto" });
+  }
+}
+
+function persistTradeMeetSpotReturnScrollPosition(): void {
+  if (typeof window === "undefined") return;
+  const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID);
+  const scrollParent = findNearestScrollableParent(anchor as HTMLElement | null);
+  try {
+    window.sessionStorage.setItem(
+      TRADE_MEET_SPOT_SCROLL_RESTORE_KEY,
+      JSON.stringify({
+        type: scrollParent ? "container" : "window",
+        top: scrollParent ? scrollParent.scrollTop : window.scrollY,
+      })
+    );
+  } catch {
+    /* quota */
+  }
+}
+
+function markTradeMeetSpotFocusOnReturn(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY, "1");
+  } catch {
+    /* quota */
+  }
+}
+
+function consumeTradeMeetSpotFocusOnReturn(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const v = window.sessionStorage.getItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY);
+    if (v === "1") {
+      window.sessionStorage.removeItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function restoreTradeMeetSpotReturnScrollPosition(): void {
+  if (typeof window === "undefined") return;
+  let payload: { type: "container" | "window"; top: number } | null = null;
+  try {
+    const raw = window.sessionStorage.getItem(TRADE_MEET_SPOT_SCROLL_RESTORE_KEY);
+    if (!raw) return;
+    window.sessionStorage.removeItem(TRADE_MEET_SPOT_SCROLL_RESTORE_KEY);
+    const parsed = JSON.parse(raw) as Partial<{ type: "container" | "window"; top: number }>;
+    if ((parsed.type !== "container" && parsed.type !== "window") || typeof parsed.top !== "number") return;
+    payload = { type: parsed.type, top: parsed.top };
+  } catch {
+    return;
+  }
+  const apply = () => {
+    const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID) as HTMLElement | null;
+    const scrollParent = findNearestScrollableParent(anchor);
+    if (payload?.type === "container" && scrollParent) {
+      scrollParent.scrollTop = payload.top;
+      return;
+    }
+    window.scrollTo({ top: Math.max(0, payload?.top ?? 0), behavior: "auto" });
+    if (anchor) {
+      anchor.scrollIntoView({ block: "nearest", behavior: "auto" });
+    }
+  };
+  requestAnimationFrame(() => requestAnimationFrame(apply));
+}
+
 export function TradeWriteForm({
   category,
   onSuccess,
@@ -178,6 +298,7 @@ export function TradeWriteForm({
 }: TradeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
@@ -202,13 +323,19 @@ export function TradeWriteForm({
   const [images, setImages] = useState<ImageUploadItem[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  /** 당근형 — 자주 쓰는 문구 바텀시트 */
+  const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
   /** 거래 채팅 통화(메신저) — 판매자만 설정, 구매자에게 음성/영상 버튼 노출 */
   const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
+  /** 당근형 일반 중고 — 거래 희망 장소(지도 선택, 주소록과 별도) */
+  const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
   const isUsedCarSkin = skinKey === "used-car";
+  /** 중고·일반 거래만 당근형 UI (부동산·중고차 제외) */
+  const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car";
 
   // 거래 종류별 meta 필드
   const [neighborhood, setNeighborhood] = useState("");
@@ -315,6 +442,16 @@ export function TradeWriteForm({
       setExchangeRate(d.exchangeRate ?? "");
       setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
       setDescriptionAppend(d.descriptionAppend ?? "");
+      if (d.tradeMeetSpot?.displayLine?.trim()) {
+        setTradeMeetSpot({
+          displayLine: d.tradeMeetSpot.displayLine.trim(),
+          lat: d.tradeMeetSpot.lat,
+          lng: d.tradeMeetSpot.lng,
+          placeId: d.tradeMeetSpot.placeId,
+        });
+      } else {
+        setTradeMeetSpot(null);
+      }
       return;
     }
     clearTradeWriteFormSessionDraft(category.id);
@@ -363,6 +500,7 @@ export function TradeWriteForm({
       exchangeRate,
       tradeChatCallPolicy,
       descriptionAppend,
+      tradeMeetSpot,
     };
     tradeDraftFlushRef.current = flushPayload;
     if (!tradeWriteSessionDraftLooksFilled(flushPayload)) return;
@@ -415,6 +553,7 @@ export function TradeWriteForm({
     exchangeRate,
     tradeChatCallPolicy,
     descriptionAppend,
+    tradeMeetSpot,
   ]);
 
   useEffect(() => {
@@ -428,8 +567,98 @@ export function TradeWriteForm({
   }, [editPostId]);
 
   /**
-   * 주소 관리로 이동 직전: 로컬 파일(미업로드)을 스토리지에 올려 URL로 바꾼 뒤 초안에 저장.
-   * sessionStorage 초안은 http(s) URL만 보존하므로, 이 단계 없이 나가면 뒤로가기 후 이미지가 비어 보임.
+   * 업로드 없이 현재 필드를 세션 초안에 반영 — 거래 희망 장소 지도로 즉시 이동할 때 사용.
+   * (주소 관리 이동용 `handleBeforeNavigateToAddresses` 는 미업로드 이미지를 올린 뒤 저장.)
+   */
+  const flushTradeWriteSessionDraftSync = useCallback(() => {
+    if (editPostId) return;
+    setTradeWriteRestoreAfterAddressFlag(category.id);
+    const payload: TradeWriteFormSessionDraftBuildArgs = {
+      categoryId: category.id,
+      skinKey,
+      title,
+      description,
+      price,
+      region,
+      city,
+      images,
+      isFreeShare,
+      isPriceOfferEnabled,
+      isDirectDeal,
+      tradeTopicChildId,
+      neighborhood,
+      buildingName,
+      estateType,
+      dealType,
+      deposit,
+      monthly,
+      managementFee,
+      hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+      tradeMeetSpot,
+    };
+    tradeDraftFlushRef.current = payload;
+    if (tradeWriteSessionDraftLooksFilled(payload)) {
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
+    }
+  }, [
+    editPostId,
+    category.id,
+    skinKey,
+    title,
+    description,
+    price,
+    region,
+    city,
+    images,
+    isFreeShare,
+    isPriceOfferEnabled,
+    isDirectDeal,
+    tradeTopicChildId,
+    neighborhood,
+    buildingName,
+    estateType,
+    dealType,
+    deposit,
+    monthly,
+    managementFee,
+    hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+      tradeMeetSpot,
+  ]);
+
+  /**
+   * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
    */
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
@@ -498,6 +727,7 @@ export function TradeWriteForm({
       exchangeRate,
       tradeChatCallPolicy,
       descriptionAppend,
+      tradeMeetSpot,
     };
     tradeDraftFlushRef.current = payload;
     if (tradeWriteSessionDraftLooksFilled(payload)) {
@@ -541,6 +771,7 @@ export function TradeWriteForm({
     exchangeRate,
     tradeChatCallPolicy,
     descriptionAppend,
+    tradeMeetSpot,
   ]);
 
   useEffect(() => {
@@ -582,6 +813,27 @@ export function TradeWriteForm({
     setCurrency(h.currency);
     setExchangeRate(h.exchangeRate);
     setTradeChatCallPolicy(h.tradeChatCallPolicy);
+    const rawMeta = ownerEditSnapshot.meta;
+    const ts =
+      rawMeta && typeof rawMeta === "object" && rawMeta !== null
+        ? (rawMeta as Record<string, unknown>).trade_meet_spot
+        : null;
+    if (ts && typeof ts === "object") {
+      const o = ts as Record<string, unknown>;
+      const dl = String(o.display_line ?? "").trim();
+      if (dl) {
+        setTradeMeetSpot({
+          displayLine: dl,
+          lat: typeof o.lat === "number" && Number.isFinite(o.lat) ? o.lat : undefined,
+          lng: typeof o.lng === "number" && Number.isFinite(o.lng) ? o.lng : undefined,
+          placeId: typeof o.place_id === "string" && o.place_id.trim() ? o.place_id.trim() : undefined,
+        });
+      } else {
+        setTradeMeetSpot(null);
+      }
+    } else {
+      setTradeMeetSpot(null);
+    }
   }, [editPostId, ownerEditSnapshot, skinKey]);
 
   const validate = useCallback((): boolean => {
@@ -605,6 +857,9 @@ export function TradeWriteForm({
     if (hasLocation && (!region || !city))
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+    if (isKarrotGeneral && hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
+      next.meetSpot = "거래 희망 장소를 지도에서 선택해 주세요.";
+    }
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = "건물명을 입력해 주세요.";
       if (!estateType.trim()) next.estateType = "타입을 선택해 주세요.";
@@ -641,6 +896,8 @@ export function TradeWriteForm({
     roomCount,
     bathroomCount,
     moveInDate,
+    isKarrotGeneral,
+    tradeMeetSpot,
   ]);
 
   const handleSubmit = useCallback(
@@ -744,6 +1001,22 @@ export function TradeWriteForm({
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
         meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
+        if (isKarrotGeneral && tradeMeetSpot?.displayLine?.trim()) {
+          const line = tradeMeetSpot.displayLine.trim();
+          meta = {
+            ...meta,
+            trade_meet_spot: {
+              display_line: line,
+              ...(tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
+                ? { lat: tradeMeetSpot.lat }
+                : {}),
+              ...(tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
+                ? { lng: tradeMeetSpot.lng }
+                : {}),
+              ...(tradeMeetSpot.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
+            },
+          };
+        }
         const usedCarPostTitle =
           usedCarTrade === "buy"
             ? `삽니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
@@ -790,6 +1063,7 @@ export function TradeWriteForm({
           const res = await createPost(payload, createPreflight);
           if (res.ok) {
             clearTradeWriteFormSessionDraft(category.id);
+            clearTradeMeetSpotPickDraft();
             invalidateHomePostsCache();
             onSuccess(res.id);
           } else {
@@ -846,10 +1120,115 @@ export function TradeWriteForm({
       showDescriptionAppend,
       descriptionAppend,
       tradeChatCallPolicy,
+      isKarrotGeneral,
+      tradeMeetSpot,
     ]
   );
 
+  const handleBeforeMeetSpotPick = useCallback(() => {
+    /** 인라인 시트 상태에서는 거래 카테고리 경로로 복귀시키고 시트를 다시 열게 한다. */
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      flushTradeWriteSessionDraftSync();
+      void handleBeforeNavigateToAddresses().catch(() => {
+        /* 업로드·로그인 실패해도 지도는 연다 — 동기 초안은 위에서 저장됨 */
+      });
+    }
+    seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [
+    editPostId,
+    flushTradeWriteSessionDraftSync,
+    handleBeforeNavigateToAddresses,
+    router,
+    category,
+    tradeMeetSpot,
+    tradeWriteSheet,
+  ]);
+
+  const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
+  const pendingMeetSpotConsumeRef = useRef(false);
+  const pendingMeetSpotFocusRef = useRef(false);
+
+  /** 시트 재오픈(`openEpoch`)·경로 변경 직후에도 1회 반영 — `useEffect`만 쓰면 시트 폼보다 늦을 수 있음 */
+  useLayoutEffect(() => {
+    const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
+    const next = peekTradeMeetSpotPickResult();
+    if (next) {
+      pendingMeetSpotConsumeRef.current = true;
+      setTradeMeetSpot(next);
+    }
+    /** 복귀 시 위치 블록 포커스를 최우선으로 하고, 그 외에는 기존 스크롤 복원 유지 */
+    if (shouldFocusOnReturn) {
+      pendingMeetSpotFocusRef.current = true;
+    } else {
+      restoreTradeMeetSpotReturnScrollPosition();
+    }
+  }, [pathname, tradeWriteSheetEpoch, category.id]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotConsumeRef.current) return;
+    if (!tradeMeetSpot?.displayLine?.trim()) return;
+    clearTradeMeetSpotPickResult();
+    pendingMeetSpotConsumeRef.current = false;
+  }, [tradeMeetSpot]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotFocusRef.current) return;
+    const run = () => {
+      scrollTradeMeetSpotAnchorIntoView();
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(run);
+    });
+    const t = window.setTimeout(run, 140);
+    pendingMeetSpotFocusRef.current = false;
+    return () => window.clearTimeout(t);
+  }, [tradeMeetSpot, tradeWriteSheetEpoch, pathname]);
+
+  useEffect(() => {
+    const onPageShow = () => {
+      const next = consumeTradeMeetSpotPickResult();
+      if (next) setTradeMeetSpot(next);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
   const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
+
+  const tradeWriteHeaderTitle = useMemo(() => {
+    if (editPostId) return `${category.name} · 수정`;
+    if (isKarrotGeneral && region && city) {
+      return `${getLocationLabel(region, city)}에 올리기`;
+    }
+    return `${category.name} · 글쓰기`;
+  }, [editPostId, category.name, isKarrotGeneral, region, city]);
+
+  const tradeLocationEl =
+    hasLocation && skinKey !== "real-estate" ? (
+      <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+        <TradeDefaultLocationBlock
+          editPostId={editPostId}
+          region={region}
+          city={city}
+          onSyncRegionCity={syncTradeRegionCity}
+          error={errors.location}
+          readOnly={coreLocked}
+          onBeforeNavigateToAddresses={
+            !editPostId && !(isKarrotGeneral && hasLocation) ? handleBeforeNavigateToAddresses : undefined
+          }
+          karrotMeetSpotUi={isKarrotGeneral && hasLocation}
+          meetSpotLine={tradeMeetSpot?.displayLine ?? null}
+          meetSpotError={errors.meetSpot}
+          onBeforeMeetSpotPick={
+            isKarrotGeneral && hasLocation && !coreLocked ? handleBeforeMeetSpotPick : undefined
+          }
+        />
+      </div>
+    ) : null;
 
   return (
     <div
@@ -862,17 +1241,14 @@ export function TradeWriteForm({
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+          title={tradeWriteHeaderTitle}
           backHref={backHref}
           onRequestClose={onCancel}
         />
       ) : null}
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto w-full max-w-[480px] space-y-3 px-4 py-4 md:max-w-2xl lg:max-w-3xl"
-      >
+      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_CLASS}>
         {tradePolicy?.hint ? (
-          <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-2 sam-text-body-secondary text-sam-warning">
+          <div className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-3 py-1.5 sam-text-body-secondary text-sam-warning">
             {tradePolicy.hint}
           </div>
         ) : null}
@@ -882,12 +1258,15 @@ export function TradeWriteForm({
           maxCount={maxProductImages}
           label="사진"
           disabled={coreLocked}
+          compact={!isKarrotGeneral}
+          variant={isKarrotGeneral ? "karrot" : "default"}
         />
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
           <WriteTradeTopicSection
             category={category}
             value={tradeTopicChildId}
             onChange={setTradeTopicChildId}
+            compact
           />
         </div>
         {skinKey === "real-estate" ? (
@@ -955,8 +1334,12 @@ export function TradeWriteForm({
             )}
           </section>
         ) : (
-          <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-            <label className="mb-1.5 block sam-text-body-lg font-semibold text-sam-fg">
+          <section
+            className={`${isKarrotGeneral ? KARROT_SECTION : "sam-section"} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          >
+            <label
+              className={`mb-1.5 block sam-text-body-lg font-semibold text-sam-fg ${isKarrotGeneral ? KARROT_LABEL : ""}`}
+            >
               제목 <span className="text-sam-danger">*</span>
             </label>
             <input
@@ -964,39 +1347,69 @@ export function TradeWriteForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               readOnly={coreLocked}
-              placeholder="글 제목"
+              placeholder={isKarrotGeneral ? "제목을 입력해주세요." : "글 제목"}
               maxLength={100}
-              className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
+              className={`w-full ${PHILIFE_FB_INPUT_CLASS} ${isKarrotGeneral ? `${KARROT_INNER_BOX} px-3 py-3 max-md:min-h-[48px]` : ""}`}
               aria-invalid={!!errors.title}
             />
             {errors.title && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.title}</p>}
           </section>
         )}
-        <section className="sam-section">
-          <label className="mb-1.5 block sam-text-body font-semibold text-sam-fg">
-            내용 <span className="text-sam-danger">*</span>
+        <section className={isKarrotGeneral ? KARROT_SECTION : "sam-section"}>
+          <label
+            className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${isKarrotGeneral ? KARROT_LABEL : ""}`}
+          >
+            {isKarrotGeneral ? (
+              <>
+                자세한 설명 <span className="text-sam-danger">*</span>
+              </>
+            ) : (
+              <>
+                내용 <span className="text-sam-danger">*</span>
+              </>
+            )}
           </label>
-          <textarea
+          <AutoGrowTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
-            placeholder="내용을 입력해 주세요"
-            rows={4}
-            className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[96px] py-2.5`}
+            placeholder={
+              isKarrotGeneral
+                ? "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
+                : "내용을 입력해 주세요"
+            }
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${isKarrotGeneral ? `${KARROT_INNER_BOX} min-h-[140px] px-3` : "min-h-[96px]"}`}
             aria-invalid={!!errors.description}
           />
+          {isKarrotGeneral && !showDescriptionAppend ? (
+            <>
+              <button
+                type="button"
+                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
+                onClick={() => setFrequentPhrasesOpen(true)}
+              >
+                자주 쓰는 문구
+              </button>
+              <TradeFrequentPhrasesSheet
+                open={frequentPhrasesOpen}
+                onClose={() => setFrequentPhrasesOpen(false)}
+                onPickPhrase={(text) => {
+                  setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
+                }}
+              />
+            </>
+          ) : null}
           {errors.description && (
             <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.description}</p>
           )}
           {showDescriptionAppend ? (
             <div className="mt-3">
               <label className="mb-1 block sam-text-body-secondary text-sam-fg">추가 안내 (선택)</label>
-              <textarea
+              <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="협의·진행 중 추가로 안내할 내용만 입력해 주세요."
-                rows={3}
-                className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] py-2.5`}
+                className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[84px] py-2.5`}
               />
             </div>
           ) : null}
@@ -1004,10 +1417,34 @@ export function TradeWriteForm({
         {(hasPrice || (hasFreeShare && !isUsedCarSkin)) &&
           skinKey !== "real-estate" &&
           !(isUsedCarSkin && usedCarTrade === "buy") && (
-          <section className="sam-section">
+          <section className={isKarrotGeneral ? KARROT_SECTION : "sam-section"}>
             {((hasFreeShare && !isUsedCarSkin) || (hasDirectDeal && !isUsedCarSkin)) && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
+                  isKarrotGeneral ? (
+                    <div role="radiogroup" aria-label="거래 방식" className="flex w-full gap-2">
+                      <button
+                        type="button"
+                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!isFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                        onClick={() => {
+                          setIsFreeShare(false);
+                          setIsDirectDeal(true);
+                        }}
+                      >
+                        판매하기
+                      </button>
+                      <button
+                        type="button"
+                        className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${isFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
+                        onClick={() => {
+                          setIsFreeShare(true);
+                          setIsDirectDeal(false);
+                        }}
+                      >
+                        나눔하기
+                      </button>
+                    </div>
+                  ) : (
                   <div role="radiogroup" aria-label="거래 방식" className="flex flex-wrap gap-x-5 gap-y-2">
                     <label className="flex cursor-pointer items-center gap-2">
                       <input
@@ -1036,6 +1473,7 @@ export function TradeWriteForm({
                       <span className="sam-text-body text-sam-fg">나눔</span>
                     </label>
                   </div>
+                  )
                 ) : (
                   <>
                     {hasFreeShare && !isUsedCarSkin && (
@@ -1067,11 +1505,13 @@ export function TradeWriteForm({
             {hasPrice && (!isFreeShare || isUsedCarSkin) && (
               <>
                 <label
-                  className={`mb-2 block sam-text-body font-medium text-sam-fg ${!isUsedCarSkin && (hasFreeShare || hasDirectDeal) ? "mt-2" : ""}`}
+                  className={`mb-2 block sam-text-body font-medium text-sam-fg ${isKarrotGeneral ? KARROT_LABEL : ""} ${!isUsedCarSkin && (hasFreeShare || hasDirectDeal) ? "mt-2" : ""}`}
                 >
                   가격 <span className="text-sam-danger">*</span>
                 </label>
-                <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
+                <div
+                  className={`flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20 ${isKarrotGeneral ? `${KARROT_INNER_BOX} py-3` : ""}`}
+                >
                   <span className="shrink-0 sam-text-body font-medium text-sam-muted">
                     {getCurrencyUnitLabel(appSettings.defaultCurrency)}
                   </span>
@@ -1094,9 +1534,9 @@ export function TradeWriteForm({
                       type="checkbox"
                       checked={isPriceOfferEnabled}
                       onChange={(e) => setIsPriceOfferEnabled(e.target.checked)}
-                      className="rounded border-sam-border"
+                      className={`rounded border-sam-border ${isKarrotGeneral ? "accent-signature" : ""}`}
                     />
-                    <span className="sam-text-body-secondary text-sam-muted">가격 제안받기</span>
+                    <span className="sam-text-body-secondary text-sam-muted">가격 제안 받기</span>
                   </label>
                 )}
               </>
@@ -1488,6 +1928,7 @@ export function TradeWriteForm({
             </div>
           </section>
         )}
+        {isKarrotGeneral ? tradeLocationEl : null}
         <section
           className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
@@ -1525,24 +1966,14 @@ export function TradeWriteForm({
             </label>
           </div>
         </section>
-        {hasLocation && skinKey !== "real-estate" && (
-          <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-            <TradeDefaultLocationBlock
-              editPostId={editPostId}
-              region={region}
-              city={city}
-              onSyncRegionCity={syncTradeRegionCity}
-              error={errors.location}
-              readOnly={coreLocked}
-              onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
-            />
-          </div>
-        )}
+        {!isKarrotGeneral ? tradeLocationEl : null}
         {errors.submit && (
           <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton
-          label={editPostId ? "수정 완료" : "등록하기"}
+          label={
+            editPostId ? "수정 완료" : isKarrotGeneral ? "작성 완료" : "등록하기"
+          }
           submitting={submitting}
           submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
           onCancel={onCancel}

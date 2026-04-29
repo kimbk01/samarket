@@ -11,6 +11,7 @@ import { ProductCategorySelect } from "./ProductCategorySelect";
 import { ProductLocationSelect } from "./ProductLocationSelect";
 import { ProductConditionSelect } from "./ProductConditionSelect";
 import { ProductPriceField } from "./ProductPriceField";
+import { APP_MYPAGE_SUBPAGE_BODY_CLASS, APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
 
 const defaultCondition: ProductCondition = "good";
 
@@ -109,9 +110,9 @@ export function ProductForm({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-lg pb-24">
+    <form onSubmit={handleSubmit} className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} pb-24`}>
       <ProductImagePicker value={images} onChange={setImages} />
-      <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <section className="border-b border-sam-border-soft bg-sam-surface px-0 py-4">
         <label className="mb-2 block sam-text-body font-medium text-sam-fg">
           제목 <span className="text-red-500">*</span>
         </label>
@@ -128,7 +129,7 @@ export function ProductForm({
           <p className="mt-1 sam-text-body-secondary text-red-500">{errors.title}</p>
         )}
       </section>
-      <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+      <section className="border-b border-sam-border-soft bg-sam-surface px-0 py-4">
         <label className="mb-2 block sam-text-body font-medium text-sam-fg">
           설명 <span className="text-red-500">*</span>
         </label>
@@ -167,7 +168,8 @@ export function ProductForm({
         error={errors.region}
       />
       <ProductConditionSelect value={condition} onChange={setCondition} />
-      <div className="fixed bottom-0 left-0 right-0 flex gap-2 border-t border-sam-border-soft bg-sam-surface px-4 py-3 max-w-lg mx-auto">
+      <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-sam-border-soft bg-sam-surface pb-[env(safe-area-inset-bottom,0px)]">
+        <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
         {onCancel && (
           <button
             type="button"
@@ -184,6 +186,7 @@ export function ProductForm({
         >
           {submitting ? "등록 중…" : "등록하기"}
         </button>
+        </div>
       </div>
     </form>
   );

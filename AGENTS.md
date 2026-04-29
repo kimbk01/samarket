@@ -22,7 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **Philife**(`philife`): 피드·게시판 연동 DM — `lib/chats` + `app/(main)/philife`. **메신저(`/community-messenger`)와 동일 제품으로 취급하지 않는다.**
 - **스토어 쇼핑 통합 채팅 스트림**(`store`): `lib/chats` store 세그먼트. **주문 채팅(`store_order`)과 이름·도메인이 다르다** — 혼동 금지.
 - **음성·영상**: 통화 전용 — `lib/chat-domain/ports/call-signaling-boundary.ts`, `community_messenger_call_signals`. **채팅 3종의 확장이 아니다.**
-- **거래(마켓·피드) 목표는 가볍게**: `docs/trade-lightweight-design.md`, `lib/trade/trade-lightweight-goals.ts` (번들·단일 페이로드·클라 상태·쿼리/캐시).
+- **거래(마켓·피드) 목표는 가볍게**: `docs/trade-lightweight-design.md` (**§9** `/market` 목록 불변조건), `lib/trade/trade-lightweight-goals.ts` (`TRADE_HOME_LIST_INVARIANT_IDS`), `.cursor/rules/trade-home-list-invariants.mdc` — 번들·단일 페이로드·**`getPostsForHome` 단일 비행·prewarm 키 일치**·캐시/세션 peek.
 - **거래 채팅 구매자·판매자 프로세스(상세 CTA·예약·후기)**: `docs/trade-chat-buyer-seller-process.md`.
 - **Trade / Philife / Store 스트림(통합 목록) 구현 공유**: `lib/chats`, `load-chat-room-bootstrap`, `chat-room-load-contract` — 위 3종·비3종 경계는 `samarket-three-chat-pillars` 우선.
 - **Community 메신저 UI**: `lib/community-messenger`, `lib/chat-domain/use-cases/community-messenger-bootstrap`, Realtime·unread는 커뮤니티 전용 정책.

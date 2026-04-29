@@ -25,9 +25,11 @@ import {
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
+import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
+import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -362,12 +364,9 @@ export function ExchangeWriteForm({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
-      >
+      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_CLASS}>
         {tradePolicy?.hint ? (
-          <div className="mx-4 mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
+          <div className="mt-0 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
             {tradePolicy.hint}
           </div>
         ) : null}
@@ -558,24 +557,22 @@ export function ExchangeWriteForm({
 
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
           <p className="mb-2 sam-text-body font-medium text-sam-fg">추가 안내 (선택)</p>
-          <textarea
+          <AutoGrowTextarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
             placeholder="매너와 속도가 중요해요. 거래 시 유의사항을 적어주세요."
-            rows={3}
-            className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg min-h-[96px]"
           />
           <p className="mt-1 sam-text-helper text-sam-muted">매너와 속도가 중요해요.</p>
           {showDescriptionAppend ? (
             <div className="mt-3">
               <label className="mb-1 block sam-text-body-secondary text-sam-fg">추가 안내 덧붙이기</label>
-              <textarea
+              <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
                 placeholder="협의·진행 중 안내할 내용만 입력해 주세요."
-                rows={2}
-                className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg min-h-[80px]"
               />
             </div>
           ) : null}

@@ -11,12 +11,16 @@ function startsWithPath(pathname: string, prefix: string): boolean {
 /**
  * TRADE 탭 플로팅 다이얼·홈형 하단 스크롤 패딩 적용 경로.
  * - `/market`, `/market/*` — 상단 거래 메뉴·카테고리 피드와 동일(운영에서 `/market/[slug]`만 늘어도 자동 포함)
+ * - **`/market/trade-meet-spot` 제외** — 거래 허브 FAB·동일 레이아웃을 쓰지 않음(지도 전용 풀스크린).
  * - `/mypage/purchases`, `/mypage/sales`, `/mypage/reviews` — 개인거래 숏컷
  */
 export function isTradeFloatingMenuSurface(pathname: string | null | undefined): boolean {
   const raw = typeof pathname === "string" ? pathname : "";
   const safePath = raw.split("?")[0]!.trim();
   if (!safePath) return false;
+  if (safePath === "/market/trade-meet-spot" || safePath.startsWith("/market/trade-meet-spot/")) {
+    return false;
+  }
   /** 앱 루트는 홈 피드와 동일 거래 표면으로 취급(경로만 `/` 인 경우 reconcile·패딩 누락 방지) */
   if (normalizeAppPathnameForTier1(safePath) === "/") return true;
   if (safePath === "/market" || startsWithPath(safePath, "/market")) return true;
@@ -48,6 +52,8 @@ let tier1RuleCache: MobileTopTier1RuleSet | null = null;
 function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSet {
   const isTradeExploration = isTradeFloatingMenuSurface(pathNoQuery);
   const isPhilifeExploration = pathNoQuery === "/philife" || pathNoQuery === "/community";
+  const isTradeMeetSpotPick =
+    pathNoQuery === "/market/trade-meet-spot" || pathNoQuery.startsWith("/market/trade-meet-spot/");
 
   const isUnderMypageTrade = startsWithPath(pathNoQuery, "/mypage/trade");
 
@@ -85,6 +91,7 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
 
   /** 전역 1단과 로컬 `TradePrimaryColumnStickyAppBar` 등이 겹치지 않게 끄는 구간 */
   const suppressMainTier1 =
+    isTradeMeetSpotPick ||
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
     isCommunityMessengerCallPage ||

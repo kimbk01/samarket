@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -29,6 +30,8 @@ const TradeWriteSheetContext = createContext<TradeWriteSheetContextValue | null>
 function isTradeWriteSheetSurfacePath(p: string): boolean {
   if (p === "/philife") return true;
   if (p === "/market") return true;
+  /** 거래 희망 장소 풀페이지 — 시트를 닫아 지도가 보이게 함 (`/market/` 이면 모두 표면으로 두면 안 됨) */
+  if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return false;
   if (p.startsWith("/market/")) return true;
   return false;
 }
@@ -65,6 +68,34 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     close();
     return true;
   }, [isOpen, blockingDraft, close]);
+
+  const reopenFlag = "samarket:tradeWriteReopenAfterMeetSpot:v1";
+  const reopenCatKey = "samarket:tradeMeetSpotReturnCategoryKey:v1";
+
+  /** 거래 희망 장소 지도에서 돌아온 뒤 같은 마켓 카테고리 URL이면 글쓰기 시트 자동 오픈(페인트 전) */
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const base = pathname.split("?")[0] ?? "";
+    let flag: string | null = null;
+    let cat: string | null = null;
+    try {
+      flag = sessionStorage.getItem(reopenFlag);
+      cat = sessionStorage.getItem(reopenCatKey);
+    } catch {
+      return;
+    }
+    if (flag !== "1" || !cat?.trim()) return;
+    const key = cat.trim();
+    const expected = `/market/${key}`;
+    if (base !== expected) return;
+    try {
+      sessionStorage.removeItem(reopenFlag);
+      sessionStorage.removeItem(reopenCatKey);
+    } catch {
+      /* ignore */
+    }
+    open(key);
+  }, [pathname, open]);
 
   useEffect(() => {
     if (!isOpen) return;

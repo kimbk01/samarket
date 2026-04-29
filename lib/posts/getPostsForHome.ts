@@ -104,17 +104,7 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   return { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey };
 }
 
-export function peekCachedPostsForHome(
-  options: GetPostsForHomeOptions = {}
-): GetPostsForHomeResult | null {
-  const { cacheKey } = normalizeOptions(options);
-  const cached = homePostsCache.get(cacheKey);
-  if (!cached) return null;
-  if (cached.expiresAt <= Date.now()) {
-    homePostsCache.delete(cacheKey);
-  } else {
-    return cached.data;
-  }
+function restoreHomePostsFromSessionToMemory(cacheKey: string): GetPostsForHomeResult | null {
   const sessionHit = readHomePostsSessionCache(cacheKey);
   if (!sessionHit) return null;
   homePostsCache.set(cacheKey, {
@@ -123,6 +113,21 @@ export function peekCachedPostsForHome(
   });
   capHomePostsClientCache();
   return sessionHit;
+}
+
+export function peekCachedPostsForHome(
+  options: GetPostsForHomeOptions = {}
+): GetPostsForHomeResult | null {
+  const { cacheKey } = normalizeOptions(options);
+  const cached = homePostsCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
+  if (cached && cached.expiresAt <= Date.now()) {
+    homePostsCache.delete(cacheKey);
+  }
+  /** 메모리 미스(새로고침·다른 탭)에도 TTL 내 sessionStorage 는 즉시 복원 — 이전엔 여기서 null 로 네트워크만 대기 */
+  return restoreHomePostsFromSessionToMemory(cacheKey);
 }
 
 /**
@@ -184,6 +189,11 @@ export function invalidateHomePostsCache(): void {
 /**
  * 홈/물건 등록 리스트용 게시글 조회 (어드민 posts와 동일 테이블)
  * - status: hidden 제외, sold(거래완료)는 홈 목록 미노출
+ *
+ * **계약 (재발 방지 — `docs/trade-lightweight-design.md` §9, `TRADE_HOME_LIST_INVARIANT_IDS`):**
+ * - 동일 `cacheKey`로 prewarm·`HomeProductList`가 합류하려면 **`opts.signal` 없이** 호출한다.
+ *   `signal`이 있으면 내부 `runSingleFlight(\`home-posts-fetch:${cacheKey}\`)`를 타지 않아 **이중 fetch**가 난다.
+ * - `peekCachedPostsForHome`는 메모리 미스 시에도 sessionStorage 복원을 시도한다.
  */
 export async function getPostsForHome(
   options: GetPostsForHomeOptions = {},
@@ -193,6 +203,13 @@ export async function getPostsForHome(
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.data;
+  }
+  if (cached) {
+    homePostsCache.delete(cacheKey);
+  }
+  const sessionRestored = restoreHomePostsFromSessionToMemory(cacheKey);
+  if (sessionRestored) {
+    return sessionRestored;
   }
 
   if (opts.signal) {

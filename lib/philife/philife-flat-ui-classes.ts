@@ -69,8 +69,11 @@ export const PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE = PHILIFE_TOPIC_TAB_PILL_ACTIVE;
 /** 피드 글 목록 바깥 래퍼 — 카드 간격 (`<ul>` 용) */
 export const PHILIFE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1 [&>li]:list-none`;
 
-/** 거래 피드 `<ul>` — 카드 간격·리스트 상하 패딩 최소(`philife`는 `space-y-1`·`pt-1 pb-1` 유지) */
-export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-0 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-0 pb-0 [&>li]:list-none`;
+/**
+ * 거래 피드 `<ul>` — **필라이프 피드와 동일** 카드 간·좌우 인셋(`PHILIFE_FEED_LIST_WRAP_CLASS` 와 동일 문자열).
+ * `/market`·`/market/[slug]` 체감 정렬을 커뮤니티와 맞춘다.
+ */
+export const TRADE_FEED_LIST_WRAP_CLASS = PHILIFE_FEED_LIST_WRAP_CLASS;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =

@@ -9,12 +9,19 @@ interface WriteTradeTopicSectionProps {
   /** 빈 문자열이면 글의 trade_category_id는 상위 메뉴 id */
   value: string;
   onChange: (childCategoryId: string) => void;
+  /** 세로 패딩·제목 여백 축소 */
+  compact?: boolean;
 }
 
 /**
  * 상위 거래 메뉴에 하위 주제가 1개 이상일 때만 노출. 가로 배치 단일 선택(체크박스). 없으면 렌더하지 않음.
  */
-export function WriteTradeTopicSection({ category, value, onChange }: WriteTradeTopicSectionProps) {
+export function WriteTradeTopicSection({
+  category,
+  value,
+  onChange,
+  compact = false,
+}: WriteTradeTopicSectionProps) {
   const [topics, setTopics] = useState<CategoryWithSettings[]>([]);
 
   useEffect(() => {
@@ -34,11 +41,19 @@ export function WriteTradeTopicSection({ category, value, onChange }: WriteTrade
   if (category.parent_id || topics.length === 0) return null;
 
   return (
-    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
-      <p className="mb-2 sam-text-body font-medium text-sam-fg">
-        주제 <span className="font-normal text-sam-muted">(하나만 선택)</span>
+    <section className={`border-b border-sam-border-soft bg-sam-surface px-4 ${compact ? "py-2" : "py-3"}`}>
+      <p className={`sam-text-body font-medium text-sam-fg ${compact ? "mb-1 leading-tight sam-text-body-secondary" : "mb-2"}`}>
+        {compact ? (
+          <>
+            주제<span className="font-normal text-sam-muted"> · 하나만</span>
+          </>
+        ) : (
+          <>
+            주제 <span className="font-normal text-sam-muted">(하나만 선택)</span>
+          </>
+        )}
       </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className={`flex flex-wrap items-center ${compact ? "gap-x-3 gap-y-1" : "gap-x-4 gap-y-2"}`}>
         <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"

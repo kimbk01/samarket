@@ -15,11 +15,9 @@ import { MarketContent } from "./MarketContent";
  */
 export default function MarketPage() {
   return (
-    <div className="min-h-screen bg-sam-app">
-      <div className="min-w-0 max-w-full overflow-x-hidden pt-0 pb-4">
-        <TradeListPageMountProbe />
-        <MarketContent />
-      </div>
-    </div>
+    <>
+      <TradeListPageMountProbe />
+      <MarketContent />
+    </>
   );
 }

@@ -44,11 +44,18 @@ type TradeDefaultLocationBlockProps = {
   readOnly?: boolean;
   /** 거래 글쓰기 신규: 주소 관리로 가기 직전(이미지 업로드·초안 저장 등). 완료 후 라우팅은 이 컴포넌트가 수행 */
   onBeforeNavigateToAddresses?: () => void | Promise<void>;
+  /** 당근형 중고 — 지도에서 거래 희망 장소만 고르는 플로우(주소록과 별개) */
+  karrotMeetSpotUi?: boolean;
+  meetSpotLine?: string | null;
+  meetSpotError?: string;
+  /** 초안 저장 후 `/market/trade-meet-spot` 등으로 이동 */
+  onBeforeMeetSpotPick?: () => void | Promise<void>;
 };
 
 /**
- * 거래 글쓰기 — **대표 주소(master)** 한 줄 표시(없으면 거래 기본) + 주소 관리 이동.
- * 등록 시 `region`/`city`는 대표(또는 거래 기본)의 `app_region_id`/`app_city_id`로 맞춤.
+ * 거래 글쓰기 — 주소 기본값으로 `region`/`city` 동기화 + 주소록 이동.
+ * - 일반: 대표 주소 **한 줄** 표시.
+ * - 당근형 중고(`karrotMeetSpotUi`): 노출 동네 문구 없이 **대표 주소 한 줄**만 표시.
  */
 export function TradeDefaultLocationBlock({
   editPostId,
@@ -58,6 +65,10 @@ export function TradeDefaultLocationBlock({
   error,
   readOnly = false,
   onBeforeNavigateToAddresses,
+  karrotMeetSpotUi = false,
+  meetSpotLine = null,
+  meetSpotError,
+  onBeforeMeetSpotPick,
 }: TradeDefaultLocationBlockProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -152,17 +163,43 @@ export function TradeDefaultLocationBlock({
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-2 sam-text-body font-medium text-sam-fg">
-        거래 지역 <span className="text-red-500">*</span>
-      </p>
+      {!karrotMeetSpotUi ? (
+        <p className="mb-2 sam-text-body font-medium text-sam-fg">
+          거래 지역 <span className="text-red-500">*</span>
+        </p>
+      ) : null}
       <p className="break-words sam-text-body leading-snug text-sam-fg">
         {!ready
           ? snapshotLabel ?? "…"
           : displayLine?.trim() ||
             snapshotLabel ||
-            "대표 주소가 없습니다. 아래 「주소 관리로 변경」에서 대표 주소를 설정해 주세요."}
+            "대표 주소가 없습니다. 주소 관리에서 대표 주소를 설정해 주세요."}
       </p>
-      {!readOnly ? (
+      {karrotMeetSpotUi && onBeforeMeetSpotPick && !readOnly ? (
+        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5">
+          <p className="sam-text-body font-semibold text-sam-fg">거래 희망 장소</p>
+          <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
+            {meetSpotLine?.trim() ? meetSpotLine.trim() : "지도에서 위치를 선택한 뒤 확인을 누르면 여기에 반영됩니다."}
+          </p>
+          <button
+            type="button"
+            className="mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted"
+            onClick={() => {
+              try {
+                onBeforeMeetSpotPick();
+              } catch {
+                /* 동기 실패 시 무시 — 폼 쪽에서 지도로 이동 전 초안 저장 */
+              }
+            }}
+          >
+            위치 선택
+          </button>
+          {meetSpotError ? (
+            <p className="mt-1.5 text-[12px] text-red-500">{meetSpotError}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {!readOnly && !karrotMeetSpotUi ? (
         onBeforeNavigateToAddresses ? (
           <button
             type="button"

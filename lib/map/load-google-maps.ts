@@ -2,7 +2,7 @@ import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 
 let loadPromise: Promise<void> | null = null;
 
-/** Maps JavaScript API — `maps` + `places` + `geocoding` (역지오코딩) */
+/** Maps JavaScript API — `maps` + `places` + `geocoding` + `geometry` */
 export function loadGoogleMaps(): Promise<void> {
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   if (!key) {
@@ -14,6 +14,7 @@ export function loadGoogleMaps(): Promise<void> {
       await importLibrary("maps");
       await importLibrary("places");
       await importLibrary("geocoding");
+      await importLibrary("geometry");
     })();
   }
   return loadPromise;

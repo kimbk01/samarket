@@ -20,6 +20,18 @@ export const SAMARKET_LIGHTWEIGHT_GOALS = {
 /** Same object as SAMARKET_LIGHTWEIGHT_GOALS (legacy export name). */
 export const TRADE_LIGHTWEIGHT_GOALS = SAMARKET_LIGHTWEIGHT_GOALS;
 
+/**
+ * 거래 홈 전체 목록 재발 방지 — 리뷰·검색용 식별자 (문서: `docs/trade-lightweight-design.md` §9).
+ * 값 자체는 런타임에 쓰이지 않으며, 규칙·PR 설명에서 동일 어휘를 쓰기 위함.
+ */
+export const TRADE_HOME_LIST_INVARIANT_IDS = [
+  "trade-home-9-1-no-signal-with-prewarm-cachekey",
+  "trade-home-9-2-peek-restores-session-on-memory-miss",
+  "trade-home-9-3-no-outer-singleflight-fixed-load-key",
+  "trade-home-9-4-prewarm-options-match-normalizeOptions",
+  "trade-home-9-5-no-staggered-slice-on-cache-seed",
+] as const;
+
 export type SamarketLightweightGoalLabel =
   (typeof SAMARKET_LIGHTWEIGHT_GOALS)[keyof typeof SAMARKET_LIGHTWEIGHT_GOALS];
 
