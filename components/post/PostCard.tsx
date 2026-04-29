@@ -12,6 +12,7 @@ import {
   type PostListMenuAction,
 } from "@/components/post/PostListMenuBottomSheet";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
+import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
@@ -87,7 +88,6 @@ export const PostCard = memo(function PostCard({
   const thumbnailUrl =
     post.thumbnail_url ||
     (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
-  const isExchangeThumb = listPreview?.thumbnailMode === "exchange";
 
   const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
   const locationLine = formatPostListingLocationLine(post.region, post.city);
@@ -98,8 +98,6 @@ export const PostCard = memo(function PostCard({
   const viewCount = typeof post.view_count === "number" ? post.view_count : 0;
   const listKind = listPreview?.listKind ?? "trade";
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
-  const useFramedImageThumb =
-    listKind === "trade" || listKind === "used-car" || listKind === "real-estate";
 
   useLayoutEffect(() => {
     if (!isFirstCard) return;
@@ -145,59 +143,39 @@ export const PostCard = memo(function PostCard({
           onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
           className="flex min-w-0 items-stretch gap-1.5 sm:gap-2"
         >
-          <div className={`${TRADE_FEED_THUMB_BOX_CLASS} bg-sam-surface-muted`}>
-            {isExchangeThumb || listKind === "exchange" ? (
-              <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
-                FX
-              </div>
-            ) : hasUsableThumbnail ? (
-              useFramedImageThumb ? (
-                <div className="h-full w-full rounded-[3px] bg-amber-100 p-0.5 shadow-sm">
-                  <img
-                    ref={isFirstCard ? imageRef : undefined}
-                    src={thumbnailUrl ?? undefined}
-                    alt=""
-                    width={88}
-                    height={88}
-                    className="h-full w-full rounded-[2px] object-contain object-center"
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    onLoad={() => {
-                      if (!isFirstCard) return;
-                      recordTradeListImageRequestRangeFromResources(
-                        imageRef.current?.currentSrc || thumbnailUrl || null
-                      );
-                    }}
-                    onError={() => setThumbnailFailed(true)}
-                  />
-                </div>
-              ) : (
-                <img
-                  ref={isFirstCard ? imageRef : undefined}
-                  src={thumbnailUrl ?? undefined}
-                  alt=""
-                  width={88}
-                  height={88}
-                  className="h-full w-full object-contain object-center"
-                  loading="lazy"
-                  decoding="async"
-                  fetchPriority="low"
-                  onLoad={() => {
-                    if (!isFirstCard) return;
-                    recordTradeListImageRequestRangeFromResources(
-                      imageRef.current?.currentSrc || thumbnailUrl || null
-                    );
-                  }}
-                  onError={() => setThumbnailFailed(true)}
-                />
-              )
+          <div className={TRADE_FEED_THUMB_BOX_CLASS}>
+            <div className="pointer-events-none absolute left-0 top-0 z-10">
+              <TradeListingStatusBadge post={post} />
+            </div>
+            {hasUsableThumbnail ? (
+              <img
+                ref={isFirstCard ? imageRef : undefined}
+                src={thumbnailUrl ?? undefined}
+                alt=""
+                width={120}
+                height={120}
+                className="h-full w-full object-cover object-center"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                onLoad={() => {
+                  if (!isFirstCard) return;
+                  recordTradeListImageRequestRangeFromResources(
+                    imageRef.current?.currentSrc || thumbnailUrl || null
+                  );
+                }}
+                onError={() => setThumbnailFailed(true)}
+              />
             ) : listKind === "jobs" ? (
               <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
                 JOB
               </div>
+            ) : listKind === "exchange" ? (
+              <div className="flex h-full w-full items-center justify-center bg-sam-primary-soft text-[12px] font-semibold text-sam-primary" aria-hidden>
+                FX
+              </div>
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-sam-surface-muted text-[11px] text-sam-meta" aria-hidden>이미지</div>
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>이미지</div>
             )}
           </div>
           <div className="flex min-h-full min-w-0 flex-1 flex-col justify-end">
@@ -205,48 +183,49 @@ export const PostCard = memo(function PostCard({
               <PostListPreviewColumn
                 listingPost={post}
                 preview={listPreview}
+                omitListingBadge
                 matchThumbnailHeight
                 omitListFooter
                 stretchPreviewToThumbnailColumn={false}
                 compactSpacing
               />
             ) : null}
+            <div className="mt-0 flex min-w-0 items-center justify-between gap-1.5">
+              <p
+                className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                title={[authorDisplay, locationLine ?? "", timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
+              >
+                <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
+                {locationLine ? <> · {locationLine}</> : null}
+                {timeLabel ? <> · {timeLabel}</> : null}
+                <> · </>조회 {viewCount}
+              </p>
+              <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
+                <PostFavoriteButton
+                  postId={post.id}
+                  authorUserId={post.author_id}
+                  favorited={!!isFavorite}
+                  onFavoriteChange={
+                    onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
+                  }
+                  iconClassName="h-4 w-4"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMenuOpen((prev) => (prev ? prev : true));
+                  }}
+                  className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
+                  aria-label="메뉴"
+                >
+                  <span className="text-[18px] leading-none">⋮</span>
+                </button>
+              </div>
+            </div>
           </div>
         </Link>
-      </div>
-      <div className="mt-0 flex min-w-0 items-center justify-between gap-1.5 px-3 pb-1 sm:px-4">
-        <p
-          className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-          title={[authorDisplay, locationLine ?? "", timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-        >
-          <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
-          {locationLine ? <> · {locationLine}</> : null}
-          {timeLabel ? <> · {timeLabel}</> : null}
-          <> · </>조회 {viewCount}
-        </p>
-        <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
-          <PostFavoriteButton
-            postId={post.id}
-            authorUserId={post.author_id}
-            favorited={!!isFavorite}
-            onFavoriteChange={
-              onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
-            }
-            iconClassName="h-4 w-4"
-          />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setMenuOpen((prev) => (prev ? prev : true));
-            }}
-            className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
-            aria-label="메뉴"
-          >
-            <span className="text-[18px] leading-none">⋮</span>
-          </button>
-        </div>
       </div>
       {footer ? (
         <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2 sm:px-4">{footer}</div>

@@ -4,4 +4,4 @@
  * - 신규 거래 카테고리 추가 시에도 `PostCard`를 쓰면 자동으로 동일 규격을 따른다.
  */
 export const TRADE_FEED_THUMB_BOX_CLASS =
-  "relative h-20 w-20 shrink-0 flex-none self-start overflow-hidden rounded-[4px] sm:h-[88px] sm:w-[88px] md:h-24 md:w-24";
+  "relative h-[96px] w-[96px] shrink-0 flex-none self-start overflow-hidden rounded-[8px] bg-[#f2f3f5] [aspect-ratio:1/1] sm:h-[108px] sm:w-[108px] md:h-[120px] md:w-[120px]";
