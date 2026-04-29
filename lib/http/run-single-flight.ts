@@ -14,6 +14,13 @@ export function forgetSingleFlight(key: string): void {
   flights.delete(key);
 }
 
+/** 키가 조건에 맞는 진행 중 비행을 모두 제거 — 글 등록 직후 목록 무효화 등 */
+export function forgetSingleFlightsWhere(predicate: (key: string) => boolean): void {
+  for (const k of [...flights.keys()]) {
+    if (predicate(k)) flights.delete(k);
+  }
+}
+
 export function runSingleFlight<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = flights.get(key) as Promise<T> | undefined;
   if (existing) return existing;

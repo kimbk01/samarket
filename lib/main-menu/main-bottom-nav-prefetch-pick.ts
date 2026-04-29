@@ -12,6 +12,21 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   return false;
 }
 
+/**
+ * 하단 탭 배열에서 현재 경로에 해당하는 탭 인덱스. 없으면 `-1`.
+ * 탭 간 전환 애니메이션 방향(좌↔우) 판별에 사용.
+ */
+export function resolveActiveMainBottomNavTabIndex(
+  pathname: string | null,
+  tabs: readonly BottomNavItemConfig[]
+): number {
+  const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
+  for (let i = 0; i < list.length; i++) {
+    if (isBottomNavTabActive(pathname, list[i]!.href)) return i;
+  }
+  return -1;
+}
+
 /** 프로그램적 `router.prefetch` 상한 — 비활성 탭 수(기본 4)와 맞춘다 */
 export const MAIN_BOTTOM_NAV_PREFETCH_MAX = 4;
 

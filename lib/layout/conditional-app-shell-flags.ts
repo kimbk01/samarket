@@ -21,6 +21,17 @@ export function isCommunityMessengerRoomPathname(pathname: string | null): boole
   return Boolean(pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/));
 }
 
+/**
+ * 거래 탭 허브(`/market`, `/market/…`) — 하단 `HomeTradeHubFloatingBar` 대신 상단 `+`만 사용.
+ * `/market/trade-meet-spot` 는 지도 전용이라 제외(해당 화면은 플로팅 바 자체가 마운트되지 않음).
+ */
+export function isMarketTradeFeedHubPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  if (!p) return false;
+  if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return false;
+  return p === "/market" || p.startsWith("/market/");
+}
+
 export type ConditionalAppShellResolvedFlags = {
   isSettings: boolean;
   isLogout: boolean;
@@ -47,6 +58,8 @@ export type ConditionalAppShellResolvedFlags = {
   isCommunityMessengerSurface: boolean;
   isOrdersHub: boolean;
   isTradeFloatingSurface: boolean;
+  /** `/mypage/purchases` 등 — 하단 `HomeTradeHubFloatingBar` 표시( `/market` 허브는 false ) */
+  showHomeTradeHubFloatingBar: boolean;
   /** `/market/trade-meet-spot` — 전역 하단 탭·플로팅 FAB 숨김 */
   isTradeMeetSpotPickRoute: boolean;
   isChatsHubSurface: boolean;
@@ -118,6 +131,7 @@ export function resolveConditionalAppShellFlags(
   /** 거래 희망 장소 풀페이지 — 하단 탭·거래 허브 FAB 가 지도·확인 버튼을 가리지 않게 숨김 */
   const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
+  const showHomeTradeHubFloatingBar = isTradeFloatingSurface && !isMarketTradeFeedHubPath(pathname);
   const isChatsHubSurface = pathname === "/mypage/trade/chat";
   const hideBarAndFloat = isSettings || isLogout || isMyEdit;
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
@@ -198,7 +212,7 @@ export function resolveConditionalAppShellFlags(
       : isTradeMeetSpotPickRoute
         ? "pb-0"
         : showBottomNav || isPostDetail
-          ? isTradeFloatingSurface
+          ? showHomeTradeHubFloatingBar
             ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
             : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
           : "pb-4";
@@ -230,6 +244,7 @@ export function resolveConditionalAppShellFlags(
     isCommunityMessengerSurface,
     isOrdersHub,
     isTradeFloatingSurface,
+    showHomeTradeHubFloatingBar,
     isTradeMeetSpotPickRoute,
     isChatsHubSurface,
     hideBarAndFloat,

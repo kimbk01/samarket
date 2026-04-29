@@ -31,7 +31,7 @@ import {
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { formatPostListingLocationLine } from "@/lib/posts/post-listing-location-label";
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
 
 interface PostCardProps {
@@ -90,7 +90,11 @@ export const PostCard = memo(function PostCard({
     (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
 
   const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
-  const locationLine = formatPostListingLocationLine(post.region, post.city);
+  const metaRecord =
+    post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
+      ? (post.meta as Record<string, unknown>)
+      : undefined;
+  const locationLine = resolveTradePostListingLocationLine(metaRecord, post.region, post.city);
   const timeLabel =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at, "ko-KR")
@@ -190,38 +194,46 @@ export const PostCard = memo(function PostCard({
                 compactSpacing
               />
             ) : null}
-            <div className="mt-0 flex min-w-0 items-center justify-between gap-1.5">
-              <p
-                className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-                title={[authorDisplay, locationLine ?? "", timeLabel, `조회 ${viewCount}`].filter(Boolean).join(" · ")}
-              >
-                <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
-                {locationLine ? <> · {locationLine}</> : null}
-                {timeLabel ? <> · {timeLabel}</> : null}
-                <> · </>조회 {viewCount}
-              </p>
-              <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
-                <PostFavoriteButton
-                  postId={post.id}
-                  authorUserId={post.author_id}
-                  favorited={!!isFavorite}
-                  onFavoriteChange={
-                    onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
-                  }
-                  iconClassName="h-4 w-4"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setMenuOpen((prev) => (prev ? prev : true));
-                  }}
-                  className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
-                  aria-label="메뉴"
+            <div className="mt-0 flex min-w-0 flex-col gap-0.5">
+              {locationLine || timeLabel ? (
+                <p
+                  className="min-w-0 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                  title={[locationLine ?? "", timeLabel].filter(Boolean).join(" · ")}
                 >
-                  <span className="text-[18px] leading-none">⋮</span>
-                </button>
+                  {[locationLine, timeLabel].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+              <div className="flex min-w-0 items-center justify-between gap-1.5">
+                <p
+                  className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                  title={[authorDisplay, `조회 ${viewCount}`].join(" · ")}
+                >
+                  <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
+                  <> · </>조회 {viewCount}
+                </p>
+                <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
+                  <PostFavoriteButton
+                    postId={post.id}
+                    authorUserId={post.author_id}
+                    favorited={!!isFavorite}
+                    onFavoriteChange={
+                      onFavoriteChange ? (fav) => onFavoriteChange(post.id, fav) : undefined
+                    }
+                    iconClassName="h-4 w-4"
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMenuOpen((prev) => (prev ? prev : true));
+                    }}
+                    className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
+                    aria-label="메뉴"
+                  >
+                    <span className="text-[18px] leading-none">⋮</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

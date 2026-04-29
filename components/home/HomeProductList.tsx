@@ -13,6 +13,7 @@ import {
   peekCachedPostsForHome,
   peekRecentHomePostsFallback,
   primeHomePostsCache,
+  TRADE_POST_LIST_CACHE_INVALIDATED,
   type GetPostsForHomeOptions,
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
@@ -83,6 +84,8 @@ export function HomeProductList({
   const lastLoadedAtRef = useRef(0);
   const latestRequestIdRef = useRef(0);
   const silentRequestIdRef = useRef(0);
+  /** 글 등록 직후 `router.refresh()` 등으로 RSC 시드가 늦게 와도, 클라 `load()` 결과를 덮어쓰지 않게 함 */
+  const allowRscHomeListSeedRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   /** 시드·세션·메모리 캐시 히트면 첫 페인트부터 전체 행을 그림(8장+rAF 펼침은 콜드 네트워크 경로만) */
@@ -139,6 +142,10 @@ export function HomeProductList({
       if (requestId !== latestRequestIdRef.current) return;
       /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
       setListState("error");
+    } finally {
+      if (requestId === latestRequestIdRef.current) {
+        allowRscHomeListSeedRef.current = true;
+      }
     }
   }, [tradeState]);
 
@@ -147,12 +154,12 @@ export function HomeProductList({
    * 첫 렌더는 `hydrationSeed`만 사용해 서버 HTML과 일치시킨다.
    */
   useLayoutEffect(() => {
-    if (initialHomeTradeFeed) {
+    if (initialHomeTradeFeed && allowRscHomeListSeedRef.current) {
       primeHomePostsCache({ sort: "latest", type: null, tradeState }, initialHomeTradeFeed);
     }
 
     const boot =
-      tradeState === "latest"
+      tradeState === "latest" && allowRscHomeListSeedRef.current
         ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
         : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
     const merged = boot ?? peekRecentHomePostsFallback();
@@ -174,6 +181,16 @@ export function HomeProductList({
 
     void load();
   }, [tradeState, initialHomeTradeFeed, load]);
+
+  /** 글쓰기 완료 등으로 캐시만 비울 때 — 동일 URL에 머물러도 즉시 재요청 */
+  useEffect(() => {
+    const onBust = () => {
+      allowRscHomeListSeedRef.current = false;
+      void load();
+    };
+    window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
+    return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
+  }, [load]);
 
   useEffect(() => {
     if (posts.length <= 0) {

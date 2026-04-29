@@ -3,7 +3,7 @@
  */
 
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
-import { getLocationLabel } from "@/lib/products/form-options";
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
 import {
   JOB_LISTING_KIND_LABELS,
@@ -246,7 +246,7 @@ export function buildPostListPreviewModel(
 
   const region = str(post.region);
   const city = str(post.city);
-  const locationLabel = region && city ? getLocationLabel(region, city) : null;
+  const locationLabel = resolveTradePostListingLocationLine(meta, region || undefined, city || undefined);
   const currency = opts.currency || "KRW";
   const locale = opts.locale || "ko-KR";
   const createdAt = str(post.created_at) || str(post.updated_at);

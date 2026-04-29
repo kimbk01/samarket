@@ -2,6 +2,7 @@
  * 브라우저 메모리 trade 피드 캐시 — `GET /api/trade/feed` 왕복 완화.
  * `use client` 없음: `toggleFavorite` 등에서 가볍게 무효화만 import 가능.
  */
+import { forgetSingleFlightsWhere } from "@/lib/http/run-single-flight";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
@@ -31,6 +32,13 @@ type TradeFeedCacheEntry = {
 
 const tradeFeedClientCache = new Map<string, TradeFeedCacheEntry>();
 const TRADE_FEED_CLIENT_CACHE_MAX_KEYS = 100;
+
+/** `invalidateAllTradeFeedClientCache` 시 증가 — 진행 중 fetch 가 stale 캐시를 쓰지 않게 함 */
+let tradeFeedClientInvalidationGeneration = 0;
+
+export function getTradeFeedClientInvalidationGeneration(): number {
+  return tradeFeedClientInvalidationGeneration;
+}
 
 function capTradeFeedClientCache(): void {
   pruneByExpiresAtAndMaxSize(tradeFeedClientCache, Date.now(), TRADE_FEED_CLIENT_CACHE_MAX_KEYS);
@@ -62,6 +70,13 @@ export function buildTradeFeedClientCacheKey(
       ? options.jobsListingKind
       : "";
   return `ids:${ids.join(",")}|${sort}|jk:${jk}|p:${page}|u:${u}:v2`;
+}
+
+/** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */
+export function invalidateAllTradeFeedClientCache(): void {
+  forgetSingleFlightsWhere((k) => typeof k === "string" && k.startsWith("trade-feed-fetch:"));
+  tradeFeedClientInvalidationGeneration += 1;
+  tradeFeedClientCache.clear();
 }
 
 /** 찜 토글 성공 후 — 서버 무효화와 맞춰 뷰어별 엔트리 제거 */

@@ -7,6 +7,8 @@ import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 
 const STORAGE_VERSION = 1 as const;
 const KEY_PREFIX = "samarket:trade-write-form";
+/** 세션과 동일 스키마 — 탭 종료·강제 종료 후에도 복구용 */
+const LOCAL_KEY_PREFIX = "samarket:trade-write-form-local";
 
 export type TradeWriteFormSessionDraftBuildArgs = {
   categoryId: string;
@@ -93,18 +95,101 @@ function storageKey(categoryId: string): string {
   return `${KEY_PREFIX}:v${STORAGE_VERSION}:${categoryId}`;
 }
 
+function localStorageKey(categoryId: string): string {
+  return `${LOCAL_KEY_PREFIX}:v${STORAGE_VERSION}:${categoryId}`;
+}
+
+function readTradeWriteFormLocalDraft(categoryId: string): TradeWriteFormSessionDraftV1 | null {
+  if (typeof window === "undefined" || !categoryId.trim()) return null;
+  try {
+    const raw = localStorage.getItem(localStorageKey(categoryId.trim()));
+    if (!raw) return null;
+    const j = JSON.parse(raw) as Partial<TradeWriteFormSessionDraftV1>;
+    if (j.v !== STORAGE_VERSION || j.categoryId !== categoryId.trim()) return null;
+    return j as TradeWriteFormSessionDraftV1;
+  } catch {
+    return null;
+  }
+}
+
+function writeTradeWriteFormLocalDraft(d: TradeWriteFormSessionDraftV1): void {
+  if (typeof window === "undefined" || !d.categoryId.trim()) return;
+  try {
+    localStorage.setItem(localStorageKey(d.categoryId.trim()), JSON.stringify(d));
+  } catch {
+    /* quota */
+  }
+}
+
+function clearTradeWriteFormLocalDraft(categoryId: string): void {
+  if (typeof window === "undefined" || !categoryId.trim()) return;
+  try {
+    localStorage.removeItem(localStorageKey(categoryId.trim()));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 세션 우선(같은 탭), 없으면 로컬(이전 세션·복구) */
+export function readTradeWriteFormPersistedDraft(categoryId: string): TradeWriteFormSessionDraftV1 | null {
+  return readTradeWriteFormSessionDraft(categoryId) ?? readTradeWriteFormLocalDraft(categoryId);
+}
+
 function isPersistableImageUrl(url: string): boolean {
   const u = url.trim();
   return u.startsWith("http://") || u.startsWith("https://");
 }
 
+/** 복구 확인용 — 저장된 V1 초안이 사용자 입력으로 간주되는지 */
+export function tradeWritePersistedDraftLooksFilled(d: TradeWriteFormSessionDraftV1): boolean {
+  return tradeWriteSessionDraftLooksFilled({
+    categoryId: d.categoryId,
+    skinKey: d.skinKey,
+    title: d.title ?? "",
+    description: d.description ?? "",
+    price: d.price ?? "",
+    region: d.region ?? "",
+    city: d.city ?? "",
+    images: draftImagesToUploadItems(d.imageUrls ?? []),
+    isFreeShare: d.isFreeShare === true,
+    isPriceOfferEnabled: d.isPriceOfferEnabled === true,
+    isDirectDeal: d.isDirectDeal !== false,
+    tradeTopicChildId: d.tradeTopicChildId ?? "",
+    neighborhood: d.neighborhood ?? "",
+    buildingName: d.buildingName ?? "",
+    estateType: d.estateType ?? "",
+    dealType: d.dealType === "판매" ? "판매" : "임대",
+    deposit: d.deposit ?? "",
+    monthly: d.monthly ?? "",
+    managementFee: d.managementFee ?? "",
+    hasPremium: d.hasPremium === true,
+    areaSqm: d.areaSqm ?? "",
+    roomCount: d.roomCount ?? "",
+    bathroomCount: d.bathroomCount ?? "",
+    moveInDate: d.moveInDate ?? "",
+    carModel: d.carModel ?? "",
+    carYear: d.carYear ?? "",
+    mileage: d.mileage ?? "",
+    usedCarTrade: d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null,
+    carHasAccident: d.carHasAccident === true,
+    salary: d.salary ?? "",
+    workPlace: d.workPlace ?? "",
+    workType: d.workType ?? "",
+    currency: d.currency ?? "",
+    exchangeRate: d.exchangeRate ?? "",
+    tradeChatCallPolicy: d.tradeChatCallPolicy ?? "none",
+    descriptionAppend: d.descriptionAppend ?? "",
+    tradeMeetSpot: d.tradeMeetSpot ?? null,
+  });
+}
+
 export function tradeWriteSessionDraftLooksFilled(p: TradeWriteFormSessionDraftBuildArgs): boolean {
+  // region/city는 자동 채워지므로 사용자 입력으로 보지 않는다
   return Boolean(
     p.title.trim() ||
       p.description.trim() ||
       p.price.trim() ||
       p.images.length > 0 ||
-      (p.region.trim() && p.city.trim()) ||
       p.tradeTopicChildId.trim() ||
       p.neighborhood.trim() ||
       p.buildingName.trim() ||
@@ -150,6 +235,7 @@ export function writeTradeWriteFormSessionDraft(d: TradeWriteFormSessionDraftV1)
   } catch {
     /* quota */
   }
+  writeTradeWriteFormLocalDraft(d);
 }
 
 export function clearTradeWriteFormSessionDraft(categoryId: string): void {
@@ -159,6 +245,7 @@ export function clearTradeWriteFormSessionDraft(categoryId: string): void {
   } catch {
     /* ignore */
   }
+  clearTradeWriteFormLocalDraft(categoryId);
 }
 
 export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraftBuildArgs): TradeWriteFormSessionDraftV1 {

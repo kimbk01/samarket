@@ -12,6 +12,8 @@ export type MapPickerMode = "marker" | "center";
 type MapPickerProps = {
   marker: LatLng;
   onMarkerPositionChange: (pos: LatLng) => void;
+  /** POI(상호) 클릭 시 place_id + 좌표 전달 — 거래 희망 장소에서 상호명 직접 획득용 */
+  onPoiClick?: (info: { placeId: string; lat: number; lng: number }) => void;
   /** `center`: 지도 중앙 고정 핀 — 지도를 드래그해 위치 지정 (참고 UI) */
   mode?: MapPickerMode;
   /** `true`면 지도 드래그·줌을 막고, idle 로 좌표를 올리지 않음(상세 입력 단계 등) */
@@ -29,6 +31,7 @@ function nearlyEqual(a: LatLng, b: LatLng): boolean {
 export function MapPicker({
   marker,
   onMarkerPositionChange,
+  onPoiClick,
   mode = "marker",
   interactionLocked = false,
   className,
@@ -37,6 +40,7 @@ export function MapPicker({
   const mapRef = useRef<google.maps.Map | null>(null);
   const mkRef = useRef<google.maps.Marker | null>(null);
   const onMoveRef = useRef(onMarkerPositionChange);
+  const onPoiRef = useRef(onPoiClick);
   const idleListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const suppressIdleRef = useRef(false);
   const lockRef = useRef(interactionLocked);
@@ -44,6 +48,10 @@ export function MapPicker({
   useEffect(() => {
     onMoveRef.current = onMarkerPositionChange;
   }, [onMarkerPositionChange]);
+
+  useEffect(() => {
+    onPoiRef.current = onPoiClick;
+  }, [onPoiClick]);
 
   useEffect(() => {
     lockRef.current = interactionLocked;
@@ -85,6 +93,10 @@ export function MapPicker({
         map.addListener("click", (e: google.maps.MapMouseEvent) => {
           const ll = e.latLng;
           if (!ll) return;
+          const ev = e as google.maps.MapMouseEvent & { placeId?: string };
+          if (ev.placeId && onPoiRef.current) {
+            onPoiRef.current({ placeId: ev.placeId, lat: ll.lat(), lng: ll.lng() });
+          }
           onMoveRef.current({ lat: ll.lat(), lng: ll.lng() });
         });
         mk.addListener("dragend", () => {

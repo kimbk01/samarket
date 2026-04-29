@@ -4,7 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MapPicker, MAP_PICKER_DEFAULT_CENTER } from "@/components/map/MapPicker";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import {
+  fetchProfileLatLngForMeetSpotMap,
+  pickTradeMeetSpotCenterFromAddressDefaults,
+} from "@/lib/map/initial-trade-meet-spot-center";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import { resolveTradeMeetSpotDisplayLine } from "@/lib/map/resolve-trade-meet-spot-display-line";
+import { buildPhFriendlyAddress, isSuitableEstablishmentDisplayName } from "@/lib/map/ph-friendly-address";
 import {
   getTradeMeetSpotPickDraft,
   setTradeMeetSpotPickDraft,
@@ -17,143 +24,6 @@ import {
 
 type LatLng = { lat: number; lng: number };
 
-function firstComponentByTypes(
-  components: google.maps.GeocoderAddressComponent[],
-  types: string[]
-): string | null {
-  for (const t of types) {
-    const hit = components.find((c) => c.types?.includes(t));
-    const value = (hit?.long_name ?? hit?.short_name ?? "").trim();
-    if (value) return value;
-  }
-  return null;
-}
-
-function buildRoadLine(components: google.maps.GeocoderAddressComponent[]): string | null {
-  const streetNumber = firstComponentByTypes(components, ["street_number"]);
-  const route = firstComponentByTypes(components, ["route"]);
-  const premiseRoad = [streetNumber, route].filter(Boolean).join(" ").trim();
-  if (premiseRoad) return premiseRoad;
-  const routeOnly = (route ?? "").trim();
-  return routeOnly || null;
-}
-
-function buildPhilippinesAddressLine(components: google.maps.GeocoderAddressComponent[]): string | null {
-  const road = buildRoadLine(components);
-  const barangay = firstComponentByTypes(components, [
-    "sublocality_level_1",
-    "sublocality",
-    "neighborhood",
-  ]);
-  const city = firstComponentByTypes(components, ["locality", "administrative_area_level_2"]);
-  const provinceOrMetro = firstComponentByTypes(components, ["administrative_area_level_1"]);
-  const parts = uniqueTruthy([road, barangay, city, provinceOrMetro]);
-  if (parts.length === 0) return null;
-  return parts.join(", ");
-}
-
-function buildPhilippinesAdminLine(components: google.maps.GeocoderAddressComponent[]): string | null {
-  const districtOrBarangay = firstComponentByTypes(components, [
-    "sublocality_level_1",
-    "sublocality",
-    "neighborhood",
-  ]);
-  const city = firstComponentByTypes(components, ["locality", "administrative_area_level_2"]);
-  const provinceOrMetro = firstComponentByTypes(components, ["administrative_area_level_1"]);
-  /** 필리핀 로컬 표기: Barangay/구역, City/Municipality, Province/Metro */
-  const parts = uniqueTruthy([districtOrBarangay, city, provinceOrMetro]);
-  if (parts.length === 0) return null;
-  return parts.join(" ");
-}
-
-function pickBuildingOrPlaceName(result: google.maps.GeocoderResult): string | null {
-  const components = result.address_components ?? [];
-  return firstComponentByTypes(components, [
-    "premise",
-    "point_of_interest",
-    "establishment",
-    "subpremise",
-    "neighborhood",
-  ]);
-}
-
-function normalizeWhitespace(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
-}
-
-function stripCountryAndZip(raw: string): string {
-  let s = raw;
-  /** PH zip(4자리) + 일반 우편번호 패턴 일부 정리 (도로 번지는 보존) */
-  s = s.replace(/(?:^|[,\s])\d{4}(?=$|[,\s])/g, " ");
-  s = s.replace(/(?:^|[,\s])[A-Z]\d[A-Z]\s?\d[A-Z]\d(?=$|[,\s])/gi, " "); // CA-style fallback
-  /** 국가명 표기 제거 (영문/국문 혼용) */
-  s = s.replace(
-    /\b(Philippines|Republic of the Philippines|PH|Pilipinas|Republika ng Pilipinas)\b/gi,
-    ""
-  );
-  s = s.replace(/필리핀/g, "");
-  /** 구분자 정리 */
-  s = s.replace(/\s*,\s*/g, ", ");
-  s = s.replace(/(?:,\s*){2,}/g, ", ");
-  s = s.replace(/^,\s*|\s*,\s*$/g, "");
-  return normalizeWhitespace(s);
-}
-
-function extractRoadFromFormattedAddress(formatted: string): string | null {
-  const patterns = [
-    /\b\d{1,6}\s+[A-Za-z0-9.'-]+\s+(?:St|Street|Ave|Avenue|Road|Rd|Blvd|Boulevard|Dr|Drive|Lane|Ln)\b/i,
-    /\b[A-Za-z0-9.'-]+\s+(?:St|Street|Ave|Avenue|Road|Rd|Blvd|Boulevard|Dr|Drive|Lane|Ln)\b/i,
-  ];
-  for (const p of patterns) {
-    const m = formatted.match(p);
-    if (m?.[0]) return m[0].trim();
-  }
-  return null;
-}
-
-function uniqueTruthy(values: Array<string | null | undefined>): string[] {
-  const out: string[] = [];
-  for (const v of values) {
-    const t = (v ?? "").trim();
-    if (!t) continue;
-    if (out.some((x) => x.toLowerCase() === t.toLowerCase())) continue;
-    out.push(t);
-  }
-  return out;
-}
-
-function mergeUniqueAddressParts(values: Array<string | null | undefined>): string {
-  const parts = uniqueTruthy(values);
-  if (parts.length === 0) return "";
-  return parts.join(", ");
-}
-
-function normalizePlaceName(name: string | null | undefined): string | null {
-  const n = stripCountryAndZip((name ?? "").replace(/\s*-\s*Philippines$/i, ""));
-  if (!n) return null;
-  return n;
-}
-
-function buildDisplayLineFromGeocode(
-  results: google.maps.GeocoderResult[],
-  placeNameHint?: string | null
-): string {
-  const merchantName =
-    normalizePlaceName(
-      uniqueTruthy([placeNameHint, ...results.map((r) => pickBuildingOrPlaceName(r))])[0] ?? null
-    ) ?? null;
-
-  const adminLine =
-    uniqueTruthy(results.map((r) => buildPhilippinesAdminLine(r.address_components ?? [])))[0] ?? null;
-  /** 요청 형식: 상호명, 동/구/군/시 */
-  if (adminLine && merchantName) return stripCountryAndZip(`${merchantName}, ${adminLine}`);
-  if (merchantName) return merchantName;
-  if (adminLine) return stripCountryAndZip(adminLine);
-  /** 최후 폴백(상호/행정정보 모두 없을 때만) */
-  const primaryFormatted = stripCountryAndZip((results[0]?.formatted_address ?? "").trim());
-  return primaryFormatted;
-}
-
 function safeReturnPath(raw: string | null): string {
   if (!raw || typeof raw !== "string") return "/market";
   const t = raw.trim();
@@ -165,9 +35,11 @@ function safeReturnPath(raw: string | null): string {
 function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const runIdRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    const runId = ++runIdRef.current;
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
@@ -175,93 +47,26 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
         } catch {
           return;
         }
-        if (cancelled) return;
+        if (cancelled || runId !== runIdRef.current) return;
         setBusy(true);
-        const geocoder = new google.maps.Geocoder();
-        const places = new google.maps.places.PlacesService(document.createElement("div"));
-
-        void (async () => {
-          const { results: geoResults, status: geoStatus } = await new Promise<{
-            results: google.maps.GeocoderResult[];
-            status: google.maps.GeocoderStatus;
-          }>((resolve) => {
-            geocoder.geocode({ location: marker }, (results, status) => {
-              resolve({ results: results ?? [], status });
-            });
-          });
-
-          if (cancelled) return;
-          if (geoStatus !== "OK" || !geoResults?.[0]) {
-            setBusy(false);
+        try {
+          const line = await resolveTradeMeetSpotDisplayLine(marker, () => cancelled || runId !== runIdRef.current);
+          if (cancelled || runId !== runIdRef.current) return;
+          setText(line);
+        } catch {
+          if (!cancelled && runId === runIdRef.current) {
             setText("");
-            return;
           }
-
-          let placeName: string | null = null;
-          const primaryPlaceId = geoResults[0]?.place_id;
-
-          if (primaryPlaceId) {
-            placeName = await new Promise<string | null>((resolve) => {
-              places.getDetails(
-                { placeId: primaryPlaceId, fields: ["name"] },
-                (place, status) => {
-                  if (status === google.maps.places.PlacesServiceStatus.OK) {
-                    resolve((place?.name ?? "").trim() || null);
-                  } else {
-                    resolve(null);
-                  }
-                }
-              );
-            });
+        } finally {
+          if (!cancelled && runId === runIdRef.current) {
+            setBusy(false);
           }
-
-          if (!placeName) {
-            placeName = await new Promise<string | null>((resolve) => {
-              places.nearbySearch(
-                {
-                  location: marker,
-                  radius: 60,
-                  type: "establishment",
-                },
-                (results, status) => {
-                  if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-                    resolve(null);
-                    return;
-                  }
-                  const nearest = results
-                    .filter((r) => typeof r.name === "string" && r.name.trim().length > 0)
-                    .sort((a, b) => {
-                      const da =
-                        a.geometry?.location
-                          ? google.maps.geometry.spherical.computeDistanceBetween(
-                              a.geometry.location,
-                              new google.maps.LatLng(marker.lat, marker.lng)
-                            )
-                          : Number.MAX_SAFE_INTEGER;
-                      const db =
-                        b.geometry?.location
-                          ? google.maps.geometry.spherical.computeDistanceBetween(
-                              b.geometry.location,
-                              new google.maps.LatLng(marker.lat, marker.lng)
-                            )
-                          : Number.MAX_SAFE_INTEGER;
-                      return da - db;
-                    })[0];
-                  resolve((nearest?.name ?? "").trim() || null);
-                }
-              );
-            });
-          }
-
-          if (cancelled) return;
-          setBusy(false);
-          setText(buildDisplayLineFromGeocode(geoResults, placeName));
-        })();
+        }
       })();
     }, 280);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      window.clearTimeout(timer);
     };
   }, [marker.lat, marker.lng]);
 
@@ -286,6 +91,10 @@ export function TradeMeetSpotPickClient() {
   const [addressTouched, setAddressTouched] = useState(false);
   const [mapsError, setMapsError] = useState<string | null>(null);
   const draftHydratedRef = useRef(false);
+  /** 세션에 지도 초안이 있으면(이전 핀·글쓰기 시드) 사용자 주소로 덮어쓰지 않음 */
+  const hadSessionPickDraftRef = useRef(false);
+  /** 대표 주소 좌표 적용 전에는 세션 드래프트를 쓰지 않음 — 이전 세션의 기본 중심 좌표가 덮어쓰이지 않게 함 */
+  const [initialPinReady, setInitialPinReady] = useState(false);
   const [domReady, setDomReady] = useState(false);
   const [entered, setEntered] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -293,16 +102,48 @@ export function TradeMeetSpotPickClient() {
   /** 세션 초안 복원 — 서버/클라 HTML 불일치 없이 클라에서만 적용(뒤로가기 후 재입장 시 핀·표시 주소 유지) */
   useLayoutEffect(() => {
     const d = getTradeMeetSpotPickDraft();
+    hadSessionPickDraftRef.current = Boolean(d);
     if (d) {
       setMarker({ lat: d.lat, lng: d.lng });
       setDisplayLine(d.displayLine);
       setAddressTouched(d.addressTouched);
+      setInitialPinReady(true);
     }
     draftHydratedRef.current = true;
   }, []);
 
+  /**
+   * 초안이 없을 때만: 주소록 대표→거래→생활→배달 좌표, 없으면 프로필 지도 핀.
+   * 없으면 `MAP_PICKER_DEFAULT_CENTER`(폴백).
+   */
   useEffect(() => {
-    if (!draftHydratedRef.current) return;
+    if (hadSessionPickDraftRef.current) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const snap = await fetchAddressDefaultsSnapshot();
+        if (cancelled) return;
+        const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
+        if (fromBook) {
+          setMarker(fromBook);
+          return;
+        }
+        const fromProfile = await fetchProfileLatLngForMeetSpotMap();
+        if (cancelled) return;
+        if (fromProfile) setMarker(fromProfile);
+      } catch {
+        /* 네트워크 실패 시 기본 중심 유지 */
+      } finally {
+        if (!cancelled) setInitialPinReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydratedRef.current || !initialPinReady) return;
     const t = window.setTimeout(() => {
       setTradeMeetSpotPickDraft({
         lat: marker.lat,
@@ -312,12 +153,45 @@ export function TradeMeetSpotPickClient() {
       });
     }, 400);
     return () => window.clearTimeout(t);
-  }, [marker.lat, marker.lng, displayLine, addressTouched]);
+  }, [marker.lat, marker.lng, displayLine, addressTouched, initialPinReady]);
 
   const onMarkerChange = useCallback((m: LatLng) => {
     setAddressTouched(false);
     setMarker(m);
   }, []);
+
+  /** 사용자가 지도 위 POI(상호 아이콘)를 직접 클릭 — 상호명을 즉시 표시 */
+  const onPoiClick = useCallback(
+    (info: { placeId: string; lat: number; lng: number }) => {
+      void (async () => {
+        try {
+          await loadGoogleMaps();
+        } catch {
+          return;
+        }
+        const svc = new google.maps.places.PlacesService(document.createElement("div"));
+        svc.getDetails(
+          { placeId: info.placeId, fields: ["name", "address_components", "formatted_address"] },
+          (place, status) => {
+            if (status !== google.maps.places.PlacesServiceStatus.OK || !place) return;
+            const name = place.name?.trim() ?? "";
+            const components = place.address_components ?? [];
+            if (name && isSuitableEstablishmentDisplayName(name, components)) {
+              const line = buildPhFriendlyAddress({ components, placeName: name }).trim();
+              if (line) {
+                setAddressTouched(true);
+                setDisplayLine(line);
+              }
+            } else if (place.formatted_address?.trim()) {
+              setAddressTouched(true);
+              setDisplayLine(place.formatted_address.trim());
+            }
+          }
+        );
+      })();
+    },
+    []
+  );
 
   useEffect(() => {
     if (!geocodedLine || addressTouched) return;
@@ -341,7 +215,7 @@ export function TradeMeetSpotPickClient() {
     (opts: { saveResult: boolean }) => {
       if (closing) return;
       if (opts.saveResult) {
-        const line = displayLine.trim();
+        const line = displayLine.trim() || geocodedLine.trim();
         if (!line) return;
         setTradeMeetSpotPickResult({
           displayLine: line,
@@ -355,14 +229,14 @@ export function TradeMeetSpotPickClient() {
         router.replace(returnTo);
       }, 520);
     },
-    [closing, displayLine, marker.lat, marker.lng, returnTo, router]
+    [closing, displayLine, geocodedLine, marker.lat, marker.lng, returnTo, router]
   );
 
   const handleConfirm = useCallback(() => {
-    const line = displayLine.trim();
+    const line = displayLine.trim() || geocodedLine.trim();
     if (!line) return;
     navigateBack({ saveResult: true });
-  }, [displayLine, navigateBack]);
+  }, [displayLine, geocodedLine, navigateBack]);
 
   const handleCancel = useCallback(() => {
     navigateBack({ saveResult: false });
@@ -392,6 +266,7 @@ export function TradeMeetSpotPickClient() {
               <MapPicker
                 marker={marker}
                 onMarkerPositionChange={onMarkerChange}
+                onPoiClick={onPoiClick}
                 className="h-full min-h-[200px] w-full"
               />
             </div>
@@ -443,7 +318,7 @@ export function TradeMeetSpotPickClient() {
                     </button>
                     <button
                       type="button"
-                      disabled={!displayLine.trim() || closing}
+                      disabled={(!displayLine.trim() && !geocodedLine.trim()) || closing}
                       onClick={handleConfirm}
                       className="flex-[1.4] rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white shadow-sm disabled:opacity-40"
                     >

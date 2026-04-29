@@ -134,7 +134,7 @@ import {
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel, formatPriceInput } from "@/lib/utils/format";
-import { REGIONS, getLocationLabel } from "@/lib/products/form-options";
+import { REGIONS, getLocationLabel, getLocationLabelIfValid } from "@/lib/products/form-options";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
@@ -151,17 +151,25 @@ import {
   peekTradeMeetSpotPickResult,
   seedTradeMeetSpotDraftForNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
+import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
 import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   buildTradeWriteFormSessionDraft,
   clearTradeWriteFormSessionDraft,
   draftImagesToUploadItems,
-  readTradeWriteFormSessionDraft,
+  readTradeWriteFormPersistedDraft,
+  tradeWritePersistedDraftLooksFilled,
   tradeWriteSessionDraftLooksFilled,
   writeTradeWriteFormSessionDraft,
   type TradeWriteFormSessionDraftBuildArgs,
+  type TradeWriteFormSessionDraftV1,
 } from "@/lib/posts/trade-write-form-session-draft";
+import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import {
+  TRADE_WRITE_DRAFT_DISCARDED_EVENT,
+  type TradeWriteDraftDiscardedDetail,
+} from "@/lib/posts/trade-write-exit-cleanup";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
 import {
@@ -178,6 +186,8 @@ interface TradeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  /** 거래 시트·폼 취소 확인용 — 의미 있는 초안 여부(복원 대기 포함) */
+  onMeaningfulTradeDraftChange?: (has: boolean) => void;
   /** `/write?category=` 단일 화면 — 상위에서 1단·카테고리를 쓸 때 폼 내부 1단 숨김 */
   suppressTier1Chrome?: boolean;
   /** `/products/[id]/edit` — 기존 글 수정 */
@@ -291,6 +301,7 @@ export function TradeWriteForm({
   category,
   onSuccess,
   onCancel,
+  onMeaningfulTradeDraftChange,
   suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
@@ -330,6 +341,10 @@ export function TradeWriteForm({
   const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
   /** 당근형 일반 중고 — 거래 희망 장소(지도 선택, 주소록과 별도) */
   const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
+  /** 지도 미선택 시 표시·저장 — 대표 주소 `buildTradePublicLine` (주소록 대표→거래 기본) */
+  const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
+    null
+  );
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
@@ -374,6 +389,21 @@ export function TradeWriteForm({
     if (!editPostId) setTradeChatCallPolicy("none");
   }, [category.id, editPostId]);
 
+  useEffect(() => {
+    if (!isKarrotGeneral || !hasLocation) {
+      setRepresentativeTradeMeetFallbackLine(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const line = await fetchRepresentativeTradeMeetFallbackLine();
+      if (!cancelled) setRepresentativeTradeMeetFallbackLine(line);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isKarrotGeneral, hasLocation]);
+
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
   useEffect(() => {
     if (editPostId) return;
@@ -400,66 +430,226 @@ export function TradeWriteForm({
   }, []);
 
   const tradeDraftFlushRef = useRef<TradeWriteFormSessionDraftBuildArgs | null>(null);
+  /** 확인 나가기·카테고리 이탈 등으로 저장소를 비운 뒤, 언마운트·디바운스 전에 재저장 방지 */
+  const suppressDraftPersistenceRef = useRef(false);
+  /** 글 등록·수정 성공 직후 — 폼 state는 아직 남아도 상위 blockingDraft 를 즉시 내림 */
+  const [tradeWriteSucceededClearBlocking, setTradeWriteSucceededClearBlocking] = useState(false);
 
-  /** 신규: 주소 관리에서 돌아올 때만 초안 복원. 그 외 `/write` 진입은 초안 삭제 → 항상 빈 폼 시작. */
+  const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
+  const [resumeDraftSnapshot, setResumeDraftSnapshot] = useState<TradeWriteFormSessionDraftV1 | null>(null);
+
+  const applyPersistedDraft = useCallback((d: TradeWriteFormSessionDraftV1) => {
+    setTitle(d.title ?? "");
+    setDescription(d.description ?? "");
+    setPrice(d.price ?? "");
+    setRegion(d.region ?? "");
+    setCity(d.city ?? "");
+    setImages(draftImagesToUploadItems(d.imageUrls ?? []));
+    setIsFreeShare(d.isFreeShare === true);
+    setIsPriceOfferEnabled(d.isPriceOfferEnabled === true);
+    setIsDirectDeal(d.isDirectDeal !== false);
+    setTradeTopicChildId(d.tradeTopicChildId ?? "");
+    setNeighborhood(d.neighborhood ?? "");
+    setBuildingName(d.buildingName ?? "");
+    setEstateType(d.estateType ?? "");
+    setDealType(d.dealType === "판매" ? "판매" : "임대");
+    setDeposit(d.deposit ?? "");
+    setMonthly(d.monthly ?? "");
+    setManagementFee(d.managementFee ?? "");
+    setHasPremium(d.hasPremium === true);
+    setAreaSqm(d.areaSqm ?? "");
+    setRoomCount(d.roomCount ?? "");
+    setBathroomCount(d.bathroomCount ?? "");
+    setMoveInDate(d.moveInDate ?? "");
+    setCarModel(d.carModel ?? "");
+    setCarYear(d.carYear ?? "");
+    setMileage(d.mileage ?? "");
+    setUsedCarTrade(d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null);
+    setCarHasAccident(d.carHasAccident === true);
+    setSalary(d.salary ?? "");
+    setWorkPlace(d.workPlace ?? "");
+    setWorkType(d.workType ?? "");
+    setCurrency(d.currency ?? "");
+    setExchangeRate(d.exchangeRate ?? "");
+    setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
+    setDescriptionAppend(d.descriptionAppend ?? "");
+    if (d.tradeMeetSpot?.displayLine?.trim()) {
+      setTradeMeetSpot({
+        displayLine: d.tradeMeetSpot.displayLine.trim(),
+        lat: d.tradeMeetSpot.lat,
+        lng: d.tradeMeetSpot.lng,
+        placeId: d.tradeMeetSpot.placeId,
+      });
+    } else {
+      setTradeMeetSpot(null);
+    }
+  }, []);
+
+  /** 주소 관리·지도 복귀 시 즉시 복원 · 진짜 이탈 초안만 이어쓰기 확인 */
   useLayoutEffect(() => {
     if (editPostId) return;
     const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
-    if (shouldRestore) {
-      const d = readTradeWriteFormSessionDraft(category.id);
-      if (!d) return;
-      setTitle(d.title ?? "");
-      setDescription(d.description ?? "");
-      setPrice(d.price ?? "");
-      setRegion(d.region ?? "");
-      setCity(d.city ?? "");
-      setImages(draftImagesToUploadItems(d.imageUrls ?? []));
-      setIsFreeShare(d.isFreeShare === true);
-      setIsPriceOfferEnabled(d.isPriceOfferEnabled === true);
-      setIsDirectDeal(d.isDirectDeal !== false);
-      setTradeTopicChildId(d.tradeTopicChildId ?? "");
-      setNeighborhood(d.neighborhood ?? "");
-      setBuildingName(d.buildingName ?? "");
-      setEstateType(d.estateType ?? "");
-      setDealType(d.dealType === "판매" ? "판매" : "임대");
-      setDeposit(d.deposit ?? "");
-      setMonthly(d.monthly ?? "");
-      setManagementFee(d.managementFee ?? "");
-      setHasPremium(d.hasPremium === true);
-      setAreaSqm(d.areaSqm ?? "");
-      setRoomCount(d.roomCount ?? "");
-      setBathroomCount(d.bathroomCount ?? "");
-      setMoveInDate(d.moveInDate ?? "");
-      setCarModel(d.carModel ?? "");
-      setCarYear(d.carYear ?? "");
-      setMileage(d.mileage ?? "");
-      setUsedCarTrade(d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null);
-      setCarHasAccident(d.carHasAccident === true);
-      setSalary(d.salary ?? "");
-      setWorkPlace(d.workPlace ?? "");
-      setWorkType(d.workType ?? "");
-      setCurrency(d.currency ?? "");
-      setExchangeRate(d.exchangeRate ?? "");
-      setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
-      setDescriptionAppend(d.descriptionAppend ?? "");
-      if (d.tradeMeetSpot?.displayLine?.trim()) {
-        setTradeMeetSpot({
-          displayLine: d.tradeMeetSpot.displayLine.trim(),
-          lat: d.tradeMeetSpot.lat,
-          lng: d.tradeMeetSpot.lng,
-          placeId: d.tradeMeetSpot.placeId,
-        });
-      } else {
-        setTradeMeetSpot(null);
-      }
+    const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
+    if (shouldRestore || hasMeetSpotReturn) {
+      const d = readTradeWriteFormPersistedDraft(category.id);
+      if (d) applyPersistedDraft(d);
+      setResumeDraftSnapshot(null);
+      setDraftResumeGate("ready");
       return;
     }
+    const d = readTradeWriteFormPersistedDraft(category.id);
+    if (d && tradeWritePersistedDraftLooksFilled(d)) {
+      setResumeDraftSnapshot(d);
+      setDraftResumeGate("pending_choice");
+      return;
+    }
+    setResumeDraftSnapshot(null);
+    setDraftResumeGate("ready");
     clearTradeWriteFormSessionDraft(category.id);
-  }, [editPostId, category.id]);
+  }, [editPostId, category.id, applyPersistedDraft]);
+
+  useEffect(() => {
+    suppressDraftPersistenceRef.current = false;
+    setTradeWriteSucceededClearBlocking(false);
+  }, [category.id]);
+
+  const meaningfulTradeDraftForSheet = useMemo(() => {
+    if (editPostId) return false;
+    if (tradeWriteSucceededClearBlocking) return false;
+    if (draftResumeGate === "pending_choice") return true;
+    const flushPayload: TradeWriteFormSessionDraftBuildArgs = {
+      categoryId: category.id,
+      skinKey,
+      title,
+      description,
+      price,
+      region,
+      city,
+      images,
+      isFreeShare,
+      isPriceOfferEnabled,
+      isDirectDeal,
+      tradeTopicChildId,
+      neighborhood,
+      buildingName,
+      estateType,
+      dealType,
+      deposit,
+      monthly,
+      managementFee,
+      hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+      tradeMeetSpot,
+    };
+    return tradeWriteSessionDraftLooksFilled(flushPayload);
+  }, [
+    editPostId,
+    draftResumeGate,
+    category.id,
+    skinKey,
+    title,
+    description,
+    price,
+    region,
+    city,
+    images,
+    isFreeShare,
+    isPriceOfferEnabled,
+    isDirectDeal,
+    tradeTopicChildId,
+    neighborhood,
+    buildingName,
+    estateType,
+    dealType,
+    deposit,
+    monthly,
+    managementFee,
+    hasPremium,
+    areaSqm,
+    roomCount,
+    bathroomCount,
+    moveInDate,
+    carModel,
+    carYear,
+    mileage,
+    usedCarTrade,
+    carHasAccident,
+    salary,
+    workPlace,
+    workType,
+    currency,
+    exchangeRate,
+    tradeChatCallPolicy,
+    descriptionAppend,
+    tradeMeetSpot,
+    tradeWriteSucceededClearBlocking,
+  ]);
+
+  useEffect(() => {
+    if (!onMeaningfulTradeDraftChange) return;
+    onMeaningfulTradeDraftChange(meaningfulTradeDraftForSheet);
+    return () => onMeaningfulTradeDraftChange(false);
+  }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
+
+  const handleResumePersistedDraft = useCallback(() => {
+    if (!resumeDraftSnapshot) return;
+    applyPersistedDraft(resumeDraftSnapshot);
+    setResumeDraftSnapshot(null);
+    setDraftResumeGate("ready");
+  }, [resumeDraftSnapshot, applyPersistedDraft]);
+
+  const handleDiscardPersistedDraft = useCallback(() => {
+    clearTradeWriteFormSessionDraft(category.id);
+    setResumeDraftSnapshot(null);
+    setDraftResumeGate("ready");
+  }, [category.id]);
 
   const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<TradeWriteDraftDiscardedDetail>).detail;
+      if (!detail?.categoryId || detail.categoryId !== category.id) return;
+      suppressDraftPersistenceRef.current = true;
+      tradeDraftFlushRef.current = null;
+      if (sessionDraftTimerRef.current) {
+        clearTimeout(sessionDraftTimerRef.current);
+        sessionDraftTimerRef.current = null;
+      }
+    };
+    window.addEventListener(TRADE_WRITE_DRAFT_DISCARDED_EVENT, handler as EventListener);
+    return () => window.removeEventListener(TRADE_WRITE_DRAFT_DISCARDED_EVENT, handler as EventListener);
+  }, [category.id]);
+
   useEffect(() => {
     if (editPostId) {
+      tradeDraftFlushRef.current = null;
+      return;
+    }
+    if (suppressDraftPersistenceRef.current) {
+      tradeDraftFlushRef.current = null;
+      return;
+    }
+    if (draftResumeGate === "pending_choice") {
+      tradeDraftFlushRef.current = null;
+      return;
+    }
+    if (tradeWriteSucceededClearBlocking) {
       tradeDraftFlushRef.current = null;
       return;
     }
@@ -507,6 +697,7 @@ export function TradeWriteForm({
     if (sessionDraftTimerRef.current) clearTimeout(sessionDraftTimerRef.current);
     sessionDraftTimerRef.current = setTimeout(() => {
       sessionDraftTimerRef.current = null;
+      if (suppressDraftPersistenceRef.current) return;
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(flushPayload));
     }, 400);
     return () => {
@@ -554,17 +745,41 @@ export function TradeWriteForm({
     tradeChatCallPolicy,
     descriptionAppend,
     tradeMeetSpot,
+    draftResumeGate,
+    tradeWriteSucceededClearBlocking,
   ]);
 
   useEffect(() => {
     return () => {
       if (editPostId) return;
+      if (tradeWriteSucceededClearBlocking) return;
+      if (suppressDraftPersistenceRef.current) return;
       const snap = tradeDraftFlushRef.current;
       if (!snap) return;
       if (!tradeWriteSessionDraftLooksFilled(snap)) return;
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(snap));
     };
-  }, [editPostId]);
+  }, [editPostId, draftResumeGate, tradeWriteSucceededClearBlocking]);
+
+  useEffect(() => {
+    if (editPostId) return;
+    const flush = () => {
+      if (tradeWriteSucceededClearBlocking) return;
+      if (suppressDraftPersistenceRef.current) return;
+      const snap = tradeDraftFlushRef.current;
+      if (!snap || !tradeWriteSessionDraftLooksFilled(snap)) return;
+      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(snap));
+    };
+    window.addEventListener("beforeunload", flush);
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [editPostId, tradeWriteSucceededClearBlocking]);
 
   /**
    * 업로드 없이 현재 필드를 세션 초안에 반영 — 거래 희망 장소 지도로 즉시 이동할 때 사용.
@@ -572,6 +787,7 @@ export function TradeWriteForm({
    */
   const flushTradeWriteSessionDraftSync = useCallback(() => {
     if (editPostId) return;
+    if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
     const payload: TradeWriteFormSessionDraftBuildArgs = {
       categoryId: category.id,
@@ -662,6 +878,7 @@ export function TradeWriteForm({
    */
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
+    if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
 
     const user = getCurrentUser();
@@ -689,6 +906,8 @@ export function TradeWriteForm({
       });
       setImages(workingImages);
     }
+
+    if (suppressDraftPersistenceRef.current) return;
 
     const payload: TradeWriteFormSessionDraftBuildArgs = {
       categoryId: category.id,
@@ -858,7 +1077,11 @@ export function TradeWriteForm({
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     if (isKarrotGeneral && hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
-      next.meetSpot = "거래 희망 장소를 지도에서 선택해 주세요.";
+      const fallbackLine =
+        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+      if (!fallbackLine) {
+        next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+      }
     }
     if (skinKey === "real-estate") {
       if (!buildingName.trim()) next.buildingName = "건물명을 입력해 주세요.";
@@ -898,6 +1121,7 @@ export function TradeWriteForm({
     moveInDate,
     isKarrotGeneral,
     tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
   ]);
 
   const handleSubmit = useCallback(
@@ -1001,21 +1225,26 @@ export function TradeWriteForm({
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
         meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
-        if (isKarrotGeneral && tradeMeetSpot?.displayLine?.trim()) {
-          const line = tradeMeetSpot.displayLine.trim();
-          meta = {
-            ...meta,
-            trade_meet_spot: {
-              display_line: line,
-              ...(tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
-                ? { lat: tradeMeetSpot.lat }
-                : {}),
-              ...(tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
-                ? { lng: tradeMeetSpot.lng }
-                : {}),
-              ...(tradeMeetSpot.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
-            },
-          };
+        if (isKarrotGeneral) {
+          const lineFromMap = tradeMeetSpot?.displayLine?.trim();
+          const lineFallback =
+            representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+          const line = lineFromMap || lineFallback;
+          if (line) {
+            meta = {
+              ...meta,
+              trade_meet_spot: {
+                display_line: line,
+                ...(tradeMeetSpot && tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
+                  ? { lat: tradeMeetSpot.lat }
+                  : {}),
+                ...(tradeMeetSpot && tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
+                  ? { lng: tradeMeetSpot.lng }
+                  : {}),
+                ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
+              },
+            };
+          }
         }
         const usedCarPostTitle =
           usedCarTrade === "buy"
@@ -1051,6 +1280,9 @@ export function TradeWriteForm({
                 : undefined,
           });
           if (res.ok) {
+            tradeDraftFlushRef.current = null;
+            clearTradeWriteFormSessionDraft(category.id);
+            setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
@@ -1062,8 +1294,10 @@ export function TradeWriteForm({
         } else {
           const res = await createPost(payload, createPreflight);
           if (res.ok) {
+            tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
             clearTradeMeetSpotPickDraft();
+            setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();
             onSuccess(res.id);
           } else {
@@ -1122,6 +1356,7 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       isKarrotGeneral,
       tradeMeetSpot,
+      representativeTradeMeetFallbackLine,
     ]
   );
 
@@ -1134,7 +1369,16 @@ export function TradeWriteForm({
         /* 업로드·로그인 실패해도 지도는 연다 — 동기 초안은 위에서 저장됨 */
       });
     }
-    seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
+    const hasPinnedMeetSpot =
+      tradeMeetSpot?.lat != null &&
+      Number.isFinite(tradeMeetSpot.lat) &&
+      tradeMeetSpot?.lng != null &&
+      Number.isFinite(tradeMeetSpot.lng);
+    if (hasPinnedMeetSpot) {
+      seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
+    } else {
+      clearTradeMeetSpotPickDraft();
+    }
     persistTradeMeetSpotReturnScrollPosition();
     markTradeMeetSpotFocusOnReturn();
     router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
@@ -1207,6 +1451,18 @@ export function TradeWriteForm({
     return `${category.name} · 글쓰기`;
   }, [editPostId, category.name, isKarrotGeneral, region, city]);
 
+  /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
+  const karrotMeetSpotDisplayLine = useMemo(() => {
+    const fromMap = tradeMeetSpot?.displayLine?.trim();
+    if (fromMap) return fromMap;
+    const rep = representativeTradeMeetFallbackLine?.trim();
+    if (rep) return rep;
+    if (isKarrotGeneral && hasLocation) {
+      return getLocationLabelIfValid(region, city)?.trim() ?? "";
+    }
+    return "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, isKarrotGeneral, hasLocation, region, city]);
+
   const tradeLocationEl =
     hasLocation && skinKey !== "real-estate" ? (
       <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
@@ -1218,10 +1474,10 @@ export function TradeWriteForm({
           error={errors.location}
           readOnly={coreLocked}
           onBeforeNavigateToAddresses={
-            !editPostId && !(isKarrotGeneral && hasLocation) ? handleBeforeNavigateToAddresses : undefined
+            !editPostId ? handleBeforeNavigateToAddresses : undefined
           }
           karrotMeetSpotUi={isKarrotGeneral && hasLocation}
-          meetSpotLine={tradeMeetSpot?.displayLine ?? null}
+          meetSpotLine={karrotMeetSpotDisplayLine || null}
           meetSpotError={errors.meetSpot}
           onBeforeMeetSpotPick={
             isKarrotGeneral && hasLocation && !coreLocked ? handleBeforeMeetSpotPick : undefined
@@ -1238,6 +1494,20 @@ export function TradeWriteForm({
           : "min-h-screen bg-sam-app pb-24"
       }
     >
+      <MobileDualActionBottomSheet
+        open={draftResumeGate === "pending_choice"}
+        onClose={() => {}}
+        title="작성 중이던 글이 있습니다"
+        description="이전에 입력한 내용을 불러올까요?"
+        secondaryLabel="새로 작성"
+        onSecondary={handleDiscardPersistedDraft}
+        primaryLabel="이어쓰기"
+        onPrimary={handleResumePersistedDraft}
+        primaryTone="primary"
+        zIndexClass="z-[72]"
+        ariaLabel="임시 저장 글 복구"
+        interactionMode="blocking"
+      />
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}

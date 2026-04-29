@@ -2,6 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import {
+  discardTradeWriteStashedDraft,
+  TRADE_WRITE_EXIT_SHEET_BODY,
+  TRADE_WRITE_EXIT_SHEET_TITLE,
+} from "@/lib/posts/trade-write-exit-cleanup";
+
+const CATEGORY_CHANGE_SHEET_TITLE = "카테고리를 변경할까요?";
+const CATEGORY_CHANGE_SHEET_BODY = "현재 입력한 내용이 사라질 수 있습니다.";
 import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
@@ -51,9 +61,15 @@ export function WriteSheetFlowInner({
   onTradeSheetBlockingDraftChange,
 }: WriteSheetFlowInnerProps) {
   const router = useRouter();
+  const tradeWriteSheetCtx = useTradeWriteSheetOptional();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithSettings | null>(null);
   const [isFormDirty, setIsFormDirty] = useState(false);
+  /** TradeWriteForm — 입력·임시저장 기준 의미 있는 초안(복원 포함) */
+  const [meaningfulTradeDraft, setMeaningfulTradeDraft] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [categoryChangeOpen, setCategoryChangeOpen] = useState(false);
+  const [pendingCategoryValue, setPendingCategoryValue] = useState<string | null>(null);
   const [formStatus, setFormStatus] = useState<
     "idle" | "redirecting" | "loading" | "found" | "not_found" | "no_write"
   >("idle");
@@ -120,6 +136,19 @@ export function WriteSheetFlowInner({
   }, [categoryKey, loadSelectedCategory]);
 
   useEffect(() => {
+    if (!categoryKey.trim()) setMeaningfulTradeDraft(false);
+  }, [categoryKey]);
+
+  useEffect(() => {
+    if (mode !== "tradeSheet" || !tradeWriteSheetCtx) return;
+    const ref = tradeWriteSheetCtx.discardTradeWriteDraftRef;
+    ref.current = selectedCategory ? () => discardTradeWriteStashedDraft(selectedCategory.id) : null;
+    return () => {
+      ref.current = null;
+    };
+  }, [mode, tradeWriteSheetCtx, selectedCategory?.id]);
+
+  useEffect(() => {
     if (!onTierSubtitleChange) return;
     if (categoryKey && formStatus === "found" && selectedCategory) {
       onTierSubtitleChange(selectedCategory.name);
@@ -136,18 +165,16 @@ export function WriteSheetFlowInner({
     [router]
   );
 
-  const handleDropdownChange = useCallback(
+  const applyCategoryChange = useCallback(
     (value: string) => {
-      const currentId = selectedCategory?.id ?? "";
+      const currentId = categoryKey.trim();
       if (value === currentId) return;
-      if (isFormDirty && selectedCategory) {
-        const ok = window.confirm(
-          "카테고리를 변경하면 현재 입력한 내용이 사라질 수 있습니다. 카테고리를 변경하시겠어요?"
-        );
-        if (!ok) return;
+      if (selectedCategory?.type === "trade") {
+        discardTradeWriteStashedDraft(selectedCategory.id);
       }
       if (!value) {
         setIsFormDirty(false);
+        setMeaningfulTradeDraft(false);
         if (mode === "tradeSheet") {
           onTradeSheetCategoryChange?.("");
         } else {
@@ -158,6 +185,7 @@ export function WriteSheetFlowInner({
       const selected = categories.find((c) => c.id === value);
       if (!selected || !selected.settings?.can_write) return;
       setIsFormDirty(false);
+      setMeaningfulTradeDraft(false);
       if (mode === "tradeSheet") {
         onTradeSheetCategoryChange?.(selected.id);
       } else {
@@ -166,8 +194,8 @@ export function WriteSheetFlowInner({
     },
     [
       categories,
+      categoryKey,
       handleSelect,
-      isFormDirty,
       mode,
       onTradeSheetCategoryChange,
       router,
@@ -175,14 +203,63 @@ export function WriteSheetFlowInner({
     ]
   );
 
+  const handleDropdownChange = useCallback(
+    (value: string) => {
+      const currentId = categoryKey.trim();
+      if (value === currentId) return;
+      const needsCatChangeConfirm =
+        selectedCategory &&
+        (isFormDirty || (selectedCategory.type === "trade" && meaningfulTradeDraft));
+      if (needsCatChangeConfirm) {
+        setPendingCategoryValue(value);
+        setCategoryChangeOpen(true);
+        return;
+      }
+      applyCategoryChange(value);
+    },
+    [
+      applyCategoryChange,
+      categoryKey,
+      isFormDirty,
+      meaningfulTradeDraft,
+      selectedCategory,
+    ]
+  );
+
+  const handleCategoryChangeConfirm = useCallback(() => {
+    setCategoryChangeOpen(false);
+    const value = pendingCategoryValue ?? "";
+    setPendingCategoryValue(null);
+    applyCategoryChange(value);
+  }, [applyCategoryChange, pendingCategoryValue]);
+
+  const handleCategoryChangeCancel = useCallback(() => {
+    setCategoryChangeOpen(false);
+    setPendingCategoryValue(null);
+  }, []);
+
   const tryClose = useCallback(() => {
-    if (isFormDirty && selectedCategory) {
-      const ok = window.confirm("작성 중인 내용이 있습니다. 취소하면 입력한 내용이 사라집니다. 닫으시겠어요?");
-      if (!ok) return;
+    const shouldConfirm =
+      selectedCategory &&
+      (isFormDirty || (selectedCategory.type === "trade" && meaningfulTradeDraft));
+    if (shouldConfirm) {
+      setLeaveConfirmOpen(true);
+      return;
     }
     setIsFormDirty(false);
+    setMeaningfulTradeDraft(false);
     onUserRequestClose();
-  }, [isFormDirty, onUserRequestClose, selectedCategory]);
+  }, [isFormDirty, meaningfulTradeDraft, onUserRequestClose, selectedCategory]);
+
+  const handleLeaveConfirm = useCallback(() => {
+    setLeaveConfirmOpen(false);
+    if (selectedCategory) discardTradeWriteStashedDraft(selectedCategory.id);
+    setIsFormDirty(false);
+    setMeaningfulTradeDraft(false);
+    onUserRequestClose();
+  }, [onUserRequestClose, selectedCategory]);
+
+  const handleLeaveCancel = useCallback(() => setLeaveConfirmOpen(false), []);
 
   useEffect(() => {
     if (!onExposeTryClose) return;
@@ -192,14 +269,17 @@ export function WriteSheetFlowInner({
 
   useEffect(() => {
     if (mode !== "tradeSheet" || !onTradeSheetBlockingDraftChange) return;
-    onTradeSheetBlockingDraftChange(isFormDirty);
+    const tradeBlocking =
+      selectedCategory?.type === "trade" ? isFormDirty || meaningfulTradeDraft : isFormDirty;
+    onTradeSheetBlockingDraftChange(tradeBlocking);
     return () => onTradeSheetBlockingDraftChange(false);
-  }, [mode, isFormDirty, onTradeSheetBlockingDraftChange]);
+  }, [mode, isFormDirty, meaningfulTradeDraft, onTradeSheetBlockingDraftChange, selectedCategory?.type]);
 
   const handleSuccess = useCallback(
     (postId: string) => {
       if (!selectedCategory) return;
       setIsFormDirty(false);
+      setMeaningfulTradeDraft(false);
       onSuccessNavigate(selectedCategory, postId);
     },
     [onSuccessNavigate, selectedCategory]
@@ -262,6 +342,7 @@ export function WriteSheetFlowInner({
             onSuccess={handleSuccess}
             onCancel={tryClose}
             suppressTier1Chrome
+            onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
           />
         );
       case "community":
@@ -290,19 +371,46 @@ export function WriteSheetFlowInner({
   };
 
   return (
+    <>
+      <MobileConfirmBottomSheet
+        open={leaveConfirmOpen}
+        onCancel={handleLeaveCancel}
+        title={TRADE_WRITE_EXIT_SHEET_TITLE}
+        description={TRADE_WRITE_EXIT_SHEET_BODY}
+        cancelLabel="계속 작성"
+        confirmLabel="나가기"
+        confirmTone="primary"
+        onConfirm={handleLeaveConfirm}
+        zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
+        ariaLabel="글쓰기 나가기 확인"
+        interactionMode="blocking"
+      />
+      <MobileConfirmBottomSheet
+        open={categoryChangeOpen}
+        onCancel={handleCategoryChangeCancel}
+        title={CATEGORY_CHANGE_SHEET_TITLE}
+        description={CATEGORY_CHANGE_SHEET_BODY}
+        cancelLabel="취소"
+        confirmLabel="변경"
+        confirmTone="danger"
+        onConfirm={handleCategoryChangeConfirm}
+        zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
+        ariaLabel="카테고리 변경 확인"
+        interactionMode="blocking"
+      />
     <div
       className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-3`}
     >
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <label
           htmlFor="write-category-select"
-          className="mb-2 block sam-text-body-secondary font-semibold text-[#666666]"
+          className="mb-2 block sam-text-body font-semibold text-sam-fg"
         >
-          카테고리 선택
+          카테고리를 선택하세요
         </label>
         <select
           id="write-category-select"
-          value={selectedCategory?.id ?? ""}
+          value={categoryKey.trim()}
           onChange={(e) => handleDropdownChange(e.target.value)}
           className="h-11 w-full rounded-sam-md border border-sam-border bg-white px-3 sam-text-body text-sam-fg outline-none focus:border-sam-primary"
           disabled={selectableCategories.length === 0}
@@ -316,9 +424,9 @@ export function WriteSheetFlowInner({
           ))}
         </select>
       </div>
-      {!categoryKey ? (
+      {!categoryKey.trim() ? (
         <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-          <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 선택 하세요</p>
+          <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 선택하세요</p>
         </div>
       ) : (
         <div
@@ -330,5 +438,6 @@ export function WriteSheetFlowInner({
         </div>
       )}
     </div>
+    </>
   );
 }

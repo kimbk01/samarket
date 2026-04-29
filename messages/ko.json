@@ -437,6 +437,7 @@
   "admin_trade_post_status_hidden": "숨김",
   "admin_community_post_status_active": "게시",
   "admin_posts_col_type": "타입",
+  "admin_posts_col_listing_location": "표시 위치",
   "admin_posts_col_topic": "주제",
   "admin_posts_col_region": "동네",
   "admin_posts_col_registered": "등록",

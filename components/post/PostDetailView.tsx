@@ -43,7 +43,13 @@ import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
-import { formatPostListingLocationLine } from "@/lib/posts/post-listing-location-label";
+import {
+  ownerDeleteLockHint,
+  ownerDeleteLockedFromPost,
+  ownerEditLockHint,
+  ownerEditLockedFromPost,
+} from "@/lib/posts/post-list-owner-menu";
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
@@ -621,7 +627,7 @@ export function PostDetailView({
   const [detailMoreOpen, setDetailMoreOpen] = useState(false);
   const [sellerMoreOpen, setSellerMoreOpen] = useState(false);
   const [tradeAdSheetOpen, setTradeAdSheetOpen] = useState(false);
-  const [cancelSaleBusy, setCancelSaleBusy] = useState(false);
+  const [sellerSheetBusy, setSellerSheetBusy] = useState(false);
 
   const appSettings = getAppSettings();
   const chatEnabled = appSettings.chatEnabled !== false;
@@ -643,6 +649,18 @@ export function PostDetailView({
   const canApplyTradeAd = isOwnPost && post.type !== "community" && postStatusLower === "active";
   const showSellerMoreMenu =
     isOwnPost && post.type !== "community" && !["deleted", "blinded"].includes(postStatusLower);
+
+  const ownerMenuPost = useMemo(
+    () => ({
+      author_id: post.author_id,
+      status: post.status,
+      seller_listing_state: post.seller_listing_state,
+      meta: (post.meta as Record<string, unknown> | null) ?? null,
+    }),
+    [post.author_id, post.status, post.seller_listing_state, post.meta]
+  );
+  const sellerSheetEditLocked = ownerEditLockedFromPost(ownerMenuPost);
+  const sellerSheetDeleteLocked = ownerDeleteLockedFromPost(ownerMenuPost);
 
   useEffect(() => {
     incrementPostViewCount(post.id);
@@ -1058,7 +1076,7 @@ export function PostDetailView({
   ]);
 
   const runCancelOwnSale = useCallback(async () => {
-    setCancelSaleBusy(true);
+    setSellerSheetBusy(true);
     try {
       const res = await fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-status`, {
         method: "POST",
@@ -1077,9 +1095,38 @@ export function PostDetailView({
     } catch {
       window.alert("네트워크 오류입니다.");
     } finally {
-      setCancelSaleBusy(false);
+      setSellerSheetBusy(false);
     }
   }, [post.id, router]);
+
+  const handleOwnerEdit = useCallback(() => {
+    setSellerMoreOpen(false);
+    router.push(`/products/${encodeURIComponent(post.id)}/edit`);
+  }, [post.id, router]);
+
+  const runOwnerDelete = useCallback(async () => {
+    setSellerSheetBusy(true);
+    try {
+      const res = await runSingleFlight(`trade:post:owner-delete:${post.id}`, () =>
+        fetch(`/api/posts/${encodeURIComponent(post.id)}/owner-delete`, {
+          method: "POST",
+          credentials: "include",
+        })
+      );
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        window.alert(data.error ?? "삭제하지 못했습니다.");
+        return;
+      }
+      setSellerMoreOpen(false);
+      router.push(backHref || "/my/products");
+      router.refresh();
+    } catch {
+      window.alert("네트워크 오류로 삭제하지 못했습니다.");
+    } finally {
+      setSellerSheetBusy(false);
+    }
+  }, [post.id, router, backHref]);
 
   const isSold = post.status === "sold";
   const showPrice =
@@ -1173,11 +1220,15 @@ export function PostDetailView({
   const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
 
   const listingLocationLine = useMemo(() => {
-    const fromPost = formatPostListingLocationLine(post.region, post.city);
+    const re =
+      post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
+        ? (post.meta as Record<string, unknown>)
+        : undefined;
+    const fromPost = resolveTradePostListingLocationLine(re, post.region, post.city);
     if (fromPost) return fromPost;
     const t = sellerTradeLocationLine?.trim();
     return t || null;
-  }, [post.region, post.city, sellerTradeLocationLine]);
+  }, [post.region, post.city, post.meta, sellerTradeLocationLine]);
 
   const showLocation =
     (category == null || category.settings?.has_location !== false) && !!listingLocationLine;
@@ -1409,8 +1460,14 @@ export function PostDetailView({
         <PostDetailSellerMoreSheet
           open={sellerMoreOpen}
           onClose={() => setSellerMoreOpen((prev) => (prev ? false : prev))}
+          onEdit={handleOwnerEdit}
+          onDelete={() => void runOwnerDelete()}
           onCancelSale={() => void runCancelOwnSale()}
-          busy={cancelSaleBusy}
+          busy={sellerSheetBusy}
+          editLocked={sellerSheetEditLocked}
+          deleteLocked={sellerSheetDeleteLocked}
+          editLockHint={ownerEditLockHint(ownerMenuPost)}
+          deleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
         />
 
         {reportOpen && (
@@ -1727,8 +1784,14 @@ export function PostDetailView({
       <PostDetailSellerMoreSheet
         open={sellerMoreOpen}
         onClose={() => setSellerMoreOpen(false)}
+        onEdit={handleOwnerEdit}
+        onDelete={() => void runOwnerDelete()}
         onCancelSale={() => void runCancelOwnSale()}
-        busy={cancelSaleBusy}
+        busy={sellerSheetBusy}
+        editLocked={sellerSheetEditLocked}
+        deleteLocked={sellerSheetDeleteLocked}
+        editLockHint={ownerEditLockHint(ownerMenuPost)}
+        deleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
       />
 
       {reportOpen && (

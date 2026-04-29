@@ -7,6 +7,10 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { AddressSearch } from "@/components/map/AddressSearch";
 import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import {
+  buildPhFriendlyAddress,
+  pickNearestEstablishmentByDistance,
+} from "@/lib/map/ph-friendly-address";
 import { getBestCurrentPosition } from "@/lib/map/geolocation";
 import {
   hideMapAddressRecentRow,
@@ -35,6 +39,7 @@ import Link from "next/link";
 import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 
 type LatLng = { lat: number; lng: number };
+const NEARBY_FALLBACK_MAX_DISTANCE_METERS = 20;
 
 type Step = "settings" | "map";
 
@@ -68,14 +73,90 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
         if (cancelled) return;
         setBusy(true);
         const geocoder = new google.maps.Geocoder();
+        const places = new google.maps.places.PlacesService(document.createElement("div"));
         geocoder.geocode({ location: marker }, (results, status) => {
           if (cancelled) return;
-          setBusy(false);
           if (status !== "OK" || !results?.[0]) {
+            setBusy(false);
             setText("");
             return;
           }
-          setText(results[0].formatted_address ?? "");
+          void (async () => {
+            let placeDetails: google.maps.places.PlaceResult | null = null;
+            const primaryPlaceId = (results[0]?.place_id ?? "").trim();
+
+            if (primaryPlaceId) {
+              placeDetails = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
+                places.getDetails(
+                  {
+                    placeId: primaryPlaceId,
+                    fields: ["name", "address_components"],
+                  },
+                  (place, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                      resolve(place);
+                      return;
+                    }
+                    resolve(null);
+                  }
+                );
+              });
+            }
+
+            if (!placeDetails) {
+              const nearbyResults = await new Promise<google.maps.places.PlaceResult[]>((resolve) => {
+                places.nearbySearch(
+                  {
+                    location: marker,
+                    radius: 50,
+                    type: "establishment",
+                  },
+                  (results, status) => {
+                    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
+                      resolve([]);
+                      return;
+                    }
+                    resolve(results);
+                  }
+                );
+              });
+              const nearest = pickNearestEstablishmentByDistance(marker, nearbyResults);
+              if (nearest?.placeId && nearest.distanceMeters <= NEARBY_FALLBACK_MAX_DISTANCE_METERS) {
+                placeDetails = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
+                  places.getDetails(
+                    {
+                      placeId: nearest.placeId,
+                      fields: ["name", "address_components"],
+                    },
+                    (place, status) => {
+                      if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+                        resolve(place);
+                        return;
+                      }
+                      resolve(null);
+                    }
+                  );
+                });
+              }
+            }
+
+            if (cancelled) return;
+            const geocodeComponents = results[0]?.address_components ?? [];
+            const byPlaceDetails = placeDetails
+              ? buildPhFriendlyAddress({
+                  components:
+                    placeDetails.address_components && placeDetails.address_components.length > 0
+                      ? placeDetails.address_components
+                      : geocodeComponents,
+                  placeName: placeDetails.name ?? null,
+                })
+              : "";
+            const byGeocoding = buildPhFriendlyAddress({
+              components: geocodeComponents,
+            });
+            setBusy(false);
+            setText((byPlaceDetails || byGeocoding).trim());
+          })();
         });
       })();
     }, 280);

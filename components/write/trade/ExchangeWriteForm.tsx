@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
@@ -298,14 +299,19 @@ export function ExchangeWriteForm({
                 ? descriptionAppend.trim()
                 : undefined,
           });
-          if (res.ok) onSuccess(editPostId);
-          else {
+          if (res.ok) {
+            invalidateHomePostsCache();
+            onSuccess(editPostId);
+          } else {
             if (redirectForBlockedAction(router, res.error, pathname || `/products/${editPostId}/edit`)) return;
             setErrors({ submit: res.error });
           }
         } else {
           const res = await createPost(payload);
-          if (res.ok) onSuccess(res.id);
+          if (res.ok) {
+            invalidateHomePostsCache();
+            onSuccess(res.id);
+          }
           else {
             if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
             setErrors({ submit: res.error });

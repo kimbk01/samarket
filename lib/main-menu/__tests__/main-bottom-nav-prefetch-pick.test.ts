@@ -4,6 +4,7 @@ import {
   MAIN_BOTTOM_NAV_PREFETCH_MAX,
   isBottomNavTabActive,
   pickMainBottomNavPrefetchHrefs,
+  resolveActiveMainBottomNavTabIndex,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 
 describe("isBottomNavTabActive", () => {
@@ -25,6 +26,19 @@ describe("isBottomNavTabActive", () => {
   it("접두 경로 일치", () => {
     expect(isBottomNavTabActive("/philife/post-1", "/philife")).toBe(true);
     expect(isBottomNavTabActive("/mypage/settings", "/mypage")).toBe(true);
+  });
+});
+
+describe("resolveActiveMainBottomNavTabIndex", () => {
+  it("기본 탭 순서(커뮤니티·거래·배달·메신저·내정보)에 맞는 인덱스", () => {
+    expect(resolveActiveMainBottomNavTabIndex("/philife", BOTTOM_NAV_ITEMS)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/philife/x", BOTTOM_NAV_ITEMS)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/market", BOTTOM_NAV_ITEMS)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/market/list", BOTTOM_NAV_ITEMS)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", BOTTOM_NAV_ITEMS)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/room/1", BOTTOM_NAV_ITEMS)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage", BOTTOM_NAV_ITEMS)).toBe(4);
+    expect(resolveActiveMainBottomNavTabIndex("/admin", BOTTOM_NAV_ITEMS)).toBe(-1);
   });
 });
 

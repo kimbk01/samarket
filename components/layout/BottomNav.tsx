@@ -147,7 +147,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
-  guardBeforeNavigate: () => boolean;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { tt, t } = useI18n();
   const router = useRouter();
@@ -281,7 +281,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   navSearch: string;
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
-  guardBeforeNavigate: () => boolean;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { tt, t } = useI18n();
   const router = useRouter();
@@ -655,7 +655,7 @@ export function BottomNav({
         <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
           {tabs.map((tab) => {
             const guardNav = () => {
-              if (!guardBeforeNavigate()) return false;
+              if (!guardBeforeNavigate(tab.href)) return false;
               if (!tab.href.includes("/community-messenger")) return true;
               const user = getCurrentUser();
               if (!user?.id) return true;

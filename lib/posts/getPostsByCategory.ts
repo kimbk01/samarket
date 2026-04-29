@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   buildTradeFeedClientCacheKey,
+  getTradeFeedClientInvalidationGeneration,
   peekCachedTradeFeed as peekCachedTradeFeedRaw,
   primeTradeFeedCache as primeTradeFeedCacheRaw,
   readTradeFeedClientCache,
@@ -50,14 +51,22 @@ export async function getPostsByTradeCategoryIds(
 ): Promise<GetPostsByCategoryResult> {
   const viewerSeg = tradeFeedCacheViewerSuffix();
   const cacheKey = buildTradeFeedClientCacheKey(categoryIds, options, viewerSeg);
+  const genAtEnter = getTradeFeedClientInvalidationGeneration();
   const hit = readTradeFeedClientCache(categoryIds, options, viewerSeg);
   if (hit && hit.expiresAt > Date.now()) {
+    if (genAtEnter !== getTradeFeedClientInvalidationGeneration()) {
+      return getPostsByTradeCategoryIds(categoryIds, options);
+    }
     return hit.data;
   }
 
   return runSingleFlight(`trade-feed-fetch:${cacheKey}`, async () => {
+    const genAt = getTradeFeedClientInvalidationGeneration();
     const again = readTradeFeedClientCache(categoryIds, options, viewerSeg);
     if (again && again.expiresAt > Date.now()) {
+      if (genAt !== getTradeFeedClientInvalidationGeneration()) {
+        return getPostsByTradeCategoryIds(categoryIds, options);
+      }
       return again.data;
     }
 
@@ -109,6 +118,9 @@ export async function getPostsByTradeCategoryIds(
         hasMore: data.hasMore === true,
         ...(fav ? { favoriteMap: fav } : {}),
       };
+      if (genAt !== getTradeFeedClientInvalidationGeneration()) {
+        return getPostsByTradeCategoryIds(categoryIds, options);
+      }
       writeTradeFeedClientCache(categoryIds, options, viewerSeg, result);
       return result;
     } catch {

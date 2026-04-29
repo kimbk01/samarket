@@ -7,21 +7,33 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import {
+  TRADE_WRITE_EXIT_SHEET_BODY,
+  TRADE_WRITE_EXIT_SHEET_TITLE,
+} from "@/lib/posts/trade-write-exit-cleanup";
 
 type TradeWriteSheetContextValue = {
   isOpen: boolean;
   openEpoch: number;
-  /** `/write?category=` 와 동일 — 빈 문자열이면 카테고리 미선택 */
+  /**
+   * 시트가 열릴 때 `TradeWriteBottomSheet` 의 카테고리 키 초기값.
+   * 빈 문자열 = (+) 등 신규 진입. 비어 있지 않으면 희망 장소 지도 복귀 등 **이어 쓰기** 복원용.
+   */
   initialCategory: string;
   /** 폼 입력 등으로 이탈 시 확인이 필요한지 — `WriteSheetFlowInner` 가 갱신 */
   blockingDraft: boolean;
   setBlockingDraft: (v: boolean) => void;
-  /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기. `true`면 네비게이션 진행 */
-  attemptLeaveForExternalNavigation: () => boolean;
-  open: (category: string) => void;
+  /** 확인 나가기 시 세션·로컬 초안 삭제 — `WriteSheetFlowInner` 가 등록 */
+  discardTradeWriteDraftRef: React.MutableRefObject<(() => void) | null>;
+  /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기. `nextHref` 있으면 확인 후 `router.push` */
+  attemptLeaveForExternalNavigation: (nextHref?: string | null) => boolean;
+  open: (_category?: string) => void;
   close: () => void;
 };
 
@@ -37,13 +49,21 @@ function isTradeWriteSheetSurfacePath(p: string): boolean {
 }
 
 export function TradeWriteSheetProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const [isOpen, setIsOpen] = useState(false);
   const [openEpoch, setOpenEpoch] = useState(0);
   const [initialCategory, setInitialCategory] = useState("");
   const [blockingDraft, setBlockingDraft] = useState(false);
+  const discardTradeWriteDraftRef = useRef<(() => void) | null>(null);
+  const [externalLeaveOpen, setExternalLeaveOpen] = useState(false);
+  const pendingNavHrefRef = useRef<string | null>(null);
 
-  const open = useCallback((category: string) => {
+  /**
+   * `(+)`·플로팅 등 **신규** 는 `open("")` — 카테고리 미선택.
+   * 거래 희망 장소 확인 후 복귀는 세션에 넣어 둔 키로 `open(categoryId)` 해 폼을 이어 간다.
+   */
+  const open = useCallback((category?: string) => {
     setInitialCategory((category ?? "").trim());
     setOpenEpoch((e) => e + 1);
     setBlockingDraft(false);
@@ -55,19 +75,33 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     setIsOpen(false);
   }, []);
 
-  const attemptLeaveForExternalNavigation = useCallback((): boolean => {
-    if (!isOpen) return true;
-    if (!blockingDraft) {
-      close();
-      return true;
-    }
-    const ok = window.confirm(
-      "작성 중인 글이 있습니다. 이동하면 저장되지 않습니다. 계속할까요?"
-    );
-    if (!ok) return false;
+  const attemptLeaveForExternalNavigation = useCallback(
+    (nextHref?: string | null) => {
+      if (!isOpen) return true;
+      if (!blockingDraft) {
+        close();
+        return true;
+      }
+      pendingNavHrefRef.current = nextHref?.trim() ? nextHref.trim() : null;
+      setExternalLeaveOpen(true);
+      return false;
+    },
+    [isOpen, blockingDraft, close]
+  );
+
+  const handleExternalLeaveCancel = useCallback(() => {
+    setExternalLeaveOpen(false);
+    pendingNavHrefRef.current = null;
+  }, []);
+
+  const handleExternalLeaveConfirm = useCallback(() => {
+    discardTradeWriteDraftRef.current?.();
     close();
-    return true;
-  }, [isOpen, blockingDraft, close]);
+    setExternalLeaveOpen(false);
+    const href = pendingNavHrefRef.current;
+    pendingNavHrefRef.current = null;
+    if (href) router.push(href);
+  }, [close, router]);
 
   const reopenFlag = "samarket:tradeWriteReopenAfterMeetSpot:v1";
   const reopenCatKey = "samarket:tradeMeetSpotReturnCategoryKey:v1";
@@ -111,6 +145,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
       initialCategory,
       blockingDraft,
       setBlockingDraft,
+      discardTradeWriteDraftRef,
       attemptLeaveForExternalNavigation,
       open,
       close,
@@ -119,7 +154,22 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   );
 
   return (
-    <TradeWriteSheetContext.Provider value={value}>{children}</TradeWriteSheetContext.Provider>
+    <TradeWriteSheetContext.Provider value={value}>
+      {children}
+      <MobileConfirmBottomSheet
+        open={externalLeaveOpen}
+        onCancel={handleExternalLeaveCancel}
+        title={TRADE_WRITE_EXIT_SHEET_TITLE}
+        description={TRADE_WRITE_EXIT_SHEET_BODY}
+        cancelLabel="계속 작성"
+        confirmLabel="나가기"
+        confirmTone="primary"
+        onConfirm={handleExternalLeaveConfirm}
+        zIndexClass="z-[70]"
+        ariaLabel="작성 중 이탈 확인"
+        interactionMode="blocking"
+      />
+    </TradeWriteSheetContext.Provider>
   );
 }
 

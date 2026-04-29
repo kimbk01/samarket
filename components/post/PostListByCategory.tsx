@@ -8,6 +8,7 @@ import {
   primeTradeFeedCache,
   type PostSort,
 } from "@/lib/posts/getPostsByCategory";
+import { TRADE_POST_LIST_CACHE_INVALIDATED } from "@/lib/posts/getPostsForHome";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { getFavoriteStatusForPosts } from "@/lib/favorites/getFavoriteStatusForPosts";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
@@ -108,6 +109,8 @@ export function PostListByCategory({
   const [page, setPage] = useState(1);
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
   const listFeedEpochRef = useRef(0);
+  /** 글 등록 직후 RSC bootstrap 이 클라 fetch 보다 느리면 stale 로 덮는 것 방지 */
+  const allowRscBootstrapFeedRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRootRef = useRef<HTMLUListElement | null>(null);
   const firstCardPaintStartRef = useRef(0);
@@ -117,10 +120,12 @@ export function PostListByCategory({
     async (pageNum: number = 1) => {
       if (!categoryId) {
         setLoading((prev) => (prev ? false : prev));
+        allowRscBootstrapFeedRef.current = true;
         return;
       }
       if (!tradeFeedServerResolution && effectiveIds.length === 0) {
         setLoading((prev) => (prev ? false : prev));
+        allowRscBootstrapFeedRef.current = true;
         return;
       }
       const epoch = listFeedEpochRef.current;
@@ -209,6 +214,7 @@ export function PostListByCategory({
         }
       } finally {
         setLoading(false);
+        allowRscBootstrapFeedRef.current = true;
       }
     },
     [categoryId, sort, effectiveIds, jobsListingKind, tradeFeedServerResolution, tradeTopicParam]
@@ -221,7 +227,7 @@ export function PostListByCategory({
     setPage(1);
 
     (async () => {
-      if (initialTradeFeed && initialTradeFeed.feedKey === feedKey) {
+      if (allowRscBootstrapFeedRef.current && initialTradeFeed && initialTradeFeed.feedKey === feedKey) {
         setPosts(initialTradeFeed.posts);
         setHasMore(initialTradeFeed.hasMore);
         setHiddenPostIds(new Set());
@@ -309,6 +315,17 @@ export function PostListByCategory({
       cancelled = true;
     };
   }, [feedKey, initialTradeFeed?.feedKey, load]);
+
+  /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
+  useEffect(() => {
+    const onBust = () => {
+      allowRscBootstrapFeedRef.current = false;
+      listFeedEpochRef.current += 1;
+      void load(1);
+    };
+    window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
+    return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
+  }, [load]);
 
   useLayoutEffect(() => {
     firstCardPaintFeedKeyRef.current = feedKey;

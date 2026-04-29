@@ -20,7 +20,11 @@ import {
   neighborhoodLocationMetaFromRegion,
 } from "@/lib/neighborhood/location-key";
 
-export function PhilifeHeaderAddressMenuButton() {
+export function PhilifeHeaderAddressMenuButton({
+  panelPlacement = "anchor",
+}: {
+  panelPlacement?: "anchor" | "top-right" | "anchor-top-right";
+}) {
   const [open, setOpen] = useState(false);
   const [renderOpen, setRenderOpen] = useState(false);
   const [panelEntered, setPanelEntered] = useState(false);
@@ -168,11 +172,19 @@ export function PhilifeHeaderAddressMenuButton() {
   }, [open]);
 
   const panelStyle = useMemo(() => {
+    if (panelPlacement === "top-right") {
+      return { top: 62, right: 12 };
+    }
+    if (panelPlacement === "anchor-top-right" && anchorRect) {
+      const top = Math.max(8, Math.round(anchorRect.top - 10));
+      const left = Math.max(8, Math.round(anchorRect.right + 6));
+      return { top, left };
+    }
     if (!anchorRect) return { top: 62, right: 12 };
     const top = Math.round(anchorRect.bottom + 6);
     const right = Math.max(8, Math.round(window.innerWidth - anchorRect.right));
     return { top, right };
-  }, [anchorRect]);
+  }, [anchorRect, panelPlacement]);
 
   async function setAsRepresentative(id: string) {
     const row = list.find((a) => a.id === id);
@@ -251,7 +263,14 @@ export function PhilifeHeaderAddressMenuButton() {
                 style={{
                   ...panelStyle,
                   transformOrigin: panelOrigin,
-                  transform: panelEntered ? "translate3d(0,0,0) scale(1)" : "translate3d(18px,-18px,0) scale(0.82)",
+                  transform:
+                    panelPlacement === "anchor-top-right"
+                      ? panelEntered
+                        ? "translate3d(0,-100%,0) scale(1)"
+                        : "translate3d(18px,calc(-100% - 18px),0) scale(0.82)"
+                      : panelEntered
+                        ? "translate3d(0,0,0) scale(1)"
+                        : "translate3d(18px,-18px,0) scale(0.82)",
                   opacity: panelEntered ? 1 : 0,
                   transition:
                     "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease-out",

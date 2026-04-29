@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -321,8 +322,10 @@ export function JobsWriteForm({
             },
             showDescriptionAppend ? { descriptionAppend: descriptionAppend.trim() || null } : undefined
           );
-          if (res.ok) onSuccess(editPostId);
-          else {
+          if (res.ok) {
+            invalidateHomePostsCache();
+            onSuccess(editPostId);
+          } else {
             if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
             setErrors({ submit: res.error });
           }
@@ -342,8 +345,10 @@ export function JobsWriteForm({
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           meta: Object.keys(meta).length > 0 ? meta : undefined,
         });
-        if (res.ok) onSuccess(res.id);
-        else {
+        if (res.ok) {
+          invalidateHomePostsCache();
+          onSuccess(res.id);
+        } else {
           if (redirectForBlockedAction(router, res.error, pathname || pathFallback)) return;
           setErrors({ submit: res.error });
         }

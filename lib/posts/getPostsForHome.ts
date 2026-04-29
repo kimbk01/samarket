@@ -1,7 +1,8 @@
 "use client";
 
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
+import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import type { PostWithMeta } from "./schema";
 
@@ -38,6 +39,9 @@ type HomePostsCacheEntry = {
 
 const homePostsCache = new Map<string, HomePostsCacheEntry>();
 const HOME_CLIENT_POSTS_CACHE_MAX_KEYS = 80;
+
+/** `invalidateHomePostsCache` 시 증가 — 무효화 직후 끝나는 in-flight 가 stale 캐시를 쓰지 않게 함 */
+let homePostsInvalidationGeneration = 0;
 
 function capHomePostsClientCache(): void {
   pruneByExpiresAtAndMaxSize(homePostsCache, Date.now(), HOME_CLIENT_POSTS_CACHE_MAX_KEYS);
@@ -162,14 +166,24 @@ export function primeHomePostsCache(
   writeHomePostsSessionCache(cacheKey, data);
 }
 
+/** `HomeProductList`·`PostListByCategory` 가 네트워크로 다시 채우도록 구독 */
+export const TRADE_POST_LIST_CACHE_INVALIDATED = "samarket:trade-post-list-cache-invalidated:v1" as const;
+
 /**
- * 글 등록/수정 직후 최신 거래 목록이 즉시 보이도록 홈 목록 캐시를 비운다.
- * - in-memory Map
- * - sessionStorage(`samarket:home-posts:v1:*`)
+ * 글 등록/수정 직후 거래 목록이 즉시 갱신되도록 캐시를 비운다.
+ * - 홈 `/market` — in-memory + sessionStorage(`samarket:home-posts:v1:*`)
+ * - 카테고리 `/market/…` — trade 피드 클라이언트 캐시(`trade-feed-client-cache`)
+ * - 이미 마운트된 목록은 커스텀 이벤트로 `load()` 재실행
  */
 export function invalidateHomePostsCache(): void {
+  forgetSingleFlightsWhere((k) => typeof k === "string" && k.startsWith("home-posts-fetch:"));
+  homePostsInvalidationGeneration += 1;
   homePostsCache.clear();
-  if (!canUseSessionStorage()) return;
+  invalidateAllTradeFeedClientCache();
+  if (!canUseSessionStorage()) {
+    dispatchTradePostListCacheInvalidated();
+    return;
+  }
   try {
     const prefix = HOME_POSTS_SESSION_CACHE_KEY_PREFIX;
     const removeKeys: string[] = [];
@@ -181,6 +195,16 @@ export function invalidateHomePostsCache(): void {
     for (const key of removeKeys) {
       window.sessionStorage.removeItem(key);
     }
+  } catch {
+    /* ignore */
+  }
+  dispatchTradePostListCacheInvalidated();
+}
+
+function dispatchTradePostListCacheInvalidated(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent(TRADE_POST_LIST_CACHE_INVALIDATED));
   } catch {
     /* ignore */
   }
@@ -200,8 +224,13 @@ export async function getPostsForHome(
   opts: { signal?: AbortSignal } = {}
 ): Promise<GetPostsForHomeResult> {
   const { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey } = normalizeOptions(options);
+  const genAtEnter = homePostsInvalidationGeneration;
   const cached = homePostsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
+    if (genAtEnter !== homePostsInvalidationGeneration) {
+      homePostsCache.delete(cacheKey);
+      return getPostsForHome(options, opts);
+    }
     return cached.data;
   }
   if (cached) {
@@ -209,6 +238,17 @@ export async function getPostsForHome(
   }
   const sessionRestored = restoreHomePostsFromSessionToMemory(cacheKey);
   if (sessionRestored) {
+    if (genAtEnter !== homePostsInvalidationGeneration) {
+      homePostsCache.delete(cacheKey);
+      if (canUseSessionStorage()) {
+        try {
+          window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
+        } catch {
+          /* ignore */
+        }
+      }
+      return getPostsForHome(options, opts);
+    }
     return sessionRestored;
   }
 
@@ -257,6 +297,9 @@ export async function getPostsForHome(
         hasMore: data.hasMore === true,
         favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
       };
+      if (genAtEnter !== homePostsInvalidationGeneration) {
+        return getPostsForHome(options, {});
+      }
       homePostsCache.set(cacheKey, {
         data: result,
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,
@@ -274,8 +317,12 @@ export async function getPostsForHome(
   }
 
   return runSingleFlight(`home-posts-fetch:${cacheKey}`, async () => {
+    const genAt = homePostsInvalidationGeneration;
     const again = homePostsCache.get(cacheKey);
     if (again && again.expiresAt > Date.now()) {
+      if (genAt !== homePostsInvalidationGeneration) {
+        return getPostsForHome(options, opts);
+      }
       return again.data;
     }
 
@@ -322,6 +369,9 @@ export async function getPostsForHome(
         hasMore: data.hasMore === true,
         favoriteMap: data.favoriteMap && typeof data.favoriteMap === "object" ? data.favoriteMap : {},
       };
+      if (genAt !== homePostsInvalidationGeneration) {
+        return getPostsForHome(options, opts);
+      }
       homePostsCache.set(cacheKey, {
         data: result,
         expiresAt: Date.now() + HOME_POSTS_TTL_MS,

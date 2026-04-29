@@ -6,9 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -24,20 +26,26 @@ type PhilifeWriteSheetContextValue = {
   /** 시트 폼 — `PhilifeNeighborhoodWriteForm` 이 갱신 */
   blockingDraft: boolean;
   setBlockingDraft: (v: boolean) => void;
-  /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기. `true`면 네비게이션 진행 */
-  attemptLeaveForExternalNavigation: () => boolean;
+  /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기 */
+  attemptLeaveForExternalNavigation: (nextHref?: string | null) => boolean;
   open: (category: string) => void;
   close: () => void;
 };
 
 const PhilifeWriteSheetContext = createContext<PhilifeWriteSheetContextValue | null>(null);
 
+const PHILIFE_EXIT_TITLE = "작성 중인 글이 있습니다";
+const PHILIFE_EXIT_BODY = "이동하면 저장되지 않습니다. 이동할까요?";
+
 export function PhilifeWriteSheetProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const [isOpen, setIsOpen] = useState(false);
   const [openEpoch, setOpenEpoch] = useState(0);
   const [initialCategory, setInitialCategory] = useState("");
   const [blockingDraft, setBlockingDraft] = useState(false);
+  const [externalLeaveOpen, setExternalLeaveOpen] = useState(false);
+  const pendingNavHrefRef = useRef<string | null>(null);
 
   const open = useCallback(
     (category: string) => {
@@ -60,19 +68,32 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
     setIsOpen(false);
   }, []);
 
-  const attemptLeaveForExternalNavigation = useCallback((): boolean => {
-    if (!isOpen) return true;
-    if (!blockingDraft) {
-      close();
-      return true;
-    }
-    const ok = window.confirm(
-      "작성 중인 글이 있습니다. 이동하면 저장되지 않습니다. 계속할까요?"
-    );
-    if (!ok) return false;
+  const attemptLeaveForExternalNavigation = useCallback(
+    (nextHref?: string | null) => {
+      if (!isOpen) return true;
+      if (!blockingDraft) {
+        close();
+        return true;
+      }
+      pendingNavHrefRef.current = nextHref?.trim() ? nextHref.trim() : null;
+      setExternalLeaveOpen(true);
+      return false;
+    },
+    [isOpen, blockingDraft, close]
+  );
+
+  const handleExternalLeaveCancel = useCallback(() => {
+    setExternalLeaveOpen(false);
+    pendingNavHrefRef.current = null;
+  }, []);
+
+  const handleExternalLeaveConfirm = useCallback(() => {
     close();
-    return true;
-  }, [isOpen, blockingDraft, close]);
+    setExternalLeaveOpen(false);
+    const href = pendingNavHrefRef.current;
+    pendingNavHrefRef.current = null;
+    if (href) router.push(href);
+  }, [close, router]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -99,6 +120,18 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
   return (
     <PhilifeWriteSheetContext.Provider value={value}>
       {children}
+      <MobileConfirmBottomSheet
+        open={externalLeaveOpen}
+        onCancel={handleExternalLeaveCancel}
+        title={PHILIFE_EXIT_TITLE}
+        description={PHILIFE_EXIT_BODY}
+        cancelLabel="계속 작성"
+        confirmLabel="이동하기"
+        confirmTone="danger"
+        onConfirm={handleExternalLeaveConfirm}
+        zIndexClass="z-[70]"
+        ariaLabel="필라이프 작성 이탈 확인"
+      />
     </PhilifeWriteSheetContext.Provider>
   );
 }

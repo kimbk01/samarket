@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminPosts } from "@/lib/admin-posts/getAdminPosts";
 import { updatePostStatusAdmin } from "@/lib/admin-posts/updatePostAdmin";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
@@ -397,6 +398,7 @@ export function AdminPostsPageContent() {
                     />
                   </th>
                   <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_title")}</th>
+                  <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_listing_location")}</th>
                   <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_type")}</th>
                   <th className="p-3 font-medium text-sam-fg">{tr("admin_feed_posts_col_status")}</th>
                   <th className="p-3 font-medium text-sam-fg">{tr("admin_posts_col_created")}</th>
@@ -404,7 +406,14 @@ export function AdminPostsPageContent() {
                 </tr>
               </thead>
               <tbody>
-                {posts.map((p) => (
+                {posts.map((p) => {
+                  const metaRec =
+                    p.meta && typeof p.meta === "object" && !Array.isArray(p.meta)
+                      ? (p.meta as Record<string, unknown>)
+                      : undefined;
+                  const listingLocLine =
+                    resolveTradePostListingLocationLine(metaRec, p.region, p.city) ?? dash;
+                  return (
                   <tr key={p.id} className="border-b border-sam-border-soft">
                     <td className="px-2 py-2 text-center">
                       <input
@@ -419,6 +428,12 @@ export function AdminPostsPageContent() {
                       <Link href={`/post/${p.id}`} className="text-signature hover:underline">
                         {p.title}
                       </Link>
+                    </td>
+                    <td
+                      className="max-w-[220px] truncate p-3 text-sam-muted"
+                      title={listingLocLine === dash ? undefined : listingLocLine}
+                    >
+                      {listingLocLine}
                     </td>
                     <td className="p-3 text-sam-muted">{p.type}</td>
                     <td className="p-3">
@@ -447,7 +462,8 @@ export function AdminPostsPageContent() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

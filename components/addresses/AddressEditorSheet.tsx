@@ -7,8 +7,6 @@ import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-
 import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { nextAutoUnspecifiedNickname } from "@/lib/addresses/unspecified-address-nickname";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
-
 type Mode = "create" | "edit";
 
 /**
@@ -256,28 +254,36 @@ export function AddressEditorSheet(props: {
     }
   }
 
+  const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
+  const fieldInputClass =
+    "w-full rounded-lg border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body text-sam-fg outline-none transition-shadow placeholder:text-sam-muted focus-visible:border-sam-primary focus-visible:ring-2 focus-visible:ring-sam-primary/20";
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-sam-ink/28 p-3 sm:p-4 md:p-6">
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+      role="presentation"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
-        className={`flex max-h-[min(90dvh,92vh)] w-full min-w-0 flex-col overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface text-sam-fg shadow-sam-elevated ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+        className="flex max-h-[min(88dvh,640px)] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface text-sam-fg shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="addr-editor-title"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border bg-sam-surface px-4 py-4">
-          <h2
-            id="addr-editor-title"
-            className="sam-text-section-title font-semibold tracking-tight text-sam-fg"
-          >
+        <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
+          <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
             주소상세
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="sam-header-action absolute right-2 top-1/2 h-10 min-w-[44px] -translate-y-1/2 text-sam-icon-soft hover:text-sam-primary"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
             aria-label="닫기"
           >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path
                 d="M6 6l12 12M18 6L6 18"
                 stroke="currentColor"
@@ -288,70 +294,89 @@ export function AddressEditorSheet(props: {
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-sam-app/80 px-4 py-4 sm:bg-sam-surface sm:py-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
           {latitude != null && longitude != null ? (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto_auto] gap-x-3 gap-y-2.5">
-              <div className="col-start-1 row-start-1 flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">지정 주소</span>
+            <>
+              <div>
+                <label htmlFor="addr-editor-nick" className={fieldLabelClass}>
+                  지정 주소 이름
+                </label>
                 <input
+                  id="addr-editor-nick"
                   value={nickname}
                   onChange={(e) => {
                     setNickname(e.target.value);
                     setErr(null);
                   }}
-                  placeholder="비우면 지정안함 입력됨"
+                  placeholder="예: 집, 회사 (비우면 자동)"
                   autoComplete="off"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-sam-primary"
+                  className={fieldInputClass}
                 />
               </div>
-              <p className="col-start-1 row-start-2 min-w-0 self-start sam-text-body leading-relaxed text-sam-muted">
-                {fullAddress.trim() ||
-                  `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
-              </p>
-              <div className="col-start-1 row-start-3 flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">상세주소</span>
+              <div>
+                <span className={fieldLabelClass}>지도에서 고른 위치</span>
+                <p className="rounded-lg border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body leading-relaxed text-sam-fg">
+                  {fullAddress.trim() || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+                </p>
+              </div>
+              <div>
+                <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
+                  상세주소
+                </label>
                 <input
+                  id="addr-editor-detail"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
                   placeholder="지번, 건물명, 동·호 등"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-sam-primary"
+                  autoComplete="off"
+                  className={fieldInputClass}
                 />
               </div>
-              <div className="col-start-2 row-span-3 row-start-1 self-start justify-self-end rounded-sam-md p-0.5 ring-1 ring-sam-primary-border/60">
-                <AddressMapThumb lat={latitude} lng={longitude} sizePx={120} />
+              <div className="flex justify-center overflow-hidden rounded-lg border border-sam-border bg-sam-app">
+                <AddressMapThumb lat={latitude} lng={longitude} sizePx={200} />
               </div>
-            </div>
+            </>
           ) : (
             <>
-              <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">지정 주소</span>
+              <div>
+                <label htmlFor="addr-editor-nick-empty" className={fieldLabelClass}>
+                  지정 주소 이름
+                </label>
                 <input
+                  id="addr-editor-nick-empty"
                   value={nickname}
                   onChange={(e) => {
                     setNickname(e.target.value);
                     setErr(null);
                   }}
-                  placeholder="비우면 지정안함 입력됨"
+                  placeholder="예: 집, 회사 (비우면 자동)"
                   autoComplete="off"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted placeholder:sam-text-body-secondary focus-visible:border-sam-primary"
+                  className={fieldInputClass}
                 />
               </div>
-              <div className="flex min-w-0 flex-nowrap items-center gap-2.5">
-                <span className="shrink-0 sam-text-body-secondary font-semibold text-sam-primary">상세주소</span>
+              <div>
+                <label htmlFor="addr-editor-detail-empty" className={fieldLabelClass}>
+                  상세주소
+                </label>
                 <input
+                  id="addr-editor-detail-empty"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
                   placeholder="지번, 건물명, 동·호 등"
-                  className="min-w-0 flex-1 border-0 border-b-2 border-sam-border bg-transparent py-1.5 sam-text-body text-sam-fg outline-none transition-colors placeholder:text-sam-muted focus-visible:border-sam-primary"
+                  autoComplete="off"
+                  className={fieldInputClass}
                 />
               </div>
+              <p className="rounded-lg border border-dashed border-sam-border bg-sam-app/60 px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
+                위치를 저장하려면 아래「위치 선택」에서 지도를 열어 주세요.
+              </p>
             </>
           )}
         </div>
 
-        <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
-          {err ? <p className="sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
-          <div className="flex gap-2.5">
+        <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-4 py-3 safe-area-pb">
+          {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={() => {
@@ -362,7 +387,7 @@ export function AddressEditorSheet(props: {
                 );
                 router.push("/address/select");
               }}
-              className="flex-1 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft py-3 sam-text-body font-semibold text-sam-primary transition-colors hover:brightness-[0.99]"
+              className="w-full rounded-lg border border-sam-border bg-sam-surface py-2.5 sam-text-body font-semibold text-sam-fg shadow-sm transition-colors hover:bg-sam-app sm:w-auto sm:min-w-[100px] sm:px-4"
             >
               위치 선택
             </button>
@@ -370,7 +395,7 @@ export function AddressEditorSheet(props: {
               type="button"
               disabled={busy}
               onClick={() => void submit()}
-              className="flex-1 rounded-sam-md bg-sam-primary py-3 sam-text-body font-semibold text-white transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
+              className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:w-auto sm:min-w-[112px] sm:px-5"
             >
               {busy ? "저장 중…" : "저장"}
             </button>

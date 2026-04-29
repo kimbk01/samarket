@@ -26,6 +26,7 @@ import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingCh
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
+import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import { FloatingAddButton } from "./FloatingAddButton";
 import { OwnerLiteStoreBar } from "./OwnerLiteStoreBar";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
@@ -107,7 +108,14 @@ export function ConditionalAppShell({
             f.isChatRoomDetail ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
           }`}
         >
-          {children}
+          <MainShellTabContentTransition
+            initialNavItems={initialMainBottomNavItems}
+            contentStretchClass={
+              f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col" : "min-w-0"
+            }
+          >
+            {children}
+          </MainShellTabContentTransition>
         </div>
       </main>
       {showBottomNavEffective ? (
@@ -131,7 +139,7 @@ export function ConditionalAppShell({
           />
         </Suspense>
       ) : null}
-      {showBottomNavEffective && f.isTradeFloatingSurface ? <HomeTradeHubFloatingBar /> : null}
+      {showBottomNavEffective && f.showHomeTradeHubFloatingBar ? <HomeTradeHubFloatingBar /> : null}
       {f.showFloat && <FloatingAddButton />}
     </div>
   );

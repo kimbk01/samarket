@@ -6,32 +6,28 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
 import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
+import { TRADE_WRITE_EXIT_SHEET_BODY, TRADE_WRITE_EXIT_SHEET_TITLE } from "@/lib/posts/trade-write-exit-cleanup";
 
 const SHEET_EXIT_MS = 520;
 
 /**
- * `/market/…` — 거래 글쓰기를 `PhilifeWriteBottomSheet` 와 동일한 스티키 헤더錨·슬라이드로 표시.
+ * `/market/…` — 거래 글쓰기를 **티어1·탭 헤더까지 포함해 뷰포트 전체** 덮는 시트로 표시(아래→위 슬라이드).
+ * z-index 는 확인 모달(`MobileConfirmBottomSheet` 등 z≥65)보다 낮게 유지한다.
  */
 export function TradeWriteBottomSheet() {
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
-  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft, initialCategory } = useTradeWriteSheet();
-  const [topOffsetPx, setTopOffsetPx] = useState(0);
+  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft, initialCategory, discardTradeWriteDraftRef } =
+    useTradeWriteSheet();
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [sheetCategoryKey, setSheetCategoryKey] = useState("");
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-
-  const measure = useCallback(() => {
-    if (typeof document === "undefined") return;
-    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
-    if (el) {
-      setTopOffsetPx(Math.max(0, Math.round(el.getBoundingClientRect().bottom)));
-    }
-  }, []);
+  const [headerLeaveOpen, setHeaderLeaveOpen] = useState(false);
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -41,40 +37,24 @@ export function TradeWriteBottomSheet() {
     if (!isOpen) {
       setEnterDraw(false);
       setIsExiting(false);
+      setSheetCategoryKey("");
       return;
     }
-    /** `open("")` 이면 카테고리 선택부터, 지도 복귀 등 `open(카테고리키)` 이면 해당 주제로 바로 폼 */
+    /** 신규 `open("")` 는 빈 값, 지도 복귀 `open(카테고리키)` 는 이어 쓰기 */
     setSheetCategoryKey((initialCategory ?? "").trim());
     setIsExiting(false);
-    measure();
     setEnterDraw(false);
     enterRafRef.current = requestAnimationFrame(() => {
       enterRafRef.current = null;
       setEnterDraw(true);
-      measure();
     });
-    const onResize = () => measure();
-    const onScroll = () => measure();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, true);
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    vv?.addEventListener("resize", onResize);
-    vv?.addEventListener("scroll", onResize);
-    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
-    if (el && ro) ro.observe(el);
     return () => {
       if (enterRafRef.current != null) {
         cancelAnimationFrame(enterRafRef.current);
         enterRafRef.current = null;
       }
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll, true);
-      vv?.removeEventListener("resize", onResize);
-      vv?.removeEventListener("scroll", onResize);
-      ro?.disconnect();
     };
-  }, [isOpen, measure, openEpoch, initialCategory]);
+  }, [isOpen, openEpoch, initialCategory]);
 
   const lockBody = isOpen;
   useEffect(() => {
@@ -132,27 +112,48 @@ export function TradeWriteBottomSheet() {
 
   const onHeaderClose = useCallback(() => {
     if (blockingDraft) {
-      const ok = window.confirm("작성 중인 내용이 저장되지 않습니다. 닫을까요?");
-      if (!ok) return;
+      setHeaderLeaveOpen(true);
+      return;
     }
     void exitAndClose();
   }, [blockingDraft, exitAndClose]);
+
+  const handleHeaderLeaveConfirm = useCallback(() => {
+    setHeaderLeaveOpen(false);
+    discardTradeWriteDraftRef.current?.();
+    void exitAndClose();
+  }, [discardTradeWriteDraftRef, exitAndClose]);
+
+  const handleHeaderLeaveCancel = useCallback(() => setHeaderLeaveOpen(false), []);
 
   if (!isOpen) return null;
 
   const panelOpen = enterDraw && !isExiting;
 
   return (
-    <div
-      className="pointer-events-none fixed left-0 right-0 z-[50] flex flex-col"
-      style={{ top: topOffsetPx, bottom: 0 }}
+    <>
+      <MobileConfirmBottomSheet
+        open={headerLeaveOpen}
+        onCancel={handleHeaderLeaveCancel}
+        title={TRADE_WRITE_EXIT_SHEET_TITLE}
+        description={TRADE_WRITE_EXIT_SHEET_BODY}
+        cancelLabel="계속 작성"
+        confirmLabel="나가기"
+        confirmTone="primary"
+        onConfirm={handleHeaderLeaveConfirm}
+        zIndexClass="z-[65]"
+        ariaLabel="거래 글쓰기 닫기 확인"
+        interactionMode="blocking"
+      />
+      <div
+      className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
       role="dialog"
       aria-modal
       aria-label="거래 글쓰기"
     >
       <div
         ref={panelRef}
-        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-app text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-sam-app pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
           panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
         }`}
       >
@@ -187,5 +188,6 @@ export function TradeWriteBottomSheet() {
         </div>
       </div>
     </div>
+    </>
   );
 }

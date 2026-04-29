@@ -30,3 +30,12 @@ export function consumeTradeWriteRestoreAfterAddressFlag(categoryId: string): bo
     return false;
   }
 }
+
+export function clearTradeWriteRestoreAfterAddressFlag(categoryId: string): void {
+  if (typeof window === "undefined" || !categoryId.trim()) return;
+  try {
+    sessionStorage.removeItem(key(categoryId));
+  } catch {
+    /* ignore */
+  }
+}

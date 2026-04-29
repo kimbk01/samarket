@@ -69,8 +69,7 @@ export default function WriteByCategoryPage() {
   const handleSuccess = useCallback(
     (_postId: string) => {
       if (!category) return;
-      const href = getCategoryHref(category);
-      router.replace(href);
+      router.replace(getCategoryHref(category));
     },
     [category, router]
   );

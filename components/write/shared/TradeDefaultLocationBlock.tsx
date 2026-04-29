@@ -24,7 +24,6 @@ function coerceAddressRow(raw: unknown): UserAddressDTO | null {
   return rowToUserAddressDTO(o);
 }
 
-/** 글쓰기 기본 지역 — **대표(master)** 가 우선, 없으면 거래 기본(trade). @see `address-source-architecture.ts` */
 function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown } | undefined): UserAddressDTO | null {
   const master = coerceAddressRow(defaults?.master ?? null);
   const trade = coerceAddressRow(defaults?.trade ?? null);
@@ -34,29 +33,19 @@ function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown 
 }
 
 type TradeDefaultLocationBlockProps = {
-  /** 수정 모드여도 대표 주소는 `/api/me/address-defaults` 로 항상 맞춤(주소 관리 반영) */
   editPostId?: string;
   region: string;
   city: string;
   onSyncRegionCity: (regionId: string, cityId: string) => void;
   error?: string;
-  /** 정책상 본문 잠금 시 주소 관리 이동 숨김 */
   readOnly?: boolean;
-  /** 거래 글쓰기 신규: 주소 관리로 가기 직전(이미지 업로드·초안 저장 등). 완료 후 라우팅은 이 컴포넌트가 수행 */
   onBeforeNavigateToAddresses?: () => void | Promise<void>;
-  /** 당근형 중고 — 지도에서 거래 희망 장소만 고르는 플로우(주소록과 별개) */
   karrotMeetSpotUi?: boolean;
   meetSpotLine?: string | null;
   meetSpotError?: string;
-  /** 초안 저장 후 `/market/trade-meet-spot` 등으로 이동 */
   onBeforeMeetSpotPick?: () => void | Promise<void>;
 };
 
-/**
- * 거래 글쓰기 — 주소 기본값으로 `region`/`city` 동기화 + 주소록 이동.
- * - 일반: 대표 주소 **한 줄** 표시.
- * - 당근형 중고(`karrotMeetSpotUi`): 노출 동네 문구 없이 **대표 주소 한 줄**만 표시.
- */
 export function TradeDefaultLocationBlock({
   editPostId,
   region,
@@ -98,7 +87,6 @@ export function TradeDefaultLocationBlock({
         addr.countryName
       ).trim();
       setDisplayLine(line || null);
-      /** DB에 app_region/city 가 비어 있어도 주소·우편번호로 id 추론 */
       const inferred = inferAppLocationIdsFromUserAddress(addr);
       if (inferred) syncRef.current(inferred.regionId, inferred.cityId);
     } catch {
@@ -108,7 +96,6 @@ export function TradeDefaultLocationBlock({
     }
   }, []);
 
-  /** 첫 경로는 즉시 로드, 이후 경로 변경만 짧게 디바운스(왕복 시 연속 fetch 완화) */
   useEffect(() => {
     if (pathnameEffectFirstRef.current) {
       pathnameEffectFirstRef.current = false;
@@ -152,34 +139,45 @@ export function TradeDefaultLocationBlock({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
-  /** 거래 글쓰기에서 곧 주소 화면으로 갈 때 목록 API 선호출 → 주소 관리 첫 화면 즉시 표시 */
   useEffect(() => {
     if (!onBeforeNavigateToAddresses) return;
     prefetchMeAddressListIntoCache();
   }, [onBeforeNavigateToAddresses]);
 
-  /** 수정 폼 스냅샷 라벨 — API 로딩 중 임시 표시·API 실패 시 폴백 */
   const snapshotLabel = editPostId && region && city ? getLocationLabel(region, city) : null;
+
+  const handleNavigateToAddresses = useCallback(async () => {
+    if (onBeforeNavigateToAddresses) {
+      try {
+        await onBeforeNavigateToAddresses();
+      } catch {
+        return;
+      }
+    }
+    router.push(ADDRESSES_HREF);
+  }, [onBeforeNavigateToAddresses, router]);
+
+  const currentAddressText = !ready
+    ? snapshotLabel ?? "…"
+    : displayLine?.trim() || snapshotLabel || "대표 주소가 없습니다. 주소 관리에서 대표 주소를 설정해 주세요.";
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       {!karrotMeetSpotUi ? (
-        <p className="mb-2 sam-text-body font-medium text-sam-fg">
-          거래 지역 <span className="text-red-500">*</span>
-        </p>
+        <>
+          <p className="mb-2 sam-text-body font-medium text-sam-fg">
+            거래 지역 <span className="text-red-500">*</span>
+          </p>
+          <p className="break-words sam-text-body leading-snug text-sam-fg">{currentAddressText}</p>
+        </>
       ) : null}
-      <p className="break-words sam-text-body leading-snug text-sam-fg">
-        {!ready
-          ? snapshotLabel ?? "…"
-          : displayLine?.trim() ||
-            snapshotLabel ||
-            "대표 주소가 없습니다. 주소 관리에서 대표 주소를 설정해 주세요."}
-      </p>
       {karrotMeetSpotUi && onBeforeMeetSpotPick && !readOnly ? (
-        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5">
+        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 first:mt-0">
           <p className="sam-text-body font-semibold text-sam-fg">거래 희망 장소</p>
           <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
-            {meetSpotLine?.trim() ? meetSpotLine.trim() : "지도에서 위치를 선택한 뒤 확인을 누르면 여기에 반영됩니다."}
+            {meetSpotLine?.trim()
+              ? meetSpotLine.trim()
+              : "지도에서 고르면 상호·주소가 반영됩니다. 미선택 시 저장·등록 시 대표 주소 기준 한 줄로 자동 저장됩니다."}
           </p>
           <button
             type="button"
@@ -188,7 +186,7 @@ export function TradeDefaultLocationBlock({
               try {
                 onBeforeMeetSpotPick();
               } catch {
-                /* 동기 실패 시 무시 — 폼 쪽에서 지도로 이동 전 초안 저장 */
+                /* ignore */
               }
             }}
           >
@@ -204,14 +202,7 @@ export function TradeDefaultLocationBlock({
           <button
             type="button"
             className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
-            onClick={async () => {
-              try {
-                await onBeforeNavigateToAddresses();
-              } catch {
-                return;
-              }
-              router.push(ADDRESSES_HREF);
-            }}
+            onClick={() => void handleNavigateToAddresses()}
           >
             주소 관리로 변경
           </button>

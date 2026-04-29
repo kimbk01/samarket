@@ -407,6 +407,52 @@ a,
   }
 }
 
+/* 메인 하단 탭: 탭 순서 기준 전환 — 본문 전폭 슬라이드(확실한 액션) */
+@keyframes main-shell-tab-enter-ltr {
+  from {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.45;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes main-shell-tab-enter-rtl {
+  from {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0.45;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+.main-shell-tab-enter-ltr {
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation: main-shell-tab-enter-ltr 0.4s cubic-bezier(0.22, 1, 0.28, 1) both;
+}
+
+.main-shell-tab-enter-rtl {
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+  animation: main-shell-tab-enter-rtl 0.4s cubic-bezier(0.22, 1, 0.28, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-shell-tab-enter-ltr,
+  .main-shell-tab-enter-rtl {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    will-change: auto;
+    backface-visibility: visible;
+  }
+}
+
 @layer components {
   .min-w-0-safe {
     min-width: 0;

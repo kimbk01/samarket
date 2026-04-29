@@ -81,12 +81,13 @@ function TradePrimaryTabsInner({
   const allSortLabel = tradeState === "active" ? "판매중" : tradeState === "reserved" ? "예약중" : tradeState === "sold" ? "거래 완료" : "최신순";
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
-      if (next !== tradeState && !guardBeforeNavigate()) return;
       const sp = new URLSearchParams(searchParams.toString());
       if (next === "latest") sp.delete("tradeState");
       else sp.set("tradeState", next);
       const qs = sp.toString();
-      void router.replace(qs ? `/market?${qs}` : "/market", { scroll: false });
+      const nextHref = qs ? `/market?${qs}` : "/market";
+      if (next !== tradeState && !guardBeforeNavigate(nextHref)) return;
+      void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
     [router, searchParams, tradeState, guardBeforeNavigate]
@@ -225,7 +226,7 @@ function TradePrimaryTabsInner({
               prefetch
               className={tab.isActive ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
               onClick={(e) => {
-                if (!tab.isActive && !guardBeforeNavigate()) e.preventDefault();
+                if (!tab.isActive && !guardBeforeNavigate(tab.href)) e.preventDefault();
               }}
             >
               <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{tab.label}</span>

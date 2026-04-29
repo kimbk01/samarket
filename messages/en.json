@@ -437,6 +437,7 @@
   "admin_trade_post_status_hidden": "Hidden",
   "admin_community_post_status_active": "Published",
   "admin_posts_col_type": "Type",
+  "admin_posts_col_listing_location": "Listing location",
   "admin_posts_col_topic": "Topic",
   "admin_posts_col_region": "Neighborhood",
   "admin_posts_col_registered": "Posted",
