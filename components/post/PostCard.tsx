@@ -155,7 +155,7 @@ export const PostCard = memo(function PostCard({
                 <div className="h-full w-full rounded-[3px] bg-amber-100 p-0.5 shadow-sm">
                   <img
                     ref={isFirstCard ? imageRef : undefined}
-                    src={thumbnailUrl}
+                    src={thumbnailUrl ?? undefined}
                     alt=""
                     width={88}
                     height={88}
@@ -175,7 +175,7 @@ export const PostCard = memo(function PostCard({
               ) : (
                 <img
                   ref={isFirstCard ? imageRef : undefined}
-                  src={thumbnailUrl}
+                  src={thumbnailUrl ?? undefined}
                   alt=""
                   width={88}
                   height={88}

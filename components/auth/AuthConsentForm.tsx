@@ -50,16 +50,23 @@ export function AuthConsentForm() {
         if (resEnsure.ok && raw?.ok && raw.profile?.id) {
           const p = raw.profile;
           const prev = getCurrentUser();
+          const ensuredId = typeof p.id === "string" ? p.id : "";
+          if (!ensuredId) {
+            return;
+          }
           const merged: Profile = {
             ...(prev ?? {
-              id: p.id,
+              id: ensuredId,
               email: "",
-              nickname: "",
+              nickname: "회원",
               avatar_url: null,
               temperature: 50,
             }),
             ...p,
-            id: p.id,
+            id: ensuredId,
+            email: typeof p.email === "string" ? p.email : prev?.email ?? "",
+            nickname: typeof p.nickname === "string" ? p.nickname : prev?.nickname ?? "회원",
+            avatar_url: p.avatar_url ?? prev?.avatar_url ?? null,
             temperature: typeof p.temperature === "number" ? p.temperature : prev?.temperature ?? 50,
           };
           setSupabaseProfileCache(merged);
