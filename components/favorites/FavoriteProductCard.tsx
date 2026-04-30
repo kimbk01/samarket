@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { FavoriteProduct } from "@/lib/types/favorite";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import { FavoriteToggleButton } from "./FavoriteToggleButton";
@@ -15,13 +16,16 @@ import {
   POST_LIST_TITLE_CLASS,
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 interface FavoriteProductCardProps {
   product: FavoriteProduct;
 }
 
 export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
+  const router = useRouter();
   const isSold = product.status === "sold";
+  const detailHref = `/post/${product.id}`;
 
   return (
     <div
@@ -34,7 +38,13 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
       >
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
-      <Link href={`/post/${product.id}`} className="flex min-w-0 flex-1 gap-3">
+      <Link
+        href={detailHref}
+        onPointerEnter={() => void router.prefetch(detailHref)}
+        onFocus={() => void router.prefetch(detailHref)}
+        onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+        className="flex min-w-0 flex-1 gap-3"
+      >
         <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           {product.thumbnail ? (
             <img

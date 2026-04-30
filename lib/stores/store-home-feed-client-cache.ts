@@ -11,6 +11,11 @@ export type StoreHomeFeedCacheEntry = {
   expiresAt: number;
 };
 
+export type StoreHomeFeedCacheSnapshot = {
+  entry: StoreHomeFeedCacheEntry | null;
+  isFresh: boolean;
+};
+
 const storeHomeFeedCache = new Map<string, StoreHomeFeedCacheEntry>();
 
 function normalizeSuffix(pathAndQuery: string): string {
@@ -27,6 +32,17 @@ export function peekStoreHomeFeedClientCache(pathAndQuery: string): StoreHomeFee
     return null;
   }
   return hit;
+}
+
+/**
+ * 홈 재진입 체감 안정화: TTL이 지난 스냅샷도 즉시 렌더 폴백으로 사용할 수 있게 제공.
+ * 네트워크 재검증(fetch)은 호출부에서 계속 수행하며, 이 함수는 snapshot만 반환한다.
+ */
+export function readStoreHomeFeedClientCache(pathAndQuery: string): StoreHomeFeedCacheSnapshot {
+  const key = normalizeSuffix(pathAndQuery);
+  const hit = storeHomeFeedCache.get(key) ?? null;
+  if (!hit) return { entry: null, isFresh: false };
+  return { entry: hit, isFresh: hit.expiresAt > Date.now() };
 }
 
 export function primeStoreHomeFeedClientCache(

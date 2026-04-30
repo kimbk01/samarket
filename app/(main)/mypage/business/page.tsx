@@ -5,8 +5,6 @@ import { MyBusinessPage } from "@/components/business/MyBusinessPage";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
-export const dynamic = "force-dynamic";
-
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;

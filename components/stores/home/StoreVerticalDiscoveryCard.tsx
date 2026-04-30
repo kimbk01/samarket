@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -107,6 +109,8 @@ export function StoreVerticalDiscoveryCard({
   /** 광고·추천 등 부가 라벨 */
   adHint?: string | null;
 }) {
+  const router = useRouter();
+  const prefetchedAtRef = useRef<Record<string, number>>({});
   const flags = [
     store.deliveryAvailable ? "배달" : null,
     store.pickupAvailable ? "픽업" : null,
@@ -114,6 +118,21 @@ export function StoreVerticalDiscoveryCard({
   ].filter(Boolean);
 
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
+  const prefetchStoreDetail = () => {
+    const now = Date.now();
+    const last = prefetchedAtRef.current[storeHref] ?? 0;
+    if (now - last < 8_000) return;
+    prefetchedAtRef.current[storeHref] = now;
+    void router.prefetch(storeHref);
+  };
+  const prefetchProductDetail = (productId: string) => {
+    const href = `/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(productId)}`;
+    const now = Date.now();
+    const last = prefetchedAtRef.current[href] ?? 0;
+    if (now - last < 8_000) return;
+    prefetchedAtRef.current[href] = now;
+    void router.prefetch(href);
+  };
   const categoryLine =
     store.subNameKo?.trim() ?
       `${store.primaryNameKo} · ${store.subNameKo}`
@@ -126,7 +145,13 @@ export function StoreVerticalDiscoveryCard({
 
   return (
     <li className={`overflow-hidden ${FB.card}`}>
-      <Link href={storeHref} className="block active:bg-[#F2F3F5] dark:active:bg-[#2F3031]">
+      <Link
+        href={storeHref}
+        className="block active:bg-[#F2F3F5] dark:active:bg-[#2F3031]"
+        onPointerEnter={prefetchStoreDetail}
+        onFocus={prefetchStoreDetail}
+        onTouchStart={prefetchStoreDetail}
+      >
         <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?
             <img
@@ -209,9 +234,15 @@ export function StoreVerticalDiscoveryCard({
         <ul className={`border-t px-3 pb-3 pt-2 ${FB.divider}`}>
           {store.featuredItems.slice(0, 3).map((it) => (
             <li key={it.productId}>
+              {(() => {
+                const productHref = `/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(it.productId)}`;
+                return (
               <Link
-                href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(it.productId)}`}
+                href={productHref}
                 className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary active:bg-sam-surface-muted dark:active:bg-[#3A3B3C]`}
+                onPointerEnter={() => prefetchProductDetail(it.productId)}
+                onFocus={() => prefetchProductDetail(it.productId)}
+                onTouchStart={() => prefetchProductDetail(it.productId)}
                 onClick={(e) => e.stopPropagation()}
               >
                 <span className={`truncate ${FB.link}`}>{it.name}</span>
@@ -219,6 +250,8 @@ export function StoreVerticalDiscoveryCard({
                   {formatMoneyPhp(it.price)}
                 </span>
               </Link>
+                );
+              })()}
             </li>
           ))}
         </ul>

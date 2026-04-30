@@ -23,13 +23,47 @@ export type OwnerLiteStoreState = {
 };
 
 const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStores: [] };
+const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";
 
-let snapshot: OwnerLiteStoreState = EMPTY;
+function readOwnerLiteSessionSnapshot(): OwnerLiteStoreState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(OWNER_LITE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { ownerStores?: StoreRow[] };
+    if (!Array.isArray(parsed.ownerStores)) return null;
+    const ownerStores = parsed.ownerStores;
+    return {
+      loading: false,
+      ownerStores,
+      ownerStore: pickPreferredOwnerStore(ownerStores),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeOwnerLiteSessionSnapshot(next: OwnerLiteStoreState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(
+      OWNER_LITE_SESSION_KEY,
+      JSON.stringify({
+        ownerStores: next.ownerStores,
+      })
+    );
+  } catch {
+    /* ignore storage failures */
+  }
+}
+
+const hydratedFromSession = readOwnerLiteSessionSnapshot();
+let snapshot: OwnerLiteStoreState = hydratedFromSession ?? EMPTY;
 const listeners = new Set<() => void>();
 
 let subscriberCount = 0;
 /** 첫 응답 후에는 재구독(Strict Mode)·백그라운드 갱신 시 로딩 스피너를 다시 켜지 않음 */
-let hasLoadedOnce = false;
+let hasLoadedOnce = hydratedFromSession != null;
 let initialHydrateIdleId: number | null = null;
 
 function emit() {
@@ -64,6 +98,7 @@ async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Prom
     if (status === 401 || status === 503) {
       hasLoadedOnce = true;
       snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+      writeOwnerLiteSessionSnapshot(snapshot);
       emit();
       return;
     }
@@ -75,9 +110,11 @@ async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Prom
       ownerStore: json?.ok ? pickPreferredOwnerStore(stores) : null,
       ownerStores: json?.ok ? stores : [],
     };
+    writeOwnerLiteSessionSnapshot(snapshot);
   } catch {
     hasLoadedOnce = true;
     snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+    writeOwnerLiteSessionSnapshot(snapshot);
   }
   emit();
 }

@@ -15,6 +15,7 @@ import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
 import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 type Props = {
   /** 서버 `app/(main)/products/[id]/edit/page.tsx`에서 `parseId`로 검증된 글 id */
@@ -24,6 +25,7 @@ type Props = {
 export function ProductTradeEditPageClient({ postId: id }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const detailHref = `/post/${id}`;
 
   const [snapshot, setSnapshot] = useState<OwnerEditPostSnapshot | null>(null);
   const [tradePolicy, setTradePolicy] = useState<TradePolicyClient | null>(null);
@@ -141,7 +143,12 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
         <p className="sam-text-body font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
         <button
           type="button"
-          onClick={() => router.push(`/post/${id}`)}
+          onPointerEnter={() => void router.prefetch(detailHref)}
+          onFocus={() => void router.prefetch(detailHref)}
+          onClick={() => {
+            beginRouteEntryPerf("product_detail", detailHref);
+            router.push(detailHref);
+          }}
           className="mt-4 sam-text-body text-signature"
         >
           상품으로 돌아가기
@@ -162,7 +169,13 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
         <p className="sam-text-body text-sam-muted">이 상품은 이 화면에서 수정할 수 없습니다.</p>
-        <Link href={`/post/${id}`} className="sam-text-body font-medium text-signature">
+        <Link
+          href={detailHref}
+          onPointerEnter={() => void router.prefetch(detailHref)}
+          onFocus={() => void router.prefetch(detailHref)}
+          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+          className="sam-text-body font-medium text-signature"
+        >
           상품으로
         </Link>
       </div>

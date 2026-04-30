@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function StoresPage() {
   return (
     <div className={`${APP_MAIN_GUTTER_X_CLASS} bg-sam-app py-3 dark:bg-[#18191A]`}>
-      <StoresHub />
+      <Suspense fallback={null}>
+        <StoresHub />
+      </Suspense>
     </div>
   );
 }

@@ -6,8 +6,6 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
 import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/types";
 
-export const dynamic = "force-dynamic";
-
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
 export default function MypageStoreOrderChatPage({
   params,

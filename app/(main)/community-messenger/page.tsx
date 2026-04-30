@@ -2,8 +2,6 @@ import { Suspense } from "react";
 import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
-export const dynamic = "force-dynamic";
-
 type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?: string };
 
 /**

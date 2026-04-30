@@ -36,7 +36,7 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
-import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
+import { readPhilifeFeedCache, writePhilifeFeedCache, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -311,14 +311,30 @@ export function CommunityFeed({
     !!initialGlobalFeedRsc &&
     initialGlobalFeedRsc.seededCategory === categoryParamNorm &&
     initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
+  const recSortKeyForBoot = categoryParamNorm ? "" : sortForCurrentQuery;
+  const sessionSnapBoot = !canBootFromInitialGlobalFeed
+    ? readPhilifeFeedCache(
+        PHILIFE_GLOBAL_FEED_SESSION_KEY,
+        categoryParamNorm,
+        false,
+        typeof window !== "undefined" ? philifeFeedViewerSig() : "_anon",
+        recSortKeyForBoot
+      )
+    : null;
   const bootPosts = canBootFromInitialGlobalFeed
     ? mergeNeighborhoodFeedById([], initialGlobalFeedRsc?.posts ?? [], false)
-    : [];
-  const bootHasMore = canBootFromInitialGlobalFeed ? !!initialGlobalFeedRsc?.hasMore : false;
+    : sessionSnapBoot?.posts?.length
+      ? dedupeNeighborhoodFeedById(sessionSnapBoot.posts)
+      : [];
+  const bootHasMore = canBootFromInitialGlobalFeed
+    ? !!initialGlobalFeedRsc?.hasMore
+    : sessionSnapBoot?.hasMore ?? false;
   const bootNextOffset =
     canBootFromInitialGlobalFeed && typeof initialGlobalFeedRsc?.nextOffset === "number"
       ? initialGlobalFeedRsc.nextOffset
-      : 0;
+      : typeof sessionSnapBoot?.nextOffset === "number"
+        ? sessionSnapBoot.nextOffset
+        : 0;
   const [category, setCategory] = useState<string>(categoryParam);
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);

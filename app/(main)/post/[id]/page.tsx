@@ -5,8 +5,6 @@ import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolv
 import { getItemDetailPageData } from "@/services/trade/trade-detail.service";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 
-export const dynamic = "force-dynamic";
-
 /** 무한 스켈레톤 방지 — 상세 부트스트랩 상한 (운영 DB 지연 시에도 UI가 멈추지 않게) */
 const TRADE_DETAIL_LOAD_BUDGET_MS = 28_000;
 

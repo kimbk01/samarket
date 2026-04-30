@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { memo } from "react";
+import { useRouter } from "next/navigation";
+import { memo, useRef } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavoriteIcon";
@@ -144,7 +145,16 @@ function statusMetaFragment(status: StoreRowCardData["status"]) {
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
 export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
+  const router = useRouter();
+  const prefetchedAtRef = useRef<Record<string, number>>({});
   const href = `/stores/${encodeURIComponent(data.slug)}`;
+  const prefetchStoreDetail = () => {
+    const now = Date.now();
+    const last = prefetchedAtRef.current[href] ?? 0;
+    if (now - last < 8_000) return;
+    prefetchedAtRef.current[href] = now;
+    void router.prefetch(href);
+  };
   const d = distLabel(data.distanceKm);
 
   const headerMeta: string[] = [];
@@ -173,7 +183,13 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
 
   return (
     <li className="list-none">
-      <Link href={href} className={`block overflow-hidden p-3 ${FB.card} active:bg-[#F2F3F5] dark:active:bg-[#2F3031]`}>
+      <Link
+        href={href}
+        className={`block overflow-hidden p-3 ${FB.card} active:bg-[#F2F3F5] dark:active:bg-[#2F3031]`}
+        onPointerEnter={prefetchStoreDetail}
+        onFocus={prefetchStoreDetail}
+        onTouchStart={prefetchStoreDetail}
+      >
         <div className="flex gap-2">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]">
             {data.profileImageUrl ?

@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import SearchPageClient from "./SearchPageClient";
 
-export const dynamic = "force-dynamic";
-
 export default function SearchPage() {
-  return <SearchPageClient />;
+  return (
+    <Suspense fallback={null}>
+      <SearchPageClient />
+    </Suspense>
+  );
 }

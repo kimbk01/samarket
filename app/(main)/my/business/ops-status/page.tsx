@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { BusinessOwnerOpsStrip } from "@/components/business/BusinessOwnerOpsStrip";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { dbStoreToBusinessProfile, type StoreRow } from "@/lib/stores/db-store-mapper";
@@ -17,7 +17,7 @@ type Phase =
   | { kind: "error"; message: string }
   | { kind: "ok"; row: StoreRow };
 
-export default function MyBusinessOpsStatusPage() {
+function MyBusinessOpsStatusPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
@@ -135,5 +135,19 @@ export default function MyBusinessOpsStatusPage() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+export default function MyBusinessOpsStatusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-full overflow-x-hidden py-4">
+          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        </div>
+      }
+    >
+      <MyBusinessOpsStatusPageInner />
+    </Suspense>
   );
 }

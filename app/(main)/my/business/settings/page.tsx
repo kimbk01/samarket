@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
@@ -13,7 +13,7 @@ type Phase =
   | { kind: "error"; message: string }
   | { kind: "ok"; row: StoreRow };
 
-export default function MyBusinessSettingsPage() {
+function MyBusinessSettingsPageInner() {
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
@@ -105,5 +105,19 @@ export default function MyBusinessSettingsPage() {
         에서 수정할 수 있습니다.
       </section>
     </div>
+  );
+}
+
+export default function MyBusinessSettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-full overflow-x-hidden py-4">
+          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        </div>
+      }
+    >
+      <MyBusinessSettingsPageInner />
+    </Suspense>
   );
 }

@@ -413,6 +413,17 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      if (!silent) {
+        setAuthRequired(false);
+        setPageError(tRef.current("nav_messenger_load_failed"));
+        if (!stale) {
+          setData(null);
+        }
+      }
     } finally {
       if (refreshAbortRef.current === controller) {
         refreshAbortRef.current = null;

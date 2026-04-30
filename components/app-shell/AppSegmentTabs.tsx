@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useRef } from "react";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 export type AppSegmentTabItem = {
@@ -24,8 +25,19 @@ export type AppSegmentTabsProps = {
  * 2단 세그먼트 탭 — `sam-tabs` / `sam-tab` 단일 규칙(밑줄 활성).
  */
 export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTabsProps) {
+  const router = useRouter();
   const pathname = usePathname() ?? "";
   const norm = pathname.split("?")[0] ?? "";
+  const prefetchAtRef = useRef<Record<string, number>>({});
+
+  const prefetchHref = (href: string, active: boolean) => {
+    if (active) return;
+    const now = Date.now();
+    const last = prefetchAtRef.current[href] ?? 0;
+    if (now - last < 8_000) return;
+    prefetchAtRef.current[href] = now;
+    void router.prefetch(href);
+  };
 
   return (
     <div className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
@@ -44,7 +56,15 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
             href={t.href}
             role="tab"
             aria-selected={active}
-            prefetch={false}
+            onPointerEnter={() => {
+              prefetchHref(t.href, active);
+            }}
+            onFocus={() => {
+              prefetchHref(t.href, active);
+            }}
+            onTouchStart={() => {
+              prefetchHref(t.href, active);
+            }}
             className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             {t.label}

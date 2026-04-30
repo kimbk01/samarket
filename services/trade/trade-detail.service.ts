@@ -162,10 +162,7 @@ export async function getItemDetailPageData(
   const itemId = input.itemId.trim();
   if (!itemId) return null;
 
-  const [item, ops] = await Promise.all([
-    loadPostDetailShared(clients, itemId, input.viewerUserId),
-    loadTradeOpsSettings(clients),
-  ]);
+  const item = await loadPostDetailShared(clients, itemId, input.viewerUserId);
   if (!item) return null;
 
   const viewerId = input.viewerUserId?.trim() ?? "";
@@ -187,10 +184,6 @@ export async function getItemDetailPageData(
   const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
-  const sellerLimit = input.sellerLimit ?? ops.fallbackCount ?? SELLER_LIMIT_DEFAULT;
-  const similarLimit = input.similarLimit ?? ops.similarCount ?? SIMILAR_LIMIT_DEFAULT;
-  const adsLimit = input.adsLimit ?? ops.adsCount ?? ADS_LIMIT_DEFAULT;
-
   /**
    * 상세 첫 화면에 꼭 필요하지 않은 거래방 조회 / 판매자 제안 목록 시드는
    * 클라이언트 fallback 이 이미 있으므로 서버 첫 응답에서는 막지 않는다.
@@ -204,7 +197,7 @@ export async function getItemDetailPageData(
     sellerItems: [],
     similarItems: [],
     ads: [],
-    relatedDeferred: item.type !== "community",
+    relatedDeferred: true,
     viewerUserId: viewerId || null,
   };
 }

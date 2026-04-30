@@ -5,8 +5,6 @@ import { findMypageMobileItem } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { loadMypageServer } from "@/lib/my/load-mypage-server";
 import { MyPageItemRouteClient } from "@/components/mypage/MyPageItemRouteClient";
 
-export const dynamic = "force-dynamic";
-
 export default function MypageSectionItemPage({
   params,
 }: {

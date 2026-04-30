@@ -11,10 +11,7 @@ function readSession(): CommunityMessengerBootstrap | null {
     const raw = sessionStorage.getItem(SS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { at: number; data: CommunityMessengerBootstrap };
-    if (Date.now() - parsed.at > TTL_MS) {
-      sessionStorage.removeItem(SS_KEY);
-      return null;
-    }
+    if (!parsed.data) return null;
     memoryCache = { data: parsed.data, at: parsed.at };
     return parsed.data;
   } catch {
@@ -22,13 +19,17 @@ function readSession(): CommunityMessengerBootstrap | null {
   }
 }
 
-/** SPA 재진입·새로고침 직후 첫 페인트용(만료 전까지). */
+/** SPA 재진입·새로고침 직후 첫 페인트용(stale 포함 — SWR 즉시 렌더). */
 export function peekBootstrapCache(): CommunityMessengerBootstrap | null {
-  if (memoryCache && Date.now() - memoryCache.at <= TTL_MS) {
+  if (memoryCache) {
     return memoryCache.data;
   }
-  if (memoryCache) memoryCache = null;
   return readSession();
+}
+
+export function isBootstrapCacheFresh(): boolean {
+  if (memoryCache) return Date.now() - memoryCache.at <= TTL_MS;
+  return false;
 }
 
 export function primeBootstrapCache(data: CommunityMessengerBootstrap) {

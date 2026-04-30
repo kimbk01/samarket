@@ -16,12 +16,13 @@
 
 import {
   getPostsForHome,
-  peekCachedPostsForHome,
+  isCachedPostsForHomeFresh,
 } from "@/lib/posts/getPostsForHome";
 import {
   getPostsByTradeCategoryIds,
-  peekCachedTradeFeed,
+  getTradeFeedClientViewerSegment,
 } from "@/lib/posts/getPostsByCategory";
+import { isCachedTradeFeedFresh } from "@/lib/posts/trade-feed-client-cache";
 import { prewarmStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { fetchMeStoreOrdersHubSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
@@ -118,7 +119,7 @@ export function prewarmBottomNavTapTargetClientCache(href: string): void {
 
   if (path === "/market") {
     const opts = { sort: "latest" as const, type: null, tradeState: "latest" as const };
-    if (peekCachedPostsForHome(opts)) return;
+    if (isCachedPostsForHomeFresh(opts)) return;
     void getPostsForHome({ page: 1, ...opts }).catch(() => {
       /* 라우트 마운트 후 통상 흐름이 같은 single-flight 로 합류 */
     });
@@ -134,7 +135,7 @@ export function prewarmBottomNavTapTargetClientCache(href: string): void {
       tradeMarketParent: parent,
       topic: "",
     };
-    if (peekCachedTradeFeed([], opts)) return;
+    if (isCachedTradeFeedFresh([], opts, getTradeFeedClientViewerSegment())) return;
     void getPostsByTradeCategoryIds([], opts).catch(() => {
       /* 동일 — 마운트 후 single-flight 합류 */
     });

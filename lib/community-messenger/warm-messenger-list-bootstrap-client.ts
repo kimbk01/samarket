@@ -1,6 +1,6 @@
 "use client";
 
-import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { isBootstrapCacheFresh, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -16,7 +16,7 @@ import {
  */
 export function warmMessengerListBootstrapClient(): void {
   if (typeof window === "undefined") return;
-  if (peekBootstrapCache()) {
+  if (isBootstrapCacheFresh()) {
     samarketMessengerHomeDebugEvent("messenger_home_warm_skip_cached");
     return;
   }

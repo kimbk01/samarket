@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
@@ -16,6 +17,8 @@ const itemClass =
 
 /** 상단 한 줄 — 배달앱 상단 유틸과 유사 (검색·장바구니·주문) */
 export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeStoreOrderCount?: number }) {
+  const router = useRouter();
+  const prefetchedAtRef = useRef<Record<string, number>>({});
   const { ownerStores, loading: ownerLoading } = useOwnerLiteStore();
   const commerceCart = useStoreCommerceCartOptional();
   const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
@@ -26,18 +29,41 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
 
   const myBusinessHref =
     !ownerLoading && ownerStores.length === 0 ? "/my/business/apply" : "/my/business";
+  const prefetchHref = (href: string) => {
+    const target = href.trim();
+    if (!target.startsWith("/")) return;
+    const now = Date.now();
+    const last = prefetchedAtRef.current[target] ?? 0;
+    if (now - last < 8_000) return;
+    prefetchedAtRef.current[target] = now;
+    void router.prefetch(target);
+  };
 
   return (
     <div
       className={`grid grid-cols-4 divide-x divide-[#E4E6EB] overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-[#3E4042] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.06]`}
     >
-      <Link href="/search" className={itemClass} aria-label="검색">
+      <Link
+        href="/search"
+        className={itemClass}
+        aria-label="검색"
+        onPointerEnter={() => prefetchHref("/search")}
+        onFocus={() => prefetchHref("/search")}
+        onTouchStart={() => prefetchHref("/search")}
+      >
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>검색</span>
       </Link>
-      <Link href={cartHref} className={itemClass} aria-label="장바구니">
+      <Link
+        href={cartHref}
+        className={itemClass}
+        aria-label="장바구니"
+        onPointerEnter={() => prefetchHref(cartHref)}
+        onFocus={() => prefetchHref(cartHref)}
+        onTouchStart={() => prefetchHref(cartHref)}
+      >
         <span className="relative flex h-[22px] w-[22px] items-center justify-center">
           <StoreCommerceCartStrokeIcon className="h-[22px] w-[22px]" />
           {cartLineKindCount > 0 ? (
@@ -56,6 +82,9 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
             ? `내 배달 주문 · 진행 중 ${activeStoreOrderCount}건`
             : "내 배달 주문"
         }
+        onPointerEnter={() => prefetchHref("/my/store-orders")}
+        onFocus={() => prefetchHref("/my/store-orders")}
+        onTouchStart={() => prefetchHref("/my/store-orders")}
       >
         <span className="relative flex h-[22px] w-[22px] items-center justify-center">
           <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -73,7 +102,14 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
         </span>
         <span className={`sam-text-xxs font-semibold ${FB.metaSm}`}>내 주문</span>
       </Link>
-      <Link href={myBusinessHref} className={itemClass} aria-label="내 매장 운영">
+      <Link
+        href={myBusinessHref}
+        className={itemClass}
+        aria-label="내 매장 운영"
+        onPointerEnter={() => prefetchHref(myBusinessHref)}
+        onFocus={() => prefetchHref(myBusinessHref)}
+        onTouchStart={() => prefetchHref(myBusinessHref)}
+      >
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path
             strokeLinecap="round"

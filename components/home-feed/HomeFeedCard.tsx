@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { HomeFeedItem } from "@/lib/types/home-feed";
 import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
 import { ProductCard } from "@/components/product/ProductCard";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
   POST_LIST_META_LINE_CLASS,
   POST_LIST_META_TEXT_CLASS,
@@ -19,6 +21,7 @@ interface HomeFeedCardProps {
 }
 
 export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
+  const router = useRouter();
   if (product) {
     return (
       <div className="relative">
@@ -36,6 +39,9 @@ export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
     <div>
       <Link
         href={`/post/${item.targetId}`}
+        onPointerEnter={() => void router.prefetch(`/post/${item.targetId}`)}
+        onFocus={() => void router.prefetch(`/post/${item.targetId}`)}
+        onClick={() => beginRouteEntryPerf("product_detail", `/post/${item.targetId}`)}
         className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
       >
         <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">

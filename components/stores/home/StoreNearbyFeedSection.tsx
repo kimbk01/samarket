@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
-  peekStoreHomeFeedClientCache,
+  readStoreHomeFeedClientCache,
   primeStoreHomeFeedClientCache,
 } from "@/lib/stores/store-home-feed-client-cache";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -124,17 +124,26 @@ export function StoreNearbyFeedSection({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      const cached = peekStoreHomeFeedClientCache(fetchSuffix);
-      const hasFreshCache = Boolean(cached);
-      if (cached && hasFreshCache) {
-        setStores(cached.stores);
-        setMeta(cached.meta);
+      const cachedSnapshot = readStoreHomeFeedClientCache(fetchSuffix);
+      const cached = cachedSnapshot.entry;
+      /**
+       * `/stores` 하단 탭 prewarm은 기본 suffix("")를 먼저 데운다.
+       * 실제 진입 키가 지역 쿼리(`?region=...`)로 달라져도,
+       * 기본 캐시를 즉시 폴백으로 보여 첫 진입 체감 공백을 줄인다.
+       */
+      const fallbackSnapshot = !cached && fetchSuffix ? readStoreHomeFeedClientCache("") : null;
+      const fallbackCached = fallbackSnapshot?.entry ?? null;
+      const cachedEntry = cached ?? fallbackCached;
+      const hasFreshCache = cached ? cachedSnapshot.isFresh : (fallbackSnapshot?.isFresh ?? false);
+      if (cachedEntry) {
+        setStores(cachedEntry.stores);
+        setMeta(cachedEntry.meta);
         setLoading(false);
-        if (!silent && isConstrainedNetwork()) {
+        if (!silent && isConstrainedNetwork() && cached && hasFreshCache) {
           return;
         }
       }
-      if (!silent && !hasFreshCache) setLoading(true);
+      if (!silent && !cachedEntry) setLoading(true);
       try {
         const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix, { signal: controller.signal });
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;

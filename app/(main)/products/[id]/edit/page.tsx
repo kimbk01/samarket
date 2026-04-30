@@ -4,8 +4,6 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { parseId } from "@/lib/validate-params";
 import { ProductTradeEditPageClient } from "@/components/products/ProductTradeEditPageClient";
 
-export const dynamic = "force-dynamic";
-
 interface PageProps {
   params: Promise<{ id: string }>;
 }

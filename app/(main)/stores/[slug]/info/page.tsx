@@ -21,7 +21,7 @@ export async function generateMetadata({
   const base = `${proto}://${host}`;
   try {
     const res = await fetch(`${base}/api/stores/${encodeURIComponent(decoded)}`, {
-      cache: "no-store",
+      next: { revalidate: 60 },
       headers: { Accept: "application/json" },
     });
     const json = (await res.json()) as { ok?: boolean; store?: { store_name?: string } };

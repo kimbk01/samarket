@@ -37,6 +37,14 @@ const resolvedDistDir = resolveDistDirForNextConfig();
 const nextConfig = {
   ...(resolvedDistDir ? { distDir: resolvedDistDir } : {}),
   experimental: {
+    /**
+     * 클라이언트 라우터 캐시 TTL — 기본 dynamic: 0 은 매 탭 전환마다 서버 왕복.
+     * 5분으로 올려 prefetch 된 RSC 를 재활용, 탭 전환 즉시 렌더.
+     */
+    staleTimes: {
+      dynamic: 300,
+      static: 600,
+    },
     /** named export 트리가 커질 때 클라이언트 청크 슬림 */
     optimizePackageImports: [
       "@tanstack/react-virtual",

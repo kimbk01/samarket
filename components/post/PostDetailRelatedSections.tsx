@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { formatPrice } from "@/lib/utils/format";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 type RelatedProps = {
   sellerItems: PostWithMeta[];
@@ -25,6 +27,7 @@ function itemThumb(item: PostWithMeta): string | null {
 }
 
 function PostMiniCard({ item }: { item: PostWithMeta }) {
+  const router = useRouter();
   const thumb = itemThumb(item);
   const app = getAppSettings();
   const preview = buildPostListPreviewModel(item as unknown as Record<string, unknown>, {
@@ -32,9 +35,13 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
     locale: app.defaultLocale || "ko-KR",
   });
 
+  const detailHref = `/post/${encodeURIComponent(item.id)}`;
   return (
     <Link
-      href={`/post/${encodeURIComponent(item.id)}`}
+      href={detailHref}
+      onPointerEnter={() => void router.prefetch(detailHref)}
+      onFocus={() => void router.prefetch(detailHref)}
+      onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
       className="block overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
     >
       <div className="relative aspect-square bg-sam-app">
@@ -73,6 +80,7 @@ function chunkPosts(rows: PostWithMeta[], size: number): PostWithMeta[][] {
 }
 
 function PostAdCompactCard({ item }: { item: PostWithMeta }) {
+  const router = useRouter();
   const thumb = itemThumb(item);
   const currency = getAppSettings().defaultCurrency || "KRW";
   const priceText =
@@ -82,8 +90,15 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
         ? formatPrice(item.price, currency)
         : "가격 문의";
 
+  const detailHref = `/post/${encodeURIComponent(item.id)}`;
   return (
-    <Link href={`/post/${encodeURIComponent(item.id)}`} className="block min-w-0 rounded-ui-rect">
+    <Link
+      href={detailHref}
+      onPointerEnter={() => void router.prefetch(detailHref)}
+      onFocus={() => void router.prefetch(detailHref)}
+      onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+      className="block min-w-0 rounded-ui-rect"
+    >
       <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
         <div className="aspect-square bg-sam-app">
           {thumb ? (

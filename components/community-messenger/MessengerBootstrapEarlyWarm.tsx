@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { isBootstrapCacheFresh } from "@/lib/community-messenger/bootstrap-cache";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 
@@ -17,11 +17,11 @@ export function MessengerBootstrapEarlyWarm() {
 
   useEffect(() => {
     if (shellDomain === "messenger") return;
-    if (peekBootstrapCache()) return;
+    if (isBootstrapCacheFresh()) return;
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
-      if (peekBootstrapCache()) return;
+      if (isBootstrapCacheFresh()) return;
       warmMessengerListBootstrapClient();
     };
     if (shellDomain === "philife") {

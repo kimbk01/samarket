@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  Suspense,
   useCallback,
   useContext,
   useEffect,
@@ -111,10 +112,21 @@ function resolvePendingShellKind(intent: MenuNavigationIntent | null): MenuPendi
     : "feed";
 }
 
+function SearchParamsSync({ onSearch }: { onSearch: (next: string) => void }) {
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  useEffect(() => {
+    onSearch(search);
+  }, [onSearch, search]);
+  return null;
+}
+
 export function LatestMenuNavigationProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentSearch = searchParams.toString();
+  const [currentSearch, setCurrentSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return normalizeMenuSearch(window.location.search);
+  });
   const latestNavigationIdRef = useRef(0);
   const [latestNavigationId, setLatestNavigationId] = useState(0);
   const [pendingMenuIntent, setPendingMenuIntent] = useState<MenuNavigationIntent | null>(null);
@@ -180,6 +192,9 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
 
   return (
     <LatestMenuNavigationContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <SearchParamsSync onSearch={setCurrentSearch} />
+      </Suspense>
       {children}
     </LatestMenuNavigationContext.Provider>
   );

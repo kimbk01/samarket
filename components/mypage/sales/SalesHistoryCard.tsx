@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/utils/format";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import {
@@ -16,6 +17,7 @@ import { BuyerReviewReadSheet } from "@/components/mypage/purchases/BuyerReviewR
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 export interface SalesHistoryRow {
   chatId: string;
@@ -58,6 +60,7 @@ export function SalesHistoryCard({
   viewerId: string;
   onReload: () => void;
 }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [readBuyerReview, setReadBuyerReview] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -77,6 +80,7 @@ export function SalesHistoryCard({
     String(row.status ?? "").toLowerCase()
   );
   const tradeAt = row.buyerConfirmedAt || row.sellerCompletedAt || row.createdAt || row.lastMessageAt;
+  const detailHref = `/post/${row.postId}`;
 
   const persistListing = async (next: SellerListingState) => {
     const label = SELLER_LISTING_LABEL[next];
@@ -168,7 +172,13 @@ export function SalesHistoryCard({
   return (
     <li className="relative rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div className="flex gap-2 p-3">
-        <Link href={`/post/${row.postId}`} className="flex min-w-0 flex-1 gap-3">
+        <Link
+          href={detailHref}
+          onPointerEnter={() => void router.prefetch(detailHref)}
+          onFocus={() => void router.prefetch(detailHref)}
+          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+          className="flex min-w-0 flex-1 gap-3"
+        >
           <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {row.thumbnail && !thumbFailed ? (
               <img
@@ -304,8 +314,13 @@ export function SalesHistoryCard({
                 </button>
               ) : null}
               <Link
-                href={`/post/${row.postId}`}
-                onClick={() => setMenuOpen(false)}
+                href={detailHref}
+                onPointerEnter={() => void router.prefetch(detailHref)}
+                onFocus={() => void router.prefetch(detailHref)}
+                onClick={() => {
+                  beginRouteEntryPerf("product_detail", detailHref);
+                  setMenuOpen(false);
+                }}
                 className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
               >
                 게시글 보기

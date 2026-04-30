@@ -3,8 +3,6 @@ import { AdminPhilifeMeetingReportsHeader } from "@/components/admin/philife/Adm
 import { AdminMeetingReportsPage } from "@/components/admin/philife/AdminMeetingReportsPage";
 import { listMeetingReportsForAdmin } from "@/lib/neighborhood/admin-meeting-reports";
 
-export const dynamic = "force-dynamic";
-
 export default async function AdminPhilifeMeetingReportsRoute() {
   const rows = await listMeetingReportsForAdmin(200);
 

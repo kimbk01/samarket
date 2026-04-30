@@ -51,26 +51,17 @@ export function StoreOrderDashboardSection({
     "space-y-2 p-0"
   : "rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm ring-1 ring-black/[0.03]";
 
-  if (buyerState.kind === "loading") {
-    return (
-      <section className={shell}>
-        <div className="mb-2 h-4 w-24 animate-pulse rounded bg-sam-surface-muted" />
-        <div className={RAIL}>
-          {[1, 2, 3].map((k) => (
-            <div key={k} className="h-[100px] w-[132px] shrink-0 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
   if (buyerState.kind !== "ready") {
+    const loadingHint =
+      buyerState.kind === "loading" ? "주문 요약을 불러오는 중이에요. 바로가기부터 먼저 사용할 수 있어요." : null;
     return (
       <section className={shell}>
         {!embedded ?
           <h2 className="sam-text-body font-bold text-sam-fg">내 주문</h2>
         : null}
-        <p className="mt-1 sam-text-xxs text-sam-muted">로그인 후 주문·채팅을 가로로 빠르게 열 수 있어요.</p>
+        <p className="mt-1 sam-text-xxs text-sam-muted">
+          {loadingHint ?? "로그인 후 주문·채팅을 가로로 빠르게 열 수 있어요."}
+        </p>
         <div className={`mt-3 ${RAIL}`}>
           <Link
             href="/login"

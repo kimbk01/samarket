@@ -65,10 +65,6 @@ function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | nu
       data?: GetPostsForHomeResult;
     };
     if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
-    if (parsed.expiresAt <= Date.now()) {
-      window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
-      return null;
-    }
     const data = parsed.data;
     if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
     return {
@@ -124,14 +120,18 @@ export function peekCachedPostsForHome(
 ): GetPostsForHomeResult | null {
   const { cacheKey } = normalizeOptions(options);
   const cached = homePostsCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.data.posts.length > 0) {
     return cached.data;
   }
-  if (cached && cached.expiresAt <= Date.now()) {
-    homePostsCache.delete(cacheKey);
-  }
-  /** 메모리 미스(새로고침·다른 탭)에도 TTL 내 sessionStorage 는 즉시 복원 — 이전엔 여기서 null 로 네트워크만 대기 */
   return restoreHomePostsFromSessionToMemory(cacheKey);
+}
+
+export function isCachedPostsForHomeFresh(
+  options: GetPostsForHomeOptions = {}
+): boolean {
+  const { cacheKey } = normalizeOptions(options);
+  const cached = homePostsCache.get(cacheKey);
+  return !!cached && cached.expiresAt > Date.now();
 }
 
 /**
@@ -140,10 +140,8 @@ export function peekCachedPostsForHome(
  * - 빈 목록은 제외(빈값 깜빡임 방지)
  */
 export function peekRecentHomePostsFallback(): GetPostsForHomeResult | null {
-  const now = Date.now();
   let latest: { at: number; data: GetPostsForHomeResult } | null = null;
   for (const entry of homePostsCache.values()) {
-    if (entry.expiresAt <= now) continue;
     if (!entry.data.posts?.length) continue;
     if (!latest || entry.expiresAt > latest.at) {
       latest = { at: entry.expiresAt, data: entry.data };
@@ -233,23 +231,22 @@ export async function getPostsForHome(
     }
     return cached.data;
   }
-  if (cached) {
-    homePostsCache.delete(cacheKey);
-  }
-  const sessionRestored = restoreHomePostsFromSessionToMemory(cacheKey);
-  if (sessionRestored) {
-    if (genAtEnter !== homePostsInvalidationGeneration) {
-      homePostsCache.delete(cacheKey);
-      if (canUseSessionStorage()) {
-        try {
-          window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
-        } catch {
-          /* ignore */
+  if (!cached) {
+    const sessionRestored = restoreHomePostsFromSessionToMemory(cacheKey);
+    if (sessionRestored) {
+      if (genAtEnter !== homePostsInvalidationGeneration) {
+        homePostsCache.delete(cacheKey);
+        if (canUseSessionStorage()) {
+          try {
+            window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
+          } catch {
+            /* ignore */
+          }
         }
+        return getPostsForHome(options, opts);
       }
-      return getPostsForHome(options, opts);
+      return sessionRestored;
     }
-    return sessionRestored;
   }
 
   if (opts.signal) {

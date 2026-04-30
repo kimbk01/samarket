@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 /** v2: 캐시 키에 뷰어(로그인) 구분 — 차단 필터·관심이웃과 불일치 방지 */
 const STORAGE_KEY = "philife_neighborhood_feed_v2";
 const MAX_AGE_MS = 1000 * 60 * 30;
+const MAX_STALE_AGE_MS = 1000 * 60 * 120;
 const MAX_CACHE_ENTRIES = 60;
 
 export type PhilifeFeedCacheSnapshot = {
@@ -19,7 +20,7 @@ function pruneStoredShape(all: StoredShape, now: number): StoredShape {
   const entries = Object.entries(all).filter(([, snap]) => {
     return (
       typeof snap?.savedAt === "number" &&
-      now - snap.savedAt <= MAX_AGE_MS &&
+      now - snap.savedAt <= MAX_STALE_AGE_MS &&
       Array.isArray(snap.posts) &&
       snap.posts.length > 0
     );
@@ -61,10 +62,30 @@ export function readPhilifeFeedCache(
     const all = JSON.parse(raw) as StoredShape;
     const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)];
     if (!snap?.posts?.length) return null;
-    if (typeof snap.savedAt !== "number" || Date.now() - snap.savedAt > MAX_AGE_MS) return null;
+    if (typeof snap.savedAt !== "number") return null;
     return snap;
   } catch {
     return null;
+  }
+}
+
+export function isPhilifeFeedCacheFresh(
+  locationKey: string,
+  category: string,
+  neighborOnly: boolean,
+  viewerSig: string,
+  sortKey = ""
+): boolean {
+  if (typeof window === "undefined" || !locationKey) return false;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const all = JSON.parse(raw) as StoredShape;
+    const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)];
+    if (!snap?.posts?.length || typeof snap.savedAt !== "number") return false;
+    return Date.now() - snap.savedAt <= MAX_AGE_MS;
+  } catch {
+    return false;
   }
 }
 

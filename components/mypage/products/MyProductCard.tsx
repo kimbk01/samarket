@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/posts/post-list-preview-model";
 import { MyProductActions } from "./MyProductActions";
 import { PostSellerTradeStrip } from "@/components/trade/PostSellerTradeStrip";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 interface MyProductCardProps {
   product: Product;
@@ -35,8 +37,10 @@ export function MyProductCard({
   listingSaving = false,
   onSellerListingStateChange,
 }: MyProductCardProps) {
+  const router = useRouter();
   const isSold = product.status === "sold";
   const isHidden = product.status === "hidden";
+  const detailHref = `/post/${product.id}`;
   return (
     <div
       className={`overflow-hidden rounded-ui-rect bg-sam-surface ${
@@ -44,7 +48,13 @@ export function MyProductCard({
       }`}
     >
       <div className="flex gap-3 p-3">
-        <Link href={`/post/${product.id}`} className="flex min-w-0 flex-1 gap-3">
+        <Link
+          href={detailHref}
+          onPointerEnter={() => void router.prefetch(detailHref)}
+          onFocus={() => void router.prefetch(detailHref)}
+          onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
+          className="flex min-w-0 flex-1 gap-3"
+        >
           <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
             {product.thumbnail ? (
               <img

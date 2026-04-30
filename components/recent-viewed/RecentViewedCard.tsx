@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { RecentViewedProduct } from "@/lib/types/recommendation";
 import { getProductById } from "@/lib/mock-products";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
@@ -11,6 +12,7 @@ import {
   POST_LIST_TITLE_CLASS,
   stripPostListBlockTopMargin,
 } from "@/lib/posts/post-list-preview-model";
+import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 const SOURCE_LABELS: Record<RecentViewedProduct["source"], string> = {
   home: "홈",
@@ -25,14 +27,19 @@ interface RecentViewedCardProps {
 }
 
 export function RecentViewedCard({ record }: RecentViewedCardProps) {
+  const router = useRouter();
   const product = getProductById(record.productId);
   const sourceLabel = SOURCE_LABELS[record.source];
 
   if (!product) return null;
+  const detailHref = `/post/${record.productId}`;
 
   return (
     <Link
-      href={`/post/${record.productId}`}
+      href={detailHref}
+      onPointerEnter={() => void router.prefetch(detailHref)}
+      onFocus={() => void router.prefetch(detailHref)}
+      onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
       className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
     >
       <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">

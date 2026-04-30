@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
 import { TimeAgo } from "@/components/ui/TimeAgo";
@@ -23,12 +24,16 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
   const isSold = product.status === "sold";
+  const detailHref = `/post/${product.id}`;
 
   return (
     <Link
-      href={`/post/${product.id}`}
-      onClick={() => beginRouteEntryPerf("product_detail", `/post/${product.id}`)}
+      href={detailHref}
+      onPointerEnter={() => void router.prefetch(detailHref)}
+      onFocus={() => void router.prefetch(detailHref)}
+      onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
       className={`relative flex gap-3 rounded-ui-rect bg-sam-surface p-3 ${isSold ? "opacity-60" : ""}`}
     >
       <div

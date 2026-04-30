@@ -1,8 +1,15 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-28T03:24:00.000Z",
-  "currentTarget": "delivery",
-  "inProgress": null,
+  "updatedAt": "2026-04-30T08:52:07.455Z",
+  "currentTarget": "messenger",
+  "inProgress": {
+    "domain": "cross-domain-entry",
+    "file": "app/(main)/community-messenger/calls/outgoing/page.tsx, app/(main)/community-messenger/calls/[sessionId]/page.tsx",
+    "reason": "community-messenger call pages include search/params-driven client routing and are still prerender targets, triggering suspense bailout build errors",
+    "before": "calls/outgoing and calls/[sessionId] pages are treated as prerender candidates without explicit dynamic route declaration",
+    "startedAt": "2026-04-30T08:52:07.454Z",
+    "checkRuns": []
+  },
   "bottlenecks": [
     {
       "id": "community_feed_first_page_setposts_noop_rewrite_on_reentry",
@@ -8432,6 +8439,414 @@
       "before": "runSingleFlight async IIFE+내부 setState",
       "after": "`() => fetch`+effect 본문에서 json",
       "completedAt": "2026-04-26T20:00:00.000Z"
+    },
+    {
+      "domain": "delivery",
+      "file": "app/(main)/stores/[slug]/info/page.tsx",
+      "reason": "store info metadata generateMetadata used cache no-store and forced repeated metadata fetch on each detail-info entry",
+      "before": "generateMetadata fetched /api/stores/:slug with cache no-store, so metadata request bypassed revalidate cache each hit.",
+      "after": "generateMetadata now uses next.revalidate 60 for /api/stores/:slug metadata fetch, reducing repeated blocking metadata fetch frequency while keeping metadata shape.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 재확인: 가게정보 라우트/StoreInfoPageBody/메타 title 계산 흐름은 유지되고 fetch 캐시 옵션만 변경됨."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: no-store 제거 및 revalidate 60 적용으로 동일 slug 반복 진입 시 메타 fetch가 매 요청 강제 우회되지 않음."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: /api/stores 응답 파싱/오류 fallback/title 규칙은 기존과 동일하며 canonical·렌더 경로 영향 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "services/trade/trade-detail.service.ts",
+      "reason": "getItemDetailPageData awaited loadTradeOpsSettings although related payload is deferred and ops values are unused on first response",
+      "before": "Detail critical path awaited loadPostDetailShared + loadTradeOpsSettings Promise.all, adding admin_settings query per /post/[id] entry.",
+      "after": "Detail critical path now awaits only loadPostDetailShared; unused ops/limit calculations removed from first-response path.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 기준 재확인: 상세 반환 계약(item/sellerProfile/relatedDeferred/viewerUserId)과 기존 클라이언트 fallback 경로 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: first response 경로에서 loadTradeOpsSettings 호출이 제거되어 admin_settings 조회 1회가 코드상 사라짐."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: getTradeDetailRelatedData는 기존대로 ops를 사용하므로 related 후속 로드 정책/카운트 계약 영향 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "relatedDeferred path refetched /api/posts/:id/related on each detail re-entry without data reuse",
+      "before": "On each /post/[id] mount with relatedDeferred, client immediately fetched /api/posts/:id/related with no snapshot cache or in-flight sharing.",
+      "after": "Added 15s related snapshot cache + per-post in-flight merge in PostDetailPageClient so short-interval re-entry/back-forward reuses prior related payload.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 재확인: 상세 본문 초기 bundle 경로와 relatedDeferred 조건, PostDetailView props 계약 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 postId 재진입 시 cache hit이면 /related 재요청 없이 setRelated로 즉시 복원, 동시 진입은 in-flight 합류."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: TTL 만료/미스 시 기존 fetch fallback 그대로 유지, 실패 시 기존과 동일하게 무시 처리."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "listing-fields refresh re-fetched /api/posts/:id on short-interval detail re-entry/focus without snapshot reuse",
+      "before": "refreshListingFields always fetched /api/posts/:id when cooldown passed; no module snapshot cache across mounts/focus cycles.",
+      "after": "Added 15s listing-fields snapshot cache in PostDetailPageClient; visibility/focus/pageshow now reuse cached row first and skip network when fresh.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: refresh 트리거(visibility/focus/pageshow)와 PostDetailView props 계약은 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 postId에서 fresh cache hit 시 /api/posts/:id 호출 없이 listing fields 반영."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: cache miss/만료 시 기존 runSingleFlight fetch 경로 그대로 동작."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/product/ProductCard.tsx",
+      "reason": "trade list product card did not prefetch /post/:id on pointer or focus intent before click",
+      "before": "ProductCard used Link click navigation only; route warmup depended on default behavior and cold click path remained.",
+      "after": "ProductCard now builds detailHref and triggers router.prefetch(detailHref) on pointer enter/focus before click navigation.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 카드 링크 href/클릭 성능계측 계약 유지, prefetch 훅만 추가."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 사용자 의도(pointer/focus) 시 상세 라우트 준비가 클릭 이전에 시작됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 클릭 이동 경로·즐겨찾기 버튼 이벤트 차단 로직 변화 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/post/PostListByCategory.tsx",
+      "reason": "trade list did not broaden detail route warmup; rapid scanning could leave many /post/:id routes cold",
+      "before": "Detail route warmup was mostly per-card intent timing, so only a narrow subset of visible list items got warmed in practice.",
+      "after": "PostListByCategory now prefetches top 10 visible detail routes with 15s per-href cooldown, broadening list-to-detail route warmup coverage.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 목록 로드/더보기/favorite 동기화 로직은 유지되고 prefetch effect만 추가됨."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: posts 갱신 시 상위 10개 /post/:id를 선행 prefetch하여 상세 진입 cold 경로 수를 줄임."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 15초 href 쿨다운으로 동일 경로 반복 prefetch를 제한, 목록 렌더/정렬 흐름 영향 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/home-feed/HomeFeedCard.tsx",
+      "reason": "home feed fallback card did not prefetch /post/:id on pointer/focus intent",
+      "before": "HomeFeedCard fallback link navigated directly to /post/:id with no explicit route warmup hooks.",
+      "after": "HomeFeedCard now prefetches /post/:id on pointer enter/focus and records route-entry perf on click.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: product 분기(ProductCard 재사용)와 fallback 카드 렌더 구조 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: fallback 카드도 사용자 의도 시점에 상세 라우트 prefetch 시작."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: href/렌더/가격·메타 표시 로직 변화 없이 이벤트 훅만 추가."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/recent-viewed/RecentViewedCard.tsx, components/favorites/FavoriteProductCard.tsx, components/mypage/products/MyProductCard.tsx",
+      "reason": "same trade detail cold-entry bottleneck across multiple list cards; expand pointer/focus prefetch coverage in one round",
+      "before": "These card links navigated to /post/:id without explicit intent prefetch coverage, leaving fast tap paths cold in multiple trade surfaces.",
+      "after": "Added pointer/focus router.prefetch + click route-entry perf hook across recent-viewed, favorites, and my-products trade cards.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 각 카드의 렌더/상태/액션 흐름 유지, 링크 이벤트 훅만 추가."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 3개 거래 카드 경로에서 클릭 전 상세 라우트 prefetch가 공통 적용됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 기존 href·즐겨찾기/액션 버튼 이벤트 차단 로직 영향 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx, components/post/PostDetailRelatedSections.tsx, components/products/ProductTradeEditPageClient.tsx",
+      "reason": "same trade detail cold-entry bottleneck on sales/related/edit surfaces without pointer-focus prefetch warmup",
+      "before": "Sales card links, detail related cards, and edit-page return links navigated to /post/:id directly without unified intent prefetch hooks.",
+      "after": "Added pointer/focus prefetch and click route-entry perf hooks across sales card, related sections, and edit-page return/detail links.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 기존 링크 목적지/화면 계약 유지, 이벤트 훅만 추가."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 세 surface 모두 클릭 전 /post/:id prefetch가 실행되도록 확장됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 메뉴 닫기/액션 버튼/폼 분기 흐름 유지, lint 에러 없음."
+        }
+      ]
+    },
+    {
+      "domain": "trade",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx, components/post/PostDetailRelatedSections.tsx, components/products/ProductTradeEditPageClient.tsx",
+      "reason": "same trade detail cold-entry bottleneck on sales/related/edit surfaces without pointer-focus prefetch warmup",
+      "before": "Sales/related/edit surfaces linked to /post/:id directly without unified pointer/focus route prefetch and entry timing hook.",
+      "after": "Added pointer/focus prefetch and click route-entry perf hooks on sales detail links, related item cards, and trade edit return/detail links.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "구조 점검: 각 화면의 링크 목적지/분기/메뉴 동작 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "병목 감소 점검: 3개 surface에서 클릭 전 /post/:id prefetch 공통 적용."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 메뉴 닫기·액션·폼 분기 흐름 유지, lint 에러 없음."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "shared segment tabs forced prefetch false for community/trade/delivery/messenger/myinfo entry tabs",
+      "before": "AppSegmentTabs rendered Links with prefetch=false, keeping tab entry routes cold until click across multiple domains.",
+      "after": "Removed prefetch=false from AppSegmentTabs, allowing Next route prefetch for segment tab entry paths across domains.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 탭 active 판정/aria/tab 스타일 로직 유지, prefetch 플래그만 제거."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 공통 세그먼트 탭 링크가 클릭 전 route prefetch 가능 상태로 변경됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: href/matchPrefix/pathMatch 동작과 네비게이션 계약 유지, lint 에러 없음."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "bottom nav intent warmup was gated by shouldRunBottomNavProgrammaticPrefetch and could skip prefetch on actual tab touch/keyboard intent",
+      "before": "Pointer/key intent prefetch+prewarm executed only when shouldRunBottomNavProgrammaticPrefetch() returned true.",
+      "after": "BottomNav now always runs prefetch+prewarm for inactive tabs on pointer/key intent, independent of programmatic prefetch gate.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 탭 활성 판정/guardBeforeNavigate/scroll-only 탭 처리 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 하단 탭 직접 터치/키 입력에서 prefetch+prewarm이 환경 플래그와 무관하게 실행."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 비활성 탭 조건(!isActive)과 기존 try/catch 보호 로직 유지, lint 에러 없음."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "bottom nav early intent (pointer enter/focus) did not warm target routes before tap",
+      "before": "Inactive tab warmup was limited to pointerdown/key activation timing.",
+      "after": "BottomNav now prefetches and prewarms inactive tab targets on pointer-enter and focus, starting warmup earlier than tap.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 탭 활성 계산/클릭 가드/스크롤 전용 탭 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: pointer-enter/focus 시점에 inactive tab prefetch+prewarm이 추가 실행됨."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 기존 pointerdown/key/click 경로와 try/catch 안전장치 유지, lint 정상."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "mobile tab entry lacked explicit touchstart warmup path for inactive tabs",
+      "before": "BottomNav warmup ran on pointer-enter/focus/pointerdown/key paths, but no dedicated touchstart warmup hook.",
+      "after": "Added onTouchStart warmup for inactive tabs to prefetch route and prewarm tap-target cache at earliest mobile gesture stage.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 기존 활성 판정/가드/클릭 네비게이션 흐름 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 모바일 터치 시작 시점에도 inactive 탭 prefetch+prewarm 수행."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: 기존 pointer/key/focus 경로와 충돌 없이 병행, lint 정상."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/post/PostListByCategory.tsx",
+      "reason": "trade/community list entry path awaited favorite-status lookup inline, extending critical paint path",
+      "before": "load() awaited getFavoriteStatusForPosts in both server-resolution and category branches before finishing load cycle.",
+      "after": "Favorite-status lookup now runs asynchronously with epoch guards; posts/hasMore render immediately while favorite map hydrates after paint.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 목록 fetch/epoch guard/더보기 흐름 유지, favorite 조회만 비동기 분리."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: load 경로에서 getFavoriteStatusForPosts await 제거로 리스트 본문 표시 경로 단축."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: favoriteFetchEpochRef + listFeedEpochRef 이중 가드로 stale merge 방지, lint 정상."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "segment tab entry lacked explicit pointer/focus/touch intent warmup hooks",
+      "before": "AppSegmentTabs used default Link prefetch only, without earliest intent handlers per tab interaction.",
+      "after": "Added inactive-tab router.prefetch on pointer-enter, focus, and touch-start for AppSegmentTabs.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 탭 active 계산/aria/tab 클래스 로직 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 탭 진입 전 pointer/focus/touch 시점 prefetch로 warmup 시작 시점 앞당김."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: active 탭은 prefetch 스킵, 네비게이션 계약 유지, lint 정상."
+        }
+      ]
+    },
+    {
+      "domain": "cross-domain-entry",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "segment tab intent prefetch had no cooldown and could repeat duplicate warmup calls during rapid hover/focus/touch",
+      "before": "pointer/focus/touch handlers called router.prefetch directly on each event for inactive tabs.",
+      "after": "Added per-href 8s cooldown guard in AppSegmentTabs so early warmup stays immediate but duplicate prefetch churn is suppressed.",
+      "checkRuns": [
+        {
+          "run": 1,
+          "result": "pass",
+          "note": "코드 구조 점검: 탭 active 계산/링크 렌더/접근성 속성 유지."
+        },
+        {
+          "run": 2,
+          "result": "pass",
+          "note": "동일 병목 감소 확인: 동일 href intent 이벤트가 8초 내 반복되면 prefetch 스킵되어 중복 warmup 호출 감소."
+        },
+        {
+          "run": 3,
+          "result": "pass",
+          "note": "부작용 점검: inactive 탭 첫 intent에서는 기존처럼 prefetch 수행, lint 정상."
+        }
+      ]
     }
   ],
   "lockedFiles": [
@@ -8532,6 +8947,142 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-04-30T08:31:53.407Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "segment tab intent prefetch had no cooldown and could repeat duplicate warmup calls during rapid hover/focus/touch",
+      "result": "Added per-href cooldown to AppSegmentTabs intent prefetch to reduce churn while keeping immediate warmup; currentTarget set messenger"
+    },
+    {
+      "at": "2026-04-30T08:30:39.387Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "segment tab entry lacked explicit pointer/focus/touch intent warmup hooks",
+      "result": "Added pointer/focus/touch prefetch hooks to AppSegmentTabs for earlier cross-domain entry warmup; currentTarget set delivery"
+    },
+    {
+      "at": "2026-04-30T08:29:30.968Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/post/PostListByCategory.tsx",
+      "reason": "trade/community list entry path awaited favorite-status lookup inline, extending critical paint path",
+      "result": "Decoupled favorite-status await from list critical path with epoch-guarded async hydration; currentTarget set trade"
+    },
+    {
+      "at": "2026-04-30T08:26:46.884Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "mobile tab entry lacked explicit touchstart warmup path for inactive tabs",
+      "result": "Added onTouchStart warmup for BottomNav inactive tabs; currentTarget set myinfo"
+    },
+    {
+      "at": "2026-04-30T08:25:56.197Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "bottom nav early intent (pointer enter/focus) did not warm target routes before tap",
+      "result": "Added early intent (pointer-enter/focus) warmup on BottomNav inactive tabs; currentTarget set messenger"
+    },
+    {
+      "at": "2026-04-30T08:24:48.441Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/layout/BottomNav.tsx",
+      "reason": "bottom nav intent warmup was gated by shouldRunBottomNavProgrammaticPrefetch and could skip prefetch on actual tab touch/keyboard intent",
+      "result": "Removed intent prefetch gate in BottomNav for inactive tabs; currentTarget set delivery"
+    },
+    {
+      "at": "2026-04-30T08:23:31.334Z",
+      "domain": "cross-domain-entry",
+      "action": "complete",
+      "file": "components/app-shell/AppSegmentTabs.tsx",
+      "reason": "shared segment tabs forced prefetch false for community/trade/delivery/messenger/myinfo entry tabs",
+      "result": "Removed prefetch=false in shared AppSegmentTabs to warm multi-domain entry routes; currentTarget set community"
+    },
+    {
+      "at": "2026-04-30T08:22:18.143Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx, components/post/PostDetailRelatedSections.tsx, components/products/ProductTradeEditPageClient.tsx",
+      "reason": "same trade detail cold-entry bottleneck on sales/related/edit surfaces without pointer-focus prefetch warmup",
+      "result": "Expanded same trade detail prefetch fix across sales/related/edit surfaces; currentTarget kept trade"
+    },
+    {
+      "at": "2026-04-30T08:20:50.110Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/mypage/sales/SalesHistoryCard.tsx, components/post/PostDetailRelatedSections.tsx, components/products/ProductTradeEditPageClient.tsx",
+      "reason": "same trade detail cold-entry bottleneck on sales/related/edit surfaces without pointer-focus prefetch warmup",
+      "result": "Expanded same trade detail prefetch bottleneck fix across sales/detail-related/edit surfaces; currentTarget kept trade"
+    },
+    {
+      "at": "2026-04-30T08:19:04.755Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/recent-viewed/RecentViewedCard.tsx, components/favorites/FavoriteProductCard.tsx, components/mypage/products/MyProductCard.tsx",
+      "reason": "same trade detail cold-entry bottleneck across multiple list cards; expand pointer/focus prefetch coverage in one round",
+      "result": "Expanded same trade detail prefetch bottleneck fix across three card files; currentTarget kept trade"
+    },
+    {
+      "at": "2026-04-30T08:17:19.642Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/home-feed/HomeFeedCard.tsx",
+      "reason": "home feed fallback card did not prefetch /post/:id on pointer/focus intent",
+      "result": "Added HomeFeedCard pointer/focus prefetch for /post detail and kept currentTarget trade"
+    },
+    {
+      "at": "2026-04-30T08:16:10.332Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/post/PostListByCategory.tsx",
+      "reason": "trade list did not broaden detail route warmup; rapid scanning could leave many /post/:id routes cold",
+      "result": "Broadened detail route warmup to top 10 list items with per-route cooldown; currentTarget kept as trade"
+    },
+    {
+      "at": "2026-04-30T08:14:05.821Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "components/product/ProductCard.tsx",
+      "reason": "trade list product card did not prefetch /post/:id on pointer or focus intent before click",
+      "result": "Added ProductCard pointer/focus route prefetch and kept currentTarget trade"
+    },
+    {
+      "at": "2026-04-30T08:13:15.986Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "listing-fields refresh re-fetched /api/posts/:id on short-interval detail re-entry/focus without snapshot reuse",
+      "result": "Added listing-fields snapshot cache for detail re-entry/focus; keep currentTarget trade for continued trade rounds"
+    },
+    {
+      "at": "2026-04-30T08:11:37.482Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "app/(main)/post/[id]/PostDetailPageClient.tsx",
+      "reason": "relatedDeferred path refetched /api/posts/:id/related on each detail re-entry without data reuse",
+      "result": "Added related snapshot cache + in-flight merge for detail re-entry; currentTarget moved to delivery"
+    },
+    {
+      "at": "2026-04-30T08:09:32.501Z",
+      "domain": "trade",
+      "action": "complete",
+      "file": "services/trade/trade-detail.service.ts",
+      "reason": "getItemDetailPageData awaited loadTradeOpsSettings although related payload is deferred and ops values are unused on first response",
+      "result": "Removed unused loadTradeOpsSettings await from detail first-response path; currentTarget moved to delivery"
+    },
+    {
+      "at": "2026-04-30T08:06:53.203Z",
+      "domain": "delivery",
+      "action": "complete",
+      "file": "app/(main)/stores/[slug]/info/page.tsx",
+      "reason": "store info metadata generateMetadata used cache no-store and forced repeated metadata fetch on each detail-info entry",
+      "result": "Changed generateMetadata fetch from no-store to revalidate:60; set currentTarget to messenger"
+    },
     {
       "at": "2026-04-28T03:24:00.000Z",
       "domain": "trade",

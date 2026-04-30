@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
@@ -62,6 +63,7 @@ export function PostListByCategory({
   jobsListingKind,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
+  const router = useRouter();
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -115,6 +117,31 @@ export function PostListByCategory({
   const listRootRef = useRef<HTMLUListElement | null>(null);
   const firstCardPaintStartRef = useRef(0);
   const firstCardPaintFeedKeyRef = useRef("");
+  const routePrefetchAtRef = useRef<Record<string, number>>({});
+  const favoriteFetchEpochRef = useRef(0);
+
+  const resolveFavoriteMapAsync = useCallback(
+    (targetPosts: PostWithMeta[], pageNum: number, epoch: number) => {
+      if (targetPosts.length === 0) {
+        if (pageNum === 1 && epoch === listFeedEpochRef.current) {
+          setFavoriteMap({});
+        }
+        return;
+      }
+      const jobEpoch = ++favoriteFetchEpochRef.current;
+      void (async () => {
+        const map = await getFavoriteStatusForPosts(targetPosts.map((p) => p.id));
+        if (jobEpoch !== favoriteFetchEpochRef.current) return;
+        if (epoch !== listFeedEpochRef.current) return;
+        if (pageNum === 1) {
+          setFavoriteMap(map);
+        } else {
+          setFavoriteMap((prev) => ({ ...prev, ...map }));
+        }
+      })();
+    },
+    []
+  );
 
   const load = useCallback(
     async (pageNum: number = 1) => {
@@ -160,15 +187,8 @@ export function PostListByCategory({
             } else {
               setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
             }
-          } else if (next.posts.length > 0) {
-            const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
-            if (pageNum === 1) {
-              setFavoriteMap(map);
-            } else {
-              setFavoriteMap((prev) => ({ ...prev, ...map }));
-            }
-          } else if (pageNum === 1) {
-            setFavoriteMap({});
+          } else {
+            resolveFavoriteMapAsync(next.posts, pageNum, epoch);
           }
           return;
         }
@@ -202,23 +222,39 @@ export function PostListByCategory({
           } else {
             setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
           }
-        } else if (next.posts.length > 0) {
-          const map = await getFavoriteStatusForPosts(next.posts.map((p) => p.id));
-          if (pageNum === 1) {
-            setFavoriteMap(map);
-          } else {
-            setFavoriteMap((prev) => ({ ...prev, ...map }));
-          }
-        } else if (pageNum === 1) {
-          setFavoriteMap({});
+        } else {
+          resolveFavoriteMapAsync(next.posts, pageNum, epoch);
         }
       } finally {
         setLoading(false);
         allowRscBootstrapFeedRef.current = true;
       }
     },
-    [categoryId, sort, effectiveIds, jobsListingKind, tradeFeedServerResolution, tradeTopicParam]
+    [
+      categoryId,
+      sort,
+      effectiveIds,
+      jobsListingKind,
+      tradeFeedServerResolution,
+      tradeTopicParam,
+      resolveFavoriteMapAsync,
+    ]
   );
+
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (posts.length === 0) return;
+    const now = Date.now();
+    for (const post of posts.slice(0, 10)) {
+      const postId = (post.id ?? "").trim();
+      if (!postId) continue;
+      const href = `/post/${encodeURIComponent(postId)}`;
+      const last = routePrefetchAtRef.current[href] ?? 0;
+      if (now - last < 15_000) continue;
+      routePrefetchAtRef.current[href] = now;
+      void router.prefetch(href);
+    }
+  }, [posts, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,9 +320,8 @@ export function PostListByCategory({
             }
           );
         }
-        if (initialTradeFeed.favoriteMap === undefined && initialTradeFeed.posts.length > 0) {
-          const map = await getFavoriteStatusForPosts(initialTradeFeed.posts.map((p) => p.id));
-          if (!cancelled && epoch === listFeedEpochRef.current) setFavoriteMap(map);
+        if (initialTradeFeed.favoriteMap === undefined) {
+          resolveFavoriteMapAsync(initialTradeFeed.posts, 1, epoch);
         }
         return;
       }
@@ -314,7 +349,7 @@ export function PostListByCategory({
     return () => {
       cancelled = true;
     };
-  }, [feedKey, initialTradeFeed?.feedKey, load]);
+  }, [feedKey, initialTradeFeed?.feedKey, load, resolveFavoriteMapAsync]);
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
   useEffect(() => {

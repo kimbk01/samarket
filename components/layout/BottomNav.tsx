@@ -212,9 +212,51 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
+      onPointerEnter={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
+      onFocus={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
+      onTouchStart={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+        if (!isActive) {
           try {
             void router.prefetch(tab.href);
           } catch {
@@ -240,7 +282,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           triggerLightTapFeedback();
           beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
-          if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+          if (!isActive) {
             try {
               void router.prefetch(tab.href);
             } catch {
@@ -358,9 +400,51 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       className={className}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
+      onPointerEnter={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
+      onFocus={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
+      onTouchStart={() => {
+        if (!isActive) {
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+        if (!isActive) {
           try {
             void router.prefetch(tab.href);
           } catch {
@@ -386,7 +470,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           triggerLightTapFeedback();
           beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
-          if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
+          if (!isActive) {
             try {
               void router.prefetch(tab.href);
             } catch {

@@ -6,8 +6,6 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
 import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/types";
 
-export const dynamic = "force-dynamic";
-
 /** 매장 오너 주문 채팅 — 스냅샷만으로 진입(별도 owner 컨텍스트 조회 제거) */
 export default function OwnerStoreOrderChatPage({
   params,

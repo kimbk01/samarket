@@ -32,6 +32,14 @@ export function invalidateMeProfileDedupedCache(): void {
   }
 }
 
+export function peekMeProfileCached(): MeProfileGetResult | null {
+  return cached?.value ?? null;
+}
+
+export function isMeProfileCacheFresh(): boolean {
+  return !!cached && cached.expiresAt > Date.now();
+}
+
 export function fetchMeProfileDeduped(): Promise<MeProfileGetResult> {
   const now = Date.now();
   if (cached && cached.expiresAt > now) {

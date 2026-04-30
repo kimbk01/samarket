@@ -97,11 +97,18 @@ export function peekCachedTradeFeed(
   const key = buildTradeFeedClientCacheKey(categoryIds, options, viewerSegment);
   const hit = tradeFeedClientCache.get(key);
   if (!hit) return null;
-  if (hit.expiresAt <= Date.now()) {
-    tradeFeedClientCache.delete(key);
-    return null;
-  }
+  if (!hit.data.posts?.length) return null;
   return hit.data;
+}
+
+export function isCachedTradeFeedFresh(
+  categoryIds: string[],
+  options: TradeFeedClientOptions,
+  viewerSegment: string
+): boolean {
+  const key = buildTradeFeedClientCacheKey(categoryIds, options, viewerSegment);
+  const hit = tradeFeedClientCache.get(key);
+  return !!hit && hit.expiresAt > Date.now();
 }
 
 export function primeTradeFeedCache(

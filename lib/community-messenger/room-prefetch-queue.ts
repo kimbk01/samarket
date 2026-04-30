@@ -1,5 +1,5 @@
 import {
-  peekRoomSnapshot,
+  isRoomSnapshotFresh,
   prefetchCommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -46,7 +46,7 @@ export function enqueueRoomPrefetch(roomId: string): void {
   if (isConstrainedNetwork()) return;
   const id = String(roomId ?? "").trim();
   if (!id) return;
-  if (peekRoomSnapshot(id)) return;
+  if (isRoomSnapshotFresh(id)) return;
   if (queued.has(id)) return;
   queued.add(id);
   queue.push(id);

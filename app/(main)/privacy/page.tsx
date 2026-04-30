@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 export default function PrivacyPage() {
   return (
     <div className="mx-auto min-h-screen max-w-3xl px-4 py-8">

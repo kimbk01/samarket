@@ -1,7 +1,5 @@
 import { MyOffersView } from "@/components/offers/MyOffersView";
 
-export const dynamic = "force-dynamic";
-
 export default function MyOffersPage() {
   return (
     <MyOffersView

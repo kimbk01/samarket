@@ -31,7 +31,43 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
-import { fetchMeStoreOrdersHubSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchMeStoreOrdersHubSummaryDeduped,
+  readMeStoreOrdersHubSummaryCache,
+} from "@/lib/stores/store-delivery-api-client";
+
+type StoreHubSummaryResponse = {
+  ok?: boolean;
+  hub_summary?: {
+    activeOrders?: number;
+    totalOrders?: number;
+    orderChatRooms?: number;
+    unreadChats?: number;
+    recent?: RecentOrderPreview | null;
+  };
+};
+
+function resolveBuyerHubFromJson(
+  status: number,
+  jsonRaw: unknown
+): { buyerState: StoreOrderDashboardBuyerState; recentOrder: RecentOrderPreview | null } {
+  if (status === 401) return { buyerState: { kind: "idle" }, recentOrder: null };
+  const ordersJson = jsonRaw as StoreHubSummaryResponse;
+  const hub = ordersJson?.hub_summary;
+  if (!ordersJson?.ok || !hub) {
+    return { buyerState: { kind: "idle" }, recentOrder: null };
+  }
+  return {
+    recentOrder: hub.recent && hub.recent.id ? hub.recent : null,
+    buyerState: {
+      kind: "ready",
+      activeOrders: Math.max(0, Number(hub.activeOrders) || 0),
+      totalOrders: Math.max(0, Number(hub.totalOrders) || 0),
+      orderChatRooms: Math.max(0, Number(hub.orderChatRooms) || 0),
+      unreadChats: Math.max(0, Number(hub.unreadChats) || 0),
+    },
+  };
+}
 
 /** 매장주만 마운트 — 허브 진입 모달만 여기서 켜고, 배지 데이터는 부모 구독과 동일 스냅샷을 받습니다 */
 function StoresHubOwnerOperChip({
@@ -79,14 +115,19 @@ function StoresHubOwnerOperChip({
 }
 
 export function StoresHub() {
+  const cachedHubSnapshot = readMeStoreOrdersHubSummaryCache();
+  const initialHub =
+    cachedHubSnapshot.value ?
+      resolveBuyerHubFromJson(cachedHubSnapshot.value.status, cachedHubSnapshot.value.json)
+    : null;
   const { primaryRegion } = useRegion();
   const [userGeo, setUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const { ownerStore, ownerStores, loading: ownerStoresLoading } = useOwnerLiteStore();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
-  const [buyerOrderSummary, setBuyerOrderSummary] = useState<StoreOrderDashboardBuyerState>({
-    kind: "loading",
-  });
-  const [recentOrder, setRecentOrder] = useState<RecentOrderPreview | null>(null);
+  const [buyerOrderSummary, setBuyerOrderSummary] = useState<StoreOrderDashboardBuyerState>(
+    () => initialHub?.buyerState ?? { kind: "loading" }
+  );
+  const [recentOrder, setRecentOrder] = useState<RecentOrderPreview | null>(() => initialHub?.recentOrder ?? null);
   const buyerHubRequestIdRef = useRef(0);
   const buyerHubAbortRef = useRef<AbortController | null>(null);
   const [searchInput, setSearchInput] = useState("");
@@ -136,39 +177,9 @@ export function StoresHub() {
         signal: controller.signal,
       });
       if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
-      if (ordersStatus === 401) {
-        setBuyerOrderSummary({ kind: "idle" });
-        setRecentOrder((prev) => (prev === null ? prev : null));
-        return;
-      }
-
-      const ordersJson = ordersJsonRaw as {
-        ok?: boolean;
-        hub_summary?: {
-          activeOrders?: number;
-          totalOrders?: number;
-          orderChatRooms?: number;
-          unreadChats?: number;
-          recent?: RecentOrderPreview | null;
-        };
-      };
-
-      const hub = ordersJson.hub_summary;
-      if (!ordersJson.ok || !hub) {
-        setBuyerOrderSummary({ kind: "idle" });
-        setRecentOrder((prev) => (prev === null ? prev : null));
-        return;
-      }
-
-      setRecentOrder(hub.recent && hub.recent.id ? hub.recent : null);
-
-      setBuyerOrderSummary({
-        kind: "ready",
-        activeOrders: Math.max(0, Number(hub.activeOrders) || 0),
-        totalOrders: Math.max(0, Number(hub.totalOrders) || 0),
-        orderChatRooms: Math.max(0, Number(hub.orderChatRooms) || 0),
-        unreadChats: Math.max(0, Number(hub.unreadChats) || 0),
-      });
+      const next = resolveBuyerHubFromJson(ordersStatus, ordersJsonRaw);
+      setRecentOrder(next.recentOrder);
+      setBuyerOrderSummary(next.buyerState);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;

@@ -5,8 +5,6 @@ import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 
-export const dynamic = "force-dynamic";
-
 async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {
   const { roomId } = await paramsPromise;
   const id = roomId?.trim() ?? "";

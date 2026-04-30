@@ -2,8 +2,6 @@ import Link from "next/link";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
-export const dynamic = "force-dynamic";
-
 export default function PhilifeReviewsPage() {
   return (
     <div className="min-h-screen bg-background">

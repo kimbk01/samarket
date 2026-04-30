@@ -24,12 +24,50 @@ import {
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 
+const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
+const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
+
+function peekMypageSessionCache(): MyPageData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const viewerId = getCurrentUser()?.id?.trim() ?? "";
+    if (!viewerId) return null;
+    const raw = sessionStorage.getItem(MYPAGE_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data?: MyPageData; viewerId?: string; savedAt?: number };
+    const ownerId = (parsed.viewerId ?? "").trim();
+    if (!ownerId || ownerId !== viewerId) return null;
+    const savedAt = Number(parsed.savedAt ?? 0);
+    if (!Number.isFinite(savedAt) || Date.now() - savedAt > MYPAGE_SESSION_MAX_AGE_MS) return null;
+    if (!parsed?.data?.profile) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeMypageSessionCache(data: MyPageData): void {
+  if (typeof window === "undefined" || !data?.profile) return;
+  try {
+    const viewerId = data.profile.id?.trim();
+    if (!viewerId) return;
+    sessionStorage.setItem(
+      MYPAGE_SESSION_KEY,
+      JSON.stringify({
+        data,
+        viewerId,
+        savedAt: Date.now(),
+      }),
+    );
+  } catch { /* quota/private */ }
+}
+
 export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
-  const hub0 = initialMyPageData?.hubServerExtras;
-  const [data, setData] = useState<MyPageData | null>(() =>
-    initialMyPageData !== undefined ? initialMyPageData : null,
-  );
-  const [loading, setLoading] = useState(() => initialMyPageData === undefined);
+  const sessionCached = initialMyPageData === undefined ? peekMypageSessionCache() : null;
+  const boot = initialMyPageData !== undefined ? initialMyPageData : sessionCached;
+  const hub0 = boot?.hubServerExtras;
+  const [data, setData] = useState<MyPageData | null>(() => boot ?? null);
+  const [loading, setLoading] = useState(() => boot == null);
   const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() =>
     hub0
       ? { ...hub0.overviewCounts }
@@ -48,6 +86,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   );
   const skipInitialAddressFetchRef = useRef(Boolean(hub0));
   const skipInitialCountsFetchRef = useRef(Boolean(hub0));
+  const initialLoadRequestedRef = useRef(false);
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent === true;
@@ -56,6 +95,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       try {
         const d = await getMyPageData();
         setData(d);
+        writeMypageSessionCache(d);
       } finally {
         if (shouldToggleLoading) setLoading(false);
       }
@@ -91,6 +131,8 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
 
   useEffect(() => {
     if (initialMyPageData !== undefined) return;
+    if (initialLoadRequestedRef.current) return;
+    initialLoadRequestedRef.current = true;
     void load();
   }, [load, initialMyPageData]);
 

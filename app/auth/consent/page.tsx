@@ -5,8 +5,6 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
 function safeNext(input: string | string[] | undefined): string {
   const raw = Array.isArray(input) ? input[0] : input;
   const next = typeof raw === "string" ? raw.trim() : "";

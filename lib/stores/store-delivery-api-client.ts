@@ -10,12 +10,58 @@ const STORE_PRODUCT_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeProductPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_REVIEWS_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeReviewsPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_HUB_SUMMARY_CACHE_TTL_MS = 12_000;
+const storeHubSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 
 function trimSlug(slug: string): string {
   return slug.trim();
 }
 
 export type StoreApiJsonResponse = { status: number; json: unknown };
+
+type StoreHubSummaryCacheSnapshot = {
+  value: StoreApiJsonResponse | null;
+  isFresh: boolean;
+};
+
+function readStoreHubSummaryCache(cacheKey: string): StoreHubSummaryCacheSnapshot {
+  const hit = storeHubSummaryCache.get(cacheKey);
+  if (!hit) return { value: null, isFresh: false };
+  return { value: hit.value, isFresh: hit.expiresAt > Date.now() };
+}
+
+function peekStoreHubSummaryCache(cacheKey: string): StoreApiJsonResponse | null {
+  const snapshot = readStoreHubSummaryCache(cacheKey);
+  if (!snapshot.value || !snapshot.isFresh) return null;
+  return snapshot.value;
+}
+
+export function peekMeStoreOrdersHubSummaryCache(): StoreApiJsonResponse | null {
+  const cacheKey = "hub_summary=1";
+  const cached = peekStoreHubSummaryCache(cacheKey);
+  if (!cached) return null;
+  return { status: cached.status, json: cached.json };
+}
+
+export function readMeStoreOrdersHubSummaryCache(): { value: StoreApiJsonResponse | null; isFresh: boolean } {
+  const snapshot = readStoreHubSummaryCache("hub_summary=1");
+  if (!snapshot.value) return { value: null, isFresh: false };
+  return {
+    value: { status: snapshot.value.status, json: snapshot.value.json },
+    isFresh: snapshot.isFresh,
+  };
+}
+
+function primeStoreHubSummaryCache(cacheKey: string, value: StoreApiJsonResponse): void {
+  if (value.status !== 200) {
+    storeHubSummaryCache.delete(cacheKey);
+    return;
+  }
+  storeHubSummaryCache.set(cacheKey, {
+    expiresAt: Date.now() + STORE_HUB_SUMMARY_CACHE_TTL_MS,
+    value,
+  });
+}
 
 /** GET /api/stores/:slug — 매장 상세·스티키바·카트 진입 등 동시 마운트 시 합류 */
 export async function fetchStorePublicBySlugDeduped(slug: string): Promise<StoreApiJsonResponse> {
@@ -221,6 +267,11 @@ export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: st
 export async function fetchMeStoreOrdersHubSummaryDeduped(
   opts: { signal?: AbortSignal } = {}
 ): Promise<StoreApiJsonResponse> {
+  const cacheKey = "hub_summary=1";
+  const cached = peekStoreHubSummaryCache(cacheKey);
+  if (cached) {
+    return { status: cached.status, json: cached.json };
+  }
   if (opts.signal) {
     const res = await fetch("/api/me/store-orders?hub_summary=1", {
       credentials: "include",
@@ -228,14 +279,22 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
       signal: opts.signal,
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    primeStoreHubSummaryCache(cacheKey, value);
+    return value;
   }
   return runSingleFlight("me:store-orders:hub-summary:get", async () => {
+    const inFlightCached = peekStoreHubSummaryCache(cacheKey);
+    if (inFlightCached) {
+      return { status: inFlightCached.status, json: inFlightCached.json };
+    }
     const res = await fetch("/api/me/store-orders?hub_summary=1", {
       credentials: "include",
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    primeStoreHubSummaryCache(cacheKey, value);
+    return value;
   });
 }
