@@ -147,8 +147,7 @@ export function MyPageHomeDashboard({
     orderCount,
     postCount,
     favoriteCount,
-    ownerHub.communityMessengerUnread,
-    ownerHub.chatUnread,
+    ownerHub,
   ]);
 
   /** 거래 홈 `HomeProductList` — `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` 과 동일 축 */
@@ -209,6 +208,13 @@ export function MyPageHomeDashboard({
               />
             </li>
           ))}
+          <li className="list-none">
+            <MyPageMobileMenuRow
+              href="/my/offers"
+              title="내 가격 제안"
+              surface="card"
+            />
+          </li>
           <MyPageAdminMenuEntry asListItem />
           <li className="list-none">
             <LogoutActionTrigger variant="menu_row" surface="card" />

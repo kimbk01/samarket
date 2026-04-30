@@ -22,10 +22,13 @@ import { TRADE_CHAT_HUB_SNAPSHOT_BASED_SOUND_SUPPRESSED } from "@/lib/notificati
 export function GlobalOrderChatUnreadSound({ enabled = true }: { enabled?: boolean }) {
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(pathname);
-  pathnameRef.current = pathname;
   const baselineKey = useMemo(() => orderChatUnreadSoundBaselineKey(pathname), [pathname]);
   const prevSnapRef = useRef<OwnerHubBadgeBreakdown | null>(null);
   const [viewerUid, setViewerUid] = useState<string | null>(null);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
   /** 표면 구간이 바뀔 때만 기준 스냅샷 리셋 — 세션은 아래 effect 에서만 */
   useEffect(() => {

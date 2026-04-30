@@ -9,10 +9,7 @@ import {
   fetchMeNotificationsListDeduped,
   invalidateMeNotificationsListDedupedCache,
 } from "@/lib/me/fetch-me-notifications-deduped";
-import {
-  prewarmChatRouteData,
-  shouldWarmChatRoute,
-} from "@/lib/chats/prewarm-chat-room-route";
+import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
@@ -29,6 +26,27 @@ type Row = {
   domain?: string | null;
 };
 
+type TradeOfferNotificationMeta = {
+  kind?: string;
+  event?: string;
+  /** 스펙 `type`과 동기 — `event` 누락 시 보조 */
+  spec_type?: string;
+  status?: string;
+  offer_id?: string;
+};
+
+function resolvePendingTradeOfferMeta(item: InboxGroupItem): TradeOfferNotificationMeta | null {
+  const meta = item.meta as TradeOfferNotificationMeta | null;
+  const offerId = typeof meta?.offer_id === "string" ? meta.offer_id.trim() : "";
+  if (!offerId) return null;
+  if (meta?.kind !== "trade_offer") return null;
+  const isCreated =
+    meta?.event === "offer_created" || meta?.spec_type === "offer_created";
+  if (!isCreated) return null;
+  if (meta?.status !== "pending") return null;
+  return meta;
+}
+
 export function MyNotificationsView() {
   const router = useRouter();
   const { language, t } = useI18n();
@@ -38,6 +56,7 @@ export function MyNotificationsView() {
   const [busy, setBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<InboxGroupItem | null>(null);
+  const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
   const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
@@ -133,7 +152,7 @@ export function MyNotificationsView() {
 
   useRefetchOnPageShowRestore(() => void load(true, true), { enableVisibilityRefetch: false });
 
-  async function markIdsRead(ids: string[]) {
+  const markIdsRead = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
     const res = await fetch("/api/me/notifications", {
       method: "PATCH",
@@ -146,7 +165,7 @@ export function MyNotificationsView() {
       setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
       broadcastNotificationsUpdated();
     }
-  }
+  }, [broadcastNotificationsUpdated]);
 
   async function markAllRead() {
     if (!rows.some((r) => !r.is_read)) return;
@@ -216,19 +235,47 @@ export function MyNotificationsView() {
       : t("notif_inbox_delete_confirm");
   }, [pendingDelete, t]);
 
-  const prewarmIfChat = (href: string) => {
-    if (!shouldWarmChatRoute(href)) return;
-    void router.prefetch(href);
-    prewarmChatRouteData(href);
+  const onActivate = (item: InboxGroupItem) => {
+    prewarmInboxNotificationChatHref(router, item.href);
+    void router.push(item.href);
+    if (item.unreadCount > 0) {
+      void markIdsRead(item.ids);
+    }
   };
 
-  const onActivate = async (item: InboxGroupItem) => {
-    if (item.unreadCount > 0) {
-      await markIdsRead(item.ids);
-    }
-    prewarmIfChat(item.href);
-    router.push(item.href);
+  const onItemWarm = (item: InboxGroupItem) => {
+    prewarmInboxNotificationChatHref(router, item.href);
   };
+
+  const actOnTradeOffer = useCallback(
+    async (item: InboxGroupItem, action: "accept" | "reject") => {
+      const meta = resolvePendingTradeOfferMeta(item);
+      const offerId = meta?.offer_id?.trim() ?? "";
+      if (!offerId) return;
+      setOfferActionBusyId(offerId);
+      setError((prev) => (prev === null ? prev : null));
+      try {
+        const res = await fetch(`/api/offers/${encodeURIComponent(offerId)}/${action}`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json?.ok) {
+          setError(typeof json?.error === "string" ? json.error : "가격 제안을 처리하지 못했습니다.");
+          return;
+        }
+        void markIdsRead(item.ids);
+        invalidateMeNotificationsListDedupedCache();
+        broadcastNotificationsUpdated();
+        await load(true, true);
+      } catch {
+        setError("network_error");
+      } finally {
+        setOfferActionBusyId((prev) => (prev === offerId ? null : prev));
+      }
+    },
+    [broadcastNotificationsUpdated, load, markIdsRead]
+  );
 
   if (loading) {
     return <p className="text-sm text-sam-muted">불러오는 중…</p>;
@@ -256,7 +303,40 @@ export function MyNotificationsView() {
       {error ? <p className="text-sm text-red-600">({error})</p> : null}
       <NotificationInboxByDateSections
         items={grouped}
-        onActivate={(item) => void onActivate(item)}
+        onItemWarm={onItemWarm}
+        onActivate={(item) => onActivate(item)}
+        renderActions={(item) => {
+          const offerMeta = resolvePendingTradeOfferMeta(item);
+          const offerId = offerMeta?.offer_id?.trim() ?? "";
+          if (!offerId) return null;
+          const acting = offerActionBusyId === offerId;
+          return (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={acting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void actOnTradeOffer(item, "accept");
+                }}
+                className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
+              >
+                수락
+              </button>
+              <button
+                type="button"
+                disabled={acting}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void actOnTradeOffer(item, "reject");
+                }}
+                className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
+              >
+                거절
+              </button>
+            </div>
+          );
+        }}
         onDelete={(item) => requestDeleteGroup(item)}
         deleteBusyKey={deleteBusyKey}
         emptyLabel={t("common_notifications_empty")}

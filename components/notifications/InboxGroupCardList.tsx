@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
@@ -15,6 +16,9 @@ const SURFACE_BADGE =
 type Props = {
   items: InboxGroupItem[];
   onActivate: (item: InboxGroupItem) => void;
+  /** 행 호버·터치 전에 채팅 부트스트랩 선기동 */
+  onItemWarm?: (item: InboxGroupItem) => void;
+  renderActions?: (item: InboxGroupItem) => ReactNode;
   /** 항목 삭제(그룹이면 묶인 id 전부). 없으면 삭제 버튼 미표시 */
   onDelete?: (item: InboxGroupItem) => void | Promise<void>;
   /** 삭제 요청 중인 그룹 `item.key` — 해당 행만 버튼 비활성 */
@@ -31,6 +35,8 @@ type Props = {
 export function InboxGroupCardList({
   items,
   onActivate,
+  onItemWarm,
+  renderActions,
   onDelete,
   deleteBusyKey,
   compact,
@@ -52,41 +58,47 @@ export function InboxGroupCardList({
         return (
           <li key={item.key}>
             <div className={`flex ${TRADE_HUB_LIST_ITEM_CARD_CLASS}`}>
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => onActivate(item)}
-                className={`min-w-0 flex-1 text-left transition active:bg-sam-surface-muted disabled:opacity-60 ${pad}`}
-              >
-                <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight text-sam-meta">
-                  <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
-                    <span className={SURFACE_BADGE} title={item.surfaceBadge}>
-                      {item.surfaceBadge}
-                    </span>
-                    {kind ? <span className="truncate text-sam-meta">· {kind}</span> : null}
-                  </span>
-                  {hasUnread ? (
-                    isChat ? (
-                      <span
-                        className={CHAT_UNREAD_BADGE}
-                        title={t("notif_inbox_unread_n", { n: item.unreadCount })}
-                      >
-                        {item.unreadCount > 99 ? "99+" : item.unreadCount}
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onTouchStart={() => onItemWarm?.(item)}
+                  onPointerEnter={() => onItemWarm?.(item)}
+                  onFocus={() => onItemWarm?.(item)}
+                  onClick={() => onActivate(item)}
+                  className={`min-w-0 w-full text-left transition active:bg-sam-surface-muted disabled:opacity-60 ${pad}`}
+                >
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[10px] leading-tight text-sam-meta">
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
+                      <span className={SURFACE_BADGE} title={item.surfaceBadge}>
+                        {item.surfaceBadge}
                       </span>
-                    ) : (
-                      <span className={OTHER_UNREAD_BADGE}>{item.unreadCount}</span>
-                    )
-                  ) : null}
-                </div>
-                <p className="mt-0.5 line-clamp-2 break-words text-[14px] font-semibold leading-snug text-sam-fg">
-                  {item.displayTitle}
-                </p>
-                {item.body ? (
-                  <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
-                    {item.body}
+                      {kind ? <span className="truncate text-sam-meta">· {kind}</span> : null}
+                    </span>
+                    {hasUnread ? (
+                      isChat ? (
+                        <span
+                          className={CHAT_UNREAD_BADGE}
+                          title={t("notif_inbox_unread_n", { n: item.unreadCount })}
+                        >
+                          {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                        </span>
+                      ) : (
+                        <span className={OTHER_UNREAD_BADGE}>{item.unreadCount}</span>
+                      )
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 line-clamp-2 break-words text-[14px] font-semibold leading-snug text-sam-fg">
+                    {item.displayTitle}
                   </p>
-                ) : null}
-              </button>
+                  {item.body ? (
+                    <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
+                      {item.body}
+                    </p>
+                  ) : null}
+                </button>
+                {renderActions ? <div className="px-3 pb-3">{renderActions(item)}</div> : null}
+              </div>
               <div
                 className={`flex shrink-0 flex-col items-end gap-0.5 bg-transparent ${railPad} ${
                   onDelete ? "justify-between" : "justify-end"

@@ -24,6 +24,7 @@ import {
   invalidateMeNotificationsListDedupedCache,
 } from "@/lib/me/fetch-me-notifications-deduped";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 import {
   buildInboxGroupItems,
@@ -218,13 +219,16 @@ export function PhilifeHeaderNotificationInbox() {
     }
   }, []);
 
-  const onActivate = async (item: InboxGroupItem) => {
-    if (item.unreadCount > 0) {
-      await markIdsRead(item.ids);
-    }
+  const onActivate = (item: InboxGroupItem) => {
+    prewarmInboxNotificationChatHref(router, item.href);
     setOpen(false);
     invalidateMeNotificationsListDedupedCache();
     router.push(item.href);
+    if (item.unreadCount > 0) void markIdsRead(item.ids);
+  };
+
+  const onItemWarm = (item: InboxGroupItem) => {
+    prewarmInboxNotificationChatHref(router, item.href);
   };
 
   const toggleSound = useCallback(async () => {
@@ -356,7 +360,8 @@ export function PhilifeHeaderNotificationInbox() {
                   items={grouped}
                   compact
                   emptyLabel={t("notif_tier1_empty")}
-                  onActivate={(item) => void onActivate(item)}
+                  onItemWarm={onItemWarm}
+                  onActivate={(item) => onActivate(item)}
                   onDelete={(item) => requestDeleteGroup(item)}
                   deleteBusyKey={deleteBusyKey}
                 />

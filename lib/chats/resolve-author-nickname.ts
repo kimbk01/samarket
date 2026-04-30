@@ -9,6 +9,15 @@ function nonEmptyString(v: unknown): string | undefined {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 }
 
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function canonicalIdForOwnershipCompare(id: string): string {
+  const t = id.trim();
+  if (!t) return t;
+  return UUID_SHAPE.test(t) ? t.toLowerCase() : t;
+}
+
 /**
  * 표시·채팅 판매자 식별용: author_id 우선, 없거나 빈 값이면 user_id
  * 주의: 소유권(내 글 여부)은 postOwnedByUserId — author_id가 타인 UUID로 잘못 들어간 레거시 행이 있어도 user_id로 매칭됨
@@ -24,10 +33,23 @@ export function postOwnedByUserId(
   userId: string
 ): boolean {
   if (!post || !nonEmptyString(userId)) return false;
-  const u = userId.trim();
+  const u = canonicalIdForOwnershipCompare(userId.trim());
   const a = nonEmptyString(post.author_id);
   const w = nonEmptyString(post.user_id);
-  return a === u || w === u;
+  const ac = a != null ? canonicalIdForOwnershipCompare(a) : null;
+  const wc = w != null ? canonicalIdForOwnershipCompare(w) : null;
+  return (ac != null && ac === u) || (wc != null && wc === u);
+}
+
+/**
+ * 가격 제안·RLS(`posts.user_id = price_offers.seller_id`)와 동일: 계정 소유는 `user_id` 우선.
+ * (표시용 `postAuthorUserId`는 author_id 우선이라 여기와 다를 수 있음)
+ */
+export function postTradeListingOwnerUserId(
+  post: Record<string, unknown> | undefined | null
+): string | undefined {
+  if (!post) return undefined;
+  return nonEmptyString(post.user_id) ?? nonEmptyString(post.author_id);
 }
 
 /**

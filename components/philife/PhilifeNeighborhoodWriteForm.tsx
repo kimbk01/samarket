@@ -287,7 +287,7 @@ export function PhilifeNeighborhoodWriteForm({
     if (!cd) return;
 
     const fromFiles = Array.from(cd.files ?? []).filter((f) => f.type.startsWith("image/"));
-    let imageFiles: File[] = fromFiles;
+    const imageFiles: File[] = fromFiles;
     if (imageFiles.length === 0) {
       for (const it of Array.from(cd.items)) {
         if (it.kind === "file" && it.type.startsWith("image/")) {

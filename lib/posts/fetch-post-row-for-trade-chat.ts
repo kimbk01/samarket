@@ -7,6 +7,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { loadPostRowForDetail } from "@/lib/posts/map-post-detail-row";
 
+/** `posts.id` / `price_offers.product_id` 가 텍스트로 저장된 환경에서 대소문자만 다른 경우 단건 조회 실패 방지 */
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `posts.id` / `price_offers.product_id` 단건 조회 — UUID 대소문자 변형까지 시도 */
+export function uuidLookupCandidates(primary: string): string[] {
+  const t = primary.trim();
+  if (!t) return [];
+  if (!UUID_SHAPE.test(t)) return [t];
+  const lower = t.toLowerCase();
+  return lower === t ? [t] : [t, lower];
+}
+
 export async function fetchPostRowForTradeChatById(
   sb: SupabaseClient,
   id: string
@@ -14,11 +27,14 @@ export async function fetchPostRowForTradeChatById(
   const trimmed = id.trim();
   if (!trimmed) return null;
 
-  const fromRead = await loadPostRowForDetail(sb, POSTS_TABLE_READ, trimmed);
-  if (fromRead) return fromRead;
+  for (const key of uuidLookupCandidates(trimmed)) {
+    const fromRead = await loadPostRowForDetail(sb, POSTS_TABLE_READ, key);
+    if (fromRead) return fromRead;
 
-  if (POSTS_TABLE_READ !== "posts") {
-    return loadPostRowForDetail(sb, "posts", trimmed);
+    if (POSTS_TABLE_READ !== "posts") {
+      const fromPosts = await loadPostRowForDetail(sb, "posts", key);
+      if (fromPosts) return fromPosts;
+    }
   }
 
   return null;

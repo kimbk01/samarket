@@ -5,7 +5,9 @@ import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
-import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { postAuthorUserId, postOwnedByUserId } from "@/lib/chats/resolve-author-nickname";
+import { listSellerPriceOffersForProduct } from "@/lib/offers/offers.service";
+import type { PriceOfferListItem } from "@/lib/offers/types";
 import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import {
   mapProfileRowToPublicSeller,
@@ -23,6 +25,10 @@ export type TradeItemDetailPageData = {
   sellerItems: PostWithMeta[];
   similarItems: PostWithMeta[];
   ads: PostWithMeta[];
+  /** RSC 쿠키 세션 — 클라 `getCurrentUserIdForDb` 보다 앞서 소유자 UI 시드 */
+  viewerUserId: string | null;
+  /** 본인 글·가격 제안 상품일 때만 서버에서 선로드(첫 페인트 즉시 표시) */
+  initialSellerPriceOffers?: PriceOfferListItem[];
   /**
    * 로그인 뷰어 기준 거래방 시드 — 클라에서 `GET /api/chat/item/room-id` 1회 생략.
    * 비로그인이면 생략(undefined).
@@ -125,12 +131,16 @@ export async function getItemDetailPageData(
     loadTradeOpsSettings(clients),
   ]);
   if (!item) return null;
+
+  const viewerId = input.viewerUserId?.trim() ?? "";
+
   if (item.type === "community") {
     return {
       item,
       sellerItems: [],
       similarItems: [],
       ads: [],
+      viewerUserId: viewerId || null,
     };
   }
 
@@ -141,7 +151,6 @@ export async function getItemDetailPageData(
   const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
-  const viewerId = input.viewerUserId?.trim() ?? "";
   const sb = clients.readSb ?? clients.serviceSb;
   const viewerRoomPromise =
     viewerId && sellerId && viewerId !== sellerId && sb
@@ -171,10 +180,25 @@ export async function getItemDetailPageData(
     completedVisibleDays: ops.completedVisibleDays,
   });
 
-  const [viewerRoomRow, related, sellerProfile] = await Promise.all([
+  const offersSb = clients.serviceSb ?? clients.readSb;
+  const prefetchSellerOffers =
+    Boolean(viewerId) &&
+    postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId) &&
+    item.is_price_offer === true &&
+    typeof item.price === "number" &&
+    Number.isFinite(item.price) &&
+    item.price > 0;
+
+  const sellerOffersPromise =
+    prefetchSellerOffers && offersSb
+      ? listSellerPriceOffersForProduct(offersSb, viewerId, itemId).then((r) => (r.ok ? r.value : []))
+      : Promise.resolve(undefined);
+
+  const [viewerRoomRow, related, sellerProfile, sellerOffersSeed] = await Promise.all([
     viewerRoomPromise,
     relatedPromise,
     loadSellerPublicProfile(clients, sellerId),
+    sellerOffersPromise,
   ]);
 
   const viewerTradeRoomBootstrap: TradeItemDetailPageData["viewerTradeRoomBootstrap"] =
@@ -195,6 +219,8 @@ export async function getItemDetailPageData(
     sellerItems: related.sellerItems,
     similarItems: related.similarItems,
     ads: related.ads,
+    viewerUserId: viewerId || null,
+    ...(sellerOffersSeed !== undefined ? { initialSellerPriceOffers: sellerOffersSeed } : {}),
     viewerTradeRoomBootstrap,
   };
 }

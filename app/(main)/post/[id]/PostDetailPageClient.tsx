@@ -124,6 +124,12 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
         }}
         viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
         initialRouteTotalMs={initialRouteTotalMs}
+        serverViewerUserId={
+          typeof initialBundle.viewerUserId === "string" && initialBundle.viewerUserId.trim()
+            ? initialBundle.viewerUserId.trim()
+            : undefined
+        }
+        initialSellerPriceOffers={initialBundle.initialSellerPriceOffers}
       />
     </>
   );
