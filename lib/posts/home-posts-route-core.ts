@@ -7,7 +7,10 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { enrichPostsAuthorNicknamesFromProfiles } from "@/lib/posts/enrich-posts-author-nicknames";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
+import {
+  resolvePostsReadClients,
+  resolvePostsReadClientsForServerComponent,
+} from "@/lib/supabase/resolve-posts-read-clients";
 import {
   HOME_POSTS_PAGE_SIZE,
   expandTradeMarketCategoryFilterIds,
@@ -136,6 +139,152 @@ export type ResolveHomePostsServerDiagnostics = {
   responseStartMs: number;
   responseEndMs: number;
 };
+
+/**
+ * `/market` 기본 진입(latest)용 RSC 시드.
+ * 페이지 셸은 `Suspense` fallback 으로 즉시 보내고, 동일 서버 캐시/즐겨찾기 정책으로
+ * 첫 리스트를 스트리밍해 클라 hydration 후 네트워크 대기를 줄인다.
+ */
+export async function resolveDefaultTradeHomePostsSeedForServerComponent(options?: {
+  precomputedViewerUserId?: string | null;
+}): Promise<HomePostsOpenResult> {
+  const clients = await resolvePostsReadClientsForServerComponent();
+  if (!clients) {
+    return { posts: [], hasMore: false, favoriteMap: {} };
+  }
+  const { readSb, serviceSb, favoritesSb } = clients;
+  const page = 1;
+  const sort: HomePostsQuerySort = "latest";
+  const type: HomePostsQueryType = null;
+  const tradeState: HomePostsTradeStateFilter = "latest";
+  const from = 0;
+
+  let tradeCategoryIds: string[] | null = null;
+  let effectiveType: HomePostsQueryType = type;
+  if (isConfiguredTradeUnionEnabledForHomeAll()) {
+    const union = await expandTradeCategoryIdsForAllConfiguredHomeRoots(
+      readSb as SupabaseClient<any>,
+      serviceSb as SupabaseClient<any> | null
+    );
+    if (union.length > 0) {
+      tradeCategoryIds = union;
+      effectiveType = "trade";
+    }
+  }
+
+  const marketSegment =
+    tradeCategoryIds && tradeCategoryIds.length > 0 ? "configured_trade_union" : "all";
+  const cacheKey = buildHomePostsCacheKey(page, sort, effectiveType, marketSegment, tradeState);
+  maybePruneExpiredEntries(homePostsServerCache);
+  maybePruneExpiredEntries(homePostsFavoriteCache);
+
+  const cachedPosts = homePostsServerCache.get(cacheKey);
+  let posts: PostWithMeta[];
+  let hasMore: boolean;
+
+  if (cachedPosts && cachedPosts.expiresAt > Date.now()) {
+    posts = cachedPosts.posts;
+    hasMore = cachedPosts.hasMore;
+  } else {
+    const loaded = await runSingleFlight(`api:home-posts:${cacheKey}`, async () => {
+      const again = homePostsServerCache.get(cacheKey);
+      if (again && again.expiresAt > Date.now()) {
+        return { posts: again.posts, hasMore: again.hasMore };
+      }
+
+      const pack = await resolveHomePostsPayload(
+        readSb as SupabaseClient<any>,
+        serviceSb as SupabaseClient<any> | null,
+        from,
+        sort,
+        effectiveType,
+        tradeCategoryIds,
+        resolveHomePostsStatusOrByTradeState(tradeState)
+      );
+      if (!pack) {
+        return null;
+      }
+
+      await enrichPostsAuthorNicknamesFromProfiles(readSb as SupabaseClient<any>, pack.posts);
+      homePostsServerCache.set(cacheKey, {
+        posts: pack.posts,
+        hasMore: pack.hasMore,
+        expiresAt: Date.now() + HOME_POSTS_SERVER_CACHE_TTL_MS,
+      });
+      return { posts: pack.posts, hasMore: pack.hasMore };
+    });
+
+    if (!loaded) {
+      return { posts: [], hasMore: false, favoriteMap: {} };
+    }
+
+    posts = loaded.posts;
+    hasMore = loaded.hasMore;
+  }
+
+  const favoriteMap: Record<string, boolean> = {};
+  const preViewer = options?.precomputedViewerUserId;
+  const userId = preViewer !== undefined ? preViewer : await getOptionalAuthenticatedUserId();
+
+  if (userId && posts.length > 0) {
+    const postIds = posts.map((post) => post.id).filter(Boolean);
+    const favoriteCacheKey = buildHomePostsFavoriteCacheKey(
+      userId,
+      page,
+      sort,
+      effectiveType,
+      marketSegment,
+      tradeState
+    );
+    const favEpoch = getPostFavoriteMutationEpochForViewer(userId);
+    const cachedFavorites = homePostsFavoriteCache.get(favoriteCacheKey);
+
+    if (
+      cachedFavorites &&
+      cachedFavorites.expiresAt > Date.now() &&
+      cachedFavorites.mutationEpoch === favEpoch
+    ) {
+      Object.assign(favoriteMap, cachedFavorites.favoriteMap);
+    } else {
+      const loadFavoritesOnce = async () => {
+        const { data: favorites } = await favoritesSb
+          .from("favorites")
+          .select("post_id")
+          .eq("user_id", userId)
+          .in("post_id", postIds);
+        for (const postId of postIds) {
+          favoriteMap[postId] = false;
+        }
+        for (const row of favorites ?? []) {
+          const postId = typeof row.post_id === "string" ? row.post_id : "";
+          if (postId) favoriteMap[postId] = true;
+        }
+      };
+
+      let e0 = getPostFavoriteMutationEpochForViewer(userId);
+      await loadFavoritesOnce();
+      if (getPostFavoriteMutationEpochForViewer(userId) !== e0) {
+        e0 = getPostFavoriteMutationEpochForViewer(userId);
+        for (const postId of postIds) {
+          delete favoriteMap[postId];
+        }
+        await loadFavoritesOnce();
+      }
+
+      homePostsFavoriteCache.set(favoriteCacheKey, {
+        favoriteMap: { ...favoriteMap },
+        expiresAt: Date.now() + HOME_POSTS_FAVORITES_CACHE_TTL_MS,
+        mutationEpoch: getPostFavoriteMutationEpochForViewer(userId),
+      });
+    }
+  }
+
+  return {
+    posts,
+    hasMore,
+    favoriteMap,
+  };
+}
 
 /**
  * GET /api/philife/posts 와 동일 페이로드. Supabase 미구성 시 빈 결과.

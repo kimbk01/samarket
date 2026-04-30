@@ -2,6 +2,9 @@
 
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { resolveActiveMainBottomNavTabIndex } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 
@@ -21,10 +24,18 @@ export function MainShellTabContentTransition({
   contentStretchClass = "min-w-0",
 }: Props) {
   const pathname = usePathname();
+  const { isPendingMenuBlockingContent, pendingMenuShellKind } = useLatestMenuNavigation();
   const tabs = useMemo(
     () => (initialNavItems && initialNavItems.length > 0 ? initialNavItems : BOTTOM_NAV_ITEMS),
     [initialNavItems]
   );
+  const pendingShell = useMemo(() => {
+    if (!isPendingMenuBlockingContent) return null;
+    if (pendingMenuShellKind === "messenger") {
+      return <CommunityMessengerHomeShellSkeleton />;
+    }
+    return <MainFeedRouteLoading rows={5} />;
+  }, [isPendingMenuBlockingContent, pendingMenuShellKind]);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const prevIdxRef = useRef<number | null>(null);
@@ -57,13 +68,18 @@ export function MainShellTabContentTransition({
   return (
     <div
       ref={hostRef}
-      className={`${contentStretchClass} isolate overflow-x-hidden`}
+      className={`${contentStretchClass} relative isolate overflow-x-hidden`}
       onAnimationEnd={(e) => {
         if (e.target !== e.currentTarget) return;
         hostRef.current?.classList.remove(LTR, RTL);
       }}
     >
       {children}
+      {pendingShell ? (
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden bg-sam-app">
+          {pendingShell}
+        </div>
+      ) : null}
     </div>
   );
 }

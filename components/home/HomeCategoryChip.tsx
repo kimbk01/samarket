@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
@@ -30,6 +31,7 @@ export function HomeCategoryChip({
 }: HomeCategoryChipProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const href = getCategoryHref(category);
   const pathNoQuery = pathname.split("?")[0] ?? "";
   const safeDec = (s: string) => {
@@ -52,7 +54,7 @@ export function HomeCategoryChip({
               decodedPath.startsWith(`${decodedHref}/`))
           );
         })();
-  const isActive = isActiveProp ?? activeFromPath;
+  const isActive = menuHrefMatchesIntent(href, pendingMenuIntent) || (isActiveProp ?? activeFromPath);
 
   const pillCls = `${APP_TOP_MENU_ROW1_BASE} ${isActive ? APP_TOP_MENU_ROW1_ACTIVE : APP_TOP_MENU_ROW1_INACTIVE}`;
   const textCls = `${APP_MARKET_MENU_TEXT_BASE} ${isActive ? APP_MARKET_MENU_TEXT_ACTIVE : APP_MARKET_MENU_TEXT_INACTIVE}`;
@@ -70,6 +72,8 @@ export function HomeCategoryChip({
     <Link
       href={href}
       prefetch
+      scroll={false}
+      onClick={() => beginMenuNavigation(href, "category-chip")}
       onPointerEnter={() => {
         if (category.type === "trade") {
           router.prefetch(href);

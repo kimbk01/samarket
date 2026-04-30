@@ -30,6 +30,11 @@ type Props = {
 export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Props) {
   const id = initialBundle.item.id;
   const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
+  const [related, setRelated] = useState(() => ({
+    sellerItems: initialBundle.sellerItems,
+    similarItems: initialBundle.similarItems,
+    ads: initialBundle.ads,
+  }));
   const lastListingFieldsRefreshAtRef = useRef(0);
 
   useEffect(() => {
@@ -37,6 +42,49 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
     // RSC가 매번 새 객체 참조를 넘겨도 본문 동기화는 id·상태 필드가 바뀔 때만
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBundle.item 참조만 바뀌는 경우 setState 생략
   }, [initialBundle.item.id, initialBundle.item.updated_at, initialBundle.item.status, initialBundle.item.seller_listing_state]);
+
+  useEffect(() => {
+    setRelated({
+      sellerItems: initialBundle.sellerItems,
+      similarItems: initialBundle.similarItems,
+      ads: initialBundle.ads,
+    });
+  }, [initialBundle.sellerItems, initialBundle.similarItems, initialBundle.ads]);
+
+  useEffect(() => {
+    if (!id || initialBundle.relatedDeferred !== true) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/posts/${encodeURIComponent(id)}/related`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = (await res.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              related?: {
+                sellerItems?: PostWithMeta[];
+                similarItems?: PostWithMeta[];
+                ads?: PostWithMeta[];
+              };
+            }
+          | null;
+        if (!json?.ok || !json.related || cancelled) return;
+        setRelated({
+          sellerItems: Array.isArray(json.related.sellerItems) ? json.related.sellerItems : [],
+          similarItems: Array.isArray(json.related.similarItems) ? json.related.similarItems : [],
+          ads: Array.isArray(json.related.ads) ? json.related.ads : [],
+        });
+      } catch {
+        /* ignore related fallback failure */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, initialBundle.relatedDeferred]);
 
   const refreshListingFields = useCallback(async () => {
     if (!id) return;
@@ -118,9 +166,9 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
         post={post}
         sellerProfile={initialBundle.sellerProfile ?? null}
         related={{
-          sellerItems: initialBundle.sellerItems,
-          similarItems: initialBundle.similarItems,
-          ads: initialBundle.ads,
+          sellerItems: related.sellerItems,
+          similarItems: related.similarItems,
+          ads: related.ads,
         }}
         viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
         initialRouteTotalMs={initialRouteTotalMs}

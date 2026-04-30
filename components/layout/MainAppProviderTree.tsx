@@ -35,6 +35,7 @@ import { TradeWriteSheetProvider } from "@/contexts/TradeWriteSheetContext";
 import { TradeTabCategoriesServerPrime } from "@/components/layout/TradeTabCategoriesServerPrime";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
@@ -128,56 +129,58 @@ export function MainAppProviderTree({
   return (
     <RegionProvider>
       <MypageInfoHubPanelProvider>
-      <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
-      <AppWideRuntimePerfHooks />
-      <SessionLostRedirect />
-      <AuthComplianceRedirect />
-      <MessengerBootstrapEarlyWarm />
-      <OwnerHubBadgeRuntime />
-      <MandatoryAddressGate />
-      <PhoneVerificationRequiredDialog />
-      <FavoriteProvider>
-        <NotificationSurfaceProvider>
-          <MainShellMessengerParticipantBridge regionBarInLayout={true} />
-          <WriteCategoryProvider>
-            <CategoryListHeaderProvider>
-              <StoreCommerceCartMaybeProvider>
-                <PhilifeWriteSheetProvider>
-                  <TradeWriteSheetProvider>
-                  <PhilifeHeaderMessengerStackProvider>
-                  <TradeHeaderTradeHistoryStackProvider>
-                  <MainTier1ChromeProvider>
-                    <TradePresenceActivityProvider>
-                      <MainShellPushLayer>
-                        <AppTitle />
-                        <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
-                          <AppStickyHeader />
-                          <PhilifeMessengerFromHeaderStack>
-                            <TradeHistoryFromHeaderStack>
-                              <ConditionalAppShell
-                                regionBarInLayout={true}
-                                initialMainBottomNavItems={initialMainBottomNavItems}
-                              >
-                                {children}
-                              </ConditionalAppShell>
-                            </TradeHistoryFromHeaderStack>
-                          </PhilifeMessengerFromHeaderStack>
-                        </div>
-                      </MainShellPushLayer>
-                      <TradeChatEntryCreatingOverlay />
-                      <PhilifeWriteBottomSheet />
-                      <TradeWriteBottomSheet />
-                    </TradePresenceActivityProvider>
-                  </MainTier1ChromeProvider>
-                  </TradeHeaderTradeHistoryStackProvider>
-                  </PhilifeHeaderMessengerStackProvider>
-                  </TradeWriteSheetProvider>
-                </PhilifeWriteSheetProvider>
-              </StoreCommerceCartMaybeProvider>
-            </CategoryListHeaderProvider>
-          </WriteCategoryProvider>
-        </NotificationSurfaceProvider>
-      </FavoriteProvider>
+        <LatestMenuNavigationProvider>
+          <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
+          <AppWideRuntimePerfHooks />
+          <SessionLostRedirect />
+          <AuthComplianceRedirect />
+          <MessengerBootstrapEarlyWarm />
+          <OwnerHubBadgeRuntime />
+          <MandatoryAddressGate />
+          <PhoneVerificationRequiredDialog />
+          <FavoriteProvider>
+            <NotificationSurfaceProvider>
+              <MainShellMessengerParticipantBridge regionBarInLayout={true} />
+              <WriteCategoryProvider>
+                <CategoryListHeaderProvider>
+                  <StoreCommerceCartMaybeProvider>
+                    <PhilifeWriteSheetProvider>
+                      <TradeWriteSheetProvider>
+                        <PhilifeHeaderMessengerStackProvider>
+                          <TradeHeaderTradeHistoryStackProvider>
+                            <MainTier1ChromeProvider>
+                              <TradePresenceActivityProvider>
+                                <MainShellPushLayer>
+                                  <AppTitle />
+                                  <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
+                                    <AppStickyHeader />
+                                    <PhilifeMessengerFromHeaderStack>
+                                      <TradeHistoryFromHeaderStack>
+                                        <ConditionalAppShell
+                                          regionBarInLayout={true}
+                                          initialMainBottomNavItems={initialMainBottomNavItems}
+                                        >
+                                          {children}
+                                        </ConditionalAppShell>
+                                      </TradeHistoryFromHeaderStack>
+                                    </PhilifeMessengerFromHeaderStack>
+                                  </div>
+                                </MainShellPushLayer>
+                                <TradeChatEntryCreatingOverlay />
+                                <PhilifeWriteBottomSheet />
+                                <TradeWriteBottomSheet />
+                              </TradePresenceActivityProvider>
+                            </MainTier1ChromeProvider>
+                          </TradeHeaderTradeHistoryStackProvider>
+                        </PhilifeHeaderMessengerStackProvider>
+                      </TradeWriteSheetProvider>
+                    </PhilifeWriteSheetProvider>
+                  </StoreCommerceCartMaybeProvider>
+                </CategoryListHeaderProvider>
+              </WriteCategoryProvider>
+            </NotificationSurfaceProvider>
+          </FavoriteProvider>
+        </LatestMenuNavigationProvider>
       </MypageInfoHubPanelProvider>
     </RegionProvider>
   );

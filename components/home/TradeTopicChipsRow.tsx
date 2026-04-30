@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -27,6 +28,7 @@ export function TradeTopicChipsRow({
   onTopicIntent,
 }: TradeTopicChipsRowProps) {
   const base = marketBasePath.replace(/\/$/, "");
+  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
 
   return (
     <>
@@ -42,7 +44,9 @@ export function TradeTopicChipsRow({
         const href = `${base}?${params.toString()}`;
         const keyTrim = (selectedTopicKey?.trim() ?? "").normalize("NFC");
         const slugN = t.slug?.trim().normalize("NFC") ?? "";
-        const on = keyTrim !== "" && (keyTrim === slugN || keyTrim === t.id);
+        const on =
+          menuHrefMatchesIntent(href, pendingMenuIntent) ||
+          (keyTrim !== "" && (keyTrim === slugN || keyTrim === t.id));
         return (
           <Link
             key={t.id}
@@ -51,6 +55,7 @@ export function TradeTopicChipsRow({
             role="tab"
             aria-selected={on}
             prefetch
+            onClick={() => beginMenuNavigation(href, "trade-topic")}
             onMouseEnter={() => onTopicIntent?.(raw)}
             onTouchStart={() => onTopicIntent?.(raw)}
             onPointerDown={() => onTopicIntent?.(raw)}

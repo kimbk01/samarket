@@ -156,10 +156,10 @@ export function resolveConditionalAppShellFlags(
   /** 메신저 채팅방은 하단 탭 유지 — 기타 채팅 상세·통화 전용은 숨김 */
   const suppressBottomNavForChatDetail = isChatRoomDetail && !isCommunityMessengerRoom;
   /**
-   * 메신저(`community-messenger`) — 앱 기본 `BottomNav`는 숨기고 화면마다 전용 하단(허브 플로팅 탭·방 UI 등)만 쓴다.
+   * 메신저(`community-messenger`)도 메인 하단 탭을 유지한다.
+   * 통화 전용·비메신저 채팅 상세만 별도 억제 규칙을 따른다.
    */
   const showBottomNav =
-    !isCommunityMessengerSurface &&
     !hideBarAndFloat &&
     !isWritePage &&
     !suppressBottomNavForChatDetail &&

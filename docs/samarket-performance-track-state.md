@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-29 |
+| Last updated | 2026-04-30 |
 | Owner | (선택) |
 
 ---
@@ -49,13 +49,34 @@
 | 항목 | 내용 |
 |------|------|
 | 트랙 이름 | 하단 탭 즉시 리스트 — **RSC await 와 클라 데이터 캐시 분리 미스 근본 정리** (라운드 W) |
-| **트랙 상태** | **진행 중 (라운드 W→W3 반영 완료)** — `/stores` + `/philife` 글로벌/토픽 prewarm, 키보드 탭 진입 prewarm까지 연결. 실측 3회 대기 (2026-04-28) |
-| 이번 원인 1개 | `/market`, `/philife` 페이지가 **page-level `await`** 으로 Supabase 까지 막은 뒤 RSC 를 보낸다. dev `Link prefetch` 는 `loading.tsx` 경계만 덮어 매 탭 탭에서 200~500ms 서버 왕복이 다시 발생했고, `router.prefetch` 는 RSC 만 데우므로 클라 데이터 캐시(`homePostsCache`/`tradeFeedClientCache`) 는 비어 있어 마운트 직후 또 한 번 fetch 됐다 → **라우트·서버·클라 캐시 3종 분리** 가 매 탭 탭마다 어딘가는 미스를 만든다. |
-| 이번 조치 | 1) `app/(main)/market/page.tsx`·`app/(main)/philife/page.tsx` 에서 **page-level `await` 를 전면 제거** — 서버는 즉시 셸만 보내고 클라가 캐시 히트 시 즉시, 미스 시 `loading.tsx` 후 1회 fetch. 2) `lib/main-menu/bottom-nav-tap-prewarm-data.ts` 신설 — `pointerdown`/idle 양 단계에서 `router.prefetch` 와 별도로 `getPostsForHome`/`getPostsByTradeCategoryIds` 클라 캐시를 함께 데움(이미 캐시되면 noop). 3) `BottomNav.tsx` 두 탭 컴포넌트 + idle prefetch chain 모두에서 helper 호출. 4) `lib/stores/store-home-feed-client-cache.ts` 신설 + `StoreNearbyFeedSection.tsx` 캐시를 공용화해 `/stores` 탭에서도 prewarm 데이터가 실제 첫 렌더 캐시에 사용되도록 구조 고정. 5) `/philife` 글로벌 피드(`globalFeed=1`, latest) + topic-options 를 하단 탭 prewarm에서 직접 선요청해 `writePhilifeFeedCache`/topic TTL 캐시를 채움. 6) 하단 탭 키보드 진입(Enter/Space)에도 동일 prewarm 경로를 연결해 입력 방식 차이에 따른 체감 편차 제거. |
-| 관측 포인트 | `trade_list_*` (samarket-runtime-debug), `bumpAppWidePerf("trade_list_fetch_*")`, dev 콘솔에서 동일 탭 2회 진입 시 `getPostsForHome` 네트워크가 사라지는지 확인 (single-flight + 45s TTL). |
-| 후속(트랙 X 후보) | Philife 주제 칩별 인접 prewarm(`category`/`recommended`)을 하단 탭 prewarm 단계와도 공유해, `/market`→`/philife` 첫 진입 직후 칩 전환까지 초기 API 미스를 더 줄인다. |
+| **트랙 상태** | **진행 중 (라운드 W→W7 반영)** — `/stores` + `/philife` 글로벌/토픽 prewarm, 키보드 탭 진입 prewarm, **latest menu navigation intent guard** 까지 반영된 상태에서, 2026-04-30 후속 라운드로 거래 체감 병목을 다시 좁혔다. 이번에는 `/market` 기본 진입이 **RSC 시드 없이 클라 hydration+fetch 완료까지 기다리던 구조**, `/post/[id]` 상세가 **비핵심 거래방/제안 시드까지 첫 응답에서 함께 기다리던 구조**를 최신 원인으로 잡아 수정했다. |
+| 이번 원인 1개 | 거래 대표 경로에서 **첫 화면에 꼭 필요하지 않은 데이터까지 첫 응답을 막고 있었다.** `/market` 기본 진입은 서버 시드가 비어 있어 캐시 미스 시 클라 `getPostsForHome` 완료 전까지 즉시 리스트가 뜨지 않았고, `/post/[id]` 상세는 클라 fallback 이 이미 있는 `room-id`·판매자 제안 시드까지 RSC `Promise.all` 에 묶여 첫 본문 응답이 늦어질 수 있었다. |
+| 이번 조치 | 1) `app/(main)/market/page.tsx` 에 `Suspense` + `MarketContentWithSeed` 를 넣어 `/market` 기본 진입(`tradeState=latest`)일 때는 셸을 즉시 보내면서도 `initialHomeTradeFeed` 를 RSC 스트리밍으로 주입하게 했다. 2) `lib/posts/home-posts-route-core.ts` 에 `resolveDefaultTradeHomePostsSeedForServerComponent()` 를 추가해 `/api/philife/posts` 와 같은 서버 캐시·favorites 정책으로 기본 거래 홈 목록 시드를 생성하게 했다. 3) `services/trade/trade-detail.service.ts` 에서 상세 첫 화면에 비핵심인 `resolveViewerItemTradeRoom`·판매자 제안 선로드를 RSC 크리티컬 경로에서 제거하고, 판매자 프로필도 주소 기본값 추가 조회 없이 최소 프로필만 먼저 반환하게 줄였다. |
+| 관측 포인트 | `/market` 은 기본 latest 진입에서 **클라 단독 fetch 전에 RSC 시드가 도착하는지**, `/post/[id]` 는 본문·판매자 블록보다 늦게 필요한 room-id / offer seed 가 첫 응답을 막지 않는지 확인. 로컬 `curl -L` 3회 스모크에서는 `/market` warm `time_starttransfer` 가 **55.7 / 65.9 / 77.3ms**, 샘플 `/post/<id>` 는 **cold 1616.9ms / warm 65.1ms / 53.3ms** 로 200 응답을 유지했다. |
+| 후속(트랙 X 후보) | `/post/[id]` 의 가장 큰 잔여 병목인 `loadTradeDetailRelatedBundle`(판매자 다른 글·유사 글·광고)을 본문 이후로 분리할지 검토한다. 이때는 기존 기능 회귀 없이 `related` 섹션만 지연/스트리밍하는 구조로 한 단계 더 쪼갠다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
+
+---
+
+## 이번 라운드 (최신: 라운드 W8 — detail related 번들 후속 로드 분리)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/post/[id]` 첫 응답에서 `loadTradeDetailRelatedBundle`(판매자 다른 글·유사 글·광고)까지 함께 await 하면서, 본문 진입 체감이 related 쿼리 비용에 끌려갔다. |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 1회(`http://localhost:3000/post/<sampleId>`) + 후속 API 1회(`http://localhost:3000/api/posts/<sampleId>/related`) |
+| 완료 기준 | 상세 본문 응답 경로에서 related 번들을 제거하고, related는 별도 후속 API로 정상 200 로드되어 UI 회귀 없이 채워져야 함 |
+| 수정 파일 (1~3) | `services/trade/trade-detail.service.ts`, `app/(main)/post/[id]/PostDetailPageClient.tsx`, `app/api/posts/[postId]/related/route.ts` |
+
+### 라운드 W8 — 스모크 (s)
+
+| 구분 | starttransfer | total | 비고 |
+|------|---------------|-------|------|
+| `/post/<sampleId>` | 1.1314 | 1.1367 | 200, 본문 응답 |
+| `/api/posts/<sampleId>/related` | 3.1589 | 3.1591 | 200, related 후속 로드 |
+
+**비교:** 이전에는 상세 본문이 related 번들과 같은 응답 경로였고, 지금은 본문과 related가 분리되어 첫 화면 진입 경로에서 related 대기가 제거됐다.  
+**판정:** **보류** — 구조 분리는 완료했지만, 사용자 체감(브라우저 상호작용 기준) 3회 반복 전/후 비교는 추가 필요.
 
 ---
 
@@ -77,6 +98,27 @@
 
 **비교:** 평균 **1649ms → 737ms (약 55.3% 감소, -912ms)**  
 **판정:** **성공** — 동일 endpoint 3회에서 일관된 하락 확인.
+
+---
+
+## 이번 라운드 (최신: 라운드 W7 — market 기본 시드 복원 + detail 비핵심 await 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/market` 기본 진입은 **RSC 시드 부재**로 캐시 미스 시 클라 `getPostsForHome` 완료까지 기다렸고, `/post/[id]` 는 클라 fallback 이 이미 있는 `room-id`·판매자 제안 시드를 RSC 본문 응답과 함께 기다렸다. |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 3회 — `http://localhost:3000/market`, `http://localhost:3000/post/<sampleId>` (`sampleId`: 홈 API 첫 글) |
+| 완료 기준 | `/market` 기본 latest 진입은 셸 즉시 + 리스트 seed 주입 경로를 회복하고, `/post/[id]` 는 본문에 비핵심 시드가 first response 를 막지 않게 줄여 warm 3회 응답이 안정적으로 유지되어야 함 |
+| 수정 파일 (1~3) | `app/(main)/market/page.tsx`, `lib/posts/home-posts-route-core.ts`, `services/trade/trade-detail.service.ts` |
+
+### 라운드 W7 — 3회 스모크 (s)
+
+| 구분 | Run1 | Run2 | Run3 | 비고 |
+|------|------|------|------|------|
+| `/market` `time_starttransfer` | 0.0557 | 0.0659 | 0.0773 | 200 유지 |
+| `/post/<sampleId>` `time_starttransfer` | 1.6169 | 0.0651 | 0.0533 | 200 유지, Run1 cold |
+
+**비교:** 구조상 `/market` 은 **클라 단독 fetch 대기 → 스트리밍 seed 병행** 으로 바뀌었고, `/post/[id]` 는 **room-id / seller-offers 선로드 제거**로 본문 크리티컬 경로가 짧아졌다. 이번 수치는 **수정 후 스모크**만 확보했으므로, 사용자 체감 기준의 전/후 판정은 추가 수동 검증이 필요하다.  
+**판정:** **보류** — 근본 원인 제거 방향의 코드 수정과 smoke 3회는 확인했지만, 같은 sample 기준 수정 전/후 비교와 실제 브라우저 체감 반복 확인은 아직 부족하다.
 
 ---
 

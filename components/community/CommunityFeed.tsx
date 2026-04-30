@@ -66,6 +66,7 @@ import {
   tryTrackFirstMenuListFetchSuccess,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 
 declare global {
   interface Window {
@@ -299,6 +300,7 @@ export function CommunityFeed({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
   const pathname = usePathname();
+  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const searchParams = useSearchParams();
   const viewerSig = usePhilifeFeedViewerSig();
   const categoryParam = searchParams.get("category")?.trim() ?? "";
@@ -395,12 +397,28 @@ export function CommunityFeed({
   }, [pathname, router, searchParams, categoryParamNorm]);
 
   const isAllTabView = !category.trim() || isPhilifeRecommendSortCategory(category);
+  const latestSortHref = (() => {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("sort", "latest");
+    const next = sp.toString();
+    return next ? `${pathname}?${next}` : pathname;
+  })();
+  const recommendedSortHref = (() => {
+    const sp = new URLSearchParams(searchParams.toString());
+    sp.set("sort", "recommended");
+    const next = sp.toString();
+    return next ? `${pathname}?${next}` : pathname;
+  })();
   const recSortKey: "latest" | "recommended" = (() => {
     if (!isAllTabView) return "latest";
     if (!sortParam.trim()) return "latest";
     return normalizeFeedSort(sortParam) === "recommended" ? "recommended" : "latest";
   })();
-  const effectiveRecSort: "latest" | "recommended" = recSortKey;
+  const effectiveRecSort: "latest" | "recommended" = menuHrefMatchesIntent(recommendedSortHref, pendingMenuIntent)
+    ? "recommended"
+    : menuHrefMatchesIntent(latestSortHref, pendingMenuIntent)
+      ? "latest"
+      : recSortKey;
 
   /** 주제 칩(필리핀생활 등)일 때는 `sort` 쿼리 제거 */
   useEffect(() => {
@@ -906,9 +924,10 @@ export function CommunityFeed({
       const sp = new URLSearchParams(searchKeyForNav);
       sp.set("sort", mode);
       const next = sp.toString();
+      beginMenuNavigation(next ? `${pathname}?${next}` : pathname, "community-topic");
       void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
-    [pathname, router, searchKeyForNav, sortParam, guardBeforeNavigate]
+    [beginMenuNavigation, pathname, router, searchKeyForNav, sortParam, guardBeforeNavigate]
   );
   const applyRecommendSort = useCallback(
     (mode: "latest" | "recommended") => {
@@ -942,9 +961,10 @@ export function CommunityFeed({
       if (t) sp.set("category", t);
       else sp.delete("category");
       const next = sp.toString();
+      beginMenuNavigation(next ? `${pathname}?${next}` : pathname, "community-topic");
       void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
     },
-    [pathname, router, searchKeyForNav, category, guardBeforeNavigate]
+    [beginMenuNavigation, pathname, router, searchKeyForNav, category, guardBeforeNavigate]
   );
 
   const prefetchCategoryFeedByIntent = useCallback(

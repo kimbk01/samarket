@@ -1,4 +1,7 @@
+import { Suspense } from "react";
 import { TradeListPageMountProbe } from "@/components/home/TradeListPageMountProbe";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { resolveDefaultTradeHomePostsSeedForServerComponent } from "@/lib/posts/home-posts-route-core";
 import { MarketContent } from "./MarketContent";
 
 /**
@@ -13,11 +16,29 @@ import { MarketContent } from "./MarketContent";
  * 단일 `getPostsForHome` 으로 채우면서 라우트 `loading.tsx` 가 깜박인다.
  * 인접 탭·하단 nav `pointerdown` 에서 클라 캐시를 미리 데워 첫 방문도 짧다.
  */
-export default function MarketPage() {
+async function MarketContentWithSeed() {
+  const viewerUserId = await getOptionalAuthenticatedUserId();
+  const initialHomeTradeFeed = await resolveDefaultTradeHomePostsSeedForServerComponent({
+    precomputedViewerUserId: viewerUserId,
+  });
+  return <MarketContent initialHomeTradeFeed={initialHomeTradeFeed} />;
+}
+
+export default async function MarketPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : undefined;
+  const tradeStateRaw = params?.tradeState;
+  const tradeState = Array.isArray(tradeStateRaw) ? tradeStateRaw[0] : tradeStateRaw;
+  const useLatestSeed = !tradeState || tradeState === "latest";
   return (
     <>
       <TradeListPageMountProbe />
-      <MarketContent />
+      <Suspense fallback={<MarketContent />}>
+        {useLatestSeed ? <MarketContentWithSeed /> : <MarketContent />}
+      </Suspense>
     </>
   );
 }

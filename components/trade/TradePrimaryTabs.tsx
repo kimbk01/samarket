@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -23,6 +23,7 @@ import {
 } from "@/lib/ui/network-policy";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
+import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -61,12 +62,13 @@ function TradePrimaryTabsFallback({ embedInAppHeader }: { embedInAppHeader: bool
  * `useSearchParams()` — Next 정적 생성용 `Suspense` 경계.
  */
 function TradePrimaryTabsInner({
-  embed = false,
+  embed: _embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const { loading, error, tabs } = useTradeTabs(pathname);
@@ -79,6 +81,7 @@ function TradePrimaryTabsInner({
     ? tradeStateRaw
     : "latest";
   const allSortLabel = tradeState === "active" ? "판매중" : tradeState === "reserved" ? "예약중" : tradeState === "sold" ? "거래 완료" : "최신순";
+  const allTradeHref = tradeState === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(tradeState)}`;
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
       const sp = new URLSearchParams(searchParams.toString());
@@ -87,10 +90,19 @@ function TradePrimaryTabsInner({
       const qs = sp.toString();
       const nextHref = qs ? `/market?${qs}` : "/market";
       if (next !== tradeState && !guardBeforeNavigate(nextHref)) return;
+      beginMenuNavigation(nextHref, "trade-primary");
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
-    [router, searchParams, tradeState, guardBeforeNavigate]
+    [beginMenuNavigation, router, searchParams, tradeState, guardBeforeNavigate]
+  );
+  const displayTabs = useMemo(
+    () =>
+      tabs.map((tab) => ({
+        ...tab,
+        isDisplayActive: menuHrefMatchesIntent(tab.href, pendingMenuIntent) || tab.isActive,
+      })),
+    [tabs, pendingMenuIntent]
   );
 
   const updateAllSortMenuPos = useCallback(() => {
@@ -130,12 +142,12 @@ function TradePrimaryTabsInner({
   }, [loading, tabs, router]);
 
   useLayoutEffect(() => {
-    const activeTab = tabs.find((t) => t.isActive);
+    const activeTab = displayTabs.find((t) => t.isDisplayActive);
     const el = activeTab ? tabRefs.current[activeTab.key] : null;
     if (el) {
       el.scrollIntoView({ inline: "center", block: "nearest" });
     }
-  }, [tabs]);
+  }, [displayTabs]);
 
   useEffect(() => {
     if (!allSortOpen) return;
@@ -182,9 +194,10 @@ function TradePrimaryTabsInner({
         role="tablist"
         aria-label="TRADE 메뉴"
       >
-        {tabs.map((tab) => {
+        {displayTabs.map((tab) => {
           if (tab.key === "all") {
-            const onAllTrade = pathname === "/market";
+            const onAllTrade =
+              menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
             return (
               <button
                 key={tab.key}
@@ -222,11 +235,15 @@ function TradePrimaryTabsInner({
                 tabRefs.current[tab.key] = el;
               }}
               role="tab"
-              aria-selected={tab.isActive}
+              aria-selected={tab.isDisplayActive}
               prefetch
-              className={tab.isActive ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
+              className={tab.isDisplayActive ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
               onClick={(e) => {
-                if (!tab.isActive && !guardBeforeNavigate(tab.href)) e.preventDefault();
+                if (!tab.isActive && !guardBeforeNavigate(tab.href)) {
+                  e.preventDefault();
+                  return;
+                }
+                beginMenuNavigation(tab.href, "trade-primary");
               }}
             >
               <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{tab.label}</span>

@@ -66,6 +66,7 @@ import {
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -139,6 +140,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   navSearch,
   pendingActiveTabId,
   onNavigationIntent,
+  beginMenuNavigation,
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
@@ -147,6 +149,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { tt, t } = useI18n();
@@ -211,7 +214,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       aria-current={isActive ? "page" : undefined}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        onNavigationIntent(tab.id);
         if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
           try {
             void router.prefetch(tab.href);
@@ -230,12 +232,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         if (e.key === "Enter" || e.key === " ") {
           if (
             !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-            !guardBeforeNavigate()
+            !guardBeforeNavigate(tab.href)
           ) {
             e.preventDefault();
             return;
           }
           triggerLightTapFeedback();
+          beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
           if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
             try {
@@ -256,10 +259,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           onBottomNavTabActivate(pathname, navSearch, tab.href, e);
           return;
         }
-        if (!guardBeforeNavigate()) {
+        if (!guardBeforeNavigate(tab.href)) {
           e.preventDefault();
           return;
         }
+        beginMenuNavigation(tab.href);
+        onNavigationIntent(tab.id);
         onBottomNavTabActivate(pathname, navSearch, tab.href, e);
       }}
     >
@@ -274,6 +279,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   navSearch,
   pendingActiveTabId,
   onNavigationIntent,
+  beginMenuNavigation,
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
@@ -281,6 +287,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   navSearch: string;
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { tt, t } = useI18n();
@@ -353,7 +360,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       aria-current={isActive ? "page" : undefined}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        onNavigationIntent(tab.id);
         if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
           try {
             void router.prefetch(tab.href);
@@ -372,12 +378,13 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         if (e.key === "Enter" || e.key === " ") {
           if (
             !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-            !guardBeforeNavigate()
+            !guardBeforeNavigate(tab.href)
           ) {
             e.preventDefault();
             return;
           }
           triggerLightTapFeedback();
+          beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
           if (!isActive && shouldRunBottomNavProgrammaticPrefetch()) {
             try {
@@ -398,10 +405,12 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           onBottomNavTabActivate(pathname, navSearch, tab.href, e);
           return;
         }
-        if (!guardBeforeNavigate()) {
+        if (!guardBeforeNavigate(tab.href)) {
           e.preventDefault();
           return;
         }
+        beginMenuNavigation(tab.href);
+        onNavigationIntent(tab.id);
         onBottomNavTabActivate(pathname, navSearch, tab.href, e);
       }}
     >
@@ -435,7 +444,6 @@ export function BottomNav({
   extraOuterClassName?: string;
 }) {
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
-  const { t } = useI18n();
   const pathname = usePathname();
   /** idle 프리페치 콜백 시점의 최신 경로 — effect deps 는 도메인 키만 쓰므로 클로저 pathname 고착 방지 */
   const pathnameForPrefetchRef = useRef<string | null>(pathname ?? null);
@@ -449,9 +457,12 @@ export function BottomNav({
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const router = useRouter();
+  const { beginMenuNavigation } = useLatestMenuNavigation();
   /** `useRouter()` 는 AppRouterContext 갱신 시마다 항상 동일 식별자가 아닐 수 있음 — prefetch effect deps 는 도메인 키만. */
   const routerRef = useRef(router);
-  routerRef.current = router;
+  useLayoutEffect(() => {
+    routerRef.current = router;
+  }, [router]);
   const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() =>
     initialTabs && initialTabs.length > 0 ? initialTabs.map((tab) => ({ ...tab })) : [...BOTTOM_NAV_ITEMS]
   );
@@ -491,6 +502,12 @@ export function BottomNav({
       }, 1500);
     },
     [clearPendingActiveReset]
+  );
+  const markLatestMenuNavigation = useCallback(
+    (href: string) => {
+      beginMenuNavigation(href, "bottom-nav");
+    },
+    [beginMenuNavigation]
   );
 
   const applyMainBottomNavItems = useCallback(async (force: boolean) => {
@@ -671,6 +688,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
+                beginMenuNavigation={markLatestMenuNavigation}
                 guardBeforeNavigate={guardNav}
               />
             ) : (
@@ -681,6 +699,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
+                beginMenuNavigation={markLatestMenuNavigation}
                 guardBeforeNavigate={guardNav}
               />
             );

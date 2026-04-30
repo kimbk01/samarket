@@ -1,14 +1,10 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import type { ChatRoomSource } from "@/lib/types/chat";
-import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
-import { buildTradeLocationPreviewForPublic } from "@/lib/addresses/user-address-format";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
-import { postAuthorUserId, postOwnedByUserId } from "@/lib/chats/resolve-author-nickname";
-import { listSellerPriceOffersForProduct } from "@/lib/offers/offers.service";
+import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import type { PriceOfferListItem } from "@/lib/offers/types";
-import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import {
   mapProfileRowToPublicSeller,
   mapTestUserRowToPublicSeller,
@@ -25,6 +21,8 @@ export type TradeItemDetailPageData = {
   sellerItems: PostWithMeta[];
   similarItems: PostWithMeta[];
   ads: PostWithMeta[];
+  /** true면 related 섹션은 클라이언트 후속 로드 */
+  relatedDeferred?: boolean;
   /** RSC 쿠키 세션 — 클라 `getCurrentUserIdForDb` 보다 앞서 소유자 UI 시드 */
   viewerUserId: string | null;
   /** 본인 글·가격 제안 상품일 때만 서버에서 선로드(첫 페인트 즉시 표시) */
@@ -80,14 +78,7 @@ async function loadSellerPublicProfile(
     if (!profErr && prof && typeof (prof as { id?: string }).id === "string") {
       const profile = mapProfileRowToPublicSeller(prof as Record<string, unknown>);
       if (!profile.id) break;
-      let tradeLocationLine: string | null = null;
-      try {
-        const defaults = await getUserAddressDefaults(sbAny, sellerId);
-        tradeLocationLine = buildTradeLocationPreviewForPublic(defaults.trade);
-      } catch {
-        /* ignore optional address fallback */
-      }
-      return { ...profile, tradeLocationLine };
+      return profile;
     }
 
     const { data: testRow } = await sbAny
@@ -111,6 +102,51 @@ async function loadTradeOpsSettings(clients: PostsReadClients) {
     .maybeSingle();
   const raw = (data as { value_json?: Record<string, unknown> } | null)?.value_json;
   return mergeTradeDetailOpsSettings(raw ?? {});
+}
+
+export async function getTradeDetailRelatedData(
+  clients: PostsReadClients,
+  input: {
+    itemId: string;
+    viewerUserId: string | null;
+    sellerLimit?: number;
+    similarLimit?: number;
+    adsLimit?: number;
+  }
+): Promise<{ sellerItems: PostWithMeta[]; similarItems: PostWithMeta[]; ads: PostWithMeta[] } | null> {
+  const itemId = input.itemId.trim();
+  if (!itemId) return null;
+  const [item, ops] = await Promise.all([
+    loadPostDetailShared(clients, itemId, input.viewerUserId),
+    loadTradeOpsSettings(clients),
+  ]);
+  if (!item || item.type === "community") {
+    return { sellerItems: [], similarItems: [], ads: [] };
+  }
+  const sellerId =
+    (typeof item.user_id === "string" && item.user_id.trim() ? item.user_id.trim() : "") ||
+    postAuthorUserId(item as unknown as Record<string, unknown>) ||
+    "";
+  const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
+  const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
+  const regionId = item.region?.trim() ?? "";
+  const sellerLimit = input.sellerLimit ?? ops.fallbackCount ?? SELLER_LIMIT_DEFAULT;
+  const similarLimit = input.similarLimit ?? ops.similarCount ?? SIMILAR_LIMIT_DEFAULT;
+  const adsLimit = input.adsLimit ?? ops.adsCount ?? ADS_LIMIT_DEFAULT;
+  return loadTradeDetailRelatedBundle(clients.readSb, {
+    itemId,
+    sellerId,
+    sellerNickname,
+    categoryId,
+    regionId,
+    sellerLimit,
+    similarLimit,
+    adsLimit,
+    regionEnabled: ops.regionEnabled,
+    regionRequired: ops.regionRequired,
+    regionGroups: ops.regionGroups,
+    completedVisibleDays: ops.completedVisibleDays,
+  });
 }
 
 export async function getItemDetailPageData(
@@ -151,76 +187,24 @@ export async function getItemDetailPageData(
   const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
-  const sb = clients.readSb ?? clients.serviceSb;
-  const viewerRoomPromise =
-    viewerId && sellerId && viewerId !== sellerId && sb
-      ? resolveViewerItemTradeRoom(sb, {
-          itemId,
-          viewerUserId: viewerId,
-          sellerId,
-        })
-      : Promise.resolve({ roomId: null, source: null, messengerRoomId: null });
-
   const sellerLimit = input.sellerLimit ?? ops.fallbackCount ?? SELLER_LIMIT_DEFAULT;
   const similarLimit = input.similarLimit ?? ops.similarCount ?? SIMILAR_LIMIT_DEFAULT;
   const adsLimit = input.adsLimit ?? ops.adsCount ?? ADS_LIMIT_DEFAULT;
 
-  const relatedPromise = loadTradeDetailRelatedBundle(clients.readSb, {
-    itemId,
-    sellerId,
-    sellerNickname,
-    categoryId,
-    regionId,
-    sellerLimit,
-    similarLimit,
-    adsLimit,
-    regionEnabled: ops.regionEnabled,
-    regionRequired: ops.regionRequired,
-    regionGroups: ops.regionGroups,
-    completedVisibleDays: ops.completedVisibleDays,
-  });
-
-  const offersSb = clients.serviceSb ?? clients.readSb;
-  const prefetchSellerOffers =
-    Boolean(viewerId) &&
-    postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId) &&
-    item.is_price_offer === true &&
-    typeof item.price === "number" &&
-    Number.isFinite(item.price) &&
-    item.price > 0;
-
-  const sellerOffersPromise =
-    prefetchSellerOffers && offersSb
-      ? listSellerPriceOffersForProduct(offersSb, viewerId, itemId).then((r) => (r.ok ? r.value : []))
-      : Promise.resolve(undefined);
-
-  const [viewerRoomRow, related, sellerProfile, sellerOffersSeed] = await Promise.all([
-    viewerRoomPromise,
-    relatedPromise,
-    loadSellerPublicProfile(clients, sellerId),
-    sellerOffersPromise,
-  ]);
-
-  const viewerTradeRoomBootstrap: TradeItemDetailPageData["viewerTradeRoomBootstrap"] =
-    viewerId && sellerId && viewerId !== sellerId
-      ? {
-          viewerUserId: viewerId,
-          roomId: viewerRoomRow.roomId,
-          source: viewerRoomRow.source,
-          ...(viewerRoomRow.messengerRoomId
-            ? { messengerRoomId: viewerRoomRow.messengerRoomId }
-            : {}),
-        }
-      : undefined;
+  /**
+   * 상세 첫 화면에 꼭 필요하지 않은 거래방 조회 / 판매자 제안 목록 시드는
+   * 클라이언트 fallback 이 이미 있으므로 서버 첫 응답에서는 막지 않는다.
+   * (PostDetailView: room-id GET, OfferListSeller fetch)
+   */
+  const sellerProfile = await loadSellerPublicProfile(clients, sellerId);
 
   return {
     item,
     sellerProfile,
-    sellerItems: related.sellerItems,
-    similarItems: related.similarItems,
-    ads: related.ads,
+    sellerItems: [],
+    similarItems: [],
+    ads: [],
+    relatedDeferred: item.type !== "community",
     viewerUserId: viewerId || null,
-    ...(sellerOffersSeed !== undefined ? { initialSellerPriceOffers: sellerOffersSeed } : {}),
-    viewerTradeRoomBootstrap,
   };
 }
