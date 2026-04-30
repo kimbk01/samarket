@@ -34,7 +34,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
       >
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
-      <Link href={`/products/${product.id}`} className="flex min-w-0 flex-1 gap-3">
+      <Link href={`/post/${product.id}`} className="flex min-w-0 flex-1 gap-3">
         <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
           {product.thumbnail ? (
             <img

@@ -35,7 +35,7 @@ export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
   return (
     <div>
       <Link
-        href={`/products/${item.targetId}`}
+        href={`/post/${item.targetId}`}
         className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
       >
         <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">

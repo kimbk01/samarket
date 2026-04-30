@@ -27,8 +27,8 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link
-      href={`/products/${product.id}`}
-      onClick={() => beginRouteEntryPerf("product_detail", `/products/${product.id}`)}
+      href={`/post/${product.id}`}
+      onClick={() => beginRouteEntryPerf("product_detail", `/post/${product.id}`)}
       className={`relative flex gap-3 rounded-ui-rect bg-sam-surface p-3 ${isSold ? "opacity-60" : ""}`}
     >
       <div

@@ -28,7 +28,7 @@ export default function NewProductPageClient() {
         }}
         saveProduct={saveProductTradeFromForm}
         onSubmitSuccess={(id) => {
-          const href = `/products/${id}`;
+          const href = `/post/${id}`;
           void router.prefetch(href);
           router.push(href);
         }}

@@ -1,16 +1,18 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { withTimeout } from "@/lib/async/with-timeout";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
 import { getItemDetailPageData } from "@/services/trade/trade-detail.service";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 
 export const dynamic = "force-dynamic";
 
-async function PostDetailPageBody({ paramsPromise }: { paramsPromise: Promise<{ id: string }> }) {
+/** 무한 스켈레톤 방지 — 상세 부트스트랩 상한 (운영 DB 지연 시에도 UI가 멈추지 않게) */
+const TRADE_DETAIL_LOAD_BUDGET_MS = 28_000;
+
+export default async function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const t0 = performance.now();
-  const { id } = await paramsPromise;
+  const { id } = await params;
   const trimmed = typeof id === "string" ? id.trim() : "";
   if (!trimmed) {
     notFound();
@@ -24,7 +26,19 @@ async function PostDetailPageBody({ paramsPromise }: { paramsPromise: Promise<{ 
     return <PostDetailConfigError />;
   }
 
-  const bundle = await getItemDetailPageData(clients, { itemId: trimmed, viewerUserId: viewerId });
+  let bundle: Awaited<ReturnType<typeof getItemDetailPageData>>;
+  try {
+    bundle = await withTimeout(
+      getItemDetailPageData(clients, { itemId: trimmed, viewerUserId: viewerId }),
+      TRADE_DETAIL_LOAD_BUDGET_MS,
+      "trade_detail_load_timeout"
+    );
+  } catch (err) {
+    const e = err instanceof Error ? err : new Error(String(err));
+    console.error("[post/[id]] getItemDetailPageData", e);
+    throw e;
+  }
+
   if (!bundle) {
     notFound();
   }
@@ -35,13 +49,5 @@ async function PostDetailPageBody({ paramsPromise }: { paramsPromise: Promise<{ 
       initialBundle={bundle}
       initialRouteTotalMs={Math.round(performance.now() - t0)}
     />
-  );
-}
-
-export default function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <PostDetailPageBody paramsPromise={params} />
-    </Suspense>
   );
 }

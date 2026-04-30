@@ -137,7 +137,7 @@ export function JobsWriteForm({
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
 
-  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
+  const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
   const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency) : "";
 

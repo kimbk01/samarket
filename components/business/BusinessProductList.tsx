@@ -7,7 +7,7 @@ interface BusinessProductListProps {
   products: BusinessProduct[];
   shopSlug: string;
   emptyMessage?: string;
-  /** 없으면 `/products/:id` */
+  /** 없으면 거래 상세 `/post/:id` */
   productHref?: (p: BusinessProduct) => string;
 }
 
@@ -28,7 +28,7 @@ export function BusinessProductList({
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {products.map((p) => {
-        const href = productHref ? productHref(p) : `/products/${p.id}`;
+        const href = productHref ? productHref(p) : `/post/${p.id}`;
         return (
         <Link
           key={p.id}

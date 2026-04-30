@@ -108,13 +108,13 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
 
   const handleSuccess = useCallback(
     (postId: string) => {
-      router.replace(`/products/${postId}`);
+      router.replace(`/post/${postId}`);
     },
     [router]
   );
 
   const handleCancel = useCallback(() => {
-    if (id) router.push(`/products/${id}`);
+    if (id) router.push(`/post/${id}`);
     else router.back();
   }, [id, router]);
 
@@ -141,7 +141,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
         <p className="sam-text-body font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
         <button
           type="button"
-          onClick={() => router.push(`/products/${id}`)}
+          onClick={() => router.push(`/post/${id}`)}
           className="mt-4 sam-text-body text-signature"
         >
           상품으로 돌아가기
@@ -162,7 +162,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
         <p className="sam-text-body text-sam-muted">이 상품은 이 화면에서 수정할 수 없습니다.</p>
-        <Link href={`/products/${id}`} className="sam-text-body font-medium text-signature">
+        <Link href={`/post/${id}`} className="sam-text-body font-medium text-signature">
           상품으로
         </Link>
       </div>

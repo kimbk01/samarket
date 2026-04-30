@@ -121,7 +121,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="px-4">
+    <section>
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <h3 className="truncate sam-text-hero font-extrabold tracking-[-0.02em] text-sam-fg">{personalTitle}</h3>
@@ -204,7 +204,7 @@ function RelatedGridSection({
 }) {
   if (items.length === 0) return null;
   return (
-    <section className="px-4">
+    <section>
       <h3 className="mb-3 sam-text-hero font-extrabold tracking-[-0.02em] text-sam-fg">{title}</h3>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {items.map((item) => (
@@ -215,12 +215,21 @@ function RelatedGridSection({
   );
 }
 
+/** `PostDetailView` 의 섹터 카드와 동일 — 내용 없으면 래퍼도 렌더하지 않음 */
+const RELATED_STACK_CARD_CLASS = "sam-card overflow-hidden";
+
 export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: RelatedProps) {
+  if (sellerItems.length === 0 && similarItems.length === 0 && ads.length === 0) {
+    return null;
+  }
+
   return (
-    <div className="space-y-7 py-5">
-      <RelatedGridSection title="판매자의 다른 물품" items={sellerItems} />
-      <RelatedAdsCarouselSection items={ads} />
-      <RelatedGridSection title="보고 있는 물품과 비슷한 물품" items={similarItems} />
+    <div className={RELATED_STACK_CARD_CLASS}>
+      <div className="space-y-7 px-3 py-5 sm:px-4">
+        <RelatedGridSection title="판매자의 다른 물품" items={sellerItems} />
+        <RelatedAdsCarouselSection items={ads} />
+        <RelatedGridSection title="보고 있는 물품과 비슷한 물품" items={similarItems} />
+      </div>
     </div>
   );
 }

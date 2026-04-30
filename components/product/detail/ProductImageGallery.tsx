@@ -7,6 +7,7 @@ interface ProductImageGalleryProps {
   title: string;
 }
 
+/** 거래 상세 히어로 — crop 금지, 전체 이미지 표시(contain / width 100% · height auto · max-height 420px) */
 export function ProductImageGallery({ images, title }: ProductImageGalleryProps) {
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
   }, [current, list.length, goTo]);
 
   return (
-    <div className="relative w-full bg-sam-surface-muted">
+    <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -46,23 +47,24 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
         {list.map((src, i) => (
           <div
             key={i}
-            className="aspect-square max-h-[320px] w-full min-w-full shrink-0 snap-start snap-always sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]"
+            className="flex min-w-full w-full shrink-0 snap-start snap-always items-center justify-center"
           >
             {src ? (
               <img
                 src={src}
                 alt={title ? `${title} - ${i + 1}` : ""}
-                className="h-full w-full object-contain"
+                className="block h-auto w-full max-h-[420px] object-contain object-center"
                 draggable={false}
               />
             ) : (
-              <div className="h-full w-full bg-sam-border-soft" aria-hidden />
+              <div className="flex min-h-[160px] w-full items-center justify-center bg-sam-surface-muted text-sm text-[#999]">
+                이미지
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      {/* 좌우 화살표 버튼 (이미지 위 오버레이) */}
       {list.length > 1 && (
         <>
           <button
@@ -83,7 +85,6 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
           >
             <ChevronRight className="h-6 w-6" />
           </button>
-          {/* 현재/전체 표시 (우하단) */}
           <div className="absolute bottom-2 right-2 z-10 rounded bg-black/50 px-2 py-1 sam-text-helper font-medium text-white">
             {current + 1}/{list.length}
           </div>

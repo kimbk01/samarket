@@ -346,7 +346,7 @@ export function ExchangeWriteForm({
     ]
   );
 
-  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
+  const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const baseRates = liveRates ?? DEFAULT_RATES_PHP_BASE;
   const ratesForBoard = useMemo(() => {
     const result: Record<string, number> = { PHP: 1 };

@@ -52,7 +52,7 @@ export const SAMARKET_ROUTES = {
     newProduct: "/products/new",
     writeCategory: (categoryId: string) => `/write/${encodeURIComponent(categoryId)}`,
     post: (postId: string) => `/post/${encodeURIComponent(postId)}`,
-    product: (productId: string) => `/products/${encodeURIComponent(productId)}`,
+    product: (productId: string) => `/post/${encodeURIComponent(productId)}`,
     market: (slug: string) => `/market/${encodeURIComponent(slug)}`,
   },
   community: {

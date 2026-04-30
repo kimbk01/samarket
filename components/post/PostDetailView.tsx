@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -50,8 +49,6 @@ import {
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
-import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
-import type { UserTrustSummary } from "@/lib/types/review";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
@@ -60,7 +57,6 @@ import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSe
 import { TradePostAdApplySheet } from "@/components/post/TradePostAdApplySheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
-import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import {
   openCreateTradeChat,
   openExistingTradeChat,
@@ -81,6 +77,29 @@ import {
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+
+/** 거래 피드 `TRADE_FEED_LIST_WRAP_CLASS` — 카드 사이 4px(`space-y-1`) + 좌우 `px-2` */
+const POST_DETAIL_FEED_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-1 pt-1`;
+/** `PostCard`의 `PHILIFE_FB_CARD_CLASS`(`sam-card`)와 동일 테두리·모서리 */
+const POST_DETAIL_SECTOR_CARD_CLASS = "sam-card overflow-hidden";
+/** PostCard 본문 줄(`px-3`/`sm:px-4`)과 맞춘 내부 패딩 */
+const POST_DETAIL_SECTOR_PAD_CLASS = "px-3 py-4 sm:px-4";
+/** 상세 제목 줄 `TradeListingStatusBadge` — 목록·상세 규격 단일화 */
+const TRADE_DETAIL_STATUS_BADGE_CLASS =
+  "!inline-flex !h-6 !items-center !rounded-[4px] !border-0 !bg-[#f1f3f5] !px-2 !py-0 !text-[12px] !font-medium !leading-none !text-[#555555]";
+/** 댓글·오버플로 잠금 해제 — `sam-card` 단일 규격 */
+const POST_DETAIL_COMMUNITY_CARD_CLASS = "sam-card !overflow-visible";
+
+function resolveTradePostDetailImageUrls(post: PostWithMeta): string[] {
+  const imgArr = Array.isArray(post.images)
+    ? post.images.filter((s): s is string => typeof s === "string")
+    : [];
+  if (imgArr.length > 0) return imgArr;
+  const t = post.thumbnail_url;
+  return typeof t === "string" && t.trim() ? [t.trim()] : [];
+}
 
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
@@ -487,39 +506,24 @@ function PostDetailSellerProfileRow({
   author: PostDetailSellerAuthor | null;
   regionLine: React.ReactNode;
 }) {
-  const trustSummary: UserTrustSummary | null = author
-    ? {
-        userId: author.id,
-        reviewCount: 0,
-        averageRating: 0,
-        mannerScore: author.trustScore,
-        positiveCount: 0,
-        negativeCount: 0,
-        summaryTags: [],
-      }
-    : null;
   const label = author?.nickname?.trim() || "판매자";
   const initial = label.charAt(0).toUpperCase() || "?";
   return (
-    <div className="flex items-center justify-between gap-3 min-w-0">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sam-border-soft sam-text-body font-semibold text-sam-muted">
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-1 items-center">
+        <div className="mr-2.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eeeeee] text-[13px] font-bold text-[#888]">
           {author?.avatar_url ? (
             <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
           ) : (
             <span aria-hidden>{initial}</span>
           )}
         </div>
-        <div className="min-w-0">
-          <p className="sam-text-body font-semibold text-sam-fg truncate">{author?.nickname ?? "사용자"}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14px] font-bold leading-[1.2] text-[#111111]">{author?.nickname ?? "사용자"}</p>
           {regionLine}
         </div>
       </div>
-      {trustSummary ? (
-        <div className="shrink-0">
-          <TrustSummaryCard summary={trustSummary} variant="compact" />
-        </div>
-      ) : null}
+      <MannerBatteryDisplay raw={author?.trustScore ?? 50} layout="inline" size="sm" className="shrink-0" />
     </div>
   );
 }
@@ -760,7 +764,6 @@ export function PostDetailView({
   }, [post.category_id]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const tier1Title = useMemo(() => category?.name?.trim() || "거래", [category?.name]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -768,39 +771,29 @@ export function PostDetailView({
     const showSellerMore = showSellerMoreMenu;
     setMainTier1Extras({
       tier1: {
-        titleText: tier1Title,
+        titleText: "중고거래",
         preferHistoryBack: true,
         ariaLabel: "이전 화면",
         showHubQuickActions: false,
         leftSlot: (
-          <div className="flex items-center">
-            <AppBackButton preferHistoryBack backHref={backHref} ariaLabel="이전 화면" />
-            <Link
-              href="/philife"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
-              aria-label="홈"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-            </Link>
-          </div>
+          <AppBackButton
+            preferHistoryBack
+            backHref={backHref}
+            ariaLabel="이전 화면"
+            className="text-[#111]"
+            iconClassName="h-[22px] w-[22px]"
+          />
         ),
         rightSlot: (
-          <div className="flex shrink-0 items-center justify-end gap-0.5">
-            <MyHubHeaderActions />
+          <div className="flex shrink-0 items-center justify-end">
             {showBuyerMore ? (
               <button
                 type="button"
                 onClick={() => setDetailMoreOpen(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label="더보기"
               >
-                <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
@@ -810,10 +803,10 @@ export function PostDetailView({
               <button
                 type="button"
                 onClick={() => setSellerMoreOpen(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+                className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
                 aria-label="더보기"
               >
-                <svg className="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
                   <circle cx="12" cy="12" r="2" />
                   <circle cx="12" cy="19" r="2" />
@@ -827,7 +820,6 @@ export function PostDetailView({
     return () => setMainTier1Extras(null);
   }, [
     setMainTier1Extras,
-    tier1Title,
     backHref,
     isOwnPost,
     showSellerMoreMenu,
@@ -1279,85 +1271,83 @@ export function PostDetailView({
         : "";
 
   if (isRealEstateDetail) {
-    const imgList =
-      Array.isArray(post.images) && post.images.length > 0
-        ? post.images.filter((s): s is string => typeof s === "string")
-        : post.thumbnail_url
-          ? [post.thumbnail_url]
-          : [];
+    const imgList = resolveTradePostDetailImageUrls(post);
+    const reDetailFooterMetaParts = [
+      formatTimeAgo(post.created_at),
+      post.view_count != null && `조회 ${post.view_count}`,
+      `관심 ${favoriteCount}`,
+    ].filter(Boolean) as string[];
     return (
-      <div ref={rootRef} className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
-        <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
-          {/* 1. 이미지 — 태블릿·데스크톱에서 좌측 고정 폭 + 스티키 */}
-          <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
-            <div className="relative w-full bg-sam-surface-muted">
-              <div className="relative w-full">
-                {imgList.length > 0 ? (
-                  <ProductImageGallery images={imgList} title={post.title ?? ""} />
-                ) : (
-                  <div className="flex aspect-square max-h-[320px] w-full items-center justify-center text-sam-meta sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
-                    이미지
-                  </div>
-                )}
+      <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+        <div className={POST_DETAIL_FEED_STACK_CLASS}>
+          <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
+            {imgList.length > 0 ? (
+              <ProductImageGallery images={imgList} title={post.title ?? ""} />
+            ) : (
+              <div className="flex min-h-[160px] w-full items-center justify-center overflow-hidden bg-sam-surface-muted text-sm text-[#999]">
+                이미지
               </div>
-            </div>
-          </div>
+            )}
+          </section>
 
-          <div className="min-w-0 md:col-span-7">
-            {/* 2. 판매자 — profiles 연동 (서버 공개 API + 매너 배터리) */}
-            <div
-              id={POST_DETAIL_SELLER_ANCHOR_ID}
-              data-post-detail-seller="true"
-              className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
-            >
-              <p className="mb-2 sam-text-helper font-medium text-sam-muted">판매자</p>
-              <PostDetailSellerProfileRow
-                author={author}
-                regionLine={
-                  listingLocationLine ? (
-                    <p className="sam-text-helper text-sam-muted truncate">{listingLocationLine}</p>
-                  ) : null
-                }
-              />
+          <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
+            <h2 className="break-words text-[18px] font-bold leading-[1.35] text-[#111111]">{post.title}</h2>
+            {rePriceSummary ? (
+              <p className="mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]">{rePriceSummary}</p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
             </div>
+          </section>
 
-            {/* 3. 부동산 정보: 제목 → 매물 설명 → 테이블, 좌우 여백 0 (하단 흰색 제거) */}
-            <div className="border-t border-sam-border-soft bg-sam-surface px-0 pt-2 pb-0 md:border-t-0">
-          <div className="mb-2 px-4">
-            <TradeListingStatusBadge post={post} size="detail" />
-          </div>
-          <h2 className="mb-2 sam-text-body-lg font-bold text-sam-fg px-4">{post.title}</h2>
-          {post.content && (
-            <div className="mt-2 mb-0 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-              <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">매물 설명</h3>
-              <p className="sam-text-body text-sam-fg whitespace-pre-wrap">{post.content}</p>
+          <section
+            id={POST_DETAIL_SELLER_ANCHOR_ID}
+            data-post-detail-seller="true"
+            className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}
+          >
+            <PostDetailSellerProfileRow
+              author={author}
+              regionLine={
+                listingLocationLine ? (
+                  <p className="max-w-[190px] truncate text-[12px] font-normal leading-[1.2] text-[#777777]">{listingLocationLine}</p>
+                ) : null
+              }
+            />
+            {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
+          </section>
+
+          <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
+            <h3 className="mb-3 text-[15px] font-bold text-[#111111]">상품 설명</h3>
+            <p className="min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap">
+              {post.content || ""}
+            </p>
+            <RealEstateMetaBlock
+              meta={reMeta}
+              salePrice={post.price ?? null}
+              currency={defaultCurrency}
+              regionId={undefined}
+              cityId={undefined}
+              compactTop
+            />
+            {reDetailFooterMetaParts.length > 0 ? (
+              <p className="mt-4 text-[12px] leading-[1.4] text-[#999999]">{reDetailFooterMetaParts.join(" · ")}</p>
+            ) : null}
+          </section>
+
+          {related ? (
+            <PostDetailRelatedSections
+              sellerItems={related.sellerItems}
+              similarItems={related.similarItems}
+              ads={related.ads}
+            />
+          ) : null}
+
+          {post.type === "community" ? (
+            <div className={POST_DETAIL_COMMUNITY_CARD_CLASS}>
+              <PostCommunityCommentsSection postId={post.id} currentUserId={resolvedViewerId ?? null} />
             </div>
-          )}
-          <RealEstateMetaBlock
-            meta={reMeta}
-            salePrice={post.price ?? null}
-            currency={defaultCurrency}
-            regionId={post.region}
-            cityId={post.city}
-            compactTop
-          />
-          <ul className="mt-2 space-y-1 border-t border-sam-border-soft px-4 py-3 sam-text-body-secondary text-sam-muted">
-            {(() => {
-              const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");
-              return s ? <li>{s}</li> : null;
-            })()}
-          </ul>
-            </div>
-          </div>
+          ) : null}
         </div>
-
-        {related ? (
-          <PostDetailRelatedSections
-            sellerItems={related.sellerItems}
-            similarItems={related.similarItems}
-            ads={related.ads}
-          />
-        ) : null}
 
         {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
         <div
@@ -1497,197 +1487,169 @@ export function PostDetailView({
     );
   }
 
+  const detailFooterMetaParts = [
+    formatTimeAgo(post.created_at),
+    post.view_count != null && `조회 ${post.view_count}`,
+    `관심 ${favoriteCount}`,
+  ].filter(Boolean) as string[];
+
+  const detailImageUrls = resolveTradePostDetailImageUrls(post);
+
   return (
-    <div ref={rootRef} className={`w-full min-w-0 ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
-      <div className="grid grid-cols-1 md:grid-cols-12 md:items-start md:gap-6 lg:gap-8">
-        {/* 1. 이미지 — 태블릿·가로: 좌측 열 + 스크롤 시 고정 */}
-        <div className="min-w-0 bg-sam-surface md:col-span-5 lg:sticky lg:top-14 lg:z-0 lg:self-start">
-          <div className="relative w-full bg-sam-surface-muted">
-            <div className="relative w-full">
-              {(() => {
-                const imgArr = Array.isArray(post.images)
-                  ? post.images.filter((s): s is string => typeof s === "string")
-                  : [];
-                const list: string[] =
-                  imgArr.length > 0
-                    ? imgArr
-                    : post.thumbnail_url
-                      ? [post.thumbnail_url]
-                      : [];
-                if (list.length === 0) {
-                  const isExchange = hasExchangeMeta(post.meta ?? {});
-                  return (
-                    <div className="relative flex aspect-square max-h-[320px] w-full items-center justify-center bg-sam-surface-muted sm:max-h-[380px] md:max-h-[min(52vh,480px)] lg:max-h-[min(56vh,560px)]">
-                      {isExchange ? (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-emerald-50 text-6xl font-semibold text-sam-fg" aria-hidden>
-                          <span>₱</span>
-                          <span className="text-2xl text-sam-muted">↔</span>
-                          <span>₩</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-sam-meta">이미지</span>
-                      )}
-                    </div>
-                  );
-                }
-                return <ProductImageGallery images={list} title={post.title ?? ""} />;
-              })()}
+    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+      <div className={POST_DETAIL_FEED_STACK_CLASS}>
+        <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
+          {detailImageUrls.length === 0 ? (
+            <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
+              {hasExchangeMeta(post.meta ?? {}) ? (
+                <div
+                  className="flex w-full flex-col items-center justify-center gap-1 bg-emerald-50 py-10 text-6xl font-semibold text-sam-fg"
+                  aria-hidden
+                >
+                  <span>₱</span>
+                  <span className="text-2xl text-sam-muted">↔</span>
+                  <span>₩</span>
+                </div>
+              ) : (
+                <span className="py-16 text-sm text-[#999]">이미지</span>
+              )}
             </div>
-          </div>
-        </div>
+          ) : (
+            <ProductImageGallery images={detailImageUrls} title={post.title ?? ""} />
+          )}
+        </section>
 
-        <div className="min-w-0 md:col-span-7">
-          {/* 2. 판매자(프로필) — `/api/users/.../public-profile` + TrustSummaryCard(매너 배터리) */}
-          <div
-            id={POST_DETAIL_SELLER_ANCHOR_ID}
-            data-post-detail-seller="true"
-            className="scroll-mt-14 border-b border-sam-border-soft bg-sam-surface px-4 py-3 md:border-t-0"
-          >
-        <p className="mb-2 sam-text-helper font-medium text-sam-muted">판매자</p>
-        <PostDetailSellerProfileRow
-          author={author}
-          regionLine={
-            listingLocationLine ? (
-              <p className="sam-text-helper text-sam-muted truncate">{listingLocationLine}</p>
-            ) : null
-          }
-        />
-          </div>
-
-          {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
-
-          {/* 3. 제목 + 가격 + 메타 — 상품 상세(/products) 타이포와 통일 */}
-          <div className="border-b border-sam-border-soft bg-sam-surface px-4 py-4 md:border-t-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <TradeListingStatusBadge post={post} size="detail" />
-          {category?.icon_key === "used-car" &&
-            (() => {
-              const lab = getCarTradeLabelKo(post.meta as Record<string, unknown> | undefined);
-              if (!lab) return null;
-              return (
-                <>
-                  <span className="sam-text-helper font-medium text-sam-meta" aria-hidden>
-                    |
-                  </span>
-                  <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-semibold text-sam-fg">
+        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
+          <h2 className={`break-words text-[18px] font-bold leading-[1.35] text-[#111111] ${isSold ? "opacity-80" : ""}`}>
+            {post.title}
+          </h2>
+          {showPrice && (() => {
+            const isRealEstate = category?.icon_key === "real-estate";
+            const meta = post.meta as Record<string, unknown> | undefined;
+            const dealType = meta?.deal_type as string | undefined;
+            if (isRealEstate && dealType === "임대") return null;
+            return (
+              <p className="mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]">
+                {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
+              </p>
+            );
+          })()}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
+            {category?.icon_key === "used-car" &&
+              (() => {
+                const lab = getCarTradeLabelKo(post.meta as Record<string, unknown> | undefined);
+                if (!lab) return null;
+                return (
+                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
                     {lab}
                   </span>
-                </>
-              );
-            })()}
-        </div>
-        <h2 className={`mt-2 sam-text-page-title font-bold leading-7 text-sam-fg ${isSold ? "opacity-80" : ""}`}>{post.title}</h2>
-        {showPrice && (() => {
-          const isRealEstate = category?.icon_key === "real-estate";
-          const meta = post.meta as Record<string, unknown> | undefined;
-          const dealType = meta?.deal_type as string | undefined;
-          if (isRealEstate && dealType === "임대") return null;
-          return (
-            <p className="mt-1 sam-text-hero font-bold text-sam-fg">
-              {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
-            </p>
-          );
-        })()}
-        {(post.is_free_share || (post.meta as Record<string, unknown> | undefined)?.direct_deal === true) && (
-          <div className="mt-1 flex flex-wrap gap-1.5">
+                );
+              })()}
             {post.is_free_share && (
-              <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-medium text-sam-fg">나눔</span>
+              <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">나눔</span>
             )}
             {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
-              <span className="rounded bg-blue-50 px-2 py-0.5 sam-text-helper font-medium text-blue-700">직거래</span>
+              <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">직거래</span>
             )}
           </div>
-        )}
-        <ul className="mt-3 space-y-1 sam-text-body-secondary text-sam-muted">
-          {showLocation && listingLocationLine ? <li>지역 · {listingLocationLine}</li> : null}
-          <li>등록 · {formatTimeAgo(post.created_at)}</li>
+        </section>
+
+        <section
+          id={POST_DETAIL_SELLER_ANCHOR_ID}
+          data-post-detail-seller="true"
+          className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}
+        >
+          <PostDetailSellerProfileRow
+            author={author}
+            regionLine={
+              listingLocationLine ? (
+                <p className="max-w-[190px] truncate text-[12px] font-normal leading-[1.2] text-[#777777]">{listingLocationLine}</p>
+              ) : null
+            }
+          />
+          {isOwnPost ? <PostSellerTradeStrip postId={post.id} isSeller={isOwnPost} /> : null}
+        </section>
+
+        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
           {(() => {
-            const s = [post.view_count != null && `조회 ${post.view_count}`, !isOwnPost && `관심 ${favoriteCount}`].filter(Boolean).join(" · ");
-            return s ? <li>{s}</li> : null;
-          })()}
-        </ul>
-        {(() => {
-          const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
-          const hasUsedCarMeta =
-            meta &&
-            (meta.car_model != null ||
-              meta.car_year != null ||
-              meta.car_year_max != null ||
-              meta.mileage != null ||
-              meta.car_trade != null ||
-              typeof meta.has_accident === "boolean");
-          const isUsedCarCategory = category?.icon_key === "used-car";
-          if (hasUsedCarMeta || isUsedCarCategory) {
-            return (
-              <div className="-mx-4">
+            const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
+            const hasUsedCarMeta =
+              meta &&
+              (meta.car_model != null ||
+                meta.car_year != null ||
+                meta.car_year_max != null ||
+                meta.mileage != null ||
+                meta.car_trade != null ||
+                typeof meta.has_accident === "boolean");
+            const isUsedCarCategory = category?.icon_key === "used-car";
+            if (hasUsedCarMeta || isUsedCarCategory) {
+              return (
                 <UsedCarMetaBlock
                   meta={meta}
                   salePrice={post.price ?? null}
                   currency={defaultCurrency}
                 />
-              </div>
-            );
-          }
-          return null;
-        })()}
-        {((category?.icon_key === "jobs" || category?.icon_key === "job") || hasJobsMeta((post.meta as Record<string, unknown>) ?? {})) && (
-          <div className="-mx-4 mt-4">
+              );
+            }
+            return null;
+          })()}
+          {((category?.icon_key === "jobs" || category?.icon_key === "job") ||
+            hasJobsMeta((post.meta as Record<string, unknown>) ?? {})) && (
             <JobsMetaBlock
               meta={(post.meta as Record<string, unknown>) ?? {}}
               price={post.price ?? null}
               currency={defaultCurrency}
             />
-          </div>
-        )}
-        {((category?.icon_key === "exchange") || hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
-          <div className="-mx-4 mt-4">
+          )}
+          {((category?.icon_key === "exchange") || hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
             <ExchangeMetaBlock
               meta={(post.meta as Record<string, unknown>) ?? {}}
               amount={post.price ?? null}
               currency={defaultCurrency}
             />
+          )}
+          {category?.icon_key &&
+            category.icon_key !== "used-car" &&
+            category.icon_key !== "jobs" &&
+            category.icon_key !== "job" &&
+            category.icon_key !== "exchange" &&
+            post.meta &&
+            Object.keys(post.meta).length > 0 && (
+              <TradeMetaBlock
+                skinKey={category.icon_key}
+                meta={post.meta as Record<string, unknown>}
+                post={post}
+                defaultCurrency={defaultCurrency}
+              />
+            )}
+
+          <div>
+            <h3 className="mb-3 text-[15px] font-bold text-[#111111]">상품 설명</h3>
+            <p className="min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap">
+              {post.content || ""}
+            </p>
           </div>
-        )}
-        {category?.icon_key && category.icon_key !== "used-car" && category.icon_key !== "jobs" && category.icon_key !== "job" && category.icon_key !== "exchange" && post.meta && Object.keys(post.meta).length > 0 && (
-          <TradeMetaBlock
-            skinKey={category.icon_key}
-            meta={post.meta as Record<string, unknown>}
-            post={post}
-            defaultCurrency={defaultCurrency}
+
+          {detailFooterMetaParts.length > 0 ? (
+            <p className="mt-4 text-[12px] leading-[1.4] text-[#999999]">{detailFooterMetaParts.join(" · ")}</p>
+          ) : null}
+        </section>
+
+        {related ? (
+          <PostDetailRelatedSections
+            sellerItems={related.sellerItems}
+            similarItems={related.similarItems}
+            ads={related.ads}
           />
-        )}
+        ) : null}
+
+        {post.type === "community" ? (
+          <div className={POST_DETAIL_COMMUNITY_CARD_CLASS}>
+            <PostCommunityCommentsSection postId={post.id} currentUserId={resolvedViewerId ?? null} />
           </div>
-        </div>
+        ) : null}
       </div>
-
-      {/* 4. 내용 / 상세 설명 (알바는 상세 설명 라벨) — 그리드 하단 전체 폭 */}
-      {post.content && (
-        <div className="px-4">
-          <div className="-mx-4 mt-0">
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-              <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">
-                {(category?.icon_key === "jobs" || category?.icon_key === "job") ? "상세 설명" : "내용"}
-              </h3>
-              <p className="sam-text-body text-sam-fg whitespace-pre-wrap">{post.content}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {related ? (
-        <PostDetailRelatedSections
-          sellerItems={related.sellerItems}
-          similarItems={related.similarItems}
-          ads={related.ads}
-        />
-      ) : null}
-
-      {post.type === "community" && (
-        <PostCommunityCommentsSection
-          postId={post.id}
-          currentUserId={resolvedViewerId ?? null}
-        />
-      )}
 
       {/* 하단 고정: 상품 상세와 동일 규격 — 본인 글은 찜 숨김 */}
       <div

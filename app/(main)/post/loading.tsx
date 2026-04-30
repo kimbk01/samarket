@@ -1,6 +1,6 @@
-import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
-/** `/post/[id]` 상세 전환 */
+/** `/post/[id]` 등 — 거래 피드와 동일 골격으로 전환 체감만 정렬(Suspense 이중 경계 제거 후 단일 로딩) */
 export default function PostSegmentLoading() {
-  return <MainFormRouteLoading />;
+  return <MainFeedRouteLoading rows={5} />;
 }

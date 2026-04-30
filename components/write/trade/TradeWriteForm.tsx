@@ -1441,7 +1441,7 @@ export function TradeWriteForm({
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
-  const backHref = editPostId ? `/products/${editPostId}` : getCategoryHref(category);
+  const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
 
   const tradeWriteHeaderTitle = useMemo(() => {
     if (editPostId) return `${category.name} · 수정`;

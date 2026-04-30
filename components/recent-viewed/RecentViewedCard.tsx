@@ -32,7 +32,7 @@ export function RecentViewedCard({ record }: RecentViewedCardProps) {
 
   return (
     <Link
-      href={`/products/${record.productId}`}
+      href={`/post/${record.productId}`}
       className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
     >
       <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
