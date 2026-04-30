@@ -329,7 +329,7 @@ export function useCommunityMessengerHomeBootstrap({
               if ((next.discoverableGroups?.length ?? 0) === 0) {
                 scheduleWhenBrowserIdle(() => {
                   void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
-                }, 0);
+                }, 1800);
               }
             } else {
               silentFallbackFullBackoffUntilRef.current = Date.now() + 1200;
@@ -381,21 +381,21 @@ export function useCommunityMessengerHomeBootstrap({
           if (useLiteBootstrap) {
             scheduleWhenBrowserIdle(() => {
               void refresh(true);
-            }, 0);
+            }, 250);
           }
           if (useLiteBootstrap && deferred) {
             scheduleWhenBrowserIdle(() => {
               void mergeDeferredMessengerCallLogs();
-            }, 160);
+            }, 1200);
           }
           if (useLiteBootstrap) {
             scheduleWhenBrowserIdle(() => {
               void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
-            }, 0);
+            }, 1800);
           } else if ((next.discoverableGroups?.length ?? 0) === 0) {
             scheduleWhenBrowserIdle(() => {
               void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
-            }, 0);
+            }, 1800);
           }
         } else {
           const unauthorized = res.status === 401 || res.status === 403;

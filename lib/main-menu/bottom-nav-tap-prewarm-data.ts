@@ -38,6 +38,8 @@ import {
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { buildFeedChipsFromPhilifeTopicOptionsJson } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
+import { fetchMeProfileDeduped, isMeProfileCacheFresh } from "@/lib/profile/fetch-me-profile-deduped";
 
 const PHILIFE_TAB_PREWARM_COOLDOWN_MS = 12_000;
 const philifeTabPrewarmAt = new Map<string, number>();
@@ -175,9 +177,25 @@ export function prewarmBottomNavTapTargetClientCache(href: string): void {
     return;
   }
 
+  if (path === "/community-messenger") {
+    warmMessengerListBootstrapClient();
+    return;
+  }
+
+  if (path === "/mypage") {
+    if (isMeProfileCacheFresh()) return;
+    void fetchMeProfileDeduped().catch(() => {
+      /* mypage 프로필 prewarm 실패는 무시 */
+    });
+    return;
+  }
+
   /**
-   * `/community-messenger` 는 도메인 캐시 키에
-   * 위치·뷰어 등 컨텍스트가 더 필요해 별도 wiring 으로 점진 확장한다.
-   * 현재 범위: 거래(/market 계열) + 필라이프(/philife 글로벌·토픽 옵션) + 스토어(/stores 기본 피드, 허브 요약).
+   * 현재 범위:
+   * - 거래(/market 계열)
+   * - 필라이프(/philife 글로벌·토픽 옵션)
+   * - 스토어(/stores 기본 피드, 허브 요약)
+   * - 메신저(/community-messenger lite bootstrap)
+   * - 내정보(/mypage 프로필)
    */
 }

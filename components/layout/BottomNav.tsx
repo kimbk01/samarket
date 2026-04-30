@@ -256,6 +256,14 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       }}
       onPointerDown={() => {
         triggerLightTapFeedback();
+        if (
+          !isActive &&
+          !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
+          guardBeforeNavigate(tab.href)
+        ) {
+          beginMenuNavigation(tab.href);
+          onNavigationIntent(tab.id);
+        }
         if (!isActive) {
           try {
             void router.prefetch(tab.href);
@@ -444,6 +452,14 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       }}
       onPointerDown={() => {
         triggerLightTapFeedback();
+        if (
+          !isActive &&
+          !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
+          guardBeforeNavigate(tab.href)
+        ) {
+          beginMenuNavigation(tab.href);
+          onNavigationIntent(tab.id);
+        }
         if (!isActive) {
           try {
             void router.prefetch(tab.href);
@@ -516,6 +532,7 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
 /** 필라이프(포털) · 거래·스토어 하단 탭 `translate` 전환 */
 const BOTTOM_NAV_OUTER_MOTION =
   "transition-transform duration-300 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
+const BOTTOM_NAV_BOOT_WARM_SESSION_KEY = "samarket:bottom-nav:boot-warm:v1";
 
 export function BottomNav({
   initialTabs = null,
@@ -729,6 +746,38 @@ export function BottomNav({
       chainTimers.length = 0;
     };
   }, [bottomNavPrefetchDomain]);
+
+  /**
+   * 첫 탭 진입 콜드 스타트 완화:
+   * - 앱 세션당 1회, 초기 마운트에서 즉시 비활성 탭 prefetch + 데이터 prewarm 동시 수행
+   * - 기존 idle 프리페치(아래 effect)는 유지해 후속 경로 변화까지 보강
+   */
+  useEffect(() => {
+    if (!shouldRunBottomNavProgrammaticPrefetch()) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (typeof window === "undefined") return;
+    try {
+      if (window.sessionStorage.getItem(BOTTOM_NAV_BOOT_WARM_SESSION_KEY) === "1") return;
+      window.sessionStorage.setItem(BOTTOM_NAV_BOOT_WARM_SESSION_KEY, "1");
+    } catch {
+      /* ignore storage failures */
+    }
+    // 첫 진입 즉시성 우선: 현재 활성 탭 포함, 하단 5개 탭 전체를 세션 1회 강제 워밍.
+    const hrefs = tabsRef.current
+      .map((tab) => tab.href)
+      .filter((href, idx, arr) => arr.indexOf(href) === idx)
+      .slice(0, 5);
+    if (hrefs.length === 0) return;
+    for (const href of hrefs) {
+      try {
+        routerRef.current.prefetch(href);
+        prewarmBottomNavTapTargetClientCache(href);
+      } catch {
+        /* noop */
+      }
+    }
+  }, []);
 
   const [portalToBody, setPortalToBody] = useState(false);
   useLayoutEffect(() => {

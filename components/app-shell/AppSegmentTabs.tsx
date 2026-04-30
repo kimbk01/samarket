@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { isConstrainedNetwork } from "@/lib/ui/network-policy";
+import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 
 export type AppSegmentTabItem = {
   key: string;
@@ -38,6 +40,32 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
     prefetchAtRef.current[href] = now;
     void router.prefetch(href);
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const warmTargets = tabs
+      .filter((t) => (t.href.split("?")[0] ?? "") !== norm)
+      .map((t) => t.href)
+      .slice(0, 3);
+    if (warmTargets.length === 0) return;
+    const warmKey = `samarket:segment-tabs:boot-warm:v1:${warmTargets.join("|")}`;
+    try {
+      if (window.sessionStorage.getItem(warmKey) === "1") return;
+      window.sessionStorage.setItem(warmKey, "1");
+    } catch {
+      /* storage unavailable: continue without session dedupe */
+    }
+    for (const href of warmTargets) {
+      try {
+        void router.prefetch(href);
+        prewarmBottomNavTapTargetClientCache(href);
+      } catch {
+        /* noop */
+      }
+    }
+  }, [tabs, norm, router]);
 
   return (
     <div className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
