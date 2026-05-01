@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePriceOffersProductRealtime } from "@/hooks/usePriceOffersProductRealtime";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
@@ -14,13 +14,27 @@ export function useMyPriceOffersForProduct(
   productId: string,
   viewerUserId: string | null | undefined,
   refreshToken: number,
-  enabled: boolean
+  enabled: boolean,
+  /** RSC 시드 — 첫 페인트에서 CTA 즉시 (추가 왕복 없음) */
+  serverSeedOffers?: PriceOfferListItem[]
 ): { offers: PriceOfferListItem[]; loading: boolean } {
-  const [offers, setOffers] = useState<PriceOfferListItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [offers, setOffers] = useState<PriceOfferListItem[]>(() => serverSeedOffers ?? []);
+  const [loading, setLoading] = useState(() => {
+    if (!enabled) return false;
+    if (viewerUserId === undefined) return true;
+    if (viewerUserId === null) return false;
+    const pid = normalizeOfferProductId(productId);
+    if (!pid) return false;
+    return serverSeedOffers === undefined;
+  });
   const [rtEpoch, setRtEpoch] = useState(0);
 
   const pidNorm = normalizeOfferProductId(productId);
+  const serverSeedFingerprint = useMemo(() => {
+    if (serverSeedOffers === undefined) return "";
+    if (serverSeedOffers.length === 0) return "empty";
+    return serverSeedOffers.map((o) => `${o.id}:${o.status}`).join(",");
+  }, [serverSeedOffers]);
 
   usePriceOffersProductRealtime(
     productId,
@@ -40,6 +54,10 @@ export function useMyPriceOffersForProduct(
       return;
     }
     if (viewerUserId === undefined) {
+      if (serverSeedOffers !== undefined) {
+        setLoading(false);
+        return;
+      }
       setOffers([]);
       setLoading(true);
       return;
@@ -50,7 +68,10 @@ export function useMyPriceOffersForProduct(
       return;
     }
     let cancelled = false;
-    setLoading(true);
+    const hasServerSeed = serverSeedOffers !== undefined;
+    if (!hasServerSeed) {
+      setLoading(true);
+    }
     void (async () => {
       try {
         const res = await runSingleFlight(`offers:mine:${pidNorm}:${refreshToken}:rt${rtEpoch}`, () =>
@@ -63,11 +84,11 @@ export function useMyPriceOffersForProduct(
         if (cancelled) return;
         if (res.ok && json.ok !== false && Array.isArray(json.offers)) {
           setOffers(json.offers);
-        } else {
-          setOffers([]);
+        } else if (!cancelled) {
+          setOffers((prev) => (prev.length > 0 ? prev : []));
         }
       } catch {
-        if (!cancelled) setOffers([]);
+        if (!cancelled) setOffers((prev) => (prev.length > 0 ? prev : []));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,6 +97,12 @@ export function useMyPriceOffersForProduct(
       cancelled = true;
     };
   }, [enabled, pidNorm, refreshToken, rtEpoch, viewerUserId]);
+
+  useEffect(() => {
+    if (serverSeedOffers === undefined) return;
+    setOffers(serverSeedOffers);
+    setLoading(false);
+  }, [pidNorm, serverSeedFingerprint, serverSeedOffers]);
 
   return { offers, loading };
 }

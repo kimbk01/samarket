@@ -7,7 +7,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { broadcastPriceOfferCreatedForProduct } from "@/lib/offers/normalize-offer-product-id";
 import { getAppSettings } from "@/lib/app-settings";
 import { openCreateTradeChat } from "@/lib/chats/trade-chat-entry-navigation";
-import { formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferStatus } from "@/lib/offers/types";
 
 const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
@@ -16,6 +16,19 @@ const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
   rejected: "거절됨",
   expired: "만료",
 };
+
+function statusBadgeClass(status: PriceOfferStatus): string {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-900";
+    case "accepted":
+      return "bg-emerald-100 text-emerald-900";
+    case "rejected":
+      return "bg-red-100 text-red-900";
+    default:
+      return "bg-sam-surface-muted text-sam-muted";
+  }
+}
 
 type Props = {
   mode: "sent" | "received";
@@ -102,20 +115,42 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
 
         {offers.map((offer) => (
           <article key={offer.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <Link href={offer.productHref} className="text-[15px] font-semibold text-sam-fg hover:underline">
-                  {offer.productTitle}
-                </Link>
+            <div className="flex flex-wrap items-start gap-3">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                {offer.productThumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 저장소·CDN 혼재 썸네일
+                  <img
+                    src={offer.productThumbnailUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">이미지</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link href={offer.productHref} className="text-[15px] font-semibold text-sam-fg hover:underline">
+                    {offer.productTitle}
+                  </Link>
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadgeClass(offer.status)}`}
+                  >
+                    {OFFER_STATUS_KO[offer.status] ?? offer.status}
+                  </span>
+                </div>
                 <p className="mt-1 text-[12px] text-sam-muted">
-                  제안가 {formatPrice(offer.offeredPrice, currency)} / 판매가 {formatPrice(offer.originalPrice, currency)}
+                  제안가 {formatPrice(offer.offeredPrice, currency)} · 판매가 {formatPrice(offer.originalPrice, currency)}
                 </p>
-                <p className="mt-1 text-[12px] text-sam-muted">
-                  상태: {OFFER_STATUS_KO[offer.status] ?? offer.status}
-                </p>
+                <p className="mt-1 text-[11px] text-sam-muted">제안일 {formatTimeAgo(offer.createdAt)}</p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                {mode === "sent" && offer.status === "pending" ? (
+                  <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2 text-[12px] font-semibold text-sam-muted">
+                    응답 대기중
+                  </span>
+                ) : null}
                 {mode === "sent" && offer.status === "accepted" ? (
                   <button
                     type="button"
@@ -123,6 +158,15 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
                     className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white"
                   >
                     채팅 이어가기
+                  </button>
+                ) : null}
+                {mode === "sent" && (offer.status === "rejected" || offer.status === "expired") ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(offer.productHref)}
+                    className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
+                  >
+                    다시 제안하기
                   </button>
                 ) : null}
                 {mode === "received" && offer.status === "pending" ? (

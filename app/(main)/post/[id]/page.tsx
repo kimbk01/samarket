@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { withTimeout } from "@/lib/async/with-timeout";
@@ -42,10 +43,12 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <PostDetailPageClient
-      key={bundle.item.id}
-      initialBundle={bundle}
-      initialRouteTotalMs={Math.round(performance.now() - t0)}
-    />
+    <Suspense fallback={null}>
+      <PostDetailPageClient
+        key={bundle.item.id}
+        initialBundle={bundle}
+        initialRouteTotalMs={Math.round(performance.now() - t0)}
+      />
+    </Suspense>
   );
 }

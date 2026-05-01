@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { OPEN_RECEIVED_OFFERS_SEARCH_PARAM } from "@/lib/notifications/resolve-notification-inbox-href";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { CategoryWithSettings } from "@/lib/categories/types";
@@ -34,8 +35,17 @@ import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { ProductImageGallery } from "@/components/product/detail/ProductImageGallery";
 import {
-  PRODUCT_DETAIL_BOTTOM_BAR,
-  PRODUCT_DETAIL_CTA_BUTTON,
+  TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER,
+  TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP,
+  TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN,
+  TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER,
+  TRADE_POST_DETAIL_BOTTOM_MUTED_CTA,
+  TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA,
+  TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW,
+  TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY,
+  TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA,
+  TRADE_POST_DETAIL_BOTTOM_SELLER_BAND,
+  TRADE_POST_DETAIL_BOTTOM_SHELL,
 } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
@@ -51,15 +61,15 @@ import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-lo
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
 import { PostDetailMoreBottomSheet } from "@/components/post/PostDetailMoreBottomSheet";
 import { PostDetailSellerMoreSheet } from "@/components/post/PostDetailSellerMoreSheet";
-import { PostDetailSellerTradeLifecycleBar } from "@/components/post/PostDetailSellerTradeLifecycleBar";
 import { PostDetailRelatedSections } from "@/components/post/PostDetailRelatedSections";
 import { TradePostAdApplySheet } from "@/components/post/TradePostAdApplySheet";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OfferButton } from "@/components/offers/OfferButton";
 import { OfferModal } from "@/components/offers/OfferModal";
 import { OfferStatusBuyer } from "@/components/offers/OfferStatusBuyer";
-import { OfferListSeller } from "@/components/offers/OfferListSeller";
+import { OfferListSellerModal } from "@/components/offers/OfferListSellerModal";
 import { useMyPriceOffersForProduct } from "@/components/offers/useMyPriceOffersForProduct";
+import { pickBuyerPrimaryOffer } from "@/lib/offers/pick-buyer-primary-offer";
 import type { PriceOfferListItem } from "@/lib/offers/types";
 import { broadcastPriceOfferCreatedForProduct } from "@/lib/offers/normalize-offer-product-id";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
@@ -534,6 +544,189 @@ function PostDetailSellerProfileRow({
   );
 }
 
+type TradePostDetailReFooterSummary = { priceLine: string; dealType: string } | null;
+
+/** 거래 상세 하단 — FB 마켓플레이스형 셸(구매자 행 + 판매자 밴드) */
+function TradePostDetailActionBar({
+  isOwnPost,
+  isFavorite,
+  onFavorite,
+  reFooterSummary,
+  bottomActionsRowClass,
+  buyerPriceOfferFlowActive,
+  buyerOfferListHydrating,
+  showBuyerOfferPendingDisabled,
+  bottomBarHasOfferBtn,
+  bottomBarHasChatBtn,
+  offerRetry,
+  onOfferModalOpen,
+  onChat,
+  scheduleTradeChatPrepare,
+  cancelTradeChatPrepare,
+  onTradeChatCtaPointerDown,
+  uiTradeChatEnabled,
+  chatBlockedByListingState,
+  chatCtaBusy,
+  chatBlockedByOtherReservation,
+  chatBlockedByCompleted,
+  chatBlockedByReservedState,
+  tradeChatCtaLabel,
+  showSellerTradeControls,
+  showSellerOfferList,
+  canApplyTradeAd,
+  onSellerOffersOpen,
+  onTradeAdOpen,
+}: {
+  isOwnPost: boolean;
+  isFavorite: boolean;
+  onFavorite: () => void;
+  reFooterSummary: TradePostDetailReFooterSummary;
+  bottomActionsRowClass: string;
+  buyerPriceOfferFlowActive: boolean;
+  buyerOfferListHydrating: boolean;
+  showBuyerOfferPendingDisabled: boolean;
+  bottomBarHasOfferBtn: boolean;
+  bottomBarHasChatBtn: boolean;
+  offerRetry: boolean;
+  onOfferModalOpen: () => void;
+  onChat: () => void | Promise<void>;
+  scheduleTradeChatPrepare: () => void;
+  cancelTradeChatPrepare: () => void;
+  onTradeChatCtaPointerDown: () => void;
+  uiTradeChatEnabled: boolean;
+  chatBlockedByListingState: boolean;
+  chatCtaBusy: boolean;
+  chatBlockedByOtherReservation: boolean;
+  chatBlockedByCompleted: boolean;
+  chatBlockedByReservedState: boolean;
+  tradeChatCtaLabel: string;
+  showSellerTradeControls: boolean;
+  showSellerOfferList: boolean;
+  canApplyTradeAd: boolean;
+  onSellerOffersOpen: () => void;
+  onTradeAdOpen: () => void;
+}) {
+  return (
+    <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
+      {!isOwnPost ? (
+        <div className={TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW}>
+          <button
+            type="button"
+            onClick={onFavorite}
+            className={TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN}
+            aria-label={isFavorite ? "관심 해제" : "관심"}
+          >
+            <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
+            <span className="sam-text-xxs font-medium">관심</span>
+          </button>
+          {reFooterSummary ? (
+            <div className={TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY}>
+              <p className="truncate sam-text-body-secondary font-bold text-sam-fg">
+                {reFooterSummary.dealType === "판매"
+                  ? `판매가 ${reFooterSummary.priceLine}`
+                  : reFooterSummary.priceLine}
+              </p>
+              <p className="sam-text-xxs text-sam-muted">예상 중개수수료</p>
+            </div>
+          ) : null}
+          <div className={TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP}>
+            <div className={`${TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER} ${bottomActionsRowClass}`}>
+              {buyerPriceOfferFlowActive && buyerOfferListHydrating ? (
+                <div className={TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER}>제안 상태 확인 중…</div>
+              ) : null}
+              {buyerPriceOfferFlowActive && showBuyerOfferPendingDisabled ? (
+                <button type="button" disabled className={`${TRADE_POST_DETAIL_BOTTOM_MUTED_CTA} flex-1`}>
+                  제안 대기중
+                </button>
+              ) : null}
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && bottomBarHasOfferBtn ? (
+                <OfferButton
+                  retry={offerRetry}
+                  onClick={onOfferModalOpen}
+                  className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
+                />
+              ) : null}
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && bottomBarHasChatBtn ? (
+                <button
+                  type="button"
+                  onClick={onChat}
+                  onPointerEnter={scheduleTradeChatPrepare}
+                  onPointerLeave={cancelTradeChatPrepare}
+                  onPointerDown={onTradeChatCtaPointerDown}
+                  disabled={
+                    !uiTradeChatEnabled ||
+                    chatBlockedByListingState ||
+                    chatCtaBusy ||
+                    chatBlockedByOtherReservation
+                  }
+                  className={
+                    bottomBarHasOfferBtn
+                      ? `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`
+                      : TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA
+                  }
+                  title={
+                    chatBlockedByCompleted
+                      ? "거래완료 상품입니다"
+                      : chatBlockedByReservedState
+                        ? "예약중 입니다."
+                        : chatBlockedByOtherReservation
+                          ? "다른 구매자와 예약이 진행 중입니다"
+                          : !uiTradeChatEnabled
+                            ? "채팅이 비활성화되어 있습니다"
+                            : undefined
+                  }
+                >
+                  {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showSellerTradeControls ? (
+        <div className={TRADE_POST_DETAIL_BOTTOM_SELLER_BAND}>
+          <PostDetailSellerPromoButtons
+            showSellerOfferList={showSellerOfferList}
+            canApplyTradeAd={canApplyTradeAd}
+            onOpenOffers={onSellerOffersOpen}
+            onOpenAd={onTradeAdOpen}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** 판매자 하단 — 받은 제안(모달) · 유료 광고를 마켓플레이스형으로 나란히 */
+function PostDetailSellerPromoButtons({
+  showSellerOfferList,
+  canApplyTradeAd,
+  onOpenOffers,
+  onOpenAd,
+}: {
+  showSellerOfferList: boolean;
+  canApplyTradeAd: boolean;
+  onOpenOffers: () => void;
+  onOpenAd: () => void;
+}) {
+  if (!showSellerOfferList && !canApplyTradeAd) return null;
+  const btnClass = `${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1 px-2`;
+  return (
+    <div className="flex w-full gap-2 sm:gap-2.5">
+      {showSellerOfferList ? (
+        <button type="button" className={btnClass} onClick={onOpenOffers} title="받은 가격 제안">
+          받은 제안
+        </button>
+      ) : null}
+      {canApplyTradeAd ? (
+        <button type="button" className={btnClass} onClick={onOpenAd}>
+          유료 광고 신청
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 interface PostDetailViewProps {
   post: PostWithMeta;
   sellerProfile?: PublicSellerProfileDTO | null;
@@ -554,6 +747,8 @@ interface PostDetailViewProps {
   serverViewerUserId?: string;
   /** 본인 글 상세 RSC에서 선로드한 받은 제안 */
   initialSellerPriceOffers?: PriceOfferListItem[];
+  /** 타인 글·가격제안 — 구매자 제안 목록 RSC 시드(첫 페인트 CTA) */
+  initialViewerBuyerOffers?: PriceOfferListItem[];
 }
 
 export function PostDetailView({
@@ -564,8 +759,11 @@ export function PostDetailView({
   initialRouteTotalMs,
   serverViewerUserId,
   initialSellerPriceOffers,
+  initialViewerBuyerOffers,
 }: PostDetailViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const rootRef = useRef<HTMLDivElement | null>(null);
   /** `undefined`: 세션 확인 전 — 동기 프로필 캐시만 쓰면 유휴 후 캐시가 비어 로그아웃으로 오인될 수 있음 */
   const [resolvedViewerId, setResolvedViewerId] = useState<string | null | undefined>(() => {
@@ -648,6 +846,7 @@ export function PostDetailView({
   const [tradeAdSheetOpen, setTradeAdSheetOpen] = useState(false);
   const [sellerSheetBusy, setSellerSheetBusy] = useState(false);
   const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [sellerOffersModalOpen, setSellerOffersModalOpen] = useState(false);
   const [offerRefreshToken, setOfferRefreshToken] = useState(0);
 
   const appSettings = getAppSettings();
@@ -1181,29 +1380,62 @@ export function PostDetailView({
     post.id,
     resolvedViewerId,
     offerRefreshToken,
-    buyerPriceOfferFlowActive
+    buyerPriceOfferFlowActive,
+    initialViewerBuyerOffers
   );
-  const latestMyBuyerOffer = myBuyerOffers[0] ?? null;
+  /** CTA·카드 기준 제안 1건 — 수락 건이 있으면 배열 순서와 무관하게 수락 우선 */
+  const buyerPrimaryOffer = useMemo(() => pickBuyerPrimaryOffer(myBuyerOffers), [myBuyerOffers]);
+  const sessionUnresolved = resolvedViewerId === undefined;
+  /** 로그인 확정 후 목록 로딩 중인데 아직 0건이면 [가격 제안하기] 오표시 방지 */
+  const buyerOfferListHydrating =
+    buyerPriceOfferFlowActive &&
+    !isOwnPost &&
+    !sessionUnresolved &&
+    resolvedViewerId !== null &&
+    myBuyerOffersLoading &&
+    buyerPrimaryOffer == null;
+  const showBuyerOfferPendingDisabled =
+    buyerPriceOfferFlowActive &&
+    !isOwnPost &&
+    resolvedViewerId !== null &&
+    buyerPrimaryOffer?.status === "pending";
+  const showBuyerOfferPrimaryButton =
+    buyerPriceOfferFlowActive &&
+    !isOwnPost &&
+    !sessionUnresolved &&
+    !buyerOfferListHydrating &&
+    !showBuyerOfferPendingDisabled &&
+    showOfferCta &&
+    (!buyerPrimaryOffer ||
+      buyerPrimaryOffer.status === "rejected" ||
+      buyerPrimaryOffer.status === "expired");
   const uiTradeChatEnabled =
     showChat &&
     (!buyerPriceOfferFlowActive ||
-      (resolvedViewerId != null && !myBuyerOffersLoading && latestMyBuyerOffer?.status === "accepted"));
-  const showOfferButtonInBottomBar =
-    showOfferCta &&
-    (!latestMyBuyerOffer ||
-      latestMyBuyerOffer.status === "rejected" ||
-      latestMyBuyerOffer.status === "expired");
-  const bottomBarHasOfferBtn = showOfferButtonInBottomBar;
+      (resolvedViewerId != null && buyerPrimaryOffer?.status === "accepted"));
+  const bottomBarHasOfferBtn = showBuyerOfferPrimaryButton;
   const bottomBarHasChatBtn = uiTradeChatEnabled;
   const bottomActionsRowClass =
     bottomBarHasOfferBtn && bottomBarHasChatBtn ? "flex-row" : "flex-col";
+
+  /** 알림(가격 제안 도착) 진입 — 판매자만 받은 제안 모달 오픈 후 쿼리 제거 (`useLayoutEffect`: 네비 직후 깜빡임·타이밍 이슈 완화) */
+  useLayoutEffect(() => {
+    const raw = searchParams.get(OPEN_RECEIVED_OFFERS_SEARCH_PARAM);
+    if (raw == null || raw === "" || raw === "0" || raw === "false") return;
+    if (!showSellerOfferList) return;
+    setSellerOffersModalOpen(true);
+    const q = new URLSearchParams(searchParams.toString());
+    q.delete(OPEN_RECEIVED_OFFERS_SEARCH_PARAM);
+    const s = q.toString();
+    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+  }, [searchParams, pathname, router, showSellerOfferList]);
 
   /** 제안 수락 직후 초기 `room-id` 조회가 null 이었으면 한 번 더 확보 — 채팅 CTA·라우팅에 필요 */
   useEffect(() => {
     if (!buyerPriceOfferFlowActive) return;
     if (resolvedViewerId === undefined || resolvedViewerId === null) return;
     if (postOwnedByUserId(post as unknown as Record<string, unknown>, resolvedViewerId)) return;
-    if (latestMyBuyerOffer?.status !== "accepted") return;
+    if (buyerPrimaryOffer?.status !== "accepted") return;
     if (existingTradeRoomId) return;
 
     let cancelled = false;
@@ -1238,8 +1470,8 @@ export function PostDetailView({
   }, [
     buyerPriceOfferFlowActive,
     resolvedViewerId,
-    latestMyBuyerOffer?.status,
-    latestMyBuyerOffer?.id,
+    buyerPrimaryOffer?.status,
+    buyerPrimaryOffer?.id,
     existingTradeRoomId,
     post.id,
     post,
@@ -1430,11 +1662,24 @@ export function PostDetailView({
         productId={post.id}
         originalPrice={typeof post.price === "number" ? post.price : 0}
         currency={defaultCurrency}
+        productTitle={post.title ?? null}
         onClose={() => setOfferModalOpen(false)}
         onSubmitted={() => {
           setOfferRefreshToken((prev) => prev + 1);
           broadcastPriceOfferCreatedForProduct(post.id);
         }}
+      />
+      <OfferListSellerModal
+        open={sellerOffersModalOpen}
+        onClose={() => setSellerOffersModalOpen(false)}
+        productId={post.id}
+        currency={defaultCurrency}
+        viewerUserId={resolvedViewerId ?? null}
+        refreshToken={offerRefreshToken}
+        onOffersChanged={() => setOfferRefreshToken((prev) => prev + 1)}
+        initialOffers={initialSellerPriceOffers}
+        productTitle={post.title ?? null}
+        listPrice={typeof post.price === "number" ? post.price : null}
       />
       {reportOpen ? (
         <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50">
@@ -1483,7 +1728,7 @@ export function PostDetailView({
       `관심 ${favoriteCount}`,
     ].filter(Boolean) as string[];
     return (
-      <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+      <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
         <div className={POST_DETAIL_FEED_STACK_CLASS}>
           <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
             {imgList.length > 0 ? (
@@ -1516,6 +1761,8 @@ export function PostDetailView({
                 refreshToken={offerRefreshToken}
                 offers={myBuyerOffers}
                 offersLoading={myBuyerOffersLoading}
+                onContinueChat={() => void handleChat()}
+                onRetryOffer={() => setOfferModalOpen(true)}
               />
             ) : null}
           </section>
@@ -1533,16 +1780,6 @@ export function PostDetailView({
                 ) : null
               }
             />
-            {showSellerOfferList ? (
-              <OfferListSeller
-                productId={post.id}
-                currency={defaultCurrency}
-                viewerUserId={resolvedViewerId ?? null}
-                refreshToken={offerRefreshToken}
-                onChanged={() => setOfferRefreshToken((prev) => prev + 1)}
-                initialOffers={initialSellerPriceOffers}
-              />
-            ) : null}
           </section>
 
           <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
@@ -1578,96 +1815,40 @@ export function PostDetailView({
           ) : null}
         </div>
 
-        {/* 하단 고정: 상품 상세와 동일 규격(찜 + 가격 + 채팅) — 본인 글은 찜 숨김 */}
-        <div
-          data-post-detail-action-bar="true"
-          className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}
-        >
-          {!isOwnPost && (
-            <button
-              type="button"
-              onClick={handleFavorite}
-              className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft px-3 py-2 text-sam-muted"
-              aria-label={isFavorite ? "관심 해제" : "관심"}
-            >
-              <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-              <span className="sam-text-xxs">관심</span>
-            </button>
-          )}
-          {reFooterPrice && (
-            <div className="flex min-w-0 max-w-[38%] shrink flex-col justify-center px-2 py-1">
-              <p className="truncate sam-text-body-secondary font-bold text-sam-fg">{reDealType === "판매" ? `판매가 ${reFooterPrice}` : reFooterPrice}</p>
-              <p className="sam-text-xxs text-sam-muted">예상 중개수수료</p>
-            </div>
-          )}
-          {!isOwnPost && (
-            <div className="min-w-0 flex-1">
-              <div className={`flex min-w-0 gap-2 ${bottomActionsRowClass}`}>
-                {bottomBarHasOfferBtn ? (
-                  <OfferButton
-                    retry={
-                      latestMyBuyerOffer?.status === "rejected" ||
-                      latestMyBuyerOffer?.status === "expired"
-                    }
-                    onClick={() => setOfferModalOpen(true)}
-                    className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[14px] font-semibold text-sam-fg"
-                  />
-                ) : null}
-                {bottomBarHasChatBtn ? (
-                  <button
-                    type="button"
-                    onClick={handleChat}
-                    onPointerEnter={scheduleTradeChatPrepare}
-                    onPointerLeave={cancelTradeChatPrepare}
-                    onPointerDown={onTradeChatCtaPointerDown}
-                    disabled={
-                      !uiTradeChatEnabled ||
-                      chatBlockedByListingState ||
-                      chatCtaBusy ||
-                      chatBlockedByOtherReservation
-                    }
-                    className={
-                      bottomBarHasOfferBtn ? `${PRODUCT_DETAIL_CTA_BUTTON} flex-1` : PRODUCT_DETAIL_CTA_BUTTON
-                    }
-                    title={
-                      chatBlockedByCompleted
-                        ? "거래완료 상품입니다"
-                        : chatBlockedByReservedState
-                          ? "예약중 입니다."
-                          : chatBlockedByOtherReservation
-                            ? "다른 구매자와 예약이 진행 중입니다"
-                            : !uiTradeChatEnabled
-                              ? "채팅이 비활성화되어 있습니다"
-                              : undefined
-                    }
-                  >
-                    {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
-          {showSellerTradeControls && (
-            <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
-              {canApplyTradeAd ? (
-                <button
-                  type="button"
-                  onClick={() => setTradeAdSheetOpen(true)}
-                  className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
-                >
-                  유료 광고 신청
-                </button>
-              ) : null}
-              <PostDetailSellerTradeLifecycleBar
-                postId={post.id}
-                status={post.status ?? "active"}
-                sellerListingState={post.seller_listing_state ?? null}
-                meta={(post.meta as Record<string, unknown> | null) ?? null}
-                onRefresh={() => router.refresh()}
-              />
-            </div>
-          )}
-        </div>
+        <TradePostDetailActionBar
+          isOwnPost={isOwnPost}
+          isFavorite={isFavorite}
+          onFavorite={handleFavorite}
+          reFooterSummary={
+            reFooterPrice ? { priceLine: reFooterPrice, dealType: reDealType ?? "" } : null
+          }
+          bottomActionsRowClass={bottomActionsRowClass}
+          buyerPriceOfferFlowActive={buyerPriceOfferFlowActive}
+          buyerOfferListHydrating={buyerOfferListHydrating}
+          showBuyerOfferPendingDisabled={showBuyerOfferPendingDisabled}
+          bottomBarHasOfferBtn={bottomBarHasOfferBtn}
+          bottomBarHasChatBtn={bottomBarHasChatBtn}
+          offerRetry={
+            buyerPrimaryOffer?.status === "rejected" || buyerPrimaryOffer?.status === "expired"
+          }
+          onOfferModalOpen={() => setOfferModalOpen(true)}
+          onChat={handleChat}
+          scheduleTradeChatPrepare={scheduleTradeChatPrepare}
+          cancelTradeChatPrepare={cancelTradeChatPrepare}
+          onTradeChatCtaPointerDown={onTradeChatCtaPointerDown}
+          uiTradeChatEnabled={uiTradeChatEnabled}
+          chatBlockedByListingState={chatBlockedByListingState}
+          chatCtaBusy={chatCtaBusy}
+          chatBlockedByOtherReservation={chatBlockedByOtherReservation}
+          chatBlockedByCompleted={chatBlockedByCompleted}
+          chatBlockedByReservedState={chatBlockedByReservedState}
+          tradeChatCtaLabel={tradeChatCtaLabel}
+          showSellerTradeControls={showSellerTradeControls}
+          showSellerOfferList={showSellerOfferList}
+          canApplyTradeAd={canApplyTradeAd}
+          onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
+          onTradeAdOpen={() => setTradeAdSheetOpen(true)}
+        />
         {postDetailSharedOverlays}
       </div>
     );
@@ -1682,7 +1863,7 @@ export function PostDetailView({
   const detailImageUrls = resolveTradePostDetailImageUrls(post);
 
   return (
-    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-40" : "pb-24"}`}>
+    <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
       <div className={POST_DETAIL_FEED_STACK_CLASS}>
         <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
           {detailImageUrls.length === 0 ? (
@@ -1752,6 +1933,8 @@ export function PostDetailView({
               refreshToken={offerRefreshToken}
               offers={myBuyerOffers}
               offersLoading={myBuyerOffersLoading}
+              onContinueChat={() => void handleChat()}
+              onRetryOffer={() => setOfferModalOpen(true)}
             />
           ) : null}
         </section>
@@ -1769,16 +1952,6 @@ export function PostDetailView({
               ) : null
             }
           />
-          {showSellerOfferList ? (
-            <OfferListSeller
-              productId={post.id}
-              currency={defaultCurrency}
-              viewerUserId={resolvedViewerId ?? null}
-              refreshToken={offerRefreshToken}
-              onChanged={() => setOfferRefreshToken((prev) => prev + 1)}
-              initialOffers={initialSellerPriceOffers}
-            />
-          ) : null}
         </section>
 
         <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
@@ -1861,90 +2034,38 @@ export function PostDetailView({
         ) : null}
       </div>
 
-      {/* 하단 고정: 상품 상세와 동일 규격 — 본인 글은 찜 숨김 */}
-      <div
-        data-post-detail-action-bar="true"
-        className={`${PRODUCT_DETAIL_BOTTOM_BAR} z-30 ${showSellerTradeControls ? "flex-wrap content-start" : ""}`}
-      >
-        {!isOwnPost && (
-          <button
-            type="button"
-            onClick={handleFavorite}
-            className="flex shrink-0 flex-col items-center justify-center gap-0.5 border-r border-sam-border-soft px-3 py-2 text-sam-muted"
-            aria-label={isFavorite ? "관심 해제" : "관심"}
-          >
-            <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-            <span className="sam-text-xxs">관심</span>
-          </button>
-        )}
-        {!isOwnPost && (
-          <div className="min-w-0 flex-1">
-            <div className={`flex min-w-0 gap-2 ${bottomActionsRowClass}`}>
-              {bottomBarHasOfferBtn ? (
-                <OfferButton
-                  retry={
-                    latestMyBuyerOffer?.status === "rejected" ||
-                    latestMyBuyerOffer?.status === "expired"
-                  }
-                  onClick={() => setOfferModalOpen(true)}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-[14px] font-semibold text-sam-fg"
-                />
-              ) : null}
-              {bottomBarHasChatBtn ? (
-                <button
-                  type="button"
-                  onClick={handleChat}
-                  onPointerEnter={scheduleTradeChatPrepare}
-                  onPointerLeave={cancelTradeChatPrepare}
-                  onPointerDown={onTradeChatCtaPointerDown}
-                  disabled={
-                    !uiTradeChatEnabled ||
-                    chatBlockedByListingState ||
-                    chatCtaBusy ||
-                    chatBlockedByOtherReservation
-                  }
-                  className={
-                    bottomBarHasOfferBtn ? `${PRODUCT_DETAIL_CTA_BUTTON} flex-1` : PRODUCT_DETAIL_CTA_BUTTON
-                  }
-                  title={
-                    chatBlockedByCompleted
-                      ? "거래완료 상품입니다"
-                      : chatBlockedByReservedState
-                        ? "예약중 입니다."
-                        : chatBlockedByOtherReservation
-                          ? "다른 구매자와 예약이 진행 중입니다"
-                          : !uiTradeChatEnabled
-                            ? "채팅이 비활성화되어 있습니다"
-                            : undefined
-                  }
-                >
-                  {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        )}
-        {showSellerTradeControls && (
-          <div className="w-full basis-full border-t border-sam-border-soft px-2 pt-2">
-            {canApplyTradeAd ? (
-              <button
-                type="button"
-                onClick={() => setTradeAdSheetOpen(true)}
-                className="mb-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
-              >
-                유료 광고 신청
-              </button>
-            ) : null}
-            <PostDetailSellerTradeLifecycleBar
-              postId={post.id}
-              status={post.status ?? "active"}
-              sellerListingState={post.seller_listing_state ?? null}
-              meta={(post.meta as Record<string, unknown> | null) ?? null}
-              onRefresh={() => router.refresh()}
-            />
-          </div>
-        )}
-      </div>
+      <TradePostDetailActionBar
+        isOwnPost={isOwnPost}
+        isFavorite={isFavorite}
+        onFavorite={handleFavorite}
+        reFooterSummary={null}
+        bottomActionsRowClass={bottomActionsRowClass}
+        buyerPriceOfferFlowActive={buyerPriceOfferFlowActive}
+        buyerOfferListHydrating={buyerOfferListHydrating}
+        showBuyerOfferPendingDisabled={showBuyerOfferPendingDisabled}
+        bottomBarHasOfferBtn={bottomBarHasOfferBtn}
+        bottomBarHasChatBtn={bottomBarHasChatBtn}
+        offerRetry={
+          buyerPrimaryOffer?.status === "rejected" || buyerPrimaryOffer?.status === "expired"
+        }
+        onOfferModalOpen={() => setOfferModalOpen(true)}
+        onChat={handleChat}
+        scheduleTradeChatPrepare={scheduleTradeChatPrepare}
+        cancelTradeChatPrepare={cancelTradeChatPrepare}
+        onTradeChatCtaPointerDown={onTradeChatCtaPointerDown}
+        uiTradeChatEnabled={uiTradeChatEnabled}
+        chatBlockedByListingState={chatBlockedByListingState}
+        chatCtaBusy={chatCtaBusy}
+        chatBlockedByOtherReservation={chatBlockedByOtherReservation}
+        chatBlockedByCompleted={chatBlockedByCompleted}
+        chatBlockedByReservedState={chatBlockedByReservedState}
+        tradeChatCtaLabel={tradeChatCtaLabel}
+        showSellerTradeControls={showSellerTradeControls}
+        showSellerOfferList={showSellerOfferList}
+        canApplyTradeAd={canApplyTradeAd}
+        onSellerOffersOpen={() => setSellerOffersModalOpen(true)}
+        onTradeAdOpen={() => setTradeAdSheetOpen(true)}
+      />
       {postDetailSharedOverlays}
     </div>
   );

@@ -1,9 +1,12 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
+import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
-import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
+import { postAuthorUserId, postOwnedByUserId } from "@/lib/chats/resolve-author-nickname";
+import { listPriceOffers, listSellerPriceOffersForProduct } from "@/lib/offers/offers.service";
 import type { PriceOfferListItem } from "@/lib/offers/types";
 import {
   mapProfileRowToPublicSeller,
@@ -21,8 +24,6 @@ export type TradeItemDetailPageData = {
   sellerItems: PostWithMeta[];
   similarItems: PostWithMeta[];
   ads: PostWithMeta[];
-  /** true면 related 섹션은 클라이언트 후속 로드 */
-  relatedDeferred?: boolean;
   /** RSC 쿠키 세션 — 클라 `getCurrentUserIdForDb` 보다 앞서 소유자 UI 시드 */
   viewerUserId: string | null;
   /** 본인 글·가격 제안 상품일 때만 서버에서 선로드(첫 페인트 즉시 표시) */
@@ -39,6 +40,8 @@ export type TradeItemDetailPageData = {
     /** 있으면 메신저 방 URL은 이 UUID 우선 */
     messengerRoomId?: string | null;
   };
+  /** 타인 글·가격제안 허용 시 구매자 본인 제안 목록 시드(판매자 프로필과 병렬 — 첫 페인트 CTA 즉시) */
+  initialViewerBuyerOffers?: PriceOfferListItem[];
 };
 
 const SELLER_LIMIT_DEFAULT = 8;
@@ -184,20 +187,107 @@ export async function getItemDetailPageData(
   const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
   const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
   const regionId = item.region?.trim() ?? "";
-  /**
-   * 상세 첫 화면에 꼭 필요하지 않은 거래방 조회 / 판매자 제안 목록 시드는
-   * 클라이언트 fallback 이 이미 있으므로 서버 첫 응답에서는 막지 않는다.
-   * (PostDetailView: room-id GET, OfferListSeller fetch)
-   */
-  const sellerProfile = await loadSellerPublicProfile(clients, sellerId);
+  const sbOffers = (clients.serviceSb ?? clients.readSb) as SupabaseClient;
+  const seedBuyerOffers =
+    Boolean(viewerId) &&
+    item.is_price_offer === true &&
+    typeof item.price === "number" &&
+    Number.isFinite(item.price) &&
+    item.price > 0 &&
+    !postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId);
+
+  const seedSellerOffers =
+    Boolean(viewerId) &&
+    item.is_price_offer === true &&
+    typeof item.price === "number" &&
+    Number.isFinite(item.price) &&
+    item.price > 0 &&
+    postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId);
+
+  type BuyerOffersResult = Awaited<ReturnType<typeof listPriceOffers>>;
+  const buyerOffersPromise: Promise<BuyerOffersResult | null> = seedBuyerOffers
+    ? listPriceOffers(sbOffers, {
+        userId: viewerId,
+        role: "buyer",
+        productId: item.id,
+        limit: 50,
+      })
+    : Promise.resolve(null);
+
+  type SellerOffersResult = Awaited<ReturnType<typeof listSellerPriceOffersForProduct>>;
+  const sellerOffersPromise: Promise<SellerOffersResult | null> = seedSellerOffers
+    ? listSellerPriceOffersForProduct(sbOffers, viewerId, item.id)
+    : Promise.resolve(null);
+
+  const opsPromise = loadTradeOpsSettings(clients);
+  const relatedPromise = opsPromise
+    .then((ops) =>
+      loadTradeDetailRelatedBundle(clients.readSb, {
+        itemId: item.id,
+        sellerId,
+        sellerNickname,
+        categoryId,
+        regionId,
+        sellerLimit: ops.fallbackCount ?? SELLER_LIMIT_DEFAULT,
+        similarLimit: ops.similarCount ?? SIMILAR_LIMIT_DEFAULT,
+        adsLimit: ops.adsCount ?? ADS_LIMIT_DEFAULT,
+        regionEnabled: ops.regionEnabled,
+        regionRequired: ops.regionRequired,
+        regionGroups: ops.regionGroups,
+        completedVisibleDays: ops.completedVisibleDays,
+      })
+    )
+    .catch((err) => {
+      console.error("[getItemDetailPageData] loadTradeDetailRelatedBundle", err);
+      return { sellerItems: [] as PostWithMeta[], similarItems: [] as PostWithMeta[], ads: [] as PostWithMeta[] };
+    });
+
+  const sbChat = clients.serviceSb ?? clients.readSb;
+  const viewerTradeRoomBootstrapPromise: Promise<
+    TradeItemDetailPageData["viewerTradeRoomBootstrap"]
+  > =
+    Boolean(viewerId) && Boolean(sellerId) && viewerId !== sellerId && sbChat
+      ? resolveViewerItemTradeRoom(sbChat as SupabaseClient, {
+          itemId: item.id,
+          viewerUserId: viewerId,
+          sellerId,
+        })
+          .then((resolved) => ({
+            viewerUserId: viewerId,
+            roomId: resolved.roomId,
+            source: resolved.source,
+            messengerRoomId: resolved.messengerRoomId ?? undefined,
+          }))
+          .catch((err) => {
+            console.error("[getItemDetailPageData] resolveViewerItemTradeRoom", err);
+            return undefined;
+          })
+      : Promise.resolve(undefined);
+
+  const [sellerProfile, buyerOffersResult, sellerOffersResult, related, viewerTradeRoomBootstrap] =
+    await Promise.all([
+      loadSellerPublicProfile(clients, sellerId),
+      buyerOffersPromise,
+      sellerOffersPromise,
+      relatedPromise,
+      viewerTradeRoomBootstrapPromise,
+    ]);
+
+  const initialViewerBuyerOffers =
+    buyerOffersResult && buyerOffersResult.ok ? buyerOffersResult.value : undefined;
+
+  const initialSellerPriceOffers =
+    sellerOffersResult && sellerOffersResult.ok ? sellerOffersResult.value : undefined;
 
   return {
     item,
     sellerProfile,
-    sellerItems: [],
-    similarItems: [],
-    ads: [],
-    relatedDeferred: true,
+    sellerItems: related.sellerItems,
+    similarItems: related.similarItems,
+    ads: related.ads,
     viewerUserId: viewerId || null,
+    viewerTradeRoomBootstrap,
+    initialSellerPriceOffers,
+    initialViewerBuyerOffers,
   };
 }

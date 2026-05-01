@@ -7,6 +7,7 @@ import {
 } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { OPEN_RECEIVED_OFFERS_SEARCH_PARAM } from "@/lib/notifications/resolve-notification-inbox-href";
 import { ensureMessengerRoomIdForItemTrade } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
 import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
 import {
@@ -496,11 +497,13 @@ async function notifyOfferCreated(
     notification_type: "status",
     title: "가격 제안이 도착했습니다",
     body: `${titleSnippet} · ${formatOfferAmount(args.offer.original_price)} → ${formatOfferAmount(args.offer.offered_price)}`,
-    link_url: `/post/${encodeURIComponent(args.offer.product_id)}`,
+    /** 판매자 알림 탭 시 상세 진입과 함께 받은 제안 모달 자동 오픈 (`PostDetailView`) */
+    link_url: `/post/${encodeURIComponent(args.offer.product_id)}?${OPEN_RECEIVED_OFFERS_SEARCH_PARAM}=1`,
     ref_id: args.offer.id,
     meta: {
       kind: "trade_offer",
       event: "offer_created",
+      notification_type: "offer_created",
       /** 제품 스펙 `notifications.type` 대응(운영 테이블은 `notification_type` + meta) */
       spec_type: "offer_created",
       status: args.offer.status,
@@ -509,6 +512,7 @@ async function notifyOfferCreated(
       offered_price: args.offer.offered_price,
       original_price: args.offer.original_price,
       buyer_id: args.offer.buyer_id,
+      seller_id: args.offer.seller_id,
       buyer_label: args.buyerNickname,
       product_title: args.post.title,
     },
@@ -533,11 +537,16 @@ async function notifyOfferAccepted(
     meta: {
       kind: "trade_offer",
       event: "offer_accepted",
+      notification_type: "offer_accepted",
       spec_type: "offer_accepted",
       status: "accepted",
       offer_id: args.offer.id,
       product_id: args.offer.product_id,
+      buyer_id: args.offer.buyer_id,
+      seller_id: args.offer.seller_id,
+      original_price: args.offer.original_price,
       room_id: args.chatRoomId,
+      chat_room_id: args.chatRoomId,
       room_source: args.chatRoomSource,
       offered_price: args.offer.offered_price,
     },
@@ -553,15 +562,19 @@ async function notifyOfferRejected(
     notification_type: "status",
     title: "가격 제안이 거절되었습니다",
     body: `${formatOfferAmount(args.offer.offered_price)} 제안이 거절되었습니다.`,
-    link_url: "/my/offers/sent",
+    link_url: `/post/${encodeURIComponent(args.offer.product_id)}`,
     ref_id: args.offer.id,
     meta: {
       kind: "trade_offer",
       event: "offer_rejected",
+      notification_type: "offer_rejected",
       spec_type: "offer_rejected",
       status: "rejected",
       offer_id: args.offer.id,
       product_id: args.offer.product_id,
+      buyer_id: args.offer.buyer_id,
+      seller_id: args.offer.seller_id,
+      original_price: args.offer.original_price,
       offered_price: args.offer.offered_price,
     },
   });
@@ -603,7 +616,7 @@ export async function createPriceOffer(
     return serviceError(400, `판매가의 50% 이상만 제안할 수 있습니다. 최소 ${formatOfferAmount(minAllowed)}부터 가능해요.`, "offer_price_too_low");
   }
 
-  const [existingPendingRes, dailyCountRes, buyerNickMap] = await Promise.all([
+  const [existingPendingRes, existingAcceptedRes, dailyCountRes, buyerNickMap] = await Promise.all([
     sb
       .from("price_offers")
       .select("id")
@@ -613,12 +626,27 @@ export async function createPriceOffer(
       .limit(1),
     sb
       .from("price_offers")
+      .select("id")
+      .eq("product_id", productId)
+      .eq("buyer_id", buyerUserId)
+      .eq("status", "accepted")
+      .limit(1),
+    sb
+      .from("price_offers")
       .select("id", { count: "exact", head: true })
       .eq("product_id", productId)
       .eq("buyer_id", buyerUserId)
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
     fetchNicknamesForUserIds(sb, [buyerUserId]),
   ]);
+
+  if ((existingAcceptedRes.data?.length ?? 0) > 0) {
+    return serviceError(
+      409,
+      "이미 수락된 제안이 있습니다. 거래 채팅에서 이어가 주세요.",
+      "offer_accepted_exists"
+    );
+  }
 
   if ((existingPendingRes.data?.length ?? 0) > 0) {
     return serviceError(409, "이 상품에는 이미 대기 중인 가격 제안이 있습니다.", "offer_pending_exists");
@@ -723,40 +751,47 @@ export async function listPriceOffers(
   if (input.role === "buyer" && productId) {
     const wantPid = normalizeOfferProductId(productId);
     const byOfferId = new Map<string, Record<string, unknown>>();
-    const candList = uuidLookupCandidates(productId);
-    if (candList.length > 0) {
-      const candResults = await Promise.all(
-        candList.map((cand) =>
-          sb
-            .from("price_offers")
-            .select(PRICE_OFFER_SELECT_READ)
-            .eq("buyer_id", userId)
-            .eq("product_id", cand)
-            .order("created_at", { ascending: false })
-            .limit(limit)
+
+    const postRowForSeller =
+      (await loadPostRowMinimalForOfferGate(sb, wantPid)) ?? (await fetchPostRowForTradeChatById(sb, wantPid));
+    const inferredSellerId = postRowForSeller ? postTradeListingOwnerUserId(postRowForSeller) ?? "" : "";
+
+    const pidCandidates = [
+      ...new Set(
+        [wantPid, rawProductId, ...uuidLookupCandidates(rawProductId || productId)].filter(
+          (x) => typeof x === "string" && trimString(x) !== ""
         )
-      );
-      for (const { data, error } of candResults) {
-        if (error) {
-          return serviceError(500, error.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
-        }
-        for (const raw of data ?? []) {
-          const rid = trimString((raw as Record<string, unknown>).id);
-          if (rid) byOfferId.set(rid, raw as Record<string, unknown>);
-        }
-      }
+      ),
+    ];
+
+    const { data: inRows, error: inErr } = await sb
+      .from("price_offers")
+      .select(PRICE_OFFER_SELECT_READ)
+      .eq("buyer_id", userId)
+      .in("product_id", pidCandidates.length > 0 ? pidCandidates : [wantPid])
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (inErr) {
+      return serviceError(500, inErr.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
     }
+    for (const raw of inRows ?? []) {
+      const rid = trimString((raw as Record<string, unknown>).id);
+      if (rid) byOfferId.set(rid, raw as Record<string, unknown>);
+    }
+
     if (byOfferId.size === 0 && wantPid) {
-      const { data, error } = await sb
+      const scanLimit = 800;
+      const { data: scanRows, error: scanErr } = await sb
         .from("price_offers")
         .select(PRICE_OFFER_SELECT_READ)
         .eq("buyer_id", userId)
         .order("created_at", { ascending: false })
-        .limit(Math.min(limit * 3, 300));
-      if (error) {
-        return serviceError(500, error.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
+        .limit(scanLimit);
+      if (scanErr) {
+        return serviceError(500, scanErr.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
       }
-      for (const raw of data ?? []) {
+      for (const raw of scanRows ?? []) {
         const row = raw as Record<string, unknown>;
         const rp = normalizeOfferProductId(row.product_id) || trimString(row.product_id);
         if (rp !== wantPid) continue;
@@ -764,13 +799,20 @@ export async function listPriceOffers(
         if (rid) byOfferId.set(rid, row);
       }
     }
+
     const rows = [...byOfferId.values()].sort((a, b) => {
       const tb = Date.parse(String((b as Record<string, unknown>).created_at ?? ""));
       const ta = Date.parse(String((a as Record<string, unknown>).created_at ?? ""));
       return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
     });
     const offers = rows
-      .map((row) => mapPriceOfferRow(row as Record<string, unknown>))
+      .map((row) => {
+        const r = { ...(row as Record<string, unknown>) };
+        if (!trimString(r.seller_id) && inferredSellerId) {
+          r.seller_id = inferredSellerId;
+        }
+        return mapPriceOfferRow(r);
+      })
       .filter((row): row is PriceOfferRow => Boolean(row));
     const items = await enrichPriceOffersToListItems(sb, offers);
     return { ok: true, value: items };

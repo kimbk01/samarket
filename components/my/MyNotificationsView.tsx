@@ -29,6 +29,7 @@ type Row = {
 type TradeOfferNotificationMeta = {
   kind?: string;
   event?: string;
+  notification_type?: string;
   /** 스펙 `type`과 동기 — `event` 누락 시 보조 */
   spec_type?: string;
   status?: string;
@@ -41,7 +42,9 @@ function resolvePendingTradeOfferMeta(item: InboxGroupItem): TradeOfferNotificat
   if (!offerId) return null;
   if (meta?.kind !== "trade_offer") return null;
   const isCreated =
-    meta?.event === "offer_created" || meta?.spec_type === "offer_created";
+    meta?.event === "offer_created" ||
+    meta?.spec_type === "offer_created" ||
+    meta?.notification_type === "offer_created";
   if (!isCreated) return null;
   if (meta?.status !== "pending") return null;
   return meta;

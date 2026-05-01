@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -11,7 +11,6 @@ import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.serv
 /** 가시성·포커스·복원이 겹쳐도 연속 `GET /api/posts/:id` 폭주 방지 — 홈 사일런트 갱신과 유사한 레이트 */
 const MIN_LISTING_FIELDS_REFRESH_GAP_MS = 2_500;
 const TRADE_DETAIL_LISTING_FIELDS_CACHE_TTL_MS = 15_000;
-const TRADE_DETAIL_RELATED_CACHE_TTL_MS = 15_000;
 
 type ApiPostRow = {
   status?: string;
@@ -35,14 +34,6 @@ type Props = {
   initialRouteTotalMs?: number;
 };
 
-type TradeRelatedSnapshot = {
-  sellerItems: PostWithMeta[];
-  similarItems: PostWithMeta[];
-  ads: PostWithMeta[];
-};
-
-const tradeDetailRelatedSnapshotCache = new Map<string, { expiresAt: number; data: TradeRelatedSnapshot }>();
-const tradeDetailRelatedInFlight = new Map<string, Promise<TradeRelatedSnapshot | null>>();
 const tradeDetailListingFieldsCache = new Map<string, ListingFieldsSnapshot>();
 
 function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string): PostWithMeta {
@@ -93,11 +84,14 @@ function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string):
 export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Props) {
   const id = initialBundle.item.id;
   const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
-  const [related, setRelated] = useState(() => ({
-    sellerItems: initialBundle.sellerItems,
-    similarItems: initialBundle.similarItems,
-    ads: initialBundle.ads,
-  }));
+  const related = useMemo(
+    () => ({
+      sellerItems: initialBundle.sellerItems,
+      similarItems: initialBundle.similarItems,
+      ads: initialBundle.ads,
+    }),
+    [initialBundle.sellerItems, initialBundle.similarItems, initialBundle.ads]
+  );
   const lastListingFieldsRefreshAtRef = useRef(0);
 
   useEffect(() => {
@@ -105,75 +99,6 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
     // RSC가 매번 새 객체 참조를 넘겨도 본문 동기화는 id·상태 필드가 바뀔 때만
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialBundle.item 참조만 바뀌는 경우 setState 생략
   }, [initialBundle.item.id, initialBundle.item.updated_at, initialBundle.item.status, initialBundle.item.seller_listing_state]);
-
-  useEffect(() => {
-    setRelated({
-      sellerItems: initialBundle.sellerItems,
-      similarItems: initialBundle.similarItems,
-      ads: initialBundle.ads,
-    });
-  }, [initialBundle.sellerItems, initialBundle.similarItems, initialBundle.ads]);
-
-  useEffect(() => {
-    if (!id || initialBundle.relatedDeferred !== true) return;
-    let cancelled = false;
-    const cached = tradeDetailRelatedSnapshotCache.get(id);
-    if (cached && cached.expiresAt > Date.now()) {
-      setRelated(cached.data);
-      return () => {
-        cancelled = true;
-      };
-    }
-    void (async () => {
-      try {
-        const inFlight = tradeDetailRelatedInFlight.get(id);
-        const relatedPromise =
-          inFlight ??
-          (async () => {
-            const res = await fetch(`/api/posts/${encodeURIComponent(id)}/related`, {
-              credentials: "include",
-              cache: "no-store",
-            });
-            if (!res.ok) return null;
-            const json = (await res.json().catch(() => null)) as
-              | {
-                  ok?: boolean;
-                  related?: {
-                    sellerItems?: PostWithMeta[];
-                    similarItems?: PostWithMeta[];
-                    ads?: PostWithMeta[];
-                  };
-                }
-              | null;
-            if (!json?.ok || !json.related) return null;
-            return {
-              sellerItems: Array.isArray(json.related.sellerItems) ? json.related.sellerItems : [],
-              similarItems: Array.isArray(json.related.similarItems) ? json.related.similarItems : [],
-              ads: Array.isArray(json.related.ads) ? json.related.ads : [],
-            } satisfies TradeRelatedSnapshot;
-          })();
-        if (!inFlight) {
-          tradeDetailRelatedInFlight.set(id, relatedPromise);
-        }
-        const nextRelated = await relatedPromise;
-        if (!inFlight) {
-          tradeDetailRelatedInFlight.delete(id);
-        }
-        if (!nextRelated || cancelled) return;
-        tradeDetailRelatedSnapshotCache.set(id, {
-          expiresAt: Date.now() + TRADE_DETAIL_RELATED_CACHE_TTL_MS,
-          data: nextRelated,
-        });
-        setRelated(nextRelated);
-      } catch {
-        /* ignore related fallback failure */
-        tradeDetailRelatedInFlight.delete(id);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id, initialBundle.relatedDeferred]);
 
   const refreshListingFields = useCallback(async () => {
     if (!id) return;
@@ -241,6 +166,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
             : undefined
         }
         initialSellerPriceOffers={initialBundle.initialSellerPriceOffers}
+        initialViewerBuyerOffers={initialBundle.initialViewerBuyerOffers}
       />
     </>
   );
