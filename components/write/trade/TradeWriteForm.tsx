@@ -3,6 +3,13 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import {
+  USED_CAR_FORM_YEAR_MIN,
+  getUsedCarFormYearMax,
+  findMileagePresetKeyForDigits,
+  resolveUsedCarSellKeysFromStoredCarModel,
+} from "@/lib/trade/used-car-form-catalog";
+import { UsedCarSellFields } from "./UsedCarSellFields";
 
 const REAL_ESTATE_TYPES = [
   { value: "", label: "선택" },
@@ -24,12 +31,6 @@ const MOVE_IN_OPTIONS = [
 ] as const;
 
 /** 중고차(차량) 연식 — DB·표시 모두 4자리 연도 */
-const USED_CAR_YEAR_MIN = 1990;
-
-function getUsedCarYearMax(): number {
-  return new Date().getFullYear();
-}
-
 function getUsedCarYearFieldError(raw: string, mode: "buy" | "sell"): string | null {
   const digits = raw.replace(/\D/g, "").slice(0, 4);
   if (digits.length === 0) {
@@ -39,9 +40,9 @@ function getUsedCarYearFieldError(raw: string, mode: "buy" | "sell"): string | n
     return "연식은 네 자리 연도로 입력해 주세요.";
   }
   const y = parseInt(digits, 10);
-  const max = getUsedCarYearMax();
-  if (y < USED_CAR_YEAR_MIN || y > max) {
-    return `연식은 ${USED_CAR_YEAR_MIN}년~${max}년 사이로 입력해 주세요.`;
+  const max = getUsedCarFormYearMax();
+  if (y < USED_CAR_FORM_YEAR_MIN || y > max) {
+    return `연식은 ${USED_CAR_FORM_YEAR_MIN}년~${max}년 사이로 입력해 주세요.`;
   }
   return null;
 }
@@ -276,8 +277,14 @@ export function TradeWriteForm({
   const [carModel, setCarModel] = useState("");
   const [carYear, setCarYear] = useState("");
   const [mileage, setMileage] = useState("");
-  /** 중고차: 삽니다(buy) / 팝니다(sell) */
-  const [usedCarTrade, setUsedCarTrade] = useState<"buy" | "sell" | null>(null);
+  /** 중고차: 삽니다(buy) / 팝니다(sell) — 신규 작성 기본은 팝니다 */
+  const [usedCarTrade, setUsedCarTrade] = useState<"buy" | "sell" | null>(() =>
+    (category.icon_key ?? "general") === "used-car" ? "sell" : null
+  );
+  const [usedCarBrandKey, setUsedCarBrandKey] = useState("");
+  const [usedCarModelKey, setUsedCarModelKey] = useState("");
+  const [usedCarMileagePresetKey, setUsedCarMileagePresetKey] = useState("");
+  const prevUsedCarTradeRef = useRef<"buy" | "sell" | null>(usedCarTrade);
   /** 팝니다: 사고 이력 있음 */
   const [carHasAccident, setCarHasAccident] = useState(false);
   const [salary, setSalary] = useState("");
@@ -320,6 +327,13 @@ export function TradeWriteForm({
     setIsDirectDeal(true);
   }, [category.id, editPostId, isUsedCarSkin]);
 
+  /** 중고차로 들어올 때(또는 카테고리 전환) 미선택이면 팝니다 기본 */
+  useEffect(() => {
+    if (editPostId) return;
+    if (!isUsedCarSkin) return;
+    setUsedCarTrade((prev) => (prev === null ? "sell" : prev));
+  }, [category.id, editPostId, isUsedCarSkin]);
+
   /** 카테고리 설정상 한쪽만 허용일 때 상태 정합 */
   useEffect(() => {
     if (isUsedCarSkin) return;
@@ -331,6 +345,26 @@ export function TradeWriteForm({
       setIsDirectDeal(false);
     }
   }, [hasFreeShare, hasDirectDeal, isUsedCarSkin]);
+
+  useEffect(() => {
+    if (!isUsedCarSkin) return;
+    const prev = prevUsedCarTradeRef.current;
+    prevUsedCarTradeRef.current = usedCarTrade;
+    if (usedCarTrade !== "sell") return;
+    if (prev === "sell") return;
+    const r = resolveUsedCarSellKeysFromStoredCarModel(carModel);
+    setUsedCarBrandKey(r.brandKey);
+    setUsedCarModelKey(r.modelKey);
+    const md = mileage.replace(/\D/g, "");
+    setUsedCarMileagePresetKey(md ? findMileagePresetKeyForDigits(md) : "");
+  }, [isUsedCarSkin, usedCarTrade, carModel, mileage]);
+
+  useEffect(() => {
+    if (isUsedCarSkin) return;
+    setUsedCarBrandKey("");
+    setUsedCarModelKey("");
+    setUsedCarMileagePresetKey("");
+  }, [isUsedCarSkin]);
 
   const syncTradeRegionCity = useCallback((rid: string, cid: string) => {
     setRegion(rid);
@@ -372,6 +406,27 @@ export function TradeWriteForm({
     setCarModel(d.carModel ?? "");
     setCarYear(d.carYear ?? "");
     setMileage(d.mileage ?? "");
+    const draftUsedCarSell = (d.skinKey ?? "") === "used-car" && d.usedCarTrade === "sell";
+    if (draftUsedCarSell) {
+      if ((d.usedCarBrandKey ?? "").trim()) {
+        setUsedCarBrandKey(d.usedCarBrandKey!.trim());
+        setUsedCarModelKey((d.usedCarModelKey ?? "").trim());
+      } else {
+        const r = resolveUsedCarSellKeysFromStoredCarModel(d.carModel ?? "");
+        setUsedCarBrandKey(r.brandKey);
+        setUsedCarModelKey(r.modelKey);
+      }
+      if ((d.usedCarMileagePresetKey ?? "").trim()) {
+        setUsedCarMileagePresetKey(d.usedCarMileagePresetKey!.trim());
+      } else {
+        const md = (d.mileage ?? "").replace(/\D/g, "");
+        setUsedCarMileagePresetKey(md ? findMileagePresetKeyForDigits(md) : "");
+      }
+    } else {
+      setUsedCarBrandKey("");
+      setUsedCarModelKey("");
+      setUsedCarMileagePresetKey("");
+    }
     setUsedCarTrade(d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null);
     setCarHasAccident(d.carHasAccident === true);
     setSalary(d.salary ?? "");
@@ -463,6 +518,9 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       descriptionAppend,
       tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
     };
     return tradeWriteSessionDraftLooksFilled(flushPayload);
   }, [
@@ -505,6 +563,9 @@ export function TradeWriteForm({
     tradeChatCallPolicy,
     descriptionAppend,
     tradeMeetSpot,
+    usedCarBrandKey,
+    usedCarModelKey,
+    usedCarMileagePresetKey,
     tradeWriteSucceededClearBlocking,
   ]);
 
@@ -599,6 +660,9 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       descriptionAppend,
       tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
     };
     tradeDraftFlushRef.current = flushPayload;
     if (!tradeWriteSessionDraftLooksFilled(flushPayload)) return;
@@ -653,6 +717,9 @@ export function TradeWriteForm({
     tradeChatCallPolicy,
     descriptionAppend,
     tradeMeetSpot,
+    usedCarBrandKey,
+    usedCarModelKey,
+    usedCarMileagePresetKey,
     draftResumeGate,
     tradeWriteSucceededClearBlocking,
   ]);
@@ -735,6 +802,9 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       descriptionAppend,
       tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
     };
     tradeDraftFlushRef.current = payload;
     if (tradeWriteSessionDraftLooksFilled(payload)) {
@@ -779,6 +849,9 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       descriptionAppend,
       tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
   ]);
 
   /**
@@ -855,6 +928,9 @@ export function TradeWriteForm({
       tradeChatCallPolicy,
       descriptionAppend,
       tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
     };
     tradeDraftFlushRef.current = payload;
     if (tradeWriteSessionDraftLooksFilled(payload)) {
@@ -899,6 +975,9 @@ export function TradeWriteForm({
     tradeChatCallPolicy,
     descriptionAppend,
     tradeMeetSpot,
+    usedCarBrandKey,
+    usedCarModelKey,
+    usedCarMileagePresetKey,
   ]);
 
   useEffect(() => {
@@ -934,6 +1013,15 @@ export function TradeWriteForm({
     }
     setUsedCarTrade(h.usedCarTrade);
     setCarHasAccident(h.carHasAccident);
+    if (skinKey === "used-car" && h.usedCarTrade === "sell") {
+      setUsedCarBrandKey(h.usedCarBrandKey ?? "");
+      setUsedCarModelKey(h.usedCarModelKey ?? "");
+      setUsedCarMileagePresetKey(h.usedCarMileagePresetKey ?? "");
+    } else {
+      setUsedCarBrandKey("");
+      setUsedCarModelKey("");
+      setUsedCarMileagePresetKey("");
+    }
     setSalary(h.salary);
     setWorkPlace(h.workPlace);
     setWorkType(h.workType);
@@ -973,6 +1061,9 @@ export function TradeWriteForm({
     } else if (isUsedCarSkin && usedCarTrade === "sell") {
       const yErr = getUsedCarYearFieldError(carYear, "sell");
       if (yErr) next.carYear = yErr;
+      if (!carModel.trim()) next.carModel = "브랜드·모델을 선택하거나 차종을 입력해 주세요.";
+      const mileageDigits = mileage.replace(/\D/g, "");
+      if (!mileageDigits) next.mileage = "주행거리를 선택하거나 입력해 주세요.";
     }
     if (!description.trim()) next.description = "내용을 입력해 주세요.";
     const isRealEstateSale = skinKey === "real-estate" && dealType === "판매";
@@ -1015,6 +1106,8 @@ export function TradeWriteForm({
     isUsedCarSkin,
     usedCarTrade,
     carYear,
+    carModel,
+    mileage,
     region,
     city,
     skinKey,
@@ -1915,7 +2008,7 @@ export function TradeWriteForm({
                       inputMode="numeric"
                       value={carYear}
                       onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
+                      placeholder={`${USED_CAR_FORM_YEAR_MIN}~${getUsedCarFormYearMax()}`}
                       className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
                       aria-invalid={!!errors.carYear}
                     />
@@ -1957,48 +2050,25 @@ export function TradeWriteForm({
               </>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="min-w-0">
-                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">차종</label>
-                    <input
-                      type="text"
-                      value={carModel}
-                      onChange={(e) => setCarModel(e.target.value)}
-                      placeholder="예: 소나타"
-                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
-                      연식 <span className="text-sam-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={carYear}
-                      onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder={`${USED_CAR_YEAR_MIN}~${getUsedCarYearMax()}`}
-                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
-                      aria-invalid={!!errors.carYear}
-                    />
-                    {errors.carYear ? (
-                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.carYear}</p>
-                    ) : null}
-                  </div>
-                  <div className="min-w-0">
-                    <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
-                      주행거리(km)
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={mileage}
-                      onChange={(e) => setMileage(formatPriceInput(e.target.value))}
-                      placeholder="50,000"
-                      className="h-11 w-full rounded-ui-rect border border-sam-border px-2 sam-text-body"
-                    />
-                  </div>
-                </div>
+                <UsedCarSellFields
+                  carModel={carModel}
+                  setCarModel={setCarModel}
+                  carYear={carYear}
+                  setCarYear={setCarYear}
+                  mileage={mileage}
+                  setMileage={setMileage}
+                  brandKey={usedCarBrandKey}
+                  setBrandKey={setUsedCarBrandKey}
+                  modelKey={usedCarModelKey}
+                  setModelKey={setUsedCarModelKey}
+                  mileagePresetKey={usedCarMileagePresetKey}
+                  setMileagePresetKey={setUsedCarMileagePresetKey}
+                  errors={{
+                    carYear: errors.carYear,
+                    carModel: errors.carModel,
+                    mileage: errors.mileage,
+                  }}
+                />
                 <label className="flex cursor-pointer items-center gap-2 pt-0.5 whitespace-nowrap">
                   <input
                     type="checkbox"

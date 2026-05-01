@@ -48,6 +48,10 @@ export type TradeWriteFormSessionDraftBuildArgs = {
   tradeChatCallPolicy: string;
   descriptionAppend: string;
   tradeMeetSpot?: TradeMeetSpotValue | null;
+  /** 중고차 팝니다 — 선택 UI 복원용(없으면 car_model·mileage에서 매칭) */
+  usedCarBrandKey?: string;
+  usedCarModelKey?: string;
+  usedCarMileagePresetKey?: string;
 };
 
 export type TradeWriteFormSessionDraftV1 = {
@@ -89,6 +93,10 @@ export type TradeWriteFormSessionDraftV1 = {
   tradeChatCallPolicy: string;
   descriptionAppend: string;
   tradeMeetSpot?: TradeMeetSpotValue | null;
+  /** 중고차 팝니다 — 선택 UI 복원용(없으면 car_model·mileage에서 매칭) */
+  usedCarBrandKey?: string;
+  usedCarModelKey?: string;
+  usedCarMileagePresetKey?: string;
 };
 
 function storageKey(categoryId: string): string {
@@ -180,6 +188,9 @@ export function tradeWritePersistedDraftLooksFilled(d: TradeWriteFormSessionDraf
     tradeChatCallPolicy: d.tradeChatCallPolicy ?? "none",
     descriptionAppend: d.descriptionAppend ?? "",
     tradeMeetSpot: d.tradeMeetSpot ?? null,
+    usedCarBrandKey: d.usedCarBrandKey ?? "",
+    usedCarModelKey: d.usedCarModelKey ?? "",
+    usedCarMileagePresetKey: d.usedCarMileagePresetKey ?? "",
   });
 }
 
@@ -290,6 +301,13 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
     descriptionAppend: args.descriptionAppend,
     ...(args.tradeMeetSpot && args.tradeMeetSpot.displayLine.trim()
       ? { tradeMeetSpot: args.tradeMeetSpot }
+      : {}),
+    ...(args.skinKey === "used-car" && args.usedCarTrade === "sell"
+      ? {
+          usedCarBrandKey: args.usedCarBrandKey ?? "",
+          usedCarModelKey: args.usedCarModelKey ?? "",
+          usedCarMileagePresetKey: args.usedCarMileagePresetKey ?? "",
+        }
       : {}),
   };
 }

@@ -3,6 +3,10 @@ import type { OwnerEditPostSnapshot } from "@/lib/posts/owner-edit-post-snapshot
 import { formatPriceInput } from "@/lib/utils/format";
 import type { TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { normalizeTradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
+import {
+  findMileagePresetKeyForDigits,
+  resolveUsedCarSellKeysFromStoredCarModel,
+} from "@/lib/trade/used-car-form-catalog";
 
 export type TradeWriteHydratedFields = {
   title: string;
@@ -38,6 +42,10 @@ export type TradeWriteHydratedFields = {
   currency: string;
   exchangeRate: string;
   tradeChatCallPolicy: TradeChatCallPolicy;
+  /** used-car + 팝니다 — 선택 UI 초기화 */
+  usedCarBrandKey?: string;
+  usedCarModelKey?: string;
+  usedCarMileagePresetKey?: string;
 };
 
 function str(v: unknown): string {
@@ -93,6 +101,17 @@ export function hydrateTradeWriteFormFromSnapshot(
     exchangeRate: str(m.exchange_rate),
     tradeChatCallPolicy: normalizeTradeChatCallPolicy(m.trade_chat_call_policy),
   };
+
+  if (skinKey === "used-car" && base.usedCarTrade === "sell") {
+    const resolved = resolveUsedCarSellKeysFromStoredCarModel(base.carModel);
+    const mileageDigits = base.mileage.replace(/\D/g, "");
+    return {
+      ...base,
+      usedCarBrandKey: resolved.brandKey,
+      usedCarModelKey: resolved.modelKey,
+      usedCarMileagePresetKey: mileageDigits ? findMileagePresetKeyForDigits(mileageDigits) : "",
+    };
+  }
 
   return base;
 }
