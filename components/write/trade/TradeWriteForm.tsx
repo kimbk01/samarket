@@ -181,6 +181,14 @@ import {
 } from "./trade-karrot-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
+import {
+  TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
+  consumeTradeMeetSpotFocusOnReturn,
+  markTradeMeetSpotFocusOnReturn,
+  persistTradeMeetSpotReturnScrollPosition,
+  restoreTradeMeetSpotReturnScrollPosition,
+  scrollTradeMeetSpotAnchorIntoView,
+} from "@/lib/posts/trade-meet-spot-anchor-scroll";
 
 interface TradeWriteFormProps {
   category: CategoryWithSettings;
@@ -195,106 +203,6 @@ interface TradeWriteFormProps {
   ownerEditSnapshot?: OwnerEditPostSnapshot;
   /** GET owner-edit `tradePolicy` */
   tradePolicy?: TradePolicyClient | null;
-}
-
-const TRADE_MEET_SPOT_SCROLL_RESTORE_KEY = "samarket:tradeMeetSpotScrollRestore:v1";
-const TRADE_MEET_SPOT_SCROLL_ANCHOR_ID = "trade-meet-spot-scroll-anchor";
-const TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY = "samarket:tradeMeetSpotFocusOnReturn:v1";
-
-function findNearestScrollableParent(el: HTMLElement | null): HTMLElement | null {
-  if (!el) return null;
-  let p: HTMLElement | null = el.parentElement;
-  while (p) {
-    const style = window.getComputedStyle(p);
-    const canScroll =
-      (style.overflowY === "auto" || style.overflowY === "scroll") && p.scrollHeight > p.clientHeight;
-    if (canScroll) return p;
-    p = p.parentElement;
-  }
-  return null;
-}
-
-function scrollTradeMeetSpotAnchorIntoView(): void {
-  if (typeof window === "undefined") return;
-  const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID) as HTMLElement | null;
-  if (!anchor) return;
-  const scrollParent = findNearestScrollableParent(anchor);
-  if (scrollParent) {
-    const parentRect = scrollParent.getBoundingClientRect();
-    const anchorRect = anchor.getBoundingClientRect();
-    const delta = anchorRect.top - parentRect.top - Math.max(16, Math.floor(parentRect.height * 0.18));
-    scrollParent.scrollTo({ top: Math.max(0, scrollParent.scrollTop + delta), behavior: "auto" });
-  } else {
-    anchor.scrollIntoView({ block: "center", behavior: "auto" });
-  }
-}
-
-function persistTradeMeetSpotReturnScrollPosition(): void {
-  if (typeof window === "undefined") return;
-  const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID);
-  const scrollParent = findNearestScrollableParent(anchor as HTMLElement | null);
-  try {
-    window.sessionStorage.setItem(
-      TRADE_MEET_SPOT_SCROLL_RESTORE_KEY,
-      JSON.stringify({
-        type: scrollParent ? "container" : "window",
-        top: scrollParent ? scrollParent.scrollTop : window.scrollY,
-      })
-    );
-  } catch {
-    /* quota */
-  }
-}
-
-function markTradeMeetSpotFocusOnReturn(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY, "1");
-  } catch {
-    /* quota */
-  }
-}
-
-function consumeTradeMeetSpotFocusOnReturn(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const v = window.sessionStorage.getItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY);
-    if (v === "1") {
-      window.sessionStorage.removeItem(TRADE_MEET_SPOT_FOCUS_ON_RETURN_KEY);
-      return true;
-    }
-    return false;
-  } catch {
-    return false;
-  }
-}
-
-function restoreTradeMeetSpotReturnScrollPosition(): void {
-  if (typeof window === "undefined") return;
-  let payload: { type: "container" | "window"; top: number } | null = null;
-  try {
-    const raw = window.sessionStorage.getItem(TRADE_MEET_SPOT_SCROLL_RESTORE_KEY);
-    if (!raw) return;
-    window.sessionStorage.removeItem(TRADE_MEET_SPOT_SCROLL_RESTORE_KEY);
-    const parsed = JSON.parse(raw) as Partial<{ type: "container" | "window"; top: number }>;
-    if ((parsed.type !== "container" && parsed.type !== "window") || typeof parsed.top !== "number") return;
-    payload = { type: parsed.type, top: parsed.top };
-  } catch {
-    return;
-  }
-  const apply = () => {
-    const anchor = document.getElementById(TRADE_MEET_SPOT_SCROLL_ANCHOR_ID) as HTMLElement | null;
-    const scrollParent = findNearestScrollableParent(anchor);
-    if (payload?.type === "container" && scrollParent) {
-      scrollParent.scrollTop = payload.top;
-      return;
-    }
-    window.scrollTo({ top: Math.max(0, payload?.top ?? 0), behavior: "auto" });
-    if (anchor) {
-      anchor.scrollIntoView({ block: "nearest", behavior: "auto" });
-    }
-  };
-  requestAnimationFrame(() => requestAnimationFrame(apply));
 }
 
 export function TradeWriteForm({
@@ -349,7 +257,7 @@ export function TradeWriteForm({
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
   const isUsedCarSkin = skinKey === "used-car";
-  /** 중고·일반 거래만 당근형 UI (부동산·중고차 제외) */
+  /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차는 전용 상단 필드 */
   const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car";
 
   // 거래 종류별 meta 필드
@@ -390,7 +298,7 @@ export function TradeWriteForm({
   }, [category.id, editPostId]);
 
   useEffect(() => {
-    if (!isKarrotGeneral || !hasLocation) {
+    if (!hasLocation) {
       setRepresentativeTradeMeetFallbackLine(null);
       return;
     }
@@ -402,7 +310,7 @@ export function TradeWriteForm({
     return () => {
       cancelled = true;
     };
-  }, [isKarrotGeneral, hasLocation]);
+  }, [hasLocation]);
 
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
   useEffect(() => {
@@ -1076,7 +984,7 @@ export function TradeWriteForm({
     if (hasLocation && (!region || !city))
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
-    if (isKarrotGeneral && hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
+    if (hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
         representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
       if (!fallbackLine) {
@@ -1119,7 +1027,6 @@ export function TradeWriteForm({
     roomCount,
     bathroomCount,
     moveInDate,
-    isKarrotGeneral,
     tradeMeetSpot,
     representativeTradeMeetFallbackLine,
   ]);
@@ -1224,7 +1131,7 @@ export function TradeWriteForm({
         });
         if (isDirectDeal && !isUsedCarSkin) meta = { ...meta, direct_deal: true };
         meta = { ...meta, trade_chat_call_policy: tradeChatCallPolicy };
-        if (isKarrotGeneral) {
+        if (hasLocation) {
           const lineFromMap = tradeMeetSpot?.displayLine?.trim();
           const lineFallback =
             representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
@@ -1353,7 +1260,7 @@ export function TradeWriteForm({
       showDescriptionAppend,
       descriptionAppend,
       tradeChatCallPolicy,
-      isKarrotGeneral,
+      hasLocation,
       tradeMeetSpot,
       representativeTradeMeetFallbackLine,
     ]
@@ -1444,11 +1351,11 @@ export function TradeWriteForm({
 
   const tradeWriteHeaderTitle = useMemo(() => {
     if (editPostId) return `${category.name} · 수정`;
-    if (isKarrotGeneral && region && city) {
+    if (region && city && hasLocation) {
       return `${getLocationLabel(region, city)}에 올리기`;
     }
     return `${category.name} · 글쓰기`;
-  }, [editPostId, category.name, isKarrotGeneral, region, city]);
+  }, [editPostId, category.name, region, city, hasLocation]);
 
   /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
   const karrotMeetSpotDisplayLine = useMemo(() => {
@@ -1456,14 +1363,13 @@ export function TradeWriteForm({
     if (fromMap) return fromMap;
     const rep = representativeTradeMeetFallbackLine?.trim();
     if (rep) return rep;
-    if (isKarrotGeneral && hasLocation) {
+    if (hasLocation) {
       return getLocationLabelIfValid(region, city)?.trim() ?? "";
     }
     return "";
-  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, isKarrotGeneral, hasLocation, region, city]);
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, hasLocation, region, city]);
 
-  const tradeLocationEl =
-    hasLocation && skinKey !== "real-estate" ? (
+  const tradeLocationEl = hasLocation ? (
       <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
         <TradeDefaultLocationBlock
           editPostId={editPostId}
@@ -1475,11 +1381,11 @@ export function TradeWriteForm({
           onBeforeNavigateToAddresses={
             !editPostId ? handleBeforeNavigateToAddresses : undefined
           }
-          karrotMeetSpotUi={isKarrotGeneral && hasLocation}
+          karrotMeetSpotUi={hasLocation}
           meetSpotLine={karrotMeetSpotDisplayLine || null}
           meetSpotError={errors.meetSpot}
           onBeforeMeetSpotPick={
-            isKarrotGeneral && hasLocation && !coreLocked ? handleBeforeMeetSpotPick : undefined
+            hasLocation && !coreLocked ? handleBeforeMeetSpotPick : undefined
           }
         />
       </div>
@@ -1527,8 +1433,8 @@ export function TradeWriteForm({
           maxCount={maxProductImages}
           label="사진"
           disabled={coreLocked}
-          compact={!isKarrotGeneral}
-          variant={isKarrotGeneral ? "karrot" : "default"}
+          compact={false}
+          variant="karrot"
         />
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
           <WriteTradeTopicSection
@@ -1539,40 +1445,25 @@ export function TradeWriteForm({
           />
         </div>
         {skinKey === "real-estate" ? (
-          <>
-            <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-              <TradeDefaultLocationBlock
-                editPostId={editPostId}
-                region={region}
-                city={city}
-                onSyncRegionCity={syncTradeRegionCity}
-                error={errors.location}
+          <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <div>
+              <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                건물명 <span className="text-sam-danger">*</span>
+              </label>
+              <input
+                type="text"
+                value={buildingName}
+                onChange={(e) => setBuildingName(e.target.value)}
                 readOnly={coreLocked}
-                onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
+                className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
+                placeholder="단지·건물명만 입력 (거래 지역은 대표 주소 기준)"
+                aria-invalid={!!errors.buildingName}
               />
+              {errors.buildingName && (
+                <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.buildingName}</p>
+              )}
             </div>
-            <section
-              className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
-            >
-              <div>
-                <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                  건물명 <span className="text-sam-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={buildingName}
-                  onChange={(e) => setBuildingName(e.target.value)}
-                  readOnly={coreLocked}
-                  className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
-                  placeholder="단지·건물명만 입력 (거래 지역은 대표 주소 기준)"
-                  aria-invalid={!!errors.buildingName}
-                />
-                {errors.buildingName && (
-                  <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.buildingName}</p>
-                )}
-              </div>
-            </section>
-          </>
+          </section>
         ) : skinKey === "used-car" ? (
           <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <p className="mb-2 sam-text-body font-medium text-sam-fg">
@@ -1624,33 +1515,21 @@ export function TradeWriteForm({
             {errors.title && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.title}</p>}
           </section>
         )}
-        <section className={isKarrotGeneral ? KARROT_SECTION : "sam-section"}>
-          <label
-            className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${isKarrotGeneral ? KARROT_LABEL : ""}`}
-          >
-            {isKarrotGeneral ? (
-              <>
-                자세한 설명 <span className="text-sam-danger">*</span>
-              </>
-            ) : (
-              <>
-                내용 <span className="text-sam-danger">*</span>
-              </>
-            )}
+        <section className={KARROT_SECTION}>
+          <label className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${KARROT_LABEL}`}>
+            자세한 설명 <span className="text-sam-danger">*</span>
           </label>
           <AutoGrowTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
             placeholder={
-              isKarrotGeneral
-                ? "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
-                : "내용을 입력해 주세요"
+              "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
             }
-            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${isKarrotGeneral ? `${KARROT_INNER_BOX} min-h-[140px] px-3` : "min-h-[96px]"}`}
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${KARROT_INNER_BOX} min-h-[140px] px-3`}
             aria-invalid={!!errors.description}
           />
-          {isKarrotGeneral && !showDescriptionAppend ? (
+          {!showDescriptionAppend ? (
             <>
               <button
                 type="button"
@@ -2197,7 +2076,7 @@ export function TradeWriteForm({
             </div>
           </section>
         )}
-        {isKarrotGeneral ? tradeLocationEl : null}
+        {tradeLocationEl}
         <section
           className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
@@ -2235,14 +2114,11 @@ export function TradeWriteForm({
             </label>
           </div>
         </section>
-        {!isKarrotGeneral ? tradeLocationEl : null}
         {errors.submit && (
           <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton
-          label={
-            editPostId ? "수정 완료" : isKarrotGeneral ? "작성 완료" : "등록하기"
-          }
+          label={editPostId ? "수정 완료" : "작성 완료"}
           submitting={submitting}
           submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
           onCancel={onCancel}

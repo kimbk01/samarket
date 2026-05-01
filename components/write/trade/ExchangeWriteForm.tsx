@@ -1,13 +1,40 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { uploadPostImages } from "@/lib/posts/uploadPostImages";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { getLocationLabelIfValid } from "@/lib/products/form-options";
+import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
+import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
+import {
+  clearTradeMeetSpotPickDraft,
+  clearTradeMeetSpotPickResult,
+  consumeTradeMeetSpotPickResult,
+  peekTradeMeetSpotPickResult,
+  seedTradeMeetSpotDraftForNavigation,
+} from "@/lib/posts/trade-meet-spot-pick-storage";
+import {
+  TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
+  consumeTradeMeetSpotFocusOnReturn,
+  markTradeMeetSpotFocusOnReturn,
+  persistTradeMeetSpotReturnScrollPosition,
+  restoreTradeMeetSpotReturnScrollPosition,
+  scrollTradeMeetSpotAnchorIntoView,
+} from "@/lib/posts/trade-meet-spot-anchor-scroll";
+import {
+  clearExchangeWriteMeetSpotStaging,
+  consumeExchangeWriteMeetSpotStaging,
+  persistExchangeWriteBeforeMeetSpot,
+} from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -26,10 +53,14 @@ import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fet
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
+import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
+import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { KARROT_INNER_BOX, KARROT_LABEL, KARROT_SECTION } from "./trade-karrot-classes";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -67,8 +98,11 @@ export function ExchangeWriteForm({
 }: ExchangeWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
+  const maxImages = Math.max(1, appSettings.maxProductImages ?? 10);
   /** 환전 전용 폼은 거래 지역 필수. exchange 카테고리 DB 설정에 has_location=false가 있어도 항상 표시 */
   const hasLocation = true;
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,10 +125,88 @@ export function ExchangeWriteForm({
   const [ratePlus, setRatePlus] = useState("0");
   const [amount, setAmount] = useState("");
   const [tradeTopicChildId, setTradeTopicChildId] = useState("");
+  const [images, setImages] = useState<ImageUploadItem[]>([]);
+  const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
+  const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
+  const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
+    null
+  );
+  const pendingMeetSpotConsumeRef = useRef(false);
+  const pendingMeetSpotFocusRef = useRef(false);
+
+  const [sellerPrep, setSellerPrep] = useState<string[]>([]);
+  const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
+  const [memo, setMemo] = useState("");
 
   useEffect(() => {
     setTradeTopicChildId("");
   }, [category.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const line = await fetchRepresentativeTradeMeetFallbackLine();
+      if (!cancelled) setRepresentativeTradeMeetFallbackLine(line);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (editPostId) return;
+    const staged = consumeExchangeWriteMeetSpotStaging(category.id);
+    if (!staged) return;
+    setDirection(staged.direction === "buy" ? "buy" : "sell");
+    setRate(staged.rate);
+    setRatePlus(staged.ratePlus);
+    setAmount(staged.amount);
+    setRatesFetchedAt(staged.ratesFetchedAt);
+    setSellerPrep(staged.sellerPrep);
+    setBuyerPrep(staged.buyerPrep);
+    setMemo(staged.memo);
+    setDescriptionAppend(staged.descriptionAppend);
+    setRegion(staged.region);
+    setCity(staged.city);
+    setTradeTopicChildId(staged.tradeTopicChildId);
+    setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
+  }, [editPostId, category.id]);
+
+  useLayoutEffect(() => {
+    const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
+    const next = peekTradeMeetSpotPickResult();
+    if (next) {
+      pendingMeetSpotConsumeRef.current = true;
+      setTradeMeetSpot(next);
+    }
+    if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
+    else restoreTradeMeetSpotReturnScrollPosition();
+  }, [pathname, tradeWriteSheetEpoch, category.id]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotConsumeRef.current) return;
+    if (!tradeMeetSpot?.displayLine?.trim()) return;
+    clearTradeMeetSpotPickResult();
+    pendingMeetSpotConsumeRef.current = false;
+  }, [tradeMeetSpot]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotFocusRef.current) return;
+    const run = () => scrollTradeMeetSpotAnchorIntoView();
+    requestAnimationFrame(() => requestAnimationFrame(run));
+    const t = window.setTimeout(run, 140);
+    pendingMeetSpotFocusRef.current = false;
+    return () => window.clearTimeout(t);
+  }, [tradeMeetSpot, tradeWriteSheetEpoch, pathname]);
+
+  useEffect(() => {
+    const onPageShow = () => {
+      const next = consumeTradeMeetSpotPickResult();
+      if (next) setTradeMeetSpot(next);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -133,6 +245,29 @@ export function ExchangeWriteForm({
 
     const crit = m.rate_criteria_at;
     if (typeof crit === "string" && crit.trim()) setRatesFetchedAt(crit.trim());
+
+    setImages((ownerEditSnapshot.images ?? []).filter(Boolean).map((url) => ({ url })));
+    const rawMeta = ownerEditSnapshot.meta;
+    const ts =
+      rawMeta && typeof rawMeta === "object" && rawMeta !== null
+        ? (rawMeta as Record<string, unknown>).trade_meet_spot
+        : null;
+    if (ts && typeof ts === "object") {
+      const o = ts as Record<string, unknown>;
+      const dl = String(o.display_line ?? "").trim();
+      if (dl) {
+        setTradeMeetSpot({
+          displayLine: dl,
+          lat: typeof o.lat === "number" && Number.isFinite(o.lat) ? o.lat : undefined,
+          lng: typeof o.lng === "number" && Number.isFinite(o.lng) ? o.lng : undefined,
+          placeId: typeof o.place_id === "string" && o.place_id.trim() ? o.place_id.trim() : undefined,
+        });
+      } else {
+        setTradeMeetSpot(null);
+      }
+    } else {
+      setTradeMeetSpot(null);
+    }
   }, [editPostId, ownerEditSnapshot]);
 
   /** 항상 페소↔한화. 저장/표시는 "1 PHP = X KRW"로 통일. */
@@ -194,10 +329,6 @@ export function ExchangeWriteForm({
     });
   }, [ratesLoading, liveRates]);
 
-  const [sellerPrep, setSellerPrep] = useState<string[]>([]);
-  const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
-  const [memo, setMemo] = useState("");
-
   /** 페소 팝니다: 판매자 준비물 미노출 → 이전 선택값 제거 */
   useEffect(() => {
     if (direction === "sell") setSellerPrep([]);
@@ -225,6 +356,95 @@ export function ExchangeWriteForm({
   const isOtherPrepDisabled = (prep: string[], value: string) =>
     prep.includes(IDENTITY_NOT_REQUIRED) && value !== IDENTITY_NOT_REQUIRED;
 
+  const karrotMeetSpotDisplayLine = useMemo(() => {
+    const fromMap = tradeMeetSpot?.displayLine?.trim();
+    if (fromMap) return fromMap;
+    const rep = representativeTradeMeetFallbackLine?.trim();
+    if (rep) return rep;
+    return getLocationLabelIfValid(region, city)?.trim() ?? "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
+
+  const handleBeforeMeetSpotPick = useCallback(async () => {
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      const user = getCurrentUser();
+      let workingImages = [...images];
+      const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
+      if (files.length > 0) {
+        if (!user?.id) {
+          window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+          return;
+        }
+        const uploaded = await uploadPostImages(files, user.id);
+        if (uploaded.length !== files.length) {
+          window.alert(
+            `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+          );
+          return;
+        }
+        let idx = 0;
+        workingImages = workingImages.map((item) => {
+          if (item.file) {
+            const url = uploaded[idx++];
+            return url ? { url } : item;
+          }
+          return item;
+        });
+        setImages(workingImages);
+      }
+      const imageUrls = workingImages
+        .map((i) => i.url)
+        .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
+      persistExchangeWriteBeforeMeetSpot(category.id, {
+        direction,
+        rate,
+        ratePlus,
+        amount,
+        ratesFetchedAt,
+        sellerPrep,
+        buyerPrep,
+        memo,
+        descriptionAppend,
+        region,
+        city,
+        tradeTopicChildId,
+        imageUrls,
+      });
+    }
+    const hasPinnedMeetSpot =
+      tradeMeetSpot?.lat != null &&
+      Number.isFinite(tradeMeetSpot.lat) &&
+      tradeMeetSpot?.lng != null &&
+      Number.isFinite(tradeMeetSpot.lng);
+    if (hasPinnedMeetSpot) {
+      seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
+    } else {
+      clearTradeMeetSpotPickDraft();
+    }
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [
+    editPostId,
+    tradeWriteSheet,
+    category,
+    images,
+    direction,
+    rate,
+    ratePlus,
+    amount,
+    ratesFetchedAt,
+    sellerPrep,
+    buyerPrep,
+    memo,
+    descriptionAppend,
+    region,
+    city,
+    tradeTopicChildId,
+    tradeMeetSpot,
+    router,
+  ]);
+
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (rateValue <= 0 || Number.isNaN(rateValue)) {
@@ -245,9 +465,27 @@ export function ExchangeWriteForm({
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     }
+    if (!tradeMeetSpot?.displayLine?.trim()) {
+      const fallbackLine =
+        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+      if (!fallbackLine) {
+        next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+      }
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [rateValue, amount, direction, sellerPrep.length, buyerPrep.length, hasLocation, region, city]);
+  }, [
+    rateValue,
+    amount,
+    direction,
+    sellerPrep.length,
+    buyerPrep.length,
+    hasLocation,
+    region,
+    city,
+    tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
+  ]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -263,9 +501,17 @@ export function ExchangeWriteForm({
         ) {
           return;
         }
+        const user = getCurrentUser();
+        const files = images.map((i) => i.file).filter((f): f is File => !!f);
+        const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
+        const existingUrls = images
+          .map((i) => i.url)
+          .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
+        const mergedImageUrls = [...existingUrls, ...uploaded];
+
         const title = buildExchangeTitle(direction);
         const content = memo.trim() || "환전 거래합니다. 매너와 속도가 중요해요.";
-        const meta: Record<string, unknown> = {
+        let meta: Record<string, unknown> = {
           exchange_direction: direction,
           from_currency: "PHP",
           to_currency: "KRW",
@@ -278,13 +524,32 @@ export function ExchangeWriteForm({
           seller_prep: direction === "sell" ? [] : sellerPrep,
           buyer_prep: buyerPrep,
         };
+        const lineFromMap = tradeMeetSpot?.displayLine?.trim();
+        const lineFallback =
+          representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+        const line = lineFromMap || lineFallback;
+        if (line) {
+          meta = {
+            ...meta,
+            trade_meet_spot: {
+              display_line: line,
+              ...(tradeMeetSpot && tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
+                ? { lat: tradeMeetSpot.lat }
+                : {}),
+              ...(tradeMeetSpot && tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
+                ? { lng: tradeMeetSpot.lng }
+                : {}),
+              ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
+            },
+          };
+        }
         const payload = {
           type: "trade" as const,
           categoryId: resolveTradeWriteCategoryId(category, tradeTopicChildId),
           title,
           content,
           price: amountValue,
-          imageUrls: [],
+          imageUrls: mergedImageUrls.length > 0 ? mergedImageUrls : undefined,
           region: region || undefined,
           city: city || undefined,
           meta,
@@ -297,6 +562,8 @@ export function ExchangeWriteForm({
                 : undefined,
           });
           if (res.ok) {
+            clearExchangeWriteMeetSpotStaging(category.id);
+            clearTradeMeetSpotPickDraft();
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
@@ -306,10 +573,11 @@ export function ExchangeWriteForm({
         } else {
           const res = await createPost(payload);
           if (res.ok) {
+            clearExchangeWriteMeetSpotStaging(category.id);
+            clearTradeMeetSpotPickDraft();
             invalidateHomePostsCache();
             onSuccess(res.id);
-          }
-          else {
+          } else {
             if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;
             setErrors({ submit: res.error });
           }
@@ -340,6 +608,9 @@ export function ExchangeWriteForm({
       editPostId,
       showDescriptionAppend,
       descriptionAppend,
+      images,
+      tradeMeetSpot,
+      representativeTradeMeetFallbackLine,
     ]
   );
 
@@ -350,6 +621,23 @@ export function ExchangeWriteForm({
     result.KRW = rateValue > 0 ? rateValue : (baseRates.KRW ?? 0);
     return result;
   }, [rateValue, baseRates]);
+
+  const tradeLocationEl = (
+    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+      <TradeDefaultLocationBlock
+        editPostId={editPostId}
+        region={region}
+        city={city}
+        onSyncRegionCity={syncTradeRegionCity}
+        error={errors.location}
+        readOnly={coreLocked}
+        karrotMeetSpotUi={hasLocation}
+        meetSpotLine={karrotMeetSpotDisplayLine || null}
+        meetSpotError={errors.meetSpot}
+        onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+      />
+    </div>
+  );
 
   return (
     <div
@@ -373,6 +661,15 @@ export function ExchangeWriteForm({
             {tradePolicy.hint}
           </div>
         ) : null}
+        <ImageUploader
+          value={images}
+          onChange={setImages}
+          maxCount={maxImages}
+          label="사진"
+          disabled={coreLocked}
+          compact={false}
+          variant="karrot"
+        />
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
         {/* 환율 상황판 (자동 조회) */}
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
@@ -420,19 +717,6 @@ export function ExchangeWriteForm({
             ))}
           </div>
         </section>
-
-        {hasLocation && (
-          <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-            <TradeDefaultLocationBlock
-              editPostId={editPostId}
-              region={region}
-              city={city}
-              onSyncRegionCity={syncTradeRegionCity}
-              error={errors.location}
-              readOnly={coreLocked}
-            />
-          </div>
-        )}
 
         {/* 기준 환율 | 기준 환율 + (가산) — 한 행 50% 분할 */}
         <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
@@ -558,16 +842,40 @@ export function ExchangeWriteForm({
         </section>
         </div>
 
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <p className="mb-2 sam-text-body font-medium text-sam-fg">추가 안내 (선택)</p>
+        {tradeLocationEl}
+
+        <section className={`${KARROT_SECTION} border-b border-sam-border-soft bg-sam-surface px-4 py-4`}>
+          <label className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${KARROT_LABEL}`}>
+            자세한 설명 <span className="sam-text-helper font-normal text-sam-muted">(선택)</span>
+          </label>
           <AutoGrowTextarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
-            placeholder="매너와 속도가 중요해요. 거래 시 유의사항을 적어주세요."
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg min-h-[96px]"
+            placeholder={
+              "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
+            }
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${KARROT_INNER_BOX} min-h-[140px] px-3 sam-text-body text-sam-fg`}
           />
-          <p className="mt-1 sam-text-helper text-sam-muted">매너와 속도가 중요해요.</p>
+          {!showDescriptionAppend ? (
+            <>
+              <button
+                type="button"
+                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
+                onClick={() => setFrequentPhrasesOpen(true)}
+              >
+                자주 쓰는 문구
+              </button>
+              <TradeFrequentPhrasesSheet
+                open={frequentPhrasesOpen}
+                onClose={() => setFrequentPhrasesOpen(false)}
+                onPickPhrase={(text) => {
+                  setMemo((d) => (d.trim() ? `${d}\n\n${text}` : text));
+                }}
+              />
+            </>
+          ) : null}
+          <p className="mt-1 sam-text-helper text-sam-muted">비워 두면 기본 문구로 저장돼요.</p>
           {showDescriptionAppend ? (
             <div className="mt-3">
               <label className="mb-1 block sam-text-body-secondary text-sam-fg">추가 안내 덧붙이기</label>
@@ -584,7 +892,7 @@ export function ExchangeWriteForm({
         {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
 
         <SubmitButton
-          label={editPostId ? "수정 완료" : "등록하기"}
+          label={editPostId ? "수정 완료" : "작성 완료"}
           submitting={submitting}
           submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
           onCancel={onCancel}

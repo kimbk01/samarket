@@ -1,12 +1,37 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import { getLocationLabelIfValid } from "@/lib/products/form-options";
+import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
+import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
+import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
+import {
+  clearTradeMeetSpotPickDraft,
+  clearTradeMeetSpotPickResult,
+  consumeTradeMeetSpotPickResult,
+  peekTradeMeetSpotPickResult,
+  seedTradeMeetSpotDraftForNavigation,
+} from "@/lib/posts/trade-meet-spot-pick-storage";
+import {
+  TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
+  consumeTradeMeetSpotFocusOnReturn,
+  markTradeMeetSpotFocusOnReturn,
+  persistTradeMeetSpotReturnScrollPosition,
+  restoreTradeMeetSpotReturnScrollPosition,
+  scrollTradeMeetSpotAnchorIntoView,
+} from "@/lib/posts/trade-meet-spot-anchor-scroll";
+import {
+  clearJobsWriteMeetSpotStaging,
+  consumeJobsWriteMeetSpotStaging,
+  persistJobsWriteBeforeMeetSpot,
+} from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirectAsync,
@@ -33,6 +58,7 @@ import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
+import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
@@ -41,6 +67,8 @@ import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
 import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { KARROT_INNER_BOX, KARROT_LABEL, KARROT_SECTION } from "./trade-karrot-classes";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -86,6 +114,8 @@ export function JobsWriteForm({
 }: JobsWriteFormProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currency = appSettings.defaultCurrency || "PHP";
@@ -128,6 +158,15 @@ export function JobsWriteForm({
   const [tradeChatCallPolicy, setTradeChatCallPolicy] = useState<TradeChatCallPolicy>("none");
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [images, setImages] = useState<ImageUploadItem[]>([]);
+  const [frequentPhrasesOpen, setFrequentPhrasesOpen] = useState(false);
+  const [tradeMeetSpot, setTradeMeetSpot] = useState<TradeMeetSpotValue | null>(null);
+  const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
+    null
+  );
+
+  const hasLocation = true;
+  const pendingMeetSpotConsumeRef = useRef(false);
+  const pendingMeetSpotFocusRef = useRef(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -140,6 +179,89 @@ export function JobsWriteForm({
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
   const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency) : "";
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const line = await fetchRepresentativeTradeMeetFallbackLine();
+      if (!cancelled) setRepresentativeTradeMeetFallbackLine(line);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (editPostId) return;
+    const staged = consumeJobsWriteMeetSpotStaging(category.id);
+    if (!staged) return;
+    setListingKind(staged.listingKind === "work" ? "work" : "hire");
+    setTitle(staged.title);
+    setWorkCategory(staged.workCategory);
+    setWorkCategoryOther(staged.workCategoryOther);
+    setWorkTerm(staged.workTerm);
+    setPayType(staged.payType);
+    setPayAmount(staged.payAmount);
+    setDescription(staged.description);
+    setRegion(staged.region);
+    setCity(staged.city);
+    setTradeTopicChildId(staged.tradeTopicChildId);
+    setWorkDate(staged.workDate);
+    setWorkDateEnd(staged.workDateEnd);
+    setWorkTimeStart(staged.workTimeStart);
+    setWorkTimeEnd(staged.workTimeEnd);
+    setSameDayPay(staged.sameDayPay);
+    setCompanyName(staged.companyName);
+    setAvailableTime(staged.availableTime);
+    setExperienceLevel(staged.experienceLevel);
+    setTradeChatCallPolicy(normalizeTradeChatCallPolicy(staged.tradeChatCallPolicy));
+    setTermsAgreed(staged.termsAgreed);
+    setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
+  }, [editPostId, category.id]);
+
+  useLayoutEffect(() => {
+    const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
+    const next = peekTradeMeetSpotPickResult();
+    if (next) {
+      pendingMeetSpotConsumeRef.current = true;
+      setTradeMeetSpot(next);
+    }
+    if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
+    else restoreTradeMeetSpotReturnScrollPosition();
+  }, [pathname, tradeWriteSheetEpoch, category.id]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotConsumeRef.current) return;
+    if (!tradeMeetSpot?.displayLine?.trim()) return;
+    clearTradeMeetSpotPickResult();
+    pendingMeetSpotConsumeRef.current = false;
+  }, [tradeMeetSpot]);
+
+  useEffect(() => {
+    if (!pendingMeetSpotFocusRef.current) return;
+    const run = () => scrollTradeMeetSpotAnchorIntoView();
+    requestAnimationFrame(() => requestAnimationFrame(run));
+    const t = window.setTimeout(run, 140);
+    pendingMeetSpotFocusRef.current = false;
+    return () => window.clearTimeout(t);
+  }, [tradeMeetSpot, tradeWriteSheetEpoch, pathname]);
+
+  useEffect(() => {
+    const onPageShow = () => {
+      const next = consumeTradeMeetSpotPickResult();
+      if (next) setTradeMeetSpot(next);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  const karrotMeetSpotDisplayLine = useMemo(() => {
+    const fromMap = tradeMeetSpot?.displayLine?.trim();
+    if (fromMap) return fromMap;
+    const rep = representativeTradeMeetFallbackLine?.trim();
+    if (rep) return rep;
+    return getLocationLabelIfValid(region, city)?.trim() ?? "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -169,8 +291,128 @@ export function JobsWriteForm({
     setTermsAgreed(h.termsAgreed);
     setImages(h.images);
     setDescriptionAppend("");
+    const rawMeta = ownerEditSnapshot.meta;
+    const ts =
+      rawMeta && typeof rawMeta === "object" && rawMeta !== null
+        ? (rawMeta as Record<string, unknown>).trade_meet_spot
+        : null;
+    if (ts && typeof ts === "object") {
+      const o = ts as Record<string, unknown>;
+      const dl = String(o.display_line ?? "").trim();
+      if (dl) {
+        setTradeMeetSpot({
+          displayLine: dl,
+          lat: typeof o.lat === "number" && Number.isFinite(o.lat) ? o.lat : undefined,
+          lng: typeof o.lng === "number" && Number.isFinite(o.lng) ? o.lng : undefined,
+          placeId: typeof o.place_id === "string" && o.place_id.trim() ? o.place_id.trim() : undefined,
+        });
+      } else {
+        setTradeMeetSpot(null);
+      }
+    } else {
+      setTradeMeetSpot(null);
+    }
     setHydratedEdit(true);
   }, [editPostId, ownerEditSnapshot, category]);
+
+  const handleBeforeMeetSpotPick = useCallback(async () => {
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      const user = getCurrentUser();
+      let workingImages = [...images];
+      const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
+      if (files.length > 0) {
+        if (!user?.id) {
+          window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+          return;
+        }
+        const uploaded = await uploadPostImages(files, user.id);
+        if (uploaded.length !== files.length) {
+          window.alert(
+            `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+          );
+          return;
+        }
+        let idx = 0;
+        workingImages = workingImages.map((item) => {
+          if (item.file) {
+            const url = uploaded[idx++];
+            return url ? { url } : item;
+          }
+          return item;
+        });
+        setImages(workingImages);
+      }
+      const imageUrls = workingImages
+        .map((i) => i.url)
+        .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
+      persistJobsWriteBeforeMeetSpot(category.id, {
+        listingKind,
+        title,
+        workCategory,
+        workCategoryOther,
+        workTerm,
+        payType,
+        payAmount,
+        description,
+        region,
+        city,
+        tradeTopicChildId,
+        workDate,
+        workDateEnd,
+        workTimeStart,
+        workTimeEnd,
+        sameDayPay,
+        companyName,
+        availableTime,
+        experienceLevel,
+        tradeChatCallPolicy,
+        termsAgreed,
+        imageUrls,
+      });
+    }
+    const hasPinnedMeetSpot =
+      tradeMeetSpot?.lat != null &&
+      Number.isFinite(tradeMeetSpot.lat) &&
+      tradeMeetSpot?.lng != null &&
+      Number.isFinite(tradeMeetSpot.lng);
+    if (hasPinnedMeetSpot) {
+      seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
+    } else {
+      clearTradeMeetSpotPickDraft();
+    }
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
+  }, [
+    editPostId,
+    tradeWriteSheet,
+    category,
+    images,
+    listingKind,
+    title,
+    workCategory,
+    workCategoryOther,
+    workTerm,
+    payType,
+    payAmount,
+    description,
+    region,
+    city,
+    tradeTopicChildId,
+    workDate,
+    workDateEnd,
+    workTimeStart,
+    workTimeEnd,
+    sameDayPay,
+    companyName,
+    availableTime,
+    experienceLevel,
+    tradeChatCallPolicy,
+    termsAgreed,
+    tradeMeetSpot,
+    router,
+  ]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -190,7 +432,14 @@ export function JobsWriteForm({
       next.region =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     }
-    if (!description.trim()) next.description = "상세 내용을 입력해 주세요.";
+    if (!tradeMeetSpot?.displayLine?.trim()) {
+      const fallbackLine =
+        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+      if (!fallbackLine) {
+        next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+      }
+    }
+    if (!description.trim()) next.description = "내용을 입력해 주세요.";
     if (description.trim().length > JOB_DESCRIPTION_MAX) {
       next.description = `설명은 최대 ${JOB_DESCRIPTION_MAX}자까지예요.`;
     }
@@ -236,6 +485,8 @@ export function JobsWriteForm({
     currency,
     termsAgreed,
     coreLocked,
+    tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
   ]);
 
   const buildMeta = useCallback((): Record<string, unknown> => {
@@ -299,9 +550,30 @@ export function JobsWriteForm({
         const user = getCurrentUser();
         const files = images.map((i) => i.file).filter((f): f is File => !!f);
         const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
-        const existingUrls = images.map((i) => i.url).filter((u): u is string => typeof u === "string" && u.length > 0);
+        const existingUrls = images
+          .map((i) => i.url)
+          .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
         const imageUrls = [...existingUrls, ...uploaded];
-        const meta = buildMeta();
+        let meta: Record<string, unknown> = buildMeta();
+        const lineFromMap = tradeMeetSpot?.displayLine?.trim();
+        const lineFallback =
+          representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+        const line = lineFromMap || lineFallback;
+        if (line) {
+          meta = {
+            ...meta,
+            trade_meet_spot: {
+              display_line: line,
+              ...(tradeMeetSpot && tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
+                ? { lat: tradeMeetSpot.lat }
+                : {}),
+              ...(tradeMeetSpot && tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
+                ? { lng: tradeMeetSpot.lng }
+                : {}),
+              ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
+            },
+          };
+        }
         const priceNum = payNum ? Number(payNum) : null;
         if (editPostId) {
           const res = await updateTradePostFromCreatePayload(
@@ -323,6 +595,8 @@ export function JobsWriteForm({
             showDescriptionAppend ? { descriptionAppend: descriptionAppend.trim() || null } : undefined
           );
           if (res.ok) {
+            clearJobsWriteMeetSpotStaging(category.id);
+            clearTradeMeetSpotPickDraft();
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
@@ -346,6 +620,8 @@ export function JobsWriteForm({
           meta: Object.keys(meta).length > 0 ? meta : undefined,
         });
         if (res.ok) {
+          clearJobsWriteMeetSpotStaging(category.id);
+          clearTradeMeetSpotPickDraft();
           invalidateHomePostsCache();
           onSuccess(res.id);
         } else {
@@ -374,11 +650,30 @@ export function JobsWriteForm({
       hydratedEdit,
       showDescriptionAppend,
       descriptionAppend,
+      tradeMeetSpot,
+      representativeTradeMeetFallbackLine,
     ]
   );
 
   const tierTitle = editPostId ? `${category.name} · 글 수정` : `${category.name} · 빠른 등록 · 글쓰기`;
   const policyHint = tradePolicy?.hint?.trim() ?? "";
+
+  const tradeLocationEl = (
+    <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+      <TradeDefaultLocationBlock
+        editPostId={editPostId}
+        region={region}
+        city={city}
+        onSyncRegionCity={syncTradeRegionCity}
+        error={errors.region}
+        readOnly={coreLocked}
+        karrotMeetSpotUi={hasLocation}
+        meetSpotLine={karrotMeetSpotDisplayLine || null}
+        meetSpotError={errors.meetSpot}
+        onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+      />
+    </div>
+  );
 
   return (
     <div
@@ -404,6 +699,16 @@ export function JobsWriteForm({
         {editPostId && policyHint ? (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-950">{policyHint}</div>
         ) : null}
+
+        <ImageUploader
+          value={images}
+          onChange={setImages}
+          maxCount={maxImages}
+          label="사진"
+          disabled={coreLocked}
+          compact={false}
+          variant="karrot"
+        />
 
         <section
           className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -498,17 +803,6 @@ export function JobsWriteForm({
             <p className="mt-1 sam-text-body-secondary text-red-500">{errors.workCategoryOther}</p>
           )}
         </section>
-
-        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-          <TradeDefaultLocationBlock
-            editPostId={editPostId}
-            region={region}
-            city={city}
-            onSyncRegionCity={syncTradeRegionCity}
-            error={errors.region}
-            readOnly={coreLocked}
-          />
-        </div>
 
         <section
           className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -710,18 +1004,40 @@ export function JobsWriteForm({
           {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
         </section>
 
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">상세 설명</p>
+        <section className={`${KARROT_SECTION} border-b border-sam-border-soft bg-sam-surface px-4 py-4`}>
+          <label className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${KARROT_LABEL}`}>
+            자세한 설명 <span className="text-red-500">*</span>
+          </label>
           <AutoGrowTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             readOnly={showDescriptionAppend}
-            placeholder="하는 일, 분위기, 준비물 등을 적어 주세요."
+            placeholder={
+              "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
+            }
             maxLength={JOB_DESCRIPTION_MAX}
-            className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body min-h-[120px] ${
-              errors.description ? "border-red-400 bg-red-50" : "border-sam-border"
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${KARROT_INNER_BOX} min-h-[140px] px-3 sam-text-body ${
+              errors.description ? "border-red-400 bg-red-50" : ""
             } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : ""}`}
           />
+          {!showDescriptionAppend ? (
+            <>
+              <button
+                type="button"
+                className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
+                onClick={() => setFrequentPhrasesOpen(true)}
+              >
+                자주 쓰는 문구
+              </button>
+              <TradeFrequentPhrasesSheet
+                open={frequentPhrasesOpen}
+                onClose={() => setFrequentPhrasesOpen(false)}
+                onPickPhrase={(text) => {
+                  setDescription((d) => (d.trim() ? `${d}\n\n${text}` : text));
+                }}
+              />
+            </>
+          ) : null}
           <p className="mt-1 text-right sam-text-helper text-sam-muted">{description.length}/{JOB_DESCRIPTION_MAX}</p>
           {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
           {showDescriptionAppend ? (
@@ -737,6 +1053,8 @@ export function JobsWriteForm({
             </div>
           ) : null}
         </section>
+
+        {tradeLocationEl}
 
         <section
           className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -793,21 +1111,10 @@ export function JobsWriteForm({
           {errors.termsAgreed && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.termsAgreed}</p>}
         </section>
 
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">사진 (선택)</p>
-          <ImageUploader
-            value={images}
-            onChange={setImages}
-            maxCount={maxImages}
-            label="사진 추가"
-            disabled={coreLocked}
-          />
-        </section>
-
         {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
 
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
-          <SubmitButton label={editPostId ? "수정하기" : "등록하기"} submitting={submitting} onCancel={onCancel} />
+          <SubmitButton label={editPostId ? "수정 완료" : "작성 완료"} submitting={submitting} onCancel={onCancel} />
         </div>
       </form>
     </div>
