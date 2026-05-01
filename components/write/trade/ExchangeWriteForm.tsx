@@ -143,7 +143,6 @@ export function ExchangeWriteForm({
   const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
     null
   );
-  const pendingMeetSpotConsumeRef = useRef(false);
   const pendingMeetSpotFocusRef = useRef(false);
 
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
@@ -192,19 +191,14 @@ export function ExchangeWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      pendingMeetSpotConsumeRef.current = true;
       setTradeMeetSpot(next);
+      requestAnimationFrame(() => {
+        clearTradeMeetSpotPickResult();
+      });
     }
     if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
     else restoreTradeMeetSpotReturnScrollPosition();
   }, [pathname, tradeWriteSheetEpoch, category.id]);
-
-  useEffect(() => {
-    if (!pendingMeetSpotConsumeRef.current) return;
-    if (!tradeMeetSpot?.displayLine?.trim()) return;
-    clearTradeMeetSpotPickResult();
-    pendingMeetSpotConsumeRef.current = false;
-  }, [tradeMeetSpot]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;

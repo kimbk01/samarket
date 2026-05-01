@@ -763,9 +763,9 @@ export function TradeWriteForm({
 
   /**
    * 업로드 없이 현재 필드를 세션 초안에 반영 — 거래 희망 장소 지도로 즉시 이동할 때 사용.
-   * (주소 관리 이동용 `handleBeforeNavigateToAddresses` 는 미업로드 이미지를 올린 뒤 저장.)
+   * `forcePersist`: 지도·주소 이동 직전 등 looksFilled 와 무관하게 세션에 남길 때.
    */
-  const flushTradeWriteSessionDraftSync = useCallback(() => {
+  const flushTradeWriteSessionDraftSync = useCallback((forcePersist = false) => {
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
@@ -812,7 +812,7 @@ export function TradeWriteForm({
       usedCarMileagePresetKey,
     };
     tradeDraftFlushRef.current = payload;
-    if (tradeWriteSessionDraftLooksFilled(payload)) {
+    if (forcePersist || tradeWriteSessionDraftLooksFilled(payload)) {
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
     }
   }, [
@@ -956,9 +956,7 @@ export function TradeWriteForm({
       usedCarMileagePresetKey,
     };
     tradeDraftFlushRef.current = payload;
-    if (tradeWriteSessionDraftLooksFilled(payload)) {
-      writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
-    }
+    writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
   }, [
     editPostId,
     category.id,
@@ -1379,7 +1377,7 @@ export function TradeWriteForm({
         try {
           await handleBeforeNavigateToAddresses();
         } catch {
-          flushTradeWriteSessionDraftSync();
+          flushTradeWriteSessionDraftSync(true);
         }
       } finally {
         suppressDraftPersistenceRef.current = prevSuppress;
@@ -1399,7 +1397,6 @@ export function TradeWriteForm({
     tradeWriteSheet,
   ]);
 
-  const pendingMeetSpotConsumeRef = useRef(false);
   const pendingMeetSpotFocusRef = useRef(false);
 
   /** 시트 재오픈(`openEpoch`)·경로 변경 직후에도 1회 반영 — `useEffect`만 쓰면 시트 폼보다 늦을 수 있음 */
@@ -1407,8 +1404,11 @@ export function TradeWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      pendingMeetSpotConsumeRef.current = true;
       setTradeMeetSpot(next);
+      /** dev Strict Mode 이중 레이아웃 사이에 세션을 비우지 않도록 페인트 뒤 1회만 제거 */
+      requestAnimationFrame(() => {
+        clearTradeMeetSpotPickResult();
+      });
     }
     /** 복귀 시 위치 블록 포커스를 최우선으로 하고, 그 외에는 기존 스크롤 복원 유지 */
     if (shouldFocusOnReturn) {
@@ -1417,13 +1417,6 @@ export function TradeWriteForm({
       restoreTradeMeetSpotReturnScrollPosition();
     }
   }, [pathname, tradeWriteSheetEpoch, category.id]);
-
-  useEffect(() => {
-    if (!pendingMeetSpotConsumeRef.current) return;
-    if (!tradeMeetSpot?.displayLine?.trim()) return;
-    clearTradeMeetSpotPickResult();
-    pendingMeetSpotConsumeRef.current = false;
-  }, [tradeMeetSpot]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;

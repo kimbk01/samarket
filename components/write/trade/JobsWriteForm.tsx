@@ -178,7 +178,6 @@ export function JobsWriteForm({
   );
 
   const hasLocation = true;
-  const pendingMeetSpotConsumeRef = useRef(false);
   const pendingMeetSpotFocusRef = useRef(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -240,19 +239,14 @@ export function JobsWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      pendingMeetSpotConsumeRef.current = true;
       setTradeMeetSpot(next);
+      requestAnimationFrame(() => {
+        clearTradeMeetSpotPickResult();
+      });
     }
     if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
     else restoreTradeMeetSpotReturnScrollPosition();
   }, [pathname, tradeWriteSheetEpoch, category.id]);
-
-  useEffect(() => {
-    if (!pendingMeetSpotConsumeRef.current) return;
-    if (!tradeMeetSpot?.displayLine?.trim()) return;
-    clearTradeMeetSpotPickResult();
-    pendingMeetSpotConsumeRef.current = false;
-  }, [tradeMeetSpot]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;
