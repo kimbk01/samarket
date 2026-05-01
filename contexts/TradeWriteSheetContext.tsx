@@ -34,7 +34,7 @@ type TradeWriteSheetContextValue = {
   blockingDraft: boolean;
   setBlockingDraft: (v: boolean) => void;
   /**
-   * TradeWriteForm / JobsWriteForm / ExchangeWriteForm 이 등록.
+   * `TradeCategoryWriteForm` 경유 폼이 등록(`TradeWriteForm` · 일자리 · 환전 등).
    * 나가기·외부 이탈 확인 직전에 호출해 카테고리별 세션 스냅샷을 남김(일반 거래 세션 초안 · 일·환전 스테이징).
    */
   persistSnapshotBeforeLeaveRef: React.MutableRefObject<(() => Promise<void>) | null>;

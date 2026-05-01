@@ -9,6 +9,7 @@ import {
   findMileagePresetKeyForDigits,
   resolveUsedCarSellKeysFromStoredCarModel,
 } from "@/lib/trade/used-car-form-catalog";
+import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 import { UsedCarSellFields } from "./UsedCarSellFields";
 
 const REAL_ESTATE_TYPES = [
@@ -170,9 +171,16 @@ import {
   type TradeWriteFormSessionDraftBuildArgs,
   type TradeWriteFormSessionDraftV1,
 } from "@/lib/posts/trade-write-form-session-draft";
+import {
+  clearTradeWriteMeetSpotStaging,
+  peekTradeWriteMeetSpotStaging,
+  persistTradeWriteMeetSpotStaging,
+  stripTradeWriteMeetSpotSessionMirror,
+} from "@/lib/posts/trade-write-meet-spot-staging";
 import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
   TRADE_WRITE_DRAFT_DISCARDED_EVENT,
+  discardTradeWriteStashedDraft,
   type TradeWriteDraftDiscardedDetail,
 } from "@/lib/posts/trade-write-exit-cleanup";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
@@ -265,7 +273,7 @@ export function TradeWriteForm({
   );
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
-  const skinKey = category.icon_key ?? "general";
+  const skinKey = resolveTradeWriteSkinKey(category.icon_key);
   const isUsedCarSkin = skinKey === "used-car";
   /**
    * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
@@ -293,7 +301,7 @@ export function TradeWriteForm({
   const [mileage, setMileage] = useState("");
   /** 중고차: 삽니다(buy) / 팝니다(sell) — 신규 작성 기본은 팝니다 */
   const [usedCarTrade, setUsedCarTrade] = useState<"buy" | "sell" | null>(() =>
-    (category.icon_key ?? "general") === "used-car" ? "sell" : null
+    isUsedCarTradeWriteSkin(category.icon_key) ? "sell" : null
   );
   const [usedCarBrandKey, setUsedCarBrandKey] = useState("");
   const [usedCarModelKey, setUsedCarModelKey] = useState("");
@@ -420,7 +428,7 @@ export function TradeWriteForm({
     setCarModel(d.carModel ?? "");
     setCarYear(d.carYear ?? "");
     setMileage(d.mileage ?? "");
-    const draftUsedCarSell = (d.skinKey ?? "") === "used-car" && d.usedCarTrade === "sell";
+    const draftUsedCarSell = isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "sell";
     if (draftUsedCarSell) {
       if ((d.usedCarBrandKey ?? "").trim()) {
         setUsedCarBrandKey(d.usedCarBrandKey!.trim());
@@ -460,8 +468,14 @@ export function TradeWriteForm({
     const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
     const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
     if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn) {
-      const d = readTradeWriteFormPersistedDraft(category.id);
-      if (d) applyPersistedDraft(d);
+      const staged = peekTradeWriteMeetSpotStaging(category.id);
+      if (staged) {
+        applyPersistedDraft(staged);
+        stripTradeWriteMeetSpotSessionMirror(category.id);
+      } else {
+        const d = readTradeWriteFormPersistedDraft(category.id);
+        if (d) applyPersistedDraft(d);
+      }
       setResumeDraftSnapshot(null);
       setDraftResumeGate("ready");
       if (skipDraftPrompt) {
@@ -485,11 +499,8 @@ export function TradeWriteForm({
     setTradeWriteSucceededClearBlocking(false);
   }, [category.id]);
 
-  const meaningfulTradeDraftForSheet = useMemo(() => {
-    if (editPostId) return false;
-    if (tradeWriteSucceededClearBlocking) return false;
-    if (draftResumeGate === "pending_choice") return true;
-    const flushPayload: TradeWriteFormSessionDraftBuildArgs = {
+  const assembleTradeWriteFlushPayload = useCallback(
+    (workingImages: ImageUploadItem[]): TradeWriteFormSessionDraftBuildArgs => ({
       categoryId: category.id,
       skinKey,
       title,
@@ -497,7 +508,7 @@ export function TradeWriteForm({
       price,
       region,
       city,
-      images,
+      images: workingImages,
       isFreeShare,
       isPriceOfferEnabled,
       isDirectDeal,
@@ -530,7 +541,84 @@ export function TradeWriteForm({
       usedCarBrandKey,
       usedCarModelKey,
       usedCarMileagePresetKey,
-    };
+    }),
+    [
+      category.id,
+      skinKey,
+      title,
+      description,
+      price,
+      region,
+      city,
+      isFreeShare,
+      isPriceOfferEnabled,
+      isDirectDeal,
+      tradeTopicChildId,
+      neighborhood,
+      buildingName,
+      estateType,
+      dealType,
+      deposit,
+      monthly,
+      managementFee,
+      hasPremium,
+      areaSqm,
+      roomCount,
+      bathroomCount,
+      moveInDate,
+      carModel,
+      carYear,
+      mileage,
+      usedCarTrade,
+      carHasAccident,
+      salary,
+      workPlace,
+      workType,
+      currency,
+      exchangeRate,
+      tradeChatCallPolicy,
+      descriptionAppend,
+      tradeMeetSpot,
+      usedCarBrandKey,
+      usedCarModelKey,
+      usedCarMileagePresetKey,
+    ]
+  );
+
+  /** 미업로드 사진을 스토리지에 올린 뒤 URL 목록으로 맞춘다 — 초안·나가기 스냅샷 공통 */
+  const uploadPendingTradeWriteImages = useCallback(async (): Promise<ImageUploadItem[]> => {
+    const user = getCurrentUser();
+    let workingImages = [...images];
+    const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
+    if (files.length === 0) return workingImages;
+    if (!user?.id) {
+      window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+      throw new Error("no-user");
+    }
+    const uploaded = await uploadPostImages(files, user.id);
+    if (uploaded.length !== files.length) {
+      window.alert(
+        `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+      );
+      throw new Error("partial-upload");
+    }
+    let idx = 0;
+    workingImages = workingImages.map((item) => {
+      if (item.file) {
+        const url = uploaded[idx++];
+        return url ? { url } : item;
+      }
+      return item;
+    });
+    setImages(workingImages);
+    return workingImages;
+  }, [images]);
+
+  const meaningfulTradeDraftForSheet = useMemo(() => {
+    if (editPostId) return false;
+    if (tradeWriteSucceededClearBlocking) return false;
+    if (draftResumeGate === "pending_choice") return true;
+    const flushPayload = assembleTradeWriteFlushPayload(images);
     return tradeWriteSessionDraftLooksFilled(flushPayload);
   }, [
     editPostId,
@@ -576,6 +664,7 @@ export function TradeWriteForm({
     usedCarModelKey,
     usedCarMileagePresetKey,
     tradeWriteSucceededClearBlocking,
+    assembleTradeWriteFlushPayload,
   ]);
 
   useEffect(() => {
@@ -591,13 +680,70 @@ export function TradeWriteForm({
     setDraftResumeGate("ready");
   }, [resumeDraftSnapshot, applyPersistedDraft]);
 
+  const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * 「새로 작성」— 저장소 비운 뒤 폼도 비움. 스토리지만 비우면 나가기 스냅샷이 메모리의 이미지·글로 초안을 다시 씀.
+   */
   const handleDiscardPersistedDraft = useCallback(() => {
-    clearTradeWriteFormSessionDraft(category.id);
+    if (editPostId) return;
+    discardTradeWriteStashedDraft(category.id);
+    tradeDraftFlushRef.current = null;
+    suppressDraftPersistenceRef.current = false;
+
     setResumeDraftSnapshot(null);
     setDraftResumeGate("ready");
-  }, [category.id]);
 
-  const sessionDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    setTitle("");
+    setDescription("");
+    setPrice("");
+    setImages([]);
+    setErrors({});
+    setDescriptionAppend("");
+    setTradeChatCallPolicy("none");
+    setTradeMeetSpot(null);
+    setTradeTopicChildId("");
+    setNeighborhood("");
+    setBuildingName("");
+    setEstateType("");
+    setDealType("임대");
+    setDeposit("");
+    setMonthly("");
+    setManagementFee("");
+    setHasPremium(false);
+    setAreaSqm("");
+    setRoomCount("");
+    setBathroomCount("");
+    setMoveInDate("");
+    setCarModel("");
+    setCarYear("");
+    setMileage("");
+    setUsedCarBrandKey("");
+    setUsedCarModelKey("");
+    setUsedCarMileagePresetKey("");
+    setUsedCarTrade(isUsedCarSkin ? "sell" : null);
+    setCarHasAccident(false);
+    setSalary("");
+    setWorkPlace("");
+    setWorkType("");
+    setCurrency("");
+    setExchangeRate("");
+    setIsPriceOfferEnabled(false);
+    setRegion("");
+    setCity("");
+    if (!isUsedCarSkin) {
+      if (!hasFreeShare && hasDirectDeal) {
+        setIsFreeShare(false);
+        setIsDirectDeal(true);
+      } else if (hasFreeShare && !hasDirectDeal) {
+        setIsFreeShare(true);
+        setIsDirectDeal(false);
+      } else {
+        setIsFreeShare(false);
+        setIsDirectDeal(true);
+      }
+    }
+  }, [category.id, editPostId, hasDirectDeal, hasFreeShare, isUsedCarSkin]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -631,48 +777,7 @@ export function TradeWriteForm({
       tradeDraftFlushRef.current = null;
       return;
     }
-    const flushPayload: TradeWriteFormSessionDraftBuildArgs = {
-      categoryId: category.id,
-      skinKey,
-      title,
-      description,
-      price,
-      region,
-      city,
-      images,
-      isFreeShare,
-      isPriceOfferEnabled,
-      isDirectDeal,
-      tradeTopicChildId,
-      neighborhood,
-      buildingName,
-      estateType,
-      dealType,
-      deposit,
-      monthly,
-      managementFee,
-      hasPremium,
-      areaSqm,
-      roomCount,
-      bathroomCount,
-      moveInDate,
-      carModel,
-      carYear,
-      mileage,
-      usedCarTrade,
-      carHasAccident,
-      salary,
-      workPlace,
-      workType,
-      currency,
-      exchangeRate,
-      tradeChatCallPolicy,
-      descriptionAppend,
-      tradeMeetSpot,
-      usedCarBrandKey,
-      usedCarModelKey,
-      usedCarMileagePresetKey,
-    };
+    const flushPayload = assembleTradeWriteFlushPayload(images);
     tradeDraftFlushRef.current = flushPayload;
     if (!tradeWriteSessionDraftLooksFilled(flushPayload)) return;
     if (sessionDraftTimerRef.current) clearTimeout(sessionDraftTimerRef.current);
@@ -731,6 +836,7 @@ export function TradeWriteForm({
     usedCarMileagePresetKey,
     draftResumeGate,
     tradeWriteSucceededClearBlocking,
+    assembleTradeWriteFlushPayload,
   ]);
 
   useEffect(() => {
@@ -773,95 +879,28 @@ export function TradeWriteForm({
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
-    const payload: TradeWriteFormSessionDraftBuildArgs = {
-      categoryId: category.id,
-      skinKey,
-      title,
-      description,
-      price,
-      region,
-      city,
-      images,
-      isFreeShare,
-      isPriceOfferEnabled,
-      isDirectDeal,
-      tradeTopicChildId,
-      neighborhood,
-      buildingName,
-      estateType,
-      dealType,
-      deposit,
-      monthly,
-      managementFee,
-      hasPremium,
-      areaSqm,
-      roomCount,
-      bathroomCount,
-      moveInDate,
-      carModel,
-      carYear,
-      mileage,
-      usedCarTrade,
-      carHasAccident,
-      salary,
-      workPlace,
-      workType,
-      currency,
-      exchangeRate,
-      tradeChatCallPolicy,
-      descriptionAppend,
-      tradeMeetSpot,
-      usedCarBrandKey,
-      usedCarModelKey,
-      usedCarMileagePresetKey,
-    };
+    const payload = assembleTradeWriteFlushPayload(images);
     tradeDraftFlushRef.current = payload;
     if (forcePersist || tradeWriteSessionDraftLooksFilled(payload)) {
+      const built = buildTradeWriteFormSessionDraft(payload);
+      writeTradeWriteFormSessionDraft(built);
+      persistTradeWriteMeetSpotStaging(category.id, built);
+    }
+  }, [editPostId, category.id, assembleTradeWriteFlushPayload, images]);
+
+  /**
+   * 나가기·시트 닫기 직전 — Jobs/환전과 같이 미업로드 사진을 올린 뒤 초안에 https URL로 남김.
+   */
+  const persistTradeWriteSnapshotBeforeLeaveAsync = useCallback(async () => {
+    if (editPostId) return;
+    /** 나가기만 한 경우에는 플래그 없음 → 재진입 시 이어쓰기/새로 작성 시트(중고·부동산·중고차 공통) */
+    const workingImages = await uploadPendingTradeWriteImages();
+    const payload = assembleTradeWriteFlushPayload(workingImages);
+    tradeDraftFlushRef.current = payload;
+    if (tradeWriteSessionDraftLooksFilled(payload)) {
       writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
     }
-  }, [
-    editPostId,
-    category.id,
-    skinKey,
-    title,
-    description,
-    price,
-    region,
-    city,
-    images,
-    isFreeShare,
-    isPriceOfferEnabled,
-    isDirectDeal,
-    tradeTopicChildId,
-    neighborhood,
-    buildingName,
-    estateType,
-    dealType,
-    deposit,
-    monthly,
-    managementFee,
-    hasPremium,
-      areaSqm,
-      roomCount,
-      bathroomCount,
-      moveInDate,
-      carModel,
-      carYear,
-      mileage,
-      usedCarTrade,
-      carHasAccident,
-      salary,
-      workPlace,
-      workType,
-      currency,
-      exchangeRate,
-      tradeChatCallPolicy,
-      descriptionAppend,
-      tradeMeetSpot,
-      usedCarBrandKey,
-      usedCarModelKey,
-      usedCarMileagePresetKey,
-  ]);
+  }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
 
   useEffect(() => {
     if (!tradeWriteSheet) return;
@@ -871,7 +910,7 @@ export function TradeWriteForm({
       const prev = suppressDraftPersistenceRef.current;
       suppressDraftPersistenceRef.current = false;
       try {
-        flushTradeWriteSessionDraftSync();
+        await persistTradeWriteSnapshotBeforeLeaveAsync();
       } finally {
         suppressDraftPersistenceRef.current = prev;
       }
@@ -879,7 +918,7 @@ export function TradeWriteForm({
     return () => {
       ref.current = null;
     };
-  }, [tradeWriteSheet, editPostId, flushTradeWriteSessionDraftSync]);
+  }, [tradeWriteSheet, editPostId, persistTradeWriteSnapshotBeforeLeaveAsync]);
 
   /**
    * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
@@ -888,122 +927,14 @@ export function TradeWriteForm({
     if (editPostId) return;
     if (suppressDraftPersistenceRef.current) return;
     setTradeWriteRestoreAfterAddressFlag(category.id);
-
-    const user = getCurrentUser();
-    let workingImages = [...images];
-    const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
-    if (files.length > 0) {
-      if (!user?.id) {
-        window.alert("로그인이 필요합니다. 로그인 후 주소 관리로 이동해 주세요.");
-        throw new Error("no-user");
-      }
-      const uploaded = await uploadPostImages(files, user.id);
-      if (uploaded.length !== files.length) {
-        window.alert(
-          `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
-        );
-        throw new Error("partial-upload");
-      }
-      let idx = 0;
-      workingImages = workingImages.map((item) => {
-        if (item.file) {
-          const url = uploaded[idx++];
-          return url ? { url } : item;
-        }
-        return item;
-      });
-      setImages(workingImages);
-    }
-
+    const workingImages = await uploadPendingTradeWriteImages();
     if (suppressDraftPersistenceRef.current) return;
-
-    const payload: TradeWriteFormSessionDraftBuildArgs = {
-      categoryId: category.id,
-      skinKey,
-      title,
-      description,
-      price,
-      region,
-      city,
-      images: workingImages,
-      isFreeShare,
-      isPriceOfferEnabled,
-      isDirectDeal,
-      tradeTopicChildId,
-      neighborhood,
-      buildingName,
-      estateType,
-      dealType,
-      deposit,
-      monthly,
-      managementFee,
-      hasPremium,
-      areaSqm,
-      roomCount,
-      bathroomCount,
-      moveInDate,
-      carModel,
-      carYear,
-      mileage,
-      usedCarTrade,
-      carHasAccident,
-      salary,
-      workPlace,
-      workType,
-      currency,
-      exchangeRate,
-      tradeChatCallPolicy,
-      descriptionAppend,
-      tradeMeetSpot,
-      usedCarBrandKey,
-      usedCarModelKey,
-      usedCarMileagePresetKey,
-    };
+    const payload = assembleTradeWriteFlushPayload(workingImages);
     tradeDraftFlushRef.current = payload;
-    writeTradeWriteFormSessionDraft(buildTradeWriteFormSessionDraft(payload));
-  }, [
-    editPostId,
-    category.id,
-    skinKey,
-    title,
-    description,
-    price,
-    region,
-    city,
-    images,
-    isFreeShare,
-    isPriceOfferEnabled,
-    isDirectDeal,
-    tradeTopicChildId,
-    neighborhood,
-    buildingName,
-    estateType,
-    dealType,
-    deposit,
-    monthly,
-    managementFee,
-    hasPremium,
-    areaSqm,
-    roomCount,
-    bathroomCount,
-    moveInDate,
-    carModel,
-    carYear,
-    mileage,
-    usedCarTrade,
-    carHasAccident,
-    salary,
-    workPlace,
-    workType,
-    currency,
-    exchangeRate,
-    tradeChatCallPolicy,
-    descriptionAppend,
-    tradeMeetSpot,
-    usedCarBrandKey,
-    usedCarModelKey,
-    usedCarMileagePresetKey,
-  ]);
+    const built = buildTradeWriteFormSessionDraft(payload);
+    writeTradeWriteFormSessionDraft(built);
+    persistTradeWriteMeetSpotStaging(category.id, built);
+  }, [editPostId, category.id, uploadPendingTradeWriteImages, assembleTradeWriteFlushPayload]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -1287,6 +1218,7 @@ export function TradeWriteForm({
           if (res.ok) {
             tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
+            clearTradeWriteMeetSpotStaging(category.id);
             clearTradeMeetSpotSessionNavigationState();
             setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();
@@ -1302,6 +1234,7 @@ export function TradeWriteForm({
           if (res.ok) {
             tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
+            clearTradeWriteMeetSpotStaging(category.id);
             clearTradeMeetSpotSessionNavigationState();
             setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();

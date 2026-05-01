@@ -9,6 +9,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **`app/_anything`** 로 묶지 마세요. Next.js `normalizeAppPath` 는 `_` 접두를 URL 에서 빼지 않아 **`/_anything/...` 로 열리고 기존 경로는 404** 가 됩니다.
 - 구조 확인: `npm run verify:routes`
 
+## 거래 글쓰기(임시저장·이어쓰기)
+
+- **분기 단일화**: `trade` 타입 카테고리 작성은 **`components/write/trade/TradeCategoryWriteForm.tsx`** 만 수정하면 `/write`·거래 시트·상품 수정이 함께 따라간다. 신규 전용 폼·저장소·`discardTradeWriteStashedDraft` 등록 절차는 `.cursor/rules/trade-write-draft-continuity.mdc` 참고.
+
 ## UI 토큰
 
 - 전역 팔레트는 **`app/design-tokens.css`** 의 **`--sam-*`** (보라 브랜드·앱 배경·서피스·상태색·반경·그림자). 레거시 **`--ui-*`**·`bg-ui-*` 는 동일 값으로 브리지되어 기존 코드가 동작한다.

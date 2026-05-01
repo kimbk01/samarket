@@ -5,9 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
-import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
-import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
-import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
+import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
@@ -129,30 +127,8 @@ export default function WriteByCategoryPage() {
 
   switch (category.type) {
     case "trade":
-      if (category.icon_key === "jobs" || category.icon_key === "job") {
-        return (
-          <JobsWriteForm
-            category={category}
-            onSuccess={handleSuccess}
-            onCancel={handleCancel}
-          />
-        );
-      }
-      if (
-        category.icon_key === "exchange" ||
-        category.slug === "exchange" ||
-        category.slug === "current"
-      ) {
-        return (
-          <ExchangeWriteForm
-            category={category}
-            onSuccess={handleSuccess}
-            onCancel={handleCancel}
-          />
-        );
-      }
       return (
-        <TradeWriteForm
+        <TradeCategoryWriteForm
           category={category}
           onSuccess={handleSuccess}
           onCancel={handleCancel}

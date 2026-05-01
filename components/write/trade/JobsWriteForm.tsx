@@ -39,9 +39,17 @@ import {
 import {
   clearJobsWriteMeetSpotStaging,
   consumeJobsWriteMeetSpotStaging,
+  peekJobsWriteMeetSpotStaging,
   persistJobsWriteBeforeMeetSpot,
+  stripJobsWriteMeetSpotSessionMirror,
+  type JobsWriteMeetSpotStagingV1,
 } from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
-import { jobsWriteSessionDraftLooksMeaningful } from "@/lib/posts/jobs-exchange-write-draft-signal";
+import {
+  jobsMeetSpotStagingLooksMeaningful,
+  jobsWriteSessionDraftLooksMeaningful,
+} from "@/lib/posts/jobs-exchange-write-draft-signal";
+import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirectAsync,
@@ -64,6 +72,7 @@ import {
   MIN_WAGE_2026,
   MIN_WAGE_PHP_HOURLY,
 } from "@/lib/jobs/form-options";
+import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
@@ -184,6 +193,7 @@ export function JobsWriteForm({
   const [submitting, setSubmitting] = useState(false);
   const [descriptionAppend, setDescriptionAppend] = useState("");
   const [hydratedEdit, setHydratedEdit] = useState(false);
+  const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
 
   const coreLocked = Boolean(editPostId && tradePolicy && !tradePolicy.allowEditCore);
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
@@ -203,14 +213,7 @@ export function JobsWriteForm({
     };
   }, []);
 
-  useLayoutEffect(() => {
-    if (editPostId) return;
-    /** `TradeMeetSpotPickClient` 복귀 시 세션 플래그 — 미소비 시 다른 거래 폼까지 남을 수 있음 */
-    if (peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot()) {
-      scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    }
-    const staged = consumeJobsWriteMeetSpotStaging(category.id);
-    if (!staged) return;
+  const applyJobsStagingToForm = useCallback((staged: JobsWriteMeetSpotStagingV1) => {
     setListingKind(staged.listingKind === "work" ? "work" : "hire");
     setTitle(staged.title);
     setWorkCategory(staged.workCategory);
@@ -233,7 +236,36 @@ export function JobsWriteForm({
     setTradeChatCallPolicy(normalizeTradeChatCallPolicy(staged.tradeChatCallPolicy));
     setTermsAgreed(staged.termsAgreed);
     setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
-  }, [editPostId, category.id, pathname, tradeWriteSheetEpoch]);
+  }, []);
+
+  /** 주소·지도 복귀는 즉시 복원 / 그 외 재진입은 `TradeWriteForm` 과 동일하게 이어쓰기 선택 */
+  useLayoutEffect(() => {
+    if (editPostId) return;
+    const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    if (skipDraftPrompt) {
+      scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    }
+    const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
+    const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
+    if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn) {
+      const staged = peekJobsWriteMeetSpotStaging(category.id);
+      if (staged) {
+        applyJobsStagingToForm(staged);
+        stripJobsWriteMeetSpotSessionMirror(category.id);
+      }
+      setDraftResumeGate("ready");
+      return;
+    }
+    const peeked = peekJobsWriteMeetSpotStaging(category.id);
+    if (!peeked || !jobsMeetSpotStagingLooksMeaningful(peeked)) {
+      if (peeked && !jobsMeetSpotStagingLooksMeaningful(peeked)) {
+        clearJobsWriteMeetSpotStaging(category.id);
+      }
+      setDraftResumeGate("ready");
+      return;
+    }
+    setDraftResumeGate("pending_choice");
+  }, [editPostId, category.id, pathname, tradeWriteSheetEpoch, applyJobsStagingToForm]);
 
   useLayoutEffect(() => {
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
@@ -274,21 +306,63 @@ export function JobsWriteForm({
     return getLocationLabelIfValid(region, city)?.trim() ?? "";
   }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
 
+  const handleResumeJobsPersistedDraft = useCallback(() => {
+    const staged = consumeJobsWriteMeetSpotStaging(category.id);
+    if (!staged) return;
+    applyJobsStagingToForm(staged);
+    setDraftResumeGate("ready");
+  }, [category.id, applyJobsStagingToForm]);
+
+  const handleDiscardJobsPersistedDraft = useCallback(() => {
+    if (editPostId) return;
+    discardTradeWriteStashedDraft(category.id);
+    setDraftResumeGate("ready");
+    const t = localDateString();
+    setListingKind("hire");
+    setTitle("");
+    setWorkCategory("");
+    setWorkCategoryOther("");
+    setWorkTerm("short");
+    setPayType("hourly");
+    setPayAmount("");
+    setDescription("");
+    setRegion("");
+    setCity("");
+    setTradeTopicChildId("");
+    setWorkDate(t);
+    setWorkDateEnd(t);
+    setWorkTimeStart("");
+    setWorkTimeEnd("");
+    setSameDayPay(false);
+    setCompanyName("");
+    setAvailableTime("");
+    setExperienceLevel("none");
+    setTradeChatCallPolicy("none");
+    setTermsAgreed(false);
+    setImages([]);
+    setTradeMeetSpot(null);
+    setErrors({});
+  }, [category.id, editPostId]);
+
   const meaningfulTradeDraftForSheet = useMemo(
     () =>
-      jobsWriteSessionDraftLooksMeaningful({
-        editPostId,
-        title,
-        description,
-        images,
-        tradeTopicChildId,
-        workCategory,
-        workCategoryOther,
-        payAmount,
-        companyName,
-        tradeMeetSpot,
-      }),
+      editPostId
+        ? false
+        : draftResumeGate === "pending_choice" ||
+          jobsWriteSessionDraftLooksMeaningful({
+            editPostId,
+            title,
+            description,
+            images,
+            tradeTopicChildId,
+            workCategory,
+            workCategoryOther,
+            payAmount,
+            companyName,
+            tradeMeetSpot,
+          }),
     [
+      draftResumeGate,
       editPostId,
       title,
       description,
@@ -346,7 +420,8 @@ export function JobsWriteForm({
   }, [editPostId, ownerEditSnapshot, category]);
 
   /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
-  const persistJobsFormStagingIfNeeded = useCallback(async (): Promise<boolean> => {
+  const persistJobsFormStagingIfNeeded = useCallback(
+    async (opts?: { markRestoreAfterSubflow?: boolean }): Promise<boolean> => {
     const user = getCurrentUser();
     let workingImages = [...images];
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
@@ -399,6 +474,9 @@ export function JobsWriteForm({
       termsAgreed,
       imageUrls,
     });
+    if (opts?.markRestoreAfterSubflow) {
+      setTradeWriteRestoreAfterAddressFlag(category.id);
+    }
     return true;
   }, [
     category.id,
@@ -440,14 +518,14 @@ export function JobsWriteForm({
 
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
-    const ok = await persistJobsFormStagingIfNeeded();
+    const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
     if (!ok) throw new Error("jobs-staging-aborted");
   }, [editPostId, persistJobsFormStagingIfNeeded]);
 
   const handleBeforeMeetSpotPick = useCallback(async () => {
     const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
     if (!editPostId) {
-      const ok = await persistJobsFormStagingIfNeeded();
+      const ok = await persistJobsFormStagingIfNeeded({ markRestoreAfterSubflow: true });
       if (!ok) return;
     }
     prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
@@ -722,6 +800,20 @@ export function JobsWriteForm({
           : "min-h-screen bg-sam-app pb-28"
       }
     >
+      <MobileDualActionBottomSheet
+        open={draftResumeGate === "pending_choice"}
+        onClose={() => {}}
+        title="작성 중이던 글이 있습니다"
+        description="이전에 입력한 내용을 불러올까요?"
+        secondaryLabel="새로 작성"
+        onSecondary={handleDiscardJobsPersistedDraft}
+        primaryLabel="이어쓰기"
+        onPrimary={handleResumeJobsPersistedDraft}
+        primaryTone="primary"
+        zIndexClass="z-[72]"
+        ariaLabel="일자리 임시 저장 글 복구"
+        interactionMode="blocking"
+      />
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}

@@ -10,9 +10,7 @@ import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
-import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
-import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
-import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
+import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -180,34 +178,8 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     );
   }
 
-  if (category.icon_key === "jobs" || category.icon_key === "job") {
-    return (
-      <JobsWriteForm
-        category={category}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-        editPostId={id}
-        ownerEditSnapshot={snapshot}
-        tradePolicy={tradePolicy}
-      />
-    );
-  }
-
-  if (category.icon_key === "exchange" || category.slug === "exchange") {
-    return (
-      <ExchangeWriteForm
-        category={category}
-        onSuccess={handleSuccess}
-        onCancel={handleCancel}
-        editPostId={id}
-        ownerEditSnapshot={snapshot}
-        tradePolicy={tradePolicy}
-      />
-    );
-  }
-
   return (
-    <TradeWriteForm
+    <TradeCategoryWriteForm
       category={category}
       onSuccess={handleSuccess}
       onCancel={handleCancel}

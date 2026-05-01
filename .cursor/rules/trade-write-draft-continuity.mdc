@@ -1,0 +1,24 @@
+---
+description: 거래 글쓰기 초안·이어쓰기·신규 메뉴 추가 시 단일 진입점 유지
+alwaysApply: false
+---
+
+# 거래 글쓰기 초안 연속성
+
+## 단일 진입점
+
+- **모든 거래(`trade`) 타입 작성·수정**은 **`components/write/trade/TradeCategoryWriteForm.tsx`** 만 거친다.  
+  `/write/[category]` 페이지 · `WriteSheetFlowInner`(시트) · `ProductTradeEditPageClient` 가 각각 분기하지 않는다.
+
+## 신규 거래 메뉴(전용 폼) 추가 절차
+
+1. **`TradeCategoryWriteForm`** 에 `resolveUses…` + JSX 분기 추가.
+2. **저장소**: 일반형은 `trade-write-form-session-draft` + 지도·주소 직전 **`trade-write-meet-spot-staging`**(session+local 미러, 복귀 시 peek+stripSessionMirror); 일자리·환전은 `jobs-exchange-write-meet-spot-staging`(동일).
+3. **`discardTradeWriteStashedDraft`** (`lib/posts/trade-write-exit-cleanup.ts`)에 같은 `categoryId` 로 지울 **추가 `clear*`** 등록.
+4. 폼에서 **`persistSnapshotBeforeLeaveRef`** 등록(`useTradeWriteSheetOptional`), **`onMeaningfulTradeDraftChange`** 로 시트 이탈 확인 연동.
+5. 스킨만 다른 거래는 **`TradeWriteForm` + `resolveTradeWriteSkinKey`** 로 처리하고 새 폼을 만들지 않는 것을 우선한다.
+
+## 병목·중복 금지
+
+- 카테고리별 초안은 **키 = `trade_category_id`(UUID)**. 폴링으로 해결하지 않는다 (근본 수정 규칙 준수).
+- `persistSnapshotBeforeLeaveRef`는 **단일 ref** — 동시에 마운트되는 작성 폼은 하나만 있다고 가정.

@@ -17,9 +17,7 @@ import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
-import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
-import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
-import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
+import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
@@ -324,34 +322,8 @@ export function WriteSheetFlowInner({
 
     switch (selectedCategory.type) {
       case "trade":
-        if (selectedCategory.icon_key === "jobs" || selectedCategory.icon_key === "job") {
-          return (
-            <JobsWriteForm
-              category={selectedCategory}
-              onSuccess={handleSuccess}
-              onCancel={tryClose}
-              onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
-              suppressTier1Chrome
-            />
-          );
-        }
-        if (
-          selectedCategory.icon_key === "exchange" ||
-          selectedCategory.slug === "exchange" ||
-          selectedCategory.slug === "current"
-        ) {
-          return (
-            <ExchangeWriteForm
-              category={selectedCategory}
-              onSuccess={handleSuccess}
-              onCancel={tryClose}
-              onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
-              suppressTier1Chrome
-            />
-          );
-        }
         return (
-          <TradeWriteForm
+          <TradeCategoryWriteForm
             category={selectedCategory}
             onSuccess={handleSuccess}
             onCancel={tryClose}

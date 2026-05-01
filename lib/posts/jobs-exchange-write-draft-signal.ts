@@ -1,4 +1,8 @@
 import { WORK_CATEGORY_OTHER } from "@/lib/jobs/form-options";
+import type {
+  ExchangeWriteMeetSpotStagingV1,
+  JobsWriteMeetSpotStagingV1,
+} from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
 import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 
 /**
@@ -32,6 +36,22 @@ export function jobsWriteSessionDraftLooksMeaningful(args: {
   );
 }
 
+/** 세션 스테이징 JSON만 있을 때 복구 시트 노출 여부 */
+export function jobsMeetSpotStagingLooksMeaningful(staged: JobsWriteMeetSpotStagingV1): boolean {
+  return jobsWriteSessionDraftLooksMeaningful({
+    editPostId: undefined,
+    title: staged.title ?? "",
+    description: staged.description ?? "",
+    images: staged.imageUrls ?? [],
+    tradeTopicChildId: staged.tradeTopicChildId ?? "",
+    workCategory: staged.workCategory ?? "",
+    workCategoryOther: staged.workCategoryOther ?? "",
+    payAmount: staged.payAmount ?? "",
+    companyName: staged.companyName ?? "",
+    tradeMeetSpot: null,
+  });
+}
+
 export function exchangeWriteSessionDraftLooksMeaningful(args: {
   editPostId?: string;
   amount: string;
@@ -63,4 +83,19 @@ export function exchangeWriteSessionDraftLooksMeaningful(args: {
       (args.tradeMeetSpot?.displayLine?.trim() ?? "").length > 0 ||
       (Number.isFinite(plusNum) && plusNum !== 0)
   );
+}
+
+export function exchangeMeetSpotStagingLooksMeaningful(staged: ExchangeWriteMeetSpotStagingV1): boolean {
+  return exchangeWriteSessionDraftLooksMeaningful({
+    editPostId: undefined,
+    amount: staged.amount ?? "",
+    memo: staged.memo ?? "",
+    descriptionAppend: staged.descriptionAppend ?? "",
+    tradeTopicChildId: staged.tradeTopicChildId ?? "",
+    images: staged.imageUrls ?? [],
+    sellerPrep: staged.sellerPrep ?? [],
+    buyerPrep: staged.buyerPrep ?? [],
+    tradeMeetSpot: null,
+    ratePlus: staged.ratePlus ?? "0",
+  });
 }

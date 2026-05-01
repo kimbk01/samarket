@@ -42,9 +42,17 @@ import {
 import {
   clearExchangeWriteMeetSpotStaging,
   consumeExchangeWriteMeetSpotStaging,
+  peekExchangeWriteMeetSpotStaging,
   persistExchangeWriteBeforeMeetSpot,
+  stripExchangeWriteMeetSpotSessionMirror,
+  type ExchangeWriteMeetSpotStagingV1,
 } from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
-import { exchangeWriteSessionDraftLooksMeaningful } from "@/lib/posts/jobs-exchange-write-draft-signal";
+import {
+  exchangeMeetSpotStagingLooksMeaningful,
+  exchangeWriteSessionDraftLooksMeaningful,
+} from "@/lib/posts/jobs-exchange-write-draft-signal";
+import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
+import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -60,6 +68,7 @@ import {
   PREP_OPTIONS,
 } from "@/lib/exchange/form-options";
 import { fetchExchangeRatesViaApp, type ExchangeRates } from "@/lib/exchange/fetchExchangeRates";
+import { MobileDualActionBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { AutoGrowTextarea } from "../shared/AutoGrowTextarea";
@@ -144,13 +153,20 @@ export function ExchangeWriteForm({
     null
   );
   const pendingMeetSpotFocusRef = useRef(false);
+  /** 같은 카테고리로 지도 복귀(remount) 시 토픽을 지우지 않음 — `useLayoutEffect` 스테이징 복원 직후 초기화 금지 */
+  const prevExchangeCategoryIdRef = useRef<string | null>(null);
+  const [draftResumeGate, setDraftResumeGate] = useState<"pending_choice" | "ready">("ready");
 
   const [sellerPrep, setSellerPrep] = useState<string[]>([]);
   const [buyerPrep, setBuyerPrep] = useState<string[]>([]);
   const [memo, setMemo] = useState("");
 
   useEffect(() => {
-    setTradeTopicChildId("");
+    const prev = prevExchangeCategoryIdRef.current;
+    prevExchangeCategoryIdRef.current = category.id;
+    if (prev !== null && prev !== category.id) {
+      setTradeTopicChildId("");
+    }
   }, [category.id]);
 
   useEffect(() => {
@@ -164,14 +180,7 @@ export function ExchangeWriteForm({
     };
   }, []);
 
-  useLayoutEffect(() => {
-    if (editPostId) return;
-    /** `TradeMeetSpotPickClient` 복귀 시 세션 플래그 — 미소비 시 다른 거래 폼까지 남을 수 있음 */
-    if (peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot()) {
-      scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
-    }
-    const staged = consumeExchangeWriteMeetSpotStaging(category.id);
-    if (!staged) return;
+  const applyExchangeStagingToForm = useCallback((staged: ExchangeWriteMeetSpotStagingV1) => {
     setDirection(staged.direction === "buy" ? "buy" : "sell");
     setRate(staged.rate);
     setRatePlus(staged.ratePlus);
@@ -185,7 +194,35 @@ export function ExchangeWriteForm({
     setCity(staged.city);
     setTradeTopicChildId(staged.tradeTopicChildId);
     setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
-  }, [editPostId, category.id, pathname, tradeWriteSheetEpoch]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (editPostId) return;
+    const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    if (skipDraftPrompt) {
+      scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    }
+    const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
+    const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
+    if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn) {
+      const staged = peekExchangeWriteMeetSpotStaging(category.id);
+      if (staged) {
+        applyExchangeStagingToForm(staged);
+        stripExchangeWriteMeetSpotSessionMirror(category.id);
+      }
+      setDraftResumeGate("ready");
+      return;
+    }
+    const peeked = peekExchangeWriteMeetSpotStaging(category.id);
+    if (!peeked || !exchangeMeetSpotStagingLooksMeaningful(peeked)) {
+      if (peeked && !exchangeMeetSpotStagingLooksMeaningful(peeked)) {
+        clearExchangeWriteMeetSpotStaging(category.id);
+      }
+      setDraftResumeGate("ready");
+      return;
+    }
+    setDraftResumeGate("pending_choice");
+  }, [editPostId, category.id, pathname, tradeWriteSheetEpoch, applyExchangeStagingToForm]);
 
   useLayoutEffect(() => {
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
@@ -359,21 +396,53 @@ export function ExchangeWriteForm({
     return getLocationLabelIfValid(region, city)?.trim() ?? "";
   }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
 
+  const handleResumeExchangePersistedDraft = useCallback(() => {
+    const staged = consumeExchangeWriteMeetSpotStaging(category.id);
+    if (!staged) return;
+    applyExchangeStagingToForm(staged);
+    setDraftResumeGate("ready");
+  }, [category.id, applyExchangeStagingToForm]);
+
+  const handleDiscardExchangePersistedDraft = useCallback(() => {
+    if (editPostId) return;
+    discardTradeWriteStashedDraft(category.id);
+    setDraftResumeGate("ready");
+    setDirection("sell");
+    setRate("");
+    setRatePlus("0");
+    setAmount("");
+    setRatesFetchedAt(null);
+    setSellerPrep([]);
+    setBuyerPrep([]);
+    setMemo("");
+    setDescriptionAppend("");
+    setRegion("");
+    setCity("");
+    setTradeTopicChildId("");
+    setImages([]);
+    setTradeMeetSpot(null);
+    setErrors({});
+  }, [category.id, editPostId]);
+
   const meaningfulTradeDraftForSheet = useMemo(
     () =>
-      exchangeWriteSessionDraftLooksMeaningful({
-        editPostId,
-        amount,
-        memo,
-        descriptionAppend,
-        tradeTopicChildId,
-        images,
-        sellerPrep,
-        buyerPrep,
-        tradeMeetSpot,
-        ratePlus,
-      }),
+      editPostId
+        ? false
+        : draftResumeGate === "pending_choice" ||
+          exchangeWriteSessionDraftLooksMeaningful({
+            editPostId,
+            amount,
+            memo,
+            descriptionAppend,
+            tradeTopicChildId,
+            images,
+            sellerPrep,
+            buyerPrep,
+            tradeMeetSpot,
+            ratePlus,
+          }),
     [
+      draftResumeGate,
       editPostId,
       amount,
       memo,
@@ -394,7 +463,8 @@ export function ExchangeWriteForm({
   }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
 
   /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
-  const persistExchangeFormStagingIfNeeded = useCallback(async (): Promise<boolean> => {
+  const persistExchangeFormStagingIfNeeded = useCallback(
+    async (opts?: { markRestoreAfterSubflow?: boolean }): Promise<boolean> => {
     const user = getCurrentUser();
     let workingImages = [...images];
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
@@ -438,6 +508,9 @@ export function ExchangeWriteForm({
       tradeTopicChildId,
       imageUrls,
     });
+    if (opts?.markRestoreAfterSubflow) {
+      setTradeWriteRestoreAfterAddressFlag(category.id);
+    }
     return true;
   }, [
     category.id,
@@ -470,14 +543,14 @@ export function ExchangeWriteForm({
 
   const handleBeforeNavigateToAddresses = useCallback(async () => {
     if (editPostId) return;
-    const ok = await persistExchangeFormStagingIfNeeded();
+    const ok = await persistExchangeFormStagingIfNeeded({ markRestoreAfterSubflow: true });
     if (!ok) throw new Error("exchange-staging-aborted");
   }, [editPostId, persistExchangeFormStagingIfNeeded]);
 
   const handleBeforeMeetSpotPick = useCallback(async () => {
     const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
     if (!editPostId) {
-      const ok = await persistExchangeFormStagingIfNeeded();
+      const ok = await persistExchangeFormStagingIfNeeded({ markRestoreAfterSubflow: true });
       if (!ok) return;
     }
     prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
@@ -685,6 +758,20 @@ export function ExchangeWriteForm({
           : "min-h-screen bg-sam-app pb-24"
       }
     >
+      <MobileDualActionBottomSheet
+        open={draftResumeGate === "pending_choice"}
+        onClose={() => {}}
+        title="작성 중이던 글이 있습니다"
+        description="이전에 입력한 내용을 불러올까요?"
+        secondaryLabel="새로 작성"
+        onSecondary={handleDiscardExchangePersistedDraft}
+        primaryLabel="이어쓰기"
+        onPrimary={handleResumeExchangePersistedDraft}
+        primaryTone="primary"
+        zIndexClass="z-[72]"
+        ariaLabel="환전 임시 저장 글 복구"
+        interactionMode="blocking"
+      />
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}

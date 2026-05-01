@@ -1,9 +1,23 @@
 /**
  * 거래 물품 글쓰기(TradeWriteForm) 임시 저장 — 주소 관리 이동·뒤로 가기 시에만 복원 플래그와 함께 사용.
  * @see trade-write-address-return-flag.ts
+ *
+ * ## 카테고리별 스코프
+ * - 키: `trade_category_id`(글쓰기에 선택한 거래 카테고리 UUID).
+ * - 일반·부동산·중고차 스킨: 이 모듈(`TradeWriteForm`). 중고차 카테고리의 `icon_key` 가 `car` 인 경우도 스킨·초안 판정에서 `used-car` 와 동일 처리(`resolveTradeWriteSkinKey`). 일자리·환전: `jobs-exchange-write-meet-spot-staging.ts`.
+ * - 같은 카테고리에서만 「이어쓰기」 복구. 다른 거래 카테고리로 바꾸면 `discardTradeWriteStashedDraft` 가 이 모듈 초안 + 일자리/환전 스테이징 + 복귀 플래그를 함께 정리한다.
+ *
+ * ## 저장되는 내용
+ * - 텍스트·숫자·메타·거래 희망 장소 등은 그대로 세션+로컬에 저장.
+ * - 이미지: **업로드되어 https URL인 것만** 저장(blob/미업로드 File은 보관 불가). 나가기·주소/지도 이동 직전에 업로드 후 저장해야 복구 시 사진이 남는다.
+ *
+ * ## 새로 작성 vs 이어쓰기
+ * - 「새로 작성」: 해당 카테고리 초안·복귀 플래그 삭제 + 재저장 억제 이벤트(`discardTradeWriteStashedDraft`).
+ * - 「이어쓰기」: 저장된 초안을 폼에 적용(선택한 카테고리는 라우트·상위 상태 유지).
  */
 
 import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
+import { isUsedCarTradeWriteSkin } from "@/lib/trade/resolve-trade-write-skin-key";
 
 const STORAGE_VERSION = 1 as const;
 const KEY_PREFIX = "samarket:trade-write-form";
@@ -196,6 +210,26 @@ export function tradeWritePersistedDraftLooksFilled(d: TradeWriteFormSessionDraf
 
 export function tradeWriteSessionDraftLooksFilled(p: TradeWriteFormSessionDraftBuildArgs): boolean {
   // region/city는 자동 채워지므로 사용자 입력으로 보지 않는다
+  // 중고차: 마운트 시 기본 `usedCarTrade === "sell"` 만 있으면 빈 폼과 동일 — 나가기 스냅샷·차단 초안 오판 방지
+  if (isUsedCarTradeWriteSkin(p.skinKey)) {
+    return Boolean(
+      p.title.trim() ||
+        p.description.trim() ||
+        p.price.trim() ||
+        p.images.length > 0 ||
+        p.tradeTopicChildId.trim() ||
+        p.carModel.trim() ||
+        p.carYear.trim() ||
+        p.mileage.trim() ||
+        p.carHasAccident ||
+        (p.usedCarBrandKey ?? "").trim() ||
+        (p.usedCarModelKey ?? "").trim() ||
+        (p.usedCarMileagePresetKey ?? "").trim() ||
+        p.usedCarTrade === "buy" ||
+        (p.tradeMeetSpot?.displayLine?.trim() ?? "").length > 0 ||
+        p.descriptionAppend.trim()
+    );
+  }
   return Boolean(
     p.title.trim() ||
       p.description.trim() ||
@@ -221,7 +255,6 @@ export function tradeWriteSessionDraftLooksFilled(p: TradeWriteFormSessionDraftB
       p.currency.trim() ||
       p.exchangeRate.trim() ||
       p.descriptionAppend.trim() ||
-      p.usedCarTrade != null ||
       (p.tradeMeetSpot?.displayLine?.trim() ?? "").length > 0
   );
 }
@@ -302,7 +335,7 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
     ...(args.tradeMeetSpot && args.tradeMeetSpot.displayLine.trim()
       ? { tradeMeetSpot: args.tradeMeetSpot }
       : {}),
-    ...(args.skinKey === "used-car" && args.usedCarTrade === "sell"
+    ...(isUsedCarTradeWriteSkin(args.skinKey) && args.usedCarTrade === "sell"
       ? {
           usedCarBrandKey: args.usedCarBrandKey ?? "",
           usedCarModelKey: args.usedCarModelKey ?? "",
