@@ -12,20 +12,21 @@ import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { fetchProfileEnsureAfterPasswordLogin } from "@/lib/profile/ensure-profile-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-/** 서버 Route Handler 가 방금 쓴 Supabase 쿠키를 못 읽는 짧은 레이스 완화 */
-const LOGIN_ENSURE_MAX_ATTEMPTS = 3;
-const LOGIN_ENSURE_RETRY_BASE_MS = 90;
 const LOGIN_BOOTSTRAP_CACHE_TTL_MS = 30_000;
 const AUTH_TIMEOUT_MESSAGE =
   "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.";
 const IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE =
   "로그인 ID 확인이 지연되고 있습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.";
+
+function looksLikeEmailForLogin(identifierRaw: string): boolean {
+  const s = identifierRaw.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
 
 type LoginBootstrapSnapshot = {
   providers: AuthProviderPublic[];
@@ -284,7 +285,9 @@ function LoginPageContent() {
     if (loading) return;
     setError((prev) => (prev === "" ? prev : ""));
     setLoading(true);
-    setPasswordLoginStatus("로그인 ID를 확인하고 있어요...");
+    setPasswordLoginStatus("확인 중");
+    /** 전체 이동 직전에는 finally 에서 로딩을 풀지 않음 — 폼이 잠깐 다시 보이는 현상 방지 */
+    let leaveLoginShellIntact = false;
 
     try {
       const supabase = getSupabaseClient();
@@ -302,40 +305,44 @@ function LoginPageContent() {
       }
 
       let signInEmail = "";
-      try {
-        const resolveRes = await runSingleFlight(
-          `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
-          () =>
-            fetchWithTimeout("/api/auth/password-login/resolve-identifier", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              credentials: "include",
-              body: JSON.stringify({ identifier }),
-              timeoutMs: LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS,
-            })
-        );
-        const resolveJson = (await resolveRes.json().catch(() => null)) as
-          | { identifier?: string; error?: string; code?: string }
-          | null;
-        if (!resolveRes.ok) {
-          const fallbackError = mapPasswordLoginErrorMessage(
-            resolveJson?.error ?? "로그인 식별자를 확인하지 못했습니다."
+      if (looksLikeEmailForLogin(identifier)) {
+        signInEmail = identifier.trim().toLowerCase();
+      } else {
+        try {
+          const resolveRes = await runSingleFlight(
+            `login:password-resolve-identifier:${identifier.trim().toLowerCase()}`,
+            () =>
+              fetchWithTimeout("/api/auth/password-login/resolve-identifier", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ identifier }),
+                timeoutMs: LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS,
+              })
           );
-          const codeFromBody = String(resolveJson?.code ?? "").trim();
-          const codeFromStatus = mapHttpStatusToResolveErrorCode(resolveRes.status);
-          const code = codeFromBody || codeFromStatus;
-          const nextError = mapPasswordResolveErrorCodeToMessage(code, fallbackError);
+          const resolveJson = (await resolveRes.json().catch(() => null)) as
+            | { identifier?: string; error?: string; code?: string }
+            | null;
+          if (!resolveRes.ok) {
+            const fallbackError = mapPasswordLoginErrorMessage(
+              resolveJson?.error ?? "로그인 식별자를 확인하지 못했습니다."
+            );
+            const codeFromBody = String(resolveJson?.code ?? "").trim();
+            const codeFromStatus = mapHttpStatusToResolveErrorCode(resolveRes.status);
+            const code = codeFromBody || codeFromStatus;
+            const nextError = mapPasswordResolveErrorCodeToMessage(code, fallbackError);
+            showLoginError(nextError, true);
+            return;
+          }
+          signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
+        } catch (resolveError) {
+          const nextError =
+            resolveError instanceof DOMException && resolveError.name === "AbortError"
+              ? IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE
+              : "로그인 식별자를 확인하지 못했습니다.";
           showLoginError(nextError, true);
           return;
         }
-        signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
-      } catch (resolveError) {
-        const nextError =
-          resolveError instanceof DOMException && resolveError.name === "AbortError"
-            ? IDENTIFIER_RESOLVE_TIMEOUT_MESSAGE
-            : "로그인 식별자를 확인하지 못했습니다.";
-        showLoginError(nextError, true);
-        return;
       }
 
       if (!signInEmail) {
@@ -343,7 +350,7 @@ function LoginPageContent() {
         return;
       }
 
-      setPasswordLoginStatus("비밀번호를 확인하고 있어요...");
+      setPasswordLoginStatus("이동 중");
       let signInResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
       try {
         signInResult = await withTimeout(
@@ -389,77 +396,24 @@ function LoginPageContent() {
         return;
       }
 
-      /**
-       * createBrowserClient 가 저장소→쿠키 반영을 마친 뒤 서버 ensure 가 읽도록 한 틱 맞춤.
-       * (바로 POST 하면 간헐 401 · 재클릭 시에만 성공하는 현상)
-       */
+      const loginUntilNavT0 = performance.now();
+
       try {
         await supabase.auth.getSession();
       } catch {
         /* ignore */
       }
 
-      const loginUntilNavT0 = performance.now();
-
       /**
-       * OAuth 는 `/auth/callback` 에서 세션·active-session 쿠키가 redirect 한 번에 실린다.
-       * 비밀번호 로그인은 ensure 로 동일하게 맞춘 뒤 **전체 네비게이션**으로 이동한다.
-       * - `fetchProfileEnsureDeduped` 에 합류하면 이전 탭의 실패/만료 Promise 를 그대로 받는 레이스가 있어 dedupe 를 쓰지 않는다.
-       * - `router.replace` 만 쓰면 RSC 첫 비행에 쿠키가 안 실려 `/login` 에 남는 체감이 날 수 있다.
-       * - SupabaseAuthSync 가 SIGNED_IN 에 dedupe ensure 를 따로 때릴 수 있으나 quota 여유; 여기서는 재시도로 일시 실패만 흡수.
+       * 프록시는 Supabase JWT 쿠키만으로 통과한다. `/api/auth/profile/ensure` 는 루트
+       * `SupabaseAuthSync` 가 진입 직후 호출해 맞춘다 — 로그인 화면에서 ensure 를 기다리지 않는다.
        */
-      let ensureRes: Response | null = null;
-      for (let attempt = 0; attempt < LOGIN_ENSURE_MAX_ATTEMPTS; attempt++) {
-        try {
-          ensureRes = await fetchProfileEnsureAfterPasswordLogin();
-        } catch {
-          ensureRes = null;
-        }
-        if (ensureRes?.ok) break;
-
-        const status = ensureRes?.status ?? 0;
-        const retryable = status === 401 || status === 503 || status === 429 || status === 0;
-        if (!retryable || attempt === LOGIN_ENSURE_MAX_ATTEMPTS - 1) break;
-
-        try {
-          await supabase.auth.refreshSession();
-        } catch {
-          /* ignore */
-        }
-        await new Promise((r) => window.setTimeout(r, LOGIN_ENSURE_RETRY_BASE_MS * (attempt + 1)));
-      }
-
-      if (!ensureRes?.ok) {
-        const status = ensureRes?.status ?? 0;
-        let msg = "프로필 동기화에 실패했습니다. 다시 시도해 주세요.";
-        if (status === 401) {
-          msg = "세션이 아직 반영되지 않았습니다. 잠시 후 다시 시도해 주세요.";
-        }
-        try {
-          const j = (await ensureRes?.clone().json().catch(() => null)) as {
-            error?: string;
-            code?: string;
-          } | null;
-          const fromBody = String(j?.error ?? "").trim();
-          const code = String(j?.code ?? "").trim();
-          if (code === "profile_ensure_rate_limited") {
-            msg = fromBody || "요청이 많아 잠시 후 다시 시도해 주세요.";
-          } else if (fromBody) {
-            msg = fromBody;
-          }
-        } catch {
-          /* ignore */
-        }
-        showLoginError(msg, true);
-        return;
-      }
-
       recordAppWidePhaseLastMs(
         "login_until_navigation_ms",
         Math.round(performance.now() - loginUntilNavT0)
       );
-
-      window.location.assign(postLoginDestination);
+      leaveLoginShellIntact = true;
+      window.location.replace(postLoginDestination);
       return;
     } catch (unexpected) {
       /**
@@ -475,8 +429,10 @@ function LoginPageContent() {
         console.error("[samarket:login] unexpected handleEmailSubmit failure", unexpected);
       }
     } finally {
-      setLoading(false);
-      setPasswordLoginStatus((prev) => (prev === "" ? prev : ""));
+      if (!leaveLoginShellIntact) {
+        setLoading(false);
+        setPasswordLoginStatus((prev) => (prev === "" ? prev : ""));
+      }
     }
   };
 

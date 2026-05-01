@@ -515,9 +515,10 @@ export function GlobalCommunityMessengerIncomingCall() {
   /** 발신 측 Broadcast·푸시(SW) 힌트 — DB Realtime 보다 빠르게 수신 목록 재조회 */
   useEffect(() => {
     if (!userId) return;
+    /** 2s 는 장시간 체류 시 불필요한 깨임이 잦음 — 구독 상태 점검만으로는 8s 로 충분 */
     const timerId = window.setInterval(() => {
       syncIncomingRealtimeHealth();
-    }, 2000);
+    }, 8000);
     syncIncomingRealtimeHealth();
     return () => {
       window.clearInterval(timerId);

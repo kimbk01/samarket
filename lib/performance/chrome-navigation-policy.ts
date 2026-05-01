@@ -8,7 +8,7 @@
 export const BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS = 150;
 
 /** `requestIdleCallback` 스케줄 지연 — 페인트·현재 세그먼트 페치 우선(다음 탭 RSC는 조금 더 빨리 시작) */
-export const BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS = 90;
+export const BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS = 48;
 
 /** `router.prefetch` 호출 간격 — 단일 긴 태스크 대신 짧은 조각으로 분산 */
 export const BOTTOM_NAV_PREFETCH_SPREAD_MS = 40;

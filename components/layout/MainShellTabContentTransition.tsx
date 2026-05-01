@@ -29,13 +29,20 @@ export function MainShellTabContentTransition({
     () => (initialNavItems && initialNavItems.length > 0 ? initialNavItems : BOTTOM_NAV_ITEMS),
     [initialNavItems]
   );
+  /**
+   * 하단 탭은 `beginMenuNavigation` 직후 RSC 완료 전까지 스켈레톤을 전면에 올리면
+   * “탭이 안 먹는다” 체감이 크다. 슬라이드만 두고 본문은 바로 그린다.
+   */
+  const blockMainShellWithPendingOverlay =
+    isPendingMenuBlockingContent && pendingMenuIntent?.source !== "bottom-nav";
+
   const pendingShell = useMemo(() => {
-    if (!isPendingMenuBlockingContent) return null;
+    if (!blockMainShellWithPendingOverlay) return null;
     if (pendingMenuShellKind === "messenger") {
       return <CommunityMessengerHomeShellSkeleton />;
     }
     return <MainFeedRouteLoading rows={5} />;
-  }, [isPendingMenuBlockingContent, pendingMenuShellKind]);
+  }, [blockMainShellWithPendingOverlay, pendingMenuShellKind]);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const prevIdxRef = useRef<number | null>(null);

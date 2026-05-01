@@ -73,14 +73,14 @@ export function PasswordLoginForm({
           />
         </div>
       </fieldset>
-      {loading && loadingText ? <p className="sam-text-helper text-sam-meta" role="status" aria-live="polite">{loadingText}</p> : null}
       {error ? <p className="sam-text-body-secondary text-red-600" role="alert" aria-live="assertive">{error}</p> : null}
       <button
         type="submit"
         disabled={disabled}
+        aria-busy={loading}
         className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
       >
-        {loading ? "로그인 처리 중..." : "로그인"}
+        {loading ? (loadingText?.trim() ? loadingText.trim() : "처리 중") : "로그인"}
       </button>
     </form>
   );

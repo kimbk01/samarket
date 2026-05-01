@@ -257,14 +257,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       }}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        if (
-          !isActive &&
-          !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-          guardBeforeNavigate(tab.href)
-        ) {
-          beginMenuNavigation(tab.href);
-          onNavigationIntent(tab.id);
-        }
+        /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
           try {
             void router.prefetch(tab.href);
@@ -453,21 +446,12 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       }}
       onPointerDown={() => {
         triggerLightTapFeedback();
-        if (
-          !isActive &&
-          !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-          guardBeforeNavigate(tab.href)
-        ) {
-          beginMenuNavigation(tab.href);
-          onNavigationIntent(tab.id);
-        }
         if (!isActive) {
           try {
             void router.prefetch(tab.href);
           } catch {
             /* noop */
           }
-          /** RSC 프리페치와 별도로 클라 데이터 캐시도 함께 데워 첫 진입 즉시 렌더 */
           try {
             prewarmBottomNavTapTargetClientCache(tab.href);
           } catch {
@@ -532,7 +516,7 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
 
 /** 필라이프(포털) · 거래·스토어 하단 탭 `translate` 전환 */
 const BOTTOM_NAV_OUTER_MOTION =
-  "transition-transform duration-300 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
+  "transition-transform duration-150 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
 const BOTTOM_NAV_BOOT_WARM_SESSION_KEY = "samarket:bottom-nav:boot-warm:v1";
 
 export function BottomNav({

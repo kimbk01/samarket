@@ -16,8 +16,8 @@ import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
 /** `warmPhilifeNeighborhoodFeedByUrl` 과 동일 간격 — RSC `/philife` 선로딩 과다 방지 */
 const PHILIFE_ROUTE_PREFETCH_MIN_MS = 90_000;
-/** 거래·마켓 셸에서 커뮤니티 탭이 자주 열림 — 워밍 스케줄을 더 앞당김 */
-const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 320;
+/** 거래 셸 체류 중 탭 전환과 경합 줄이기 — 너무 짧으면 장시간 머문 뒤 메인 스레드·네트워크가 밀림 */
+const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 900;
 const PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS = 520;
 /** `scheduleWhenBrowserIdle` timeout — 과도한 대기 방지 */
 const PHILIFE_WARM_IDLE_TIMEOUT_MS = 650;

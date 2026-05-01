@@ -33,6 +33,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { sanitizeViewerMediaUrl } from "@/lib/media/sanitize-viewer-media-url";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -85,9 +86,10 @@ export const PostCard = memo(function PostCard({
     locale: getAppSettings().defaultLocale || "ko-KR",
     skinKey,
   });
-  const thumbnailUrl =
+  const thumbnailUrl = sanitizeViewerMediaUrl(
     post.thumbnail_url ||
-    (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null);
+      (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null)
+  );
 
   const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
   const metaRecord =

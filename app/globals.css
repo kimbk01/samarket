@@ -433,13 +433,13 @@ a,
 .main-shell-tab-enter-ltr {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-tab-enter-ltr 0.48s cubic-bezier(0.25, 0.82, 0.25, 1) both;
+  animation: main-shell-tab-enter-ltr 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .main-shell-tab-enter-rtl {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-tab-enter-rtl 0.48s cubic-bezier(0.25, 0.82, 0.25, 1) both;
+  animation: main-shell-tab-enter-rtl 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

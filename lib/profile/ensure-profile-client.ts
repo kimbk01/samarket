@@ -18,16 +18,3 @@ export function fetchProfileEnsureDeduped(): Promise<Response> {
   }
   return profileEnsureInFlight;
 }
-
-/**
- * 비밀번호 로그인 직후 전용 — dedupe 에 붙지 않는다.
- * 진행 중이던 `fetchProfileEnsureDeduped`(예: 이전 401 응답 Promise)에 합류하면
- * 로그인 성공 직후에도 실패한 결과만 보게 되는 레이스를 막는다.
- */
-export function fetchProfileEnsureAfterPasswordLogin(): Promise<Response> {
-  return fetch("/api/auth/profile/ensure", {
-    method: "POST",
-    credentials: "include",
-    cache: "no-store",
-  });
-}
