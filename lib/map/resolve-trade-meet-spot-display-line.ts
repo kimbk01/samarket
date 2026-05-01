@@ -9,6 +9,12 @@ const PLACES_DETAIL_FIELDS = ["name", "address_components"] as const;
 const NEARBY_POI_TYPES = new Set([
   "establishment",
   "point_of_interest",
+  "place_of_worship",
+  "church",
+  "mosque",
+  "synagogue",
+  "hindu_temple",
+  "tourist_attraction",
   "store",
   "shopping_mall",
   "restaurant",
@@ -31,7 +37,8 @@ const NEARBY_POI_TYPES = new Set([
 ]);
 
 const NEARBY_RADIUS_METERS = 100;
-const NEARBY_MAX_PICK_METERS = 56;
+/** 근처 POI 후보·역지오 기반 핀 보정 허용 거리(m) — 클라 보정 상한과 동일 */
+export const TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS = 56;
 
 /** 도로·지번 줄에 쓸 지오코더 결과 — 첫 번째(랜드마크 전용)와 분리 */
 export function pickStreetLikeGeocoderResult(
@@ -51,6 +58,12 @@ export function pickGeocoderPoiPlaceId(results: google.maps.GeocoderResult[]): s
   const poiTypes = [
     "establishment",
     "point_of_interest",
+    "place_of_worship",
+    "church",
+    "mosque",
+    "synagogue",
+    "hindu_temple",
+    "tourist_attraction",
     "store",
     "shopping_mall",
     "restaurant",
@@ -78,6 +91,8 @@ function poiBusinessScore(types: string[] | undefined): number {
       s = Math.max(s, 120);
     } else if (["store", "shopping_mall", "convenience_store", "supermarket", "pharmacy"].includes(t)) {
       s = Math.max(s, 95);
+    } else if (["place_of_worship", "church", "mosque", "synagogue", "hindu_temple", "tourist_attraction"].includes(t)) {
+      s = Math.max(s, 102);
     } else if (NEARBY_POI_TYPES.has(t)) {
       s = Math.max(s, 75);
     } else if (t === "lodging") {
@@ -167,6 +182,15 @@ async function placesNearbyForMeetSpot(
   return run({ location: marker, radius: NEARBY_RADIUS_METERS, type: "establishment" });
 }
 
+export type TradeMeetSpotDisplayResolve = {
+  displayLine: string;
+  /**
+   * 표시 줄에 POI·상호가 반영된 경우에만 — 지도 클릭에 `IconMouseEvent.placeId` 가 없을 때
+   * 역지오/근처검색으로 잡은 place_id 로 핀을 `getDetails(geometry)` 에 맞추기 위한 힌트.
+   */
+  suggestedAnchorPlaceId?: string;
+};
+
 /**
  * 거래 희망 장소 핀 좌표 → 표시 주소 문자열.
  * - 도로·행정 줄은 지오코더의 **도로형** 결과에서만 뽑고,
@@ -175,27 +199,27 @@ async function placesNearbyForMeetSpot(
 export async function resolveTradeMeetSpotDisplayLine(
   marker: google.maps.LatLngLiteral,
   isStale: () => boolean
-): Promise<string> {
-  if (isStale()) return "";
+): Promise<TradeMeetSpotDisplayResolve> {
+  if (isStale()) return { displayLine: "" };
 
   const geocoder = new google.maps.Geocoder();
   const places = new google.maps.places.PlacesService(document.createElement("div"));
 
   const { results: geoResults, status: geoStatus } = await geocodeAtLocation(geocoder, marker);
-  if (isStale()) return "";
-  if (geoStatus !== "OK" || !geoResults.length) return "";
+  if (isStale()) return { displayLine: "" };
+  if (geoStatus !== "OK" || !geoResults.length) return { displayLine: "" };
 
   const streetResult = pickStreetLikeGeocoderResult(geoResults);
-  if (!streetResult) return "";
+  if (!streetResult) return { displayLine: "" };
   const streetComponents = streetResult.address_components ?? [];
 
   const [nearbyList, poiGeoPlaceId] = await Promise.all([
     placesNearbyForMeetSpot(places, marker),
     Promise.resolve(pickGeocoderPoiPlaceId(geoResults)),
   ]);
-  if (isStale()) return "";
+  if (isStale()) return { displayLine: "" };
 
-  const nearbyPlaceId = pickNearestPoiPlaceId(marker, nearbyList, NEARBY_MAX_PICK_METERS);
+  const nearbyPlaceId = pickNearestPoiPlaceId(marker, nearbyList, TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS);
   const nearbyHit = nearbyList.find((p) => (p.place_id ?? "").trim() === nearbyPlaceId) ?? null;
 
   const [detailsNearby, detailsPoiGeo] = await Promise.all([
@@ -205,26 +229,40 @@ export async function resolveTradeMeetSpotDisplayLine(
       : Promise.resolve(null),
   ]);
 
-  if (isStale()) return "";
+  if (isStale()) return { displayLine: "" };
 
   let placeName: string | null = null;
-  for (const d of [detailsNearby, detailsPoiGeo]) {
+  let suggestedAnchorPlaceId: string | undefined;
+
+  const tryNameFromDetails = (d: google.maps.places.PlaceResult | null, anchorPid: string | null | undefined) => {
     const n = d?.name?.trim();
-    if (n && isSuitableEstablishmentDisplayName(n, streetComponents)) {
-      placeName = n;
-      break;
-    }
+    if (!n || !isSuitableEstablishmentDisplayName(n, streetComponents)) return false;
+    placeName = n;
+    const id = anchorPid?.trim();
+    if (id) suggestedAnchorPlaceId = id;
+    return true;
+  };
+
+  if (!tryNameFromDetails(detailsNearby, nearbyPlaceId)) {
+    tryNameFromDetails(detailsPoiGeo, poiGeoPlaceId);
   }
   /** `getDetails` 간헐 실패 시에도 nearbySearch 가 준 상호를 사용 (PlacesService 경고·할당량 이슈 완화) */
   if (!placeName) {
     const inline = nearbyHit?.name?.trim();
     if (inline && isSuitableEstablishmentDisplayName(inline, streetComponents)) {
       placeName = inline;
+      const id = nearbyPlaceId?.trim();
+      if (id) suggestedAnchorPlaceId = id;
     }
   }
 
-  return buildPhFriendlyAddress({
+  const displayLine = buildPhFriendlyAddress({
     components: streetComponents,
     placeName,
   }).trim();
+
+  return {
+    displayLine,
+    ...(suggestedAnchorPlaceId ? { suggestedAnchorPlaceId } : {}),
+  };
 }

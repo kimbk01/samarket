@@ -2,9 +2,73 @@
 
 export const TRADE_MEET_SPOT_RETURN_STORAGE_KEY = "samarket:tradeMeetSpotReturnTo:v1";
 
-/** 지도에서 취소·뒤로가기·확인 후 `/market/{카테고리}` 로 돌아올 때 인라인 거래 글쓰기 시트를 다시 연다 */
-const TRADE_WRITE_REOPEN_FLAG = "samarket:tradeWriteReopenAfterMeetSpot:v1";
-const TRADE_WRITE_REOPEN_CATEGORY_KEY = "samarket:tradeMeetSpotReturnCategoryKey:v1";
+/** 지도에서 취소·뒤로가기·확인 후 `/market/{카테고리}` 로 돌아올 때 인라인 거래 글쓰기 시트를 다시 연다 — `TradeWriteSheetContext` 와 동일 키 */
+export const TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY = "samarket:tradeWriteReopenAfterMeetSpot:v1";
+export const TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY = "samarket:tradeMeetSpotReturnCategoryKey:v1";
+
+/**
+ * 거래 희망 장소 화면에서 글쓰기로 돌아올 때 `작성 중이던 글이 있습니다` 모달을 띄우지 않음.
+ * (확인·취소 모두 동일 — 이미 세션 초안으로 이어 쓰는 흐름)
+ */
+const TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY = "samarket:tradeWriteSkipDraftResumeAfterMeetSpot:v1";
+
+let skipDraftPromptClearMicrotaskScheduled = false;
+
+export function markTradeWriteSkipPersistedDraftPromptAfterMeetSpot(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY, "1");
+  } catch {
+    /* quota */
+  }
+}
+
+/** 복원 확인 시트를 건너뛸지(제거 없이 읽기만) — React Strict Mode 이중 layout 대비 */
+export function peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 스킵 플래그 제거를 현재 턴 직후로 미룸 — 동기 `remove` 시 Strict 이중 layout 에서 모달 재등장 방지.
+ * 한 번만 큐에 넣어 이중 layout·재실행 시 `removeItem` 중복 호출을 줄임.
+ */
+export function scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot(): void {
+  if (typeof window === "undefined") return;
+  if (skipDraftPromptClearMicrotaskScheduled) return;
+  skipDraftPromptClearMicrotaskScheduled = true;
+  queueMicrotask(() => {
+    skipDraftPromptClearMicrotaskScheduled = false;
+    try {
+      sessionStorage.removeItem(TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY);
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+/** @deprecated 레이아웃에서는 `peek` + `scheduleClear` 사용 권장 */
+export function consumeTradeWriteSkipPersistedDraftPromptAfterMeetSpot(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (sessionStorage.getItem(TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY) !== "1") return false;
+    sessionStorage.removeItem(TRADE_WRITE_SKIP_DRAFT_RESUME_AFTER_MEET_SPOT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** 거래 글쓰기 → 거래 희망 장소 풀페이지 */
+export function hrefTradeMeetSpotPick(returnToHref: string): string {
+  const q = new URLSearchParams();
+  q.set("returnTo", returnToHref);
+  return `/market/trade-meet-spot?${q.toString()}`;
+}
 
 /** `returnTo` 가 `/market/{slugOrId}` 형태일 때 카테고리 키(경로 한 세그먼트) */
 export function parseMarketTradeWriteReturnCategoryKey(returnToHref: string): string | null {
@@ -24,8 +88,8 @@ export function scheduleTradeWriteSheetReopenAfterMeetSpot(returnToHref: string)
   const key = parseMarketTradeWriteReturnCategoryKey(returnToHref);
   if (!key) return;
   try {
-    sessionStorage.setItem(TRADE_WRITE_REOPEN_FLAG, "1");
-    sessionStorage.setItem(TRADE_WRITE_REOPEN_CATEGORY_KEY, key);
+    sessionStorage.setItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY, "1");
+    sessionStorage.setItem(TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY, key);
   } catch {
     /* quota */
   }

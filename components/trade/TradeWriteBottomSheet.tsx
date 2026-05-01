@@ -19,8 +19,15 @@ const SHEET_EXIT_MS = 520;
 export function TradeWriteBottomSheet() {
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
-  const { isOpen, openEpoch, close, setBlockingDraft, blockingDraft, initialCategory, discardTradeWriteDraftRef } =
-    useTradeWriteSheet();
+  const {
+    isOpen,
+    openEpoch,
+    close,
+    setBlockingDraft,
+    blockingDraft,
+    initialCategory,
+    persistSnapshotBeforeLeaveRef,
+  } = useTradeWriteSheet();
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [sheetCategoryKey, setSheetCategoryKey] = useState("");
@@ -120,9 +127,15 @@ export function TradeWriteBottomSheet() {
 
   const handleHeaderLeaveConfirm = useCallback(() => {
     setHeaderLeaveOpen(false);
-    discardTradeWriteDraftRef.current?.();
-    void exitAndClose();
-  }, [discardTradeWriteDraftRef, exitAndClose]);
+    void (async () => {
+      try {
+        await persistSnapshotBeforeLeaveRef.current?.();
+      } catch {
+        /* 스냅샷 실패해도 닫기 진행 */
+      }
+      await exitAndClose();
+    })();
+  }, [exitAndClose, persistSnapshotBeforeLeaveRef]);
 
   const handleHeaderLeaveCancel = useCallback(() => setHeaderLeaveOpen(false), []);
 

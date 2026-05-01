@@ -8,16 +8,25 @@ import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getLocationLabelIfValid } from "@/lib/products/form-options";
-import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
+import {
+  hrefTradeMeetSpotPick,
+  peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+  resolveTradeMeetSpotReturnTo,
+  scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+} from "@/lib/navigation/trade-meet-spot-return-to";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
-import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
 import {
-  clearTradeMeetSpotPickDraft,
+  pickPersistableMeetSpotCoords,
+  tradeMeetSpotFromMetaSnapshot,
+  type TradeMeetSpotValue,
+} from "@/lib/posts/trade-meet-spot-types";
+import {
   clearTradeMeetSpotPickResult,
+  clearTradeMeetSpotSessionNavigationState,
   consumeTradeMeetSpotPickResult,
   peekTradeMeetSpotPickResult,
-  seedTradeMeetSpotDraftForNavigation,
+  prepareTradeMeetSpotMapNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
 import {
   TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
@@ -193,6 +202,10 @@ export function JobsWriteForm({
 
   useLayoutEffect(() => {
     if (editPostId) return;
+    /** `TradeMeetSpotPickClient` 복귀 시 세션 플래그 — 미소비 시 다른 거래 폼까지 남을 수 있음 */
+    if (peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot()) {
+      scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+    }
     const staged = consumeJobsWriteMeetSpotStaging(category.id);
     if (!staged) return;
     setListingKind(staged.listingKind === "work" ? "work" : "hire");
@@ -217,7 +230,7 @@ export function JobsWriteForm({
     setTradeChatCallPolicy(normalizeTradeChatCallPolicy(staged.tradeChatCallPolicy));
     setTermsAgreed(staged.termsAgreed);
     setImages(staged.imageUrls.filter(Boolean).map((url) => ({ url })));
-  }, [editPostId, category.id]);
+  }, [editPostId, category.id, pathname, tradeWriteSheetEpoch]);
 
   useLayoutEffect(() => {
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
@@ -296,98 +309,67 @@ export function JobsWriteForm({
       rawMeta && typeof rawMeta === "object" && rawMeta !== null
         ? (rawMeta as Record<string, unknown>).trade_meet_spot
         : null;
-    if (ts && typeof ts === "object") {
-      const o = ts as Record<string, unknown>;
-      const dl = String(o.display_line ?? "").trim();
-      if (dl) {
-        setTradeMeetSpot({
-          displayLine: dl,
-          lat: typeof o.lat === "number" && Number.isFinite(o.lat) ? o.lat : undefined,
-          lng: typeof o.lng === "number" && Number.isFinite(o.lng) ? o.lng : undefined,
-          placeId: typeof o.place_id === "string" && o.place_id.trim() ? o.place_id.trim() : undefined,
-        });
-      } else {
-        setTradeMeetSpot(null);
-      }
-    } else {
-      setTradeMeetSpot(null);
-    }
+    setTradeMeetSpot(tradeMeetSpotFromMetaSnapshot(ts));
     setHydratedEdit(true);
   }, [editPostId, ownerEditSnapshot, category]);
 
-  const handleBeforeMeetSpotPick = useCallback(async () => {
-    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
-    if (!editPostId) {
-      const user = getCurrentUser();
-      let workingImages = [...images];
-      const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
-      if (files.length > 0) {
-        if (!user?.id) {
-          window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
-          return;
-        }
-        const uploaded = await uploadPostImages(files, user.id);
-        if (uploaded.length !== files.length) {
-          window.alert(
-            `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
-          );
-          return;
-        }
-        let idx = 0;
-        workingImages = workingImages.map((item) => {
-          if (item.file) {
-            const url = uploaded[idx++];
-            return url ? { url } : item;
-          }
-          return item;
-        });
-        setImages(workingImages);
+  /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
+  const persistJobsFormStagingIfNeeded = useCallback(async (): Promise<boolean> => {
+    const user = getCurrentUser();
+    let workingImages = [...images];
+    const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
+    if (files.length > 0) {
+      if (!user?.id) {
+        window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+        return false;
       }
-      const imageUrls = workingImages
-        .map((i) => i.url)
-        .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
-      persistJobsWriteBeforeMeetSpot(category.id, {
-        listingKind,
-        title,
-        workCategory,
-        workCategoryOther,
-        workTerm,
-        payType,
-        payAmount,
-        description,
-        region,
-        city,
-        tradeTopicChildId,
-        workDate,
-        workDateEnd,
-        workTimeStart,
-        workTimeEnd,
-        sameDayPay,
-        companyName,
-        availableTime,
-        experienceLevel,
-        tradeChatCallPolicy,
-        termsAgreed,
-        imageUrls,
+      const uploaded = await uploadPostImages(files, user.id);
+      if (uploaded.length !== files.length) {
+        window.alert(
+          `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+        );
+        return false;
+      }
+      let idx = 0;
+      workingImages = workingImages.map((item) => {
+        if (item.file) {
+          const url = uploaded[idx++];
+          return url ? { url } : item;
+        }
+        return item;
       });
+      setImages(workingImages);
     }
-    const hasPinnedMeetSpot =
-      tradeMeetSpot?.lat != null &&
-      Number.isFinite(tradeMeetSpot.lat) &&
-      tradeMeetSpot?.lng != null &&
-      Number.isFinite(tradeMeetSpot.lng);
-    if (hasPinnedMeetSpot) {
-      seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
-    } else {
-      clearTradeMeetSpotPickDraft();
-    }
-    persistTradeMeetSpotReturnScrollPosition();
-    markTradeMeetSpotFocusOnReturn();
-    router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
+    const imageUrls = workingImages
+      .map((i) => i.url)
+      .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
+    persistJobsWriteBeforeMeetSpot(category.id, {
+      listingKind,
+      title,
+      workCategory,
+      workCategoryOther,
+      workTerm,
+      payType,
+      payAmount,
+      description,
+      region,
+      city,
+      tradeTopicChildId,
+      workDate,
+      workDateEnd,
+      workTimeStart,
+      workTimeEnd,
+      sameDayPay,
+      companyName,
+      availableTime,
+      experienceLevel,
+      tradeChatCallPolicy,
+      termsAgreed,
+      imageUrls,
+    });
+    return true;
   }, [
-    editPostId,
-    tradeWriteSheet,
-    category,
+    category.id,
     images,
     listingKind,
     title,
@@ -410,9 +392,37 @@ export function JobsWriteForm({
     experienceLevel,
     tradeChatCallPolicy,
     termsAgreed,
-    tradeMeetSpot,
-    router,
   ]);
+
+  useEffect(() => {
+    if (!tradeWriteSheet) return;
+    const ref = tradeWriteSheet.persistSnapshotBeforeLeaveRef;
+    ref.current = async () => {
+      if (editPostId) return;
+      await persistJobsFormStagingIfNeeded();
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [tradeWriteSheet, editPostId, persistJobsFormStagingIfNeeded]);
+
+  const handleBeforeNavigateToAddresses = useCallback(async () => {
+    if (editPostId) return;
+    const ok = await persistJobsFormStagingIfNeeded();
+    if (!ok) throw new Error("jobs-staging-aborted");
+  }, [editPostId, persistJobsFormStagingIfNeeded]);
+
+  const handleBeforeMeetSpotPick = useCallback(async () => {
+    const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
+    if (!editPostId) {
+      const ok = await persistJobsFormStagingIfNeeded();
+      if (!ok) return;
+    }
+    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
+    persistTradeMeetSpotReturnScrollPosition();
+    markTradeMeetSpotFocusOnReturn();
+    router.push(hrefTradeMeetSpotPick(returnTo));
+  }, [editPostId, tradeWriteSheet, category, persistJobsFormStagingIfNeeded, tradeMeetSpot, router]);
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
@@ -560,16 +570,12 @@ export function JobsWriteForm({
           representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
         const line = lineFromMap || lineFallback;
         if (line) {
+          const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
           meta = {
             ...meta,
             trade_meet_spot: {
               display_line: line,
-              ...(tradeMeetSpot && tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
-                ? { lat: tradeMeetSpot.lat }
-                : {}),
-              ...(tradeMeetSpot && tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
-                ? { lng: tradeMeetSpot.lng }
-                : {}),
+              ...(pin ? { lat: pin.lat, lng: pin.lng } : {}),
               ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
             },
           };
@@ -596,7 +602,7 @@ export function JobsWriteForm({
           );
           if (res.ok) {
             clearJobsWriteMeetSpotStaging(category.id);
-            clearTradeMeetSpotPickDraft();
+            clearTradeMeetSpotSessionNavigationState();
             invalidateHomePostsCache();
             onSuccess(editPostId);
           } else {
@@ -621,7 +627,7 @@ export function JobsWriteForm({
         });
         if (res.ok) {
           clearJobsWriteMeetSpotStaging(category.id);
-          clearTradeMeetSpotPickDraft();
+          clearTradeMeetSpotSessionNavigationState();
           invalidateHomePostsCache();
           onSuccess(res.id);
         } else {
@@ -667,6 +673,7 @@ export function JobsWriteForm({
         onSyncRegionCity={syncTradeRegionCity}
         error={errors.region}
         readOnly={coreLocked}
+        onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}
         karrotMeetSpotUi={hasLocation}
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}

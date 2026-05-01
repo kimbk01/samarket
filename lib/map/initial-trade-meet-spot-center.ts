@@ -1,4 +1,5 @@
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 
 /** 주소 행·프로필 공통 — 유효 위경도만 */
 export function parseLatLngRow(row: unknown): { lat: number; lng: number } | null {
@@ -37,6 +38,18 @@ export async function fetchProfileLatLngForMeetSpotMap(): Promise<{ lat: number;
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; profile?: unknown };
     if (!j.ok || j.profile == null) return null;
     return parseLatLngRow(j.profile);
+  } catch {
+    return null;
+  }
+}
+
+/** 지도 핀 폴백 — 주소록 기본 → 프로필 (`TradeMeetSpotPickClient` · 지오코딩 실패 시) */
+export async function fetchMeetSpotPinFallbackCenter(): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const snap = await fetchAddressDefaultsSnapshot();
+    const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
+    if (fromBook) return fromBook;
+    return fetchProfileLatLngForMeetSpotMap();
   } catch {
     return null;
   }

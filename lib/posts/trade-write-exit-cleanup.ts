@@ -6,7 +6,7 @@ export const TRADE_WRITE_DRAFT_DISCARDED_EVENT = "samarket:trade-write-draft-dis
 
 export type TradeWriteDraftDiscardedDetail = { categoryId: string };
 
-/** 시트·취소 확인(나가기) 시 임시 초안·복귀 플래그 제거 */
+/** 카테고리 변경 등 초안을 버려야 할 때만 호출 — 단순 나가기에서는 호출하지 않음(카테고리별 초안 유지). */
 export function discardTradeWriteStashedDraft(categoryId: string): void {
   const id = categoryId.trim();
   clearTradeWriteFormSessionDraft(id);
@@ -19,10 +19,10 @@ export function discardTradeWriteStashedDraft(categoryId: string): void {
   );
 }
 
-/** 거래 글쓰기 이탈 확인 — 임시저장 복구 팝업과 동일 타이틀 톤 */
-export const TRADE_WRITE_EXIT_SHEET_TITLE = "작성 중이던 글이 있습니다";
+/** 거래 글쓰기 이탈 확인 — 나가도 카테고리별 임시 초안은 유지됨 */
+export const TRADE_WRITE_EXIT_SHEET_TITLE = "글쓰기를 나갈까요?";
 export const TRADE_WRITE_EXIT_SHEET_BODY =
-  "나가면 임시 저장된 내용이 삭제됩니다. 나가시겠어요?";
+  "임시 저장된 내용은 이 카테고리에 남습니다. 나중에 다시 열면 이어쓸 수 있어요.";
 
 /** 레거시·로그 한 줄용 */
 export const TRADE_WRITE_EXIT_CONFIRM_MESSAGE = `${TRADE_WRITE_EXIT_SHEET_TITLE}. ${TRADE_WRITE_EXIT_SHEET_BODY}`;

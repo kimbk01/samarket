@@ -146,14 +146,19 @@ import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import {
-  clearTradeMeetSpotPickDraft,
   clearTradeMeetSpotPickResult,
+  clearTradeMeetSpotSessionNavigationState,
   consumeTradeMeetSpotPickResult,
   peekTradeMeetSpotPickResult,
-  seedTradeMeetSpotDraftForNavigation,
+  prepareTradeMeetSpotMapNavigation,
 } from "@/lib/posts/trade-meet-spot-pick-storage";
 import { fetchRepresentativeTradeMeetFallbackLine } from "@/lib/addresses/representative-trade-meet-fallback-line";
-import type { TradeMeetSpotValue } from "@/lib/posts/trade-meet-spot-types";
+import {
+  pickPersistableMeetSpotCoords,
+  tradeMeetSpotFromClientFields,
+  tradeMeetSpotFromMetaSnapshot,
+  type TradeMeetSpotValue,
+} from "@/lib/posts/trade-meet-spot-types";
 import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   buildTradeWriteFormSessionDraft,
@@ -181,7 +186,12 @@ import {
   KARROT_SECTION,
 } from "./trade-karrot-classes";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
-import { resolveTradeMeetSpotReturnTo } from "@/lib/navigation/trade-meet-spot-return-to";
+import {
+  hrefTradeMeetSpotPick,
+  peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+  resolveTradeMeetSpotReturnTo,
+  scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
+} from "@/lib/navigation/trade-meet-spot-return-to";
 import {
   TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
@@ -219,6 +229,7 @@ export function TradeWriteForm({
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
+  const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
@@ -436,28 +447,23 @@ export function TradeWriteForm({
     setExchangeRate(d.exchangeRate ?? "");
     setTradeChatCallPolicy(normalizeTradeChatCallPolicy(d.tradeChatCallPolicy));
     setDescriptionAppend(d.descriptionAppend ?? "");
-    if (d.tradeMeetSpot?.displayLine?.trim()) {
-      setTradeMeetSpot({
-        displayLine: d.tradeMeetSpot.displayLine.trim(),
-        lat: d.tradeMeetSpot.lat,
-        lng: d.tradeMeetSpot.lng,
-        placeId: d.tradeMeetSpot.placeId,
-      });
-    } else {
-      setTradeMeetSpot(null);
-    }
+    setTradeMeetSpot(tradeMeetSpotFromClientFields(d.tradeMeetSpot));
   }, []);
 
   /** 주소 관리·지도 복귀 시 즉시 복원 · 진짜 이탈 초안만 이어쓰기 확인 */
   useLayoutEffect(() => {
     if (editPostId) return;
+    const skipDraftPrompt = peekTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
     const shouldRestore = consumeTradeWriteRestoreAfterAddressFlag(category.id);
     const hasMeetSpotReturn = peekTradeMeetSpotPickResult() != null;
-    if (shouldRestore || hasMeetSpotReturn) {
+    if (skipDraftPrompt || shouldRestore || hasMeetSpotReturn) {
       const d = readTradeWriteFormPersistedDraft(category.id);
       if (d) applyPersistedDraft(d);
       setResumeDraftSnapshot(null);
       setDraftResumeGate("ready");
+      if (skipDraftPrompt) {
+        scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot();
+      }
       return;
     }
     const d = readTradeWriteFormPersistedDraft(category.id);
@@ -469,7 +475,7 @@ export function TradeWriteForm({
     setResumeDraftSnapshot(null);
     setDraftResumeGate("ready");
     clearTradeWriteFormSessionDraft(category.id);
-  }, [editPostId, category.id, applyPersistedDraft]);
+  }, [editPostId, category.id, applyPersistedDraft, pathname, tradeWriteSheetEpoch]);
 
   useEffect(() => {
     suppressDraftPersistenceRef.current = false;
@@ -854,6 +860,24 @@ export function TradeWriteForm({
       usedCarMileagePresetKey,
   ]);
 
+  useEffect(() => {
+    if (!tradeWriteSheet) return;
+    const ref = tradeWriteSheet.persistSnapshotBeforeLeaveRef;
+    ref.current = async () => {
+      if (editPostId) return;
+      const prev = suppressDraftPersistenceRef.current;
+      suppressDraftPersistenceRef.current = false;
+      try {
+        flushTradeWriteSessionDraftSync();
+      } finally {
+        suppressDraftPersistenceRef.current = prev;
+      }
+    };
+    return () => {
+      ref.current = null;
+    };
+  }, [tradeWriteSheet, editPostId, flushTradeWriteSessionDraftSync]);
+
   /**
    * 주소 관리 화면으로 가기 직전: 미업로드 사진을 스토리지에 올린 뒤 세션 초안 저장.
    */
@@ -1033,22 +1057,7 @@ export function TradeWriteForm({
       rawMeta && typeof rawMeta === "object" && rawMeta !== null
         ? (rawMeta as Record<string, unknown>).trade_meet_spot
         : null;
-    if (ts && typeof ts === "object") {
-      const o = ts as Record<string, unknown>;
-      const dl = String(o.display_line ?? "").trim();
-      if (dl) {
-        setTradeMeetSpot({
-          displayLine: dl,
-          lat: typeof o.lat === "number" && Number.isFinite(o.lat) ? o.lat : undefined,
-          lng: typeof o.lng === "number" && Number.isFinite(o.lng) ? o.lng : undefined,
-          placeId: typeof o.place_id === "string" && o.place_id.trim() ? o.place_id.trim() : undefined,
-        });
-      } else {
-        setTradeMeetSpot(null);
-      }
-    } else {
-      setTradeMeetSpot(null);
-    }
+    setTradeMeetSpot(tradeMeetSpotFromMetaSnapshot(ts));
   }, [editPostId, ownerEditSnapshot, skinKey]);
 
   const validate = useCallback((): boolean => {
@@ -1230,16 +1239,12 @@ export function TradeWriteForm({
             representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
           const line = lineFromMap || lineFallback;
           if (line) {
+            const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
             meta = {
               ...meta,
               trade_meet_spot: {
                 display_line: line,
-                ...(tradeMeetSpot && tradeMeetSpot.lat != null && Number.isFinite(tradeMeetSpot.lat)
-                  ? { lat: tradeMeetSpot.lat }
-                  : {}),
-                ...(tradeMeetSpot && tradeMeetSpot.lng != null && Number.isFinite(tradeMeetSpot.lng)
-                  ? { lng: tradeMeetSpot.lng }
-                  : {}),
+                ...(pin ? { lat: pin.lat, lng: pin.lng } : {}),
                 ...(tradeMeetSpot?.placeId ? { place_id: tradeMeetSpot.placeId } : {}),
               },
             };
@@ -1281,6 +1286,7 @@ export function TradeWriteForm({
           if (res.ok) {
             tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
+            clearTradeMeetSpotSessionNavigationState();
             setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();
             onSuccess(editPostId);
@@ -1295,7 +1301,7 @@ export function TradeWriteForm({
           if (res.ok) {
             tradeDraftFlushRef.current = null;
             clearTradeWriteFormSessionDraft(category.id);
-            clearTradeMeetSpotPickDraft();
+            clearTradeMeetSpotSessionNavigationState();
             setTradeWriteSucceededClearBlocking(true);
             invalidateHomePostsCache();
             onSuccess(res.id);
@@ -1359,28 +1365,31 @@ export function TradeWriteForm({
     ]
   );
 
-  const handleBeforeMeetSpotPick = useCallback(() => {
+  /**
+   * 세션 초안은 https 이미지 URL만 저장한다. 업로드·초안 저장을 끝낸 뒤 라우팅한다.
+   * `suppressDraftPersistenceRef`(폐기 이벤트 직후 등)가 켜져 있으면 주소/지도 저장 헬퍼가 조용히 빠져
+   * 이미지·필드가 안 남을 수 있어, 지도 진입 직전에만 잠시 해제한다.
+   */
+  const handleBeforeMeetSpotPick = useCallback(async () => {
     /** 인라인 시트 상태에서는 거래 카테고리 경로로 복귀시키고 시트를 다시 열게 한다. */
     const returnTo = tradeWriteSheet ? getCategoryHref(category) : resolveTradeMeetSpotReturnTo();
     if (!editPostId) {
-      flushTradeWriteSessionDraftSync();
-      void handleBeforeNavigateToAddresses().catch(() => {
-        /* 업로드·로그인 실패해도 지도는 연다 — 동기 초안은 위에서 저장됨 */
-      });
+      const prevSuppress = suppressDraftPersistenceRef.current;
+      suppressDraftPersistenceRef.current = false;
+      try {
+        try {
+          await handleBeforeNavigateToAddresses();
+        } catch {
+          flushTradeWriteSessionDraftSync();
+        }
+      } finally {
+        suppressDraftPersistenceRef.current = prevSuppress;
+      }
     }
-    const hasPinnedMeetSpot =
-      tradeMeetSpot?.lat != null &&
-      Number.isFinite(tradeMeetSpot.lat) &&
-      tradeMeetSpot?.lng != null &&
-      Number.isFinite(tradeMeetSpot.lng);
-    if (hasPinnedMeetSpot) {
-      seedTradeMeetSpotDraftForNavigation(tradeMeetSpot);
-    } else {
-      clearTradeMeetSpotPickDraft();
-    }
+    prepareTradeMeetSpotMapNavigation(tradeMeetSpot);
     persistTradeMeetSpotReturnScrollPosition();
     markTradeMeetSpotFocusOnReturn();
-    router.push(`/market/trade-meet-spot?returnTo=${encodeURIComponent(returnTo)}`);
+    router.push(hrefTradeMeetSpotPick(returnTo));
   }, [
     editPostId,
     flushTradeWriteSessionDraftSync,
@@ -1391,7 +1400,6 @@ export function TradeWriteForm({
     tradeWriteSheet,
   ]);
 
-  const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const pendingMeetSpotConsumeRef = useRef(false);
   const pendingMeetSpotFocusRef = useRef(false);
 
@@ -1478,7 +1486,7 @@ export function TradeWriteForm({
           meetSpotLine={karrotMeetSpotDisplayLine || null}
           meetSpotError={errors.meetSpot}
           onBeforeMeetSpotPick={
-            hasLocation && !coreLocked ? handleBeforeMeetSpotPick : undefined
+            hasLocation && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
           }
         />
       </div>

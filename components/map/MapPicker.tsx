@@ -94,8 +94,10 @@ export function MapPicker({
           const ll = e.latLng;
           if (!ll) return;
           const ev = e as google.maps.MapMouseEvent & { placeId?: string };
+          /** POI(상호·랜드마크) 클릭 — 도로 좌표로 `onMarkerPositionChange`를 호출하면 역지오가 길 주소를 넣고 표시 문구와 핀이 어긋남. 부모가 Places geometry 로만 핀을 맞춤. */
           if (ev.placeId && onPoiRef.current) {
             onPoiRef.current({ placeId: ev.placeId, lat: ll.lat(), lng: ll.lng() });
+            return;
           }
           onMoveRef.current({ lat: ll.lat(), lng: ll.lng() });
         });

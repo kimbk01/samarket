@@ -14,6 +14,10 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
+  TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY,
+  TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY,
+} from "@/lib/navigation/trade-meet-spot-return-to";
+import {
   TRADE_WRITE_EXIT_SHEET_BODY,
   TRADE_WRITE_EXIT_SHEET_TITLE,
 } from "@/lib/posts/trade-write-exit-cleanup";
@@ -29,8 +33,11 @@ type TradeWriteSheetContextValue = {
   /** 폼 입력 등으로 이탈 시 확인이 필요한지 — `WriteSheetFlowInner` 가 갱신 */
   blockingDraft: boolean;
   setBlockingDraft: (v: boolean) => void;
-  /** 확인 나가기 시 세션·로컬 초안 삭제 — `WriteSheetFlowInner` 가 등록 */
-  discardTradeWriteDraftRef: React.MutableRefObject<(() => void) | null>;
+  /**
+   * TradeWriteForm / JobsWriteForm / ExchangeWriteForm 이 등록.
+   * 나가기·외부 이탈 확인 직전에 호출해 카테고리별 세션 스냅샷을 남김(일반 거래 세션 초안 · 일·환전 스테이징).
+   */
+  persistSnapshotBeforeLeaveRef: React.MutableRefObject<(() => Promise<void>) | null>;
   /** 다른 메뉴·탭 이동 전 — 초안 있으면 확인 후 시트 닫기. `nextHref` 있으면 확인 후 `router.push` */
   attemptLeaveForExternalNavigation: (nextHref?: string | null) => boolean;
   open: (_category?: string) => void;
@@ -55,9 +62,9 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   const [openEpoch, setOpenEpoch] = useState(0);
   const [initialCategory, setInitialCategory] = useState("");
   const [blockingDraft, setBlockingDraft] = useState(false);
-  const discardTradeWriteDraftRef = useRef<(() => void) | null>(null);
   const [externalLeaveOpen, setExternalLeaveOpen] = useState(false);
   const pendingNavHrefRef = useRef<string | null>(null);
+  const persistSnapshotBeforeLeaveRef = useRef<(() => Promise<void>) | null>(null);
 
   /**
    * `(+)`·플로팅 등 **신규** 는 `open("")` — 카테고리 미선택.
@@ -95,16 +102,19 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
   }, []);
 
   const handleExternalLeaveConfirm = useCallback(() => {
-    discardTradeWriteDraftRef.current?.();
-    close();
-    setExternalLeaveOpen(false);
-    const href = pendingNavHrefRef.current;
-    pendingNavHrefRef.current = null;
-    if (href) router.push(href);
+    void (async () => {
+      try {
+        await persistSnapshotBeforeLeaveRef.current?.();
+      } catch {
+        /* 스냅샷 실패해도 이탈 진행 */
+      }
+      close();
+      setExternalLeaveOpen(false);
+      const href = pendingNavHrefRef.current;
+      pendingNavHrefRef.current = null;
+      if (href) router.push(href);
+    })();
   }, [close, router]);
-
-  const reopenFlag = "samarket:tradeWriteReopenAfterMeetSpot:v1";
-  const reopenCatKey = "samarket:tradeMeetSpotReturnCategoryKey:v1";
 
   /** 거래 희망 장소 지도에서 돌아온 뒤 같은 마켓 카테고리 URL이면 글쓰기 시트 자동 오픈(페인트 전) */
   useLayoutEffect(() => {
@@ -113,8 +123,8 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     let flag: string | null = null;
     let cat: string | null = null;
     try {
-      flag = sessionStorage.getItem(reopenFlag);
-      cat = sessionStorage.getItem(reopenCatKey);
+      flag = sessionStorage.getItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY);
+      cat = sessionStorage.getItem(TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY);
     } catch {
       return;
     }
@@ -123,8 +133,8 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
     const expected = `/market/${key}`;
     if (base !== expected) return;
     try {
-      sessionStorage.removeItem(reopenFlag);
-      sessionStorage.removeItem(reopenCatKey);
+      sessionStorage.removeItem(TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY);
+      sessionStorage.removeItem(TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY);
     } catch {
       /* ignore */
     }
@@ -145,7 +155,7 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
       initialCategory,
       blockingDraft,
       setBlockingDraft,
-      discardTradeWriteDraftRef,
+      persistSnapshotBeforeLeaveRef,
       attemptLeaveForExternalNavigation,
       open,
       close,

@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import {
   discardTradeWriteStashedDraft,
@@ -17,6 +16,7 @@ import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
@@ -138,15 +138,6 @@ export function WriteSheetFlowInner({
   }, [categoryKey]);
 
   useEffect(() => {
-    if (mode !== "tradeSheet" || !tradeWriteSheetCtx) return;
-    const ref = tradeWriteSheetCtx.discardTradeWriteDraftRef;
-    ref.current = selectedCategory ? () => discardTradeWriteStashedDraft(selectedCategory.id) : null;
-    return () => {
-      ref.current = null;
-    };
-  }, [mode, tradeWriteSheetCtx, selectedCategory?.id]);
-
-  useEffect(() => {
     if (!onTierSubtitleChange) return;
     if (categoryKey && formStatus === "found" && selectedCategory) {
       onTierSubtitleChange(selectedCategory.name);
@@ -251,11 +242,17 @@ export function WriteSheetFlowInner({
 
   const handleLeaveConfirm = useCallback(() => {
     setLeaveConfirmOpen(false);
-    if (selectedCategory) discardTradeWriteStashedDraft(selectedCategory.id);
     setIsFormDirty(false);
     setMeaningfulTradeDraft(false);
-    onUserRequestClose();
-  }, [onUserRequestClose, selectedCategory]);
+    void (async () => {
+      try {
+        await tradeWriteSheetCtx?.persistSnapshotBeforeLeaveRef.current?.();
+      } catch {
+        /* 스냅샷 실패해도 닫기 진행 */
+      }
+      onUserRequestClose();
+    })();
+  }, [onUserRequestClose, tradeWriteSheetCtx]);
 
   const handleLeaveCancel = useCallback(() => setLeaveConfirmOpen(false), []);
 
