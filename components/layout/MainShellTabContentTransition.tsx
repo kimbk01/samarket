@@ -24,7 +24,7 @@ export function MainShellTabContentTransition({
   contentStretchClass = "min-w-0",
 }: Props) {
   const pathname = usePathname();
-  const { isPendingMenuBlockingContent, pendingMenuShellKind } = useLatestMenuNavigation();
+  const { isPendingMenuBlockingContent, pendingMenuShellKind, pendingMenuIntent } = useLatestMenuNavigation();
   const tabs = useMemo(
     () => (initialNavItems && initialNavItems.length > 0 ? initialNavItems : BOTTOM_NAV_ITEMS),
     [initialNavItems]
@@ -40,14 +40,27 @@ export function MainShellTabContentTransition({
   const hostRef = useRef<HTMLDivElement>(null);
   const prevIdxRef = useRef<number | null>(null);
   const didHydrateNavRef = useRef(false);
+  /** intent 해제 리렌더 시 애니메이션 클래스가 벗겨지지 않도록 — 실제 경로 변경 시에만 슬라이드 적용 */
+  const prevPathnameForSlideRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
+    const pathKey = pathname ?? "";
     const idx = resolveActiveMainBottomNavTabIndex(pathname, tabs);
-    const prev = prevIdxRef.current;
-    prevIdxRef.current = idx;
 
     if (!didHydrateNavRef.current) {
       didHydrateNavRef.current = true;
+      prevPathnameForSlideRef.current = pathKey;
+      prevIdxRef.current = idx;
+      return;
+    }
+
+    const pathChanged = prevPathnameForSlideRef.current !== pathKey;
+    prevPathnameForSlideRef.current = pathKey;
+
+    const prev = prevIdxRef.current;
+    prevIdxRef.current = idx;
+
+    if (!pathChanged) {
       return;
     }
 
@@ -56,13 +69,26 @@ export function MainShellTabContentTransition({
 
     el.classList.remove(LTR, RTL);
 
-    if (idx < 0 || prev === null || prev < 0 || idx === prev) {
+    const switchedTab = idx >= 0 && prev !== null && prev >= 0 && idx !== prev;
+    if (!switchedTab) {
       return;
     }
 
-    const cls = idx > prev ? LTR : RTL;
+    /**
+     * 하단 탭: 우측 탭=ltr(좌→우 덮음), 좌측 탭=rtl(우→좌 덮음). 그 외는 인덱스 증감으로 추정.
+     */
+    let cls: typeof LTR | typeof RTL;
+    const slide = pendingMenuIntent?.mainShellTabSlide;
+    if (slide && pendingMenuIntent?.source === "bottom-nav") {
+      cls = slide === "ltr" ? LTR : RTL;
+    } else {
+      cls = idx > prev ? LTR : RTL;
+    }
+
     void el.offsetWidth;
     el.classList.add(cls);
+    // pendingMenuIntent 는 pathname 이 바뀐 그 커밋에서만 읽음 — deps 에 넣으면 intent 해제 시 본 이펙트가 불필요하게 재실행됨
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 의도적: 탭 슬라이드 방향은 경로 변경 프레임의 intent 만 사용
   }, [pathname, tabs]);
 
   return (

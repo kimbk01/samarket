@@ -58,6 +58,7 @@ import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav
 import {
   isBottomNavTabActive,
   pickMainBottomNavPrefetchHrefs,
+  resolveActiveMainBottomNavTabIndex,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -604,11 +605,19 @@ export function BottomNav({
     },
     [clearPendingActiveReset]
   );
-  const markLatestMenuNavigation = useCallback(
+  /** 탭 바 순서로 좌↔우 슬라이드 방향 고정 — `MainShellTabContentTransition` 및 `globals.css` 와 맞춤 */
+  const beginBottomNavNavigation = useCallback(
     (href: string) => {
-      beginMenuNavigation(href, "bottom-nav");
+      const list = tabsRef.current;
+      const fromIdx = resolveActiveMainBottomNavTabIndex(pathname ?? null, list);
+      const toIdx = list.findIndex((t) => t.href === href);
+      const slide =
+        fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx
+          ? (toIdx > fromIdx ? "ltr" : "rtl")
+          : undefined;
+      beginMenuNavigation(href, "bottom-nav", slide ? { mainShellTabSlide: slide } : undefined);
     },
-    [beginMenuNavigation]
+    [beginMenuNavigation, pathname]
   );
 
   const applyMainBottomNavItems = useCallback(async (force: boolean) => {
@@ -821,7 +830,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
-                beginMenuNavigation={markLatestMenuNavigation}
+                beginMenuNavigation={beginBottomNavNavigation}
                 guardBeforeNavigate={guardNav}
               />
             ) : (
@@ -832,7 +841,7 @@ export function BottomNav({
                 navSearch={navSearch}
                 pendingActiveTabId={pendingActiveTabId}
                 onNavigationIntent={markBottomNavIntent}
-                beginMenuNavigation={markLatestMenuNavigation}
+                beginMenuNavigation={beginBottomNavNavigation}
                 guardBeforeNavigate={guardNav}
               />
             );

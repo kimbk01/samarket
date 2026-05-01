@@ -22,6 +22,14 @@ export type MenuNavigationSource =
 
 export type MenuPendingShellKind = "feed" | "messenger" | null;
 
+/** 메인 셸 본문 슬라이드 — 우측 탭(인덱스 증가)=ltr, 좌측 탭=rtl (`globals.css` 키프레임과 대응) */
+export type MainShellTabSlide = "ltr" | "rtl";
+
+export interface BeginMenuNavigationOptions {
+  /** 하단 탭 등에서 탭 순서 기준 전환 방향을 고정할 때 */
+  mainShellTabSlide?: MainShellTabSlide;
+}
+
 export interface MenuNavigationIntent {
   id: number;
   href: string;
@@ -29,6 +37,7 @@ export interface MenuNavigationIntent {
   search: string;
   source: MenuNavigationSource;
   startedAt: number;
+  mainShellTabSlide?: MainShellTabSlide;
 }
 
 interface LatestMenuNavigationContextValue {
@@ -36,7 +45,11 @@ interface LatestMenuNavigationContextValue {
   pendingMenuIntent: MenuNavigationIntent | null;
   pendingMenuShellKind: MenuPendingShellKind;
   isPendingMenuBlockingContent: boolean;
-  beginMenuNavigation: (href: string, source?: MenuNavigationSource) => MenuNavigationIntent;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => MenuNavigationIntent;
   cancelPendingMenuNavigation: (id?: number) => void;
   isPendingMenuHref: (href: string) => boolean;
 }
@@ -132,7 +145,11 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
   const [pendingMenuIntent, setPendingMenuIntent] = useState<MenuNavigationIntent | null>(null);
 
   const beginMenuNavigation = useCallback(
-    (href: string, source: MenuNavigationSource = "bottom-nav") => {
+    (
+      href: string,
+      source: MenuNavigationSource = "bottom-nav",
+      options?: BeginMenuNavigationOptions
+    ) => {
       const parsed = parseMenuNavigationHref(href);
       const nextIntent: MenuNavigationIntent = {
         id: latestNavigationIdRef.current + 1,
@@ -141,6 +158,7 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
         search: parsed.search,
         source,
         startedAt: Date.now(),
+        ...(options?.mainShellTabSlide ? { mainShellTabSlide: options.mainShellTabSlide } : {}),
       };
       latestNavigationIdRef.current = nextIntent.id;
       setLatestNavigationId(nextIntent.id);
