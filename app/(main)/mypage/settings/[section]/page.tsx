@@ -20,6 +20,7 @@ const SECTION_REDIRECTS: Record<string, string> = {
   cache: "/mypage?tab=settings&section=system",
   version: "/mypage?tab=settings&section=system",
   leave: "/mypage?tab=settings&section=system",
+  permissions: "/mypage?tab=settings&section=device-permissions",
 };
 
 export default function SettingsSectionPage({

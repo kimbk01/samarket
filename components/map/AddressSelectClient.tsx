@@ -11,7 +11,7 @@ import {
   buildPhFriendlyAddress,
   pickNearestEstablishmentByDistance,
 } from "@/lib/map/ph-friendly-address";
-import { getBestCurrentPosition } from "@/lib/map/geolocation";
+import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
   hideMapAddressRecentRow,
   pushMapAddressRecent,
@@ -249,12 +249,20 @@ export function AddressSelectClient() {
     setGeoHint(null);
     setLocating(true);
     try {
-      const res = await getBestCurrentPosition();
+      const res = await requestLocationWithDiBaYGate();
       if (!res.ok) {
-        setGeoHint(res.message);
+        if (res.reason === "later") {
+          setGeoHint(null);
+          return;
+        }
+        if (res.reason === "deferred") {
+          setGeoHint(res.message ?? "설정에서 권한을 확인하거나 주소를 검색해 주세요.");
+          return;
+        }
+        setGeoHint(res.message ?? "현재 위치를 가져오지 못했습니다.");
         return;
       }
-      goToMap({ lat: res.latitude, lng: res.longitude });
+      goToMap({ lat: res.position.latitude, lng: res.position.longitude });
     } finally {
       setLocating(false);
     }
@@ -264,12 +272,20 @@ export function AddressSelectClient() {
     setGeoHint(null);
     setLocating(true);
     try {
-      const res = await getBestCurrentPosition();
+      const res = await requestLocationWithDiBaYGate();
       if (!res.ok) {
-        setGeoHint(res.message);
+        if (res.reason === "later") {
+          setGeoHint(null);
+          return;
+        }
+        if (res.reason === "deferred") {
+          setGeoHint(res.message ?? "설정에서 권한을 확인하거나 지도에서 핀을 옮겨 주세요.");
+          return;
+        }
+        setGeoHint(res.message ?? "현재 위치를 가져오지 못했습니다.");
         return;
       }
-      setMarker({ lat: res.latitude, lng: res.longitude });
+      setMarker({ lat: res.position.latitude, lng: res.position.longitude });
       setManualAddress(null);
       manualAnchorRef.current = null;
     } finally {

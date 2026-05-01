@@ -55,6 +55,7 @@ import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenge
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { bumpCommunityMessengerPresenceActivity } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
+import { requestLocationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
   messengerRoomReadBlockKeyCallPanel,
   setMessengerRoomReadBlock,
@@ -885,24 +886,27 @@ export function useMessengerRoomPhase2Controller() {
 
   const sendLocationMessage = useCallback(() => {
     if (!snapshot || roomUnavailable) return;
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      showMessengerSnackbar("이 기기에서 위치를 사용할 수 없습니다.", { variant: "error" });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
-        const content = `📍 위치 공유\n${url}`;
-        setAttachmentConfirmDraft({ kind: "location", content });
-        setActiveSheet("attach-confirm");
-      },
-      () => {
-        showMessengerSnackbar("위치 권한이 필요하거나 가져오지 못했습니다.", { variant: "error" });
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
-    );
-  }, [roomUnavailable, setActiveSheet, snapshot]);
+    void (async () => {
+      const res = await requestLocationWithDiBaYGate();
+      if (!res.ok) {
+        if (res.reason === "later") return;
+        if (res.reason === "deferred") {
+          showMessengerSnackbar(
+            "설정에서 위치 권한을 확인하거나, 지도 링크 없이 주소를 입력해 주세요.",
+            { variant: "error" },
+          );
+          return;
+        }
+        showMessengerSnackbar(res.message ?? "위치를 가져오지 못했습니다.", { variant: "error" });
+        return;
+      }
+      const { latitude, longitude } = res.position;
+      const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
+      const content = `📍 위치 공유\n${url}`;
+      setAttachmentConfirmDraft({ kind: "location", content });
+      setActiveSheet("attach-confirm");
+    })();
+  }, [roomUnavailable, setActiveSheet, setAttachmentConfirmDraft, snapshot, showMessengerSnackbar]);
 
   const sendImageFiles = useCallback(
     async (files: File[], optimisticPreviewUrls: string[]) => {

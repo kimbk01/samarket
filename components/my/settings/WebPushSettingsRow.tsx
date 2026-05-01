@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 
 function isPushSupported(): boolean {
   return (
@@ -79,16 +80,6 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
       setHint("이 브라우저는 웹 푸시를 지원하지 않습니다.");
       return;
     }
-    const vapidRes = await runSingleFlight("me:push:vapid-key:get", () =>
-      fetch("/api/me/push/vapid-key", { credentials: "include" })
-    );
-    const vapidJson = (await vapidRes.clone().json().catch(() => ({}))) as { publicKey?: string | null };
-    const key = typeof vapidJson.publicKey === "string" ? vapidJson.publicKey.trim() : "";
-    if (!key) {
-      setHint("서버에 VAPID 공개 키가 설정되지 않았습니다. 운영 환경에 키를 등록해 주세요.");
-      return;
-    }
-
     setBusy((prev) => (prev ? prev : true));
     try {
       const perm = await Notification.requestPermission();
@@ -97,27 +88,16 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
         return;
       }
 
-      const { urlBase64ToUint8Array } = await import("@/lib/push/url-base64-to-uint8array");
-      const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await reg.update().catch(() => undefined);
-      const ready = await navigator.serviceWorker.ready;
-      const sub = await ready.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
-      });
-
-      const res = await fetch("/api/me/push/subscribe", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub.toJSON()),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok) {
+      const reg = await registerWebPushSubscriptionFromClient();
+      if (!reg.ok) {
         setHint(
-          j?.error === "table_missing"
-            ? "DB 마이그레이션(web_push_subscriptions)이 필요합니다."
-            : "등록에 실패했습니다."
+          reg.error === "vapid_missing"
+            ? "서버에 VAPID 공개 키가 설정되지 않았습니다."
+            : reg.error === "table_missing" || reg.error === "subscribe_failed"
+              ? "DB 마이그레이션(web_push_subscriptions)이 필요하거나 등록에 실패했습니다."
+              : reg.error === "permission_not_granted"
+                ? "브라우저 알림 권한이 필요합니다."
+                : "등록에 실패했습니다."
         );
         return;
       }

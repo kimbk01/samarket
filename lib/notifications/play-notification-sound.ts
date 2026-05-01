@@ -4,6 +4,8 @@
  * HTMLAudioElement 재생 실패 시 Web Audio 비프(단일 AudioContext, suspend 시 resume).
  */
 
+import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
+
 export const NOTIFICATION_SOUND_ASSET_PATH = "/sounds/notification.wav";
 
 /** @deprecated 같은 파일 경로; 호환용. */
@@ -91,11 +93,14 @@ export function primeNotificationSoundAudio(): void {
 
 export function playNotificationSound(): void {
   if (typeof window === "undefined") return;
-  try {
-    const audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
-    audio.volume = 0.55;
-    void audio.play().catch(() => playSoftBeepFallback());
-  } catch {
-    playSoftBeepFallback();
-  }
+  void (async () => {
+    try {
+      const audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+      audio.volume = 0.55;
+      await applyPreferredSinkToHtmlAudioElement(audio);
+      void audio.play().catch(() => playSoftBeepFallback());
+    } catch {
+      playSoftBeepFallback();
+    }
+  })();
 }

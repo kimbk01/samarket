@@ -15,6 +15,7 @@ import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
+import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
 import { AccountTab } from "@/components/mypage/tabs/AccountTab";
 import { CommunityTab } from "@/components/mypage/tabs/CommunityTab";
 import { MessengerTab } from "@/components/mypage/tabs/MessengerTab";
@@ -111,6 +112,9 @@ export function MyPageItemScreen(
   if (section === "settings") {
     if (item === "address") {
       return <AddressManagementClient embedded />;
+    }
+    if (item === "device-permissions") {
+      return <DevicePermissionsSettingsContent />;
     }
     if (item === "language") {
       return <LanguageSettingsContent />;

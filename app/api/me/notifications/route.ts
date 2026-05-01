@@ -37,12 +37,23 @@ function sbOr503() {
 
 const UNREAD_SCAN_CAP = 2500;
 
+const INBOX_PUSH_KIND_PARAMS = new Set([
+  "chat",
+  "trade",
+  "delivery",
+  "community",
+  "notice",
+  "marketing",
+  "system",
+]);
+
 /**
  * GET ?unread_count_only=1 → { unread_count }
  * GET ?unread_count_only=1&exclude_owner_store_commerce=1 → 소비자·일반 알림만 (매장 오너 전용 매장주문 알림 제외)
  * GET …&exclude_buyer_store_commerce=1 (위와 함께) → 하단 네비용: 구매자 매장주문(배송 단계 등) 미읽음 제외
  * GET ?unread_count_only=1&owner_store_commerce_unread_only=1 → 매장 오너용 매장주문 알림만
  * GET (기본) → 최근 알림 목록 (exclude_owner_store_commerce=1 지원)
+ * GET …&limit=40&offset=0&push_kind=trade → 페이지네이션·종류 필터 (push_kind 컬럼 필요; 채팅은 push_kind 또는 notification_type)
  * GET ?owner_store_id=UUID → 해당 매장의 오너 매장주문(commerce·meta.kind) 알림만 (최대 200건)
  */
 export async function GET(req: NextRequest) {
@@ -55,6 +66,7 @@ export async function GET(req: NextRequest) {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+  const sbx = sb;
 
   const { searchParams } = new URL(req.url);
   if (searchParams.get("unread_count_only") === "1") {
@@ -75,7 +87,7 @@ export async function GET(req: NextRequest) {
           : "all";
 
     try {
-      const unreadCount = await getCachedNotificationUnreadCount(userId, mode, async () => {
+        const unreadCount = await getCachedNotificationUnreadCount(userId, mode, async () => {
         if (!excludeOwner && !ownerOnly) {
           const { count, error } = await sb
             .from("notifications")
@@ -169,17 +181,52 @@ export async function GET(req: NextRequest) {
   const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
   const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
+
+  const rawLimitParam = searchParams.get("limit");
+  const rawOffsetParam = searchParams.get("offset");
+  const inboxPushKindRaw = searchParams.get("push_kind")?.trim().toLowerCase() ?? "";
+  const inboxPushKind =
+    !ownerStoreId && inboxPushKindRaw && INBOX_PUSH_KIND_PARAMS.has(inboxPushKindRaw) ? inboxPushKindRaw : null;
+
+  const parsedLimit = rawLimitParam != null ? Number.parseInt(rawLimitParam, 10) : NaN;
+  const parsedOffset = rawOffsetParam != null ? Number.parseInt(rawOffsetParam, 10) : 0;
+  const explicitPage = !ownerStoreId && Number.isFinite(parsedLimit) && parsedLimit > 0;
+  const listOffset =
+    explicitPage && Number.isFinite(parsedOffset) && parsedOffset >= 0 ? Math.min(parsedOffset, 5000) : 0;
+
   /** 매장 오너 전용 목록은 최근 건을 넉넉히 가져온 뒤 `meta.store_id` 로 좁힘 */
-  const listLimit = ownerStoreId ? 500 : excludeOwnerList ? 200 : 80;
+  let fetchUpper = ownerStoreId ? 500 : excludeOwnerList ? 200 : 80;
+  let displayCap = fetchUpper;
+  if (explicitPage) {
+    displayCap = Math.min(parsedLimit, 100);
+    fetchUpper = displayCap + 1;
+  }
 
-  const q = sb
-    .from("notifications")
-    .select("id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false })
-    .limit(listLimit);
+  const selectWithPushKind =
+    "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id, push_kind";
+  const selectBase = "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id";
 
-  const { data, error } = await q;
+  async function inboxQuery(includePushKindCol: boolean) {
+    const cols = includePushKindCol ? selectWithPushKind : selectBase;
+    let q = sbx
+      .from("notifications")
+      .select(cols as typeof selectBase)
+      .eq("user_id", userId);
+    if (includePushKindCol && inboxPushKind === "chat") {
+      q = q.or("push_kind.eq.chat,notification_type.eq.chat");
+    } else if (includePushKindCol && inboxPushKind) {
+      q = q.eq("push_kind", inboxPushKind);
+    }
+    q = q.order("created_at", { ascending: false }).range(listOffset, listOffset + fetchUpper - 1);
+    return q;
+  }
+
+  let usePushKindCol = true;
+  let { data, error } = await inboxQuery(true);
+  if (error && usePushKindCol && error.message?.includes("push_kind")) {
+    usePushKindCol = false;
+    ({ data, error } = await inboxQuery(false));
+  }
 
   if (error) {
     if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
@@ -190,7 +237,7 @@ export async function GET(req: NextRequest) {
       .select("id, notification_type, title, body, link_url, is_read, created_at, meta")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(listLimit);
+      .limit(fetchUpper);
     if (!eMeta) {
       let list = rowsWithMeta ?? [];
       if (ownerStoreId) {
@@ -208,7 +255,7 @@ export async function GET(req: NextRequest) {
       .select("id, notification_type, title, body, link_url, is_read, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
-      .limit(listLimit);
+      .limit(fetchUpper);
     if (!eBare) {
       let list = rowsBare ?? [];
       if (ownerStoreId) {
@@ -225,14 +272,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  let notifications = data ?? [];
+  let notifications = (data ?? []) as { meta?: unknown; notification_type?: unknown }[];
   if (ownerStoreId) {
     notifications = filterOwnerStoreCommerceByStoreId(notifications, ownerStoreId).slice(0, 200);
   } else if (excludeOwnerList) {
-    notifications = notifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
+    notifications = notifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r));
+    if (!explicitPage) {
+      notifications = notifications.slice(0, 80);
+    }
   }
   if (excludeChatMessageList) {
     notifications = notifications.filter((r) => !isChatMessageNotificationRow(r));
+  }
+
+  if (explicitPage) {
+    const hasMore = notifications.length > displayCap;
+    notifications = notifications.slice(0, displayCap);
+    return NextResponse.json({ ok: true, notifications, has_more: hasMore });
   }
 
   return NextResponse.json({ ok: true, notifications });

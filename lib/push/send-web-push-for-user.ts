@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
+import { shouldSendWebPushForUser } from "@/lib/notifications/web-push-user-settings-gate";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { ensureWebPushVapidConfigured } from "@/lib/push/web-push-config";
 
@@ -11,6 +12,7 @@ type PushRow = {
   endpoint: string;
   key_p256dh: string;
   key_auth: string;
+  is_active?: boolean | null;
 };
 
 function buildPayload(out: NotificationSideEffectPayloadOut): string {
@@ -88,9 +90,12 @@ export async function sendWebPushNotificationsForUser(out: NotificationSideEffec
   const svc = tryCreateSupabaseServiceClient();
   if (!svc) return;
 
+  const allowed = await shouldSendWebPushForUser(svc, out.user_id, out).catch(() => true);
+  if (!allowed) return;
+
   const { data: rows, error } = await svc
     .from("web_push_subscriptions")
-    .select("id, endpoint, key_p256dh, key_auth")
+    .select("id, endpoint, key_p256dh, key_auth, is_active")
     .eq("user_id", out.user_id);
 
   if (error) {
@@ -101,7 +106,7 @@ export async function sendWebPushNotificationsForUser(out: NotificationSideEffec
     return;
   }
 
-  const list = (rows ?? []) as PushRow[];
+  const list = ((rows ?? []) as PushRow[]).filter((r) => r.is_active !== false);
   if (!list.length) return;
 
   const payload = buildPayload(out);
@@ -125,6 +130,10 @@ export async function sendWebPushNotificationsForUser(out: NotificationSideEffec
         await svc.from("web_push_subscriptions").delete().eq("id", row.id);
       } else {
         console.error("[sendWebPushNotificationsForUser] send", status ?? e);
+        await svc
+          .from("web_push_subscriptions")
+          .update({ is_active: false, updated_at: new Date().toISOString() })
+          .eq("id", row.id);
       }
     }
   }

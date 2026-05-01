@@ -15,12 +15,20 @@ export type MeNotificationSettingsSnapshot = {
   status: number;
   table_missing: boolean;
   settings: Partial<{
+    service_enabled: boolean;
     trade_chat_enabled: boolean;
     community_chat_enabled: boolean;
     order_enabled: boolean;
     store_enabled: boolean;
+    trade_events_enabled: boolean;
+    community_social_enabled: boolean;
+    notice_enabled: boolean;
+    marketing_enabled: boolean;
     sound_enabled: boolean;
     vibration_enabled: boolean;
+    quiet_hours_enabled: boolean;
+    quiet_hours_start: string | null;
+    quiet_hours_end: string | null;
   }> | null;
 };
 

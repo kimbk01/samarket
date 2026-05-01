@@ -234,6 +234,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           { key: "community-board-categories", title: "게시판카테고리", path: "/admin/board-categories", pendingRoute: true, status: "todo" },
           { key: "community-popular", title: "인기글관리", path: "/admin/popular-posts", pendingRoute: true, status: "todo" },
           { key: "community-notices", title: "공지관리", path: "/admin/app/notices", status: "done" },
+          {
+            key: "dibay-notification-campaigns",
+            title: "푸시·알림 캠페인",
+            path: "/admin/notifications",
+            status: "done",
+          },
         ],
       },
       {

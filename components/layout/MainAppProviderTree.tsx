@@ -36,6 +36,8 @@ import { TradeTabCategoriesServerPrime } from "@/components/layout/TradeTabCateg
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
+import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
+import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
@@ -138,6 +140,8 @@ export function MainAppProviderTree({
           <OwnerHubBadgeRuntime />
           <MandatoryAddressGate />
           <PhoneVerificationRequiredDialog />
+          <DiBaYNotificationOnboardingGate />
+          <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <MainShellMessengerParticipantBridge regionBarInLayout={true} />

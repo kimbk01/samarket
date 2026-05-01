@@ -199,6 +199,11 @@ export const MYPAGE_NAV: MyPageTabNav[] = [
         description: "생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다.",
       },
       {
+        id: "device-permissions",
+        label: "기기 권한",
+        description: "위치·마이크·소리 출력 등 브라우저 권한과 안내 상태를 확인합니다.",
+      },
+      {
         id: "service",
         label: "서비스",
         description: "채팅 설정, 알림, 동영상 자동 재생, 맞춤 설정을 관리합니다.",

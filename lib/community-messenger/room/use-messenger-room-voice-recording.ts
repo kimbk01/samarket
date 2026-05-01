@@ -22,6 +22,8 @@ import {
 import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/lib/community-messenger/measure-voice-blob-duration";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import { getCommunityMessengerUserMedia } from "@/lib/call/permission-manager";
+import { isDiBaYMicGateDeferredAbort } from "@/lib/permissions/dibay-mic-gate-messages";
 
 export type UseMessengerRoomVoiceRecordingParams = {
   roomId: string;
@@ -340,7 +342,7 @@ export function useMessengerRoomVoiceRecording({
       voiceMimeRef.current = picked;
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await getCommunityMessengerUserMedia({ audio: true });
         if (session !== voiceSessionIdRef.current) {
           stream.getTracks().forEach((t) => t.stop());
           setVoiceMicArming(false);
@@ -461,15 +463,21 @@ export function useMessengerRoomVoiceRecording({
         } catch {
           /* ignore */
         }
-      } catch {
+      } catch (err) {
         setVoiceMicArming(false);
-        if (session === voiceSessionIdRef.current) {
-          showMessengerSnackbar(
-            getCommunityMessengerPermissionGuide("voice")?.description ??
-              "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
-            { variant: "error" }
-          );
+        if (session !== voiceSessionIdRef.current) return;
+        if (isDiBaYMicGateDeferredAbort(err)) {
+          showMessengerSnackbar("설정의 기기 권한에서 마이크를 다시 확인해 주세요.", { variant: "error" });
+          return;
         }
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
+        showMessengerSnackbar(
+          getCommunityMessengerPermissionGuide("voice")?.description ??
+            "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
+          { variant: "error" },
+        );
       }
     },
     [busy, finalizeVoiceRecording, message, roomUnavailable, snapshot]

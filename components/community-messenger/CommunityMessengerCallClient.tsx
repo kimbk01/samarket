@@ -95,40 +95,12 @@ function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["stat
   return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
 }
 
-/** Agora 조인 전 발신 영상: 발신 벨 단계와 동일하게 즉시 풀프리뷰 */
+/**
+ * 조인 전 플레이스홀더 — 마운트 시 `getUserMedia` 호출 금지(제스처·DiBaY 정책).
+ * 실제 영상은 Agora/프라임 스트림이 연결되면 상위 레이어에서 표시된다.
+ */
 function OutgoingCallPreJoinLocalCameraPreview() {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    let alive = true;
-    let stream: MediaStream | null = null;
-    void (async () => {
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user" },
-          audio: false,
-        });
-        if (!alive) {
-          s.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        stream = s;
-        const v = ref.current;
-        if (v) {
-          v.srcObject = s;
-          void v.play().catch(() => {});
-        }
-      } catch {
-        /* HTTP/권한 등 — 검은 배경만 */
-      }
-    })();
-    return () => {
-      alive = false;
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-      const v = ref.current;
-      if (v) v.srcObject = null;
-    };
-  }, []);
-  return <video ref={ref} className="h-full w-full object-cover" playsInline muted autoPlay />;
+  return <div className="h-full w-full bg-black" aria-hidden />;
 }
 
 /** 종료 PATCH/Realtime 후 stale 세션 GET 이 `ringing` 으로 되돌아와 링백이 다시 도는 윈도 — 수신 전역 tombstone(120s)과 동급 */

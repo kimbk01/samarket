@@ -1,4 +1,5 @@
 import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import { primeWebAudioCallToneContextFromUserGesture, startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
@@ -96,6 +97,7 @@ export async function startCommunityMessengerCallTone(
         next.preload = "auto";
         next.loop = true;
         next.volume = mode === "incoming" ? vIn : vOut;
+        await applyPreferredSinkToHtmlAudioElement(next);
         await next.play();
         audio = next;
         const stop = () => {
@@ -147,22 +149,25 @@ export async function startCommunityMessengerCallTone(
       next.volume = mode === "incoming" ? vIn : vOut;
       next.playbackRate = mode === "incoming" ? 1 : 0.94;
       audio = next;
-      const result = next.play();
-      if (result && typeof result.catch === "function") {
-        void result.catch(() => {
-          if (stopped) return;
-          audio = null;
-          playNotificationSound();
-          intervalId = window.setInterval(() => {
-            if (stopped) {
-              if (intervalId != null) window.clearInterval(intervalId);
-              intervalId = null;
-              return;
-            }
+      void (async () => {
+        await applyPreferredSinkToHtmlAudioElement(next);
+        const result = next.play();
+        if (result && typeof result.catch === "function") {
+          void result.catch(() => {
+            if (stopped) return;
+            audio = null;
             playNotificationSound();
-          }, TONE_INTERVAL_MS[mode]);
-        });
-      }
+            intervalId = window.setInterval(() => {
+              if (stopped) {
+                if (intervalId != null) window.clearInterval(intervalId);
+                intervalId = null;
+                return;
+              }
+              playNotificationSound();
+            }, TONE_INTERVAL_MS[mode]);
+          });
+        }
+      })();
     } catch {
       playNotificationSound();
       intervalId = window.setInterval(() => {
@@ -242,7 +247,10 @@ export async function playCommunityMessengerCallSignalSound(
       const audio = new Audio(url);
       audio.crossOrigin = "anonymous";
       audio.volume = kind === "missed" ? 0.68 : 0.42;
-      void audio.play().catch(() => playNotificationSound());
+      void (async () => {
+        await applyPreferredSinkToHtmlAudioElement(audio);
+        void audio.play().catch(() => playNotificationSound());
+      })();
     } catch {
       playNotificationSound();
     }

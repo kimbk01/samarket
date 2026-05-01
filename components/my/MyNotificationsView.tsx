@@ -8,6 +8,7 @@ import { KASAMA_NOTIFICATIONS_UPDATED, NOTIFICATION_SYNC_POLL_MS } from "@/lib/n
 import {
   fetchMeNotificationsListDeduped,
   invalidateMeNotificationsListDedupedCache,
+  type InboxPushKindFilter,
 } from "@/lib/me/fetch-me-notifications-deduped";
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
@@ -24,7 +25,18 @@ type Row = {
   created_at: string;
   meta?: Record<string, unknown> | null;
   domain?: string | null;
+  push_kind?: string | null;
 };
+
+const INBOX_PAGE_SIZE = 40;
+
+const INBOX_FILTER_CHIPS: { key: InboxPushKindFilter; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "trade", label: "거래" },
+  { key: "chat", label: "채팅" },
+  { key: "notice", label: "공지" },
+  { key: "marketing", label: "광고" },
+];
 
 type TradeOfferNotificationMeta = {
   kind?: string;
@@ -57,50 +69,85 @@ export function MyNotificationsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filterTab, setFilterTab] = useState<InboxPushKindFilter>("all");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadMoreBusy, setLoadMoreBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<InboxGroupItem | null>(null);
   const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
   const pendingDeleteRef = useRef<InboxGroupItem | null>(null);
+  /** 폴링·이벤트 갱신 시 "더 보기"로 쌓인 길이를 유지하기 위한 기준 (setRows와 동기) */
+  const rowsLengthRef = useRef(0);
   useEffect(() => {
     pendingDeleteRef.current = pendingDelete;
   }, [pendingDelete]);
 
-  const load = useCallback(async (silent = false, forceFetch = false) => {
-    if (!silent) {
-      setLoading((prev) => (prev ? prev : true));
-      setError((prev) => (prev === null ? prev : null));
-    }
-    try {
-      const { status, json: raw } = await fetchMeNotificationsListDeduped({
-        force: forceFetch,
-      });
-      const j = raw as { ok?: boolean; error?: string; notifications?: Row[] };
-      if (status === 401) {
-        setError("로그인이 필요합니다.");
-        setRows((prev) => (prev.length === 0 ? prev : []));
-        return;
+  const load = useCallback(
+    async (silent = false, forceFetch = false, append = false, offsetForAppend = 0) => {
+      if (!silent && !append) {
+        setLoading((prev) => (prev ? prev : true));
+        setError((prev) => (prev === null ? prev : null));
       }
-      if (!j?.ok) {
-        if (!silent) {
-          setError(typeof j?.error === "string" ? j.error : "load_failed");
+      if (append) {
+        setLoadMoreBusy((prev) => (prev ? prev : true));
+      }
+      const expandedSilent =
+        silent && !append && rowsLengthRef.current > INBOX_PAGE_SIZE;
+      const requestLimit = append
+        ? INBOX_PAGE_SIZE
+        : expandedSilent
+          ? Math.min(rowsLengthRef.current, 100)
+          : INBOX_PAGE_SIZE;
+      const requestOffset = append ? offsetForAppend : 0;
+      try {
+        const { status, json: raw } = await fetchMeNotificationsListDeduped({
+          force: forceFetch,
+          pushKind: filterTab,
+          limit: requestLimit,
+          offset: requestOffset,
+        });
+        const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
+        if (status === 401) {
+          setError("로그인이 필요합니다.");
+          rowsLengthRef.current = 0;
+          setRows((prev) => (prev.length === 0 ? prev : []));
+          setHasMore(false);
+          return;
+        }
+        if (!j?.ok) {
+          if (!silent && !append) {
+            setError(typeof j?.error === "string" ? j.error : "load_failed");
+            rowsLengthRef.current = 0;
+            setRows((prev) => (prev.length === 0 ? prev : []));
+          }
+          setHasMore(false);
+          return;
+        }
+        const batch = (j.notifications ?? []) as Row[];
+        setRows((prev) => {
+          const next = append ? [...prev, ...batch] : batch;
+          rowsLengthRef.current = next.length;
+          return next;
+        });
+        setHasMore(j?.has_more === true);
+        setError(null);
+      } catch {
+        if (!silent && !append) {
+          setError("network_error");
+          rowsLengthRef.current = 0;
           setRows((prev) => (prev.length === 0 ? prev : []));
         }
-        return;
+        if (!append) setHasMore(false);
+      } finally {
+        if (!silent && !append) setLoading((prev) => (prev ? false : prev));
+        if (append) setLoadMoreBusy(false);
       }
-      setRows((j.notifications ?? []) as Row[]);
-      setError(null);
-    } catch {
-      if (!silent) {
-        setError("network_error");
-        setRows((prev) => (prev.length === 0 ? prev : []));
-      }
-    } finally {
-      if (!silent) setLoading((prev) => (prev ? false : prev));
-    }
-  }, []);
+    },
+    [filterTab]
+  );
 
   useEffect(() => {
-    void load(false);
+    void load(false, true, false, 0);
   }, [load]);
 
   const broadcastNotificationsUpdated = useCallback(() => {
@@ -110,7 +157,7 @@ export function MyNotificationsView() {
   }, []);
 
   useEffect(() => {
-    const onUpdated = () => void load(true, true);
+    const onUpdated = () => void load(true, true, false, 0);
     if (typeof window !== "undefined") {
       window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
     }
@@ -126,7 +173,7 @@ export function MyNotificationsView() {
 
     const tick = () => {
       if (document.visibilityState === "visible") {
-        void load(true);
+        void load(true, true, false, 0);
       }
     };
 
@@ -137,7 +184,7 @@ export function MyNotificationsView() {
 
     const onVis = () => {
       if (document.visibilityState === "visible") {
-        void load(true);
+        void load(true, true, false, 0);
         arm();
       } else if (id != null) {
         clearInterval(id);
@@ -153,7 +200,12 @@ export function MyNotificationsView() {
     };
   }, [load]);
 
-  useRefetchOnPageShowRestore(() => void load(true, true), { enableVisibilityRefetch: false });
+  useRefetchOnPageShowRestore(() => void load(true, true, false, 0), { enableVisibilityRefetch: false });
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || loadMoreBusy) return;
+    void load(true, false, true, rows.length);
+  }, [hasMore, loadMoreBusy, load, rows.length]);
 
   const markIdsRead = useCallback(async (ids: string[]) => {
     if (ids.length === 0) return;
@@ -188,7 +240,7 @@ export function MyNotificationsView() {
       }
       invalidateMeNotificationsListDedupedCache();
       broadcastNotificationsUpdated();
-      await load(true, true);
+      await load(true, true, false, 0);
     } catch {
       setError("network_error");
     } finally {
@@ -215,7 +267,11 @@ export function MyNotificationsView() {
           setError(typeof (j as { error?: string }).error === "string" ? (j as { error: string }).error : "delete_failed");
           return;
         }
-        setRows((prev) => prev.filter((r) => !item.ids.includes(r.id)));
+        setRows((prev) => {
+          const next = prev.filter((r) => !item.ids.includes(r.id));
+          rowsLengthRef.current = next.length;
+          return next;
+        });
         setError((prev) => (prev === null ? prev : null));
         invalidateMeNotificationsListDedupedCache();
         broadcastNotificationsUpdated();
@@ -270,7 +326,7 @@ export function MyNotificationsView() {
         void markIdsRead(item.ids);
         invalidateMeNotificationsListDedupedCache();
         broadcastNotificationsUpdated();
-        await load(true, true);
+        await load(true, true, false, 0);
       } catch {
         setError("network_error");
       } finally {
@@ -290,6 +346,20 @@ export function MyNotificationsView() {
 
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {INBOX_FILTER_CHIPS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setFilterTab(key)}
+            className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+              filterTab === key ? "bg-signature text-white" : "bg-sam-surface-muted text-sam-fg"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {rows.length > 0 ? (
         <div className="flex justify-end">
           <button
@@ -344,6 +414,18 @@ export function MyNotificationsView() {
         deleteBusyKey={deleteBusyKey}
         emptyLabel={t("common_notifications_empty")}
       />
+      {hasMore ? (
+        <div className="flex justify-center pb-2">
+          <button
+            type="button"
+            disabled={loadMoreBusy}
+            onClick={() => void loadMore()}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
+          >
+            {loadMoreBusy ? "불러오는 중…" : "더 보기"}
+          </button>
+        </div>
+      ) : null}
       <NotificationDeleteConfirmDialog
         open={pendingDelete != null}
         message={pendingDeleteMessage}

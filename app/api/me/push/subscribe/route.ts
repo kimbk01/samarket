@@ -9,9 +9,13 @@ export const dynamic = "force-dynamic";
 const MAX_SUBSCRIPTIONS_PER_USER = 10;
 const MAX_ENDPOINT_LEN = 4096;
 
+const PLATFORM_SET = new Set(["web", "pwa", "android", "ios"]);
+
 type PushBody = {
   endpoint?: unknown;
   keys?: { p256dh?: unknown; auth?: unknown };
+  platform?: unknown;
+  device_name?: unknown;
 };
 
 export async function POST(req: NextRequest) {
@@ -33,6 +37,12 @@ export async function POST(req: NextRequest) {
   const endpoint = typeof body.endpoint === "string" ? body.endpoint.trim() : "";
   const p256dh = typeof body.keys?.p256dh === "string" ? body.keys.p256dh.trim() : "";
   const authKey = typeof body.keys?.auth === "string" ? body.keys.auth.trim() : "";
+  const platformRaw = typeof body.platform === "string" ? body.platform.trim().toLowerCase() : "";
+  const platform = PLATFORM_SET.has(platformRaw) ? platformRaw : "web";
+  const deviceName =
+    typeof body.device_name === "string" && body.device_name.trim()
+      ? body.device_name.trim().slice(0, 240)
+      : null;
 
   if (!endpoint || endpoint.length > MAX_ENDPOINT_LEN || !p256dh || !authKey) {
     return NextResponse.json({ ok: false, error: "invalid_subscription" }, { status: 400 });
@@ -84,6 +94,10 @@ export async function POST(req: NextRequest) {
     key_p256dh: p256dh,
     key_auth: authKey,
     user_agent: ua,
+    platform,
+    device_name: deviceName,
+    is_active: true,
+    last_seen_at: now,
     updated_at: now,
   });
 

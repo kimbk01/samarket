@@ -1,3 +1,5 @@
+import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
+
 export function bindMediaStreamToElement(
   node: HTMLMediaElement | null,
   stream: MediaStream | null,
@@ -17,11 +19,18 @@ export function bindMediaStreamToElement(
   if (!stream) return;
 
   const tryPlay = () => {
-    const playResult = node.play();
-    if (playResult && typeof playResult.catch === "function") {
-      void playResult.catch(() => {
-        /* iOS Safari may require another gesture; keep element bound */
-      });
+    const run = () => {
+      const playResult = node.play();
+      if (playResult && typeof playResult.catch === "function") {
+        void playResult.catch(() => {
+          /* iOS Safari may require another gesture; keep element bound */
+        });
+      }
+    };
+    if (typeof HTMLAudioElement !== "undefined" && node instanceof HTMLAudioElement) {
+      void applyPreferredSinkToHtmlAudioElement(node).then(run);
+    } else {
+      run();
     }
   };
 

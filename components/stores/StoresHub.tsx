@@ -27,11 +27,6 @@ import { StoreHubMyZoneSection } from "@/components/stores/home/StoreHubMyZoneSe
 import { StoreMyBusinessHubBanner } from "@/components/stores/home/StoreMyBusinessHubBanner";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import {
-  cancelScheduledWhenBrowserIdle,
-  isConstrainedNetwork,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
-import {
   fetchMeStoreOrdersHubSummaryDeduped,
   readMeStoreOrdersHubSummaryCache,
 } from "@/lib/stores/store-delivery-api-client";
@@ -121,7 +116,6 @@ export function StoresHub() {
       resolveBuyerHubFromJson(cachedHubSnapshot.value.status, cachedHubSnapshot.value.json)
     : null;
   const { primaryRegion } = useRegion();
-  const [userGeo, setUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const { ownerStore, ownerStores, loading: ownerStoresLoading } = useOwnerLiteStore();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
   const [buyerOrderSummary, setBuyerOrderSummary] = useState<StoreOrderDashboardBuyerState>(
@@ -138,34 +132,15 @@ export function StoresHub() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  /** 첫 페인트·허브 요약과 경합하지 않도록 위치는 idle 이후 요청 — 권한/GPS 비용 분산 */
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setUserGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        },
-        () => {},
-        { maximumAge: 300_000, timeout: 10_000 }
-      );
-    }, isConstrainedNetwork() ? 2800 : 1400);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, []);
-
   const querySuffix = useMemo(() => {
     const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
     const d = primaryRegion?.barangay?.trim() ?? "";
     const q = new URLSearchParams();
     if (r) q.set("region", r);
     if (d) q.set("district", d);
-    if (userGeo) {
-      q.set("user_lat", String(userGeo.lat));
-      q.set("user_lng", String(userGeo.lng));
-    }
     const s = q.toString();
     return s ? `?${s}` : "";
-  }, [primaryRegion, userGeo]);
+  }, [primaryRegion]);
 
   const loadBuyerHub = useCallback(async () => {
     const requestId = ++buyerHubRequestIdRef.current;

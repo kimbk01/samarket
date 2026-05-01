@@ -10,10 +10,18 @@ import {
   buildCommunityMessengerMediaStreamConstraints,
   isCommunityMessengerMediaSecureContext,
   persistDeviceIdsFromMediaStream,
-  queryCommunityMessengerMediaPermissions,
   readPreferredCommunityMessengerDeviceIds,
   refreshPreferredCommunityMessengerDevicesFromEnumerate,
 } from "@/lib/community-messenger/media-preflight";
+import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
+import {
+  acquireSimpleMicStreamWithDiBaYGate,
+  ensureMicrophoneWithDiBaYGate,
+} from "@/lib/permissions/device-permission-manager";
+import {
+  DIBAY_MIC_ABORT_MESSAGE_DEFERRED,
+  DIBAY_MIC_ABORT_MESSAGE_LATER,
+} from "@/lib/permissions/dibay-mic-gate-messages";
 
 export type CallMediaPermissionErrorCode = "insecure_context" | "no_mediadevices" | "denied" | "failed";
 
@@ -52,9 +60,64 @@ function stopAndClearCache(): void {
   sessionCache = null;
 }
 
+function constraintsRequestsLiveAudio(constraints: MediaStreamConstraints): boolean {
+  const a = constraints.audio;
+  return a === true || (typeof a === "object" && a !== null);
+}
+
+/**
+ * 기본 마이크만(`audio: true`, 비디오 미요청/명시 false`)일 때 DiBaY 게이트+GUM 단일 모듈로 통합.
+ * `deviceId` 등 오디오 제약이 있거나 영상을 요청하면 기존 분기(게이트 후 해당 constraints 로 GUM).
+ */
+function shouldUseAcquireSimpleMicPath(constraints: MediaStreamConstraints): boolean {
+  if (constraints.audio !== true) return false;
+  const v = constraints.video;
+  if (v === true || (typeof v === "object" && v !== null)) return false;
+  return v === false || typeof v === "undefined";
+}
+
+/**
+ * DiBaY 마이크 게이트·장치 ID 저장 포함 — 클라이언트는 raw `getUserMedia` 대신 이 함수만 사용.
+ */
+export async function getCommunityMessengerUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+  if (!isCommunityMessengerMediaSecureContext()) {
+    throw new DOMException("insecure context", "NotAllowedError");
+  }
+  return invokeGetUserMedia(constraints);
+}
+
 async function invokeGetUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new DOMException("getUserMedia unavailable", "NotSupportedError");
+  }
+
+  if (shouldUseAcquireSimpleMicPath(constraints)) {
+    const stream = await acquireSimpleMicStreamWithDiBaYGate();
+    persistDeviceIdsFromMediaStream(stream);
+    void refreshPreferredCommunityMessengerDevicesFromEnumerate();
+    return stream;
+  }
+
+  if (constraintsRequestsLiveAudio(constraints)) {
+    const mic = await ensureMicrophoneWithDiBaYGate();
+    if (!mic.ok) {
+      if (mic.reason === "denied") {
+        throw new DOMException("Microphone permission denied", "NotAllowedError");
+      }
+      if (mic.reason === "no_api") {
+        throw new DOMException("getUserMedia unavailable", "NotSupportedError");
+      }
+      if (mic.reason === "insecure") {
+        throw new DOMException("insecure context", "SecurityError");
+      }
+      if (mic.reason === "later") {
+        throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_LATER, "AbortError");
+      }
+      if (mic.reason === "deferred") {
+        throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_DEFERRED, "AbortError");
+      }
+      throw new DOMException("Microphone request aborted", "AbortError");
+    }
   }
   const stream = await navigator.mediaDevices.getUserMedia(constraints);
   persistDeviceIdsFromMediaStream(stream);
@@ -128,10 +191,6 @@ export async function acquirePrimedCommunityMessengerStream(kind: CommunityMesse
 export async function createFallbackAudioOnlyMediaStream(): Promise<MediaStream> {
   if (!isCommunityMessengerMediaSecureContext()) {
     throw new DOMException("insecure context", "NotAllowedError");
-  }
-  const perms = await queryCommunityMessengerMediaPermissions();
-  if (perms.microphone === "denied") {
-    throw new DOMException("Microphone permission denied", "NotAllowedError");
   }
   return invokeGetUserMedia({ audio: true, video: false });
 }

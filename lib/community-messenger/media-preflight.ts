@@ -1,12 +1,15 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import {
+  queryCommunityMessengerMediaPermissions,
+  type CommunityMessengerMediaPermissionSnapshot,
+} from "@/lib/community-messenger/media-permissions-query";
+import { acquireSimpleMicStreamWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+
+export type { CommunityMessengerMediaPermissionSnapshot };
+export { queryCommunityMessengerMediaPermissions };
 
 const LS_AUDIO = "cm_messenger_preferred_audio_input_id";
 const LS_VIDEO = "cm_messenger_preferred_video_input_id";
-
-export type CommunityMessengerMediaPermissionSnapshot = {
-  microphone: PermissionState | null;
-  camera: PermissionState | null;
-};
 
 /** localhost·127.0.0.1 은 예외, 그 외 비 HTTPS 는 getUserMedia 불가 */
 export function isCommunityMessengerMediaSecureContext(): boolean {
@@ -14,24 +17,6 @@ export function isCommunityMessengerMediaSecureContext(): boolean {
   if (window.isSecureContext) return true;
   const h = window.location.hostname;
   return h === "localhost" || h === "127.0.0.1";
-}
-
-export async function queryCommunityMessengerMediaPermissions(): Promise<CommunityMessengerMediaPermissionSnapshot> {
-  const out: CommunityMessengerMediaPermissionSnapshot = { microphone: null, camera: null };
-  if (typeof navigator === "undefined" || !navigator.permissions?.query) return out;
-  try {
-    const mic = await navigator.permissions.query({ name: "microphone" as PermissionName });
-    out.microphone = mic.state;
-  } catch {
-    /* Safari 등 미지원 */
-  }
-  try {
-    const cam = await navigator.permissions.query({ name: "camera" as PermissionName });
-    out.camera = cam.state;
-  } catch {
-    /* Safari 등 미지원 */
-  }
-  return out;
 }
 
 export function readPreferredCommunityMessengerDeviceIds(): {
@@ -130,8 +115,8 @@ export async function runCommunityMessengerEntryMediaPreflight(
 
   const tryAcquire = async (): Promise<boolean> => {
     try {
-      /** 메신저 진입 프리플라이트는 마이크만(영상 통화도 별도 사용자 의도 시 카메라 요청). */
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      /** 메신저 진입 프리플라이트는 마이크만 — DiBaY 게이트·GUM 단일 경로. */
+      const stream = await acquireSimpleMicStreamWithDiBaYGate();
       persistDeviceIdsFromMediaStream(stream);
       stream.getTracks().forEach((t) => t.stop());
       await refreshPreferredCommunityMessengerDevicesFromEnumerate();

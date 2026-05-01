@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX } from "@/lib/permissions/device-permission-session-prefix";
 
 /** localStorage/sessionStorage 기반 임시 캐시 삭제, 삭제 완료 토스트 */
 export function CacheSettingsContent() {
@@ -17,7 +18,25 @@ export function CacheSettingsContent() {
         }
       }
       keysToRemove.forEach((k) => localStorage.removeItem(k));
+      const preservedSession: Array<[string, string]> = [];
+      try {
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key?.startsWith(DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX)) {
+            preservedSession.push([key, sessionStorage.getItem(key) ?? ""]);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
       sessionStorage.clear();
+      for (const [k, v] of preservedSession) {
+        try {
+          sessionStorage.setItem(k, v);
+        } catch {
+          /* quota / private mode */
+        }
+      }
     } catch {
       // ignore
     }

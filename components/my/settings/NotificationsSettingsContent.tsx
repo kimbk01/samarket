@@ -10,7 +10,10 @@ import {
   syncUserSettings,
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
-import { fetchMeNotificationSettingsGet } from "@/lib/me/fetch-me-notification-settings-client";
+import {
+  fetchMeNotificationSettingsGet,
+  invalidateMeNotificationSettingsGetFlight,
+} from "@/lib/me/fetch-me-notification-settings-client";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
 
@@ -32,6 +35,12 @@ export function NotificationsSettingsContent() {
   const [domainOrderOn, setDomainOrderOn] = useState(true);
   const [domainStoreOn, setDomainStoreOn] = useState(true);
   const [domainVibrationOn, setDomainVibrationOn] = useState(true);
+  const [domainTradeEventsOn, setDomainTradeEventsOn] = useState(true);
+  const [domainCommunitySocialOn, setDomainCommunitySocialOn] = useState(true);
+  const [domainNoticeOn, setDomainNoticeOn] = useState(true);
+  const [domainQuietEnabled, setDomainQuietEnabled] = useState(false);
+  const [domainQuietStart, setDomainQuietStart] = useState<string | null>("22:00");
+  const [domainQuietEnd, setDomainQuietEnd] = useState<string | null>("08:00");
   const [domainLoaded, setDomainLoaded] = useState(false);
 
   const refresh = useCallback(() => setSettings(getUserSettings(userId)), [userId]);
@@ -89,6 +98,12 @@ export function NotificationsSettingsContent() {
             order_enabled?: boolean;
             store_enabled?: boolean;
             vibration_enabled?: boolean;
+            trade_events_enabled?: boolean;
+            community_social_enabled?: boolean;
+            notice_enabled?: boolean;
+            quiet_hours_enabled?: boolean;
+            quiet_hours_start?: string | null;
+            quiet_hours_end?: string | null;
           };
         };
         if (cancelled || !j?.ok || !j.settings) return;
@@ -99,6 +114,16 @@ export function NotificationsSettingsContent() {
         setDomainOrderOn(s.order_enabled !== false);
         setDomainStoreOn(s.store_enabled !== false);
         setDomainVibrationOn(s.vibration_enabled !== false);
+        setDomainTradeEventsOn(s.trade_events_enabled !== false);
+        setDomainCommunitySocialOn(s.community_social_enabled !== false);
+        setDomainNoticeOn(s.notice_enabled !== false);
+        setDomainQuietEnabled(s.quiet_hours_enabled === true);
+        setDomainQuietStart(
+          typeof s.quiet_hours_start === "string" && s.quiet_hours_start.trim() ? s.quiet_hours_start : "22:00"
+        );
+        setDomainQuietEnd(
+          typeof s.quiet_hours_end === "string" && s.quiet_hours_end.trim() ? s.quiet_hours_end : "08:00"
+        );
       } catch {
         /* ignore */
       } finally {
@@ -110,25 +135,25 @@ export function NotificationsSettingsContent() {
     };
   }, [userId]);
 
-  const patchDomain = useCallback(
-    async (partial: Record<string, boolean>) => {
-      try {
-        const res = await fetch("/api/me/notification-settings", {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(partial),
-        });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && j?.ok && typeof window !== "undefined") {
+  const patchDomain = useCallback(async (partial: Record<string, boolean | string | null>) => {
+    try {
+      const res = await fetch("/api/me/notification-settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (res.ok && j?.ok) {
+        invalidateMeNotificationSettingsGetFlight();
+        if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
         }
-      } catch {
-        /* ignore */
       }
-    },
-    []
-  );
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const update = useCallback(
     (partial: Parameters<typeof updateUserSettings>[1]) => {
@@ -148,7 +173,11 @@ export function NotificationsSettingsContent() {
               type="button"
               role="switch"
               aria-checked={settings.push_enabled ?? true}
-              onClick={() => update({ push_enabled: !(settings.push_enabled ?? true) })}
+              onClick={() => {
+                const next = !(settings.push_enabled ?? true);
+                update({ push_enabled: next });
+                void patchDomain({ service_enabled: next });
+              }}
               className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                 settings.push_enabled !== false ? "bg-signature" : "bg-sam-border-soft"
               }`}
@@ -188,7 +217,11 @@ export function NotificationsSettingsContent() {
               type="button"
               role="switch"
               aria-checked={settings.marketing_push_enabled ?? false}
-              onClick={() => update({ marketing_push_enabled: !(settings.marketing_push_enabled ?? false) })}
+              onClick={() => {
+                const next = !(settings.marketing_push_enabled ?? false);
+                update({ marketing_push_enabled: next });
+                void patchDomain({ marketing_enabled: next });
+              }}
               className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
                 settings.marketing_push_enabled ? "bg-signature" : "bg-sam-border-soft"
               }`}
@@ -386,6 +419,78 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-sam-fg">거래 알림 (제안·예약 등)</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainTradeEventsOn}
+                  onClick={() => {
+                    const next = !domainTradeEventsOn;
+                    setDomainTradeEventsOn(next);
+                    void patchDomain({ trade_events_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainTradeEventsOn ? "bg-signature" : "bg-sam-border-soft"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
+                      domainTradeEventsOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-sam-fg">커뮤니티 활동 (댓글·좋아요 등)</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainCommunitySocialOn}
+                  onClick={() => {
+                    const next = !domainCommunitySocialOn;
+                    setDomainCommunitySocialOn(next);
+                    void patchDomain({ community_social_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainCommunitySocialOn ? "bg-signature" : "bg-sam-border-soft"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
+                      domainCommunitySocialOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-sam-fg">공지·운영 알림</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainNoticeOn}
+                  onClick={() => {
+                    const next = !domainNoticeOn;
+                    setDomainNoticeOn(next);
+                    void patchDomain({ notice_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainNoticeOn ? "bg-signature" : "bg-sam-border-soft"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
+                      domainNoticeOn ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[14px] font-medium text-sam-fg">매장·상점 알림</span>
                 <button
                   type="button"
@@ -407,6 +512,58 @@ export function NotificationsSettingsContent() {
                   />
                 </button>
               </div>
+            </div>
+            <div className="border-b border-sam-border-soft px-3 py-2.5">
+              <p className="mb-2 text-[11px] leading-snug text-sam-muted">
+                방해금지(계정 설정의 방해금지와 별도로, 푸시 정책용 시간대를 둘 수 있습니다.)
+              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-[14px] font-medium text-sam-fg">방해금지 시간 (알림 설정)</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={domainQuietEnabled}
+                  onClick={() => {
+                    const next = !domainQuietEnabled;
+                    setDomainQuietEnabled(next);
+                    void patchDomain({ quiet_hours_enabled: next });
+                  }}
+                  className={`inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${
+                    domainQuietEnabled ? "bg-signature" : "bg-sam-border-soft"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-sam-surface shadow transition-transform ${
+                      domainQuietEnabled ? "translate-x-6" : "translate-x-0.5"
+                    }`}
+                  />
+                </button>
+              </div>
+              {domainQuietEnabled ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="time"
+                    value={domainQuietStart ?? "22:00"}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDomainQuietStart(v);
+                      void patchDomain({ quiet_hours_start: v });
+                    }}
+                    className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
+                  />
+                  <span className="text-sam-muted">~</span>
+                  <input
+                    type="time"
+                    value={domainQuietEnd ?? "08:00"}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDomainQuietEnd(v);
+                      void patchDomain({ quiet_hours_end: v });
+                    }}
+                    className="rounded border border-sam-border px-2.5 py-1.5 text-[13px]"
+                  />
+                </div>
+              ) : null}
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">

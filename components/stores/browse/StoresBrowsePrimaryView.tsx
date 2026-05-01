@@ -135,21 +135,11 @@ export function StoresBrowsePrimaryView({
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
-  const [userGeo, setUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   /** undefined = 아직 첫 응답 전 */
   const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(undefined);
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
-
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setUserGeo({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => {},
-      { maximumAge: 300_000, timeout: 10_000 }
-    );
-  }, []);
 
   const primary = useMemo(
     () => getBrowsePrimaryBySlug(primarySlug),
@@ -178,10 +168,6 @@ export function StoresBrowsePrimaryView({
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
     if (d) q.set("district", d);
-    if (userGeo) {
-      q.set("user_lat", String(userGeo.lat));
-      q.set("user_lng", String(userGeo.lng));
-    }
     return q.toString();
   }, [
     primarySlug,
@@ -189,7 +175,6 @@ export function StoresBrowsePrimaryView({
     primaryRegion?.regionId,
     primaryRegion?.cityId,
     primaryRegion?.barangay,
-    userGeo,
   ]);
 
   const browseListContextKey = useMemo(
@@ -269,7 +254,8 @@ export function StoresBrowsePrimaryView({
 
   useRefetchOnPageShowRestore(() => void loadRemote({ silent: true }));
 
-  const hasGeo = userGeo !== null;
+  /** 위치는 사용자가「현재 위치」등으로 명시 요청할 때만 채움 — 마운트 시 자동 GPS 없음 */
+  const hasGeo = false;
   const listLoaded = remoteRows !== undefined;
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {

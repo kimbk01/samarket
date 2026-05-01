@@ -96,6 +96,7 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
     label: "설정",
     items: [
       { id: "address", label: "주소 관리" },
+      { id: "device-permissions", label: "기기 권한" },
       { id: "language", label: "언어 설정" },
       { id: "country", label: "국가 설정" },
       { id: "region", label: "지역 설정" },
@@ -152,6 +153,7 @@ export function mapLegacyMyPageItemSlug(tab: string, section: string): string {
     "messenger:alerts": "chat-alerts",
     /** 예전 설정 탭(그룹) → 신규 항목 id */
     "settings:region-language": "language",
+    "settings:device-permissions": "device-permissions",
     "settings:service": "chat-settings",
     "settings:system": "version",
     "settings:support": "notices",

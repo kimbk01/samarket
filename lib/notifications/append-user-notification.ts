@@ -27,10 +27,24 @@ export async function appendUserNotification(
     /** v1 도메인 — trade_chat / community_chat / order / store */
     domain?: NotificationDomain | null;
     ref_id?: string | null;
+    /** 인박스·푸시 라우팅 (컬럼 없으면 meta.push_kind 로만 전달) */
+    push_kind?: "chat" | "trade" | "delivery" | "community" | "notice" | "marketing" | "system" | null;
+    image_url?: string | null;
+    sender_id?: string | null;
   }
-): Promise<void> {
+): Promise<boolean> {
   const uid = row.user_id.trim();
-  if (!uid) return;
+  if (!uid) return false;
+
+  const metaMerged =
+    row.meta && typeof row.meta === "object"
+      ? {
+          ...row.meta,
+          ...(row.push_kind ? { push_kind: row.push_kind } : {}),
+        }
+      : row.push_kind
+        ? { push_kind: row.push_kind }
+        : row.meta ?? null;
 
   const insert: Record<string, unknown> = {
     user_id: uid,
@@ -40,11 +54,27 @@ export async function appendUserNotification(
     link_url: row.link_url ?? null,
     is_read: false,
   };
-  if (row.meta != null) insert.meta = row.meta;
+  if (metaMerged != null) insert.meta = metaMerged;
   if (row.domain) insert.domain = row.domain;
   if (row.ref_id != null && String(row.ref_id).trim()) insert.ref_id = String(row.ref_id).trim();
+  if (row.push_kind) insert.push_kind = row.push_kind;
+  if (row.image_url != null && String(row.image_url).trim()) insert.image_url = String(row.image_url).trim();
+  if (row.sender_id != null && String(row.sender_id).trim()) insert.sender_id = String(row.sender_id).trim();
 
-  const { error } = await sb.from("notifications").insert(insert);
+  let { error } = await sb.from("notifications").insert(insert);
+  if (
+    error &&
+    (error.message?.includes("push_kind") ||
+      error.message?.includes("image_url") ||
+      error.message?.includes("sender_id"))
+  ) {
+    const fallbackInsert = { ...insert };
+    delete fallbackInsert.push_kind;
+    delete fallbackInsert.image_url;
+    delete fallbackInsert.sender_id;
+    const retry = await sb.from("notifications").insert(fallbackInsert);
+    error = retry.error;
+  }
   if (!error) {
     invalidateNotificationUnreadCountCache(uid);
     void publishNotificationSideEffect(
@@ -54,19 +84,19 @@ export async function appendUserNotification(
         title: row.title,
         body: row.body ?? null,
         link_url: row.link_url ?? null,
-        meta: row.meta ?? null,
+        meta: metaMerged,
       },
       sb
     );
-    return;
+    return true;
   }
 
   if (error.message?.includes("notifications") && error.message?.includes("does not exist")) {
-    return;
+    return false;
   }
 
   /* meta 컬럼 없음 → meta 없이 재시도 */
-  if (error.message?.includes("meta") && row.meta != null) {
+  if (error.message?.includes("meta") && metaMerged != null) {
     delete insert.meta;
     const { error: e2 } = await sb.from("notifications").insert(insert);
     if (!e2) {
@@ -78,15 +108,15 @@ export async function appendUserNotification(
           title: row.title,
           body: row.body ?? null,
           link_url: row.link_url ?? null,
-          meta: row.meta ?? null,
+          meta: metaMerged,
         },
         sb
       );
-      return;
+      return true;
     }
-    if (e2.message?.includes("notifications") && e2.message?.includes("does not exist")) return;
+    if (e2.message?.includes("notifications") && e2.message?.includes("does not exist")) return false;
     console.error("[appendUserNotification] retry without meta", e2.message);
-    return;
+    return false;
   }
 
   /* commerce 타입 미적용 → system 으로 재시도 */
@@ -111,15 +141,15 @@ export async function appendUserNotification(
           title: row.title,
           body: row.body ?? null,
           link_url: row.link_url ?? null,
-          meta: row.meta ?? null,
+          meta: metaMerged,
         },
         sb
       );
-      return;
+      return true;
     }
-    if (e3.message?.includes("notifications") && e3.message?.includes("does not exist")) return;
+    if (e3.message?.includes("notifications") && e3.message?.includes("does not exist")) return false;
     console.error("[appendUserNotification] fallback system", e3.message);
-    return;
+    return false;
   }
 
   /* domain/ref_id 컬럼 미적용 스키마 → 제거 후 재시도 */
@@ -140,16 +170,17 @@ export async function appendUserNotification(
           title: row.title,
           body: row.body ?? null,
           link_url: row.link_url ?? null,
-          meta: row.meta ?? null,
+          meta: metaMerged,
         },
         sb
       );
-      return;
+      return true;
     }
-    if (e4.message?.includes("notifications") && e4.message?.includes("does not exist")) return;
+    if (e4.message?.includes("notifications") && e4.message?.includes("does not exist")) return false;
     console.error("[appendUserNotification] retry without domain", e4.message);
-    return;
+    return false;
   }
 
   console.error("[appendUserNotification]", error.message);
+  return false;
 }

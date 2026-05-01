@@ -14,6 +14,7 @@ import { LogoutContent } from "@/components/my/settings/LogoutContent";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { VersionContent } from "@/components/my/settings/VersionContent";
 import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayContent";
+import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
 import { MyPageMobileFold } from "@/components/mypage/MyPageMobileFold";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 
@@ -25,6 +26,17 @@ export function SettingsTab({ section }: { section: string }) {
         description="생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다."
       >
         <AddressManagementClient embedded />
+      </TabShell>
+    );
+  }
+
+  if (section === "device-permissions") {
+    return (
+      <TabShell
+        title="기기 권한"
+        description="위치·마이크·소리 출력은 기기 단위로 적용됩니다. 브라우저 권한과 앱 안내는 설정에서 확인할 수 있습니다."
+      >
+        <DevicePermissionsSettingsContent />
       </TabShell>
     );
   }
