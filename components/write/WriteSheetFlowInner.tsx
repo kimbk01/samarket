@@ -158,7 +158,9 @@ export function WriteSheetFlowInner({
     (value: string) => {
       const currentId = categoryKey.trim();
       if (value === currentId) return;
-      if (selectedCategory?.type === "trade") {
+      const nextId = value.trim();
+      /** 다른 거래 카테고리로 바꿀 때만 초안 폐기. 빈 값(미선택)으로만 돌아가는 것은 나가기와 동일하게 해당 카테고리 초안 유지 */
+      if (nextId && selectedCategory?.type === "trade" && nextId !== currentId) {
         discardTradeWriteStashedDraft(selectedCategory.id);
       }
       if (!value) {

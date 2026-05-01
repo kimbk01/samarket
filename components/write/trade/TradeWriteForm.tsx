@@ -165,7 +165,6 @@ import {
   clearTradeWriteFormSessionDraft,
   draftImagesToUploadItems,
   readTradeWriteFormPersistedDraft,
-  tradeWritePersistedDraftLooksFilled,
   tradeWriteSessionDraftLooksFilled,
   writeTradeWriteFormSessionDraft,
   type TradeWriteFormSessionDraftBuildArgs,
@@ -467,14 +466,14 @@ export function TradeWriteForm({
       return;
     }
     const d = readTradeWriteFormPersistedDraft(category.id);
-    if (d && tradeWritePersistedDraftLooksFilled(d)) {
-      setResumeDraftSnapshot(d);
-      setDraftResumeGate("pending_choice");
+    if (!d) {
+      setResumeDraftSnapshot(null);
+      setDraftResumeGate("ready");
       return;
     }
-    setResumeDraftSnapshot(null);
-    setDraftResumeGate("ready");
-    clearTradeWriteFormSessionDraft(category.id);
+    /** 세션·로컬에 남아 있으면 무조건 이어쓰기 선택지 — 마운트 시 지우지 않음(나가기 유지·카테고리 재선택 흐름과 동일) */
+    setResumeDraftSnapshot(d);
+    setDraftResumeGate("pending_choice");
   }, [editPostId, category.id, applyPersistedDraft, pathname, tradeWriteSheetEpoch]);
 
   useEffect(() => {
