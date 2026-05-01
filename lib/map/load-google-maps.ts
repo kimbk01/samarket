@@ -2,7 +2,7 @@ import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 
 let loadPromise: Promise<void> | null = null;
 
-/** Maps JavaScript API — `maps` + `places` + `geocoding` + `geometry` */
+/** Maps JavaScript API — `maps` + `marker`(Advanced Marker) + `places` + `geocoding` + `geometry` */
 export function loadGoogleMaps(): Promise<void> {
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
   if (!key) {
@@ -13,10 +13,11 @@ export function loadGoogleMaps(): Promise<void> {
     setOptions({
       key,
       v: "weekly",
-      libraries: ["places", "geocoding", "geometry"],
+      libraries: ["marker", "places", "geocoding", "geometry"],
     });
     loadPromise = (async () => {
       await importLibrary("maps");
+      await importLibrary("marker");
       await importLibrary("places");
       await importLibrary("geocoding");
       await importLibrary("geometry");

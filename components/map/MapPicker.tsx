@@ -25,8 +25,28 @@ function nearlyEqual(a: LatLng, b: LatLng): boolean {
   return Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7;
 }
 
+/** GCP 맵 스타일용(선택). 없으면 고급 마커 테스트용 DEMO_MAP_ID 사용 */
+function mapPickerMapId(): string {
+  const env = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim();
+  return env || "DEMO_MAP_ID";
+}
+
+type MarkerHandle =
+  | { kind: "advanced"; el: google.maps.marker.AdvancedMarkerElement }
+  | { kind: "legacy"; el: google.maps.Marker };
+
+function readLatLng(p: google.maps.LatLng | google.maps.LatLngLiteral): LatLng {
+  if (typeof (p as google.maps.LatLng).lat === "function") {
+    const ll = p as google.maps.LatLng;
+    return { lat: ll.lat(), lng: ll.lng() };
+  }
+  const lit = p as google.maps.LatLngLiteral;
+  return { lat: lit.lat, lng: lit.lng };
+}
+
 /**
  * Google Maps — marker: 클릭·핀 드래그 / center: 중앙 고정 + 지도 이동
+ * (`AdvancedMarkerElement` 우선, 지도가 고급 마커 미지원이면 레거시 Marker 폴백)
  */
 export function MapPicker({
   marker,
@@ -38,12 +58,18 @@ export function MapPicker({
 }: MapPickerProps) {
   const elRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const mkRef = useRef<google.maps.Marker | null>(null);
+  const markerHandleRef = useRef<MarkerHandle | null>(null);
   const onMoveRef = useRef(onMarkerPositionChange);
   const onPoiRef = useRef(onPoiClick);
   const idleListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const suppressIdleRef = useRef(false);
   const lockRef = useRef(interactionLocked);
+  const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const dragListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const capsListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  /** 비동기 고급 마커 마운트 완료 시점에 최신 좌표를 쓰기 위함 */
+  const markerRefForMount = useRef(marker);
+  markerRefForMount.current = marker;
 
   useEffect(() => {
     onMoveRef.current = onMarkerPositionChange;
@@ -67,6 +93,99 @@ export function MapPicker({
 
   useEffect(() => {
     let cancelled = false;
+
+    const detachMarker = () => {
+      if (dragListenerRef.current && google.maps?.event) {
+        google.maps.event.removeListener(dragListenerRef.current);
+        dragListenerRef.current = null;
+      }
+      const h = markerHandleRef.current;
+      markerHandleRef.current = null;
+      if (!h) return;
+      if (h.kind === "advanced") {
+        h.el.map = null;
+      } else {
+        h.el.setMap(null);
+      }
+    };
+
+    const attachMapClick = (map: google.maps.Map) => {
+      if (mapClickListenerRef.current) {
+        google.maps.event.removeListener(mapClickListenerRef.current);
+        mapClickListenerRef.current = null;
+      }
+      mapClickListenerRef.current = map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        const ll = e.latLng;
+        if (!ll) return;
+        const ev = e as google.maps.MapMouseEvent & { placeId?: string };
+        if (ev.placeId && onPoiRef.current) {
+          onPoiRef.current({ placeId: ev.placeId, lat: ll.lat(), lng: ll.lng() });
+          return;
+        }
+        onMoveRef.current({ lat: ll.lat(), lng: ll.lng() });
+      });
+    };
+
+    const mountLegacyMarker = (map: google.maps.Map, pos: LatLng) => {
+      detachMarker();
+      const mk = new google.maps.Marker({
+        position: pos,
+        map,
+        draggable: true,
+      });
+      markerHandleRef.current = { kind: "legacy", el: mk };
+      dragListenerRef.current = mk.addListener("dragend", () => {
+        const p = mk.getPosition();
+        if (!p) return;
+        onMoveRef.current({ lat: p.lat(), lng: p.lng() });
+      });
+    };
+
+    const mountAdvancedMarker = async (map: google.maps.Map, pos: LatLng) => {
+      const lib = (await google.maps.importLibrary("marker")) as google.maps.MarkerLibrary;
+      if (cancelled || !mapRef.current || mapRef.current !== map) return;
+      const { AdvancedMarkerElement, PinElement } = lib;
+      detachMarker();
+      const pin = new PinElement({
+        background: "#EA4335",
+        borderColor: "#C62828",
+        glyphColor: "#FFFFFF",
+      });
+      const adv = new AdvancedMarkerElement({
+        map,
+        position: pos,
+        content: pin.element,
+        gmpDraggable: true,
+        title: "선택 위치",
+      });
+      markerHandleRef.current = { kind: "advanced", el: adv };
+      dragListenerRef.current = adv.addListener("dragend", () => {
+        const p = adv.position;
+        if (!p) return;
+        onMoveRef.current(readLatLng(p));
+      });
+    };
+
+    let markerMountInFlight = false;
+    const tryMountMarker = (map: google.maps.Map, pos: LatLng) => {
+      if (cancelled || markerHandleRef.current || mode !== "marker") return;
+      let caps: google.maps.MapCapabilities | null = null;
+      try {
+        caps = map.getMapCapabilities();
+      } catch {
+        caps = null;
+      }
+      if (caps?.isAdvancedMarkersAvailable === false) {
+        mountLegacyMarker(map, pos);
+        return;
+      }
+      if (markerMountInFlight) return;
+      markerMountInFlight = true;
+      void mountAdvancedMarker(map, pos).finally(() => {
+        markerMountInFlight = false;
+      });
+    };
+
     void (async () => {
       try {
         await loadGoogleMaps();
@@ -74,9 +193,12 @@ export function MapPicker({
         return;
       }
       if (cancelled || !elRef.current) return;
+
+      const centerNow = markerRefForMount.current;
       const map = new google.maps.Map(elRef.current, {
-        center: marker,
+        center: centerNow,
         zoom: 17,
+        mapId: mapPickerMapId(),
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
@@ -84,28 +206,11 @@ export function MapPicker({
       mapRef.current = map;
 
       if (mode === "marker") {
-        const mk = new google.maps.Marker({
-          position: marker,
-          map,
-          draggable: true,
-        });
-        mkRef.current = mk;
-        map.addListener("click", (e: google.maps.MapMouseEvent) => {
-          const ll = e.latLng;
-          if (!ll) return;
-          const ev = e as google.maps.MapMouseEvent & { placeId?: string };
-          /** POI(상호·랜드마크) 클릭 — 도로 좌표로 `onMarkerPositionChange`를 호출하면 역지오가 길 주소를 넣고 표시 문구와 핀이 어긋남. 부모가 Places geometry 로만 핀을 맞춤. */
-          if (ev.placeId && onPoiRef.current) {
-            onPoiRef.current({ placeId: ev.placeId, lat: ll.lat(), lng: ll.lng() });
-            return;
-          }
-          onMoveRef.current({ lat: ll.lat(), lng: ll.lng() });
-        });
-        mk.addListener("dragend", () => {
-          const p = mk.getPosition();
-          if (!p) return;
-          onMoveRef.current({ lat: p.lat(), lng: p.lng() });
-        });
+        attachMapClick(map);
+        const scheduleTry = () => tryMountMarker(map, markerRefForMount.current);
+        capsListenerRef.current = map.addListener("mapcapabilities_changed", scheduleTry);
+        google.maps.event.addListenerOnce(map, "idle", scheduleTry);
+        scheduleTry();
       } else {
         idleListenerRef.current = map.addListener("idle", () => {
           if (suppressIdleRef.current || lockRef.current) return;
@@ -115,26 +220,39 @@ export function MapPicker({
         });
       }
     })();
+
     return () => {
       cancelled = true;
-      if (idleListenerRef.current && typeof google !== "undefined" && google.maps?.event) {
+      if (capsListenerRef.current && google.maps?.event) {
+        google.maps.event.removeListener(capsListenerRef.current);
+        capsListenerRef.current = null;
+      }
+      if (mapClickListenerRef.current && google.maps?.event) {
+        google.maps.event.removeListener(mapClickListenerRef.current);
+        mapClickListenerRef.current = null;
+      }
+      if (idleListenerRef.current && google.maps?.event) {
         google.maps.event.removeListener(idleListenerRef.current);
         idleListenerRef.current = null;
       }
-      mkRef.current = null;
+      detachMarker();
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 맵 인스턴스는 1회만 생성
   }, [mode]);
 
   useEffect(() => {
-    const mk = mkRef.current;
     const map = mapRef.current;
     if (!map) return;
 
     if (mode === "marker") {
-      if (!mk) return;
-      mk.setPosition(marker);
+      const h = markerHandleRef.current;
+      if (!h) return;
+      if (h.kind === "advanced") {
+        h.el.position = marker;
+      } else {
+        h.el.setPosition(marker);
+      }
       map.panTo(marker);
       return;
     }
