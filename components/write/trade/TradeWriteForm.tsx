@@ -235,7 +235,6 @@ export function TradeWriteForm({
   const perMonthSuffix = `${currencyUnit}/month`;
   const settings = category.settings;
   const hasPrice = settings?.has_price ?? true;
-  const hasLocation = settings?.has_location ?? true;
   const hasDirectDeal = settings?.has_direct_deal ?? true;
   const hasFreeShare = settings?.has_free_share ?? true;
   const maxProductImages = Math.max(1, appSettings.maxProductImages ?? 10);
@@ -268,6 +267,11 @@ export function TradeWriteForm({
   const showDescriptionAppend = Boolean(editPostId && tradePolicy?.allowAppendOnlyDescription);
   const skinKey = category.icon_key ?? "general";
   const isUsedCarSkin = skinKey === "used-car";
+  /**
+   * 중고차는 환전 폼과 같이 DB `has_location=false` 여도 거래 희망 장소·지도 플로우를 일반 중고와 동일하게 둔다.
+   * (카테고리별 플래그만으로 블록이 숨겨지면 초안·픽 복귀가 동작하지 않음)
+   */
+  const hasLocation = isUsedCarSkin ? true : (settings?.has_location ?? true);
   /** 일반 제목 행·판매/나눔 당근형 — 부동산·중고차는 전용 상단 필드 */
   const isKarrotGeneral = skinKey !== "real-estate" && skinKey !== "used-car";
 
