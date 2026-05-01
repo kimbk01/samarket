@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import {
@@ -14,8 +14,6 @@ import type {
   CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { SAMARKET_REALTIME_TOKEN_REFRESH_EVENT } from "@/lib/supabase/realtime-auth-events";
-import { cmRtLogAuthEpochBump } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
 import {
   bumpMessengerRealtimeLocalUnreadForRoom,
   clearMessengerRealtimeLocalUnreadForRoom,
@@ -55,7 +53,6 @@ type RoomRealtimeListener = {
 };
 
 type HomeRealtimeEntry = {
-  authEpoch: number;
   listeners: Set<MutableRefObject<HomeRealtimeListener>>;
   insertHintBatchQueue: CommunityMessengerHomeRealtimeMessageInsertHint[];
   insertBatchRafId: number | null;
@@ -184,11 +181,9 @@ function createHomeRealtimeEntry(args: {
   key: string;
   userId: string;
   roomIdsFingerprint: string;
-  authEpoch: number;
 }): HomeRealtimeEntry {
   const sb = getSupabaseClient();
   const entry: HomeRealtimeEntry = {
-    authEpoch: args.authEpoch,
     listeners: new Set(),
     insertHintBatchQueue: [],
     insertBatchRafId: null,
@@ -269,8 +264,6 @@ export function useCommunityMessengerHomeRealtime(args: {
     onRealtimeMessageInsertBatch: args.onRealtimeMessageInsertBatch,
     onParticipantUnreadDelta: args.onParticipantUnreadDelta,
   });
-  const [realtimeAuthEpoch, setRealtimeAuthEpoch] = useState(0);
-
   const roomIdsFingerprint = [...new Set((args.roomIds ?? []).filter(Boolean))].sort().join("\0");
 
   useEffect(() => {
@@ -286,29 +279,14 @@ export function useCommunityMessengerHomeRealtime(args: {
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fn = () => {
-      setRealtimeAuthEpoch((e) => {
-        const next = e + 1;
-        cmRtLogAuthEpochBump({ epoch: next, source: "token_refresh" });
-        return next;
-      });
-    };
-    window.addEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, fn);
-    return () => window.removeEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, fn);
-  }, []);
-
-  useEffect(() => {
     if (!args.enabled || !args.userId) return;
     const key = `${args.userId}:${roomIdsFingerprint}`;
     let entry = homeRealtimeEntries.get(key);
-    if (!entry || entry.authEpoch !== realtimeAuthEpoch) {
-      entry?.stop();
+    if (!entry) {
       entry = createHomeRealtimeEntry({
         key,
         userId: args.userId,
         roomIdsFingerprint,
-        authEpoch: realtimeAuthEpoch,
       });
       homeRealtimeEntries.set(key, entry);
     }
@@ -325,7 +303,7 @@ export function useCommunityMessengerHomeRealtime(args: {
       pushMessengerHomeRealtimeMapProbe();
       if (current.listeners.size === 0) current.stop();
     };
-  }, [args.enabled, args.userId, roomIdsFingerprint, realtimeAuthEpoch]);
+  }, [args.enabled, args.userId, roomIdsFingerprint]);
 }
 
 export function useCommunityMessengerRoomRealtime(args: {
@@ -339,24 +317,10 @@ export function useCommunityMessengerRoomRealtime(args: {
     onRefresh: args.onRefresh,
     onMessageEvent: args.onMessageEvent,
   });
-  const [realtimeAuthEpoch, setRealtimeAuthEpoch] = useState(0);
-
   useEffect(() => {
     listenerRef.current.onRefresh = args.onRefresh;
     listenerRef.current.onMessageEvent = args.onMessageEvent;
   }, [args.onRefresh, args.onMessageEvent]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const fn = () => {
-      setRealtimeAuthEpoch((e) => {
-        const next = e + 1;
-        cmRtLogAuthEpochBump({ epoch: next, source: "token_refresh" });
-        return next;
-      });
-    };
-    window.addEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, fn);
-    return () => window.removeEventListener(SAMARKET_REALTIME_TOKEN_REFRESH_EVENT, fn);
-  }, []);
 
   const viewerForChannel = (args.viewerUserId ?? "").trim() || "anon";
 
@@ -367,11 +331,9 @@ export function useCommunityMessengerRoomRealtime(args: {
     const roomKey = rid.toLowerCase();
 
     let bundle = globalMessengerRoomBundleByViewer.get(viewerForChannel);
-    if (!bundle || bundle.authEpoch !== realtimeAuthEpoch) {
-      bundle?.stop();
+    if (!bundle) {
       bundle = createGlobalMessengerRoomBundleEntry({
         viewerForChannel,
-        authEpoch: realtimeAuthEpoch,
         onStopped: () => {
           globalMessengerRoomBundleByViewer.delete(viewerForChannel);
         },
@@ -385,6 +347,7 @@ export function useCommunityMessengerRoomRealtime(args: {
       bundle.listenersByRoom.set(roomKey, set);
     }
     set.add(listenerRef);
+    bundle.notifyRoomListenersChanged?.();
     let idleOnFirstRoomListener = -1;
     if (bundle.channelSubscribed && set.size === 1) {
       idleOnFirstRoomListener = scheduleWhenBrowserIdle(() => {
@@ -405,6 +368,7 @@ export function useCommunityMessengerRoomRealtime(args: {
         current.listenersByRoom.delete(roomKey);
         disposeGlobalMessengerRoomSchedulers(current, roomKey);
       }
+      current.notifyRoomListenersChanged?.();
     };
-  }, [args.enabled, args.roomId, viewerForChannel, realtimeAuthEpoch]);
+  }, [args.enabled, args.roomId, viewerForChannel]);
 }

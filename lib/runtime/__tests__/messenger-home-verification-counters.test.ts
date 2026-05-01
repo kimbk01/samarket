@@ -9,6 +9,7 @@ import {
   publishMessengerHomeRealtimeMapSnapshot,
   recordMessengerHomeRealtimeReactListenerGaugeDelta,
   recordMessengerHomeRefreshInvocation,
+  recordMessengerGlobalBundleSupabaseChannelGaugeDelta,
   recordMessengerHomeSupabaseHomeChannelGaugeDelta,
   resetMessengerHomeVerificationStateForTests,
 } from "@/lib/runtime/samarket-runtime-debug";
@@ -158,6 +159,13 @@ describe("messenger home verification counters (실행 횟수)", () => {
     expect(getMessengerHomeVerificationSnapshot().homeRealtimeSupabaseChannelDepth).toBe(5);
     recordMessengerHomeSupabaseHomeChannelGaugeDelta(-5);
     expect(getMessengerHomeVerificationSnapshot().homeRealtimeSupabaseChannelDepth).toBe(0);
+  });
+
+  it("글로벌 방 번들 채널 게이지: +3 후 -3 → 0", () => {
+    recordMessengerGlobalBundleSupabaseChannelGaugeDelta(3);
+    expect(getMessengerHomeVerificationSnapshot().messengerGlobalBundleSupabaseChannelDepth).toBe(3);
+    recordMessengerGlobalBundleSupabaseChannelGaugeDelta(-3);
+    expect(getMessengerHomeVerificationSnapshot().messengerGlobalBundleSupabaseChannelDepth).toBe(0);
   });
 
   it("맵 스냅샷: entries/listenerRefs 수동 반영", () => {

@@ -665,6 +665,8 @@ type MessengerHomeVerificationState = {
   homeRealtimeReactListenerDepth: number;
   /** `bindCommunityMessengerHomeRealtimeChannels` 가 등록한 channel stop 핸들 개수 누적(현재 활성) */
   homeRealtimeSupabaseChannelDepth: number;
+  /** `createGlobalMessengerRoomBundleEntry` 필터 청크 `subscribeWithRetry` stop 핸들 개수(현재 활성) — 방 이동 시 누적 여부 확인용 */
+  messengerGlobalBundleSupabaseChannelDepth: number;
   /** `homeRealtimeEntries.size` / 리스너 ref 총합 — subscribe/cleanup 때 갱신 */
   homeRealtimeMapEntries: number;
   homeRealtimeMapListenerRefs: number;
@@ -679,6 +681,7 @@ const messengerHomeVerification: MessengerHomeVerificationState = {
   refreshInvocationNonSilent: 0,
   homeRealtimeReactListenerDepth: 0,
   homeRealtimeSupabaseChannelDepth: 0,
+  messengerGlobalBundleSupabaseChannelDepth: 0,
   homeRealtimeMapEntries: 0,
   homeRealtimeMapListenerRefs: 0,
 };
@@ -693,6 +696,7 @@ export function resetMessengerHomeVerificationStateForTests(): void {
   messengerHomeVerification.refreshInvocationNonSilent = 0;
   messengerHomeVerification.homeRealtimeReactListenerDepth = 0;
   messengerHomeVerification.homeRealtimeSupabaseChannelDepth = 0;
+  messengerHomeVerification.messengerGlobalBundleSupabaseChannelDepth = 0;
   messengerHomeVerification.homeRealtimeMapEntries = 0;
   messengerHomeVerification.homeRealtimeMapListenerRefs = 0;
   for (const k of Object.keys(messengerHomeDebugCounts)) {
@@ -781,6 +785,11 @@ export function recordMessengerHomeRealtimeReactListenerGaugeDelta(delta: 1 | -1
 export function recordMessengerHomeSupabaseHomeChannelGaugeDelta(delta: number): void {
   exposeMessengerHomeDebugApiToWindowOnce();
   messengerHomeVerification.homeRealtimeSupabaseChannelDepth += delta;
+}
+
+export function recordMessengerGlobalBundleSupabaseChannelGaugeDelta(delta: number): void {
+  exposeMessengerHomeDebugApiToWindowOnce();
+  messengerHomeVerification.messengerGlobalBundleSupabaseChannelDepth += delta;
 }
 
 export function publishMessengerHomeRealtimeMapSnapshot(entries: number, listenerRefs: number): void {

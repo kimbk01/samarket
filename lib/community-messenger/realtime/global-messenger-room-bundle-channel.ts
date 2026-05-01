@@ -1,10 +1,9 @@
 "use client";
 
 /**
- * 시청자(viewer)당 **단일** Supabase Realtime 채널 — 방 이동마다
- * `community-messenger-room:bundle:${viewer}:${roomId}` 가 늘어나며
- * WS·핸들러가 누적되는 문제를 막는다. postgres_changes 는 테이블 단위로 수신하고
- * `room_id` / `id` 로 메시지·메타·통화 이벤트를 해당 방 리스너에만 라우팅한다.
+ * 시청자(viewer)당 Realtime 채널을 **열려 있는 방 id 청크** 단위로만 유지한다.
+ * `postgres_changes`에는 항상 `room_id=in.(…)` / `id=in.(…)` 필터를 걸어 전 테이블 구독을 피한다.
+ * 방 리스너 추가·제거 시 `notifyRoomListenersChanged()` 로 청크를 재바인딩한다.
  *
  * `useMessengerRoomClientPhase1` → `useMessengerRoomRealtimeMessageIngest` →
  * `useCommunityMessengerRoomRealtime` 경로에서 사용한다.
@@ -31,6 +30,10 @@ import {
   MESSENGER_VOICE_AUX_DEBOUNCE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
+import { recordMessengerGlobalBundleSupabaseChannelGaugeDelta } from "@/lib/runtime/samarket-runtime-debug";
+
+/** Supabase postgres_changes `in` 필터 값 한도 — Realtime 채널 수와 WAL 부하 균형 */
+const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
 
 export type GlobalRoomRealtimeListenerRef = MutableRefObject<{
   onRefresh: () => void;
@@ -46,12 +49,13 @@ type RoomSchedulers = {
 };
 
 export type GlobalMessengerRoomBundleEntry = {
-  authEpoch: number;
   viewerForChannel: string;
   listenersByRoom: Map<string, Set<GlobalRoomRealtimeListenerRef>>;
   roomSchedulers: Map<string, RoomSchedulers>;
   /** `SUBSCRIBED` 이후 — 이후에 붙은 방 리스너는 즉시 `onRefresh` 로 동기화 */
   channelSubscribed: boolean;
+  /** `listenersByRoom` 변경 후 디바운스하여 필터된 postgres 청크를 맞춘다 */
+  notifyRoomListenersChanged?: () => void;
   stop: () => void;
 };
 
@@ -120,13 +124,11 @@ export function disposeGlobalMessengerRoomSchedulers(entry: GlobalMessengerRoomB
 
 export function createGlobalMessengerRoomBundleEntry(args: {
   viewerForChannel: string;
-  authEpoch: number;
-  /** `stop()` 시 레지스트리에서 제거(인증 epoch 교체 등) */
+  /** `stop()` 시 레지스트리에서 제거 */
   onStopped?: () => void;
 }): GlobalMessengerRoomBundleEntry {
   const sb = getSupabaseClient();
   const entry: GlobalMessengerRoomBundleEntry = {
-    authEpoch: args.authEpoch,
     viewerForChannel: args.viewerForChannel,
     listenersByRoom: new Map(),
     roomSchedulers: new Map(),
@@ -140,12 +142,276 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   let cancelBundleSchedulers: (() => void) | null = null;
   let authBridgeCleanup: (() => void) | null = null;
   let roomBound = false;
+  let postgresBindGeneration = 0;
+  let notifyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let firstSubscribeResync: ReturnType<typeof createRefreshScheduler> | null = null;
+
+  const clearNotifyDebounce = () => {
+    if (notifyDebounceTimer == null) return;
+    clearTimeout(notifyDebounceTimer);
+    notifyDebounceTimer = null;
+  };
+
+  const attachFilteredPostgresHandlers = (
+    channel: RealtimeChannel,
+    roomScopedFilter: string,
+    roomsTableFilter: string
+  ): RealtimeChannel => {
+    let c = channel.on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "community_messenger_messages", filter: roomScopedFilter },
+      (payload) => {
+        const eventType = payload.eventType;
+        const rawNew = payload.new as Record<string, unknown> | undefined;
+        const rawOld = payload.old as Record<string, unknown> | undefined;
+        const rowForId = eventType === "DELETE" ? rawOld : rawNew;
+        const payloadRoomId = typeof rowForId?.room_id === "string" ? rowForId.room_id.trim() : "";
+        const mappedId = rowForId && typeof rowForId.id === "string" ? rowForId.id : null;
+        const rid = payloadRoomId;
+        const roomKey = normalizeRoomKey(rid);
+        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+
+        if (isCommunityMessengerRealtimeDebugEnabled()) {
+          cmRtLogPostgresPayload({
+            filterRoomId: rid,
+            eventType,
+            table: "community_messenger_messages",
+            messageId: mappedId,
+            payloadRoomId,
+            filterMatchesPayloadRoom: true,
+          });
+        }
+        const sched = getOrCreateRoomSchedulers(entry, roomKey);
+        const nextMessage =
+          eventType === "DELETE"
+            ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
+            : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
+        if (!nextMessage && isCommunityMessengerRealtimeDebugEnabled()) {
+          cmRtLogMapRowSkipped({
+            reason: "mapRealtimeMessageRow_null",
+            rawKeys: rowForId && typeof rowForId === "object" ? Object.keys(rowForId) : [],
+          });
+        }
+        if (nextMessage) {
+          emitRoomMessageForRoom(entry, rid, { eventType, message: nextMessage });
+          if (eventType === "INSERT" && rid) {
+            const created = new Date(nextMessage.createdAt).getTime();
+            const delay = Date.now() - created;
+            if (delay >= 0 && delay < 180_000) {
+              messengerMonitorRealtimeMessageInsertDelay(rid, delay);
+            }
+          }
+          if (nextMessage.messageType === "call_stub" && !cancelled) {
+            sched.roomCallBundle.schedule();
+          }
+          if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
+            sched.voice.schedule();
+          }
+          return;
+        }
+        if (!cancelled) sched.messageFallback.schedule();
+      }
+    );
+
+    c = c.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "community_messenger_message_reactions",
+        filter: roomScopedFilter,
+      },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+        const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+        const roomKey = normalizeRoomKey(rid);
+        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).messageFallback.schedule();
+      }
+    );
+
+    c = c.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "community_messenger_participants",
+        filter: roomScopedFilter,
+      },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+        const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+        const roomKey = normalizeRoomKey(rid);
+        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+      }
+    );
+
+    c = c.on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "community_messenger_rooms",
+        filter: roomsTableFilter,
+      },
+      (payload) => {
+        const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+        const rid = typeof row?.id === "string" ? row.id.trim() : "";
+        const roomKey = normalizeRoomKey(rid);
+        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+      }
+    );
+
+    return c
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_logs",
+          filter: roomScopedFilter,
+        },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+          const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+          const roomKey = normalizeRoomKey(rid);
+          if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+          if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).roomCallBundle.schedule();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_sessions",
+          filter: roomScopedFilter,
+        },
+        (payload) => {
+          const eventType = payload.eventType;
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+          const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+          const roomKey = normalizeRoomKey(rid);
+          if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+          const sched = getOrCreateRoomSchedulers(entry, roomKey);
+          if (cancelled) return;
+          if (eventType === "DELETE") {
+            sched.roomCallBundle.cancel();
+            emitRoomRefreshForRoom(entry, rid);
+            return;
+          }
+          const next = payload.new as Record<string, unknown> | null;
+          const status = typeof next?.status === "string" ? next.status.trim() : "";
+          if (status === "ended" || status === "cancelled" || status === "rejected" || status === "missed") {
+            sched.roomCallBundle.cancel();
+            emitRoomRefreshForRoom(entry, rid);
+            return;
+          }
+          sched.roomCallBundle.schedule();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "community_messenger_call_session_participants",
+          filter: roomScopedFilter,
+        },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+          const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
+          const roomKey = normalizeRoomKey(rid);
+          if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+          if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).roomCallBundle.schedule();
+        }
+      );
+  };
+
+  const bindFilteredPostgresSubscriptions = () => {
+    const gen = ++postgresBindGeneration;
+    const prevLen = channels.length;
+    for (const ch of channels) ch.stop();
+    channels.length = 0;
+
+    try {
+      const roomIds = [...entry.listenersByRoom.keys()].filter(Boolean).sort();
+      if (roomIds.length === 0) {
+        entry.channelSubscribed = true;
+        return;
+      }
+
+      entry.channelSubscribed = false;
+
+      const chunkCount = Math.ceil(roomIds.length / GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX);
+      let firstWaveChunksDone = 0;
+      const chunkFirstSubscribed: boolean[] = new Array(chunkCount).fill(false);
+
+      for (let offset = 0; offset < roomIds.length; offset += GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX) {
+        const chunk = roomIds.slice(offset, offset + GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX);
+        const chunkIndex = offset / GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX;
+        const roomScopedFilter = `room_id=in.(${chunk.join(",")})`;
+        const roomsTableFilter = `id=in.(${chunk.join(",")})`;
+
+        const roomBundle = subscribeWithRetry({
+          sb,
+          name: `global-messenger:bundle:${args.viewerForChannel}:${chunkIndex}`,
+          logStreamRoomId: args.viewerForChannel,
+          scope: "community-messenger-room:global-bundle",
+          isCancelled: () => cancelled || gen !== postgresBindGeneration,
+          onStatus: (status) => {
+            if (gen !== postgresBindGeneration || cancelled) return;
+            if (status !== "SUBSCRIBED") return;
+            if (!chunkFirstSubscribed[chunkIndex]) {
+              chunkFirstSubscribed[chunkIndex] = true;
+              firstWaveChunksDone += 1;
+              if (firstWaveChunksDone === 1) {
+                for (const rid of entry.listenersByRoom.keys()) {
+                  emitRoomRefreshForRoom(entry, rid);
+                }
+              } else {
+                firstSubscribeResync?.schedule();
+              }
+              if (firstWaveChunksDone === chunkCount) {
+                entry.channelSubscribed = true;
+              }
+            } else {
+              firstSubscribeResync?.schedule();
+            }
+          },
+          onAfterSubscribeFailure: (_status, attempt) => {
+            if (cancelled || gen !== postgresBindGeneration) return;
+            if (attempt >= 2) {
+              for (const rid of entry.listenersByRoom.keys()) {
+                getOrCreateRoomSchedulers(entry, rid).messageFallback.schedule();
+              }
+            }
+          },
+          build: (channel: RealtimeChannel) => attachFilteredPostgresHandlers(channel, roomScopedFilter, roomsTableFilter),
+        });
+
+        if (cancelled || gen !== postgresBindGeneration) {
+          roomBundle.stop();
+          break;
+        }
+        channels.push(roomBundle);
+      }
+
+      if (cancelled || gen !== postgresBindGeneration) return;
+      if (channels.length === 0) {
+        entry.channelSubscribed = true;
+      }
+    } finally {
+      recordMessengerGlobalBundleSupabaseChannelGaugeDelta(channels.length - prevLen);
+    }
+  };
 
   const bindGlobalRoomBundle = () => {
     if (cancelled || roomBound) return;
     roomBound = true;
-
-    const firstSubscribeResync = createRefreshScheduler(
+    firstSubscribeResync = createRefreshScheduler(
       {
         current: () => {
           for (const rid of entry.listenersByRoom.keys()) {
@@ -156,188 +422,19 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS
     );
     cancelBundleSchedulers = () => {
-      firstSubscribeResync.cancel();
+      firstSubscribeResync?.cancel();
+      firstSubscribeResync = null;
     };
+    bindFilteredPostgresSubscriptions();
+  };
 
-    let bundleSubscribedCount = 0;
-    const roomBundle = subscribeWithRetry({
-      sb,
-      name: `global-messenger:bundle:${args.viewerForChannel}`,
-      logStreamRoomId: args.viewerForChannel,
-      scope: "community-messenger-room:global-bundle",
-      isCancelled: () => cancelled,
-      onStatus: (status) => {
-        if (status !== "SUBSCRIBED" || cancelled) return;
-        entry.channelSubscribed = true;
-        bundleSubscribedCount += 1;
-        if (bundleSubscribedCount === 1) {
-          for (const rid of entry.listenersByRoom.keys()) {
-            emitRoomRefreshForRoom(entry, rid);
-          }
-        } else {
-          firstSubscribeResync.schedule();
-        }
-      },
-      onAfterSubscribeFailure: (_status, attempt) => {
-        if (cancelled) return;
-        if (attempt >= 2) {
-          for (const rid of entry.listenersByRoom.keys()) {
-            getOrCreateRoomSchedulers(entry, rid).messageFallback.schedule();
-          }
-        }
-      },
-      build: (channel: RealtimeChannel) => {
-        let c = channel.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_messenger_messages" },
-          (payload) => {
-            const eventType = payload.eventType;
-            const rawNew = payload.new as Record<string, unknown> | undefined;
-            const rawOld = payload.old as Record<string, unknown> | undefined;
-            const rowForId = eventType === "DELETE" ? rawOld : rawNew;
-            const payloadRoomId = typeof rowForId?.room_id === "string" ? rowForId.room_id.trim() : "";
-            const mappedId = rowForId && typeof rowForId.id === "string" ? rowForId.id : null;
-            const rid = payloadRoomId;
-            const roomKey = normalizeRoomKey(rid);
-            if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-
-            if (isCommunityMessengerRealtimeDebugEnabled()) {
-              cmRtLogPostgresPayload({
-                filterRoomId: rid,
-                eventType,
-                table: "community_messenger_messages",
-                messageId: mappedId,
-                payloadRoomId,
-                filterMatchesPayloadRoom: true,
-              });
-            }
-            const sched = getOrCreateRoomSchedulers(entry, roomKey);
-            const nextMessage =
-              eventType === "DELETE"
-                ? mapRealtimeMessageRow(payload.old as Record<string, unknown> | undefined)
-                : mapRealtimeMessageRow(payload.new as Record<string, unknown> | undefined);
-            if (!nextMessage && isCommunityMessengerRealtimeDebugEnabled()) {
-              cmRtLogMapRowSkipped({
-                reason: "mapRealtimeMessageRow_null",
-                rawKeys: rowForId && typeof rowForId === "object" ? Object.keys(rowForId) : [],
-              });
-            }
-            if (nextMessage) {
-              emitRoomMessageForRoom(entry, rid, { eventType, message: nextMessage });
-              if (eventType === "INSERT" && rid) {
-                const created = new Date(nextMessage.createdAt).getTime();
-                const delay = Date.now() - created;
-                if (delay >= 0 && delay < 180_000) {
-                  messengerMonitorRealtimeMessageInsertDelay(rid, delay);
-                }
-              }
-              if (nextMessage.messageType === "call_stub" && !cancelled) {
-                sched.roomCallBundle.schedule();
-              }
-              if (nextMessage.messageType === "voice" && eventType === "INSERT" && !cancelled) {
-                sched.voice.schedule();
-              }
-              return;
-            }
-            if (!cancelled) sched.messageFallback.schedule();
-          }
-        );
-
-        c = c.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_messenger_message_reactions" },
-          (payload) => {
-            const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-            const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-            const roomKey = normalizeRoomKey(rid);
-            if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-            if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).messageFallback.schedule();
-          }
-        );
-
-        c = c.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_messenger_participants" },
-          (payload) => {
-            const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-            const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-            const roomKey = normalizeRoomKey(rid);
-            if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-            if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
-          }
-        );
-
-        c = c.on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "community_messenger_rooms" },
-          (payload) => {
-            const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-            const rid = typeof row?.id === "string" ? row.id.trim() : "";
-            const roomKey = normalizeRoomKey(rid);
-            if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-            if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
-          }
-        );
-
-        c = c
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "community_messenger_call_logs" },
-            (payload) => {
-              const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-              const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-              const roomKey = normalizeRoomKey(rid);
-              if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-              if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).roomCallBundle.schedule();
-            }
-          )
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "community_messenger_call_sessions" },
-            (payload) => {
-              const eventType = payload.eventType;
-              const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-              const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-              const roomKey = normalizeRoomKey(rid);
-              if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-              const sched = getOrCreateRoomSchedulers(entry, roomKey);
-              if (cancelled) return;
-              if (eventType === "DELETE") {
-                sched.roomCallBundle.cancel();
-                emitRoomRefreshForRoom(entry, rid);
-                return;
-              }
-              const next = payload.new as Record<string, unknown> | null;
-              const status = typeof next?.status === "string" ? next.status.trim() : "";
-              if (status === "ended" || status === "cancelled" || status === "rejected" || status === "missed") {
-                sched.roomCallBundle.cancel();
-                emitRoomRefreshForRoom(entry, rid);
-                return;
-              }
-              sched.roomCallBundle.schedule();
-            }
-          )
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: "community_messenger_call_session_participants" },
-            (payload) => {
-              const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-              const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
-              const roomKey = normalizeRoomKey(rid);
-              if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-              if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).roomCallBundle.schedule();
-            }
-          );
-
-        return c;
-      },
-    });
-
-    if (cancelled) {
-      roomBundle.stop();
-      return;
-    }
-    channels.push(roomBundle);
+  entry.notifyRoomListenersChanged = () => {
+    if (!roomBound || cancelled) return;
+    clearNotifyDebounce();
+    notifyDebounceTimer = setTimeout(() => {
+      notifyDebounceTimer = null;
+      if (!cancelled && roomBound) bindFilteredPostgresSubscriptions();
+    }, 80);
   };
 
   authBridgeCleanup = createRealtimeAuthBridge({
@@ -348,6 +445,8 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
   entry.stop = () => {
     cancelled = true;
+    postgresBindGeneration += 1;
+    clearNotifyDebounce();
     authBridgeCleanup?.();
     authBridgeCleanup = null;
     cancelBundleSchedulers?.();
@@ -360,8 +459,12 @@ export function createGlobalMessengerRoomBundleEntry(args: {
       ch.subscribedResync.cancel();
     }
     entry.roomSchedulers.clear();
+    const bundleChannelStopCount = channels.length;
     for (const bundle of channels) bundle.stop();
     channels.length = 0;
+    if (bundleChannelStopCount !== 0) {
+      recordMessengerGlobalBundleSupabaseChannelGaugeDelta(-bundleChannelStopCount);
+    }
     args.onStopped?.();
   };
 
