@@ -139,10 +139,12 @@ export function TradeDefaultLocationBlock({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
+  /** 함수 참조가 아니라 “신규 글 + 주소 이동 훅 존재”만 본다. 부모가 `useCallback`deps에 폼 전체 상태를 넣으면 매 입력마다 참조가 바뀌어 프리페치가 폭주한다. */
+  const shouldPrefetchAddressListForNavigate = typeof onBeforeNavigateToAddresses === "function";
   useEffect(() => {
-    if (!onBeforeNavigateToAddresses) return;
+    if (!shouldPrefetchAddressListForNavigate) return;
     prefetchMeAddressListIntoCache();
-  }, [onBeforeNavigateToAddresses]);
+  }, [shouldPrefetchAddressListForNavigate]);
 
   const snapshotLabel = editPostId && region && city ? getLocationLabel(region, city) : null;
 

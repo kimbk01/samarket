@@ -219,7 +219,7 @@ export async function resolveTradeMeetSpotDisplayLine(
   if (!tryNameFromDetails(detailsNearby, nearbyPlaceId)) {
     tryNameFromDetails(detailsPoiGeo, poiGeoPlaceId);
   }
-  /** 상세(`fetchFields`) 간헐 실패 시에도 근접검색 결과의 상호를 사용 */
+  /** 상세(`getDetails`) 간헐 실패 시에도 근접검색 결과의 상호를 사용 */
   if (!placeName) {
     const inline = nearbyHit?.name?.trim();
     if (inline && isSuitableEstablishmentDisplayName(inline, streetComponents)) {

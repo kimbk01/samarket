@@ -9,7 +9,12 @@ export function loadGoogleMaps(): Promise<void> {
     return Promise.reject(new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 가 없습니다."));
   }
   if (!loadPromise) {
-    setOptions({ key, v: "weekly" });
+    /** 초기 스크립트에 places 등을 함께 올려 레거시 PlacesService·Geocoder·Map 초기화 경합을 줄인다 */
+    setOptions({
+      key,
+      v: "weekly",
+      libraries: ["places", "geocoding", "geometry"],
+    });
     loadPromise = (async () => {
       await importLibrary("maps");
       await importLibrary("places");
