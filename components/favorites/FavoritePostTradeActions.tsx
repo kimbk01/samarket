@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
+import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import {
@@ -208,9 +208,9 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
   ]);
 
   const handleChat = useCallback(() => {
+    void (async () => {
     setChatError("");
-    const me = getCurrentUser();
-    if (!ensureClientAccessOrRedirect(router, me)) return;
+    if (!(await ensureClientAccessOrRedirectAsync(router))) return;
     if (post.type === "community") return;
     if (existingRoomId) {
       openExistingTradeChat(router, {
@@ -230,6 +230,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       return;
     }
     openCreateTradeChat(router, { productId: post.id });
+    })();
   }, [
     router,
     post.id,

@@ -9,7 +9,7 @@ import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
-  ensureClientAccessOrRedirect,
+  ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
@@ -290,13 +290,13 @@ export function JobsWriteForm({
       if (!validate()) return;
       setSubmitting(true);
       try {
-        const user = getCurrentUser();
         const pathFallback = editPostId
           ? `/products/${editPostId}/edit`
           : `/write/${category.slug}`;
-        if (!ensureClientAccessOrRedirect(router, user, pathname || pathFallback)) {
+        if (!(await ensureClientAccessOrRedirectAsync(router, pathname || pathFallback))) {
           return;
         }
+        const user = getCurrentUser();
         const files = images.map((i) => i.file).filter((f): f is File => !!f);
         const uploaded = files.length > 0 && user?.id ? await uploadPostImages(files, user.id) : [];
         const existingUrls = images.map((i) => i.url).filter((u): u is string => typeof u === "string" && u.length > 0);

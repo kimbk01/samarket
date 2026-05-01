@@ -16,8 +16,7 @@ import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
+import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
@@ -34,7 +33,7 @@ export type WriteSheetFlowInnerProps = {
   categoryKey: string;
   /** tradeSheet: 부모가 `categoryKey`를 갱신 — 피드 URL은 그대로 */
   onTradeSheetCategoryChange?: (next: string) => void;
-  /** `ensureClientAccessOrRedirect` 용 */
+  /** `ensureClientAccessOrRedirectAsync` 용 */
   pathnameForAuth: string;
   onUserRequestClose: () => void;
   onSuccessNavigate: (category: CategoryWithSettings, postId: string) => void;
@@ -102,8 +101,7 @@ export function WriteSheetFlowInner({
         setFormStatus("idle");
         return;
       }
-      const user = getCurrentUser();
-      if (!ensureClientAccessOrRedirect(router, user, pathnameForAuth || "/write")) {
+      if (!(await ensureClientAccessOrRedirectAsync(router, pathnameForAuth || "/write"))) {
         setSelectedCategory(null);
         setFormStatus("redirecting");
         return;

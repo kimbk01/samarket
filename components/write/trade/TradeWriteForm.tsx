@@ -129,7 +129,7 @@ import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import {
-  ensureClientAccessOrRedirect,
+  ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
@@ -1130,16 +1130,15 @@ export function TradeWriteForm({
       if (!validate()) return;
       setSubmitting(true);
       try {
-        const user = getCurrentUser();
         if (
-          !ensureClientAccessOrRedirect(
+          !(await ensureClientAccessOrRedirectAsync(
             router,
-            user,
             pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
-          )
+          ))
         ) {
           return;
         }
+        const user = getCurrentUser();
         const files = images.map((item) => item.file).filter((f): f is File => !!f);
         const existingUrls = images
           .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))

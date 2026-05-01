@@ -8,9 +8,8 @@ import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
-  ensureClientAccessOrRedirect,
+  ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { getAppSettings } from "@/lib/app-settings";
@@ -256,13 +255,11 @@ export function ExchangeWriteForm({
       if (!validate()) return;
       setSubmitting(true);
       try {
-        const user = getCurrentUser();
         if (
-          !ensureClientAccessOrRedirect(
+          !(await ensureClientAccessOrRedirectAsync(
             router,
-            user,
             pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
-          )
+          ))
         ) {
           return;
         }

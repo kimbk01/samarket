@@ -17,8 +17,17 @@ import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
+import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 
 let profileHydrateInFlight: Promise<void> | null = null;
+
+function clearSignedOutClientCaches(): void {
+  invalidateMeProfileDedupedCache();
+  setSupabaseProfileCache(null);
+  clearBootstrapCache();
+  resetMessengerNotificationSurfacesAfterSignOut();
+  dispatchTestAuthChanged();
+}
 
 /**
  * 세션 + 서버 ensure(profiles DB)로 프로필 캐시를 맞춤.
@@ -35,22 +44,16 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
         data: { user: u },
         error,
       } = await sb.auth.getUser();
-      if (error || !u) {
-        invalidateMeProfileDedupedCache();
-        setSupabaseProfileCache(null);
-        clearBootstrapCache();
-        resetMessengerNotificationSurfacesAfterSignOut();
-        dispatchTestAuthChanged();
+      if (!u) {
+        if (shouldClearProfileCacheOnGetUserFailure(u, error)) {
+          clearSignedOutClientCaches();
+        }
         return;
       }
       user = u;
     } catch (e) {
-      invalidateMeProfileDedupedCache();
-      setSupabaseProfileCache(null);
-      resetMessengerNotificationSurfacesAfterSignOut();
-        dispatchTestAuthChanged();
       if (process.env.NODE_ENV === "development") {
-        console.warn("[SupabaseAuthSync] getUser 실패(네트워크·DNS 등):", e);
+        console.warn("[SupabaseAuthSync] getUser 예외(네트워크 등) — 프로필 캐시 유지:", e);
       }
       return;
     }
@@ -133,13 +136,21 @@ export function SupabaseAuthSync() {
     }
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange((_event, session) => {
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        clearSignedOutClientCaches();
+        return;
+      }
+      if (event === "INITIAL_SESSION") {
+        if (!session) {
+          clearSignedOutClientCaches();
+        } else {
+          invalidateMeProfileDedupedCache();
+          void hydrateProfileCacheFromSessionDeduped(sb);
+        }
+        return;
+      }
       if (!session) {
-        invalidateMeProfileDedupedCache();
-        setSupabaseProfileCache(null);
-        clearBootstrapCache();
-        resetMessengerNotificationSurfacesAfterSignOut();
-        dispatchTestAuthChanged();
         return;
       }
       /** 이전 탭·401 캐시 등으로 GET /api/me/profile 이 오래된 결과를 쓰지 않도록 */

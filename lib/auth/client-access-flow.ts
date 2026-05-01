@@ -10,6 +10,10 @@ import {
 import { openPhoneVerificationRequiredDialog } from "@/lib/auth/phone-verification-gate-client";
 import { isPhoneVerificationRequiredError } from "@/lib/auth/phone-verification-required-detect";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { getMyProfile } from "@/lib/profile/getMyProfile";
+import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -121,4 +125,26 @@ export function ensureClientAccessOrRedirect(
     }
   }
   return true;
+}
+
+/**
+ * 프로필 캐시가 비어 있어도(동기화 레이스·일시 `getUser` 실패) 쿠키 세션이 살아 있으면 `/api/me/profile` 로 복구한 뒤 게이트를 통과시킨다.
+ */
+export async function ensureClientAccessOrRedirectAsync(
+  router: RouterLike,
+  next?: string
+): Promise<boolean> {
+  let user = getCurrentUser();
+  if (!user?.id && typeof window !== "undefined") {
+    try {
+      const row = await getMyProfile();
+      if (row?.id) {
+        user = profileRowToClientProfile(row);
+        setSupabaseProfileCache(user);
+      }
+    } catch {
+      /* 세션 없음·네트워크 — 아래에서 동일 확인 대화상자 */
+    }
+  }
+  return ensureClientAccessOrRedirect(router, user, next);
 }

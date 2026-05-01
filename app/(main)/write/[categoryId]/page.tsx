@@ -4,8 +4,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { ensureClientAccessOrRedirect } from "@/lib/auth/client-access-flow";
+import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
 import { JobsWriteForm } from "@/components/write/trade/JobsWriteForm";
 import { ExchangeWriteForm } from "@/components/write/trade/ExchangeWriteForm";
@@ -36,8 +35,7 @@ export default function WriteByCategoryPage() {
       setStatus("not_found");
       return;
     }
-    const user = getCurrentUser();
-    if (!ensureClientAccessOrRedirect(router, user, pathname || `/write/${categoryId}`)) {
+    if (!(await ensureClientAccessOrRedirectAsync(router, pathname || `/write/${categoryId}`))) {
       return;
     }
     setStatus("loading");

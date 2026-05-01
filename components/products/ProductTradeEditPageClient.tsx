@@ -6,9 +6,8 @@ import Link from "next/link";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
-  ensureClientAccessOrRedirect,
+  ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
 } from "@/lib/auth/client-access-flow";
 import { TradeWriteForm } from "@/components/write/trade/TradeWriteForm";
@@ -36,8 +35,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   const [errorMessage, setErrorMessage] = useState("");
 
   const load = useCallback(async () => {
-    const user = getCurrentUser();
-    if (!ensureClientAccessOrRedirect(router, user, pathname || `/products/${id}/edit`)) {
+    if (!(await ensureClientAccessOrRedirectAsync(router, pathname || `/products/${id}/edit`))) {
       return;
     }
     setStatus("loading");
