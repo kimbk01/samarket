@@ -1,9 +1,10 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
-import { performClientLogout } from "@/lib/auth/logout-client";
+import { logoutDiBaYAppSession } from "@/lib/auth/logout";
+import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -42,12 +43,11 @@ function isCommunityMessengerCallShellPath(path: string): boolean {
 
 /**
  * 로그인/가입/OAuth 직후 세션 정합만 가볍게 확인한다.
- * - **자동 로그아웃·`/login` 강제 이동은 하지 않는다** — 의도적 로그아웃은 내정보 로그아웃만 사용.
+ * - **자동 로그아웃·`/login` 강제 이동은 하지 않는다** — 의도적 세션 종료는 설정의 확인 모달 또는 세션 교체 안내의 확인만 사용 (`logoutDiBaYAppSession`).
  * - 뒤로가기 bfcache·탭 복귀마다 `/api/auth/session` 을 때리지 않는다(오탐·통화 중 끊김 방지).
  * - 실제 미인증은 `proxy.ts`·전체 네비게이션 시 서버가 처리.
  */
 export function SessionLostRedirect() {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
   const pathnameRef = useRef(pathname);
   const prevPathForSessionRef = useRef<string | null>(null);
@@ -55,12 +55,14 @@ export function SessionLostRedirect() {
   const [sessionReplacedOpen, setSessionReplacedOpen] = useState(false);
 
   const finalizeForcedLogout = useCallback(async () => {
-    const result = await performClientLogout();
+    const result = await logoutDiBaYAppSession();
     if (result.ok) {
       setSessionReplacedOpen((prev) => (prev ? false : prev));
-      router.replace("/login");
+      if (typeof window !== "undefined") {
+        window.location.replace(buildLoginPath());
+      }
     }
-  }, [router]);
+  }, []);
 
   const check = useCallback(async (force = false) => {
     if (typeof window === "undefined") return;

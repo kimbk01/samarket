@@ -1,3 +1,8 @@
+/**
+ * 클라이언트 로그아웃 저수준 구현 (쿠키·캐시·Supabase local signOut + 서버 logout 백그라운드).
+ * 제품 코드는 `@/lib/auth/logout` 의 `logoutDiBaYAppSession` 만 호출할 것.
+ */
+
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
@@ -11,7 +16,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
  *   `keepalive: true` 로 백그라운드에 던져 페이지 전환 후에도 끝나게 한다.
  */
 
-type LogoutResult =
+export type LogoutResult =
   | { ok: true; serverWarning?: string | null }
   | { ok: false; message: string };
 

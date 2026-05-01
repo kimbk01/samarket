@@ -6,6 +6,7 @@ import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 /**
  * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
+ * (탭 전환·뒤로가기·PWA 백그라운드는 로그아웃이 아님; 세션 만료/명시 로그아웃 후에는 여기서 매 요청 재검증)
  * - /api/* 는 matcher 에서 제외 (각 Route Handler가 인증 처리).
  * - Next.js 16+: `proxy.ts` + `export function proxy` — 세션 쿠키 갱신 포함.
  *

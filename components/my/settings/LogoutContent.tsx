@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { performClientLogout } from "@/lib/auth/logout-client";
+import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
+import { logoutDiBaYAppSession } from "@/lib/auth/logout";
+import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 type LogoutActionTriggerProps = {
@@ -23,23 +25,27 @@ export function LogoutActionTrigger({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const navigateAfterLogout = () => {
+    if (typeof window !== "undefined") {
+      window.location.replace(buildLoginPath());
+      return;
+    }
+    router.replace("/login");
+    router.refresh();
+  };
+
   const handleLogout = async () => {
     setSubmitting((prev) => (prev ? prev : true));
     setError((prev) => (prev === null ? prev : null));
 
-    /**
-     * 클라이언트 측 로그아웃이 어떤 이유로든 1.5s 안에 끝나지 않으면
-     * 무조건 /login 으로 보내 UI가 절대 정지하지 않게 한다.
-     */
     const safetyForceNavigate = window.setTimeout(() => {
       setSubmitting((prev) => (prev ? false : prev));
       setOpen((prev) => (prev ? false : prev));
-      router.replace("/login");
-      router.refresh();
+      navigateAfterLogout();
     }, 6_000);
 
     try {
-      const result = await performClientLogout();
+      const result = await logoutDiBaYAppSession();
       window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));
 
@@ -49,8 +55,7 @@ export function LogoutActionTrigger({
       }
 
       setOpen((prev) => (prev ? false : prev));
-      router.replace("/login");
-      router.refresh();
+      navigateAfterLogout();
     } catch (e) {
       window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));
@@ -86,43 +91,13 @@ export function LogoutActionTrigger({
           {label}
         </button>
       )}
-      {open ? (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 px-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="logout-dialog-title"
-          aria-describedby="logout-dialog-desc"
-        >
-          <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
-            <p id="logout-dialog-title" className="sam-text-body font-semibold text-sam-fg">
-              로그아웃
-            </p>
-            <p id="logout-dialog-desc" className="mt-2 sam-text-body-secondary text-sam-muted">
-              현재 기기에서 로그인된 계정을 종료합니다. 로그아웃 하시겠습니까?
-            </p>
-            {error ? <p className="mt-3 sam-text-body-secondary text-red-600">{error}</p> : null}
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setOpen((prev) => (prev ? false : prev))}
-                disabled={submitting}
-                className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleLogout()}
-                disabled={submitting}
-                className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
-              >
-                {submitting ? "로그아웃 중…" : "로그아웃"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <LogoutConfirmModal
+        open={open}
+        submitting={submitting}
+        error={error}
+        onCancel={() => setOpen(false)}
+        onConfirm={handleLogout}
+      />
     </>
   );
 }
