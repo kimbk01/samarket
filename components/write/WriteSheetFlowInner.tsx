@@ -64,7 +64,7 @@ export function WriteSheetFlowInner({
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<CategoryWithSettings | null>(null);
   const [isFormDirty, setIsFormDirty] = useState(false);
-  /** TradeWriteForm — 입력·임시저장 기준 의미 있는 초안(복원 포함) */
+  /** 거래 타입 전체(Trade·Jobs·Exchange) — 입력·임시저장·지도 복원 기준 의미 있는 초안 */
   const [meaningfulTradeDraft, setMeaningfulTradeDraft] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [categoryChangeOpen, setCategoryChangeOpen] = useState(false);
@@ -235,10 +235,25 @@ export function WriteSheetFlowInner({
       setLeaveConfirmOpen(true);
       return;
     }
-    setIsFormDirty(false);
-    setMeaningfulTradeDraft(false);
-    onUserRequestClose();
-  }, [isFormDirty, meaningfulTradeDraft, onUserRequestClose, selectedCategory]);
+    void (async () => {
+      if (selectedCategory?.type === "trade") {
+        try {
+          await tradeWriteSheetCtx?.persistSnapshotBeforeLeaveRef.current?.();
+        } catch {
+          /* 스냅샷 실패해도 닫기 진행 */
+        }
+      }
+      setIsFormDirty(false);
+      setMeaningfulTradeDraft(false);
+      onUserRequestClose();
+    })();
+  }, [
+    isFormDirty,
+    meaningfulTradeDraft,
+    onUserRequestClose,
+    selectedCategory,
+    tradeWriteSheetCtx,
+  ]);
 
   const handleLeaveConfirm = useCallback(() => {
     setLeaveConfirmOpen(false);
@@ -313,6 +328,7 @@ export function WriteSheetFlowInner({
               category={selectedCategory}
               onSuccess={handleSuccess}
               onCancel={tryClose}
+              onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
               suppressTier1Chrome
             />
           );
@@ -327,6 +343,7 @@ export function WriteSheetFlowInner({
               category={selectedCategory}
               onSuccess={handleSuccess}
               onCancel={tryClose}
+              onMeaningfulTradeDraftChange={setMeaningfulTradeDraft}
               suppressTier1Chrome
             />
           );

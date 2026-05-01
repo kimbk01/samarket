@@ -41,6 +41,7 @@ import {
   consumeJobsWriteMeetSpotStaging,
   persistJobsWriteBeforeMeetSpot,
 } from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
+import { jobsWriteSessionDraftLooksMeaningful } from "@/lib/posts/jobs-exchange-write-draft-signal";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   ensureClientAccessOrRedirectAsync,
@@ -83,6 +84,8 @@ interface JobsWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  /** 거래 시트·`/write` 이탈 확인 — 일반 거래 `TradeWriteForm` 과 동일 */
+  onMeaningfulTradeDraftChange?: (has: boolean) => void;
   suppressTier1Chrome?: boolean;
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
@@ -116,6 +119,7 @@ export function JobsWriteForm({
   category,
   onSuccess,
   onCancel,
+  onMeaningfulTradeDraftChange,
   suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
@@ -275,6 +279,40 @@ export function JobsWriteForm({
     if (rep) return rep;
     return getLocationLabelIfValid(region, city)?.trim() ?? "";
   }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
+
+  const meaningfulTradeDraftForSheet = useMemo(
+    () =>
+      jobsWriteSessionDraftLooksMeaningful({
+        editPostId,
+        title,
+        description,
+        images,
+        tradeTopicChildId,
+        workCategory,
+        workCategoryOther,
+        payAmount,
+        companyName,
+        tradeMeetSpot,
+      }),
+    [
+      editPostId,
+      title,
+      description,
+      images,
+      tradeTopicChildId,
+      workCategory,
+      workCategoryOther,
+      payAmount,
+      companyName,
+      tradeMeetSpot,
+    ]
+  );
+
+  useEffect(() => {
+    if (!onMeaningfulTradeDraftChange) return;
+    onMeaningfulTradeDraftChange(meaningfulTradeDraftForSheet);
+    return () => onMeaningfulTradeDraftChange(false);
+  }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;

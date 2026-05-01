@@ -44,6 +44,7 @@ import {
   consumeExchangeWriteMeetSpotStaging,
   persistExchangeWriteBeforeMeetSpot,
 } from "@/lib/posts/jobs-exchange-write-meet-spot-staging";
+import { exchangeWriteSessionDraftLooksMeaningful } from "@/lib/posts/jobs-exchange-write-draft-signal";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -75,6 +76,7 @@ interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
   onSuccess: (postId: string) => void;
   onCancel: () => void;
+  onMeaningfulTradeDraftChange?: (has: boolean) => void;
   suppressTier1Chrome?: boolean;
   editPostId?: string;
   ownerEditSnapshot?: OwnerEditPostSnapshot;
@@ -100,6 +102,7 @@ export function ExchangeWriteForm({
   category,
   onSuccess,
   onCancel,
+  onMeaningfulTradeDraftChange,
   suppressTier1Chrome = false,
   editPostId,
   ownerEditSnapshot,
@@ -361,6 +364,40 @@ export function ExchangeWriteForm({
     if (rep) return rep;
     return getLocationLabelIfValid(region, city)?.trim() ?? "";
   }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
+
+  const meaningfulTradeDraftForSheet = useMemo(
+    () =>
+      exchangeWriteSessionDraftLooksMeaningful({
+        editPostId,
+        amount,
+        memo,
+        descriptionAppend,
+        tradeTopicChildId,
+        images,
+        sellerPrep,
+        buyerPrep,
+        tradeMeetSpot,
+        ratePlus,
+      }),
+    [
+      editPostId,
+      amount,
+      memo,
+      descriptionAppend,
+      tradeTopicChildId,
+      images,
+      sellerPrep,
+      buyerPrep,
+      tradeMeetSpot,
+      ratePlus,
+    ]
+  );
+
+  useEffect(() => {
+    if (!onMeaningfulTradeDraftChange) return;
+    onMeaningfulTradeDraftChange(meaningfulTradeDraftForSheet);
+    return () => onMeaningfulTradeDraftChange(false);
+  }, [meaningfulTradeDraftForSheet, onMeaningfulTradeDraftChange]);
 
   /** 지도·주소 관리 이동 직전 공통 — 일반 거래 `TradeWriteForm` 세션 초안과 동일 역할 */
   const persistExchangeFormStagingIfNeeded = useCallback(async (): Promise<boolean> => {
