@@ -2,8 +2,12 @@ import {
   buildPhFriendlyAddress,
   isSuitableEstablishmentDisplayName,
 } from "@/lib/map/ph-friendly-address";
-
-const PLACES_DETAIL_FIELDS = ["name", "address_components"] as const;
+import {
+  PLACE_FIELDS_DISPLAY_DETAIL,
+  fetchPlaceDetailsAsLegacyPlaceResult,
+  searchNearbyAsLegacyPlaceResults,
+} from "@/lib/map/places-new-api";
+import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 
 /** 근처 POI 후보 — `establishment` 만이 아닌 상점·시설 유형 포함 */
 const NEARBY_POI_TYPES = new Set([
@@ -139,47 +143,16 @@ async function geocodeAtLocation(
   });
 }
 
-async function placesGetDetails(
-  places: google.maps.places.PlacesService,
-  placeId: string
-): Promise<google.maps.places.PlaceResult | null> {
-  const id = placeId.trim();
-  if (!id) return null;
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(90 + attempt * 70);
-    const place = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
-      places.getDetails(
-        { placeId: id, fields: [...PLACES_DETAIL_FIELDS] },
-        (p, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && p) resolve(p);
-          else resolve(null);
-        }
-      );
-    });
-    if (place) return place;
-  }
-  return null;
+async function placesGetDetails(placeId: string): Promise<google.maps.places.PlaceResult | null> {
+  return fetchPlaceDetailsAsLegacyPlaceResult(placeId, PLACE_FIELDS_DISPLAY_DETAIL);
 }
 
-async function placesNearbyForMeetSpot(
-  places: google.maps.places.PlacesService,
-  marker: google.maps.LatLngLiteral
-): Promise<google.maps.places.PlaceResult[]> {
-  const run = (req: google.maps.places.PlaceSearchRequest): Promise<google.maps.places.PlaceResult[]> =>
-    new Promise((resolve) => {
-      places.nearbySearch(req, (results, status) => {
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-          resolve([]);
-          return;
-        }
-        resolve(results);
-      });
-    });
-
-  const broad = await run({ location: marker, radius: NEARBY_RADIUS_METERS });
+async function placesNearbyForMeetSpot(marker: google.maps.LatLngLiteral): Promise<google.maps.places.PlaceResult[]> {
+  const broad = await searchNearbyAsLegacyPlaceResults(marker, NEARBY_RADIUS_METERS);
   if (broad.length) return broad;
-  return run({ location: marker, radius: NEARBY_RADIUS_METERS, type: "establishment" });
+  return searchNearbyAsLegacyPlaceResults(marker, NEARBY_RADIUS_METERS, {
+    includedTypes: ["restaurant", "cafe", "store", "shopping_mall"],
+  });
 }
 
 export type TradeMeetSpotDisplayResolve = {
@@ -201,9 +174,9 @@ export async function resolveTradeMeetSpotDisplayLine(
   isStale: () => boolean
 ): Promise<TradeMeetSpotDisplayResolve> {
   if (isStale()) return { displayLine: "" };
+  await loadGoogleMaps();
 
   const geocoder = new google.maps.Geocoder();
-  const places = new google.maps.places.PlacesService(document.createElement("div"));
 
   const { results: geoResults, status: geoStatus } = await geocodeAtLocation(geocoder, marker);
   if (isStale()) return { displayLine: "" };
@@ -214,7 +187,7 @@ export async function resolveTradeMeetSpotDisplayLine(
   const streetComponents = streetResult.address_components ?? [];
 
   const [nearbyList, poiGeoPlaceId] = await Promise.all([
-    placesNearbyForMeetSpot(places, marker),
+    placesNearbyForMeetSpot(marker),
     Promise.resolve(pickGeocoderPoiPlaceId(geoResults)),
   ]);
   if (isStale()) return { displayLine: "" };
@@ -223,9 +196,9 @@ export async function resolveTradeMeetSpotDisplayLine(
   const nearbyHit = nearbyList.find((p) => (p.place_id ?? "").trim() === nearbyPlaceId) ?? null;
 
   const [detailsNearby, detailsPoiGeo] = await Promise.all([
-    nearbyPlaceId ? placesGetDetails(places, nearbyPlaceId) : Promise.resolve(null),
+    nearbyPlaceId ? placesGetDetails(nearbyPlaceId) : Promise.resolve(null),
     poiGeoPlaceId && poiGeoPlaceId !== nearbyPlaceId
-      ? placesGetDetails(places, poiGeoPlaceId)
+      ? placesGetDetails(poiGeoPlaceId)
       : Promise.resolve(null),
   ]);
 
@@ -246,7 +219,7 @@ export async function resolveTradeMeetSpotDisplayLine(
   if (!tryNameFromDetails(detailsNearby, nearbyPlaceId)) {
     tryNameFromDetails(detailsPoiGeo, poiGeoPlaceId);
   }
-  /** `getDetails` 간헐 실패 시에도 nearbySearch 가 준 상호를 사용 (PlacesService 경고·할당량 이슈 완화) */
+  /** 상세(`fetchFields`) 간헐 실패 시에도 근접검색 결과의 상호를 사용 */
   if (!placeName) {
     const inline = nearbyHit?.name?.trim();
     if (inline && isSuitableEstablishmentDisplayName(inline, streetComponents)) {

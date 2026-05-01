@@ -8,6 +8,11 @@ import { AddressSearch } from "@/components/map/AddressSearch";
 import { MAP_PICKER_DEFAULT_CENTER, MapPicker } from "@/components/map/MapPicker";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import {
+  PLACE_FIELDS_DISPLAY_DETAIL,
+  fetchPlaceDetailsAsLegacyPlaceResult,
+  searchNearbyAsLegacyPlaceResults,
+} from "@/lib/map/places-new-api";
+import {
   buildPhFriendlyAddress,
   pickNearestEstablishmentByDistance,
 } from "@/lib/map/ph-friendly-address";
@@ -73,7 +78,6 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
         if (cancelled) return;
         setBusy(true);
         const geocoder = new google.maps.Geocoder();
-        const places = new google.maps.places.PlacesService(document.createElement("div"));
         geocoder.geocode({ location: marker }, (results, status) => {
           if (cancelled) return;
           if (status !== "OK" || !results?.[0]) {
@@ -86,57 +90,25 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
             const primaryPlaceId = (results[0]?.place_id ?? "").trim();
 
             if (primaryPlaceId) {
-              placeDetails = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
-                places.getDetails(
-                  {
-                    placeId: primaryPlaceId,
-                    fields: ["name", "address_components"],
-                  },
-                  (place, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                      resolve(place);
-                      return;
-                    }
-                    resolve(null);
-                  }
-                );
-              });
+              placeDetails = await fetchPlaceDetailsAsLegacyPlaceResult(
+                primaryPlaceId,
+                PLACE_FIELDS_DISPLAY_DETAIL
+              );
             }
 
             if (!placeDetails) {
-              const nearbyResults = await new Promise<google.maps.places.PlaceResult[]>((resolve) => {
-                places.nearbySearch(
-                  {
-                    location: marker,
-                    radius: 50,
-                    type: "establishment",
-                  },
-                  (results, status) => {
-                    if (status !== google.maps.places.PlacesServiceStatus.OK || !results?.length) {
-                      resolve([]);
-                      return;
-                    }
-                    resolve(results);
-                  }
-                );
-              });
+              let nearbyResults = await searchNearbyAsLegacyPlaceResults(marker, 50);
+              if (!nearbyResults.length) {
+                nearbyResults = await searchNearbyAsLegacyPlaceResults(marker, 50, {
+                  includedTypes: ["restaurant", "cafe", "store", "shopping_mall"],
+                });
+              }
               const nearest = pickNearestEstablishmentByDistance(marker, nearbyResults);
               if (nearest?.placeId && nearest.distanceMeters <= NEARBY_FALLBACK_MAX_DISTANCE_METERS) {
-                placeDetails = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
-                  places.getDetails(
-                    {
-                      placeId: nearest.placeId,
-                      fields: ["name", "address_components"],
-                    },
-                    (place, status) => {
-                      if (status === google.maps.places.PlacesServiceStatus.OK && place) {
-                        resolve(place);
-                        return;
-                      }
-                      resolve(null);
-                    }
-                  );
-                });
+                placeDetails = await fetchPlaceDetailsAsLegacyPlaceResult(
+                  nearest.placeId,
+                  PLACE_FIELDS_DISPLAY_DETAIL
+                );
               }
             }
 

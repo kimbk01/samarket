@@ -13,6 +13,11 @@ import {
 } from "@/lib/map/initial-trade-meet-spot-center";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import {
+  PLACE_FIELDS_LOCATION,
+  PLACE_FIELDS_POI_FULL,
+  fetchPlaceDetailsAsLegacyPlaceResult,
+} from "@/lib/map/places-new-api";
+import {
   resolveTradeMeetSpotDisplayLine,
   TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS,
 } from "@/lib/map/resolve-trade-meet-spot-display-line";
@@ -155,25 +160,23 @@ export function TradeMeetSpotPickClient() {
         return;
       }
       if (isStale()) return;
-      const svc = new google.maps.places.PlacesService(document.createElement("div"));
-      svc.getDetails({ placeId: sid, fields: ["geometry", "place_id"] }, (place, status) => {
-        if (isStale() || addressTouchedRef.current) return;
-        if (status !== google.maps.places.PlacesServiceStatus.OK || !place?.geometry?.location) return;
-        const loc = place.geometry.location;
-        const dist = google.maps.geometry.spherical.computeDistanceBetween(
-          loc,
-          new google.maps.LatLng(at.lat, at.lng)
-        );
-        /** `suggestedAnchorPlaceId` 는 이 반경 안에서만 나오므로 동일 상한(+1m 여유)으로만 수락 */
-        if (dist > TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS + 1) return;
-        /** 0.8m 이상일 때만 옮기면 줌 시 미세 오차가 남음 — geometry 를 단일 진실로 맞춤 */
-        const SNAP_EPSILON_M = 0.04;
-        if (dist > SNAP_EPSILON_M) {
-          setMarker({ lat: loc.lat(), lng: loc.lng() });
-        }
-        const pid = (place as { place_id?: string }).place_id?.trim() || sid;
-        setAnchoredPlaceId(pid);
-      });
+      const place = await fetchPlaceDetailsAsLegacyPlaceResult(sid, PLACE_FIELDS_LOCATION);
+      if (isStale() || addressTouchedRef.current) return;
+      const loc = place?.geometry?.location;
+      if (!loc) return;
+      const dist = google.maps.geometry.spherical.computeDistanceBetween(
+        loc,
+        new google.maps.LatLng(at.lat, at.lng)
+      );
+      /** `suggestedAnchorPlaceId` 는 이 반경 안에서만 나오므로 동일 상한(+1m 여유)으로만 수락 */
+      if (dist > TRADE_MEET_SPOT_NEARBY_POI_MAX_METERS + 1) return;
+      /** 0.8m 이상일 때만 옮기면 줌 시 미세 오차가 남음 — geometry 를 단일 진실로 맞춤 */
+      const SNAP_EPSILON_M = 0.04;
+      if (dist > SNAP_EPSILON_M) {
+        setMarker({ lat: loc.lat(), lng: loc.lng() });
+      }
+      const pid = place.place_id?.trim() || sid;
+      setAnchoredPlaceId(pid);
     })();
   }, []);
 
@@ -313,18 +316,16 @@ export function TradeMeetSpotPickClient() {
         return;
       }
       if (cancelled) return;
-      const svc = new google.maps.places.PlacesService(document.createElement("div"));
-      svc.getDetails({ placeId: id, fields: ["geometry", "place_id"] }, (place, status) => {
-        if (cancelled) return;
-        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
-          const loc = place.geometry.location;
-          setMarker({ lat: loc.lat(), lng: loc.lng() });
-          const resolvedPid = (place as { place_id?: string }).place_id?.trim();
-          if (resolvedPid) setAnchoredPlaceId(resolvedPid);
-        }
-        setGeometryResolveTarget(null);
-        setInitialPinReady(true);
-      });
+      const place = await fetchPlaceDetailsAsLegacyPlaceResult(id, PLACE_FIELDS_LOCATION);
+      if (cancelled) return;
+      if (place?.geometry?.location) {
+        const loc = place.geometry.location;
+        setMarker({ lat: loc.lat(), lng: loc.lng() });
+        const resolvedPid = place.place_id?.trim();
+        if (resolvedPid) setAnchoredPlaceId(resolvedPid);
+      }
+      setGeometryResolveTarget(null);
+      setInitialPinReady(true);
     })();
     return () => {
       cancelled = true;
@@ -421,39 +422,31 @@ export function TradeMeetSpotPickClient() {
         } catch {
           return;
         }
-        const svc = new google.maps.places.PlacesService(document.createElement("div"));
-        svc.getDetails(
-          {
-            placeId: info.placeId,
-            fields: ["name", "address_components", "formatted_address", "geometry"],
-          },
-          (place, status) => {
-            if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
-              setMarker({ lat: info.lat, lng: info.lng });
-              return;
-            }
-            const loc = place.geometry?.location;
-            if (loc) {
-              setMarker({ lat: loc.lat(), lng: loc.lng() });
-            } else {
-              setMarker({ lat: info.lat, lng: info.lng });
-            }
-            const stablePid = (place as { place_id?: string }).place_id?.trim() || info.placeId.trim();
-            if (stablePid) setAnchoredPlaceId(stablePid);
-            const name = place.name?.trim() ?? "";
-            const components = place.address_components ?? [];
-            if (name && isSuitableEstablishmentDisplayName(name, components)) {
-              const line = buildPhFriendlyAddress({ components, placeName: name }).trim();
-              if (line) {
-                setAddressTouched(true);
-                setDisplayLine(line);
-              }
-            } else if (place.formatted_address?.trim()) {
-              setAddressTouched(true);
-              setDisplayLine(place.formatted_address.trim());
-            }
+        const place = await fetchPlaceDetailsAsLegacyPlaceResult(info.placeId, PLACE_FIELDS_POI_FULL);
+        if (!place) {
+          setMarker({ lat: info.lat, lng: info.lng });
+          return;
+        }
+        const loc = place.geometry?.location;
+        if (loc) {
+          setMarker({ lat: loc.lat(), lng: loc.lng() });
+        } else {
+          setMarker({ lat: info.lat, lng: info.lng });
+        }
+        const stablePid = place.place_id?.trim() || info.placeId.trim();
+        if (stablePid) setAnchoredPlaceId(stablePid);
+        const name = place.name?.trim() ?? "";
+        const components = place.address_components ?? [];
+        if (name && isSuitableEstablishmentDisplayName(name, components)) {
+          const line = buildPhFriendlyAddress({ components, placeName: name }).trim();
+          if (line) {
+            setAddressTouched(true);
+            setDisplayLine(line);
           }
-        );
+        } else if (place.formatted_address?.trim()) {
+          setAddressTouched(true);
+          setDisplayLine(place.formatted_address.trim());
+        }
       })();
     },
     []
