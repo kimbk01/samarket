@@ -23,14 +23,6 @@ import { TRADE_CONTENT_SHELL_CLASS } from "@/lib/trade/ui/content-shell";
 import { useRegisterTradeSecondaryTabs } from "@/contexts/CategoryListHeaderContext";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
-import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
-import {
-  parseJobListIndustryParam,
-  parseJobListRegionParam,
-} from "@/lib/jobs/job-list-url-params";
-import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
-import { JobListFilters } from "@/components/jobs/JobListFilters";
-import { JobListTabs, type JobListTabValue } from "@/components/jobs/JobListTabs";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import {
   getPostsByTradeCategoryIds,
@@ -81,18 +73,6 @@ export function MarketCategoryFeed({
   const router = useRouter();
   const searchParams = useSearchParams();
   const topicRaw = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
-  const isJobMarket = isTradeJobMarketCategory(category);
-  const jkParam = (searchParams.get("jk")?.trim().toLowerCase() ?? "") as "" | "hire" | "work";
-  const jobsListingKind: JobListingKindFilter | undefined =
-    isJobMarket && (jkParam === "hire" || jkParam === "work") ? jkParam : undefined;
-  const jobTabSelected: JobListTabValue =
-    jkParam === "hire" ? "hire" : jkParam === "work" ? "work" : "all";
-  const jobEmploymentTypeUrl = isJobMarket
-    ? searchParams.get("je")?.trim().toLowerCase() || undefined
-    : undefined;
-  const todayAvailableJob = isJobMarket && searchParams.get("avail") === "1";
-  const jobRegionSlug = isJobMarket ? parseJobListRegionParam(searchParams.get("jr")) : undefined;
-  const jobIndustrySlug = isJobMarket ? parseJobListIndustryParam(searchParams.get("jc")) : undefined;
   const [children, setChildren] = useState<CategoryWithSettings[]>(() => initialChildren ?? []);
   /** null = 아직 로드 전 · [] = 직계 하위 없음(부모 id 만 필터) */
   const [filterRows, setFilterRows] = useState<FeedFilterChild[] | null>(() =>
@@ -189,25 +169,9 @@ export function MarketCategoryFeed({
     searchParams.get("sort") ?? searchParams.get("fs")
   );
 
-  const jobFeedExtras = useMemo(
-    () => ({
-      jobEmploymentType: jobEmploymentTypeUrl,
-      todayAvailable: todayAvailableJob,
-      jobRegionSlug,
-      jobIndustrySlug,
-    }),
-    [jobEmploymentTypeUrl, todayAvailableJob, jobRegionSlug, jobIndustrySlug]
-  );
-
   const feedKey = useMemo(() => {
-    return computeTradeFeedKeyForMarketParent(
-      category.id,
-      topicRaw,
-      postSort,
-      jobsListingKind,
-      isJobMarket ? jobFeedExtras : {}
-    );
-  }, [category.id, topicRaw, postSort, jobsListingKind, isJobMarket, jobFeedExtras]);
+    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort, undefined, {});
+  }, [category.id, topicRaw, postSort]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
 
@@ -436,56 +400,22 @@ export function MarketCategoryFeed({
         </div>
       ) : null;
 
-    const jobBlock = isJobMarket ? (
-      <div
-        className={`${APP_MAIN_HEADER_INNER_CLASS} flex flex-col gap-1 border-t border-sam-border-soft pt-1`}
-      >
-        <JobListTabs category={category} topicKey={topicKeyForChips} selectedTab={jobTabSelected} />
-        <JobListFilters category={category} />
-      </div>
-    ) : null;
-
-    if (!topicBlock && !jobBlock) return null;
+    if (!topicBlock) return null;
 
     return (
       <div className={TRADE_SECONDARY_TABS_SHELL_CLASS}>
-        <div className="flex w-full min-w-0 flex-col">
-          {topicBlock}
-          {jobBlock}
-        </div>
+        <div className="flex w-full min-w-0 flex-col">{topicBlock}</div>
       </div>
     );
-  }, [
-    children,
-    marketBase,
-    topicKeyForChips,
-    prefetchTopicFeed,
-    isJobMarket,
-    category,
-    jobTabSelected,
-  ]);
+  }, [children, marketBase, topicKeyForChips, prefetchTopicFeed]);
 
   const tradeSecondaryTabsSyncKey = useMemo(
     () =>
-      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}\u0000${postSort}` +
-      (isJobMarket
-        ? `\u0000jk:${jkParam}\u0000je:${jobEmploymentTypeUrl ?? ""}\u0000jr:${jobRegionSlug ?? ""}\u0000jc:${jobIndustrySlug ?? ""}\u0000av:${todayAvailableJob ? "1" : ""}`
-        : ""),
-    [
-      category.id,
-      topicKeyForChips,
-      children,
-      postSort,
-      isJobMarket,
-      jkParam,
-      jobEmploymentTypeUrl,
-      jobRegionSlug,
-      jobIndustrySlug,
-      todayAvailableJob,
-    ]
+      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}\u0000${postSort}`,
+    [category.id, topicKeyForChips, children, postSort]
   );
 
-  const hasSecondaryBar = children.length > 0 || isJobMarket;
+  const hasSecondaryBar = children.length > 0;
   useRegisterTradeSecondaryTabs(hasSecondaryBar, secondaryHeaderNode, tradeSecondaryTabsSyncKey);
 
   const postsTopGapClass =
@@ -503,11 +433,6 @@ export function MarketCategoryFeed({
           tradeTopicParam={topicRaw}
           category={category}
           sort={postSort}
-          jobsListingKind={jobsListingKind}
-          jobEmploymentType={jobEmploymentTypeUrl}
-          todayAvailable={todayAvailableJob}
-          jobRegionSlug={jobRegionSlug}
-          jobIndustrySlug={jobIndustrySlug}
           initialTradeFeed={initialTradeFeed}
         />
       </div>

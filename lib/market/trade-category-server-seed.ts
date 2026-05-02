@@ -7,7 +7,6 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 import type { MarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
-import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 
 export type TradeCategoryServerSeed = {
   queryKey: string;
@@ -45,7 +44,8 @@ export function tradeServerSeedFromBootstrapPayload(
     feedQueryExtras?.avail,
     feedQueryExtras?.jr,
     feedQueryExtras?.jc,
-    { omitJobListFilters: !isTradeJobMarketCategory(category) }
+    /** 일자리 목록 상단 필터 비사용 — 부트스트랩 키를 주제·정렬 중심으로 고정 */
+    { omitJobListFilters: true }
   );
   const children = (payload.children as unknown as CategoryDbRow[]).map(mapChildCategoryRow);
   return {

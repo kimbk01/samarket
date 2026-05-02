@@ -11,9 +11,6 @@ import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug"
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
-import { getCategoryHref } from "@/lib/categories/getCategoryHref";
-import type { CategoryWithSettings } from "@/lib/categories/types";
-import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 import {
   getPostsByTradeCategoryIds,
   readFreshTradeFeedClientCache,
@@ -27,26 +24,10 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 
-function resolveTradeCategoryForMarketPath(
-  pathOnly: string,
-  categories: CategoryWithSettings[]
-): CategoryWithSettings | null {
-  const p = pathOnly.trim();
-  for (const cat of categories) {
-    if (cat.type !== "trade") continue;
-    if (getCategoryHref(cat) === p) return cat;
-  }
-  return null;
-}
-
 /**
- * `/market/[slug]?…` 쿼리와 `PostListByCategory` · API 계약 정합.
- * 일자리 전용 `jk`/`je`/… 는 알바 상위 마켓일 때만 넣어 캐시 키가 어긋나지 않게 한다.
+ * `/market/[slug]?…` 인접 탭 프리웜 — 목록은 일자리 URL 필터 없음(`jk` 등 무시), 주제·정렬만 반영.
  */
-function peekOrWarmMarketCategoryFeedFromHref(
-  href: string,
-  tradeCategories: CategoryWithSettings[]
-): void {
+function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
   let url: URL;
   try {
@@ -64,44 +45,20 @@ function peekOrWarmMarketCategoryFeedFromHref(
     /* noop */
   }
 
-  const matched = resolveTradeCategoryForMarketPath(pathOnly, tradeCategories);
-  const isJobMarket = matched ? isTradeJobMarketCategory(matched) : false;
-
   const topicRaw = (url.searchParams.get("topic") ?? "").trim().normalize("NFC");
   const sort = parseTradeFeedSortQuery(url.searchParams.get("sort") ?? url.searchParams.get("fs"));
 
-  let jobsListingKind: GetPostsByCategoryOptions["jobsListingKind"];
-  const extras: Pick<
-    GetPostsByCategoryOptions,
-    "jobEmploymentType" | "todayAvailable" | "jobRegionSlug" | "jobIndustrySlug"
-  > = {};
-
-  if (isJobMarket) {
-    const jkRaw = (url.searchParams.get("jk") ?? "").trim();
-    jobsListingKind = jkRaw === "hire" || jkRaw === "work" ? jkRaw : undefined;
-    const je = (url.searchParams.get("je") ?? "").trim();
-    const avail = url.searchParams.get("avail");
-    const jr = (url.searchParams.get("jr") ?? "").trim().toLowerCase();
-    const jc = (url.searchParams.get("jc") ?? "").trim().toLowerCase();
-    if (je) extras.jobEmploymentType = je;
-    if (avail === "1") extras.todayAvailable = true;
-    if (jr) extras.jobRegionSlug = jr;
-    if (jc) extras.jobIndustrySlug = jc;
-  }
-
-  const useUnfilteredMarketParentFeed =
-    jobsListingKind !== "hire" && jobsListingKind !== "work" && !topicRaw;
+  const useUnfilteredMarketParentFeed = !topicRaw;
 
   const base = {
     page: 1,
     sort,
     tradeMarketParent: parent,
-    ...extras,
   };
 
   const options: GetPostsByCategoryOptions = useUnfilteredMarketParentFeed
     ? { ...base, topic: "" }
-    : { ...base, topic: topicRaw, ...(jobsListingKind ? { jobsListingKind } : {}) };
+    : { ...base, topic: topicRaw };
 
   if (readFreshTradeFeedClientCache([], options)) return;
   void getPostsByTradeCategoryIds([], options);
@@ -141,7 +98,7 @@ export function MarketContent({
   const searchParams = useSearchParams();
   const router = useRouter();
   const tradeState = searchParams.get("tradeState") ?? "";
-  const { tabs, activeIndex, tradeCategories } = useTradeTabs(pathname);
+  const { tabs, activeIndex } = useTradeTabs(pathname);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
@@ -213,7 +170,7 @@ export function MarketContent({
       }
       const m = pathOnly.match(/^\/market\/([^/]+)$/);
       if (!m) return;
-      peekOrWarmMarketCategoryFeedFromHref(href, tradeCategories);
+      peekOrWarmMarketCategoryFeedFromHref(href);
     };
 
     const idleId = scheduleWhenBrowserIdle(() => {
@@ -223,7 +180,7 @@ export function MarketContent({
       }
     }, 300);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [tabs, activeIndex, router, tradeCategories]);
+  }, [tabs, activeIndex, router]);
 
   useEffect(() => {
     const cancelWarm = warmMainShellData();

@@ -3,13 +3,7 @@
  * 브라우저→Supabase 직접 왕복 대신 서버 한 번으로 첫 페인트를 맞춘다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
-import { parseJobEmploymentFilterParam } from "@/lib/jobs/job-employment-filter";
-import {
-  parseJobListIndustryParam,
-  parseJobListRegionParam,
-} from "@/lib/jobs/job-list-url-params";
 import { computeTradeFeedKeyForMarketParent, type TradeFeedSort } from "@/lib/posts/trade-feed-key";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
@@ -28,13 +22,6 @@ function parseBootstrapFeedSort(raw: string | undefined | null): TradeFeedSort {
   if (s === "chat_desc") return "chat_desc";
   if (s === "near") return "near";
   return "latest";
-}
-
-function parseJobListingKindParam(raw: string | undefined | null): JobListingKindFilter | undefined {
-  const t = (raw ?? "").trim().toLowerCase();
-  if (t === "work") return "work";
-  if (t === "hire") return "hire";
-  return undefined;
 }
 
 export type MarketBootstrapInitialFeed = {
@@ -148,41 +135,23 @@ export async function loadMarketBootstrapPayload(
 
   if (args.includePosts) {
     const feedSort = parseBootstrapFeedSort(args.fsParam);
-    const jobsListingKind = isJobMarket ? parseJobListingKindParam(args.jkParam) : undefined;
-    const je = isJobMarket ? parseJobEmploymentFilterParam(args.jeParam ?? null) : undefined;
-    const todayAvail = isJobMarket && (args.availParam ?? "").trim() === "1";
-    const jr = isJobMarket ? parseJobListRegionParam(args.jrParam ?? null) : undefined;
-    const jc = isJobMarket ? parseJobListIndustryParam(args.jcParam ?? null) : undefined;
-
-    const keyExtras: {
-      jobEmploymentType?: string;
-      todayAvailable?: boolean;
-      jobRegionSlug?: string;
-      jobIndustrySlug?: string;
-    } = {};
-    if (isJobMarket) {
-      if (je) keyExtras.jobEmploymentType = je;
-      if (todayAvail) keyExtras.todayAvailable = true;
-      if (jr) keyExtras.jobRegionSlug = jr;
-      if (jc) keyExtras.jobIndustrySlug = jc;
-    }
-
+    /** 일자리 마켓도 목록 상단 필터 제거 — URL `jk`/`je`/… 는 피드·feedKey 에 반영하지 않음 (주제·정렬만). */
     const feedKey = computeTradeFeedKeyForMarketParent(
       parentId,
       topicParam,
       feedSort,
-      jobsListingKind,
-      keyExtras
+      undefined,
+      {}
     );
 
     const feedOptsBase = {
       page: 1 as const,
       sort: feedSort,
       restrictTradeTypeJob: isJobMarket,
-      jobEmploymentType: isJobMarket ? je : undefined,
-      todayAvailable: isJobMarket ? todayAvail : false,
-      jobRegionSlug: isJobMarket ? jr : undefined,
-      jobIndustrySlug: isJobMarket ? jc : undefined,
+      jobEmploymentType: undefined as undefined,
+      todayAvailable: false as const,
+      jobRegionSlug: undefined as undefined,
+      jobIndustrySlug: undefined as undefined,
     };
 
     const useHomeQuery = !isJobMarket && !topicParam.trim();
@@ -213,7 +182,7 @@ export async function loadMarketBootstrapPayload(
       const open = await resolveTradeFeedOpenPayload(
         clients,
         filterIds,
-        { ...feedOptsBase, jobsListingKind },
+        { ...feedOptsBase, jobsListingKind: undefined },
         viewerUserId || null
       );
       initialFeed = {

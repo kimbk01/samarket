@@ -17,7 +17,6 @@ import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHead
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
-import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 
 function tradeSeedMatchesMarketSlug(seed: TradeCategoryServerSeed, slugOrId: string): boolean {
@@ -121,26 +120,17 @@ export function CategoryListLayout({
     const slugNorm = normalizeMarketSlugParam(slugOrId);
 
     const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
-    const jkPad = searchParamsRef.current.get("jk")?.trim().toLowerCase() ?? "";
     const fsPad = searchParamsRef.current.get("fs")?.trim().toLowerCase() ?? "";
-    const jePad = searchParamsRef.current.get("je")?.trim().toLowerCase() ?? "";
-    const availPad = searchParamsRef.current.get("avail")?.trim() ?? "";
-    const jrPad = searchParamsRef.current.get("jr")?.trim().toLowerCase() ?? "";
-    const jcPad = searchParamsRef.current.get("jc")?.trim().toLowerCase() ?? "";
-    const jobMarket =
-      (tradeServerSeed != null && isTradeJobMarketCategory(tradeServerSeed.category)) ||
-      (categoryRef.current != null && isTradeJobMarketCategory(categoryRef.current));
-    const omitJobListFilters = !jobMarket;
     const urlKey = buildMarketBootstrapQueryKey(
       slugOrId,
       topic,
-      jkPad || null,
+      null,
       fsPad || null,
-      jePad || null,
-      availPad || null,
-      jrPad || null,
-      jcPad || null,
-      { omitJobListFilters }
+      null,
+      null,
+      null,
+      null,
+      { omitJobListFilters: true }
     );
 
     if (expectedType === "trade" && tradeServerSeed && tradeServerSeed.queryKey === urlKey) {
@@ -184,23 +174,11 @@ export function CategoryListLayout({
 
     if (expectedType === "trade") {
       try {
-        const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase();
         const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase();
-        const je = searchParamsRef.current.get("je")?.trim().toLowerCase();
-        const avail = searchParamsRef.current.get("avail")?.trim().toLowerCase();
-        const jr = searchParamsRef.current.get("jr")?.trim().toLowerCase();
-        const jc = searchParamsRef.current.get("jc")?.trim().toLowerCase();
         const qs = new URLSearchParams();
         qs.set("q", slugOrId.trim());
         qs.set("includePosts", "1");
         if (topic) qs.set("topic", topic);
-        if (!omitJobListFilters) {
-          if (jk === "work" || jk === "hire") qs.set("jk", jk);
-          if (je) qs.set("je", je);
-          if (avail === "1") qs.set("avail", "1");
-          if (jr) qs.set("jr", jr);
-          if (jc) qs.set("jc", jc);
-        }
         if (fs === "popular" || fs === "pay_desc" || fs === "chat_desc" || fs === "near") {
           qs.set("fs", fs);
         }

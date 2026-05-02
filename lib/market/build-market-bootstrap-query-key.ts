@@ -1,6 +1,6 @@
 /**
  * 마켓 부트스트랩 요청을 URL 단위로 식별 — RSC 시드와 클라이언트 `fetch`가 같은 키인지 맞춤.
- * 일자리가 아닌 마켓에서는 `omitJobListFilters` 로 `jk`/`je`/`avail`/`jr`/`jc` 를 키·요청에서 생략한다.
+ * `omitJobListFilters: true` 일 때 `jk`/`je`/`avail`/`jr`/`jc` 를 키에서 생략한다(일자리 목록 상단 필터 비사용 정책과 동일).
  */
 export function buildMarketBootstrapQueryKey(
   slugOrId: string,
