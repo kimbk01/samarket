@@ -144,7 +144,8 @@ export function useMobileHorizontalSwipePanel({
       }
       if (modeRef.current === "vertical") return;
       if (modeRef.current === "horizontal") {
-        te.preventDefault();
+        /** 스크롤 진행 중 `cancelable:false`면 무시되며 콘솔 Intervention 만 유발 — 가능할 때만 막음 */
+        if (te.cancelable) te.preventDefault();
         const w = el.offsetWidth || (typeof window !== "undefined" ? window.innerWidth : 400);
         const maxD = w * MAX_DRAG_FR;
         let x = dx0 * FRICTION;
