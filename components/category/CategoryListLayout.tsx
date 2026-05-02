@@ -17,6 +17,15 @@ import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHead
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
+import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
+
+function tradeSeedMatchesMarketSlug(seed: TradeCategoryServerSeed, slugOrId: string): boolean {
+  const n = normalizeMarketSlugParam(slugOrId);
+  if (!n) return false;
+  if (seed.category.id === n) return true;
+  const slug = seed.category.slug?.trim().normalize("NFC");
+  return !!slug && slug === n;
+}
 
 type ExpectedType = CategoryType;
 
@@ -55,6 +64,11 @@ export function CategoryListLayout({
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsRef = useRef(searchParams);
+  /**
+   * 거래 마켓만: `load` 의존성에 쿼리 문자열을 넣어 주제·정렬 변경 시 부트스트랩 소프트 리싱크 실행.
+   * (philife 등 비-trade 에서는 빈 문자열로 고정해 쿼리만 바뀔 때 `getCategoryBySlugOrId` 재호출 방지)
+   */
+  const tradeMarketSearchSyncKey = expectedType === "trade" ? searchParams.toString() : "";
   const isTradeSeeded = expectedType === "trade" && tradeServerSeed != null;
 
   const [category, setCategory] = useState<CategoryWithSettings | null>(() =>
@@ -90,40 +104,73 @@ export function CategoryListLayout({
   }, [expectedType, tradeServerSeed]);
 
   const bootstrapFetchAbortRef = useRef<AbortController | null>(null);
+  /** 시드 없이 부트스트랩만 맞춘 뒤에도 같은 슬러그면 쿼리 변경 시 전면 로딩으로 되돌아가지 않게 함 */
+  const tradeResolvedSlugNormRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (!slugOrId?.trim()) {
+      if (expectedType === "trade") tradeResolvedSlugNormRef.current = null;
       setStatus("not_found");
       return;
     }
 
-    if (expectedType === "trade" && tradeServerSeed) {
-      const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
-      const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase() ?? "";
-      const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase() ?? "";
-      const je = searchParamsRef.current.get("je")?.trim().toLowerCase() ?? "";
-      const avail = searchParamsRef.current.get("avail")?.trim() ?? "";
-      if (
-        tradeServerSeed.queryKey ===
-        buildMarketBootstrapQueryKey(slugOrId, topic, jk || null, fs || null, je || null, avail || null)
-      ) {
-        return;
-      }
+    const slugNorm = normalizeMarketSlugParam(slugOrId);
+
+    const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
+    const jkPad = searchParamsRef.current.get("jk")?.trim().toLowerCase() ?? "";
+    const fsPad = searchParamsRef.current.get("fs")?.trim().toLowerCase() ?? "";
+    const jePad = searchParamsRef.current.get("je")?.trim().toLowerCase() ?? "";
+    const availPad = searchParamsRef.current.get("avail")?.trim() ?? "";
+    const urlKey = buildMarketBootstrapQueryKey(
+      slugOrId,
+      topic,
+      jkPad || null,
+      fsPad || null,
+      jePad || null,
+      availPad || null
+    );
+
+    if (expectedType === "trade" && tradeServerSeed && tradeServerSeed.queryKey === urlKey) {
+      tradeResolvedSlugNormRef.current = slugNorm;
+      setCategory(tradeServerSeed.category);
+      setTradeBootstrapChildren(tradeServerSeed.tradeBootstrapChildren);
+      setTradeBootstrapChildrenForFilter(tradeServerSeed.tradeBootstrapChildrenForFilter);
+      setTradeBootstrapFeed(tradeServerSeed.tradeBootstrapFeed ?? null);
+      setStatus("found");
+      return;
     }
+
+    const softTradeResync =
+      expectedType === "trade" &&
+      tradeServerSeed != null &&
+      tradeSeedMatchesMarketSlug(tradeServerSeed, slugOrId) &&
+      tradeServerSeed.queryKey !== urlKey;
+
+    const softTradeQueryOnly =
+      expectedType === "trade" &&
+      tradeServerSeed == null &&
+      tradeResolvedSlugNormRef.current != null &&
+      tradeResolvedSlugNormRef.current === slugNorm;
+
+    const softShellKeepTradeChrome = softTradeResync || softTradeQueryOnly;
 
     bootstrapFetchAbortRef.current?.abort();
     const ac = new AbortController();
     bootstrapFetchAbortRef.current = ac;
     const signal = ac.signal;
 
-    setStatus("loading");
-    setTradeBootstrapChildren(undefined);
-    setTradeBootstrapChildrenForFilter(undefined);
-    setTradeBootstrapFeed(undefined);
+    if (!softShellKeepTradeChrome) {
+      if (expectedType === "trade") {
+        tradeResolvedSlugNormRef.current = null;
+      }
+      setStatus("loading");
+      setTradeBootstrapChildren(undefined);
+      setTradeBootstrapChildrenForFilter(undefined);
+      setTradeBootstrapFeed(undefined);
+    }
 
     if (expectedType === "trade") {
       try {
-        const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
         const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase();
         const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase();
         const je = searchParamsRef.current.get("je")?.trim().toLowerCase();
@@ -158,6 +205,7 @@ export function CategoryListLayout({
         if (res.ok && j.ok && j.category) {
           const c = toCategoryWithSettings(j.category as unknown as Parameters<typeof toCategoryWithSettings>[0]);
           if (c.type !== expectedType) {
+            if (expectedType === "trade") tradeResolvedSlugNormRef.current = null;
             setStatus("redirect");
             router.replace(getCategoryHref(c));
             return;
@@ -171,6 +219,7 @@ export function CategoryListLayout({
             }))
             .filter((r) => r.id.length > 0);
           if (signal.aborted) return;
+          tradeResolvedSlugNormRef.current = slugNorm;
           setCategory(c);
           setTradeBootstrapChildren(children);
           setTradeBootstrapChildrenForFilter(childrenForFilter);
@@ -188,13 +237,18 @@ export function CategoryListLayout({
     const c = await getCategoryBySlugOrId(slugOrId.trim());
     if (signal.aborted) return;
     if (!c) {
+      if (expectedType === "trade") tradeResolvedSlugNormRef.current = null;
       setStatus("not_found");
       return;
     }
     if (c.type !== expectedType) {
+      if (expectedType === "trade") tradeResolvedSlugNormRef.current = null;
       setStatus("redirect");
       router.replace(getCategoryHref(c));
       return;
+    }
+    if (expectedType === "trade") {
+      tradeResolvedSlugNormRef.current = slugNorm;
     }
     setCategory(c);
     setTradeBootstrapChildren(undefined);
@@ -206,7 +260,7 @@ export function CategoryListLayout({
   useEffect(() => {
     void load();
     return () => bootstrapFetchAbortRef.current?.abort();
-  }, [load]);
+  }, [load, tradeMarketSearchSyncKey]);
 
   /** 거래(중고) 마켓: 메인 1단만 공통 헤더로 두고, 뒤로가기·카테고리 제목 서브헤더는 노출하지 않음 */
   const registerStickySubheader = expectedType !== "trade";

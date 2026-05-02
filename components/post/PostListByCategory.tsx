@@ -28,6 +28,9 @@ import { CategoryEmptyState } from "@/components/category/CategoryEmptyState";
 import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
+import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
+
+const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
 interface PostListByCategoryProps {
   categoryId: string;
@@ -156,6 +159,9 @@ export function PostListByCategory({
   const firstCardPaintFeedKeyRef = useRef("");
   const routePrefetchAtRef = useRef<Record<string, number>>({});
   const favoriteFetchEpochRef = useRef(0);
+  /** 의존성에 객체 참조를 넣지 않아 부모 리렌더만으로 피드 epoch·네트워크 중복 방지 */
+  const initialTradeFeedRef = useRef(initialTradeFeed);
+  initialTradeFeedRef.current = initialTradeFeed;
 
   const resolveFavoriteMapAsync = useCallback(
     (targetPosts: PostWithMeta[], pageNum: number, epoch: number) => {
@@ -192,7 +198,7 @@ export function PostListByCategory({
         allowRscBootstrapFeedRef.current = true;
         return;
       }
-      const epoch = listFeedEpochRef.current;
+      const epochAtStart = listFeedEpochRef.current;
       setLoading((prev) => (prev ? prev : true));
       try {
         const useHomePostsApi =
@@ -211,7 +217,7 @@ export function PostListByCategory({
             jobEmploymentType: feedExtras.jobEmploymentType,
             todayAvailable: feedExtras.todayAvailable,
           });
-          if (epoch !== listFeedEpochRef.current) return;
+          if (epochAtStart !== listFeedEpochRef.current) return;
           if (pageNum === 1) {
             setPosts(next.posts);
             setHiddenPostIds(new Set());
@@ -227,7 +233,7 @@ export function PostListByCategory({
               setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
             }
           } else {
-            resolveFavoriteMapAsync(next.posts, pageNum, epoch);
+            resolveFavoriteMapAsync(next.posts, pageNum, epochAtStart);
           }
           return;
         }
@@ -248,7 +254,7 @@ export function PostListByCategory({
               : {}),
           }
         );
-        if (epoch !== listFeedEpochRef.current) return;
+        if (epochAtStart !== listFeedEpochRef.current) return;
         if (pageNum === 1) {
           setPosts(next.posts);
           setHiddenPostIds(new Set());
@@ -264,10 +270,12 @@ export function PostListByCategory({
             setFavoriteMap((prev) => ({ ...prev, ...next.favoriteMap }));
           }
         } else {
-          resolveFavoriteMapAsync(next.posts, pageNum, epoch);
+          resolveFavoriteMapAsync(next.posts, pageNum, epochAtStart);
         }
       } finally {
-        setLoading(false);
+        if (epochAtStart === listFeedEpochRef.current) {
+          setLoading(false);
+        }
         allowRscBootstrapFeedRef.current = true;
       }
     },
@@ -294,23 +302,27 @@ export function PostListByCategory({
       const last = routePrefetchAtRef.current[href] ?? 0;
       if (now - last < 15_000) continue;
       routePrefetchAtRef.current[href] = now;
+      capRecordByOldestTimestamps(routePrefetchAtRef.current, ROUTE_PREFETCH_TS_MAX_KEYS);
       void router.prefetch(href);
     }
   }, [posts, router]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
     listFeedEpochRef.current += 1;
     const epoch = listFeedEpochRef.current;
     setPage(1);
 
-    (async () => {
-      if (allowRscBootstrapFeedRef.current && initialTradeFeed && initialTradeFeed.feedKey === feedKey) {
-        setPosts(initialTradeFeed.posts);
-        setHasMore(initialTradeFeed.hasMore);
+    const applyBootstrapOrCacheSync = (): boolean => {
+      if (cancelled || epoch !== listFeedEpochRef.current) return true;
+
+      const bootstrap = initialTradeFeedRef.current;
+      if (allowRscBootstrapFeedRef.current && bootstrap && bootstrap.feedKey === feedKey) {
+        setPosts(bootstrap.posts);
+        setHasMore(bootstrap.hasMore);
         setHiddenPostIds(new Set());
         setNotInterestedPostIds(new Set());
-        setFavoriteMap(initialTradeFeed.favoriteMap ?? {});
+        setFavoriteMap(bootstrap.favoriteMap ?? {});
         setLoading(false);
         const useHomePostsApi =
           tradeFeedServerResolution &&
@@ -330,11 +342,9 @@ export function PostListByCategory({
                 todayAvailable: feedExtras.todayAvailable,
               },
               {
-                posts: initialTradeFeed.posts,
-                hasMore: initialTradeFeed.hasMore,
-                ...(initialTradeFeed.favoriteMap !== undefined ?
-                  { favoriteMap: initialTradeFeed.favoriteMap }
-                : {}),
+                posts: bootstrap.posts,
+                hasMore: bootstrap.hasMore,
+                ...(bootstrap.favoriteMap !== undefined ? { favoriteMap: bootstrap.favoriteMap } : {}),
               }
             );
           } else {
@@ -350,11 +360,9 @@ export function PostListByCategory({
                 todayAvailable: feedExtras.todayAvailable,
               },
               {
-                posts: initialTradeFeed.posts,
-                hasMore: initialTradeFeed.hasMore,
-                ...(initialTradeFeed.favoriteMap !== undefined ?
-                  { favoriteMap: initialTradeFeed.favoriteMap }
-                : {}),
+                posts: bootstrap.posts,
+                hasMore: bootstrap.hasMore,
+                ...(bootstrap.favoriteMap !== undefined ? { favoriteMap: bootstrap.favoriteMap } : {}),
               }
             );
           }
@@ -369,19 +377,18 @@ export function PostListByCategory({
               todayAvailable: feedExtras.todayAvailable,
             },
             {
-              posts: initialTradeFeed.posts,
-              hasMore: initialTradeFeed.hasMore,
-              ...(initialTradeFeed.favoriteMap !== undefined ?
-                { favoriteMap: initialTradeFeed.favoriteMap }
-              : {}),
+              posts: bootstrap.posts,
+              hasMore: bootstrap.hasMore,
+              ...(bootstrap.favoriteMap !== undefined ? { favoriteMap: bootstrap.favoriteMap } : {}),
             }
           );
         }
-        if (initialTradeFeed.favoriteMap === undefined) {
-          resolveFavoriteMapAsync(initialTradeFeed.posts, 1, epoch);
+        if (bootstrap.favoriteMap === undefined) {
+          resolveFavoriteMapAsync(bootstrap.posts, 1, epoch);
         }
-        return;
+        return true;
       }
+
       const cached = tradeFeedServerResolution
         ? peekCachedTradeFeed([], {
             page: 1,
@@ -406,21 +413,46 @@ export function PostListByCategory({
         setNotInterestedPostIds(new Set());
         setFavoriteMap(cached.favoriteMap ?? {});
         setLoading(false);
-        return;
+        return true;
       }
-      await load(1);
-    })();
+
+      return false;
+    };
+
+    if (applyBootstrapOrCacheSync()) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled || epoch !== listFeedEpochRef.current) return;
+      void load(1);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [feedKey, initialTradeFeed?.feedKey, load, resolveFavoriteMapAsync, feedExtras]);
+  }, [
+    feedKey,
+    initialTradeFeed?.feedKey,
+    load,
+    resolveFavoriteMapAsync,
+    feedExtras,
+    categoryId,
+    tradeFeedServerResolution,
+    effectiveIds,
+    sort,
+    jobsListingKind,
+    tradeTopicParam,
+  ]);
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
   useEffect(() => {
     const onBust = () => {
       allowRscBootstrapFeedRef.current = false;
       listFeedEpochRef.current += 1;
+      favoriteFetchEpochRef.current += 1;
       void load(1);
     };
     window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { MarketCategoryRouteFallback } from "@/components/market/MarketCategoryRouteFallback";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
@@ -11,7 +11,6 @@ import {
   type CategoryDbRow,
 } from "@/lib/categories/to-category-with-settings";
 import { getCategoryPathForRedirect } from "@/lib/categories/category-href-server";
-import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
 
 type PageProps = {
@@ -77,18 +76,12 @@ async function MarketCategoryPageBody({
     }
   }
 
-  const layoutKey =
-    tradeServerSeed?.queryKey ??
-    buildMarketBootstrapQueryKey(slugOrId, topicRaw, jkRaw || null, fsRaw || null, jeRaw || null, availRaw || null);
-
-  return (
-    <MarketCategoryPageClient layoutKey={layoutKey} tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />
-  );
+  return <MarketCategoryPageClient tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />;
 }
 
 export default function MarketCategoryPage({ params, searchParams }: PageProps) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+    <Suspense fallback={<MarketCategoryRouteFallback />}>
       <MarketCategoryPageBody paramsPromise={params} searchParamsPromise={searchParams} />
     </Suspense>
   );

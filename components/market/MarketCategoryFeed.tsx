@@ -38,6 +38,7 @@ import {
 } from "@/lib/ui/network-policy";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
+import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
 
 /**
  * 마켓 2행 주제 칩 — `categories.parent_id = 이 메뉴 id` 인 하위만 표시.
@@ -45,6 +46,8 @@ import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-sw
  */
 
 type FeedFilterChild = { id: string; slug: string | null };
+
+const TOPIC_PREFETCH_TS_MAX_KEYS = 80;
 
 export function MarketCategoryFeed({
   category,
@@ -75,8 +78,13 @@ export function MarketCategoryFeed({
     initialChildrenForFilter !== undefined ? initialChildrenForFilter : null
   );
   const topicPrefetchAtRef = useRef<Record<string, number>>({});
-  const initialPrewarmDoneRef = useRef(false);
+  /** 선두 3칩 프리워밍은 카테고리 id 단위로만 1회(Strict Mode 이중 마운트·불리언 플래그 누락 방지) */
+  const headTopicPrewarmedCategoryIdRef = useRef<string | null>(null);
   const { tabs, activeIndex } = useTradeTabs(pathname);
+
+  useEffect(() => {
+    topicPrefetchAtRef.current = {};
+  }, [category.id]);
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
 
@@ -228,41 +236,34 @@ export function MarketCategoryFeed({
     canGoPrev: canSwipePrev,
   });
 
+  /**
+   * 인접 탭·스와이프: 즉시 `router.prefetch` + URL 기반 피드 선채움,
+   * 탭 key 기반 이웃 카테고리 피드는 idle(380ms)로 한 묶음 정리·취소.
+   */
   useEffect(() => {
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      const targets = new Set<string>();
-      const nextTabHref = tabs[activeIndex + 1]?.href;
-      const prevTabHref = tabs[activeIndex - 1]?.href;
-      if (nextTabHref) targets.add(nextTabHref);
-      if (prevTabHref) targets.add(prevTabHref);
-      const edgeNext = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-      const edgePrev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-      if (edgeNext) targets.add(edgeNext);
-      if (edgePrev) targets.add(edgePrev);
-      for (const href of targets) {
-        void router.prefetch(href);
-      }
-    }, 300);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [tabs, activeIndex, router]);
 
-  /** `/market/*` 스와이프 시 다음 화면의 RSC 준비를 idle 전 즉시 시작한다. */
-  useEffect(() => {
-    if (tabs.length === 0 || activeIndex < 0) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-    const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-    if (next) void router.prefetch(next);
-    if (prev) void router.prefetch(prev);
+    let cancelled = false;
+
+    /** 즉시 prewarm 한 부모 id — idle 단계에서 탭 key 와 중복 요청 방지 */
+    const tradeParentsWarmedFromHref = new Set<string>();
+
+    const targets = new Set<string>();
+    const nextTabHref = tabs[activeIndex + 1]?.href;
+    const prevTabHref = tabs[activeIndex - 1]?.href;
+    if (nextTabHref) targets.add(nextTabHref);
+    if (prevTabHref) targets.add(prevTabHref);
+    const edgeNext = resolveTradeSwipeTarget(tabs, activeIndex, "next");
+    const edgePrev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
+    if (edgeNext) targets.add(edgeNext);
+    if (edgePrev) targets.add(edgePrev);
+
     const prewarmTradeSurfaceHref = (href: string) => {
       const pathOnly = (href.split("?")[0] ?? "").trim();
       if (!pathOnly) return;
       if (pathOnly === "/market") {
-        /** /market 루트는 HomeProductList(getPostsForHome) 캐시를 먼저 채워 즉시 리스트 렌더를 유도 */
         const homeHit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
         if (!homeHit?.posts?.length) {
           void getPostsForHome({ page: 1, sort: "latest", type: null, tradeState: "latest" });
@@ -277,6 +278,8 @@ export function MarketCategoryFeed({
       } catch {
         /* noop */
       }
+      const parentNorm = parent.normalize("NFC");
+      tradeParentsWarmedFromHref.add(parentNorm);
       const hit = peekCachedTradeFeed([], {
         page: 1,
         sort: postSort,
@@ -292,21 +295,22 @@ export function MarketCategoryFeed({
         });
       }
     };
-    if (next) prewarmTradeSurfaceHref(next);
-    if (prev) prewarmTradeSurfaceHref(prev);
-  }, [tabs, activeIndex, router]);
 
-  useEffect(() => {
-    if (tabs.length === 0 || activeIndex < 0) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    for (const href of targets) {
+      void router.prefetch(href);
+      prewarmTradeSurfaceHref(href);
+    }
+
     const idleId = scheduleWhenBrowserIdle(() => {
+      if (cancelled) return;
       const neighborKeys: string[] = [];
       const next = tabs[activeIndex + 1];
       const prev = tabs[activeIndex - 1];
       if (next && next.key !== "all") neighborKeys.push(next.key);
       if (prev && prev.key !== "all") neighborKeys.push(prev.key);
       for (const parentCategoryId of neighborKeys) {
+        const pid = parentCategoryId.trim().normalize("NFC");
+        if (tradeParentsWarmedFromHref.has(pid)) continue;
         const hit = peekCachedTradeFeed([], {
           page: 1,
           sort: postSort,
@@ -322,8 +326,12 @@ export function MarketCategoryFeed({
         });
       }
     }, 380);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [tabs, activeIndex, postSort]);
+
+    return () => {
+      cancelled = true;
+      cancelScheduledWhenBrowserIdle(idleId);
+    };
+  }, [tabs, activeIndex, router, postSort]);
 
   const prefetchTopicFeed = useCallback(
     (topicKey: string) => {
@@ -342,6 +350,7 @@ export function MarketCategoryFeed({
       const last = topicPrefetchAtRef.current[throttleKey] ?? 0;
       if (now - last < 10_000) return;
       topicPrefetchAtRef.current[throttleKey] = now;
+      capRecordByOldestTimestamps(topicPrefetchAtRef.current, TOPIC_PREFETCH_TS_MAX_KEYS);
       void getPostsByTradeCategoryIds([], {
         page: 1,
         sort: postSort,
@@ -352,61 +361,67 @@ export function MarketCategoryFeed({
     [category.id, postSort]
   );
 
+  /**
+   * 주제 칩 피드 프리패치 단일 경로: 카테고리당 1회 칩 선두 3개 + 선택 기준 인접 2개 즉시 + 인접 3개 idle.
+   * (이전 3분할 effect 중복·정리 비용 제거)
+   */
   useEffect(() => {
     if (children.length === 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    if (initialPrewarmDoneRef.current) return;
-    initialPrewarmDoneRef.current = true;
-    const initialTargets = children
-      .map((c) => (c.slug?.trim() || c.id).normalize("NFC"))
-      .filter(Boolean)
-      .slice(0, 3);
-    for (const key of initialTargets) {
-      prefetchTopicFeed(key);
-    }
-  }, [children, prefetchTopicFeed]);
 
-  useEffect(() => {
-    if (children.length === 0) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    let cancelled = false;
+
+    if (headTopicPrewarmedCategoryIdRef.current !== category.id) {
+      const headKeys = children
+        .map((c) => (c.slug?.trim() || c.id).normalize("NFC"))
+        .filter(Boolean)
+        .slice(0, 3);
+      if (headKeys.length === 0) {
+        headTopicPrewarmedCategoryIdRef.current = category.id;
+      } else {
+        for (const key of headKeys) {
+          if (cancelled) return;
+          prefetchTopicFeed(key);
+        }
+        if (!cancelled) {
+          headTopicPrewarmedCategoryIdRef.current = category.id;
+        }
+      }
+    }
+
     const selectedIndex = children.findIndex((c) => {
       const slug = c.slug?.trim().normalize("NFC");
       return (slug && slug === topicRaw) || c.id === topicRaw;
     });
     const center = selectedIndex >= 0 ? selectedIndex : 0;
-    const immediateTargets = children
-      .map((c, index) => ({ key: (c.slug?.trim() || c.id).normalize("NFC"), dist: Math.abs(index - center) }))
+    const keysByProximity = children
+      .map((c, index) => ({
+        key: (c.slug?.trim() || c.id).normalize("NFC"),
+        dist: Math.abs(index - center),
+      }))
       .filter((item) => item.key && item.dist > 0)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 2);
-    for (const item of immediateTargets) {
-      prefetchTopicFeed(item.key);
-    }
-  }, [children, topicRaw, prefetchTopicFeed]);
+      .sort((a, b) => (a.dist !== b.dist ? a.dist - b.dist : a.key.localeCompare(b.key)));
 
-  useEffect(() => {
-    if (children.length === 0) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const selectedIndex = children.findIndex((c) => {
-      const slug = c.slug?.trim().normalize("NFC");
-      return (slug && slug === topicRaw) || c.id === topicRaw;
-    });
-    const center = selectedIndex >= 0 ? selectedIndex : 0;
-    const ordered = children
-      .map((c, index) => ({ key: (c.slug?.trim() || c.id).normalize("NFC"), dist: Math.abs(index - center) }))
-      .filter((item) => item.key && item.dist > 0)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 3);
+    for (const row of keysByProximity.slice(0, 2)) {
+      if (cancelled) return;
+      prefetchTopicFeed(row.key);
+    }
+
+    const idleKeys = keysByProximity.slice(0, 3).map((r) => r.key);
     const idleId = scheduleWhenBrowserIdle(() => {
-      for (const item of ordered) {
-        prefetchTopicFeed(item.key);
+      if (cancelled) return;
+      for (const key of idleKeys) {
+        prefetchTopicFeed(key);
       }
     }, 120);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [children, topicRaw, prefetchTopicFeed]);
+
+    return () => {
+      cancelled = true;
+      cancelScheduledWhenBrowserIdle(idleId);
+    };
+  }, [children, topicRaw, prefetchTopicFeed, category.id]);
+
   const secondaryHeaderNode = useMemo(() => {
     const topicBlock =
       children.length > 0 ? (

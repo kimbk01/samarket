@@ -40,3 +40,13 @@ export function pruneByAtMaxAgeAndMaxSize<K, V extends { at: number }>(
     map.delete(first);
   }
 }
+
+/**
+ * `{ key: timestamp }` 레코드 — 타임스탬프 오름차순으로 잘라 장시간 체류 시 키 무한 증가 방지.
+ */
+export function capRecordByOldestTimestamps(map: Record<string, number>, maxKeys: number): void {
+  const keys = Object.keys(map);
+  if (keys.length <= maxKeys) return;
+  keys.sort((a, b) => (map[a] ?? 0) - (map[b] ?? 0));
+  for (let i = 0; i < keys.length - maxKeys; i++) delete map[keys[i]!];
+}
