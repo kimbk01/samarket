@@ -8,6 +8,7 @@ import {
   POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS,
   POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
   stripPostListBlockTopMargin,
+  type PostListBodyBlock,
   type PostListPreviewModel,
 } from "@/lib/posts/post-list-preview-model";
 import {
@@ -85,6 +86,29 @@ export function PostListPreviewColumn({
           );
         })}
       </>
+    );
+  }
+
+  function renderPreviewBodyParagraph(b: PostListBodyBlock, i: number, wrapClassName: string) {
+    if (b.row === "jobs_pay_row" && b.jobsPayRow) {
+      const { label, amount } = b.jobsPayRow;
+      return (
+        <p key={i} className={`${wrapClassName} flex flex-wrap items-baseline gap-x-1`}>
+          <span className={`shrink-0 ${POST_LIST_META_LINE_CLASS}`}>{label}</span>
+          {amount ? (
+            <span className={`shrink-0 ${POST_LIST_PRICE_TEXT_CLASS}`}>{amount}</span>
+          ) : null}
+        </p>
+      );
+    }
+    const rePriceRow =
+      b.row === "real_estate_price"
+        ? `${wrapClassName} flex flex-wrap items-baseline gap-x-1`
+        : wrapClassName;
+    return (
+      <p key={i} className={rePriceRow}>
+        {b.row === "real_estate_price" ? renderRealEstatePriceLine(b.text) : b.text}
+      </p>
     );
   }
 
@@ -196,22 +220,20 @@ export function PostListPreviewColumn({
     <>
       <div className={previewStackClass}>
         {listingRow}
-        {preview.bodyBlocks.map((b, i) => (
-          <p key={i} className={`${stripPostListBlockTopMargin(b.className)} shrink-0`}>
-            {b.row === "real_estate_price" ? renderRealEstatePriceLine(b.text) : b.text}
-          </p>
-        ))}
+        {preview.bodyBlocks.map((b, i) =>
+          renderPreviewBodyParagraph(
+            b,
+            i,
+            `${stripPostListBlockTopMargin(b.className)} shrink-0`,
+          ),
+        )}
         {listFooterBlock}
       </div>
     </>
   ) : (
     <>
       {listingRow}
-      {preview.bodyBlocks.map((b, i) => (
-        <p key={i} className={b.className}>
-          {b.row === "real_estate_price" ? renderRealEstatePriceLine(b.text) : b.text}
-        </p>
-      ))}
+      {preview.bodyBlocks.map((b, i) => renderPreviewBodyParagraph(b, i, b.className))}
       {listFooterBlock}
     </>
   );

@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
   const fsParam = req.nextUrl.searchParams.get("fs");
   const jeParam = req.nextUrl.searchParams.get("je");
   const availParam = req.nextUrl.searchParams.get("avail");
+  const jrParam = req.nextUrl.searchParams.get("jr");
+  const jcParam = req.nextUrl.searchParams.get("jc");
 
   const viewerUserId = await getOptionalAuthenticatedUserId();
   const result = await loadMarketBootstrapPayload(postsClients, {
@@ -40,6 +42,8 @@ export async function GET(req: NextRequest) {
     fsParam,
     jeParam,
     availParam,
+    jrParam,
+    jcParam,
   });
 
   if (!result.ok) {

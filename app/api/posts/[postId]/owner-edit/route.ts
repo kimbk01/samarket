@@ -84,6 +84,13 @@ export async function GET(
       meta: postRow.meta && typeof postRow.meta === "object" ? (postRow.meta as Record<string, unknown>) : null,
       is_free_share: postRow.is_free_share === true,
       is_price_offer: postRow.is_price_offer === true,
+      work_days: Array.isArray(postRow.work_days) ? (postRow.work_days as string[]) : null,
+      headcount: postRow.headcount != null ? Number(postRow.headcount) : null,
+      experience_required:
+        typeof postRow.experience_required === "string" ? postRow.experience_required : null,
+      work_start_date:
+        postRow.work_start_date != null ? String(postRow.work_start_date).slice(0, 10) : null,
+      work_end_date: postRow.work_end_date != null ? String(postRow.work_end_date).slice(0, 10) : null,
     },
     tradePolicy: {
       lifecycleStatus: lifecycle,

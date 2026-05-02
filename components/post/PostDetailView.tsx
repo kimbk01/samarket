@@ -22,14 +22,11 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
-import {
-  JOB_LISTING_KIND_LABELS,
-  JOB_TYPE_LABELS,
-  WORK_TERM_LABELS,
-  PAY_TYPE_LABELS,
-  EXPERIENCE_LEVEL_LABELS,
-  jobWorkCategoryDisplay,
-} from "@/lib/jobs/form-options";
+import { resolveJobDetailDirection } from "@/lib/jobs/resolve-job-detail-direction";
+import { JobDetailHeader } from "@/components/jobs/JobDetailHeader";
+import { JobDetailContextNote } from "@/components/jobs/JobDetailContextNote";
+import { JobHiringDetailCards } from "@/components/jobs/JobHiringDetailCards";
+import { JobSeekingDetailCards } from "@/components/jobs/JobSeekingDetailCards";
 import { CURRENCY_SYMBOLS, formatPrepKeysForDisplay } from "@/lib/exchange/form-options";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -175,92 +172,6 @@ function hasJobsMeta(meta: Record<string, unknown>): boolean {
     meta.work_term != null ||
     meta.pay_type != null ||
     meta.company_name != null
-  );
-}
-
-function JobsMetaBlock({
-  meta,
-  price,
-  currency,
-}: {
-  meta: Record<string, unknown>;
-  price?: number | null;
-  currency: string;
-}) {
-  const listingKind = (meta.listing_kind as string)?.trim();
-  const jobType = (meta.job_type as string)?.trim();
-  const workCategory = jobWorkCategoryDisplay(meta);
-  const workTerm = (meta.work_term as string)?.trim();
-  const experienceLevel = (meta.experience_level as string)?.trim();
-  const availableTime = (meta.available_time as string)?.trim();
-  const workDateStart = (meta.work_date_start as string)?.trim();
-  const workDateEnd = (meta.work_date_end as string)?.trim();
-  const workTimeStart = (meta.work_time_start as string)?.trim();
-  const workTimeEnd = (meta.work_time_end as string)?.trim();
-  const workNegotiable = meta.work_negotiable === true;
-  const payType = (meta.pay_type as string)?.trim();
-  const payAmount = meta.pay_amount != null ? Number(meta.pay_amount) : price ?? null;
-  const sameDayPay = meta.same_day_pay === true;
-  const noMinors = meta.no_minors === true;
-  const companyName = (meta.company_name as string)?.trim();
-  const workAddress = (meta.work_address as string)?.trim();
-
-  const payLabel =
-    payAmount != null && !Number.isNaN(payAmount)
-      ? `${PAY_TYPE_LABELS[payType] ?? payType} ${formatPrice(payAmount, currency)}${sameDayPay ? " (당일 지급)" : ""}`
-      : null;
-
-  const dateRange =
-    workDateStart && workDateEnd
-      ? `${workDateStart} ~ ${workDateEnd}`
-      : workDateStart
-        ? workDateStart
-        : null;
-  const timeRange =
-    workTimeStart && workTimeEnd ? `${workTimeStart} ~ ${workTimeEnd}` : workTimeStart ? workTimeStart : null;
-
-  const rows: { label: string; value: string }[] = [];
-  if (listingKind && JOB_LISTING_KIND_LABELS[listingKind]) {
-    rows.push({ label: "글 유형", value: JOB_LISTING_KIND_LABELS[listingKind] });
-  } else if (jobType === "hire" || jobType === "seek") {
-    rows.push({
-      label: "글 유형",
-      value: jobType === "seek" ? JOB_LISTING_KIND_LABELS.work : JOB_LISTING_KIND_LABELS.hire,
-    });
-  } else if (jobType) {
-    rows.push({ label: "구인 유형", value: JOB_TYPE_LABELS[jobType] ?? jobType });
-  }
-  if (workCategory) rows.push({ label: "업종", value: workCategory });
-  if (workTerm) rows.push({ label: "근무 형태", value: WORK_TERM_LABELS[workTerm] ?? workTerm });
-  if (dateRange) rows.push({ label: "일하는 날짜", value: dateRange });
-  if (timeRange) rows.push({ label: "일하는 시간", value: timeRange + (workNegotiable ? " (협의 가능)" : "") });
-  if (availableTime) rows.push({ label: "가능한 시간", value: availableTime });
-  if (experienceLevel) {
-    rows.push({
-      label: "경력",
-      value: EXPERIENCE_LEVEL_LABELS[experienceLevel] ?? experienceLevel,
-    });
-  }
-  if (payLabel) rows.push({ label: "급여", value: payLabel });
-  if (noMinors) rows.push({ label: "미성년자", value: "불가" });
-  if (companyName) rows.push({ label: "업체명", value: companyName });
-  if (workAddress) rows.push({ label: "일하는 장소", value: workAddress });
-
-  if (rows.length === 0) return null;
-
-  return (
-    <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>알바 정보</h3>
-      <p className={`mb-3 mt-1 ${TRADE_FB_DETAIL_META_HELP}`}>연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
-      <dl className="space-y-2 text-[15px] leading-snug">
-        {rows.map(({ label, value }) => (
-          <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
-            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
-            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </>
   );
 }
 
@@ -593,6 +504,9 @@ function TradePostDetailActionBar({
   onSellerOffersOpen,
   onTradeAdOpen,
   showJobApplyBtn,
+  /** 구인: 지원·문의 단일 버튼(채팅 중복 숨김) */
+  jobHireMergedApplyChatBtn,
+  showJobSeekContactBtn,
   jobApplyBusy,
   jobApplyDone,
   onJobApply,
@@ -608,6 +522,9 @@ function TradePostDetailActionBar({
   bottomBarHasOfferBtn: boolean;
   bottomBarHasChatBtn: boolean;
   showJobApplyBtn: boolean;
+  jobHireMergedApplyChatBtn: boolean;
+  /** 구직 글 — 채팅 열기 전 초안 연락 CTA(동일 핸들러) */
+  showJobSeekContactBtn: boolean;
   jobApplyBusy: boolean;
   jobApplyDone: boolean;
   onJobApply: () => void | Promise<void>;
@@ -670,7 +587,44 @@ function TradePostDetailActionBar({
                   className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
                 />
               ) : null}
-              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobApplyBtn ? (
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobApplyBtn && jobHireMergedApplyChatBtn ? (
+                <button
+                  type="button"
+                  onClick={() => void (jobApplyDone ? onChat() : onJobApply())}
+                  onPointerEnter={jobApplyDone ? scheduleTradeChatPrepare : undefined}
+                  onPointerLeave={jobApplyDone ? cancelTradeChatPrepare : undefined}
+                  onPointerDown={jobApplyDone ? onTradeChatCtaPointerDown : undefined}
+                  disabled={
+                    jobApplyBusy ||
+                    (jobApplyDone &&
+                      (!uiTradeChatEnabled ||
+                        chatBlockedByListingState ||
+                        chatCtaBusy ||
+                        chatBlockedByOtherReservation))
+                  }
+                  className={`${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`}
+                  title={
+                    jobApplyDone && chatBlockedByCompleted
+                      ? "거래완료 상품입니다"
+                      : jobApplyDone && chatBlockedByReservedState
+                        ? "예약중 입니다."
+                        : jobApplyDone && chatBlockedByOtherReservation
+                          ? "다른 구매자와 예약이 진행 중입니다"
+                          : jobApplyDone && !uiTradeChatEnabled
+                            ? "채팅이 비활성화되어 있습니다"
+                            : undefined
+                  }
+                >
+                  {jobApplyBusy
+                    ? "처리 중…"
+                    : jobApplyDone
+                      ? chatCtaBusy
+                        ? "이동 중…"
+                        : tradeChatCtaLabel
+                      : "지원·문의하기"}
+                </button>
+              ) : null}
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobApplyBtn && !jobHireMergedApplyChatBtn ? (
                 <button
                   type="button"
                   onClick={() => void onJobApply()}
@@ -680,7 +634,28 @@ function TradePostDetailActionBar({
                   {jobApplyDone ? "지원 완료" : jobApplyBusy ? "처리 중…" : "지원하기"}
                 </button>
               ) : null}
-              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && bottomBarHasChatBtn ? (
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobSeekContactBtn ? (
+                <button
+                  type="button"
+                  onClick={onChat}
+                  onPointerEnter={scheduleTradeChatPrepare}
+                  onPointerLeave={cancelTradeChatPrepare}
+                  onPointerDown={onTradeChatCtaPointerDown}
+                  disabled={
+                    !uiTradeChatEnabled ||
+                    chatBlockedByListingState ||
+                    chatCtaBusy ||
+                    chatBlockedByOtherReservation
+                  }
+                  className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
+                >
+                  연락하기
+                </button>
+              ) : null}
+              {!buyerOfferListHydrating &&
+              !showBuyerOfferPendingDisabled &&
+              bottomBarHasChatBtn &&
+              !jobHireMergedApplyChatBtn ? (
                 <button
                   type="button"
                   onClick={onChat}
@@ -694,7 +669,7 @@ function TradePostDetailActionBar({
                     chatBlockedByOtherReservation
                   }
                   className={
-                    bottomBarHasOfferBtn || showJobApplyBtn
+                    bottomBarHasOfferBtn || (showJobApplyBtn && !jobHireMergedApplyChatBtn) || showJobSeekContactBtn
                       ? `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`
                       : TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA
                   }
@@ -1464,16 +1439,11 @@ export function PostDetailView({
   const isJobTradePost =
     post.trade_type === "job" ||
     String(detailMetaJob.trade_chat_kind ?? "").toLowerCase() === "job";
-  const showJobApplyBtn =
-    !isOwnPost &&
-    isJobTradePost &&
-    listingKindJob === "hire" &&
-    post.status === "active" &&
-    resolvedViewerId != null;
-
-  const buyerActionsCount =
-    Number(bottomBarHasOfferBtn) + Number(showJobApplyBtn) + Number(bottomBarHasChatBtn);
-  const bottomActionsRowClass = buyerActionsCount >= 2 ? "flex-row" : "flex-col";
+  const isJobsDetailUi =
+    post.trade_type === "job" ||
+    category?.icon_key === "jobs" ||
+    category?.icon_key === "job" ||
+    hasJobsMeta(detailMetaJob);
 
   /** 알림(가격 제안 도착) 진입 — 판매자만 받은 제안 모달 오픈 후 쿼리 제거 (`useLayoutEffect`: 네비 직후 깜빡임·타이밍 이슈 완화) */
   useLayoutEffect(() => {
@@ -1615,9 +1585,46 @@ export function PostDetailView({
     prefetchTradeChatShell();
   }, [post, resolvedViewerId, uiTradeChatEnabled, prefetchTradeChatShell]);
 
-  const chatCtaLabel = "채팅하기";
+  const jobTypeForChatCta = String(detailMetaJob.job_type ?? "").trim();
+  const isJobSeekForChatCta =
+    isJobTradePost && (listingKindJob === "work" || jobTypeForChatCta === "seek");
+  const chatCtaLabel = isJobSeekForChatCta
+    ? "채팅하기"
+    : isJobTradePost
+      ? "문의하기"
+      : "채팅하기";
   const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
 
+  const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
+  const showJobApplyBtn =
+    isJobsDetailUi &&
+    jobDetailDirection === "hiring" &&
+    String(detailMetaJob.listing_kind ?? "").trim() === "hire" &&
+    !isOwnPost &&
+    postStatusLower === "active";
+  const showJobSeekContactBtn =
+    isJobsDetailUi &&
+    jobDetailDirection === "seeking" &&
+    !isOwnPost &&
+    bottomBarHasChatBtn &&
+    !existingTradeRoomId;
+
+  /** 구인 글: 지원 API 후 곧바로 동일 거래 채팅으로 이동하므로 별도 「문의하기」 버튼은 두지 않음 */
+  const showJobHireMergedApplyChatBtn = showJobApplyBtn;
+  const bottomBarHasSeparateChatBtn = bottomBarHasChatBtn && !showJobHireMergedApplyChatBtn;
+
+  const buyerActionsCount =
+    Number(bottomBarHasOfferBtn) +
+    Number(showJobHireMergedApplyChatBtn) +
+    Number(showJobSeekContactBtn) +
+    Number(bottomBarHasSeparateChatBtn);
+  const bottomActionsRowClass = buyerActionsCount >= 2 ? "flex-row" : "flex-col";
+
+  /**
+   * 구인 글 — 지원하기: `job_applications` 행만 추가(API). 문의/채팅/연락은 모두 `handleChat` →
+   * 거래 채팅 허브의 상품 연동 방(`openCreateTradeChat`)으로 통일되며 Philife 쪽지 등과 별도다.
+   * 지원 처리 직후 같은 채팅으로 이어져 고용주와 바로 대화할 수 있게 한다.
+   */
   const handleJobApply = useCallback(async () => {
     if (!resolvedViewerId || jobApplyBusy || jobApplyDone) return;
     setJobApplyBusy(true);
@@ -1635,17 +1642,19 @@ export function PostDetailView({
       };
       if (res.ok && data.ok) {
         setJobApplyDone(true);
+        void handleChat();
         return;
       }
       if (res.status === 409 || data.code === "duplicate_application") {
         setJobApplyDone(true);
+        void handleChat();
         return;
       }
       setChatError(typeof data.error === "string" ? data.error : "지원에 실패했습니다.");
     } finally {
       setJobApplyBusy(false);
     }
-  }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id]);
+  }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id, handleChat]);
 
   const listingLocationLine = useMemo(() => {
     const re =
@@ -1929,6 +1938,8 @@ export function PostDetailView({
           bottomBarHasOfferBtn={bottomBarHasOfferBtn}
           bottomBarHasChatBtn={bottomBarHasChatBtn}
           showJobApplyBtn={showJobApplyBtn}
+          jobHireMergedApplyChatBtn={showJobHireMergedApplyChatBtn}
+          showJobSeekContactBtn={showJobSeekContactBtn}
           jobApplyBusy={jobApplyBusy}
           jobApplyDone={jobApplyDone}
           onJobApply={handleJobApply}
@@ -1972,6 +1983,8 @@ export function PostDetailView({
     ? stripUsedCarTradeDirectionFromDetailTitle(post.title ?? "")
     : post.title ?? "";
 
+  const jobsSkipImagePlaceholder = isJobsDetailUi && detailImageUrls.length === 0;
+
   const detailMetaAny = (() => {
     const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
     const hasUsedCarMeta =
@@ -2002,7 +2015,7 @@ export function PostDetailView({
   return (
     <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
       <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
-        {!usedCarBuyNoImages ? (
+        {!usedCarBuyNoImages && !jobsSkipImagePlaceholder ? (
           <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {detailImageUrls.length === 0 ? (
               <div className="relative flex w-full items-center justify-center overflow-hidden bg-[#f0f2f5]">
@@ -2026,42 +2039,58 @@ export function PostDetailView({
         ) : null}
 
         <section className={TRADE_WRITE_FB_SECTION}>
-          <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
-          {showPrice && (() => {
-            const isRealEstate = category?.icon_key === "real-estate";
-            const meta = post.meta as Record<string, unknown> | undefined;
-            const dealType = meta?.deal_type as string | undefined;
-            if (isRealEstate && dealType === "임대") return null;
-            return (
-              <p className={TRADE_FB_DETAIL_PRICE}>
-                {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
-              </p>
-            );
-          })()}
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
-            {post.is_price_offer === true ? (
-              <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                가격 제안 가능
-              </span>
-            ) : null}
-            {category?.icon_key === "used-car" &&
-              (() => {
-                const lab = getCarTradeLabelKo(post.meta as Record<string, unknown> | undefined);
-                if (!lab) return null;
+          {isJobsDetailUi ? (
+            <JobDetailHeader
+              post={post}
+              meta={(post.meta as Record<string, unknown>) ?? {}}
+              currency={defaultCurrency}
+              direction={jobDetailDirection}
+              isSoldOpacity={isSold}
+            />
+          ) : (
+            <>
+              <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
+              {showPrice ? (() => {
+                const isRealEstate = category?.icon_key === "real-estate";
+                const meta = post.meta as Record<string, unknown> | undefined;
+                const dealType = meta?.deal_type as string | undefined;
+                if (isRealEstate && dealType === "임대") return null;
                 return (
-                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                    {lab}
-                  </span>
+                  <p className={TRADE_FB_DETAIL_PRICE}>
+                    {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
+                  </p>
                 );
-              })()}
-            {post.is_free_share && (
-              <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">나눔</span>
-            )}
-            {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
-              <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">직거래</span>
-            )}
-          </div>
+              })() : null}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
+                {post.is_price_offer === true ? (
+                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                    가격 제안 가능
+                  </span>
+                ) : null}
+                {category?.icon_key === "used-car" &&
+                  (() => {
+                    const lab = getCarTradeLabelKo(post.meta as Record<string, unknown> | undefined);
+                    if (!lab) return null;
+                    return (
+                      <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                        {lab}
+                      </span>
+                    );
+                  })()}
+                {post.is_free_share && (
+                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                    나눔
+                  </span>
+                )}
+                {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
+                  <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
+                    직거래
+                  </span>
+                )}
+              </div>
+            </>
+          )}
           {showBuyerOfferStatus ? (
             <OfferStatusBuyer
               productId={post.id}
@@ -2094,7 +2123,7 @@ export function PostDetailView({
         </section>
 
         <section className={TRADE_WRITE_FB_SECTION}>
-          <div className="flex flex-col gap-3">
+          <div className={`flex flex-col ${isJobsDetailUi ? "gap-2" : "gap-3"}`}>
             {(() => {
               const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
               const hasUsedCarMeta =
@@ -2118,40 +2147,54 @@ export function PostDetailView({
               }
               return null;
             })()}
-            {((category?.icon_key === "jobs" || category?.icon_key === "job") ||
-              hasJobsMeta((post.meta as Record<string, unknown>) ?? {})) && (
-              <JobsMetaBlock
-                meta={(post.meta as Record<string, unknown>) ?? {}}
-                price={post.price ?? null}
-                currency={defaultCurrency}
-              />
-            )}
-            {((category?.icon_key === "exchange") || hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
-              <ExchangeMetaBlock
-                meta={(post.meta as Record<string, unknown>) ?? {}}
-                amount={post.price ?? null}
-                currency={defaultCurrency}
-              />
-            )}
-            {category?.icon_key &&
-              category.icon_key !== "used-car" &&
-              category.icon_key !== "jobs" &&
-              category.icon_key !== "job" &&
-              category.icon_key !== "exchange" &&
-              post.meta &&
-              Object.keys(post.meta).length > 0 && (
-                <TradeMetaBlock
-                  skinKey={category.icon_key}
-                  meta={post.meta as Record<string, unknown>}
-                  post={post}
-                  defaultCurrency={defaultCurrency}
-                />
-              )}
+            {isJobsDetailUi ? (
+              <>
+                <JobDetailContextNote direction={jobDetailDirection} />
+                {jobDetailDirection === "hiring" ? (
+                  <JobHiringDetailCards
+                    post={post}
+                    meta={(post.meta as Record<string, unknown>) ?? {}}
+                    currency={defaultCurrency}
+                  />
+                ) : (
+                  <JobSeekingDetailCards
+                    post={post}
+                    meta={(post.meta as Record<string, unknown>) ?? {}}
+                    currency={defaultCurrency}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                {((category?.icon_key === "exchange") ||
+                  hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
+                  <ExchangeMetaBlock
+                    meta={(post.meta as Record<string, unknown>) ?? {}}
+                    amount={post.price ?? null}
+                    currency={defaultCurrency}
+                  />
+                )}
+                {category?.icon_key &&
+                  category.icon_key !== "used-car" &&
+                  category.icon_key !== "jobs" &&
+                  category.icon_key !== "job" &&
+                  category.icon_key !== "exchange" &&
+                  post.meta &&
+                  Object.keys(post.meta).length > 0 && (
+                    <TradeMetaBlock
+                      skinKey={category.icon_key}
+                      meta={post.meta as Record<string, unknown>}
+                      post={post}
+                      defaultCurrency={defaultCurrency}
+                    />
+                  )}
 
-            <div className={detailMetaAny ? "border-t border-[#e4e6eb] pt-3" : ""}>
-              <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
-              <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
-            </div>
+                <div className={detailMetaAny ? "border-t border-[#e4e6eb] pt-3" : ""}>
+                  <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
+                  <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
+                </div>
+              </>
+            )}
           </div>
 
           {detailFooterMetaParts.length > 0 ? (
@@ -2186,6 +2229,8 @@ export function PostDetailView({
         bottomBarHasOfferBtn={bottomBarHasOfferBtn}
         bottomBarHasChatBtn={bottomBarHasChatBtn}
         showJobApplyBtn={showJobApplyBtn}
+        jobHireMergedApplyChatBtn={showJobHireMergedApplyChatBtn}
+        showJobSeekContactBtn={showJobSeekContactBtn}
         jobApplyBusy={jobApplyBusy}
         jobApplyDone={jobApplyDone}
         onJobApply={handleJobApply}

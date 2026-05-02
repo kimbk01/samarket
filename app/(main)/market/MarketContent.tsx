@@ -11,13 +11,101 @@ import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug"
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
-import { getPostsByTradeCategoryIds, peekCachedTradeFeed } from "@/lib/posts/getPostsByCategory";
+import { getCategoryHref } from "@/lib/categories/getCategoryHref";
+import type { CategoryWithSettings } from "@/lib/categories/types";
+import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
+import {
+  getPostsByTradeCategoryIds,
+  readFreshTradeFeedClientCache,
+  type GetPostsByCategoryOptions,
+} from "@/lib/posts/getPostsByCategory";
+import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 import { getPostsForHome, peekCachedPostsForHome } from "@/lib/posts/getPostsForHome";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+
+function resolveTradeCategoryForMarketPath(
+  pathOnly: string,
+  categories: CategoryWithSettings[]
+): CategoryWithSettings | null {
+  const p = pathOnly.trim();
+  for (const cat of categories) {
+    if (cat.type !== "trade") continue;
+    if (getCategoryHref(cat) === p) return cat;
+  }
+  return null;
+}
+
+/**
+ * `/market/[slug]?…` 쿼리와 `PostListByCategory` · API 계약 정합.
+ * 일자리 전용 `jk`/`je`/… 는 알바 상위 마켓일 때만 넣어 캐시 키가 어긋나지 않게 한다.
+ */
+function peekOrWarmMarketCategoryFeedFromHref(
+  href: string,
+  tradeCategories: CategoryWithSettings[]
+): void {
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+  let url: URL;
+  try {
+    url = new URL(href, origin);
+  } catch {
+    return;
+  }
+  const pathOnly = url.pathname.trim();
+  const m = pathOnly.match(/^\/market\/([^/]+)$/);
+  if (!m) return;
+  let parent = m[1]!;
+  try {
+    parent = decodeURIComponent(parent);
+  } catch {
+    /* noop */
+  }
+
+  const matched = resolveTradeCategoryForMarketPath(pathOnly, tradeCategories);
+  const isJobMarket = matched ? isTradeJobMarketCategory(matched) : false;
+
+  const topicRaw = (url.searchParams.get("topic") ?? "").trim().normalize("NFC");
+  const sort = parseTradeFeedSortQuery(url.searchParams.get("sort") ?? url.searchParams.get("fs"));
+
+  let jobsListingKind: GetPostsByCategoryOptions["jobsListingKind"];
+  const extras: Pick<
+    GetPostsByCategoryOptions,
+    "jobEmploymentType" | "todayAvailable" | "jobRegionSlug" | "jobIndustrySlug"
+  > = {};
+
+  if (isJobMarket) {
+    const jkRaw = (url.searchParams.get("jk") ?? "").trim();
+    jobsListingKind = jkRaw === "hire" || jkRaw === "work" ? jkRaw : undefined;
+    const je = (url.searchParams.get("je") ?? "").trim();
+    const avail = url.searchParams.get("avail");
+    const jr = (url.searchParams.get("jr") ?? "").trim().toLowerCase();
+    const jc = (url.searchParams.get("jc") ?? "").trim().toLowerCase();
+    if (je) extras.jobEmploymentType = je;
+    if (avail === "1") extras.todayAvailable = true;
+    if (jr) extras.jobRegionSlug = jr;
+    if (jc) extras.jobIndustrySlug = jc;
+  }
+
+  const useUnfilteredMarketParentFeed =
+    jobsListingKind !== "hire" && jobsListingKind !== "work" && !topicRaw;
+
+  const base = {
+    page: 1,
+    sort,
+    tradeMarketParent: parent,
+    ...extras,
+  };
+
+  const options: GetPostsByCategoryOptions = useUnfilteredMarketParentFeed
+    ? { ...base, topic: "" }
+    : { ...base, topic: topicRaw, ...(jobsListingKind ? { jobsListingKind } : {}) };
+
+  if (readFreshTradeFeedClientCache([], options)) return;
+  void getPostsByTradeCategoryIds([], options);
+}
 
 const HomeFeedViewExperimental = dynamic(
   () =>
@@ -49,12 +137,11 @@ export function MarketContent({
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
 }) {
-  recordTradeListMetricOnce("trade_list_home_content_render_start_ms");
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tradeState = searchParams.get("tradeState") ?? "";
-  const { tabs, activeIndex } = useTradeTabs(pathname);
+  const { tabs, activeIndex, tradeCategories } = useTradeTabs(pathname);
 
   const feedSwipeableRef = useRef<HTMLDivElement | null>(null);
   const [feedSwipeOn, setFeedSwipeOn] = useState(false);
@@ -97,34 +184,23 @@ export function MarketContent({
   });
 
   useLayoutEffect(() => {
+    recordTradeListMetricOnce("trade_list_home_content_render_start_ms");
     recordTradeListMetricOnce("trade_list_home_content_render_end_ms");
   }, []);
 
+  /** 인접 탭: 단일 idle 작업으로 prefetch + 피드 프리웜(이전에는 동일 URL에 prefetch가 즉시·지연 이중 호출됨) */
   useEffect(() => {
     if (tabs.length === 0 || activeIndex < 0) return;
     if (isConstrainedNetwork()) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      const targets = new Set<string>();
-      const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-      const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-      if (next) targets.add(next);
-      if (prev) targets.add(prev);
-      for (const href of targets) {
-        void router.prefetch(href);
-      }
-    }, 300);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [tabs, activeIndex, router]);
 
-  useEffect(() => {
-    if (tabs.length === 0 || activeIndex < 0) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
     const next = resolveTradeSwipeTarget(tabs, activeIndex, "next");
     const prev = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-    if (next) void router.prefetch(next);
-    if (prev) void router.prefetch(prev);
+    const targets = new Set<string>();
+    if (next) targets.add(next);
+    if (prev) targets.add(prev);
+    if (targets.size === 0) return;
+
     const prewarmTradeSurfaceHref = (href: string) => {
       const pathOnly = (href.split("?")[0] ?? "").trim();
       if (!pathOnly) return;
@@ -137,30 +213,17 @@ export function MarketContent({
       }
       const m = pathOnly.match(/^\/market\/([^/]+)$/);
       if (!m) return;
-      let parent = m[1]!;
-      try {
-        parent = decodeURIComponent(parent);
-      } catch {
-        /* noop */
-      }
-      const hit = peekCachedTradeFeed([], {
-        page: 1,
-        sort: "latest",
-        tradeMarketParent: parent,
-        topic: "",
-      });
-      if (!hit?.posts?.length) {
-        void getPostsByTradeCategoryIds([], {
-          page: 1,
-          sort: "latest",
-          tradeMarketParent: parent,
-          topic: "",
-        });
-      }
+      peekOrWarmMarketCategoryFeedFromHref(href, tradeCategories);
     };
-    if (next) prewarmTradeSurfaceHref(next);
-    if (prev) prewarmTradeSurfaceHref(prev);
-  }, [tabs, activeIndex, router]);
+
+    const idleId = scheduleWhenBrowserIdle(() => {
+      for (const href of targets) {
+        void router.prefetch(href);
+        prewarmTradeSurfaceHref(href);
+      }
+    }, 300);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [tabs, activeIndex, router, tradeCategories]);
 
   useEffect(() => {
     const cancelWarm = warmMainShellData();

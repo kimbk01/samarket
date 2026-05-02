@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
@@ -67,7 +67,10 @@ export function HomeProductList({
 }) {
   const searchParams = useSearchParams();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
-  const HOME_POST_LIST_OPTIONS = { sort: "latest" as const, type: null, tradeState };
+  const homePostListOptions = useMemo<GetPostsForHomeOptions>(
+    () => ({ sort: "latest", type: null, tradeState }),
+    [tradeState]
+  );
   const { tt } = useI18n();
   const hydrationSeed = getHydrationSafeBoot(tradeState, initialHomeTradeFeed);
   const [listState, setListState] = useState<ListState>(() =>
@@ -160,8 +163,8 @@ export function HomeProductList({
 
     const boot =
       tradeState === "latest" && allowRscHomeListSeedRef.current
-        ? initialHomeTradeFeed ?? peekCachedPostsForHome(HOME_POST_LIST_OPTIONS)
-        : peekCachedPostsForHome(HOME_POST_LIST_OPTIONS);
+        ? initialHomeTradeFeed ?? peekCachedPostsForHome(homePostListOptions)
+        : peekCachedPostsForHome(homePostListOptions);
     const merged = boot ?? peekRecentHomePostsFallback();
 
     if (merged) {
@@ -330,13 +333,12 @@ export function HomeProductList({
   const listClass = TRADE_FEED_LIST_WRAP_CLASS;
   const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
 
-  if (!showLoading && !showError && !showEmpty) {
-    recordTradeListMetricOnce("trade_list_product_list_render_start_ms");
-    recordTradeListMetricOnce("trade_list_first_render_map_item_count", visiblePosts.length);
-  }
-
   useLayoutEffect(() => {
     if (showLoading || showError || showEmpty) return;
+    const mapItemCount =
+      posts.length === 0 ? 0 : visibleCount > 0 ? Math.min(posts.length, visibleCount) : posts.length;
+    recordTradeListMetricOnce("trade_list_product_list_render_start_ms");
+    recordTradeListMetricOnce("trade_list_first_render_map_item_count", mapItemCount);
     recordTradeListMetricOnce("trade_list_product_list_render_end_ms");
     const root = listMeasureRef.current;
     if (!root) return;
@@ -351,7 +353,7 @@ export function HomeProductList({
       recordTradeListMetricOnce("trade_list_initial_visible_card_count", initialVisibleCount);
     }
     recordTradeListMetricOnce("trade_list_first_render_image_component_count", root.querySelectorAll("img").length);
-  }, [showEmpty, showError, showLoading, visiblePosts.length]);
+  }, [showEmpty, showError, showLoading, visibleCount, posts.length]);
 
   if (showLoading) {
     return (

@@ -14,6 +14,9 @@ import {
   buildTradePostsStatusAndCategoryAndFilter,
   buildTradePostsStatusAndTradeCategoryOnlyAndFilter,
 } from "./trade-posts-category-filter";
+import { jobRegionConstraintForSlug } from "@/lib/jobs/job-list-region-db-filter";
+import { jobCategoryValuesForIndustrySlug } from "@/lib/jobs/job-list-industry-db-filter";
+import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 
 /** listing_kind 필터 시 DB를 순차 스캔하는 최대 청크 수(getPostsByCategory 와 동일) */
 export const MAX_JOB_LISTING_KIND_CHUNKS = 120;
@@ -109,7 +112,7 @@ export function mapPostRowsToTradeList(data: unknown[]): PostWithMeta[] {
   });
 }
 
-export type TradePostSort = "latest" | "popular" | "pay_desc";
+export type TradePostSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
 export type TradeFeedQueryExtras = {
   /** 마켓 부모가 알바 메뉴일 때 서버가 좁힘 */
@@ -117,6 +120,10 @@ export type TradeFeedQueryExtras = {
   jobEmploymentType?: string;
   /** 근무 시작일 ≤ 오늘 ≤ 근무 종료일(또는 종료일 없음) */
   todayAvailable?: boolean;
+  /** 일자리 마켓 `jr=` */
+  jobRegionSlug?: JobListRegionSlug;
+  /** 일자리 마켓 `jc=` */
+  jobIndustrySlug?: JobListIndustrySlug;
 };
 
 function buildTradeFeedAndFilter(ids: string[]): string {
@@ -157,6 +164,32 @@ export async function fetchPostsRangeForTradeCategories(
         .lte("work_start_date", today)
         .or(`work_end_date.is.null,work_end_date.gte.${today}`);
     }
+
+    const jr = extras?.jobRegionSlug;
+    if (jr) {
+      const c = jobRegionConstraintForSlug(jr);
+      if (c?.type === "region") {
+        q2 = q2.eq("region", c.regionId);
+      } else if (c?.type === "region_city") {
+        q2 = q2.eq("region", c.regionId).eq("city", c.cityId);
+      } else if (c?.type === "or_cities") {
+        const parts = c.cityIds.map(
+          (cityId) => `and(region.eq.${c.regionId},city.eq.${cityId})`
+        );
+        q2 = q2.or(parts.join(","));
+      } else if (c?.type === "region_ilike") {
+        q2 = q2.ilike("region", `%${c.regionPattern}%`);
+      }
+    }
+
+    const jind = extras?.jobIndustrySlug;
+    if (jind) {
+      const cats = jobCategoryValuesForIndustrySlug(jind);
+      if (cats.length > 0) {
+        q2 = q2.eq("trade_type", "job").in("job_category", cats);
+      }
+    }
+
     return q2;
   };
 
@@ -166,6 +199,13 @@ export async function fetchPostsRangeForTradeCategories(
     }
     if (sort === "pay_desc") {
       return q.order("pay_amount", { ascending: false }).order("created_at", { ascending: false });
+    }
+    if (sort === "chat_desc") {
+      return q.order("chat_count", { ascending: false }).order("created_at", { ascending: false });
+    }
+    if (sort === "near") {
+      /** 지역 프록시: `city` 오름차순 후 최신순 (실거리 정렬은 추후 확장) */
+      return q.order("city", { ascending: true }).order("created_at", { ascending: false });
     }
     return q.order("view_count", { ascending: false }).order("created_at", { ascending: false });
   };

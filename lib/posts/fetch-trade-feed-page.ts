@@ -13,6 +13,7 @@ import {
   type TradeFeedQueryExtras,
   type TradePostSort,
 } from "@/lib/posts/trade-posts-range-query";
+import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 
 export type TradeFeedPageSort = TradePostSort;
 
@@ -23,17 +24,23 @@ export type TradeFeedPageOptions = {
   restrictTradeTypeJob?: boolean;
   jobEmploymentType?: string;
   todayAvailable?: boolean;
+  jobRegionSlug?: JobListRegionSlug;
+  jobIndustrySlug?: JobListIndustrySlug;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
   const restrictTradeTypeJob = opts.restrictTradeTypeJob === true;
   const je = opts.jobEmploymentType?.trim();
   const todayAvailable = opts.todayAvailable === true;
-  if (!restrictTradeTypeJob && !je && !todayAvailable) return undefined;
+  const jr = opts.jobRegionSlug;
+  const jc = opts.jobIndustrySlug;
+  if (!restrictTradeTypeJob && !je && !todayAvailable && !jr && !jc) return undefined;
   return {
     restrictTradeTypeJob: restrictTradeTypeJob || undefined,
     jobEmploymentType: je || undefined,
     todayAvailable: todayAvailable || undefined,
+    jobRegionSlug: jr || undefined,
+    jobIndustrySlug: jc || undefined,
   };
 }
 
@@ -49,7 +56,8 @@ export async function fetchTradeFeedPage(
 
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
-  const jobKind = options.jobsListingKind;
+  const restrictJob = options.restrictTradeTypeJob === true;
+  const jobKind = restrictJob ? options.jobsListingKind : undefined;
   const queryExtras = buildQueryExtras(options);
   const PAGE_SIZE = PAGE_SIZE_TRADE_FEED;
 

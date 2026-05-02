@@ -21,4 +21,10 @@ export type OwnerEditPostSnapshot = {
   meta: Record<string, unknown> | null;
   is_free_share: boolean;
   is_price_offer: boolean;
+  /** 일자리(trade_type=job) 컬럼 — owner-edit SELECT에 포함될 때만 */
+  work_days?: string[] | null;
+  headcount?: number | null;
+  experience_required?: string | null;
+  work_start_date?: string | null;
+  work_end_date?: string | null;
 };

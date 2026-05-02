@@ -1,7 +1,4 @@
-import type {
-  PostListBodyBlock,
-  PostListPreviewModel,
-} from "@/lib/posts/post-list-preview-model";
+import type { PostListBodyBlock, PostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 
 /** 채팅 목록 본문 — 부동산 1·2단과 동일 타이포 (중고·차·환전·알바 공통) */
 export const CHAT_LIST_ROW_LINE_PRIMARY =
@@ -70,17 +67,16 @@ function compactRealEstateChatRow(preview: PostListPreviewModel): PostListPrevie
   };
 }
 
-/** 알바: 구인유형·제목·급여 한 줄 + 판매자·위치(시간 제외) */
+/** 알바: 제목 / 급여(`jobs_pay_row`) / 업종·조건(`jobs_meta_row`) */
 function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel {
   const sellerText = preview.bodyBlocks.find((b) => b.row === "seller")?.text?.trim() ?? "";
   const rows = preview.bodyBlocks.filter((b) => b.row !== "seller");
   const jobChip = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
-  const [b0, b1, b2] = rows;
-  const title = b0?.text ?? "";
-  const pay = b1?.text ?? "";
-  const loc = b2?.text ? locationOnlyFromPipeRow(b2.text) : "";
-  const line1 = [jobChip, title, pay].filter(Boolean).join(" · ");
-  const line2 = [sellerText, loc].filter(Boolean).join(" · ");
+  const title = rows[0]?.text ?? "";
+  const payText = rows.find((b) => b.row === "jobs_pay_row")?.text ?? "";
+  const metaText = rows.find((b) => b.row === "jobs_meta_row")?.text ?? "";
+  const line1 = [jobChip, title, payText, metaText].filter(Boolean).join(" · ");
+  const line2 = sellerText;
   const out: PostListBodyBlock[] = [
     { className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 || title || "상품" },
   ];
@@ -95,7 +91,7 @@ function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel
   };
 }
 
-/** 중고차: 칩·차종(굵은 텍스트)·가격 한 줄 + 모델·년식 한 줄 (피드 2·3단과 동일 소스) */
+/** 중고차: 1줄에 칩·차종·가격 / 2줄에 모델·연식(본문 1단과 동일 문자열) */
 function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewModel {
   const chip = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
   const trail = preview.listingRowBoldText?.trim() ?? "";

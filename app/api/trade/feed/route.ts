@@ -2,12 +2,17 @@ import { NextRequest } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { parseJobEmploymentFilterParam } from "@/lib/jobs/job-employment-filter";
+import {
+  parseJobListIndustryParam,
+  parseJobListRegionParam,
+} from "@/lib/jobs/job-list-url-params";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-parent-param";
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
+import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 import type { TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
@@ -24,13 +29,6 @@ function parsePage(raw: string | null): number {
   const n = Number(raw);
   if (!Number.isFinite(n)) return 1;
   return Math.max(1, Math.floor(n));
-}
-
-function parseSort(raw: string | null): TradeFeedPageSort {
-  const s = (raw ?? "").trim().toLowerCase();
-  if (s === "popular") return "popular";
-  if (s === "pay_desc") return "pay_desc";
-  return "latest";
 }
 
 function parseJobKind(raw: string | null): JobListingKindFilter | undefined {
@@ -60,7 +58,7 @@ async function tradeMarketParentJobRestriction(
  * Query:
  * - `tradeMarketParent` + 선택 `topic` — 서버에서 `categories` 트리를 펼쳐 필터 id 계산
  * - 또는 `categoryIds=id1,id2` — 레거시·직접 나열
- * - 알바: `jk`, `je`, `avail=1`, `fs` (정렬)
+ * - 일자리 마켓: `jk`, `je`, `avail=1`, `jr`, `jc`, `sort`(및 레거시 `fs`)
  */
 export async function GET(req: NextRequest) {
   const clients = resolvePostsReadClients(req);
@@ -94,15 +92,23 @@ export async function GET(req: NextRequest) {
   }
 
   const page = parsePage(searchParams.get("page"));
-  const sort = parseSort(searchParams.get("sort"));
-  const jobsListingKind = parseJobKind(searchParams.get("jk"));
-  const jobEmploymentType = parseJobEmploymentFilterParam(searchParams.get("je"));
-  const todayAvailable = searchParams.get("avail") === "1";
+  const sortRaw = searchParams.get("sort") ?? searchParams.get("fs");
+  const sort = parseTradeFeedSortQuery(sortRaw) as TradeFeedPageSort;
 
   const restrictTradeTypeJob = await tradeMarketParentJobRestriction(
     clients.readSb as SupabaseClient<any>,
     tradeMarketParent
   );
+
+  const jobsListingKind = restrictTradeTypeJob ? parseJobKind(searchParams.get("jk")) : undefined;
+  const jobEmploymentType = restrictTradeTypeJob
+    ? parseJobEmploymentFilterParam(searchParams.get("je"))
+    : undefined;
+  const todayAvailable = restrictTradeTypeJob && searchParams.get("avail") === "1";
+  const jobRegionSlug = restrictTradeTypeJob ? parseJobListRegionParam(searchParams.get("jr")) : undefined;
+  const jobIndustrySlug = restrictTradeTypeJob
+    ? parseJobListIndustryParam(searchParams.get("jc"))
+    : undefined;
 
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
@@ -115,6 +121,8 @@ export async function GET(req: NextRequest) {
       restrictTradeTypeJob,
       jobEmploymentType,
       todayAvailable,
+      jobRegionSlug,
+      jobIndustrySlug,
     },
     viewerId
   );

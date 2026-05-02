@@ -7,7 +7,7 @@ import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 
-export type TradeFeedClientSort = "latest" | "popular" | "pay_desc";
+export type TradeFeedClientSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
 export type TradeFeedClientOptions = {
   page?: number;
@@ -17,6 +17,8 @@ export type TradeFeedClientOptions = {
   topic?: string;
   jobEmploymentType?: string;
   todayAvailable?: boolean;
+  jobRegionSlug?: string;
+  jobIndustrySlug?: string;
 };
 
 export type TradeFeedClientResult = {
@@ -59,6 +61,8 @@ export function buildTradeFeedClientCacheKey(
   const u = viewerSegment.trim() || "anon";
   const je = options.jobEmploymentType?.trim().toLowerCase() ?? "";
   const av = options.todayAvailable === true ? "1" : "";
+  const jr = options.jobRegionSlug?.trim().toLowerCase() ?? "";
+  const jc = options.jobIndustrySlug?.trim().toLowerCase() ?? "";
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -66,14 +70,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|p:${page}|u:${u}:v3`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|p:${page}|u:${u}:v4`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|p:${page}|u:${u}:v3`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|p:${page}|u:${u}:v4`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */
@@ -87,7 +91,7 @@ export function invalidateAllTradeFeedClientCache(): void {
 export function invalidateTradeFeedClientCacheForViewer(viewerUserId: string): void {
   const u = viewerUserId.trim();
   if (!u) return;
-  const suffix = `|u:${u}:v3`;
+  const suffix = `|u:${u}:v4`;
   for (const k of [...tradeFeedClientCache.keys()]) {
     if (k.endsWith(suffix)) tradeFeedClientCache.delete(k);
   }

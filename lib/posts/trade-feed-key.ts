@@ -1,10 +1,12 @@
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 
-export type TradeFeedSort = "latest" | "popular" | "pay_desc";
+export type TradeFeedSort = "latest" | "popular" | "pay_desc" | "chat_desc" | "near";
 
 export type TradeFeedKeyExtras = {
   jobEmploymentType?: string;
   todayAvailable?: boolean;
+  jobRegionSlug?: string;
+  jobIndustrySlug?: string;
 };
 
 /** 서버 bootstrap 과 클라이언트 `PostListByCategory` 가 동일한지 판별 */
@@ -17,7 +19,9 @@ export function computeTradeFeedKey(
   const ids = [...new Set(filterCategoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const je = extras?.jobEmploymentType?.trim() ?? "";
   const av = extras?.todayAvailable ? "1" : "";
-  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}`;
+  const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
+  const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
+  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}`;
 }
 
 /**
@@ -35,5 +39,7 @@ export function computeTradeFeedKeyForMarketParent(
   const t = topicRaw.trim().normalize("NFC");
   const je = extras?.jobEmploymentType?.trim() ?? "";
   const av = extras?.todayAvailable ? "1" : "";
-  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}`;
+  const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
+  const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
+  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}`;
 }

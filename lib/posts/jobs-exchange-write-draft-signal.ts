@@ -1,4 +1,4 @@
-import { WORK_CATEGORY_OTHER } from "@/lib/jobs/form-options";
+import { WORK_CATEGORY_OTHER, type JobListingKind } from "@/lib/jobs/form-options";
 import type {
   ExchangeWriteMeetSpotStagingV1,
   JobsWriteMeetSpotStagingV1,
@@ -21,10 +21,26 @@ export function jobsWriteSessionDraftLooksMeaningful(args: {
   payAmount: string;
   companyName: string;
   tradeMeetSpot: TradeMeetSpotValue | null;
+  listingKind?: JobListingKind;
+  hireTimeNegotiable?: boolean;
+  hirePayNegotiable?: boolean;
+  hireWeekDays?: readonly string[];
+  hireWorkDaysDiscuss?: boolean;
+  hireHeadcount?: string;
+  hireTimeSlots?: readonly string[];
 }): boolean {
   if (args.editPostId) return false;
+  const hireSignal =
+    args.listingKind === "hire" &&
+    (args.hireTimeNegotiable === true ||
+      args.hirePayNegotiable === true ||
+      args.hireWorkDaysDiscuss === true ||
+      (args.hireWeekDays?.length ?? 0) > 0 ||
+      (args.hireHeadcount?.trim().length ?? 0) > 0 ||
+      (args.hireTimeSlots?.length ?? 0) > 0);
   return Boolean(
-    args.title.trim() ||
+    hireSignal ||
+      args.title.trim() ||
       args.description.trim() ||
       args.images.length > 0 ||
       args.tradeTopicChildId.trim() ||
@@ -38,18 +54,38 @@ export function jobsWriteSessionDraftLooksMeaningful(args: {
 
 /** 세션 스테이징 JSON만 있을 때 복구 시트 노출 여부 */
 export function jobsMeetSpotStagingLooksMeaningful(staged: JobsWriteMeetSpotStagingV1): boolean {
-  return jobsWriteSessionDraftLooksMeaningful({
-    editPostId: undefined,
-    title: staged.title ?? "",
-    description: staged.description ?? "",
-    images: staged.imageUrls ?? [],
-    tradeTopicChildId: staged.tradeTopicChildId ?? "",
-    workCategory: staged.workCategory ?? "",
-    workCategoryOther: staged.workCategoryOther ?? "",
-    payAmount: staged.payAmount ?? "",
-    companyName: staged.companyName ?? "",
-    tradeMeetSpot: null,
-  });
+  const seekExtras =
+    (staged.seekTimeSlotsPipe?.trim().length ?? 0) > 0 ||
+    (staged.seekLanguagesPipe?.trim().length ?? 0) > 0 ||
+    (staged.seekVisa?.trim().length ?? 0) > 0;
+  const hireExtras =
+    staged.hireTimeNegotiable === true ||
+    staged.hirePayNegotiable === true ||
+    staged.hireWorkDaysDiscuss === true ||
+    (staged.hireWeekDaysPipe?.trim().length ?? 0) > 0 ||
+    (staged.hireHeadcount?.trim().length ?? 0) > 0 ||
+    (staged.hireTimeSlotsPipe?.trim().length ?? 0) > 0;
+  return (
+    jobsWriteSessionDraftLooksMeaningful({
+      editPostId: undefined,
+      title: staged.title ?? "",
+      description: staged.description ?? "",
+      images: staged.imageUrls ?? [],
+      tradeTopicChildId: staged.tradeTopicChildId ?? "",
+      workCategory: staged.workCategory ?? "",
+      workCategoryOther: staged.workCategoryOther ?? "",
+      payAmount: staged.payAmount ?? "",
+      companyName: staged.companyName ?? "",
+      tradeMeetSpot: null,
+      listingKind: staged.listingKind === "work" ? "work" : "hire",
+      hireTimeNegotiable: staged.hireTimeNegotiable,
+      hirePayNegotiable: staged.hirePayNegotiable,
+      hireWeekDays: staged.hireWeekDaysPipe ? staged.hireWeekDaysPipe.split("|").filter(Boolean) : [],
+      hireWorkDaysDiscuss: staged.hireWorkDaysDiscuss,
+      hireHeadcount: staged.hireHeadcount,
+      hireTimeSlots: staged.hireTimeSlotsPipe ? staged.hireTimeSlotsPipe.split("|").filter(Boolean) : [],
+    }) || seekExtras || hireExtras
+  );
 }
 
 export function exchangeWriteSessionDraftLooksMeaningful(args: {

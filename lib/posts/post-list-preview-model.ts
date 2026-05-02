@@ -7,9 +7,12 @@ import { getLocationLabel } from "@/lib/products/form-options";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
 import {
+  EXPERIENCE_LEVEL_OPTIONS,
+  HIRE_WEEKDAY_OPTIONS,
   JOB_LISTING_KIND_LABELS,
   PAY_TYPE_LABELS,
   WORK_TERM_LABELS,
+  jobWorkCategoryDisplay,
 } from "@/lib/jobs/form-options";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
@@ -51,10 +54,6 @@ export const POST_LIST_TITLE_CLASS =
  */
 export const POST_LIST_TRADE_TITLE_CLASS =
   "mt-0.5 line-clamp-2 text-left text-[13px] font-medium leading-snug text-[#050505]";
-/**
- * 중고차 리스트 2단(차량명·연식) — `POST_LIST_TRADE_TITLE_CLASS`와 동일
- */
-export const POST_LIST_USED_CAR_SPEC_CLASS = POST_LIST_TRADE_TITLE_CLASS;
 /** 중고차 1단 — 삽니다/팝니다 칩 옆 차종(뱃지 아님·굵은 텍스트) */
 export const POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS =
   "min-w-0 text-[13px] font-semibold leading-snug text-[#050505]";
@@ -63,7 +62,7 @@ export const POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS =
  * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
  */
 export const POST_LIST_PRICE_TEXT_CLASS =
-  "sam-text-body-lg font-bold leading-tight text-[#1A1A1A]";
+  "sam-text-body-lg font-bold leading-tight tabular-nums text-[#1A1A1A]";
 
 /** 3단 금액 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
@@ -72,33 +71,46 @@ export const POST_LIST_PRICE_CLASS = `mt-0.5 ${POST_LIST_PRICE_TEXT_CLASS}`;
  * 제목과 분리해 금액만 일괄 조정할 때 이 상수만 수정한다.
  */
 export const POST_LIST_TRADE_PRICE_CLASS = POST_LIST_PRICE_CLASS;
-/** 부동산 3단(스pec)·보조 본문 — 커뮤니티 `ListBodyPreview`(13px #6B7280) */
-export const POST_LIST_SUBLINE_CLASS =
-  "mt-0.5 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[#6B7280]";
-/** 부동산 스펙 줄(유형·sq 등) — 헤드라인보다 한 단계 더 작게 */
-export const POST_LIST_REAL_ESTATE_SPEC_CLASS =
-  "mt-0.5 line-clamp-2 text-left text-[10px] font-normal leading-[1.45] text-[#9CA3AF]";
 /** 부동산 금액 줄 래퍼 — 타이포는 PostListPreviewColumn 부동산 금액 렌더에서 지정 */
 export const POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS = "mt-0.5 text-left";
-/** 부동산 금액 숫자·포맷(파싱된 금액 토큰) 강조 */
-export const POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS =
-  "text-[16px] font-bold leading-tight tabular-nums text-[#050505]";
-/** 부동산 금액 앞 라벨(매매·보증금·월세) — 숫자 대비 보조 */
-export const POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS =
-  "text-[11px] font-medium leading-tight text-[#6B7280]";
-/** 환전 리스트 3단(환율) — `POST_LIST_SUBLINE_CLASS`와 동일 */
-export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
 /**
  * 리스트 4단 메타 본문(마진 없음) — 커뮤니티 `ListMetaKarrot`(12px #6B7280)
  */
 export const POST_LIST_META_LINE_CLASS =
   "text-[12px] font-normal leading-[1.4] text-[#6B7280]";
+/**
+ * 부동산 리스트 금액 숫자 — 일자리 급여 금액과 동일 (`POST_LIST_PRICE_TEXT_CLASS`).
+ */
+export const POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS = `shrink-0 ${POST_LIST_PRICE_TEXT_CLASS}`;
+/**
+ * 매매·보증금·월세 라벨 — 일자리 급여 라벨·주소 줄과 동일 (`POST_LIST_META_LINE_CLASS`).
+ */
+export const POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS =
+  `shrink-0 ${POST_LIST_META_LINE_CLASS}`;
 /** 리스트 작성자(닉네임) 줄 — 메뉴/전체 공통 */
 export const POST_LIST_SELLER_LINE_CLASS =
   "text-[11px] font-medium leading-[1.4] text-[#050505]";
 
 /** 리스트 4단 메타 줄 — 윗 단과 간격 `mt-0.5` */
 export const POST_LIST_META_TEXT_CLASS = `mt-0.5 ${POST_LIST_META_LINE_CLASS}`;
+/** 카드 본문 줄 공통 — 상단 여백·2줄 클램프·flex 자식 `min-w-0` */
+export const POST_LIST_BODY_ROW_WRAP_CLASS = "mt-0.5 line-clamp-2 min-w-0";
+/**
+ * 거래 피드 리스트 보조 본문(부동산 유형·환전 환율·일자리 메타 등).
+ * 색·크기는 `POST_LIST_META_LINE_CLASS`와 동일.
+ */
+export const POST_LIST_TRADE_LIST_SECONDARY_CLASS =
+  `${POST_LIST_BODY_ROW_WRAP_CLASS} text-left ${POST_LIST_META_LINE_CLASS}`;
+/** 중고차 리스트 차량명·연식 — 일자리 제목 1행과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
+export const POST_LIST_USED_CAR_SPEC_CLASS = POST_LIST_TRADE_TITLE_CLASS;
+/** 부동산 리스트 유형·면적 등 스펙 줄 */
+export const POST_LIST_REAL_ESTATE_SPEC_CLASS = POST_LIST_TRADE_LIST_SECONDARY_CLASS;
+/** 환전 리스트 환율 줄 */
+export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_TRADE_LIST_SECONDARY_CLASS;
+/** 알바 리스트 2단: 급여(라벨=메타 타이포·금액 강조) — 래퍼만(`renderPreviewBodyParagraph`에서 타이포 분리) */
+export const POST_LIST_JOBS_PAY_ROW_CLASS = POST_LIST_BODY_ROW_WRAP_CLASS;
+/** 알바 리스트 3단: 업종·형태·근무 조건 — 거래 리스트 보조 본문 공통 래퍼 */
+export const POST_LIST_JOBS_META_ROW_CLASS = POST_LIST_TRADE_LIST_SECONDARY_CLASS;
 /** 환전 리스트 4단(위치|시간) — 11~12px Regular(400) #9E9E9E (`POST_LIST_META_TEXT_CLASS`와 동일) */
 export const POST_LIST_EXCHANGE_META_CLASS = POST_LIST_META_TEXT_CLASS;
 
@@ -122,7 +134,9 @@ export interface PostListBodyBlock {
   className: string;
   text: string;
   /** 판매자 닉네임 전용 줄 — 부동산·알바·환전 본문·채팅 압축에서 구분 */
-  row?: "seller" | "real_estate_price" | "meta_tail";
+  row?: "seller" | "real_estate_price" | "meta_tail" | "jobs_meta_row" | "jobs_pay_row";
+  /** `jobs_pay_row`: 급여 라벨(`POST_LIST_META_LINE_CLASS`) + 금액 강조 — `text` 평문 폴백 */
+  jobsPayRow?: { label: string; amount: string | null };
 }
 
 export interface PostListPreviewModel {
@@ -151,6 +165,25 @@ export interface PostListPreviewModel {
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
+}
+
+function hireWeekDaysShort(meta: Record<string, unknown>, row: Record<string, unknown>): string {
+  const pipe = str(meta.hire_week_days_pipe);
+  if (pipe) {
+    return pipe
+      .split("|")
+      .filter(Boolean)
+      .map((p) => HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p)?.label ?? p)
+      .join("/");
+  }
+  const wd = row.work_days;
+  if (Array.isArray(wd) && wd.length > 0) {
+    return wd
+      .map((x) => HIRE_WEEKDAY_OPTIONS.find((o) => o.value === String(x))?.label ?? String(x))
+      .join("/");
+  }
+  if (meta.hire_work_days_discuss === true) return "요일 협의";
+  return "";
 }
 
 /** `meta.exchange_direction` 우선, 없으면 제목에 삽니다/팝니다 포함 여부 */
@@ -399,10 +432,11 @@ export function buildPostListPreviewModel(
     const row = post as Record<string, unknown>;
     const kindRaw = str(meta.listing_kind);
     const legacyJobType = str(meta.job_type);
+    const isSeek = kindRaw === "work" || legacyJobType === "seek";
     const listingKindLabel =
       kindRaw && JOB_LISTING_KIND_LABELS[kindRaw]
         ? JOB_LISTING_KIND_LABELS[kindRaw]
-        : legacyJobType === "seek"
+        : isSeek
           ? JOB_LISTING_KIND_LABELS.work
           : JOB_LISTING_KIND_LABELS.hire;
     const payTypeMeta = str(meta.pay_type) || str(row.pay_type);
@@ -420,40 +454,96 @@ export function buildPostListPreviewModel(
         ? `${PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta} ${formatPrice(payAmountNum, currency)}`
         : null;
     const workAddressLabel = str(meta.work_address) || locationLabel || "";
+    const regionId = str(row.region);
+    const cityId = str(row.city);
+    const geoLabel =
+      regionId && cityId ? getLocationLabel(regionId, cityId) : locationLabel || workAddressLabel || "";
+
+    const wt = str(meta.work_term) || str(row.job_employment_type);
+    const wtLabel =
+      WORK_TERM_LABELS[wt] ?? (wt === "short" || wt === "one_day" ? "단기" : wt ? wt : "");
+
+    const industryLabel = jobWorkCategoryDisplay(meta);
 
     const listingChips: ListingChip[] = [];
     if (listingKindLabel) {
       listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
     }
-    const wt = str(meta.work_term) || str(row.job_employment_type);
-    const wtLabel = WORK_TERM_LABELS[wt];
-    if (wtLabel) {
-      listingChips.push({ text: wtLabel, className: POST_LIST_CHIP_GRAY });
-    } else if (wt === "short" || wt === "one_day") {
-      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY });
-    }
-    const appCnt = Number(row.application_count);
-    if (Number.isFinite(appCnt) && appCnt > 0) {
-      listingChips.push({
-        text: `지원 ${appCnt}`,
-        className: POST_LIST_CHIP_GRAY,
+
+    const titleLine = str(post.title) || "상품";
+    const blocks: PostListBodyBlock[] = [{ className: POST_LIST_TRADE_TITLE_CLASS, text: titleLine }];
+
+    if (!isSeek) {
+      const hirePayNegotiable = meta.hire_pay_negotiable === true || payTypeMeta === "negotiate";
+      const ptShort = PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta;
+      let payLabel: string;
+      let payAmount: string | null = null;
+      if (jobsPayLabel != null && payAmountNum != null && !Number.isNaN(payAmountNum)) {
+        payLabel = ptShort;
+        payAmount = formatPrice(payAmountNum, currency);
+      } else if (hirePayNegotiable) {
+        payLabel = "협의";
+      } else {
+        payLabel = "금액 문의";
+      }
+      const payPlain = payAmount ? `${payLabel} ${payAmount}` : payLabel;
+      blocks.push({
+        className: POST_LIST_JOBS_PAY_ROW_CLASS,
+        text: payPlain,
+        row: "jobs_pay_row",
+        jobsPayRow: { label: payLabel, amount: payAmount },
       });
-    }
-    if (meta.same_day_pay === true) {
-      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE });
+
+      const industryWt = [industryLabel, wtLabel].filter(Boolean).join(" · ");
+      const hts = str(row.work_start_time);
+      const hte = str(row.work_end_time);
+      const timeRange = hts || hte ? `${hts || "—"} ~ ${hte || "—"}` : "";
+      const daysPart = hireWeekDaysShort(meta, row);
+      const condTrim = [timeRange, daysPart].filter(Boolean).join(" · ").trim();
+      if (industryWt || condTrim) {
+        const plainMeta = [industryWt, condTrim].filter(Boolean).join(" · ");
+        blocks.push({
+          className: POST_LIST_JOBS_META_ROW_CLASS,
+          text: plainMeta,
+          row: "jobs_meta_row",
+        });
+      }
+    } else {
+      const seekNegotiate = payTypeMeta === "negotiate";
+      const ptShort = PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta;
+      let payLabel: string;
+      let payAmount: string | null = null;
+      if (jobsPayLabel != null && payAmountNum != null && !Number.isNaN(payAmountNum)) {
+        payLabel = `희망 ${ptShort}`;
+        payAmount = formatPrice(payAmountNum, currency);
+      } else if (seekNegotiate) {
+        payLabel = "희망 급여 협의";
+      } else {
+        payLabel = "희망 급여 문의";
+      }
+      const payPlain = payAmount ? `${payLabel} ${payAmount}` : payLabel;
+      blocks.push({
+        className: POST_LIST_JOBS_PAY_ROW_CLASS,
+        text: payPlain,
+        row: "jobs_pay_row",
+        jobsPayRow: { label: payLabel, amount: payAmount },
+      });
+
+      const industryWt = [industryLabel, wtLabel].filter(Boolean).join(" · ");
+      const avail = str(meta.available_time);
+      const expRaw = str(meta.experience_level);
+      const expLabel = EXPERIENCE_LEVEL_OPTIONS.find((o) => o.value === expRaw)?.label ?? "";
+      const condTrim = [avail, expLabel].filter(Boolean).join(" · ").trim();
+      if (industryWt || condTrim) {
+        const plainMeta = [industryWt, condTrim].filter(Boolean).join(" · ");
+        blocks.push({
+          className: POST_LIST_JOBS_META_ROW_CLASS,
+          text: plainMeta,
+          row: "jobs_meta_row",
+        });
+      }
     }
 
-    /** 2단 공고 제목 — 일반 중고 제목과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
-    const blocks: PostListBodyBlock[] = [
-      {
-        className: POST_LIST_TRADE_TITLE_CLASS,
-        text: str(post.title) || "상품",
-      },
-      {
-        className: POST_LIST_TRADE_PRICE_CLASS,
-        text: jobsPayLabel ?? "금액 문의",
-      },
-    ];
     return {
       thumbnailMode: "none",
       listKind: "jobs",
@@ -461,7 +551,7 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
-      listFooter: buildListFooter(post, "trade", workAddressLabel || "위치 미입력", locale, createdAt),
+      listFooter: buildListFooter(post, "trade", geoLabel || workAddressLabel || "위치 미입력", locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
   }
@@ -491,7 +581,7 @@ export function buildPostListPreviewModel(
         className: POST_LIST_TRADE_PRICE_CLASS,
         text: phpText,
       },
-      /** 3단 환율 — 13px #6B7280 (`POST_LIST_EXCHANGE_RATE_CLASS`) */
+      /** 3단 환율 — 거래 리스트 보조 본문 공통 (`POST_LIST_EXCHANGE_RATE_CLASS`) */
       {
         className: POST_LIST_EXCHANGE_RATE_CLASS,
         text: rateText,

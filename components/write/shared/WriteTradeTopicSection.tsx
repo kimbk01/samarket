@@ -54,7 +54,7 @@ export function WriteTradeTopicSection({
         )}
       </p>
       <div className={`flex flex-wrap items-center ${compact ? "gap-x-3 gap-y-1" : "gap-x-4 gap-y-2"}`}>
-        <label className="flex cursor-pointer items-center gap-2">
+        <label className="flex cursor-pointer touch-manipulation items-center gap-2 [-webkit-tap-highlight-color:transparent] active:opacity-75">
           <input
             type="checkbox"
             checked={value === ""}
@@ -66,7 +66,10 @@ export function WriteTradeTopicSection({
           <span className="sam-text-body text-sam-fg">전체</span>
         </label>
         {topics.map((t) => (
-          <label key={t.id} className="flex cursor-pointer items-center gap-2">
+          <label
+            key={t.id}
+            className="flex cursor-pointer touch-manipulation items-center gap-2 [-webkit-tap-highlight-color:transparent] active:opacity-75"
+          >
             <input
               type="checkbox"
               checked={value === t.id}

@@ -60,10 +60,6 @@ export const PostCard = memo(function PostCard({
   isFirstCard = false,
   footer,
 }: PostCardProps) {
-  bumpTradeListProductCardRenderCount();
-  if (isFirstCard) {
-    recordTradeListMetricOnce("trade_list_first_card_render_start_ms");
-  }
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
@@ -108,8 +104,13 @@ export const PostCard = memo(function PostCard({
   const usedCarBuyEmptyThumbSlot =
     listKind === "used-car" && metaRecord?.car_trade === "buy" && !hasUsableThumbnail;
 
+  useEffect(() => {
+    bumpTradeListProductCardRenderCount();
+  });
+
   useLayoutEffect(() => {
     if (!isFirstCard) return;
+    recordTradeListMetricOnce("trade_list_first_card_render_start_ms");
     recordTradeListMetricOnce("trade_list_first_card_render_end_ms");
   }, [isFirstCard]);
 
@@ -204,7 +205,7 @@ export const PostCard = memo(function PostCard({
                 compactSpacing
               />
             ) : null}
-            <div className="mt-0 flex min-w-0 flex-col gap-0.5">
+              <div className="mt-0 flex min-w-0 flex-col gap-0.5">
               {locationLine || timeLabel ? (
                 <p
                   className="min-w-0 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
@@ -215,7 +216,9 @@ export const PostCard = memo(function PostCard({
               ) : null}
               <div className="flex min-w-0 items-center justify-between gap-1.5">
                 <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                  <TradeListingStatusBadge post={post} className="shrink-0" />
+                  {listKind !== "jobs" ? (
+                    <TradeListingStatusBadge post={post} className="shrink-0" />
+                  ) : null}
                   <p
                     className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
                     title={[authorDisplay, `조회 ${viewCount}`].join(" · ")}

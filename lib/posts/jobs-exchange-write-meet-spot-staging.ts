@@ -36,14 +36,37 @@ export type JobsWriteMeetSpotStagingV1 = {
   workDateEnd: string;
   workTimeStart: string;
   workTimeEnd: string;
-  sameDayPay: boolean;
+  /** @deprecated 구인 UI 제거 — 복원 시 무시 */
+  sameDayPay?: boolean;
   companyName: string;
   availableTime: string;
   experienceLevel: string;
-  tradeChatCallPolicy: string;
-  termsAgreed: boolean;
+  /** @deprecated 레거시 스냅샷만 — 저장 시 생략 */
+  tradeChatCallPolicy?: string;
+  /** @deprecated 레거시 스냅샷만 — 저장 시 생략 */
+  termsAgreed?: boolean;
   /** 업로드 반영 후 URL 목록 */
   imageUrls: string[];
+  /** 구직 전용 — 복원 시 `|` 분해 */
+  seekTimeSlotsPipe?: string;
+  seekLanguagesPipe?: string;
+  seekVisa?: string;
+  seekStart?: string;
+  seekStartDate?: string;
+  /** 구인 전용 (선택 키) */
+  hireTimeNegotiable?: boolean;
+  /** 구인 근무 시간대 — `JOB_SEEKER_TIME_SLOT_OPTIONS` 값을 `|` 로 직렬화 */
+  hireTimeSlotsPipe?: string;
+  hirePayNegotiable?: boolean;
+  hireWeekDaysPipe?: string;
+  hireWorkDaysDiscuss?: boolean;
+  hireHeadcount?: string;
+  hireGender?: string;
+  hireAgeNote?: string;
+  hireMeal?: boolean;
+  hireHousing?: boolean;
+  hireVisaNote?: string;
+  hireLanguagesPipe?: string;
 };
 
 function jobsKey(categoryId: string): string {

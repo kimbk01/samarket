@@ -43,6 +43,8 @@ async function MarketCategoryPageBody({
   const fsRaw = firstString(sp.fs);
   const jeRaw = firstString(sp.je);
   const availRaw = firstString(sp.avail);
+  const jrRaw = firstString(sp.jr);
+  const jcRaw = firstString(sp.jc);
 
   let tradeServerSeed: ReturnType<typeof tradeServerSeedFromBootstrapPayload> | null = null;
 
@@ -59,6 +61,8 @@ async function MarketCategoryPageBody({
       fsParam: fsRaw || null,
       jeParam: jeRaw || null,
       availParam: availRaw || null,
+      jrParam: jrRaw || null,
+      jcParam: jcRaw || null,
     });
 
     if (result.ok) {
@@ -70,6 +74,8 @@ async function MarketCategoryPageBody({
         fs: fsRaw || null,
         je: jeRaw || null,
         avail: availRaw || null,
+        jr: jrRaw || null,
+        jc: jcRaw || null,
       });
     } else if (result.httpStatus === 404) {
       notFound();

@@ -17,6 +17,7 @@ import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHead
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
+import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 
 function tradeSeedMatchesMarketSlug(seed: TradeCategoryServerSeed, slugOrId: string): boolean {
@@ -93,6 +94,9 @@ export function CategoryListLayout({
   const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">(() =>
     isTradeSeeded ? "found" : "loading"
   );
+  /** `load` 콜백 deps 에 category 를 넣지 않기 위해 — 일자리 `queryKey` 정규화 시 이중 fetch 방지 */
+  const categoryRef = useRef<CategoryWithSettings | null>(null);
+  categoryRef.current = category;
 
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -121,13 +125,22 @@ export function CategoryListLayout({
     const fsPad = searchParamsRef.current.get("fs")?.trim().toLowerCase() ?? "";
     const jePad = searchParamsRef.current.get("je")?.trim().toLowerCase() ?? "";
     const availPad = searchParamsRef.current.get("avail")?.trim() ?? "";
+    const jrPad = searchParamsRef.current.get("jr")?.trim().toLowerCase() ?? "";
+    const jcPad = searchParamsRef.current.get("jc")?.trim().toLowerCase() ?? "";
+    const jobMarket =
+      (tradeServerSeed != null && isTradeJobMarketCategory(tradeServerSeed.category)) ||
+      (categoryRef.current != null && isTradeJobMarketCategory(categoryRef.current));
+    const omitJobListFilters = !jobMarket;
     const urlKey = buildMarketBootstrapQueryKey(
       slugOrId,
       topic,
       jkPad || null,
       fsPad || null,
       jePad || null,
-      availPad || null
+      availPad || null,
+      jrPad || null,
+      jcPad || null,
+      { omitJobListFilters }
     );
 
     if (expectedType === "trade" && tradeServerSeed && tradeServerSeed.queryKey === urlKey) {
@@ -175,14 +188,22 @@ export function CategoryListLayout({
         const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase();
         const je = searchParamsRef.current.get("je")?.trim().toLowerCase();
         const avail = searchParamsRef.current.get("avail")?.trim().toLowerCase();
+        const jr = searchParamsRef.current.get("jr")?.trim().toLowerCase();
+        const jc = searchParamsRef.current.get("jc")?.trim().toLowerCase();
         const qs = new URLSearchParams();
         qs.set("q", slugOrId.trim());
         qs.set("includePosts", "1");
         if (topic) qs.set("topic", topic);
-        if (jk === "work" || jk === "hire") qs.set("jk", jk);
-        if (fs === "popular" || fs === "pay_desc") qs.set("fs", fs);
-        if (je) qs.set("je", je);
-        if (avail === "1") qs.set("avail", "1");
+        if (!omitJobListFilters) {
+          if (jk === "work" || jk === "hire") qs.set("jk", jk);
+          if (je) qs.set("je", je);
+          if (avail === "1") qs.set("avail", "1");
+          if (jr) qs.set("jr", jr);
+          if (jc) qs.set("jc", jc);
+        }
+        if (fs === "popular" || fs === "pay_desc" || fs === "chat_desc" || fs === "near") {
+          qs.set("fs", fs);
+        }
         const res = await fetch(`/api/categories/market-bootstrap?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",

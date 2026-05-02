@@ -7,6 +7,7 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 import type { MarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";
+import { isTradeJobMarketCategory } from "@/lib/market/is-trade-job-market-category";
 
 export type TradeCategoryServerSeed = {
   queryKey: string;
@@ -26,17 +27,26 @@ export function tradeServerSeedFromBootstrapPayload(
   topic: string,
   jk: string | null,
   payload: MarketBootstrapPayload,
-  feedQueryExtras?: { fs?: string | null; je?: string | null; avail?: string | null }
+  feedQueryExtras?: {
+    fs?: string | null;
+    je?: string | null;
+    avail?: string | null;
+    jr?: string | null;
+    jc?: string | null;
+  }
 ): TradeCategoryServerSeed {
+  const category = toCategoryWithSettings(payload.category as unknown as CategoryDbRow);
   const queryKey = buildMarketBootstrapQueryKey(
     slugParam,
     topic,
     jk,
     feedQueryExtras?.fs,
     feedQueryExtras?.je,
-    feedQueryExtras?.avail
+    feedQueryExtras?.avail,
+    feedQueryExtras?.jr,
+    feedQueryExtras?.jc,
+    { omitJobListFilters: !isTradeJobMarketCategory(category) }
   );
-  const category = toCategoryWithSettings(payload.category as unknown as CategoryDbRow);
   const children = (payload.children as unknown as CategoryDbRow[]).map(mapChildCategoryRow);
   return {
     queryKey,

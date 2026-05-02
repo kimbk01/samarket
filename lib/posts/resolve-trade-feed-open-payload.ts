@@ -3,6 +3,7 @@
  * `GET /api/trade/feed` · `loadMarketBootstrapPayload` 의 `initialFeed` 가 동일 구현을 쓰게 해 드리프트를 막는다.
  */
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
+import type { JobListIndustrySlug, JobListRegionSlug } from "@/lib/jobs/job-list-url-params";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { fetchTradeFeedPage, type TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
 import { getTradeFeedFavoriteMapCached } from "@/lib/posts/trade-feed-favorites-server-cache";
@@ -16,6 +17,8 @@ export type TradeFeedOpenRequestOptions = {
   restrictTradeTypeJob?: boolean;
   jobEmploymentType?: string;
   todayAvailable?: boolean;
+  jobRegionSlug?: JobListRegionSlug;
+  jobIndustrySlug?: JobListIndustrySlug;
 };
 
 export type TradeFeedOpenPayload = {
@@ -43,6 +46,8 @@ export async function resolveTradeFeedOpenPayload(
     restrictTradeTypeJob: opts.restrictTradeTypeJob,
     jobEmploymentType: opts.jobEmploymentType,
     todayAvailable: opts.todayAvailable,
+    jobRegionSlug: opts.jobRegionSlug,
+    jobIndustrySlug: opts.jobIndustrySlug,
   });
   if (
     result.posts.length === 0 &&
@@ -56,6 +61,8 @@ export async function resolveTradeFeedOpenPayload(
       restrictTradeTypeJob: opts.restrictTradeTypeJob,
       jobEmploymentType: opts.jobEmploymentType,
       todayAvailable: opts.todayAvailable,
+      jobRegionSlug: opts.jobRegionSlug,
+      jobIndustrySlug: opts.jobIndustrySlug,
     });
     if (alt.posts.length > 0) {
       result = alt;

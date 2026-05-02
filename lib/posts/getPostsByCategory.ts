@@ -36,6 +36,20 @@ export function peekCachedTradeFeed(
   return peekCachedTradeFeedRaw(categoryIds, options, tradeFeedCacheViewerSuffix());
 }
 
+/**
+ * TTL 내면 **글 0건** 캐시도 그대로 반환.
+ * `peekCachedTradeFeed`는 선채움·미리보기용으로 게시글이 있을 때만 반환해, 빈 목록이 TTL 안에 있어도 `peek`은 null이 된다.
+ */
+export function readFreshTradeFeedClientCache(
+  categoryIds: string[],
+  options: GetPostsByCategoryOptions = {}
+): GetPostsByCategoryResult | null {
+  const viewerSeg = tradeFeedCacheViewerSuffix();
+  const hit = readTradeFeedClientCache(categoryIds, options, viewerSeg);
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  return hit.data;
+}
+
 export function primeTradeFeedCache(
   categoryIds: string[],
   options: GetPostsByCategoryOptions,
@@ -92,6 +106,10 @@ export async function getPostsByTradeCategoryIds(
     const je = options.jobEmploymentType?.trim();
     if (je) params.set("je", je);
     if (options.todayAvailable === true) params.set("avail", "1");
+    const jr = options.jobRegionSlug?.trim().toLowerCase();
+    if (jr) params.set("jr", jr);
+    const jc = options.jobIndustrySlug?.trim().toLowerCase();
+    if (jc) params.set("jc", jc);
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {
