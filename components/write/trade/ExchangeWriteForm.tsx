@@ -60,8 +60,6 @@ import {
 import { getAppSettings } from "@/lib/app-settings";
 import { formatPriceInput } from "@/lib/utils/format";
 import {
-  EXCHANGE_CURRENCIES,
-  CURRENCY_LABELS,
   CURRENCY_SYMBOLS,
   DEFAULT_RATES_PHP_BASE,
   EXCHANGE_DIRECTION_OPTIONS,
@@ -80,7 +78,8 @@ import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/W
 import { APP_TRADE_WRITE_FORM_FB_STACK_CLASS } from "@/lib/ui/app-content-layout";
 import {
   TRADE_WRITE_FB_SECTION,
-  TRADE_WRITE_FB_BLOCK_TITLE,
+  TRADE_WRITE_FB_INPUT_REGION_BAR,
+  TRADE_WRITE_FB_INPUT_REGION_TITLE,
   TRADE_WRITE_FB_FIELD_HEAD,
   TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
@@ -99,6 +98,19 @@ interface ExchangeWriteFormProps {
 
 
 const REFRESH_INTERVAL_MS = 2 * 60 * 60 * 1000;
+
+/** 환전 카드 — 참고 띠·입력 행·금액 행 공통 (한 곳만 수정해 정렬·타이포 유지) */
+const EXCHANGE_WRITE_REFERENCE_BAR_CLASS =
+  "flex min-h-[40px] items-center justify-between gap-3 bg-slate-800 px-3 py-2.5 text-white";
+const EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS =
+  "mb-1.5 flex min-h-[38px] flex-col justify-end gap-0.5";
+const EXCHANGE_WRITE_FIELD_TITLE_CLASS = "text-[12px] font-semibold leading-[1.2] text-[#050505]";
+const EXCHANGE_WRITE_FIELD_HINT_CLASS =
+  "text-[11px] font-normal leading-[1.25] text-[#65676B]";
+const EXCHANGE_WRITE_INPUT_ROW_CLASS =
+  "flex h-11 w-full items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3";
+const EXCHANGE_WRITE_INPUT_CLASS =
+  "min-h-0 min-w-0 flex-1 border-0 bg-transparent p-0 text-[15px] font-normal leading-none text-sam-fg outline-none placeholder:text-sam-meta";
 
 function formatRatesCriteria(date: Date): string {
   const m = date.getMonth() + 1;
@@ -306,10 +318,6 @@ export function ExchangeWriteForm({
         : null;
     setTradeMeetSpot(tradeMeetSpotFromMetaSnapshot(ts));
   }, [editPostId, ownerEditSnapshot]);
-
-  /** 항상 페소↔한화. 저장/표시는 "1 PHP = X KRW"로 통일. */
-  const fromCurrency = "PHP";
-  const toCurrency = "KRW";
 
   /** 쓰기 화면 진입 시점에 현재 환율 조회 (우리 API → 서버가 외부 API 호출) */
   useEffect(() => {
@@ -730,12 +738,13 @@ export function ExchangeWriteForm({
   );
 
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
-  const baseRates = liveRates ?? DEFAULT_RATES_PHP_BASE;
-  const ratesForBoard = useMemo(() => {
-    const result: Record<string, number> = { PHP: 1 };
-    result.KRW = rateValue > 0 ? rateValue : (baseRates.KRW ?? 0);
-    return result;
-  }, [rateValue, baseRates]);
+
+  /** 참고 시세 한 줄용 — API·정적 기준만(작성 중 입력값과 무관). 로딩 여부는 UI에서만 분기 */
+  const referenceKrwMid = useMemo(
+    () =>
+      liveRates?.KRW && liveRates.KRW > 0 ? liveRates.KRW : DEFAULT_RATES_PHP_BASE.KRW,
+    [liveRates]
+  );
 
   const tradeLocationEl = (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
@@ -793,6 +802,14 @@ export function ExchangeWriteForm({
             {tradePolicy.hint}
           </div>
         ) : null}
+
+        <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
+          <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>거래 글 작성 · 직접 입력</p>
+          <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-[#65676B]">
+            사진·환율·금액·만남 장소 등 아래 내용만 글에 저장됩니다.
+          </p>
+        </div>
+
         <div className={TRADE_WRITE_FB_SECTION}>
           <ImageUploader
             value={images}
@@ -805,28 +822,6 @@ export function ExchangeWriteForm({
           />
         </div>
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
-        {/* 환율 상황판 (자동 조회) */}
-        <section className={TRADE_WRITE_FB_SECTION}>
-          <h3 className={`${TRADE_WRITE_FB_BLOCK_TITLE} mb-2`}>환율 상황판</h3>
-          {ratesLoading ? (
-            <p className="rounded-ui-rect border border-sam-border bg-sam-app/50 p-4 text-center sam-text-body text-sam-muted">환율 불러오는 중…</p>
-          ) : (
-            <>
-              <p className="mb-2 sam-text-helper text-sam-muted">
-                {ratesFetchedAt ? `${ratesFetchedAt} 기준 환율` : "기준: 페소 1 (기본값)"}
-              </p>
-              <ul className="space-y-2 rounded-ui-rect border border-sam-border bg-sam-app/50 p-3">
-                {EXCHANGE_CURRENCIES.map((code) => (
-                  <li key={code} className="flex items-center justify-between sam-text-body">
-                    <span className="font-medium text-sam-fg">{code}</span>
-                    <span className="text-sam-muted">{CURRENCY_SYMBOLS[code]} {code === fromCurrency ? "1" : (ratesForBoard[code as keyof typeof ratesForBoard] ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </section>
-
         <div className={TRADE_WRITE_FB_SECTION}>
           <WriteTradeTopicSection
             category={category}
@@ -854,68 +849,116 @@ export function ExchangeWriteForm({
           </div>
         </section>
 
-        {/* 기준 환율 | 기준 환율 + (가산) — 한 행 50% 분할 */}
+        {/* 참고 시세(요약) + 기준/가산 입력 + 적용 환율 + 페소 금액 — 한 카드 (열·행 정렬·타이포 통일) */}
         <section className={TRADE_WRITE_FB_SECTION}>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="min-w-0">
-              <label className="mb-1 block sam-text-xxs font-medium leading-snug text-sam-fg sm:sam-text-helper">
-                기준 환율
-                <span className="block font-normal sam-text-xxs text-sam-muted sm:inline sm:ml-0.5 sm:sam-text-xxs">
-                  (1 PHP = ? KRW)
-                </span>
-              </label>
-              <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="24.99"
-                  className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none sm:sam-text-body ${errors.rate ? "text-red-600" : ""}`}
-                  aria-label="기준 환율 1 PHP당 KRW"
-                />
-                <span className="shrink-0 sam-text-helper text-sam-muted sm:sam-text-body">KRW</span>
-              </div>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>환율 · 금액</h4>
+          <div className="mt-1 overflow-hidden rounded-ui-rect border border-slate-800 bg-white shadow-sm">
+            <div className={EXCHANGE_WRITE_REFERENCE_BAR_CLASS}>
+              <span className="shrink-0 text-[12px] font-semibold leading-none tracking-tight">
+                참고 시세
+              </span>
+              <span className="min-w-0 text-right font-mono text-[12px] font-medium leading-snug tabular-nums text-slate-100">
+                {ratesLoading ? (
+                  <span className="text-slate-400">조회 중…</span>
+                ) : (
+                  <span className="inline-flex flex-col items-end gap-0.5 sm:flex-row sm:items-baseline sm:gap-1.5">
+                    <span className="text-slate-50">
+                      1 PHP ≈ {referenceKrwMid.toFixed(2)} ₩
+                    </span>
+                    {ratesFetchedAt ? (
+                      <span className="text-[11px] font-normal tabular-nums text-slate-400">
+                        {ratesFetchedAt}
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+              </span>
             </div>
-            <div className="min-w-0">
-              <label className="mb-1 block sam-text-xxs font-medium text-sam-fg sm:sam-text-helper">
-                기준 환율 + (가산)
-              </label>
-              <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sm:gap-2 sm:px-3 sm:py-2.5">
-                <span className="shrink-0 sam-text-body text-sam-muted sm:sam-text-body">+</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={ratePlus}
-                  onChange={(e) => setRatePlus(e.target.value.replace(/[^0-9.-]/g, ""))}
-                  placeholder="0"
-                  className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body font-semibold text-sam-fg outline-none sm:sam-text-body"
-                  aria-label="기준 환율 가산"
-                />
+            <div className="flex flex-col gap-4 p-3">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0">
+                <div className="flex min-w-0 flex-col">
+                  <div className={EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS}>
+                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>기준 환율</span>
+                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>1 PHP당 원화</span>
+                  </div>
+                  <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={rate}
+                      onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                      placeholder="24.99"
+                      className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.rate ? "text-red-600" : ""}`}
+                      aria-label="기준 환율 1 PHP당 KRW"
+                    />
+                    <span className="shrink-0 text-[13px] font-medium tabular-nums text-sam-muted">₩</span>
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-col">
+                  <div className={EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS}>
+                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>가산</span>
+                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>기준에 더할 ₩</span>
+                  </div>
+                  <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
+                    <span className="shrink-0 text-[15px] font-medium leading-none text-sam-muted">+</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={ratePlus}
+                      onChange={(e) => setRatePlus(e.target.value.replace(/[^0-9.-]/g, ""))}
+                      placeholder="0"
+                      className={EXCHANGE_WRITE_INPUT_CLASS}
+                      aria-label="기준 환율 가산"
+                    />
+                    <span className="shrink-0 text-[13px] font-medium tabular-nums text-sam-muted">₩</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          {baseRateValue > 0 && (
-            <p className="mt-2 sam-text-helper text-sam-muted sm:sam-text-body-secondary">
-              <strong className="text-sam-fg">1 PHP = {baseRateValue.toFixed(2)} KRW</strong>
-              {ratePlusValue !== 0 && <span className="ml-1.5 font-semibold text-sam-fg">+{ratePlusValue}</span>}
-            </p>
-          )}
-          {errors.rate && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.rate}</p>}
 
-          <p className="mt-4 mb-2 sam-text-body font-medium text-sam-fg">금액 (페소)</p>
-          <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5">
-            <span className="sam-text-body text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(formatPriceInput(e.target.value))}
-              placeholder="0"
-              className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none ${errors.amount ? "text-red-600" : ""}`}
-            />
+              <div className="rounded-md bg-[#f0f2f5] px-3 py-3">
+                <p className="text-center text-[12px] font-semibold leading-tight text-[#65676B]">적용 환율</p>
+                <p className="mt-1.5 text-center text-[15px] font-semibold tabular-nums leading-snug tracking-tight text-[#050505]">
+                  {rateValue > 0 && !Number.isNaN(rateValue)
+                    ? `1 PHP = ${rateValue.toFixed(2)} KRW`
+                    : "1 PHP = —"}
+                </p>
+                {ratePlusValue !== 0 && baseRateValue > 0 && !Number.isNaN(baseRateValue) ? (
+                  <p className="mt-1.5 text-center text-[11px] font-normal tabular-nums leading-snug text-[#65676B]">
+                    기준 {baseRateValue.toFixed(2)} + {ratePlusValue >= 0 ? "+" : ""}
+                    {ratePlusValue}
+                  </p>
+                ) : null}
+              </div>
+
+              {errors.rate ? (
+                <p className="sam-text-body-secondary text-red-500">{errors.rate}</p>
+              ) : null}
+
+              <div className="border-t border-[#e4e6eb] pt-1">
+                <label
+                  className={`mb-1.5 block ${EXCHANGE_WRITE_FIELD_TITLE_CLASS} leading-tight`}
+                  htmlFor="exchange-write-amount-php"
+                >
+                  금액 (페소)
+                </label>
+                <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
+                  <span className="shrink-0 text-[15px] font-medium text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
+                  <input
+                    id="exchange-write-amount-php"
+                    type="text"
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) => setAmount(formatPriceInput(e.target.value))}
+                    placeholder="0"
+                    className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.amount ? "text-red-600" : ""}`}
+                  />
+                </div>
+                {errors.amount ? (
+                  <p className="mt-1 sam-text-body-secondary text-red-500">{errors.amount}</p>
+                ) : null}
+              </div>
+            </div>
           </div>
-          {errors.amount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.amount}</p>}
         </section>
 
         {/* 페소 팝니다: 구매자 준비물만 / 페소 삽니다: 판매자+구매자 */}
