@@ -95,9 +95,10 @@ function compactJobsChatRow(preview: PostListPreviewModel): PostListPreviewModel
   };
 }
 
-/** 중고차: 칩·가격 한 줄 + 차종·년식 한 줄 (피드 2·3단과 동일 소스) */
+/** 중고차: 칩·차종(굵은 텍스트)·가격 한 줄 + 모델·년식 한 줄 (피드 2·3단과 동일 소스) */
 function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewModel {
   const chip = preview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
+  const trail = preview.listingRowBoldText?.trim() ?? "";
   const blocks = preview.bodyBlocks;
   let spec = "";
   let price = preview.listingBold?.trim() ?? "";
@@ -107,7 +108,7 @@ function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewMo
   } else if (blocks.length === 1) {
     price = blocks[0]?.text?.trim() ?? price;
   }
-  const line1 = [chip, price].filter(Boolean).join(" · ");
+  const line1 = [chip, trail, price].filter(Boolean).join(" · ");
   const out: PostListBodyBlock[] = [];
   if (line1) out.push({ className: CHAT_LIST_ROW_LINE_PRIMARY, text: line1 });
   if (spec) out.push({ className: CHAT_LIST_ROW_LINE_SECONDARY, text: spec });
@@ -115,6 +116,7 @@ function compactUsedCarChatRow(preview: PostListPreviewModel): PostListPreviewMo
     ...preview,
     listingChips: [],
     listingBold: null,
+    listingRowBoldText: null,
     showPipeAfterListingBadge: false,
     bodyBlocks: out.length > 0 ? out : preview.bodyBlocks,
     listFooter: preview.listFooter,

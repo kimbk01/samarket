@@ -40,13 +40,8 @@ export type PostListPreviewListKind =
 const POST_LIST_ROW1_CHIP_BASE = APP_FEED_LIST_ROW1_PILL_LIST;
 
 export const POST_LIST_CHIP_GRAY = `${POST_LIST_ROW1_CHIP_BASE} bg-gray-100 text-gray-700`;
-export const POST_LIST_CHIP_GRAY_SM = POST_LIST_CHIP_GRAY;
-/** 리스트 상태배지(판매중/문의중)와 동일한 축소 폰트 톤 */
-export const POST_LIST_CHIP_GRAY_STATUS_MATCH = `${POST_LIST_CHIP_GRAY} text-[length:calc(12px-1pt)]`;
 export const POST_LIST_CHIP_AMBER = `${POST_LIST_ROW1_CHIP_BASE} bg-amber-100 text-amber-800`;
 export const POST_LIST_CHIP_BLUE = `${POST_LIST_ROW1_CHIP_BASE} bg-blue-50 text-blue-700`;
-export const POST_LIST_CHIP_AMBER_STATUS_MATCH = `${POST_LIST_CHIP_AMBER} text-[length:calc(12px-1pt)]`;
-export const POST_LIST_CHIP_BLUE_STATUS_MATCH = `${POST_LIST_CHIP_BLUE} text-[length:calc(12px-1pt)]`;
 
 /** 피드 카드 본문 타이포 — 커뮤니티 `ListTitleOnly`와 정렬(15px semibold #050505) */
 export const POST_LIST_TITLE_CLASS =
@@ -57,14 +52,12 @@ export const POST_LIST_TITLE_CLASS =
 export const POST_LIST_TRADE_TITLE_CLASS =
   "mt-0.5 line-clamp-2 text-left text-[13px] font-medium leading-snug text-[#050505]";
 /**
- * 환전 1단 `페소 팝니다|삽니다` — 배지와 인라인, `POST_LIST_TRADE_TITLE_CLASS`와 동일(마진 없음)
- */
-export const POST_LIST_EXCHANGE_HEADLINE_CLASS =
-  "line-clamp-2 shrink-0 text-left text-[13px] font-medium leading-snug text-[#050505]";
-/**
  * 중고차 리스트 2단(차량명·연식) — `POST_LIST_TRADE_TITLE_CLASS`와 동일
  */
 export const POST_LIST_USED_CAR_SPEC_CLASS = POST_LIST_TRADE_TITLE_CLASS;
+/** 중고차 1단 — 삽니다/팝니다 칩 옆 차종(뱃지 아님·굵은 텍스트) */
+export const POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS =
+  "min-w-0 text-[13px] font-semibold leading-snug text-[#050505]";
 /**
  * 리스트 3단 금액 본문(마진 없음) — 15~16px Bold(700) `#1A1A1A`.
  * 알바 급여·일반/중고차 가격·환전 페소·부동산 금액(매매/보증금|월세) 등 공통.
@@ -131,6 +124,8 @@ export interface PostListPreviewModel {
   listingRowClassName: string;
   listingChips: ListingChip[];
   listingBold: string | null;
+  /** 칩·파이프 다음 같은 줄 — 중고차 삽니다 차종 등(칩 스타일 없음) */
+  listingRowBoldText?: string | null;
   bodyBlocks: PostListBodyBlock[];
   /**
    * PostCard 하단 — 환전만 null.
@@ -314,7 +309,7 @@ export function buildPostListPreviewModel(
 
     const listingChips: ListingChip[] = [];
     if (dealType) {
-      listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+      listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY });
     }
 
     const blocks: PostListBodyBlock[] = [
@@ -353,7 +348,8 @@ export function buildPostListPreviewModel(
     const yearRaw = str(meta.car_year_max) || str(meta.car_year);
     const yearPart =
       yearRaw && /^\d{4}$/.test(yearRaw) ? `${yearRaw}년` : yearRaw;
-    const carSpecLine = [bodyTypeLabel, carModel, yearPart].filter(Boolean).join(" · ");
+    /** 삽니다: 차종은 `listingChips` 줄 — 여기서는 모델·연식만 (팝니다도 동일) */
+    const carSpecLine = [carModel, yearPart].filter(Boolean).join(" · ");
     const usedCarPriceLabel = isFree
       ? "무료나눔"
       : priceOk != null
@@ -382,6 +378,8 @@ export function buildPostListPreviewModel(
       listingRowClassName: "flex flex-wrap items-center gap-1.5",
       listingChips,
       listingBold: null,
+      listingRowBoldText:
+        meta.car_trade === "buy" && bodyTypeLabel ? bodyTypeLabel : null,
       bodyBlocks: blocks,
       listFooter: buildListFooter(post, "uc", locationLabel, locale, createdAt),
       showPipeAfterListingBadge: listingChips.length > 0,
@@ -416,24 +414,24 @@ export function buildPostListPreviewModel(
 
     const listingChips: ListingChip[] = [];
     if (listingKindLabel) {
-      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER_STATUS_MATCH });
+      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
     }
     const wt = str(meta.work_term) || str(row.job_employment_type);
     const wtLabel = WORK_TERM_LABELS[wt];
     if (wtLabel) {
-      listingChips.push({ text: wtLabel, className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+      listingChips.push({ text: wtLabel, className: POST_LIST_CHIP_GRAY });
     } else if (wt === "short" || wt === "one_day") {
-      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+      listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY });
     }
     const appCnt = Number(row.application_count);
     if (Number.isFinite(appCnt) && appCnt > 0) {
       listingChips.push({
         text: `지원 ${appCnt}`,
-        className: POST_LIST_CHIP_GRAY_STATUS_MATCH,
+        className: POST_LIST_CHIP_GRAY,
       });
     }
     if (meta.same_day_pay === true) {
-      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE_STATUS_MATCH });
+      listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE });
     }
 
     /** 2단 공고 제목 — 일반 중고 제목과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
@@ -467,14 +465,14 @@ export function buildPostListPreviewModel(
         : "금액 문의";
     const rateText = rateLine ? `환율 ${rateLine}` : "환율 미지정";
 
-    /** 1단 `페소 팝니다|삽니다` — 15px semibold #050505 */
+    /** 1단 — 타 스킨 칩·상태 배지와 동일 pill 규격(`APP_FEED_LIST_ROW1_PILL_LIST`) */
     const titleStr = str(post.title);
     const isBuy = exchangeListingIsBuy(meta, titleStr);
     const exchangeHeadline = titleStr || (isBuy ? "페소 삽니다" : "페소 팝니다");
     const listingChips: ListingChip[] = [
       {
         text: exchangeHeadline,
-        className: POST_LIST_EXCHANGE_HEADLINE_CLASS,
+        className: POST_LIST_CHIP_GRAY,
       },
     ];
 
@@ -504,7 +502,7 @@ export function buildPostListPreviewModel(
 
   const listingChips: ListingChip[] = [];
   if (skinLabel && skinLabel !== "일반") {
-    listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY_SM });
+    listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY });
   }
   if (isDirectDeal) listingChips.push({ text: "직거래", className: POST_LIST_CHIP_BLUE });
 

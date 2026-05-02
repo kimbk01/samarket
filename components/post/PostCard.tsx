@@ -104,6 +104,9 @@ export const PostCard = memo(function PostCard({
   const viewCount = typeof post.view_count === "number" ? post.view_count : 0;
   const listKind = listPreview?.listKind ?? "trade";
   const hasUsableThumbnail = Boolean(thumbnailUrl) && !thumbnailFailed;
+  /** 중고차 삽니다 — 썸네일 미첨부 시 플레이스홀더 대신 빈 칸(레이아웃 폭 유지) */
+  const usedCarBuyEmptyThumbSlot =
+    listKind === "used-car" && metaRecord?.car_trade === "buy" && !hasUsableThumbnail;
 
   useLayoutEffect(() => {
     if (!isFirstCard) return;
@@ -149,10 +152,13 @@ export const PostCard = memo(function PostCard({
           onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
           className="flex min-w-0 items-stretch gap-1.5 sm:gap-2"
         >
-          <div className={TRADE_FEED_THUMB_BOX_CLASS}>
-            <div className="pointer-events-none absolute left-0 top-0 z-10">
-              <TradeListingStatusBadge post={post} />
-            </div>
+          <div
+            className={
+              usedCarBuyEmptyThumbSlot
+                ? `${TRADE_FEED_THUMB_BOX_CLASS} bg-transparent`
+                : TRADE_FEED_THUMB_BOX_CLASS
+            }
+          >
             {hasUsableThumbnail ? (
               <img
                 ref={isFirstCard ? imageRef : undefined}
@@ -172,6 +178,8 @@ export const PostCard = memo(function PostCard({
                 }}
                 onError={() => setThumbnailFailed(true)}
               />
+            ) : usedCarBuyEmptyThumbSlot ? (
+              <span className="block h-full min-h-0 w-full" aria-hidden />
             ) : listKind === "jobs" ? (
               <div className="flex h-full w-full items-center justify-center bg-sam-warning-soft text-[12px] font-semibold text-sam-warning" aria-hidden>
                 JOB
@@ -206,13 +214,16 @@ export const PostCard = memo(function PostCard({
                 </p>
               ) : null}
               <div className="flex min-w-0 items-center justify-between gap-1.5">
-                <p
-                  className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
-                  title={[authorDisplay, `조회 ${viewCount}`].join(" · ")}
-                >
-                  <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
-                  <> · </>조회 {viewCount}
-                </p>
+                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+                  <TradeListingStatusBadge post={post} className="shrink-0" />
+                  <p
+                    className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.35] text-[#6B7280]"
+                    title={[authorDisplay, `조회 ${viewCount}`].join(" · ")}
+                  >
+                    <span className="font-semibold text-[#1F2430]">{authorDisplay}</span>
+                    <> · </>조회 {viewCount}
+                  </p>
+                </div>
                 <div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#6B7280] sm:gap-2">
                   <PostFavoriteButton
                     postId={post.id}

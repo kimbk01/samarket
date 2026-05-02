@@ -71,8 +71,7 @@ export function listTradeStatusBadge(
   const { label } = publicListingBadge(ls, postStatus);
 
   const textSz = size === "detail" ? APP_FEED_LIST_ROW1_TEXT_DETAIL : APP_FEED_LIST_ROW1_TEXT_LIST;
-  const listSizeTightenClass = size === "list" ? "text-[length:calc(12px-1pt)]" : "";
-  const row1BadgeBase = `${APP_FEED_LIST_ROW1_LAYOUT} ${textSz} ${listSizeTightenClass}`.trim();
+  const row1BadgeBase = `${APP_FEED_LIST_ROW1_LAYOUT} ${textSz}`.trim();
 
   if (st === "hidden" || st === "blinded" || st === "deleted") {
     return {

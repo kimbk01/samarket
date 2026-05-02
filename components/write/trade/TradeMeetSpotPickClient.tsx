@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MapPicker, MAP_PICKER_DEFAULT_CENTER } from "@/components/map/MapPicker";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
 import { geocodeDisplayLineToLatLng } from "@/lib/map/geocode-display-line-to-lat-lng";
 import {
   fetchMeetSpotPinFallbackCenter,
@@ -36,6 +37,7 @@ import {
   scheduleTradeWriteSheetReopenAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type LatLng = { lat: number; lng: number };
 
@@ -201,6 +203,14 @@ export function TradeMeetSpotPickClient() {
   const settledEntryRef = useRef<MeetSpotSnap | null>(null);
   const [cancelChangeConfirmOpen, setCancelChangeConfirmOpen] = useState(false);
   const replaceNavRafRef = useRef<number | null>(null);
+  /** 「주소로 지도 찾기」전용 — 표시할 주소와 분리 */
+  const [manualSearchQuery, setManualSearchQuery] = useState("");
+  const [addressPredictions, setAddressPredictions] = useState<PlacePredictionRow[]>([]);
+  const [addressPredictionsBusy, setAddressPredictionsBusy] = useState(false);
+  const [predictionPickBusy, setPredictionPickBusy] = useState(false);
+  const [manualAddressForwardHint, setManualAddressForwardHint] = useState<string | null>(null);
+  /** 주소록 대표→거래→생활→배달, 없으면 프로필 핀 — 「대표 주소로 복귀」 */
+  const [representativeCenter, setRepresentativeCenter] = useState<LatLng | null>(null);
 
   useEffect(
     () => () => {
@@ -406,6 +416,9 @@ export function TradeMeetSpotPickClient() {
     userInteractionRef.current = true;
     setAddressTouched(false);
     setAnchoredPlaceId(null);
+    setManualSearchQuery("");
+    setAddressPredictions([]);
+    setManualAddressForwardHint(null);
     setMarker(m);
   }, []);
 
@@ -413,6 +426,9 @@ export function TradeMeetSpotPickClient() {
   const onPoiClick = useCallback(
     (info: { placeId: string; lat: number; lng: number }) => {
       userInteractionRef.current = true;
+      setManualSearchQuery("");
+      setAddressPredictions([]);
+      setManualAddressForwardHint(null);
       /** getDetails 전에 동기로 막음 — 역지오가 도로 주소로 displayLine 을 덮어쓰지 않게 */
       setAddressTouched(true);
       setAnchoredPlaceId(info.placeId.trim());
@@ -470,14 +486,125 @@ export function TradeMeetSpotPickClient() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  /** 주소록·프로필 기준 대표 좌표 — 화면 초안과 무관하게 확보(대표 주소로 복귀) */
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const snap = await fetchAddressDefaultsSnapshot();
+        if (cancelled) return;
+        const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
+        if (fromBook) {
+          setRepresentativeCenter(fromBook);
+          return;
+        }
+        const prof = await fetchProfileLatLngForMeetSpotMap();
+        if (!cancelled && prof) setRepresentativeCenter(prof);
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** 「주소로 지도 찾기」— Places 자동완성 예측(목록에서 선택 시 핀 이동) */
+  useEffect(() => {
+    if (closing || mapsError) return;
+    const q = manualSearchQuery.trim();
+    if (q.length < 2) {
+      setAddressPredictions([]);
+      setAddressPredictionsBusy(false);
+      setManualAddressForwardHint(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setAddressPredictionsBusy(true);
+        setManualAddressForwardHint(null);
+        try {
+          const rows = await fetchPlacePredictionsPh(q);
+          if (cancelled) return;
+          setAddressPredictions(rows);
+          if (!rows.length && q.length >= 3) {
+            setManualAddressForwardHint("비슷한 장소를 찾지 못했습니다. 다른 표현으로 검색해 보세요.");
+          }
+        } catch {
+          if (!cancelled) {
+            setAddressPredictions([]);
+            setManualAddressForwardHint("주소 검색 중 오류가 났습니다.");
+          }
+        } finally {
+          if (!cancelled) setAddressPredictionsBusy(false);
+        }
+      })();
+    }, 320);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [manualSearchQuery, closing, mapsError]);
+
+  const applyPlacePrediction = useCallback(async (row: PlacePredictionRow) => {
+    userInteractionRef.current = true;
+    setManualAddressForwardHint(null);
+    setAddressPredictions([]);
+    setPredictionPickBusy(true);
+    try {
+      await loadGoogleMaps();
+      const place = await fetchPlaceDetailsAsLegacyPlaceResult(row.placeId, PLACE_FIELDS_LOCATION);
+      const loc = place?.geometry?.location;
+      if (loc) {
+        setMarker({ lat: loc.lat(), lng: loc.lng() });
+        const pid = (place.place_id ?? row.placeId).trim();
+        setAnchoredPlaceId(pid || null);
+      } else {
+        const geo = await geocodeDisplayLineToLatLng(row.description);
+        if (!geo) {
+          setManualAddressForwardHint("선택한 장소 좌표를 불러오지 못했습니다.");
+          return;
+        }
+        setMarker({ lat: geo.lat, lng: geo.lng });
+        setAnchoredPlaceId(geo.placeId?.trim() ? geo.placeId.trim() : null);
+      }
+      setManualSearchQuery(row.description);
+      setAddressTouched(false);
+    } catch {
+      setManualAddressForwardHint("장소 정보를 불러오지 못했습니다.");
+    } finally {
+      setPredictionPickBusy(false);
+    }
+  }, []);
+
+  const restoreRepresentativePin = useCallback(() => {
+    if (!representativeCenter) return;
+    userInteractionRef.current = true;
+    setMarker(representativeCenter);
+    setAnchoredPlaceId(null);
+    setAddressTouched(false);
+    setManualSearchQuery("");
+    setAddressPredictions([]);
+    setManualAddressForwardHint(null);
+  }, [representativeCenter]);
+
+  const fallbackCoordLine = useMemo(
+    () => `선택한 좌표 (${marker.lat.toFixed(5)}, ${marker.lng.toFixed(5)})`,
+    [marker.lat, marker.lng]
+  );
+
   const navigateBack = useCallback(
     (opts: { saveResult: boolean }) => {
       if (closing) return;
       if (opts.saveResult) {
-        const line = displayLine.trim() || geocodedLine.trim();
-        if (!line) return;
+        const line =
+          displayLine.trim() || geocodedLine.trim() || fallbackCoordLine;
+        if (!line.trim()) return;
         setTradeMeetSpotPickResult({
-          displayLine: line,
+          displayLine: line.trim(),
           lat: marker.lat,
           lng: marker.lng,
           ...(anchoredPlaceId ? { placeId: anchoredPlaceId } : {}),
@@ -494,7 +621,7 @@ export function TradeMeetSpotPickClient() {
         router.replace(returnTo);
       });
     },
-    [anchoredPlaceId, closing, displayLine, geocodedLine, marker.lat, marker.lng, returnTo, router]
+    [anchoredPlaceId, closing, displayLine, fallbackCoordLine, geocodedLine, marker.lat, marker.lng, returnTo, router]
   );
 
   /**
@@ -503,10 +630,8 @@ export function TradeMeetSpotPickClient() {
    */
   const handleConfirm = useCallback(() => {
     if (closing) return;
-    const line = displayLine.trim() || geocodedLine.trim();
-    if (!line) return;
     navigateBack({ saveResult: true });
-  }, [closing, displayLine, geocodedLine, navigateBack]);
+  }, [closing, navigateBack]);
 
   const runNavigateBackWithoutSave = useCallback(() => {
     navigateBack({ saveResult: false });
@@ -544,6 +669,12 @@ export function TradeMeetSpotPickClient() {
   /** 고정 하단 버튼 높이 + safe-area — 스크롤 본문이 버튼 뒤에 숨지 않게 */
   const scrollBottomPad = "calc(5.75rem + env(safe-area-inset-bottom, 0px))";
 
+  const representativeRestoreDisabled = useMemo(() => {
+    if (!representativeCenter) return true;
+    if (manualSearchQuery.trim()) return false;
+    return distMetersMeetSpot(marker, representativeCenter) <= 20;
+  }, [representativeCenter, marker.lat, marker.lng, manualSearchQuery]);
+
   return (
     <>
     <div
@@ -574,23 +705,101 @@ export function TradeMeetSpotPickClient() {
               className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain border-t border-sam-border bg-sam-surface px-4 py-3"
               style={{ paddingBottom: scrollBottomPad }}
             >
-              <p className="sam-text-body-secondary text-sam-muted">
-                핀을 옮겨 만남 위치를 정한 뒤, 아래 주소를 필요하면 짧게 다듬은 다음{" "}
-                <span className="font-medium text-sam-fg">하단 고정</span>의「이 주소로 확인 · 글쓰기로」를 누르세요.
-              </p>
-              <label className="mt-3 block">
+              <div className="sam-form-field block">
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-semibold text-sam-fg">주소로 지도 찾기</span>
+                  {representativeCenter ? (
+                    <button
+                      type="button"
+                      disabled={closing || representativeRestoreDisabled}
+                      onClick={restoreRepresentativePin}
+                      className="sam-text-helper shrink-0 rounded-sam-sm px-1 py-0.5 font-medium text-sam-primary underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      대표 주소로 복귀
+                    </button>
+                  ) : null}
+                </div>
+                <div className="relative z-10">
+                  <input
+                    type="text"
+                    value={manualSearchQuery}
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    aria-label="건물명 또는 주소로 지도 위치 검색"
+                    aria-autocomplete="list"
+                    aria-expanded={addressPredictions.length > 0 && !addressPredictionsBusy}
+                    onChange={(e) => {
+                      userInteractionRef.current = true;
+                      setManualSearchQuery(e.target.value);
+                    }}
+                    maxLength={200}
+                    placeholder="검색 후 목록에서 선택"
+                    disabled={closing || predictionPickBusy}
+                    className={`${Sam.input.base} rounded-ui-rect bg-sam-app shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-sam-border disabled:opacity-60`}
+                  />
+                  {!addressPredictionsBusy && addressPredictions.length > 0 ? (
+                    <ul
+                      role="listbox"
+                      aria-label="주소 검색 결과"
+                      className="absolute left-0 right-0 top-full z-[130] mt-1 max-h-52 overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
+                    >
+                      {addressPredictions.map((row) => (
+                        <li key={row.placeId} role="presentation">
+                          <button
+                            type="button"
+                            role="option"
+                            disabled={predictionPickBusy || closing}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                            }}
+                            onClick={() => {
+                              void applyPlacePrediction(row);
+                            }}
+                            className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left sam-text-body text-sam-fg active:bg-sam-surface-muted disabled:opacity-50"
+                          >
+                            <span className="font-medium leading-snug">{row.mainText}</span>
+                            {row.secondaryText ? (
+                              <span className="text-[12px] leading-snug text-sam-muted">{row.secondaryText}</span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+                {addressPredictionsBusy ? (
+                  <p className="mt-1.5 text-[12px] text-sam-muted" aria-live="polite">
+                    비슷한 장소를 찾는 중…
+                  </p>
+                ) : predictionPickBusy ? (
+                  <p className="mt-1.5 text-[12px] text-sam-muted" aria-live="polite">
+                    선택한 장소로 핀을 옮기는 중…
+                  </p>
+                ) : manualAddressForwardHint ? (
+                  <p className="mt-1.5 text-[12px] text-sam-warning" role="status">
+                    {manualAddressForwardHint}
+                  </p>
+                ) : null}
+              </div>
+
+              <label className="sam-form-field mt-3 block border-t border-sam-border pt-3">
                 <span className="mb-1 block text-[13px] font-semibold text-sam-fg">표시할 주소</span>
                 <textarea
                   value={displayLine}
+                  inputMode="text"
+                  enterKeyHint="done"
+                  autoComplete="street-address"
+                  aria-label="거래 글에 표시할 주소 문구"
                   onChange={(e) => {
                     userInteractionRef.current = true;
                     setAddressTouched(true);
                     setDisplayLine(e.target.value);
                   }}
-                  rows={4}
+                  rows={3}
                   maxLength={240}
-                  placeholder={geocodeBusy ? "주소 불러오는 중…" : "지도에서 선택한 위치의 주소가 여기에 표시됩니다."}
-                  className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg outline-none focus:border-sam-primary"
+                  placeholder={geocodeBusy ? "주소 불러오는 중…" : "글에 보일 만남 장소 안내 (짧게 다듬기)"}
+                  className={`${Sam.input.textarea} resize-none rounded-ui-rect min-h-[96px] bg-sam-app shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-sam-border`}
                 />
               </label>
               <p className="mt-2 text-[12px] leading-snug text-sam-muted">
@@ -619,7 +828,7 @@ export function TradeMeetSpotPickClient() {
                     </button>
                     <button
                       type="button"
-                      disabled={(!displayLine.trim() && !geocodedLine.trim()) || closing}
+                      disabled={closing}
                       onClick={handleConfirm}
                       className="flex-[1.4] rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white shadow-sm disabled:opacity-40"
                     >

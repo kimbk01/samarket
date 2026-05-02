@@ -58,9 +58,11 @@ export function compactMessengerTradeTitleHeadline(title: string): string {
 export function messengerTradeDockLine1(title: string, headerPreview: PostListPreviewModel | null | undefined): string {
   if (headerPreview?.listingChips?.length) {
     const chips = headerPreview.listingChips.map((c) => c.text).filter(Boolean).join(" · ");
+    const trail = headerPreview.listingRowBoldText?.trim() ?? "";
+    const head = [chips, trail].filter(Boolean).join(" · ");
     const body0 = headerPreview.bodyBlocks[0]?.text?.trim() ?? "";
-    if (chips && body0) return `${chips} · ${body0}`;
-    if (chips) return compactMessengerTradeTitleHeadline(chips);
+    if (head && body0) return `${head} · ${body0}`;
+    if (head) return compactMessengerTradeTitleHeadline(head);
   }
   return compactMessengerTradeTitleHeadline(title);
 }

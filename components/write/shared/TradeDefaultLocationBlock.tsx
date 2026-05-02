@@ -173,7 +173,7 @@ export function TradeDefaultLocationBlock({
           <p className="break-words sam-text-body leading-snug text-sam-fg">{currentAddressText}</p>
         </>
       ) : null}
-      {karrotMeetSpotUi && onBeforeMeetSpotPick && !readOnly ? (
+      {karrotMeetSpotUi && !readOnly ? (
         <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 first:mt-0">
           <p className="sam-text-body font-semibold text-sam-fg">거래 희망 장소</p>
           <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
@@ -183,13 +183,18 @@ export function TradeDefaultLocationBlock({
           </p>
           <button
             type="button"
-            className="mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted"
+            disabled={!onBeforeMeetSpotPick}
+            title={!onBeforeMeetSpotPick ? "지금은 위치를 바꿀 수 없습니다." : undefined}
+            className="mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted disabled:pointer-events-none disabled:opacity-50"
             onClick={() => {
-              try {
-                onBeforeMeetSpotPick();
-              } catch {
-                /* ignore */
-              }
+              if (!onBeforeMeetSpotPick) return;
+              void (async () => {
+                try {
+                  await onBeforeMeetSpotPick();
+                } catch {
+                  /* 부모(업로드·초안 저장) 실패 — 조용히 무시하지 않고 사용자가 재시도 가능 */
+                }
+              })();
             }}
           >
             위치 선택

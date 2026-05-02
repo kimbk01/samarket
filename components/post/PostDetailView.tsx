@@ -118,6 +118,13 @@ function resolveTradePostDetailImageUrls(post: PostWithMeta): string[] {
   return typeof t === "string" && t.trim() ? [t.trim()] : [];
 }
 
+/** 하단 구분 뱃지와 중복되지 않게 헤더 제목에서만 제거 */
+function stripUsedCarTradeDirectionFromDetailTitle(title: string): string {
+  const t = title.trim();
+  const stripped = t.replace(/^(삽니다|팝니다)\s*·\s*/u, "").trim();
+  return stripped || t;
+}
+
 const META_LABELS: Record<string, Record<string, string>> = {
   "real-estate": {
     neighborhood: "동네",
@@ -362,13 +369,16 @@ function UsedCarMetaBlock({
   }
   if (rows.length === 0) return null;
   return (
-    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">차량 정보</h3>
-      <dl className="space-y-2.5 sam-text-body">
+    <div className="mt-2 border-t border-[#e4e6eb] pt-2.5">
+      <h3 className="mb-2 text-[15px] font-bold leading-tight text-[#050505]">차량 정보</h3>
+      <dl className="space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
-          <div key={label} className="flex justify-between gap-3">
-            <dt className="shrink-0 text-sam-muted">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
+          <div
+            key={label}
+            className="flex justify-between gap-3 border-b border-[#f0f2f5] pb-2 last:border-b-0 last:pb-0"
+          >
+            <dt className="shrink-0 text-[13px] font-normal text-[#65676B]">{label}</dt>
+            <dd className="min-w-0 text-right text-[15px] font-semibold text-[#050505]">{value}</dd>
           </div>
         ))}
       </dl>
@@ -1956,34 +1966,50 @@ export function PostDetailView({
   ].filter(Boolean) as string[];
 
   const detailImageUrls = resolveTradePostDetailImageUrls(post);
+  const isUsedCarDetailUi = category?.icon_key === "used-car" || hasUsedCarMetaEarly;
+  const usedCarBuyNoImages =
+    isUsedCarDetailUi && (reMeta.car_trade as string | undefined) === "buy" && detailImageUrls.length === 0;
+  const detailHeroTitle = isUsedCarDetailUi
+    ? stripUsedCarTradeDirectionFromDetailTitle(post.title ?? "")
+    : post.title ?? "";
+  const detailFeedStackClass = isUsedCarDetailUi
+    ? `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`
+    : POST_DETAIL_FEED_STACK_CLASS;
+  const detailSectorPadClass = isUsedCarDetailUi ? "px-3 py-2.5 sm:px-4" : POST_DETAIL_SECTOR_PAD_CLASS;
 
   return (
     <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
-      <div className={POST_DETAIL_FEED_STACK_CLASS}>
-        <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
-          {detailImageUrls.length === 0 ? (
-            <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
-              {hasExchangeMeta(post.meta ?? {}) ? (
-                <div
-                  className="flex w-full flex-col items-center justify-center gap-1 bg-emerald-50 py-10 text-6xl font-semibold text-sam-fg"
-                  aria-hidden
-                >
-                  <span>₱</span>
-                  <span className="text-2xl text-sam-muted">↔</span>
-                  <span>₩</span>
-                </div>
-              ) : (
-                <span className="py-16 text-sm text-[#999]">이미지</span>
-              )}
-            </div>
-          ) : (
-            <ProductImageGallery images={detailImageUrls} title={post.title ?? ""} />
-          )}
-        </section>
+      <div className={detailFeedStackClass}>
+        {!usedCarBuyNoImages ? (
+          <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
+            {detailImageUrls.length === 0 ? (
+              <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
+                {hasExchangeMeta(post.meta ?? {}) ? (
+                  <div
+                    className="flex w-full flex-col items-center justify-center gap-1 bg-emerald-50 py-10 text-6xl font-semibold text-sam-fg"
+                    aria-hidden
+                  >
+                    <span>₱</span>
+                    <span className="text-2xl text-sam-muted">↔</span>
+                    <span>₩</span>
+                  </div>
+                ) : (
+                  <span className="py-16 text-sm text-[#999]">이미지</span>
+                )}
+              </div>
+            ) : (
+              <ProductImageGallery images={detailImageUrls} title={detailHeroTitle || post.title || ""} />
+            )}
+          </section>
+        ) : null}
 
-        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
-          <h2 className={`break-words text-[18px] font-bold leading-[1.35] text-[#111111] ${isSold ? "opacity-80" : ""}`}>
-            {post.title}
+        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}>
+          <h2
+            className={`break-words leading-snug text-[#050505] ${
+              isUsedCarDetailUi ? "text-[17px] font-semibold" : "text-[18px] font-bold leading-[1.35] text-[#111111]"
+            } ${isSold ? "opacity-80" : ""}`}
+          >
+            {detailHeroTitle}
           </h2>
           {showPrice && (() => {
             const isRealEstate = category?.icon_key === "real-estate";
@@ -1991,12 +2017,18 @@ export function PostDetailView({
             const dealType = meta?.deal_type as string | undefined;
             if (isRealEstate && dealType === "임대") return null;
             return (
-              <p className="mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]">
+              <p
+                className={
+                  isUsedCarDetailUi
+                    ? "mb-1.5 mt-1 text-[22px] font-bold leading-[1.15] tracking-tight text-[#050505]"
+                    : "mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]"
+                }
+              >
                 {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
               </p>
             );
           })()}
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className={`flex flex-wrap items-center ${isUsedCarDetailUi ? "gap-1" : "gap-1.5"}`}>
             <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
             {post.is_price_offer === true ? (
               <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
@@ -2037,7 +2069,7 @@ export function PostDetailView({
         <section
           id={POST_DETAIL_SELLER_ANCHOR_ID}
           data-post-detail-seller="true"
-          className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}
+          className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}
         >
           <PostDetailSellerProfileRow
             author={author}
@@ -2049,7 +2081,7 @@ export function PostDetailView({
           />
         </section>
 
-        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
+        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}>
           {(() => {
             const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
             const hasUsedCarMeta =
@@ -2103,15 +2135,37 @@ export function PostDetailView({
               />
             )}
 
-          <div>
-            <h3 className="mb-3 text-[15px] font-bold text-[#111111]">상품 설명</h3>
-            <p className="min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap">
+          <div className={isUsedCarDetailUi ? "mt-1 border-t border-[#e4e6eb] pt-2.5" : ""}>
+            <h3
+              className={
+                isUsedCarDetailUi
+                  ? "mb-1.5 text-[15px] font-bold text-[#050505]"
+                  : "mb-3 text-[15px] font-bold text-[#111111]"
+              }
+            >
+              상품 설명
+            </h3>
+            <p
+              className={
+                isUsedCarDetailUi
+                  ? "min-h-0 break-words text-[15px] font-normal leading-[1.45] text-[#050505] whitespace-pre-wrap"
+                  : "min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap"
+              }
+            >
               {post.content || ""}
             </p>
           </div>
 
           {detailFooterMetaParts.length > 0 ? (
-            <p className="mt-4 text-[12px] leading-[1.4] text-[#999999]">{detailFooterMetaParts.join(" · ")}</p>
+            <p
+              className={
+                isUsedCarDetailUi
+                  ? "mt-2.5 text-[12px] leading-[1.35] text-[#65676B]"
+                  : "mt-4 text-[12px] leading-[1.4] text-[#999999]"
+              }
+            >
+              {detailFooterMetaParts.join(" · ")}
+            </p>
           ) : null}
         </section>
 

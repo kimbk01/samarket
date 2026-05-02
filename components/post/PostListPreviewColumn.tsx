@@ -3,6 +3,7 @@
 import {
   POST_LIST_META_LINE_CLASS,
   POST_LIST_PRICE_TEXT_CLASS,
+  POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
   stripPostListBlockTopMargin,
   type PostListPreviewModel,
 } from "@/lib/posts/post-list-preview-model";
@@ -123,6 +124,11 @@ export function PostListPreviewColumn({
             </span>
           ) : null}
           <span className={preview.listingChips[0]!.className}>{preview.listingChips[0]!.text}</span>
+          {preview.listingRowBoldText?.trim() ? (
+            <span className={POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS}>
+              {preview.listingRowBoldText.trim()}
+            </span>
+          ) : null}
           {preview.listingBold ? (
             <span className={POST_LIST_PRICE_TEXT_CLASS}>{preview.listingBold}</span>
           ) : null}
@@ -156,6 +162,11 @@ export function PostListPreviewColumn({
             {c.text}
           </span>
         ))}
+        {preview.listingRowBoldText?.trim() ? (
+          <span className={POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS}>
+            {preview.listingRowBoldText.trim()}
+          </span>
+        ) : null}
         {preview.listingBold ? (
           <span className={POST_LIST_PRICE_TEXT_CLASS}>{preview.listingBold}</span>
         ) : null}
