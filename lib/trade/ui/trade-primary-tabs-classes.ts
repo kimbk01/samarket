@@ -19,3 +19,11 @@ export const TRADE_PRIMARY_TABS_EMBED_SCROLL_SHELL_CLASS =
 
 export const TRADE_PRIMARY_TABS_STICKY_FALLBACK_SHELL_CLASS =
   "sticky top-14 z-10 flex flex-shrink-0 items-center gap-1 overflow-x-auto border-b border-sam-border bg-sam-surface-muted py-2 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+/** 거래 1차 탭 알약 — 배경은 `.sam-trade-primary-tab__wipe` 로 방향 덮어쓰기 */
+export const TRADE_PRIMARY_TAB_PILL_SHELL =
+  "relative inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-0.5 overflow-hidden rounded-full border-0 bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] transition-[color] duration-200 ease-out";
+
+export const TRADE_PRIMARY_TAB_LABEL_IDLE = "font-extrabold text-sam-fg";
+
+export const TRADE_PRIMARY_TAB_LABEL_ACTIVE = "font-extrabold text-sam-primary";

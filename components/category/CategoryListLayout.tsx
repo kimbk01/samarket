@@ -273,6 +273,19 @@ export function CategoryListLayout({
   );
 
   if (status === "loading") {
+    /** 거래 마켓: 전면 문구·중앙 로딩은 탭 덮어쓰기 애니메이션을 가림 → 배경만 유지 */
+    if (expectedType === "trade") {
+      return (
+        <div className="min-h-screen bg-sam-app" aria-busy="true">
+          <div className={`${APP_MAIN_GUTTER_X_CLASS} pt-0 pb-4`}>
+            <div
+              className="min-h-[min(42vh,360px)] rounded-sam-md bg-sam-surface-muted/35"
+              aria-hidden
+            />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-[200px] flex items-center justify-center sam-text-body text-sam-muted">
         불러오는 중…

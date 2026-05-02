@@ -9,12 +9,14 @@ import { HorizontalDragScroll } from "@/components/community/HorizontalDragScrol
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
   PHILIFE_TOPIC_TAB_PILL_IDLE,
-  PHILIFE_TOPIC_TAB_PILL_ACTIVE,
   PHILIFE_TOPIC_TAB_ROW_CLASS,
-  PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE,
-  PHILIFE_TOPIC_TAB_SUBJECT_IDLE,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
+import {
+  TRADE_PRIMARY_TAB_LABEL_ACTIVE,
+  TRADE_PRIMARY_TAB_LABEL_IDLE,
+  TRADE_PRIMARY_TAB_PILL_SHELL,
+} from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -96,14 +98,56 @@ function TradePrimaryTabsInner({
     },
     [beginMenuNavigation, router, searchParams, tradeState, guardBeforeNavigate]
   );
+  /** navigation 중에는 pathname 기반 `isActive`와 intent 기반 하이라이트가 동시에 켜져 옆 탭까지 선택처럼 보임 → trade-primary pending 일 때는 intent만 신뢰 */
   const displayTabs = useMemo(
     () =>
       tabs.map((tab) => ({
         ...tab,
-        isDisplayActive: menuHrefMatchesIntent(tab.href, pendingMenuIntent) || tab.isActive,
+        isDisplayActive:
+          pendingMenuIntent?.source === "trade-primary"
+            ? menuHrefMatchesIntent(tab.href, pendingMenuIntent)
+            : menuHrefMatchesIntent(tab.href, pendingMenuIntent) || tab.isActive,
       })),
     [tabs, pendingMenuIntent]
   );
+
+  const activeDisplayIndex = useMemo(
+    () => displayTabs.findIndex((t) => t.isDisplayActive),
+    [displayTabs]
+  );
+
+  const prevActiveDisplayIdxRef = useRef<number | null>(null);
+  const skipTradePrimaryWipeOnceRef = useRef(true);
+  const [tradePrimaryWipe, setTradePrimaryWipe] = useState<{
+    generation: number;
+    direction: "ltr" | "rtl";
+  }>({ generation: 0, direction: "ltr" });
+
+  useLayoutEffect(() => {
+    const prev = prevActiveDisplayIdxRef.current;
+    const next = activeDisplayIndex;
+
+    if (next < 0) {
+      prevActiveDisplayIdxRef.current = null;
+      return;
+    }
+
+    if (skipTradePrimaryWipeOnceRef.current) {
+      skipTradePrimaryWipeOnceRef.current = false;
+      prevActiveDisplayIdxRef.current = next;
+      return;
+    }
+
+    if (prev !== null && prev >= 0 && next !== prev) {
+      const direction = next > prev ? "ltr" : "rtl";
+      setTradePrimaryWipe((w) => ({
+        generation: w.generation + 1,
+        direction,
+      }));
+    }
+
+    prevActiveDisplayIdxRef.current = next;
+  }, [activeDisplayIndex]);
 
   const updateAllSortMenuPos = useCallback(() => {
     const el = allSortButtonRef.current;
@@ -174,12 +218,6 @@ function TradePrimaryTabsInner({
     };
   }, [allSortOpen, updateAllSortMenuPos]);
 
-  const loadingBlock = (
-    <p className={`${Sam.text.bodySecondary} py-3`} aria-live="polite">
-      로딩…
-    </p>
-  );
-
   const errorBlock = (
     <p className={`${Sam.text.bodySecondary} py-3 text-sam-danger`} role="alert">
       {error}
@@ -187,7 +225,7 @@ function TradePrimaryTabsInner({
   );
 
   const scrollBody =
-    loading ? loadingBlock : error ? errorBlock : (
+    error ? errorBlock : (
       <HorizontalDragScroll
         className={`${PHILIFE_TOPIC_TAB_ROW_CLASS} min-w-0 max-w-full`}
         style={{ WebkitOverflowScrolling: "touch" }}
@@ -197,7 +235,9 @@ function TradePrimaryTabsInner({
         {displayTabs.map((tab) => {
           if (tab.key === "all") {
             const onAllTrade =
-              menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
+              pendingMenuIntent?.source === "trade-primary"
+                ? menuHrefMatchesIntent(allTradeHref, pendingMenuIntent)
+                : menuHrefMatchesIntent(allTradeHref, pendingMenuIntent) || pathname === "/market";
             return (
               <button
                 key={tab.key}
@@ -216,13 +256,36 @@ function TradePrimaryTabsInner({
                     setAllSortOpen(true);
                   }
                 }}
-                className={`${onAllTrade ? PHILIFE_TOPIC_TAB_PILL_ACTIVE : PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`}
+                className={
+                  onAllTrade
+                    ? "relative inline-flex min-h-8 max-w-[min(12rem,45vw)] shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent bg-transparent px-2.5 py-1 text-left text-[length:calc(14px-1pt)] font-extrabold text-sam-primary transition-[color] duration-200 ease-out"
+                    : `${PHILIFE_TOPIC_TAB_PILL_IDLE} inline-flex items-center gap-1`
+                }
               >
-                <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{allSortLabel}</span>
+                {onAllTrade ? (
+                  <span
+                    key={`trade-primary-wipe-${tradePrimaryWipe.generation}`}
+                    aria-hidden
+                    className={`sam-trade-primary-tab__wipe sam-trade-primary-tab__wipe--${tradePrimaryWipe.direction} ${
+                      tradePrimaryWipe.generation === 0 ? "sam-trade-primary-tab__wipe--instant" : ""
+                    }`}
+                  />
+                ) : null}
+                <span className="relative z-[1] block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">
+                  {allSortLabel}
+                </span>
                 {allSortOpen ? (
-                  <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
+                  <ChevronUp
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
+                    strokeWidth={2.4}
+                    aria-hidden
+                  />
                 ) : (
-                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sam-primary" strokeWidth={2.4} aria-hidden />
+                  <ChevronDown
+                    className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
+                    strokeWidth={2.4}
+                    aria-hidden
+                  />
                 )}
               </button>
             );
@@ -237,7 +300,9 @@ function TradePrimaryTabsInner({
               role="tab"
               aria-selected={tab.isDisplayActive}
               prefetch
-              className={tab.isDisplayActive ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE}
+              className={`${TRADE_PRIMARY_TAB_PILL_SHELL} ${
+                tab.isDisplayActive ? TRADE_PRIMARY_TAB_LABEL_ACTIVE : TRADE_PRIMARY_TAB_LABEL_IDLE
+              }`}
               onClick={(e) => {
                 if (!tab.isActive && !guardBeforeNavigate(tab.href)) {
                   e.preventDefault();
@@ -246,7 +311,18 @@ function TradePrimaryTabsInner({
                 beginMenuNavigation(tab.href, "trade-primary");
               }}
             >
-              <span className="block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">{tab.label}</span>
+              {tab.isDisplayActive ? (
+                <span
+                  key={`trade-primary-wipe-${tradePrimaryWipe.generation}`}
+                  aria-hidden
+                  className={`sam-trade-primary-tab__wipe sam-trade-primary-tab__wipe--${tradePrimaryWipe.direction} ${
+                    tradePrimaryWipe.generation === 0 ? "sam-trade-primary-tab__wipe--instant" : ""
+                  }`}
+                />
+              ) : null}
+              <span className="relative z-[1] block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">
+                {tab.label}
+              </span>
             </Link>
           );
         })}

@@ -450,6 +450,78 @@
     padding-right: var(--sam-space-4);
   }
 
+  /**
+   * 거래 1차 메뉴(`TradePrimaryTabs`) — 좌→우·우→좌 선택 시 하이라이트가 **직선 전면**으로 밀며 덮음.
+   * scaleX 대신 clip-path inset 이라 경계가 분명하고 “슬라이드 덮어쓰기”에 가깝게 보임.
+   */
+  /* 앞 구간은 빠르게 ‘전면’이 지나가고, 마지막은 천천히 닫혀 덮어쓰기가 확실히 읽힘 */
+  @keyframes sam-trade-primary-tab-wipe-ltr {
+    0% {
+      clip-path: inset(0 100% 0 0 round 9999px);
+    }
+
+    58% {
+      clip-path: inset(0 10% 0 0 round 9999px);
+    }
+
+    100% {
+      clip-path: inset(0 0 0 0 round 9999px);
+    }
+  }
+
+  @keyframes sam-trade-primary-tab-wipe-rtl {
+    0% {
+      clip-path: inset(0 0 0 100% round 9999px);
+    }
+
+    58% {
+      clip-path: inset(0 0 0 10% round 9999px);
+    }
+
+    100% {
+      clip-path: inset(0 0 0 0 round 9999px);
+    }
+  }
+
+  .sam-trade-primary-tab__wipe {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 9999px;
+    border: 1px solid var(--sam-primary-border);
+    background-color: var(--sam-primary-soft);
+    pointer-events: none;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+
+  .sam-trade-primary-tab__wipe--ltr {
+    clip-path: inset(0 100% 0 0 round 9999px);
+    will-change: clip-path;
+    animation: sam-trade-primary-tab-wipe-ltr 0.56s cubic-bezier(0.2, 0.85, 0.15, 1) forwards;
+  }
+
+  .sam-trade-primary-tab__wipe--rtl {
+    clip-path: inset(0 0 0 100% round 9999px);
+    will-change: clip-path;
+    animation: sam-trade-primary-tab-wipe-rtl 0.56s cubic-bezier(0.2, 0.85, 0.15, 1) forwards;
+  }
+
+  /** 첫 페인트·generation 0 — 덮어쓰기 없이 즉시 채움 */
+  .sam-trade-primary-tab__wipe--instant {
+    animation: none !important;
+    clip-path: inset(0 0 0 0 round 9999px);
+    will-change: auto;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sam-trade-primary-tab__wipe {
+      animation: none !important;
+      clip-path: inset(0 0 0 0 round 9999px);
+      will-change: auto;
+    }
+  }
+
   /** 리스트·거래 카드 썸네일 공통 비율 */
   .sam-thumb-1-1 {
     aspect-ratio: 1 / 1;

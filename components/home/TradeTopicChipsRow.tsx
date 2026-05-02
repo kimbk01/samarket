@@ -45,8 +45,10 @@ export function TradeTopicChipsRow({
         const keyTrim = (selectedTopicKey?.trim() ?? "").normalize("NFC");
         const slugN = t.slug?.trim().normalize("NFC") ?? "";
         const on =
-          menuHrefMatchesIntent(href, pendingMenuIntent) ||
-          (keyTrim !== "" && (keyTrim === slugN || keyTrim === t.id));
+          pendingMenuIntent?.source === "trade-topic"
+            ? menuHrefMatchesIntent(href, pendingMenuIntent)
+            : menuHrefMatchesIntent(href, pendingMenuIntent) ||
+              (keyTrim !== "" && (keyTrim === slugN || keyTrim === t.id));
         return (
           <Link
             key={t.id}
