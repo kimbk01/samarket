@@ -32,15 +32,15 @@ export const TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER =
 
 /** 메인 액션 (채팅) — 브랜드 블루 */
 export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] bg-sam-primary px-3 py-2.5 text-center sam-text-body font-semibold leading-tight text-white shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] bg-sam-primary px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-white shadow-sm transition-colors hover:bg-sam-primary-hover disabled:pointer-events-none disabled:opacity-45 md:min-h-[50px]";
 
 /** 보조 액션 (가격 제안하기 등) — 연회색 필 */
 export const TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] border border-[#CCD0D5] bg-[#F0F2F5] px-3 py-2.5 text-center sam-text-body font-semibold leading-tight text-[#050505] transition-colors hover:bg-[#E4E6EB] active:bg-[#D8DADF] disabled:pointer-events-none disabled:opacity-45 dark:border-sam-border dark:bg-sam-surface-muted dark:text-sam-fg dark:hover:bg-sam-border-soft md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 items-center justify-center rounded-[10px] border border-[#CCD0D5] bg-[#F0F2F5] px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-[#050505] transition-colors hover:bg-[#E4E6EB] active:bg-[#D8DADF] disabled:pointer-events-none disabled:opacity-45 dark:border-sam-border dark:bg-sam-surface-muted dark:text-sam-fg dark:hover:bg-sam-border-soft md:min-h-[50px]";
 
 /** 비활성·대기 상태 */
 export const TRADE_POST_DETAIL_BOTTOM_MUTED_CTA =
-  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-[#E4E6EB] px-3 py-2.5 text-center sam-text-body font-semibold leading-tight text-[#65676B] dark:bg-sam-surface-muted dark:text-sam-muted md:min-h-[50px]";
+  "flex min-h-[48px] min-w-0 flex-1 cursor-not-allowed items-center justify-center rounded-[10px] bg-[#E4E6EB] px-3 py-2.5 text-center text-[15px] font-semibold leading-tight text-[#65676B] dark:bg-sam-surface-muted dark:text-sam-muted md:min-h-[50px]";
 
 /** 로딩 플레이스홀더 */
 export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =

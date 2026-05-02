@@ -10,9 +10,7 @@ import {
   USED_CAR_MILEAGE_PRESETS,
   USED_CAR_MILEAGE_CUSTOM_KEY,
 } from "@/lib/trade/used-car-form-catalog";
-
-const SELECT_ROW_CLASS =
-  "h-11 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body";
+import { TRADE_WRITE_FB_CONTROL, TRADE_WRITE_FB_FIELD_LABEL } from "@/lib/ui/trade-write-fb-ui";
 
 export type UsedCarSellFieldsErrors = {
   carYear?: string;
@@ -56,10 +54,10 @@ export function UsedCarSellFields({
   const models = brand?.models ?? [];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
-          <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
             브랜드 <span className="text-sam-danger">*</span>
           </label>
           <select
@@ -70,7 +68,7 @@ export function UsedCarSellFields({
               setModelKey("");
               setCarModel("");
             }}
-            className={SELECT_ROW_CLASS}
+            className={TRADE_WRITE_FB_CONTROL}
             aria-invalid={!!errors.carModel && !brandKey}
           >
             <option value="">선택</option>
@@ -84,7 +82,7 @@ export function UsedCarSellFields({
 
         {brandKey && brandKey !== USED_CAR_BRAND_OTHER_KEY ? (
           <div className="min-w-0">
-            <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
               모델 <span className="text-sam-danger">*</span>
             </label>
             <select
@@ -95,7 +93,7 @@ export function UsedCarSellFields({
                 const line = buildCarModelLineFromKeys(brandKey, next);
                 if (line) setCarModel(line);
               }}
-              className={SELECT_ROW_CLASS}
+              className={TRADE_WRITE_FB_CONTROL}
               aria-invalid={!!errors.carModel && !modelKey}
             >
               <option value="">선택</option>
@@ -108,15 +106,15 @@ export function UsedCarSellFields({
           </div>
         ) : brandKey === USED_CAR_BRAND_OTHER_KEY ? (
           <div className="min-w-0 sm:col-span-1">
-            <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+            <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
               차종 <span className="text-sam-danger">*</span>
             </label>
             <input
               type="text"
               value={carModel}
               onChange={(e) => setCarModel(e.target.value)}
-              placeholder="브랜드·모델을 입력해 주세요"
-              className={SELECT_ROW_CLASS}
+              placeholder=""
+              className={TRADE_WRITE_FB_CONTROL}
               aria-invalid={!!errors.carModel}
             />
           </div>
@@ -125,13 +123,13 @@ export function UsedCarSellFields({
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
-          <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
             연식 <span className="text-sam-danger">*</span>
           </label>
           <select
             value={carYear.replace(/\D/g, "").length === 4 ? carYear.replace(/\D/g, "").slice(0, 4) : ""}
             onChange={(e) => setCarYear(e.target.value)}
-            className={SELECT_ROW_CLASS}
+            className={TRADE_WRITE_FB_CONTROL}
             aria-invalid={!!errors.carYear}
           >
             {yearOpts.map((opt) => (
@@ -144,7 +142,7 @@ export function UsedCarSellFields({
         </div>
 
         <div className="min-w-0">
-          <label className="mb-1 block min-h-[20px] sam-text-body-secondary text-sam-fg">
+          <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
             주행거리 <span className="text-sam-danger">*</span>
           </label>
           <select
@@ -157,7 +155,7 @@ export function UsedCarSellFields({
                 if (p) setMileage(formatPriceInput(p.digits));
               }
             }}
-            className={SELECT_ROW_CLASS}
+            className={TRADE_WRITE_FB_CONTROL}
             aria-invalid={!!errors.mileage}
           >
             <option value="">선택</option>
@@ -174,8 +172,8 @@ export function UsedCarSellFields({
               inputMode="numeric"
               value={mileage}
               onChange={(e) => setMileage(formatPriceInput(e.target.value))}
-              placeholder="예: 73,500"
-              className={`mt-2 ${SELECT_ROW_CLASS}`}
+              placeholder=""
+              className={`mt-1.5 ${TRADE_WRITE_FB_CONTROL}`}
               aria-invalid={!!errors.mileage}
             />
           ) : null}

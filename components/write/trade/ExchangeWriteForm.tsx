@@ -77,9 +77,14 @@ import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
-import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_TRADE_WRITE_FORM_FB_STACK_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  TRADE_WRITE_FB_SECTION,
+  TRADE_WRITE_FB_BLOCK_TITLE,
+  TRADE_WRITE_FB_FIELD_HEAD,
+  TRADE_WRITE_FB_FIELD_LABEL,
+} from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { KARROT_INNER_BOX, KARROT_LABEL, KARROT_SECTION } from "./trade-karrot-classes";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -746,6 +751,8 @@ export function ExchangeWriteForm({
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
         onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+        meetSpotHeading="위치"
+        denseLayout
       />
     </div>
   );
@@ -780,25 +787,27 @@ export function ExchangeWriteForm({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_CLASS}>
+      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
         {tradePolicy?.hint ? (
           <div className="mt-0 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-950">
             {tradePolicy.hint}
           </div>
         ) : null}
-        <ImageUploader
-          value={images}
-          onChange={setImages}
-          maxCount={maxImages}
-          label="사진"
-          disabled={coreLocked}
-          compact={false}
-          variant="karrot"
-        />
+        <div className={TRADE_WRITE_FB_SECTION}>
+          <ImageUploader
+            value={images}
+            onChange={setImages}
+            maxCount={maxImages}
+            label="사진"
+            disabled={coreLocked}
+            compact={false}
+            variant="karrot"
+          />
+        </div>
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
         {/* 환율 상황판 (자동 조회) */}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-          <h3 className="mb-3 sam-text-body font-bold text-sam-fg">환율 상황판</h3>
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <h3 className={`${TRADE_WRITE_FB_BLOCK_TITLE} mb-2`}>환율 상황판</h3>
           {ratesLoading ? (
             <p className="rounded-ui-rect border border-sam-border bg-sam-app/50 p-4 text-center sam-text-body text-sam-muted">환율 불러오는 중…</p>
           ) : (
@@ -818,14 +827,16 @@ export function ExchangeWriteForm({
           )}
         </section>
 
-        <WriteTradeTopicSection
-          category={category}
-          value={tradeTopicChildId}
-          onChange={setTradeTopicChildId}
-        />
+        <div className={TRADE_WRITE_FB_SECTION}>
+          <WriteTradeTopicSection
+            category={category}
+            value={tradeTopicChildId}
+            onChange={setTradeTopicChildId}
+          />
+        </div>
 
         {/* 팝니다 = 페소 팝니다 / 삽니다 = 페소 삽니다. 금액은 항상 페소. */}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+        <section className={TRADE_WRITE_FB_SECTION}>
           <div className="flex gap-2">
             {EXCHANGE_DIRECTION_OPTIONS.map((opt) => (
               <button
@@ -844,7 +855,7 @@ export function ExchangeWriteForm({
         </section>
 
         {/* 기준 환율 | 기준 환율 + (가산) — 한 행 50% 분할 */}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+        <section className={TRADE_WRITE_FB_SECTION}>
           <div className="grid grid-cols-2 gap-2">
             <div className="min-w-0">
               <label className="mb-1 block sam-text-xxs font-medium leading-snug text-sam-fg sm:sam-text-helper">
@@ -908,7 +919,7 @@ export function ExchangeWriteForm({
         </section>
 
         {/* 페소 팝니다: 구매자 준비물만 / 페소 삽니다: 판매자+구매자 */}
-        <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+        <section className={TRADE_WRITE_FB_SECTION}>
           {direction === "buy" && (
             <>
               <p className="mb-2 sam-text-body font-medium text-sam-fg">판매자 준비물</p>
@@ -969,18 +980,16 @@ export function ExchangeWriteForm({
 
         {tradeLocationEl}
 
-        <section className={`${KARROT_SECTION} border-b border-sam-border-soft bg-sam-surface px-4 py-4`}>
-          <label className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${KARROT_LABEL}`}>
-            자세한 설명 <span className="sam-text-helper font-normal text-sam-muted">(선택)</span>
-          </label>
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+            내용 <span className="font-normal text-[#8a8d91]">(선택)</span>
+          </h4>
           <AutoGrowTextarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             readOnly={coreLocked || showDescriptionAppend}
-            placeholder={
-              "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
-            }
-            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${KARROT_INNER_BOX} min-h-[140px] px-3 sam-text-body text-sam-fg`}
+            placeholder=""
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] text-[#050505] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary`}
           />
           {!showDescriptionAppend ? (
             <>
@@ -1000,15 +1009,15 @@ export function ExchangeWriteForm({
               />
             </>
           ) : null}
-          <p className="mt-1 sam-text-helper text-sam-muted">비워 두면 기본 문구로 저장돼요.</p>
+          <p className="mt-1 text-[12px] text-[#8a8d91]">비워 두면 기본 문구로 저장돼요.</p>
           {showDescriptionAppend ? (
-            <div className="mt-3">
-              <label className="mb-1 block sam-text-body-secondary text-sam-fg">추가 안내 덧붙이기</label>
+            <div className="mt-2 border-t border-[#e4e6eb] pt-2">
+              <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 덧붙이기</label>
               <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
-                placeholder="협의·진행 중 안내할 내용만 입력해 주세요."
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg min-h-[80px]"
+                placeholder=""
+                className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[80px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
               />
             </div>
           ) : null}

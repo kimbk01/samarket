@@ -75,9 +75,17 @@ export const POST_LIST_TRADE_PRICE_CLASS = POST_LIST_PRICE_CLASS;
 /** 부동산 3단(스pec)·보조 본문 — 커뮤니티 `ListBodyPreview`(13px #6B7280) */
 export const POST_LIST_SUBLINE_CLASS =
   "mt-0.5 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[#6B7280]";
-/** 부동산 스펙 줄(주택·sq·방·욕실) — 작성자 줄과 동일 폰트 크기 */
+/** 부동산 스펙 줄(유형·sq 등) — 헤드라인보다 한 단계 더 작게 */
 export const POST_LIST_REAL_ESTATE_SPEC_CLASS =
-  "mt-0.5 line-clamp-2 text-left text-[11px] font-normal leading-[1.45] text-[#6B7280]";
+  "mt-0.5 line-clamp-2 text-left text-[10px] font-normal leading-[1.45] text-[#9CA3AF]";
+/** 부동산 금액 줄 래퍼 — 타이포는 PostListPreviewColumn 부동산 금액 렌더에서 지정 */
+export const POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS = "mt-0.5 text-left";
+/** 부동산 금액 숫자·포맷(파싱된 금액 토큰) 강조 */
+export const POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS =
+  "text-[16px] font-bold leading-tight tabular-nums text-[#050505]";
+/** 부동산 금액 앞 라벨(매매·보증금·월세) — 숫자 대비 보조 */
+export const POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS =
+  "text-[11px] font-medium leading-tight text-[#6B7280]";
 /** 환전 리스트 3단(환율) — `POST_LIST_SUBLINE_CLASS`와 동일 */
 export const POST_LIST_EXCHANGE_RATE_CLASS = POST_LIST_SUBLINE_CLASS;
 /**
@@ -314,11 +322,12 @@ export function buildPostListPreviewModel(
 
     const blocks: PostListBodyBlock[] = [
       {
-        className: POST_LIST_TITLE_CLASS,
+        /** 제목 — 일반 거래·중고차·알바 리스트 2단과 동일 (`POST_LIST_TRADE_TITLE_CLASS`) */
+        className: POST_LIST_TRADE_TITLE_CLASS,
         text: row1Headline,
       },
       {
-        className: POST_LIST_TRADE_PRICE_CLASS,
+        className: POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS,
         text: row2Price || "금액 문의",
         row: "real_estate_price",
       },

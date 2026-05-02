@@ -49,6 +49,12 @@ export const APP_TRADE_WRITE_FORM_ROOT_CLASS = `${APP_TRADE_WRITE_HORIZONTAL_CLA
 /** 일반 거래 글 폼 — 블록 간 간격 최소화(스크롤 부담 완화) */
 export const APP_TRADE_WRITE_FORM_CLASS = `${APP_TRADE_WRITE_FORM_ROOT_CLASS} space-y-2`;
 
+/** 부동산 글쓰기 — 섹션 자체에 구분선·패딩을 두고 폼 루트 세로 간격 없음 */
+export const APP_TRADE_WRITE_FORM_REAL_ESTATE_CLASS = `${APP_TRADE_WRITE_FORM_ROOT_CLASS} space-y-0`;
+
+/** 거래 글쓰기 FB형 연속 섹션 — 전 trade 스킨 공통(별칭) */
+export const APP_TRADE_WRITE_FORM_FB_STACK_CLASS = APP_TRADE_WRITE_FORM_REAL_ESTATE_CLASS;
+
 /**
  * 뷰포트 풀폭 시트(`TradeWriteBottomSheet`) 안 본문 — 스크롤 영역이 메인 피드와 동일 `max-w` 체인을 쓴다.
  */

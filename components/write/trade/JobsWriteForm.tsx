@@ -86,9 +86,14 @@ import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
 import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/trade/trade-chat-call-policy";
-import { APP_TRADE_WRITE_FORM_CLASS } from "@/lib/ui/app-content-layout";
+import { APP_TRADE_WRITE_FORM_FB_STACK_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  TRADE_WRITE_FB_SECTION,
+  TRADE_WRITE_FB_BLOCK_TITLE,
+  TRADE_WRITE_FB_FIELD_HEAD,
+  TRADE_WRITE_FB_FIELD_LABEL,
+} from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { KARROT_INNER_BOX, KARROT_LABEL, KARROT_SECTION } from "./trade-karrot-classes";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -848,6 +853,8 @@ export function JobsWriteForm({
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
         onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
+        meetSpotHeading="위치"
+        denseLayout
       />
     </div>
   );
@@ -882,29 +889,31 @@ export function JobsWriteForm({
           onRequestClose={onCancel}
         />
       ) : null}
-      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_CLASS}>
-        <div className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
-          <p className="sam-text-body-secondary text-sam-muted">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
+      <form onSubmit={handleSubmit} className={APP_TRADE_WRITE_FORM_FB_STACK_CLASS}>
+        <div className={TRADE_WRITE_FB_SECTION}>
+          <p className="text-[13px] font-medium text-[#65676B]">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
         </div>
 
         {editPostId && policyHint ? (
           <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-950">{policyHint}</div>
         ) : null}
 
-        <ImageUploader
-          value={images}
-          onChange={setImages}
-          maxCount={maxImages}
-          label="사진"
-          disabled={coreLocked}
-          compact={false}
-          variant="karrot"
-        />
+        <div className={TRADE_WRITE_FB_SECTION}>
+          <ImageUploader
+            value={images}
+            onChange={setImages}
+            maxCount={maxImages}
+            label="사진"
+            disabled={coreLocked}
+            compact={false}
+            variant="karrot"
+          />
+        </div>
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">무엇을 올리시나요?</p>
+          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>무엇을 올리시나요?</h4>
           <div className="grid grid-cols-2 gap-2">
             {JOB_LISTING_KIND_OPTIONS.map((opt) => (
               <button
@@ -923,7 +932,7 @@ export function JobsWriteForm({
           </div>
         </section>
 
-        <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+        <div className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
           <WriteTradeTopicSection
             category={category}
             value={tradeTopicChildId}
@@ -932,9 +941,9 @@ export function JobsWriteForm({
         </div>
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">제목</p>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>제목</h4>
           <input
             type="text"
             value={title}
@@ -950,7 +959,7 @@ export function JobsWriteForm({
         </section>
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <p className="mb-2 sam-text-body font-semibold text-sam-fg">업종</p>
           <label htmlFor="jobs-work-category-select" className="sr-only">
@@ -1005,7 +1014,7 @@ export function JobsWriteForm({
         </section>
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 형태</p>
           <div className="flex flex-wrap gap-2">
@@ -1029,7 +1038,7 @@ export function JobsWriteForm({
         {listingKind === "hire" && (
           <>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 날짜</p>
               <p className="mb-2 sam-text-helper text-sam-muted">오늘 이전 날짜는 선택할 수 없어요. 기본은 오늘입니다.</p>
@@ -1086,7 +1095,7 @@ export function JobsWriteForm({
               )}
             </section>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 시간 (선택)</p>
               <div className="flex items-center gap-2">
@@ -1115,7 +1124,7 @@ export function JobsWriteForm({
               </label>
             </section>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">업체명 (선택)</p>
               <input
@@ -1132,7 +1141,7 @@ export function JobsWriteForm({
         {listingKind === "work" && (
           <>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">가능한 시간</p>
               <input
@@ -1144,7 +1153,7 @@ export function JobsWriteForm({
               />
             </section>
             <section
-              className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+              className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">경력</p>
               <div className="flex flex-wrap gap-2">
@@ -1168,7 +1177,7 @@ export function JobsWriteForm({
         )}
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <p className="mb-2 sam-text-body font-semibold text-sam-fg">급여</p>
           <div className="mb-2 flex flex-wrap gap-2">
@@ -1204,21 +1213,19 @@ export function JobsWriteForm({
           {errors.payAmount && <p className="mt-1 sam-text-body-secondary text-red-500">{errors.payAmount}</p>}
         </section>
 
-        <section className={`${KARROT_SECTION} border-b border-sam-border-soft bg-sam-surface px-4 py-4`}>
-          <label className={`mb-1.5 block sam-text-body font-semibold text-sam-fg ${KARROT_LABEL}`}>
-            자세한 설명 <span className="text-red-500">*</span>
-          </label>
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
+            내용 <span className="text-red-500">*</span>
+          </h4>
           <AutoGrowTextarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             readOnly={showDescriptionAppend}
-            placeholder={
-              "브랜드, 모델명, 구매 시기, 하자 여부 등 자세히 적어주세요.\n안전거래를 위해 공유하지 말아야 할 개인정보는 적지 마세요."
-            }
+            placeholder=""
             maxLength={JOB_DESCRIPTION_MAX}
-            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} py-2.5 ${KARROT_INNER_BOX} min-h-[140px] px-3 sam-text-body ${
-              errors.description ? "border-red-400 bg-red-50" : ""
-            } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : ""}`}
+            className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
+              errors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
+            } ${showDescriptionAppend ? "bg-sam-app text-sam-fg" : "text-[#050505]"}`}
           />
           {!showDescriptionAppend ? (
             <>
@@ -1241,14 +1248,14 @@ export function JobsWriteForm({
           <p className="mt-1 text-right sam-text-helper text-sam-muted">{description.length}/{JOB_DESCRIPTION_MAX}</p>
           {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
           {showDescriptionAppend ? (
-            <div className="mt-3">
-              <p className="mb-1 sam-text-body-secondary font-medium text-sam-fg">추가 안내 (선택)</p>
-              <p className="mb-2 sam-text-helper text-sam-muted">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
+            <div className="mt-2 border-t border-[#e4e6eb] pt-2">
+              <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 (선택)</label>
+              <p className="mb-1 text-[12px] text-[#8a8d91]">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
               <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
-                placeholder="예) 면접 장소 변경, 준비물 추가 안내"
-                className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body min-h-[88px]"
+                placeholder=""
+                className={`mt-0.5 w-full ${PHILIFE_FB_TEXTAREA_CLASS} min-h-[88px] rounded-md border border-[#ccd0d5] bg-white px-3 py-2 text-[15px] outline-none focus:border-sam-primary`}
               />
             </div>
           ) : null}
@@ -1257,10 +1264,10 @@ export function JobsWriteForm({
         {tradeLocationEl}
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <p className="mb-2 sam-text-body font-semibold text-sam-fg">거래 채팅 통화</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>거래 채팅 통화</h4>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
             <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="radio"
@@ -1295,7 +1302,7 @@ export function JobsWriteForm({
         </section>
 
         <section
-          className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
+          className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <label className="flex cursor-pointer items-start gap-2">
             <input

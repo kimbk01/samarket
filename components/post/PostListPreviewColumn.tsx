@@ -1,8 +1,11 @@
 "use client";
 
+import { Fragment } from "react";
 import {
   POST_LIST_META_LINE_CLASS,
   POST_LIST_PRICE_TEXT_CLASS,
+  POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS,
+  POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS,
   POST_LIST_USED_CAR_ROW_TRAIL_BOLD_CLASS,
   stripPostListBlockTopMargin,
   type PostListPreviewModel,
@@ -57,16 +60,28 @@ export function PostListPreviewColumn({
           const m = part.match(tokenRe);
           if (!m) {
             return (
-              <span key={`plain-${idx}`} className={POST_LIST_PRICE_TEXT_CLASS}>
-                {part}
-              </span>
+              <Fragment key={`plain-${idx}`}>
+                {idx > 0 ? (
+                  <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+                    |
+                  </span>
+                ) : null}
+                <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{part}</span>
+              </Fragment>
             );
           }
           return (
-            <span key={`tok-${idx}`} className="inline-flex items-baseline gap-1">
-              <span className="text-[13px] font-semibold leading-tight text-[#1A1A1A]">{m[1]}</span>
-              <span className={POST_LIST_PRICE_TEXT_CLASS}>{m[2]}</span>
-            </span>
+            <Fragment key={`tok-${idx}`}>
+              {idx > 0 ? (
+                <span className="mx-1 text-[12px] font-normal text-[#D1D5DB]" aria-hidden>
+                  |
+                </span>
+              ) : null}
+              <span className="inline-flex items-baseline gap-1">
+                <span className={POST_LIST_REAL_ESTATE_PRICE_TOKEN_LABEL_CLASS}>{m[1]}</span>
+                <span className={POST_LIST_REAL_ESTATE_PRICE_AMOUNT_CLASS}>{m[2]}</span>
+              </span>
+            </Fragment>
           );
         })}
       </>

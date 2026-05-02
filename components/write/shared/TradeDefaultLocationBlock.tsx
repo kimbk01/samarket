@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -44,6 +45,12 @@ type TradeDefaultLocationBlockProps = {
   meetSpotLine?: string | null;
   meetSpotError?: string;
   onBeforeMeetSpotPick?: () => void | Promise<void>;
+  /** 지도·주소 한 줄 카드 제목 (기본: 거래 희망 장소) */
+  meetSpotHeading?: string;
+  /** 당근형 `karrotMeetSpotUi` 카드 바로 아래 — 부동산 건물명 등 */
+  belowMeetSpotSlot?: ReactNode;
+  /** 부동산 글쓰기 등 — 안내 문구 생략·패딩 축소 */
+  denseLayout?: boolean;
 };
 
 export function TradeDefaultLocationBlock({
@@ -58,6 +65,9 @@ export function TradeDefaultLocationBlock({
   meetSpotLine = null,
   meetSpotError,
   onBeforeMeetSpotPick,
+  meetSpotHeading = "거래 희망 장소",
+  belowMeetSpotSlot,
+  denseLayout = false,
 }: TradeDefaultLocationBlockProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -164,7 +174,13 @@ export function TradeDefaultLocationBlock({
     : displayLine?.trim() || snapshotLabel || "대표 주소가 없습니다. 주소 관리에서 대표 주소를 설정해 주세요.";
 
   return (
-    <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
+    <section
+      className={
+        denseLayout
+          ? "border-b border-[#e4e6eb] bg-white px-3 py-2 sm:px-3.5"
+          : "border-b border-sam-border-soft bg-sam-surface px-4 py-4"
+      }
+    >
       {!karrotMeetSpotUi ? (
         <>
           <p className="mb-2 sam-text-body font-medium text-sam-fg">
@@ -174,18 +190,46 @@ export function TradeDefaultLocationBlock({
         </>
       ) : null}
       {karrotMeetSpotUi && !readOnly ? (
-        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 first:mt-0">
-          <p className="sam-text-body font-semibold text-sam-fg">거래 희망 장소</p>
-          <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
-            {meetSpotLine?.trim()
-              ? meetSpotLine.trim()
-              : "지도에서 고르면 상호·주소가 반영됩니다. 미선택 시 저장·등록 시 대표 주소 기준 한 줄로 자동 저장됩니다."}
+        <div
+          className={
+            denseLayout
+              ? "mt-1.5 rounded-ui-rect border border-[#e4e6eb] bg-[#f7f8fa] px-2.5 py-2 first:mt-0"
+              : "mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 first:mt-0"
+          }
+        >
+          <p
+            className={
+              denseLayout
+                ? "text-[13px] font-semibold leading-tight text-[#65676B]"
+                : "sam-text-body font-semibold text-sam-fg"
+            }
+          >
+            {meetSpotHeading}
           </p>
+          {meetSpotLine?.trim() ? (
+            <p
+              className={
+                denseLayout
+                  ? "mt-0.5 break-words text-[15px] font-medium leading-snug text-[#050505]"
+                  : "mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted"
+              }
+            >
+              {meetSpotLine.trim()}
+            </p>
+          ) : denseLayout ? null : (
+            <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
+              지도에서 고르면 상호·주소가 반영됩니다. 미선택 시 저장·등록 시 대표 주소 기준 한 줄로 자동 저장됩니다.
+            </p>
+          )}
           <button
             type="button"
             disabled={!onBeforeMeetSpotPick}
             title={!onBeforeMeetSpotPick ? "지금은 위치를 바꿀 수 없습니다." : undefined}
-            className="mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted disabled:pointer-events-none disabled:opacity-50"
+            className={
+              denseLayout
+                ? "mt-1.5 inline-flex w-full items-center justify-center rounded-ui-rect border border-[#ccd0d5] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#050505] transition-colors hover:bg-[#f2f3f5] active:bg-[#e4e6eb] disabled:pointer-events-none disabled:opacity-50"
+                : "mt-2 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[13px] font-semibold text-sam-fg transition-transform duration-150 hover:bg-sam-surface-muted active:scale-[0.98] active:bg-sam-surface-muted disabled:pointer-events-none disabled:opacity-50"
+            }
             onClick={() => {
               if (!onBeforeMeetSpotPick) return;
               void (async () => {
@@ -204,6 +248,7 @@ export function TradeDefaultLocationBlock({
           ) : null}
         </div>
       ) : null}
+      {belowMeetSpotSlot ? <div className="mt-0">{belowMeetSpotSlot}</div> : null}
       {!readOnly && !karrotMeetSpotUi ? (
         onBeforeNavigateToAddresses ? (
           <button

@@ -95,14 +95,27 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import {
+  TRADE_WRITE_FB_SECTION,
+  TRADE_WRITE_FB_BLOCK_TITLE,
+  TRADE_WRITE_FB_FIELD_HEAD,
+  TRADE_FB_DETAIL_HERO_TITLE,
+  TRADE_FB_DETAIL_PRICE,
+  TRADE_FB_DETAIL_SUBTITLE,
+  TRADE_FB_DETAIL_BODY,
+  TRADE_FB_DETAIL_FOOTNOTE,
+  TRADE_FB_DETAIL_META_ROW,
+  TRADE_FB_DETAIL_META_DT,
+  TRADE_FB_DETAIL_META_DD,
+  TRADE_FB_DETAIL_META_HELP,
+  TRADE_FB_DETAIL_IMAGE_SECTION,
+  TRADE_FB_DETAIL_SELLER_NAME,
+  TRADE_FB_DETAIL_PLACEHOLDER_TEXT,
+} from "@/lib/ui/trade-write-fb-ui";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 
-/** 거래 피드 `TRADE_FEED_LIST_WRAP_CLASS` — 카드 사이 4px(`space-y-1`) + 좌우 `px-2` */
-const POST_DETAIL_FEED_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-1 pt-1`;
-/** `PostCard`의 `PHILIFE_FB_CARD_CLASS`(`sam-card`)와 동일 테두리·모서리 */
-const POST_DETAIL_SECTOR_CARD_CLASS = "sam-card overflow-hidden";
-/** PostCard 본문 줄(`px-3`/`sm:px-4`)과 맞춘 내부 패딩 */
-const POST_DETAIL_SECTOR_PAD_CLASS = "px-3 py-4 sm:px-4";
+/** 거래 상세 — FB형 연속 섹션 스택(글쓰기와 동일 밀도) */
+const TRADE_POST_DETAIL_FB_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`;
 /** 상세 제목 줄 `TradeListingStatusBadge` — 목록·상세 규격 단일화 */
 const TRADE_DETAIL_STATUS_BADGE_CLASS =
   "!inline-flex !h-6 !items-center !rounded-[4px] !border-0 !bg-[#f1f3f5] !px-2 !py-0 !text-[12px] !font-medium !leading-none !text-[#555555]";
@@ -236,18 +249,18 @@ function JobsMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="sam-text-body font-semibold text-sam-fg">알바 정보</h3>
-      <p className="mb-3 mt-1 sam-text-helper text-sam-muted">연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
-      <dl className="space-y-2.5 sam-text-body">
+    <>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>알바 정보</h3>
+      <p className={`mb-3 mt-1 ${TRADE_FB_DETAIL_META_HELP}`}>연락은 채팅으로 주고받아요. 전화번호는 글에 표시되지 않습니다.</p>
+      <dl className="space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
-          <div key={label} className="flex justify-between gap-3">
-            <dt className="shrink-0 text-sam-muted">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
+          <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
           </div>
         ))}
       </dl>
-    </div>
+    </>
   );
 }
 
@@ -308,17 +321,17 @@ function ExchangeMetaBlock({
   if (rows.length === 0) return null;
 
   return (
-    <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-app/80 p-4">
-      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">환전 정보</h3>
-      <dl className="space-y-2.5 sam-text-body">
+    <>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>환전 정보</h3>
+      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
-          <div key={label} className="flex justify-between gap-3 items-center">
-            <dt className="shrink-0 text-sam-muted">{label}</dt>
-            <dd className="min-w-0 text-right font-medium text-sam-fg">{value}</dd>
+          <div key={label} className={`${TRADE_FB_DETAIL_META_ROW} items-center`}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
           </div>
         ))}
       </dl>
-    </div>
+    </>
   );
 }
 
@@ -369,20 +382,17 @@ function UsedCarMetaBlock({
   }
   if (rows.length === 0) return null;
   return (
-    <div className="mt-2 border-t border-[#e4e6eb] pt-2.5">
-      <h3 className="mb-2 text-[15px] font-bold leading-tight text-[#050505]">차량 정보</h3>
-      <dl className="space-y-2 text-[15px] leading-snug">
+    <>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>차량 정보</h3>
+      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
-          <div
-            key={label}
-            className="flex justify-between gap-3 border-b border-[#f0f2f5] pb-2 last:border-b-0 last:pb-0"
-          >
-            <dt className="shrink-0 text-[13px] font-normal text-[#65676B]">{label}</dt>
-            <dd className="min-w-0 text-right text-[15px] font-semibold text-[#050505]">{value}</dd>
+          <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
           </div>
         ))}
       </dl>
-    </div>
+    </>
   );
 }
 
@@ -401,7 +411,6 @@ function RealEstateMetaBlock({
   currency,
   regionId,
   cityId,
-  compactTop,
   /** 상단 헤더에 건물명·지역·거래·금액을 이미 노출한 경우 테이블 중복 제거 */
   detailHeroDedup = false,
 }: {
@@ -410,7 +419,6 @@ function RealEstateMetaBlock({
   currency: string;
   regionId?: string | null;
   cityId?: string | null;
-  compactTop?: boolean;
   detailHeroDedup?: boolean;
 }) {
   const dealType = (meta.deal_type as string | undefined)?.trim();
@@ -454,32 +462,19 @@ function RealEstateMetaBlock({
 
   if (rows.length === 0) return null;
 
-  const half = Math.ceil(rows.length / 2);
-  const leftRows = rows.slice(0, half);
-  const rightRows = rows.slice(half);
-
   return (
-    <div className={`rounded-ui-rect border border-sam-border bg-sam-app/80 p-4 ${compactTop ? "mt-1" : "mt-4"}`}>
-      <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">부동산 정보</h3>
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-0 gap-y-4 sam-text-body items-stretch">
-        <dl className="space-y-4 pr-6">
-          {leftRows.map(({ label, value }) => (
-            <div key={label} className="flex justify-between gap-4">
-              <dt className="shrink-0 text-sam-muted">{label}</dt>
-              <dd className="min-w-0 text-right font-medium text-sam-fg truncate" title={value}>{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="w-px bg-sam-border-soft self-stretch" aria-hidden />
-        <dl className="space-y-4 pl-6">
-          {rightRows.map(({ label, value }) => (
-            <div key={label} className="flex justify-between gap-4">
-              <dt className="shrink-0 text-sam-muted">{label}</dt>
-              <dd className="min-w-0 text-right font-medium text-sam-fg truncate" title={value}>{value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+    <div className="mt-3 border-t border-[#e4e6eb] pt-3">
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>부동산 정보</h3>
+      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
+        {rows.map(({ label, value }) => (
+          <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+            <dd className={`${TRADE_FB_DETAIL_META_DD} truncate`} title={value}>
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -513,18 +508,17 @@ function TradeMetaBlock({
     .map(([k, v]) => [k, labels[k] ?? k, String(v)]);
   if (entries.length === 0) return null;
   return (
-    <div className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-      <span className="sam-text-xxs font-medium text-sam-muted">
-        {TRADE_SKIN_LABELS[skinKey] ?? skinKey}
-      </span>
-      <ul className="mt-2 space-y-1 sam-text-body-secondary text-sam-fg">
+    <>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{TRADE_SKIN_LABELS[skinKey] ?? skinKey}</h3>
+      <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {entries.map(([key, label, value]) => (
-          <li key={key}>
-            <span className="text-sam-muted">{label}</span> {value}
-          </li>
+          <div key={key} className={TRADE_FB_DETAIL_META_ROW}>
+            <dt className={TRADE_FB_DETAIL_META_DT}>{label}</dt>
+            <dd className={TRADE_FB_DETAIL_META_DD}>{value}</dd>
+          </div>
         ))}
-      </ul>
-    </div>
+      </dl>
+    </>
   );
 }
 
@@ -557,7 +551,7 @@ function PostDetailSellerProfileRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-bold leading-[1.2] text-[#111111]">{author?.nickname ?? "사용자"}</p>
+          <p className={TRADE_FB_DETAIL_SELLER_NAME}>{author?.nickname ?? "사용자"}</p>
           {regionLine}
         </div>
       </div>
@@ -647,16 +641,16 @@ function TradePostDetailActionBar({
             aria-label={isFavorite ? "관심 해제" : "관심"}
           >
             <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-            <span className="sam-text-xxs font-medium">관심</span>
+            <span className="text-[12px] font-semibold text-[#65676B]">관심</span>
           </button>
           {reFooterSummary ? (
             <div className={TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY}>
-              <p className="truncate sam-text-body-secondary font-bold text-sam-fg">
+              <p className="truncate text-[14px] font-semibold text-[#050505]">
                 {reFooterSummary.dealType === "판매"
                   ? `판매가 ${reFooterSummary.priceLine}`
                   : reFooterSummary.priceLine}
               </p>
-              <p className="sam-text-xxs text-sam-muted">예상 중개수수료</p>
+              <p className="text-[11px] font-medium text-[#65676B]">예상 중개수수료</p>
             </div>
           ) : null}
           <div className={TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP}>
@@ -840,7 +834,8 @@ export function PostDetailView({
     };
   }, []);
 
-  const [backHref, setBackHref] = useState("/philife");
+  /** 카테고리 로드 전 폴백 — 거래 상세는 `/market` 이 안전 */
+  const [backHref, setBackHref] = useState("/market");
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
   const [author, setAuthor] = useState<PostDetailSellerAuthor | null>(() =>
     sellerProfile?.id
@@ -1024,6 +1019,7 @@ export function PostDetailView({
   }, [post.category_id]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const tradeDetailHeaderTitle = category?.name?.trim() || "거래";
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -1031,15 +1027,16 @@ export function PostDetailView({
     const showSellerMore = showSellerMoreMenu;
     setMainTier1Extras({
       tier1: {
-        titleText: "중고거래",
-        preferHistoryBack: true,
-        ariaLabel: "이전 화면",
+        titleText: tradeDetailHeaderTitle,
+        /** 항상 해당 카테고리 목록(`/market/{id}`)으로 — 히스토리 백 미사용 */
+        preferHistoryBack: false,
+        ariaLabel: "목록으로",
         showHubQuickActions: false,
         leftSlot: (
           <AppBackButton
-            preferHistoryBack
+            preferHistoryBack={false}
             backHref={backHref}
-            ariaLabel="이전 화면"
+            ariaLabel="목록으로"
             className="text-[#111]"
             iconClassName="h-[22px] w-[22px]"
           />
@@ -1080,6 +1077,7 @@ export function PostDetailView({
     return () => setMainTier1Extras(null);
   }, [
     setMainTier1Extras,
+    tradeDetailHeaderTitle,
     backHref,
     isOwnPost,
     showSellerMoreMenu,
@@ -1826,24 +1824,26 @@ export function PostDetailView({
     ].filter(Boolean) as string[];
     return (
       <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
-        <div className={POST_DETAIL_FEED_STACK_CLASS}>
-          <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
+        <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
+          <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {imgList.length > 0 ? (
               <ProductImageGallery images={imgList} title={reHeroTitle || post.title || ""} />
             ) : (
-              <div className="flex min-h-[160px] w-full items-center justify-center overflow-hidden bg-sam-surface-muted text-sm text-[#999]">
+              <div
+                className={`flex min-h-[160px] w-full items-center justify-center overflow-hidden bg-[#f0f2f5] ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}
+              >
                 이미지
               </div>
             )}
           </section>
 
-          <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
-            <h2 className="break-words text-[18px] font-bold leading-[1.35] text-[#111111]">{reHeroTitle}</h2>
+          <section className={TRADE_WRITE_FB_SECTION}>
+            <h2 className={TRADE_FB_DETAIL_HERO_TITLE}>{reHeroTitle}</h2>
             {reHeroSubtitle ? (
-              <p className="mt-1 break-words text-[13px] font-normal leading-snug text-[#777777]">{reHeroSubtitle}</p>
+              <p className={TRADE_FB_DETAIL_SUBTITLE}>{reHeroSubtitle}</p>
             ) : null}
             {rePriceSummary ? (
-              <p className="mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]">{rePriceSummary}</p>
+              <p className={TRADE_FB_DETAIL_PRICE}>{rePriceSummary}</p>
             ) : null}
             <div className="flex flex-wrap items-center gap-1.5">
               <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
@@ -1870,34 +1870,33 @@ export function PostDetailView({
           <section
             id={POST_DETAIL_SELLER_ANCHOR_ID}
             data-post-detail-seller="true"
-            className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}
+            className={`scroll-mt-14 ${TRADE_WRITE_FB_SECTION}`}
           >
             <PostDetailSellerProfileRow
               author={author}
               regionLine={
                 listingLocationLine ? (
-                  <p className="max-w-[190px] truncate text-[12px] font-normal leading-[1.2] text-[#777777]">{listingLocationLine}</p>
+                  <p className={`max-w-[190px] truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
+                    {listingLocationLine}
+                  </p>
                 ) : null
               }
             />
           </section>
 
-          <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
-            <h3 className="mb-3 text-[15px] font-bold text-[#111111]">상품 설명</h3>
-            <p className="min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap">
-              {post.content || ""}
-            </p>
+          <section className={TRADE_WRITE_FB_SECTION}>
+            <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
+            <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
             <RealEstateMetaBlock
               meta={reMeta}
               salePrice={post.price ?? null}
               currency={defaultCurrency}
               regionId={post.region ?? undefined}
               cityId={post.city ?? undefined}
-              compactTop
               detailHeroDedup
             />
             {reDetailFooterMetaParts.length > 0 ? (
-              <p className="mt-4 text-[12px] leading-[1.4] text-[#999999]">{reDetailFooterMetaParts.join(" · ")}</p>
+              <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{reDetailFooterMetaParts.join(" · ")}</p>
             ) : null}
           </section>
 
@@ -1972,29 +1971,52 @@ export function PostDetailView({
   const detailHeroTitle = isUsedCarDetailUi
     ? stripUsedCarTradeDirectionFromDetailTitle(post.title ?? "")
     : post.title ?? "";
-  const detailFeedStackClass = isUsedCarDetailUi
-    ? `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`
-    : POST_DETAIL_FEED_STACK_CLASS;
-  const detailSectorPadClass = isUsedCarDetailUi ? "px-3 py-2.5 sm:px-4" : POST_DETAIL_SECTOR_PAD_CLASS;
+
+  const detailMetaAny = (() => {
+    const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
+    const hasUsedCarMeta =
+      meta.car_model != null ||
+      meta.car_body_type != null ||
+      meta.car_year != null ||
+      meta.car_year_max != null ||
+      meta.mileage != null ||
+      meta.car_trade != null ||
+      typeof meta.has_accident === "boolean";
+    if (hasUsedCarMeta || category?.icon_key === "used-car") return true;
+    if ((category?.icon_key === "jobs" || category?.icon_key === "job") || hasJobsMeta(meta)) return true;
+    if (category?.icon_key === "exchange" || hasExchangeMeta(meta)) return true;
+    if (
+      category?.icon_key &&
+      category.icon_key !== "used-car" &&
+      category.icon_key !== "jobs" &&
+      category.icon_key !== "job" &&
+      category.icon_key !== "exchange" &&
+      post.meta &&
+      Object.keys(post.meta).length > 0
+    ) {
+      return true;
+    }
+    return false;
+  })();
 
   return (
     <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
-      <div className={detailFeedStackClass}>
+      <div className={TRADE_POST_DETAIL_FB_STACK_CLASS}>
         {!usedCarBuyNoImages ? (
-          <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
+          <section className={TRADE_FB_DETAIL_IMAGE_SECTION}>
             {detailImageUrls.length === 0 ? (
-              <div className="relative flex w-full items-center justify-center overflow-hidden bg-sam-surface-muted">
+              <div className="relative flex w-full items-center justify-center overflow-hidden bg-[#f0f2f5]">
                 {hasExchangeMeta(post.meta ?? {}) ? (
                   <div
-                    className="flex w-full flex-col items-center justify-center gap-1 bg-emerald-50 py-10 text-6xl font-semibold text-sam-fg"
+                    className="flex w-full flex-col items-center justify-center gap-2 py-12 text-[#65676B]"
                     aria-hidden
                   >
-                    <span>₱</span>
-                    <span className="text-2xl text-sam-muted">↔</span>
-                    <span>₩</span>
+                    <span className="text-5xl font-semibold leading-none">₱</span>
+                    <span className="text-xl font-normal leading-none text-[#8a8d91]">↔</span>
+                    <span className="text-5xl font-semibold leading-none">₩</span>
                   </div>
                 ) : (
-                  <span className="py-16 text-sm text-[#999]">이미지</span>
+                  <span className={`py-16 ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}>이미지</span>
                 )}
               </div>
             ) : (
@@ -2003,32 +2025,20 @@ export function PostDetailView({
           </section>
         ) : null}
 
-        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}>
-          <h2
-            className={`break-words leading-snug text-[#050505] ${
-              isUsedCarDetailUi ? "text-[17px] font-semibold" : "text-[18px] font-bold leading-[1.35] text-[#111111]"
-            } ${isSold ? "opacity-80" : ""}`}
-          >
-            {detailHeroTitle}
-          </h2>
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <h2 className={`${TRADE_FB_DETAIL_HERO_TITLE} ${isSold ? "opacity-80" : ""}`}>{detailHeroTitle}</h2>
           {showPrice && (() => {
             const isRealEstate = category?.icon_key === "real-estate";
             const meta = post.meta as Record<string, unknown> | undefined;
             const dealType = meta?.deal_type as string | undefined;
             if (isRealEstate && dealType === "임대") return null;
             return (
-              <p
-                className={
-                  isUsedCarDetailUi
-                    ? "mb-1.5 mt-1 text-[22px] font-bold leading-[1.15] tracking-tight text-[#050505]"
-                    : "mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]"
-                }
-              >
+              <p className={TRADE_FB_DETAIL_PRICE}>
                 {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
               </p>
             );
           })()}
-          <div className={`flex flex-wrap items-center ${isUsedCarDetailUi ? "gap-1" : "gap-1.5"}`}>
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
             {post.is_price_offer === true ? (
               <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
@@ -2069,103 +2079,83 @@ export function PostDetailView({
         <section
           id={POST_DETAIL_SELLER_ANCHOR_ID}
           data-post-detail-seller="true"
-          className={`scroll-mt-14 ${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}
+          className={`scroll-mt-14 ${TRADE_WRITE_FB_SECTION}`}
         >
           <PostDetailSellerProfileRow
             author={author}
             regionLine={
               listingLocationLine ? (
-                <p className="max-w-[190px] truncate text-[12px] font-normal leading-[1.2] text-[#777777]">{listingLocationLine}</p>
+                <p className={`max-w-[190px] truncate text-[12px] leading-[1.2] ${TRADE_FB_DETAIL_META_HELP}`}>
+                  {listingLocationLine}
+                </p>
               ) : null
             }
           />
         </section>
 
-        <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${detailSectorPadClass}`}>
-          {(() => {
-            const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
-            const hasUsedCarMeta =
-              meta &&
-              (meta.car_model != null ||
-                meta.car_body_type != null ||
-                meta.car_year != null ||
-                meta.car_year_max != null ||
-                meta.mileage != null ||
-                meta.car_trade != null ||
-                typeof meta.has_accident === "boolean");
-            const isUsedCarCategory = category?.icon_key === "used-car";
-            if (hasUsedCarMeta || isUsedCarCategory) {
-              return (
-                <UsedCarMetaBlock
-                  meta={meta}
-                  salePrice={post.price ?? null}
-                  currency={defaultCurrency}
-                />
-              );
-            }
-            return null;
-          })()}
-          {((category?.icon_key === "jobs" || category?.icon_key === "job") ||
-            hasJobsMeta((post.meta as Record<string, unknown>) ?? {})) && (
-            <JobsMetaBlock
-              meta={(post.meta as Record<string, unknown>) ?? {}}
-              price={post.price ?? null}
-              currency={defaultCurrency}
-            />
-          )}
-          {((category?.icon_key === "exchange") || hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
-            <ExchangeMetaBlock
-              meta={(post.meta as Record<string, unknown>) ?? {}}
-              amount={post.price ?? null}
-              currency={defaultCurrency}
-            />
-          )}
-          {category?.icon_key &&
-            category.icon_key !== "used-car" &&
-            category.icon_key !== "jobs" &&
-            category.icon_key !== "job" &&
-            category.icon_key !== "exchange" &&
-            post.meta &&
-            Object.keys(post.meta).length > 0 && (
-              <TradeMetaBlock
-                skinKey={category.icon_key}
-                meta={post.meta as Record<string, unknown>}
-                post={post}
-                defaultCurrency={defaultCurrency}
+        <section className={TRADE_WRITE_FB_SECTION}>
+          <div className="flex flex-col gap-3">
+            {(() => {
+              const meta = (post.meta as Record<string, unknown> | undefined) ?? {};
+              const hasUsedCarMeta =
+                meta &&
+                (meta.car_model != null ||
+                  meta.car_body_type != null ||
+                  meta.car_year != null ||
+                  meta.car_year_max != null ||
+                  meta.mileage != null ||
+                  meta.car_trade != null ||
+                  typeof meta.has_accident === "boolean");
+              const isUsedCarCategory = category?.icon_key === "used-car";
+              if (hasUsedCarMeta || isUsedCarCategory) {
+                return (
+                  <UsedCarMetaBlock
+                    meta={meta}
+                    salePrice={post.price ?? null}
+                    currency={defaultCurrency}
+                  />
+                );
+              }
+              return null;
+            })()}
+            {((category?.icon_key === "jobs" || category?.icon_key === "job") ||
+              hasJobsMeta((post.meta as Record<string, unknown>) ?? {})) && (
+              <JobsMetaBlock
+                meta={(post.meta as Record<string, unknown>) ?? {}}
+                price={post.price ?? null}
+                currency={defaultCurrency}
               />
             )}
+            {((category?.icon_key === "exchange") || hasExchangeMeta((post.meta as Record<string, unknown>) ?? {})) && (
+              <ExchangeMetaBlock
+                meta={(post.meta as Record<string, unknown>) ?? {}}
+                amount={post.price ?? null}
+                currency={defaultCurrency}
+              />
+            )}
+            {category?.icon_key &&
+              category.icon_key !== "used-car" &&
+              category.icon_key !== "jobs" &&
+              category.icon_key !== "job" &&
+              category.icon_key !== "exchange" &&
+              post.meta &&
+              Object.keys(post.meta).length > 0 && (
+                <TradeMetaBlock
+                  skinKey={category.icon_key}
+                  meta={post.meta as Record<string, unknown>}
+                  post={post}
+                  defaultCurrency={defaultCurrency}
+                />
+              )}
 
-          <div className={isUsedCarDetailUi ? "mt-1 border-t border-[#e4e6eb] pt-2.5" : ""}>
-            <h3
-              className={
-                isUsedCarDetailUi
-                  ? "mb-1.5 text-[15px] font-bold text-[#050505]"
-                  : "mb-3 text-[15px] font-bold text-[#111111]"
-              }
-            >
-              상품 설명
-            </h3>
-            <p
-              className={
-                isUsedCarDetailUi
-                  ? "min-h-0 break-words text-[15px] font-normal leading-[1.45] text-[#050505] whitespace-pre-wrap"
-                  : "min-h-[80px] break-words text-[14px] font-normal leading-[1.65] text-[#222222] whitespace-pre-wrap"
-              }
-            >
-              {post.content || ""}
-            </p>
+            <div className={detailMetaAny ? "border-t border-[#e4e6eb] pt-3" : ""}>
+              <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
+              <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
+            </div>
           </div>
 
           {detailFooterMetaParts.length > 0 ? (
-            <p
-              className={
-                isUsedCarDetailUi
-                  ? "mt-2.5 text-[12px] leading-[1.35] text-[#65676B]"
-                  : "mt-4 text-[12px] leading-[1.4] text-[#999999]"
-              }
-            >
-              {detailFooterMetaParts.join(" · ")}
-            </p>
+            <p className={`mt-3 ${TRADE_FB_DETAIL_FOOTNOTE}`}>{detailFooterMetaParts.join(" · ")}</p>
           ) : null}
         </section>
 
