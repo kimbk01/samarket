@@ -742,8 +742,9 @@ export function BottomNav({
 
   /**
    * 첫 탭 진입 콜드 스타트 완화:
-   * - 앱 세션당 1회, 초기 마운트에서 즉시 비활성 탭 prefetch + 데이터 prewarm 동시 수행
-   * - 기존 idle 프리페치(아래 effect)는 유지해 후속 경로 변화까지 보강
+   * - 앱 세션당 1회, 하단 탭 `prefetch` + 클라 데이터 prewarm
+   * - **동시에 5탭을 한 프레임에서 몰아치면** 메인 스레드·`/api/trade/feed` 등이 겹쳐 탭 반응·거래 목록이 버벅인다.
+   *   아래 idle 프리페치 effect 와 같이 `idle 지연` + `BOTTOM_NAV_PREFETCH_SPREAD_MS` 간격으로 순차 실행한다.
    */
   useEffect(() => {
     if (!shouldRunBottomNavProgrammaticPrefetch()) return;
@@ -756,20 +757,39 @@ export function BottomNav({
     } catch {
       /* ignore storage failures */
     }
-    // 첫 진입 즉시성 우선: 현재 활성 탭 포함, 하단 5개 탭 전체를 세션 1회 강제 워밍.
     const hrefs = tabsRef.current
       .map((tab) => tab.href)
       .filter((href, idx, arr) => arr.indexOf(href) === idx)
       .slice(0, 5);
     if (hrefs.length === 0) return;
-    for (const href of hrefs) {
-      try {
-        routerRef.current.prefetch(href);
-        prewarmBottomNavTapTargetClientCache(href);
-      } catch {
-        /* noop */
+
+    let cancelled = false;
+    const chainTimers: number[] = [];
+    const idleId = scheduleWhenBrowserIdle(() => {
+      if (cancelled) return;
+      hrefs.forEach((href, idx) => {
+        chainTimers.push(
+          window.setTimeout(() => {
+            if (cancelled) return;
+            try {
+              routerRef.current.prefetch(href);
+              prewarmBottomNavTapTargetClientCache(href);
+            } catch {
+              /* noop */
+            }
+          }, idx * BOTTOM_NAV_PREFETCH_SPREAD_MS)
+        );
+      });
+    }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
+
+    return () => {
+      cancelled = true;
+      cancelScheduledWhenBrowserIdle(idleId);
+      for (const tid of chainTimers) {
+        window.clearTimeout(tid);
       }
-    }
+      chainTimers.length = 0;
+    };
   }, []);
 
   const [portalToBody, setPortalToBody] = useState(false);

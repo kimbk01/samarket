@@ -10,7 +10,23 @@ import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
 import type { CategorySettingsRaw } from "./normalizeCategorySettings";
 import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { writeCategoryCache } from "./category-memory-cache";
+import { normalizeMarketSlugParam } from "./tradeMarketPath";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+
+/** `getCategoryBySlugOrId` 와 동일 키 규칙으로 채워, 목록 직후 단건 조회 네트워크를 피함 */
+function primeCategoryByKeyMemoryCache(list: CategoryWithSettings[]): void {
+  for (const c of list) {
+    const idRaw = c.id.trim();
+    if (idRaw) {
+      writeCategoryCache(`cat:${normalizeMarketSlugParam(idRaw)}:${idRaw}`, c);
+    }
+    const slugRaw = c.slug?.trim();
+    if (slugRaw) {
+      writeCategoryCache(`cat:${normalizeMarketSlugParam(slugRaw)}:${slugRaw}`, c);
+    }
+  }
+}
 
 /** Supabase 조인 결과 행 */
 interface CategoryDbRow {
@@ -73,6 +89,7 @@ export async function getCategories(filters?: {
     if (error || !Array.isArray(data)) return [];
     let list = (data as CategoryDbRow[]).map(toCategoryWithSettings);
     if (filters?.type) list = list.filter((c) => c.type === filters.type);
+    primeCategoryByKeyMemoryCache(list);
     return list;
   } catch {
     return [];

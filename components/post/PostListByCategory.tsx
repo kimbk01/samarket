@@ -44,6 +44,10 @@ interface PostListByCategoryProps {
   tradeTopicParam?: string;
   /** 알바 마켓: 구인/구직 메타 필터 */
   jobsListingKind?: JobListingKindFilter;
+  /** 알바: 근무 형태 DB 필터 (`je=`) */
+  jobEmploymentType?: string;
+  /** 알바: 오늘 근무 가능 */
+  todayAvailable?: boolean;
   /** 마켓 bootstrap 첫 페이지 — `feedKey`가 현재 필터와 같을 때만 적용 */
   initialTradeFeed?: {
     posts: PostWithMeta[];
@@ -61,6 +65,8 @@ export function PostListByCategory({
   tradeFeedServerResolution = false,
   tradeTopicParam = "",
   jobsListingKind,
+  jobEmploymentType,
+  todayAvailable = false,
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
   const router = useRouter();
@@ -70,11 +76,25 @@ export function PostListByCategory({
     return [categoryId];
   }, [categoryId, filterCategoryIds, tradeFeedServerResolution]);
 
+  const feedExtras = useMemo(
+    () => ({
+      jobEmploymentType: jobEmploymentType?.trim() || undefined,
+      todayAvailable: todayAvailable === true,
+    }),
+    [jobEmploymentType, todayAvailable]
+  );
+
   const feedKey = useMemo(
     () =>
       tradeFeedServerResolution
-        ? computeTradeFeedKeyForMarketParent(categoryId, tradeTopicParam, sort, jobsListingKind)
-        : computeTradeFeedKey(effectiveIds, sort, jobsListingKind),
+        ? computeTradeFeedKeyForMarketParent(
+            categoryId,
+            tradeTopicParam,
+            sort,
+            jobsListingKind,
+            feedExtras
+          )
+        : computeTradeFeedKey(effectiveIds, sort, jobsListingKind, feedExtras),
     [
       tradeFeedServerResolution,
       categoryId,
@@ -82,6 +102,7 @@ export function PostListByCategory({
       effectiveIds,
       sort,
       jobsListingKind,
+      feedExtras,
     ]
   );
 
@@ -94,9 +115,25 @@ export function PostListByCategory({
           jobsListingKind,
           tradeMarketParent: categoryId,
           topic: tradeTopicParam,
+          jobEmploymentType: feedExtras.jobEmploymentType,
+          todayAvailable: feedExtras.todayAvailable,
         })
-      : peekCachedTradeFeed(effectiveIds, { page: 1, sort, jobsListingKind });
-  }, [categoryId, tradeFeedServerResolution, effectiveIds, sort, jobsListingKind, tradeTopicParam]);
+      : peekCachedTradeFeed(effectiveIds, {
+          page: 1,
+          sort,
+          jobsListingKind,
+          jobEmploymentType: feedExtras.jobEmploymentType,
+          todayAvailable: feedExtras.todayAvailable,
+        });
+  }, [
+    categoryId,
+    tradeFeedServerResolution,
+    effectiveIds,
+    sort,
+    jobsListingKind,
+    tradeTopicParam,
+    feedExtras,
+  ]);
 
   const [posts, setPosts] = useState<PostWithMeta[]>(() => initialCachedFeed?.posts ?? []);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
@@ -171,6 +208,8 @@ export function PostListByCategory({
             sort,
             tradeMarketParent: categoryId,
             topic: "",
+            jobEmploymentType: feedExtras.jobEmploymentType,
+            todayAvailable: feedExtras.todayAvailable,
           });
           if (epoch !== listFeedEpochRef.current) return;
           if (pageNum === 1) {
@@ -199,6 +238,8 @@ export function PostListByCategory({
             page: pageNum,
             sort,
             jobsListingKind,
+            jobEmploymentType: feedExtras.jobEmploymentType,
+            todayAvailable: feedExtras.todayAvailable,
             ...(tradeFeedServerResolution
               ? {
                   tradeMarketParent: categoryId,
@@ -238,6 +279,7 @@ export function PostListByCategory({
       tradeFeedServerResolution,
       tradeTopicParam,
       resolveFavoriteMapAsync,
+      feedExtras,
     ]
   );
 
@@ -279,7 +321,14 @@ export function PostListByCategory({
           if (useHomePostsApi) {
             primeTradeFeedCache(
               [],
-              { page: 1, sort, tradeMarketParent: categoryId, topic: "" },
+              {
+                page: 1,
+                sort,
+                tradeMarketParent: categoryId,
+                topic: "",
+                jobEmploymentType: feedExtras.jobEmploymentType,
+                todayAvailable: feedExtras.todayAvailable,
+              },
               {
                 posts: initialTradeFeed.posts,
                 hasMore: initialTradeFeed.hasMore,
@@ -297,6 +346,8 @@ export function PostListByCategory({
                 jobsListingKind,
                 tradeMarketParent: categoryId,
                 topic: tradeTopicParam,
+                jobEmploymentType: feedExtras.jobEmploymentType,
+                todayAvailable: feedExtras.todayAvailable,
               },
               {
                 posts: initialTradeFeed.posts,
@@ -310,7 +361,13 @@ export function PostListByCategory({
         } else {
           primeTradeFeedCache(
             effectiveIds,
-            { page: 1, sort, jobsListingKind },
+            {
+              page: 1,
+              sort,
+              jobsListingKind,
+              jobEmploymentType: feedExtras.jobEmploymentType,
+              todayAvailable: feedExtras.todayAvailable,
+            },
             {
               posts: initialTradeFeed.posts,
               hasMore: initialTradeFeed.hasMore,
@@ -332,8 +389,16 @@ export function PostListByCategory({
             jobsListingKind,
             tradeMarketParent: categoryId,
             topic: tradeTopicParam,
+            jobEmploymentType: feedExtras.jobEmploymentType,
+            todayAvailable: feedExtras.todayAvailable,
           })
-        : peekCachedTradeFeed(effectiveIds, { page: 1, sort, jobsListingKind });
+        : peekCachedTradeFeed(effectiveIds, {
+            page: 1,
+            sort,
+            jobsListingKind,
+            jobEmploymentType: feedExtras.jobEmploymentType,
+            todayAvailable: feedExtras.todayAvailable,
+          });
       if (cached) {
         setPosts(cached.posts);
         setHasMore(cached.hasMore);
@@ -349,7 +414,7 @@ export function PostListByCategory({
     return () => {
       cancelled = true;
     };
-  }, [feedKey, initialTradeFeed?.feedKey, load, resolveFavoriteMapAsync]);
+  }, [feedKey, initialTradeFeed?.feedKey, load, resolveFavoriteMapAsync, feedExtras]);
 
   /** 글쓰기 완료 등 — 캐시 무효화 후 동일 피드에 머물러도 네트워크로 최신 목록 */
   useEffect(() => {

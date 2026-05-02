@@ -23,6 +23,8 @@ import {
   resolveTradeKindFromCategory,
   validateRestrictedMetaPatch,
 } from "@/lib/trade/trade-lifecycle-policy";
+import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
+import { tradeJobColumnsForInsert } from "@/lib/posts/trade-job-db-fields";
 
 type PatchBody = {
   categoryId?: string;
@@ -38,6 +40,7 @@ type PatchBody = {
   isPriceOfferEnabled?: boolean;
   /** 본문 append 전용 (협의·진행 단계) */
   descriptionAppend?: string | null;
+  tradeJob?: TradeJobColumnPayload | null;
 };
 
 export async function PATCH(
@@ -160,6 +163,10 @@ export async function PATCH(
     is_price_offer: proposed.is_price_offer,
     updated_at: now,
   };
+
+  if (tradeKind === "job" && body.tradeJob && typeof body.tradeJob === "object") {
+    Object.assign(patchDb, tradeJobColumnsForInsert(body.tradeJob));
+  }
 
   const { error: updErr } = await sbAny.from(POSTS_TABLE_WRITE).update(patchDb).eq("id", id).eq("user_id", userId);
 

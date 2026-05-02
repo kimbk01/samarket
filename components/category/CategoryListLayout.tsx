@@ -100,7 +100,13 @@ export function CategoryListLayout({
     if (expectedType === "trade" && tradeServerSeed) {
       const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
       const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase() ?? "";
-      if (tradeServerSeed.queryKey === buildMarketBootstrapQueryKey(slugOrId, topic, jk || null)) {
+      const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase() ?? "";
+      const je = searchParamsRef.current.get("je")?.trim().toLowerCase() ?? "";
+      const avail = searchParamsRef.current.get("avail")?.trim() ?? "";
+      if (
+        tradeServerSeed.queryKey ===
+        buildMarketBootstrapQueryKey(slugOrId, topic, jk || null, fs || null, je || null, avail || null)
+      ) {
         return;
       }
     }
@@ -119,11 +125,17 @@ export function CategoryListLayout({
       try {
         const topic = (searchParamsRef.current.get("topic")?.trim() ?? "").normalize("NFC");
         const jk = searchParamsRef.current.get("jk")?.trim().toLowerCase();
+        const fs = searchParamsRef.current.get("fs")?.trim().toLowerCase();
+        const je = searchParamsRef.current.get("je")?.trim().toLowerCase();
+        const avail = searchParamsRef.current.get("avail")?.trim().toLowerCase();
         const qs = new URLSearchParams();
         qs.set("q", slugOrId.trim());
         qs.set("includePosts", "1");
         if (topic) qs.set("topic", topic);
         if (jk === "work" || jk === "hire") qs.set("jk", jk);
+        if (fs === "popular" || fs === "pay_desc") qs.set("fs", fs);
+        if (je) qs.set("je", je);
+        if (avail === "1") qs.set("avail", "1");
         const res = await fetch(`/api/categories/market-bootstrap?${qs.toString()}`, {
           credentials: "include",
           cache: "no-store",

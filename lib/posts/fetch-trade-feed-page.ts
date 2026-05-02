@@ -10,19 +10,37 @@ import {
   fetchPostsRangeForTradeCategories,
   MAX_JOB_LISTING_KIND_CHUNKS,
   PAGE_SIZE_TRADE_FEED,
+  type TradeFeedQueryExtras,
   type TradePostSort,
 } from "@/lib/posts/trade-posts-range-query";
 
 export type TradeFeedPageSort = TradePostSort;
 
+export type TradeFeedPageOptions = {
+  page?: number;
+  sort?: TradeFeedPageSort;
+  jobsListingKind?: JobListingKindFilter;
+  restrictTradeTypeJob?: boolean;
+  jobEmploymentType?: string;
+  todayAvailable?: boolean;
+};
+
+function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
+  const restrictTradeTypeJob = opts.restrictTradeTypeJob === true;
+  const je = opts.jobEmploymentType?.trim();
+  const todayAvailable = opts.todayAvailable === true;
+  if (!restrictTradeTypeJob && !je && !todayAvailable) return undefined;
+  return {
+    restrictTradeTypeJob: restrictTradeTypeJob || undefined,
+    jobEmploymentType: je || undefined,
+    todayAvailable: todayAvailable || undefined,
+  };
+}
+
 export async function fetchTradeFeedPage(
   supabase: unknown,
   categoryIds: string[],
-  options: {
-    page?: number;
-    sort?: TradeFeedPageSort;
-    jobsListingKind?: JobListingKindFilter;
-  } = {}
+  options: TradeFeedPageOptions = {}
 ): Promise<{ posts: PostWithMeta[]; hasMore: boolean }> {
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))];
   if (!supabase || ids.length === 0) {
@@ -32,6 +50,7 @@ export async function fetchTradeFeedPage(
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
   const jobKind = options.jobsListingKind;
+  const queryExtras = buildQueryExtras(options);
   const PAGE_SIZE = PAGE_SIZE_TRADE_FEED;
 
   if (jobKind === "hire" || jobKind === "work") {
@@ -50,7 +69,8 @@ export async function fetchTradeFeedPage(
           ids,
           sort,
           dbOffset,
-          dbOffset + PAGE_SIZE - 1
+          dbOffset + PAGE_SIZE - 1,
+          queryExtras
         );
         lastChunkLen = chunk.length;
         chunks++;
@@ -79,7 +99,14 @@ export async function fetchTradeFeedPage(
   const from = (page - 1) * PAGE_SIZE;
 
   try {
-    const posts = await fetchPostsRangeForTradeCategories(supabase, ids, sort, from, from + PAGE_SIZE - 1);
+    const posts = await fetchPostsRangeForTradeCategories(
+      supabase,
+      ids,
+      sort,
+      from,
+      from + PAGE_SIZE - 1,
+      queryExtras
+    );
     return { posts, hasMore: posts.length === PAGE_SIZE };
   } catch {
     return { posts: [], hasMore: false };

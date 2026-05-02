@@ -27,6 +27,7 @@ export function hasUsedCarMeta(meta: Record<string, unknown>): boolean {
     key("car_year_max") ||
     key("mileage") ||
     key("car_trade") ||
+    key("car_body_type") ||
     key("has_accident")
   );
 }

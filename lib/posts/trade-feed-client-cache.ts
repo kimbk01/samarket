@@ -7,7 +7,7 @@ import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 
-export type TradeFeedClientSort = "latest" | "popular";
+export type TradeFeedClientSort = "latest" | "popular" | "pay_desc";
 
 export type TradeFeedClientOptions = {
   page?: number;
@@ -15,6 +15,8 @@ export type TradeFeedClientOptions = {
   jobsListingKind?: JobListingKindFilter;
   tradeMarketParent?: string;
   topic?: string;
+  jobEmploymentType?: string;
+  todayAvailable?: boolean;
 };
 
 export type TradeFeedClientResult = {
@@ -55,6 +57,8 @@ export function buildTradeFeedClientCacheKey(
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
   const u = viewerSegment.trim() || "anon";
+  const je = options.jobEmploymentType?.trim().toLowerCase() ?? "";
+  const av = options.todayAvailable === true ? "1" : "";
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -62,14 +66,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|p:${page}|u:${u}:v2`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|p:${page}|u:${u}:v3`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|p:${page}|u:${u}:v2`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|p:${page}|u:${u}:v3`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */
@@ -83,7 +87,7 @@ export function invalidateAllTradeFeedClientCache(): void {
 export function invalidateTradeFeedClientCacheForViewer(viewerUserId: string): void {
   const u = viewerUserId.trim();
   if (!u) return;
-  const suffix = `|u:${u}:v2`;
+  const suffix = `|u:${u}:v3`;
   for (const k of [...tradeFeedClientCache.keys()]) {
     if (k.endsWith(suffix)) tradeFeedClientCache.delete(k);
   }

@@ -2,6 +2,8 @@
  * 글쓰기 공통 payload (category type + settings 기반)
  */
 
+import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
+
 export type PostType = "trade" | "community" | "service" | "feature";
 
 export interface CreatePostPayloadBase {
@@ -23,6 +25,8 @@ export interface CreatePostPayloadTrade extends CreatePostPayloadBase {
   imageUrls?: string[];
   /** 거래 종류별 확장 데이터 (부동산/중고차/알바/환전 스킨용) */
   meta?: Record<string, unknown>;
+  /** 일자리: DB 컬럼 동기화 (meta 와 병행) */
+  tradeJob?: TradeJobColumnPayload;
 }
 
 export interface CreatePostPayloadCommunity extends CreatePostPayloadBase {

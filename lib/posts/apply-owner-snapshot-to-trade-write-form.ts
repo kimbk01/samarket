@@ -46,6 +46,8 @@ export type TradeWriteHydratedFields = {
   usedCarBrandKey?: string;
   usedCarModelKey?: string;
   usedCarMileagePresetKey?: string;
+  /** used-car + 삽니다 — meta.car_body_type */
+  usedCarBodyTypeKey?: string;
 };
 
 function str(v: unknown): string {
@@ -110,6 +112,13 @@ export function hydrateTradeWriteFormFromSnapshot(
       usedCarBrandKey: resolved.brandKey,
       usedCarModelKey: resolved.modelKey,
       usedCarMileagePresetKey: mileageDigits ? findMileagePresetKeyForDigits(mileageDigits) : "",
+    };
+  }
+
+  if (skinKey === "used-car" && base.usedCarTrade === "buy") {
+    return {
+      ...base,
+      usedCarBodyTypeKey: str(m.car_body_type),
     };
   }
 

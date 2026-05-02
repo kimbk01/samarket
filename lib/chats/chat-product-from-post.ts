@@ -141,6 +141,8 @@ export function chatProductSummaryFromPostRow(
   const meta = parsePostMetaField(post?.meta);
   const isEx = hasExchangeMeta(meta);
   const isJobTradeChat = str(meta.trade_chat_kind).toLowerCase() === "job";
+  const tradeTypeRaw = str(post?.trade_type).toLowerCase();
+  const tradeType = tradeTypeRaw === "job" ? ("job" as const) : tradeTypeRaw === "product" ? ("product" as const) : undefined;
   const tradeChatCallPolicy = normalizeTradeChatCallPolicy(meta.trade_chat_call_policy);
   const priceRaw = post?.price as number | string | null | undefined;
   const priceNum =
@@ -180,6 +182,15 @@ export function chatProductSummaryFromPostRow(
     exchangeRateSubLine: isEx ? rateLine : undefined,
     listPreview,
     isJobTradeChat: !isEx && isJobTradeChat ? true : undefined,
+    tradeType: !isEx && tradeType === "job" ? "job" : undefined,
+    jobEmploymentType:
+      !isEx && tradeType === "job"
+        ? str(post?.job_employment_type) || undefined
+        : undefined,
+    jobApplicationCount:
+      !isEx && tradeType === "job" && post?.application_count != null
+        ? Number(post.application_count as number | string)
+        : undefined,
     /** 명시 전달 — `none` 포함. 메신저/채팅 헤더가 `undefined`와 구분해 통화 버튼을 숨길 수 있음 */
     tradeChatCallPolicy: !isEx && !isJobTradeChat ? tradeChatCallPolicy : undefined,
   };

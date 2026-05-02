@@ -13,6 +13,9 @@ export type TradeFeedOpenRequestOptions = {
   page: number;
   sort: TradeFeedPageSort;
   jobsListingKind?: JobListingKindFilter;
+  restrictTradeTypeJob?: boolean;
+  jobEmploymentType?: string;
+  todayAvailable?: boolean;
 };
 
 export type TradeFeedOpenPayload = {
@@ -33,13 +36,27 @@ export async function resolveTradeFeedOpenPayload(
 ): Promise<TradeFeedOpenPayload> {
   const { readSb, serviceSb, favoritesSb } = clients;
 
-  let result = await fetchTradeFeedPage(readSb, categoryIds, opts);
+  let result = await fetchTradeFeedPage(readSb, categoryIds, {
+    page: opts.page,
+    sort: opts.sort,
+    jobsListingKind: opts.jobsListingKind,
+    restrictTradeTypeJob: opts.restrictTradeTypeJob,
+    jobEmploymentType: opts.jobEmploymentType,
+    todayAvailable: opts.todayAvailable,
+  });
   if (
     result.posts.length === 0 &&
     serviceSb &&
     serviceSb !== readSb
   ) {
-    const alt = await fetchTradeFeedPage(serviceSb, categoryIds, opts);
+    const alt = await fetchTradeFeedPage(serviceSb, categoryIds, {
+      page: opts.page,
+      sort: opts.sort,
+      jobsListingKind: opts.jobsListingKind,
+      restrictTradeTypeJob: opts.restrictTradeTypeJob,
+      jobEmploymentType: opts.jobEmploymentType,
+      todayAvailable: opts.todayAvailable,
+    });
     if (alt.posts.length > 0) {
       result = alt;
     }

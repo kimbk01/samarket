@@ -1,15 +1,23 @@
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 
-export type TradeFeedSort = "latest" | "popular";
+export type TradeFeedSort = "latest" | "popular" | "pay_desc";
+
+export type TradeFeedKeyExtras = {
+  jobEmploymentType?: string;
+  todayAvailable?: boolean;
+};
 
 /** 서버 bootstrap 과 클라이언트 `PostListByCategory` 가 동일한지 판별 */
 export function computeTradeFeedKey(
   filterCategoryIds: string[],
   sort: TradeFeedSort,
-  jobsListingKind?: JobListingKindFilter
+  jobsListingKind?: JobListingKindFilter,
+  extras?: TradeFeedKeyExtras
 ): string {
   const ids = [...new Set(filterCategoryIds.map((x) => x.trim()).filter(Boolean))].sort();
-  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}`;
+  const je = extras?.jobEmploymentType?.trim() ?? "";
+  const av = extras?.todayAvailable ? "1" : "";
+  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}`;
 }
 
 /**
@@ -20,9 +28,12 @@ export function computeTradeFeedKeyForMarketParent(
   parentCategoryId: string,
   topicRaw: string,
   sort: TradeFeedSort,
-  jobsListingKind?: JobListingKindFilter
+  jobsListingKind?: JobListingKindFilter,
+  extras?: TradeFeedKeyExtras
 ): string {
   const p = parentCategoryId.trim();
   const t = topicRaw.trim().normalize("NFC");
-  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}`;
+  const je = extras?.jobEmploymentType?.trim() ?? "";
+  const av = extras?.todayAvailable ? "1" : "";
+  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}`;
 }

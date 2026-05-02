@@ -13,6 +13,7 @@ const CATEGORY_CHANGE_SHEET_TITLE = "카테고리를 변경할까요?";
 const CATEGORY_CHANGE_SHEET_BODY = "현재 입력한 내용이 사라질 수 있습니다.";
 import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
+import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
@@ -104,6 +105,21 @@ export function WriteSheetFlowInner({
         setFormStatus("redirecting");
         return;
       }
+      const v = value.trim();
+      const n = normalizeMarketSlugParam(v);
+      const fromList = categories.find(
+        (c) => c.id === v || c.id === n || (c.slug && (c.slug === v || c.slug === n))
+      );
+      if (fromList) {
+        if (fromList.settings && !fromList.settings.can_write) {
+          setSelectedCategory(fromList);
+          setFormStatus("no_write");
+          return;
+        }
+        setSelectedCategory(fromList);
+        setFormStatus("found");
+        return;
+      }
       setFormStatus("loading");
       try {
         const c = await getCategoryBySlugOrId(value);
@@ -124,7 +140,7 @@ export function WriteSheetFlowInner({
         setFormStatus("not_found");
       }
     },
-    [router, pathnameForAuth]
+    [router, pathnameForAuth, categories]
   );
 
   useEffect(() => {

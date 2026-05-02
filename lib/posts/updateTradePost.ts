@@ -1,6 +1,7 @@
 "use client";
 
 import type { CreatePostPayload } from "./types";
+import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
 
@@ -20,6 +21,7 @@ type TradeUpdateBody = {
   isPriceOfferEnabled?: boolean;
   /** 협의·진행 단계 본문 append */
   descriptionAppend?: string | null;
+  tradeJob?: TradeJobColumnPayload | null;
 };
 
 /**
@@ -57,6 +59,7 @@ export async function updateTradePost(postId: string, body: TradeUpdateBody): Pr
         isFreeShare: body.isFreeShare,
         isPriceOfferEnabled: body.isPriceOfferEnabled,
         descriptionAppend: body.descriptionAppend ?? undefined,
+        tradeJob: body.tradeJob ?? undefined,
       }),
     });
     const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -88,5 +91,6 @@ export async function updateTradePostFromCreatePayload(
     isFreeShare: payload.isFreeShare,
     isPriceOfferEnabled: payload.isPriceOfferEnabled,
     descriptionAppend: opts?.descriptionAppend,
+    tradeJob: payload.tradeJob,
   });
 }

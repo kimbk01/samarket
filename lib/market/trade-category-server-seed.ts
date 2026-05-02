@@ -25,9 +25,17 @@ export function tradeServerSeedFromBootstrapPayload(
   slugParam: string,
   topic: string,
   jk: string | null,
-  payload: MarketBootstrapPayload
+  payload: MarketBootstrapPayload,
+  feedQueryExtras?: { fs?: string | null; je?: string | null; avail?: string | null }
 ): TradeCategoryServerSeed {
-  const queryKey = buildMarketBootstrapQueryKey(slugParam, topic, jk);
+  const queryKey = buildMarketBootstrapQueryKey(
+    slugParam,
+    topic,
+    jk,
+    feedQueryExtras?.fs,
+    feedQueryExtras?.je,
+    feedQueryExtras?.avail
+  );
   const category = toCategoryWithSettings(payload.category as unknown as CategoryDbRow);
   const children = (payload.children as unknown as CategoryDbRow[]).map(mapChildCategoryRow);
   return {

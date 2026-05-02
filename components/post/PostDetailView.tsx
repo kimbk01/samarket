@@ -49,6 +49,7 @@ import {
 } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
+import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -133,6 +134,7 @@ const META_LABELS: Record<string, Record<string, string>> = {
   },
   "used-car": {
     car_trade: "구분",
+    car_body_type: "차량 유형",
     car_model: "차종",
     car_year: "연식",
     car_year_max: "년식 (이하)",
@@ -327,8 +329,13 @@ function UsedCarMetaBlock({
   if (ct === "buy" || ct === "sell")
     rows.push({ label: "구분", value: ct === "buy" ? "삽니다" : "팝니다" });
   if (ct === "buy") {
+    if (meta.car_body_type != null && String(meta.car_body_type).trim())
+      rows.push({
+        label: "차량 유형",
+        value: labelForUsedCarBodyTypeKey(String(meta.car_body_type).trim()),
+      });
     if (meta.car_model != null && String(meta.car_model).trim())
-      rows.push({ label: "차종", value: String(meta.car_model).trim() });
+      rows.push({ label: "희망 모델", value: String(meta.car_model).trim() });
     if (meta.car_year_max != null && String(meta.car_year_max).trim())
       rows.push({
         label: "년식 (이하)",
@@ -385,6 +392,8 @@ function RealEstateMetaBlock({
   regionId,
   cityId,
   compactTop,
+  /** 상단 헤더에 건물명·지역·거래·금액을 이미 노출한 경우 테이블 중복 제거 */
+  detailHeroDedup = false,
 }: {
   meta: Record<string, unknown>;
   salePrice: number | null;
@@ -392,29 +401,32 @@ function RealEstateMetaBlock({
   regionId?: string | null;
   cityId?: string | null;
   compactTop?: boolean;
+  detailHeroDedup?: boolean;
 }) {
   const dealType = (meta.deal_type as string | undefined)?.trim();
   const regionLabel = regionId && cityId ? getLocationLabel(regionId, cityId) : null;
 
   const rows: { label: string; value: string }[] = [];
 
-  if (regionLabel) rows.push({ label: "지역", value: regionLabel });
-  if (meta.neighborhood != null && String(meta.neighborhood).trim())
-    rows.push({ label: "동네", value: String(meta.neighborhood) });
-  if (meta.building_name != null && String(meta.building_name).trim())
-    rows.push({ label: "건물명", value: String(meta.building_name) });
-  if (meta.estate_type != null && String(meta.estate_type).trim())
-    rows.push({ label: "타입", value: String(meta.estate_type) });
-  if (meta.deal_type != null && String(meta.deal_type).trim())
-    rows.push({ label: "거래유형", value: String(meta.deal_type) });
+  if (!detailHeroDedup && regionLabel) rows.push({ label: "지역", value: regionLabel });
+  if (!detailHeroDedup && meta.neighborhood != null && String(meta.neighborhood).trim())
+    rows.push({ label: "지역 세부", value: String(meta.neighborhood).trim() });
+  if (!detailHeroDedup && meta.building_name != null && String(meta.building_name).trim())
+    rows.push({ label: "건물명", value: String(meta.building_name).trim() });
+  if (!detailHeroDedup && meta.estate_type != null && String(meta.estate_type).trim())
+    rows.push({ label: "타입", value: String(meta.estate_type).trim() });
+  if (!detailHeroDedup && meta.deal_type != null && String(meta.deal_type).trim())
+    rows.push({ label: "거래유형", value: String(meta.deal_type).trim() });
 
-  if (dealType === "판매" && salePrice != null)
+  if (!detailHeroDedup && dealType === "판매" && salePrice != null)
     rows.push({ label: "판매가", value: formatPrice(salePrice, currency) });
-  if (dealType === "임대") {
+  if (!detailHeroDedup && dealType === "임대") {
     if (meta.deposit != null && String(meta.deposit).trim())
       rows.push({ label: "보증금", value: formatPrice(parseMetaAmount(meta.deposit), currency) });
     if (meta.monthly != null && String(meta.monthly).trim())
       rows.push({ label: "월세", value: formatPrice(parseMetaAmount(meta.monthly), currency) });
+  }
+  if (dealType === "임대") {
     if (meta.management_fee != null && String(meta.management_fee).trim())
       rows.push({ label: "관리비", value: formatPrice(parseMetaAmount(meta.management_fee), currency) });
     if (meta.has_premium === true)
@@ -576,6 +588,10 @@ function TradePostDetailActionBar({
   canApplyTradeAd,
   onSellerOffersOpen,
   onTradeAdOpen,
+  showJobApplyBtn,
+  jobApplyBusy,
+  jobApplyDone,
+  onJobApply,
 }: {
   isOwnPost: boolean;
   isFavorite: boolean;
@@ -587,6 +603,10 @@ function TradePostDetailActionBar({
   showBuyerOfferPendingDisabled: boolean;
   bottomBarHasOfferBtn: boolean;
   bottomBarHasChatBtn: boolean;
+  showJobApplyBtn: boolean;
+  jobApplyBusy: boolean;
+  jobApplyDone: boolean;
+  onJobApply: () => void | Promise<void>;
   offerRetry: boolean;
   onOfferModalOpen: () => void;
   onChat: () => void | Promise<void>;
@@ -646,6 +666,16 @@ function TradePostDetailActionBar({
                   className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
                 />
               ) : null}
+              {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobApplyBtn ? (
+                <button
+                  type="button"
+                  onClick={() => void onJobApply()}
+                  disabled={jobApplyBusy || jobApplyDone}
+                  className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
+                >
+                  {jobApplyDone ? "지원 완료" : jobApplyBusy ? "처리 중…" : "지원하기"}
+                </button>
+              ) : null}
               {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && bottomBarHasChatBtn ? (
                 <button
                   type="button"
@@ -660,7 +690,7 @@ function TradePostDetailActionBar({
                     chatBlockedByOtherReservation
                   }
                   className={
-                    bottomBarHasOfferBtn
+                    bottomBarHasOfferBtn || showJobApplyBtn
                       ? `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`
                       : TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA
                   }
@@ -821,6 +851,8 @@ export function PostDetailView({
     const n = post.favorite_count;
     return typeof n === "number" && Number.isFinite(n) ? n : 0;
   });
+  const [jobApplyBusy, setJobApplyBusy] = useState(false);
+  const [jobApplyDone, setJobApplyDone] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -1415,8 +1447,25 @@ export function PostDetailView({
       (resolvedViewerId != null && buyerPrimaryOffer?.status === "accepted"));
   const bottomBarHasOfferBtn = showBuyerOfferPrimaryButton;
   const bottomBarHasChatBtn = uiTradeChatEnabled;
-  const bottomActionsRowClass =
-    bottomBarHasOfferBtn && bottomBarHasChatBtn ? "flex-row" : "flex-col";
+
+  const detailMetaJob =
+    post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
+      ? (post.meta as Record<string, unknown>)
+      : {};
+  const listingKindJob = String(detailMetaJob.listing_kind ?? "").trim();
+  const isJobTradePost =
+    post.trade_type === "job" ||
+    String(detailMetaJob.trade_chat_kind ?? "").toLowerCase() === "job";
+  const showJobApplyBtn =
+    !isOwnPost &&
+    isJobTradePost &&
+    listingKindJob === "hire" &&
+    post.status === "active" &&
+    resolvedViewerId != null;
+
+  const buyerActionsCount =
+    Number(bottomBarHasOfferBtn) + Number(showJobApplyBtn) + Number(bottomBarHasChatBtn);
+  const bottomActionsRowClass = buyerActionsCount >= 2 ? "flex-row" : "flex-col";
 
   /** 알림(가격 제안 도착) 진입 — 판매자만 받은 제안 모달 오픈 후 쿼리 제거 (`useLayoutEffect`: 네비 직후 깜빡임·타이밍 이슈 완화) */
   useLayoutEffect(() => {
@@ -1561,6 +1610,35 @@ export function PostDetailView({
   const chatCtaLabel = "채팅하기";
   const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
 
+  const handleJobApply = useCallback(async () => {
+    if (!resolvedViewerId || jobApplyBusy || jobApplyDone) return;
+    setJobApplyBusy(true);
+    try {
+      const res = await fetch(`/api/posts/${encodeURIComponent(post.id)}/job-apply`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        code?: string;
+        error?: string;
+      };
+      if (res.ok && data.ok) {
+        setJobApplyDone(true);
+        return;
+      }
+      if (res.status === 409 || data.code === "duplicate_application") {
+        setJobApplyDone(true);
+        return;
+      }
+      setChatError(typeof data.error === "string" ? data.error : "지원에 실패했습니다.");
+    } finally {
+      setJobApplyBusy(false);
+    }
+  }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id]);
+
   const listingLocationLine = useMemo(() => {
     const re =
       post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
@@ -1589,6 +1667,7 @@ export function PostDetailView({
   /** 중고차 메타가 있으면 부동산 전용 레이아웃으로 빠지지 않게 (히어로·⋮ 동일 UI) */
   const hasUsedCarMetaEarly =
     reMeta.car_model != null ||
+    reMeta.car_body_type != null ||
     reMeta.car_year != null ||
     reMeta.car_year_max != null ||
     reMeta.mileage != null ||
@@ -1722,6 +1801,14 @@ export function PostDetailView({
 
   if (isRealEstateDetail) {
     const imgList = resolveTradePostDetailImageUrls(post);
+    const reHeroBuilding = String(reMeta.building_name ?? "").trim();
+    const reHeroTitle = reHeroBuilding || post.title || "";
+    const reHeroSubtitle = [
+      [reDealType, reEstateType].filter(Boolean).join(" · "),
+      listingLocationLine?.trim(),
+    ]
+      .filter(Boolean)
+      .join(" · ");
     const reDetailFooterMetaParts = [
       formatTimeAgo(post.created_at),
       post.view_count != null && `조회 ${post.view_count}`,
@@ -1732,7 +1819,7 @@ export function PostDetailView({
         <div className={POST_DETAIL_FEED_STACK_CLASS}>
           <section className={POST_DETAIL_SECTOR_CARD_CLASS}>
             {imgList.length > 0 ? (
-              <ProductImageGallery images={imgList} title={post.title ?? ""} />
+              <ProductImageGallery images={imgList} title={reHeroTitle || post.title || ""} />
             ) : (
               <div className="flex min-h-[160px] w-full items-center justify-center overflow-hidden bg-sam-surface-muted text-sm text-[#999]">
                 이미지
@@ -1741,7 +1828,10 @@ export function PostDetailView({
           </section>
 
           <section className={`${POST_DETAIL_SECTOR_CARD_CLASS} ${POST_DETAIL_SECTOR_PAD_CLASS}`}>
-            <h2 className="break-words text-[18px] font-bold leading-[1.35] text-[#111111]">{post.title}</h2>
+            <h2 className="break-words text-[18px] font-bold leading-[1.35] text-[#111111]">{reHeroTitle}</h2>
+            {reHeroSubtitle ? (
+              <p className="mt-1 break-words text-[13px] font-normal leading-snug text-[#777777]">{reHeroSubtitle}</p>
+            ) : null}
             {rePriceSummary ? (
               <p className="mb-3 mt-2 text-[22px] font-extrabold leading-[1.2] text-[#111111]">{rePriceSummary}</p>
             ) : null}
@@ -1791,9 +1881,10 @@ export function PostDetailView({
               meta={reMeta}
               salePrice={post.price ?? null}
               currency={defaultCurrency}
-              regionId={undefined}
-              cityId={undefined}
+              regionId={post.region ?? undefined}
+              cityId={post.city ?? undefined}
               compactTop
+              detailHeroDedup
             />
             {reDetailFooterMetaParts.length > 0 ? (
               <p className="mt-4 text-[12px] leading-[1.4] text-[#999999]">{reDetailFooterMetaParts.join(" · ")}</p>
@@ -1828,6 +1919,10 @@ export function PostDetailView({
           showBuyerOfferPendingDisabled={showBuyerOfferPendingDisabled}
           bottomBarHasOfferBtn={bottomBarHasOfferBtn}
           bottomBarHasChatBtn={bottomBarHasChatBtn}
+          showJobApplyBtn={showJobApplyBtn}
+          jobApplyBusy={jobApplyBusy}
+          jobApplyDone={jobApplyDone}
+          onJobApply={handleJobApply}
           offerRetry={
             buyerPrimaryOffer?.status === "rejected" || buyerPrimaryOffer?.status === "expired"
           }
@@ -1960,6 +2055,7 @@ export function PostDetailView({
             const hasUsedCarMeta =
               meta &&
               (meta.car_model != null ||
+                meta.car_body_type != null ||
                 meta.car_year != null ||
                 meta.car_year_max != null ||
                 meta.mileage != null ||
@@ -2045,6 +2141,10 @@ export function PostDetailView({
         showBuyerOfferPendingDisabled={showBuyerOfferPendingDisabled}
         bottomBarHasOfferBtn={bottomBarHasOfferBtn}
         bottomBarHasChatBtn={bottomBarHasChatBtn}
+        showJobApplyBtn={showJobApplyBtn}
+        jobApplyBusy={jobApplyBusy}
+        jobApplyDone={jobApplyDone}
+        onJobApply={handleJobApply}
         offerRetry={
           buyerPrimaryOffer?.status === "rejected" || buyerPrimaryOffer?.status === "expired"
         }

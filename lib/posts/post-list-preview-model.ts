@@ -3,11 +3,13 @@
  */
 
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
+import { getLocationLabel } from "@/lib/products/form-options";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { TRADE_SKIN_LABELS } from "@/lib/types/category";
 import {
   JOB_LISTING_KIND_LABELS,
   PAY_TYPE_LABELS,
+  WORK_TERM_LABELS,
 } from "@/lib/jobs/form-options";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
@@ -18,6 +20,7 @@ import {
   hasExchangeMeta,
 } from "@/lib/posts/post-variant";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
+import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { APP_FEED_LIST_ROW1_PILL_LIST } from "@/lib/ui/app-feed-list-row1";
 
 export type PostListThumbMode = "exchange" | "generic" | "none";
@@ -233,6 +236,30 @@ function rowPriceLabel(
   return null;
 }
 
+/** 리스트 1줄 헤드라인 — 건물명 우선, 구형 제목(지역 접두)은 호환용으로 정리 */
+function realEstateListingHeadline(
+  meta: Record<string, unknown>,
+  post: Record<string, unknown>,
+  region: string,
+  city: string
+): string {
+  const bn = str(meta.building_name);
+  if (bn) return bn;
+  const title = str(post.title);
+  if (!title) return "매물";
+  const loc = region && city ? getLocationLabel(region, city).trim() : "";
+  if (loc) {
+    if (title === loc || title.startsWith(`${loc}·`) || title.startsWith(`${loc} ·`)) {
+      const rest = title.slice(loc.length).replace(/^\s*·\s*/, "").trim();
+      return rest || title;
+    }
+    if (title.startsWith(`${loc} `)) {
+      return title.slice(loc.length).trim() || title;
+    }
+  }
+  return title;
+}
+
 export function buildPostListPreviewModel(
   post: Record<string, unknown> | undefined,
   opts: { currency: string; locale: string; skinKey?: string }
@@ -276,19 +303,13 @@ export function buildPostListPreviewModel(
   /** PostCard와 동일: 부동산 스킨이어도 meta 비어 있으면 일반 거래 블록으로 */
   if (isRealEstate && Object.keys(meta).length > 0) {
     const dealType = str(meta.deal_type);
+    const row1Headline = realEstateListingHeadline(meta, post, region, city);
     const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency);
     const estateType = str(meta.estate_type);
     const sizeSq = meta.size_sq ?? meta.area_sqm;
     const sizeSqStr =
       sizeSq != null && String(sizeSq).trim() ? `${String(sizeSq).trim()} sq` : "";
-    const room = str(meta.room_count);
-    const bath = str(meta.bathroom_count);
-    const parts3 = [
-      estateType,
-      sizeSqStr,
-      room && `방 ${room}개`,
-      bath && `욕실 ${bath}개`,
-    ].filter(Boolean);
+    const parts3 = [estateType, sizeSqStr].filter(Boolean);
     const row3 = parts3.join(" · ");
 
     const listingChips: ListingChip[] = [];
@@ -297,6 +318,10 @@ export function buildPostListPreviewModel(
     }
 
     const blocks: PostListBodyBlock[] = [
+      {
+        className: POST_LIST_TITLE_CLASS,
+        text: row1Headline,
+      },
       {
         className: POST_LIST_TRADE_PRICE_CLASS,
         text: row2Price || "금액 문의",
@@ -322,10 +347,13 @@ export function buildPostListPreviewModel(
 
   if (isUsedCar) {
     const carModel = str(meta.car_model);
+    const bodyTypeRaw = str(meta.car_body_type);
+    const bodyTypeLabel =
+      meta.car_trade === "buy" && bodyTypeRaw ? labelForUsedCarBodyTypeKey(bodyTypeRaw) : "";
     const yearRaw = str(meta.car_year_max) || str(meta.car_year);
     const yearPart =
       yearRaw && /^\d{4}$/.test(yearRaw) ? `${yearRaw}년` : yearRaw;
-    const carSpecLine = [carModel, yearPart].filter(Boolean).join(" · ");
+    const carSpecLine = [bodyTypeLabel, carModel, yearPart].filter(Boolean).join(" · ");
     const usedCarPriceLabel = isFree
       ? "무료나눔"
       : priceOk != null
@@ -361,6 +389,7 @@ export function buildPostListPreviewModel(
   }
 
   if (isJobs) {
+    const row = post as Record<string, unknown>;
     const kindRaw = str(meta.listing_kind);
     const legacyJobType = str(meta.job_type);
     const listingKindLabel =
@@ -369,9 +398,16 @@ export function buildPostListPreviewModel(
         : legacyJobType === "seek"
           ? JOB_LISTING_KIND_LABELS.work
           : JOB_LISTING_KIND_LABELS.hire;
-    const payTypeMeta = str(meta.pay_type);
+    const payTypeMeta = str(meta.pay_type) || str(row.pay_type);
+    const colPay = row.pay_amount;
     const payAmountNum =
-      meta.pay_amount != null ? Number(meta.pay_amount) : priceOk != null ? priceOk : null;
+      meta.pay_amount != null
+        ? Number(meta.pay_amount)
+        : colPay != null && colPay !== ""
+          ? Number(colPay)
+          : priceOk != null
+            ? priceOk
+            : null;
     const jobsPayLabel =
       payAmountNum != null && !Number.isNaN(payAmountNum)
         ? `${PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta} ${formatPrice(payAmountNum, currency)}`
@@ -382,9 +418,19 @@ export function buildPostListPreviewModel(
     if (listingKindLabel) {
       listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER_STATUS_MATCH });
     }
-    const wt = str(meta.work_term);
-    if (wt === "short" || wt === "one_day") {
+    const wt = str(meta.work_term) || str(row.job_employment_type);
+    const wtLabel = WORK_TERM_LABELS[wt];
+    if (wtLabel) {
+      listingChips.push({ text: wtLabel, className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+    } else if (wt === "short" || wt === "one_day") {
       listingChips.push({ text: "단기", className: POST_LIST_CHIP_GRAY_STATUS_MATCH });
+    }
+    const appCnt = Number(row.application_count);
+    if (Number.isFinite(appCnt) && appCnt > 0) {
+      listingChips.push({
+        text: `지원 ${appCnt}`,
+        className: POST_LIST_CHIP_GRAY_STATUS_MATCH,
+      });
     }
     if (meta.same_day_pay === true) {
       listingChips.push({ text: "당일지급", className: POST_LIST_CHIP_BLUE_STATUS_MATCH });

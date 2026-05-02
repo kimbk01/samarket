@@ -41,6 +41,9 @@ async function MarketCategoryPageBody({
 
   const topicRaw = firstString(sp.topic);
   const jkRaw = firstString(sp.jk);
+  const fsRaw = firstString(sp.fs);
+  const jeRaw = firstString(sp.je);
+  const availRaw = firstString(sp.avail);
 
   let tradeServerSeed: ReturnType<typeof tradeServerSeedFromBootstrapPayload> | null = null;
 
@@ -54,6 +57,9 @@ async function MarketCategoryPageBody({
       jkParam: jkRaw || null,
       includePosts: true,
       viewerUserId,
+      fsParam: fsRaw || null,
+      jeParam: jeRaw || null,
+      availParam: availRaw || null,
     });
 
     if (result.ok) {
@@ -61,14 +67,19 @@ async function MarketCategoryPageBody({
       if (cat.type !== "trade") {
         redirect(getCategoryPathForRedirect(cat));
       }
-      tradeServerSeed = tradeServerSeedFromBootstrapPayload(slugOrId, topicRaw, jkRaw || null, result.data);
+      tradeServerSeed = tradeServerSeedFromBootstrapPayload(slugOrId, topicRaw, jkRaw || null, result.data, {
+        fs: fsRaw || null,
+        je: jeRaw || null,
+        avail: availRaw || null,
+      });
     } else if (result.httpStatus === 404) {
       notFound();
     }
   }
 
   const layoutKey =
-    tradeServerSeed?.queryKey ?? buildMarketBootstrapQueryKey(slugOrId, topicRaw, jkRaw || null);
+    tradeServerSeed?.queryKey ??
+    buildMarketBootstrapQueryKey(slugOrId, topicRaw, jkRaw || null, fsRaw || null, jeRaw || null, availRaw || null);
 
   return (
     <MarketCategoryPageClient layoutKey={layoutKey} tradeServerSeed={tradeServerSeed} slugOrId={slugOrId} />

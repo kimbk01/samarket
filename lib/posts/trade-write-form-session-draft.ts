@@ -66,6 +66,8 @@ export type TradeWriteFormSessionDraftBuildArgs = {
   usedCarBrandKey?: string;
   usedCarModelKey?: string;
   usedCarMileagePresetKey?: string;
+  /** 중고차 삽니다 — meta.car_body_type 키 복원 */
+  usedCarBodyTypeKey?: string;
 };
 
 export type TradeWriteFormSessionDraftV1 = {
@@ -111,6 +113,8 @@ export type TradeWriteFormSessionDraftV1 = {
   usedCarBrandKey?: string;
   usedCarModelKey?: string;
   usedCarMileagePresetKey?: string;
+  /** 중고차 삽니다 — meta.car_body_type 키 복원 */
+  usedCarBodyTypeKey?: string;
 };
 
 function storageKey(categoryId: string): string {
@@ -205,6 +209,7 @@ export function tradeWritePersistedDraftLooksFilled(d: TradeWriteFormSessionDraf
     usedCarBrandKey: d.usedCarBrandKey ?? "",
     usedCarModelKey: d.usedCarModelKey ?? "",
     usedCarMileagePresetKey: d.usedCarMileagePresetKey ?? "",
+    usedCarBodyTypeKey: d.usedCarBodyTypeKey ?? "",
   });
 }
 
@@ -225,6 +230,7 @@ export function tradeWriteSessionDraftLooksFilled(p: TradeWriteFormSessionDraftB
         (p.usedCarBrandKey ?? "").trim() ||
         (p.usedCarModelKey ?? "").trim() ||
         (p.usedCarMileagePresetKey ?? "").trim() ||
+        (p.usedCarBodyTypeKey ?? "").trim() ||
         p.usedCarTrade === "buy" ||
         (p.tradeMeetSpot?.displayLine?.trim() ?? "").length > 0 ||
         p.descriptionAppend.trim()
@@ -341,6 +347,9 @@ export function buildTradeWriteFormSessionDraft(args: TradeWriteFormSessionDraft
           usedCarModelKey: args.usedCarModelKey ?? "",
           usedCarMileagePresetKey: args.usedCarMileagePresetKey ?? "",
         }
+      : {}),
+    ...(isUsedCarTradeWriteSkin(args.skinKey) && args.usedCarTrade === "buy"
+      ? { usedCarBodyTypeKey: args.usedCarBodyTypeKey ?? "" }
       : {}),
   };
 }

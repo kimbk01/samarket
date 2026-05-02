@@ -81,6 +81,7 @@ import { TradeFrequentPhrasesSheet } from "../shared/TradeFrequentPhrasesSheet";
 import { SubmitButton } from "../shared/SubmitButton";
 import { WriteTradeTopicSection, resolveTradeWriteCategoryId } from "../shared/WriteTradeTopicSection";
 import { TradeDefaultLocationBlock } from "../shared/TradeDefaultLocationBlock";
+import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateJobsWriteFormFromSnapshot } from "@/lib/posts/hydrate-jobs-write-from-snapshot";
@@ -124,6 +125,18 @@ function formatPayReadable(num: number, currency: string): string {
   return formatPrice(num, currency);
 }
 
+/** 드롭다운 옵션 밖의 업종(레거시·직접 입력)은 「기타」+ 상세로 합침 */
+function normalizeJobsWorkCategorySelect(wc: string, wo: string): { category: string; other: string } {
+  const t = wc.trim();
+  const o = wo.trim();
+  const opts = WORK_CATEGORY_OPTIONS as readonly string[];
+  if (!t) return { category: "", other: o };
+  if (opts.includes(t)) {
+    return { category: t, other: t === WORK_CATEGORY_OTHER ? o : "" };
+  }
+  return { category: WORK_CATEGORY_OTHER, other: o || t };
+}
+
 export function JobsWriteForm({
   category,
   onSuccess,
@@ -141,7 +154,11 @@ export function JobsWriteForm({
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
   const appSettings = useMemo(() => getAppSettings(), []);
   const currency = appSettings.defaultCurrency || "PHP";
-  const maxImages = Math.max(1, appSettings.maxProductImages ?? 10);
+  const baseMaxImages = Math.max(1, appSettings.maxProductImages ?? 10);
+  const maxImages =
+    category.icon_key === "jobs" || category.icon_key === "job"
+      ? Math.min(5, baseMaxImages)
+      : baseMaxImages;
 
   const [listingKind, setListingKind] = useState<JobListingKind>("hire");
   const [title, setTitle] = useState("");
@@ -216,8 +233,11 @@ export function JobsWriteForm({
   const applyJobsStagingToForm = useCallback((staged: JobsWriteMeetSpotStagingV1) => {
     setListingKind(staged.listingKind === "work" ? "work" : "hire");
     setTitle(staged.title);
-    setWorkCategory(staged.workCategory);
-    setWorkCategoryOther(staged.workCategoryOther);
+    {
+      const n = normalizeJobsWorkCategorySelect(staged.workCategory, staged.workCategoryOther);
+      setWorkCategory(n.category);
+      setWorkCategoryOther(n.other);
+    }
     setWorkTerm(staged.workTerm);
     setPayType(staged.payType);
     setPayAmount(staged.payAmount);
@@ -387,8 +407,11 @@ export function JobsWriteForm({
     const h = hydrateJobsWriteFormFromSnapshot(category, ownerEditSnapshot);
     setListingKind(h.listingKind);
     setTitle(h.title);
-    setWorkCategory(h.workCategory);
-    setWorkCategoryOther(h.workCategoryOther);
+    {
+      const n = normalizeJobsWorkCategorySelect(h.workCategory, h.workCategoryOther);
+      setWorkCategory(n.category);
+      setWorkCategoryOther(n.other);
+    }
     setWorkTerm(h.workTerm);
     setPayType(h.payType);
     setPayAmount(h.payAmount);
@@ -654,6 +677,39 @@ export function JobsWriteForm({
     termsAgreed,
   ]);
 
+  const buildTradeJobPayload = useCallback((): TradeJobColumnPayload => {
+    const wc = normalizeJobsWorkCategorySelect(workCategory, workCategoryOther);
+    const cat =
+      wc.category === WORK_CATEGORY_OTHER && wc.other.trim()
+        ? `${WORK_CATEGORY_OTHER} · ${wc.other.trim()}`.slice(0, 200)
+        : wc.category.trim() || wc.other.trim();
+    return {
+      jobEmploymentType: (workTerm || "short").trim(),
+      jobCategory: cat,
+      payType: payType.trim(),
+      payAmount: payNum && !Number.isNaN(Number(payNum)) ? Number(payNum) : null,
+      workStartDate: workDate.trim() || null,
+      workEndDate: workDateEnd.trim() || null,
+      workDays: null,
+      workStartTime: workTimeStart.trim() || null,
+      workEndTime: workTimeEnd.trim() || null,
+      headcount: null,
+      experienceRequired: listingKind === "work" ? experienceLevel : null,
+    };
+  }, [
+    workCategory,
+    workCategoryOther,
+    workTerm,
+    payType,
+    payNum,
+    workDate,
+    workDateEnd,
+    workTimeStart,
+    workTimeEnd,
+    listingKind,
+    experienceLevel,
+  ]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -691,6 +747,7 @@ export function JobsWriteForm({
           };
         }
         const priceNum = payNum ? Number(payNum) : null;
+        const tradeJob = buildTradeJobPayload();
         if (editPostId) {
           const res = await updateTradePostFromCreatePayload(
             editPostId,
@@ -707,6 +764,7 @@ export function JobsWriteForm({
               barangay: undefined,
               imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
               meta: Object.keys(meta).length > 0 ? meta : undefined,
+              tradeJob,
             },
             showDescriptionAppend ? { descriptionAppend: descriptionAppend.trim() || null } : undefined
           );
@@ -734,6 +792,7 @@ export function JobsWriteForm({
           barangay: undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           meta: Object.keys(meta).length > 0 ? meta : undefined,
+          tradeJob,
         });
         if (res.ok) {
           clearJobsWriteMeetSpotStaging(category.id);
@@ -751,6 +810,7 @@ export function JobsWriteForm({
     [
       validate,
       buildMeta,
+      buildTradeJobPayload,
       title,
       description,
       payNum,
@@ -893,25 +953,34 @@ export function JobsWriteForm({
           className={`border-b border-sam-border-soft bg-sam-surface px-4 py-4 ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
           <p className="mb-2 sam-text-body font-semibold text-sam-fg">업종</p>
-          <div className="flex flex-wrap gap-2">
-            {WORK_CATEGORY_OPTIONS.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => {
-                  setWorkCategory(cat);
-                  if (cat !== WORK_CATEGORY_OTHER) setWorkCategoryOther("");
-                }}
-                className={`rounded-full border px-3 py-1.5 sam-text-body-secondary ${
-                  workCategory === cat
-                    ? "border-sam-border bg-sam-ink text-white"
-                    : "border-sam-border bg-sam-surface text-sam-fg"
-                }`}
-              >
+          <label htmlFor="jobs-work-category-select" className="sr-only">
+            업종 선택
+          </label>
+          <select
+            id="jobs-work-category-select"
+            value={
+              !workCategory.trim()
+                ? ""
+                : (WORK_CATEGORY_OPTIONS as readonly string[]).includes(workCategory)
+                  ? workCategory
+                  : WORK_CATEGORY_OTHER
+            }
+            onChange={(e) => {
+              const v = e.target.value;
+              setWorkCategory(v);
+              if (v !== WORK_CATEGORY_OTHER) setWorkCategoryOther("");
+            }}
+            className={`w-full rounded-ui-rect border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg ${
+              errors.workCategory ? "border-red-400 bg-red-50" : "border-sam-border"
+            }`}
+          >
+            <option value="">업종을 선택해 주세요</option>
+            {(WORK_CATEGORY_OPTIONS as readonly string[]).map((cat) => (
+              <option key={cat} value={cat}>
                 {cat}
-              </button>
+              </option>
             ))}
-          </div>
+          </select>
           {workCategory === WORK_CATEGORY_OTHER && (
             <div className="mt-3">
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">기타 업종 (직접 입력)</label>

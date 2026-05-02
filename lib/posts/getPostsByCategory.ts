@@ -89,6 +89,9 @@ export async function getPostsByTradeCategoryIds(
     if (options.jobsListingKind === "hire" || options.jobsListingKind === "work") {
       params.set("jk", options.jobsListingKind);
     }
+    const je = options.jobEmploymentType?.trim();
+    if (je) params.set("je", je);
+    if (options.todayAvailable === true) params.set("avail", "1");
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {

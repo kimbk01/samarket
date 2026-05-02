@@ -6,6 +6,8 @@
 export type PostStatus = "active" | "reserved" | "sold" | "hidden";
 export type PostType = "trade" | "community" | "service" | "feature";
 
+export type PostTradeType = "product" | "job";
+
 export interface PostRow {
   id: string;
   category_id: string;
@@ -21,6 +23,20 @@ export interface PostRow {
   barangay: string | null;
   contact_method: string | null;
   status: PostStatus;
+  /** 거래: 일반 상품 vs 일자리 */
+  trade_type?: PostTradeType;
+  job_employment_type?: string | null;
+  job_category?: string | null;
+  pay_type?: string | null;
+  pay_amount?: number | null;
+  work_start_date?: string | null;
+  work_end_date?: string | null;
+  work_days?: string[] | null;
+  work_start_time?: string | null;
+  work_end_time?: string | null;
+  headcount?: number | null;
+  experience_required?: string | null;
+  application_count?: number;
   /** 판매자 공개 거래 단계 (마이그레이션 전 DB에는 없을 수 있음) */
   seller_listing_state?: string;
   /** 예약중일 때 확정 구매자 (마이그레이션 전 DB에는 없을 수 있음) */

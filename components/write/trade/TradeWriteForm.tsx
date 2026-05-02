@@ -8,9 +8,11 @@ import {
   getUsedCarFormYearMax,
   findMileagePresetKeyForDigits,
   resolveUsedCarSellKeysFromStoredCarModel,
+  labelForUsedCarBodyTypeKey,
 } from "@/lib/trade/used-car-form-catalog";
 import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 import { UsedCarSellFields } from "./UsedCarSellFields";
+import { UsedCarBuyFields } from "./UsedCarBuyFields";
 
 const REAL_ESTATE_TYPES = [
   { value: "", label: "선택" },
@@ -67,6 +69,7 @@ function buildTradeMeta(
     carYear: string;
     mileage: string;
     carTrade: "buy" | "sell" | null;
+    usedCarBodyTypeKey: string;
     carHasAccident: boolean;
     salary: string;
     workPlace: string;
@@ -94,6 +97,7 @@ function buildTradeMeta(
   if (skinKey === "used-car") {
     const o: Record<string, unknown> = {};
     if (v.carTrade === "buy" || v.carTrade === "sell") o.car_trade = v.carTrade;
+    if (v.carTrade === "buy" && v.usedCarBodyTypeKey.trim()) o.car_body_type = v.usedCarBodyTypeKey.trim();
     if (v.carModel.trim()) o.car_model = v.carModel.trim();
     if (v.carTrade === "sell") {
       if (v.carYear.trim()) o.car_year = v.carYear.replace(/\D/g, "").slice(0, 4);
@@ -306,6 +310,8 @@ export function TradeWriteForm({
   const [usedCarBrandKey, setUsedCarBrandKey] = useState("");
   const [usedCarModelKey, setUsedCarModelKey] = useState("");
   const [usedCarMileagePresetKey, setUsedCarMileagePresetKey] = useState("");
+  /** 삽니다 — meta.car_body_type 키 */
+  const [usedCarBodyTypeKey, setUsedCarBodyTypeKey] = useState("");
   const prevUsedCarTradeRef = useRef<"buy" | "sell" | null>(usedCarTrade);
   /** 팝니다: 사고 이력 있음 */
   const [carHasAccident, setCarHasAccident] = useState(false);
@@ -382,6 +388,11 @@ export function TradeWriteForm({
   }, [isUsedCarSkin, usedCarTrade, carModel, mileage]);
 
   useEffect(() => {
+    if (!isUsedCarSkin) return;
+    if (usedCarTrade !== "buy") setUsedCarBodyTypeKey("");
+  }, [isUsedCarSkin, usedCarTrade]);
+
+  useEffect(() => {
     if (isUsedCarSkin) return;
     setUsedCarBrandKey("");
     setUsedCarModelKey("");
@@ -408,7 +419,11 @@ export function TradeWriteForm({
     setPrice(d.price ?? "");
     setRegion(d.region ?? "");
     setCity(d.city ?? "");
-    setImages(draftImagesToUploadItems(d.imageUrls ?? []));
+    setImages(
+      isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "buy"
+        ? []
+        : draftImagesToUploadItems(d.imageUrls ?? [])
+    );
     setIsFreeShare(d.isFreeShare === true);
     setIsPriceOfferEnabled(d.isPriceOfferEnabled === true);
     setIsDirectDeal(d.isDirectDeal !== false);
@@ -429,7 +444,9 @@ export function TradeWriteForm({
     setCarYear(d.carYear ?? "");
     setMileage(d.mileage ?? "");
     const draftUsedCarSell = isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "sell";
+    const draftUsedCarBuy = isUsedCarTradeWriteSkin(d.skinKey) && d.usedCarTrade === "buy";
     if (draftUsedCarSell) {
+      setUsedCarBodyTypeKey("");
       if ((d.usedCarBrandKey ?? "").trim()) {
         setUsedCarBrandKey(d.usedCarBrandKey!.trim());
         setUsedCarModelKey((d.usedCarModelKey ?? "").trim());
@@ -444,10 +461,16 @@ export function TradeWriteForm({
         const md = (d.mileage ?? "").replace(/\D/g, "");
         setUsedCarMileagePresetKey(md ? findMileagePresetKeyForDigits(md) : "");
       }
+    } else if (draftUsedCarBuy) {
+      setUsedCarBrandKey("");
+      setUsedCarModelKey("");
+      setUsedCarMileagePresetKey("");
+      setUsedCarBodyTypeKey((d.usedCarBodyTypeKey ?? "").trim());
     } else {
       setUsedCarBrandKey("");
       setUsedCarModelKey("");
       setUsedCarMileagePresetKey("");
+      setUsedCarBodyTypeKey("");
     }
     setUsedCarTrade(d.usedCarTrade === "buy" || d.usedCarTrade === "sell" ? d.usedCarTrade : null);
     setCarHasAccident(d.carHasAccident === true);
@@ -541,6 +564,7 @@ export function TradeWriteForm({
       usedCarBrandKey,
       usedCarModelKey,
       usedCarMileagePresetKey,
+      usedCarBodyTypeKey,
     }),
     [
       category.id,
@@ -582,6 +606,7 @@ export function TradeWriteForm({
       usedCarBrandKey,
       usedCarModelKey,
       usedCarMileagePresetKey,
+      usedCarBodyTypeKey,
     ]
   );
 
@@ -651,6 +676,7 @@ export function TradeWriteForm({
     carYear,
     mileage,
     usedCarTrade,
+    usedCarBodyTypeKey,
     carHasAccident,
     salary,
     workPlace,
@@ -721,6 +747,7 @@ export function TradeWriteForm({
     setUsedCarBrandKey("");
     setUsedCarModelKey("");
     setUsedCarMileagePresetKey("");
+    setUsedCarBodyTypeKey("");
     setUsedCarTrade(isUsedCarSkin ? "sell" : null);
     setCarHasAccident(false);
     setSalary("");
@@ -834,6 +861,7 @@ export function TradeWriteForm({
     usedCarBrandKey,
     usedCarModelKey,
     usedCarMileagePresetKey,
+    usedCarBodyTypeKey,
     draftResumeGate,
     tradeWriteSucceededClearBlocking,
     assembleTradeWriteFlushPayload,
@@ -944,7 +972,7 @@ export function TradeWriteForm({
     setPrice(h.price);
     setRegion(h.region);
     setCity(h.city);
-    setImages(h.images);
+    setImages(skinKey === "used-car" && h.usedCarTrade === "buy" ? [] : h.images);
     setIsFreeShare(h.isFreeShare);
     setIsPriceOfferEnabled(h.isPriceOfferEnabled);
     setIsDirectDeal(h.isDirectDeal);
@@ -973,10 +1001,17 @@ export function TradeWriteForm({
       setUsedCarBrandKey(h.usedCarBrandKey ?? "");
       setUsedCarModelKey(h.usedCarModelKey ?? "");
       setUsedCarMileagePresetKey(h.usedCarMileagePresetKey ?? "");
+      setUsedCarBodyTypeKey("");
+    } else if (skinKey === "used-car" && h.usedCarTrade === "buy") {
+      setUsedCarBrandKey("");
+      setUsedCarModelKey("");
+      setUsedCarMileagePresetKey("");
+      setUsedCarBodyTypeKey((h.usedCarBodyTypeKey ?? "").trim());
     } else {
       setUsedCarBrandKey("");
       setUsedCarModelKey("");
       setUsedCarMileagePresetKey("");
+      setUsedCarBodyTypeKey("");
     }
     setSalary(h.salary);
     setWorkPlace(h.workPlace);
@@ -997,6 +1032,7 @@ export function TradeWriteForm({
     if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = "제목을 입력해 주세요.";
     if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = "삽니다 또는 팝니다를 선택해 주세요.";
     if (isUsedCarSkin && usedCarTrade === "buy") {
+      if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = "차량 유형을 선택해 주세요.";
       const yErr = getUsedCarYearFieldError(carYear, "buy");
       if (yErr) next.carYear = yErr;
     } else if (isUsedCarSkin && usedCarTrade === "sell") {
@@ -1046,6 +1082,7 @@ export function TradeWriteForm({
     isFreeShare,
     isUsedCarSkin,
     usedCarTrade,
+    usedCarBodyTypeKey,
     carYear,
     carModel,
     mileage,
@@ -1080,7 +1117,10 @@ export function TradeWriteForm({
           return;
         }
         const user = getCurrentUser();
-        const files = images.map((item) => item.file).filter((f): f is File => !!f);
+        const skipUsedCarBuyImages = isUsedCarSkin && usedCarTrade === "buy";
+        const files = skipUsedCarBuyImages
+          ? []
+          : images.map((item) => item.file).filter((f): f is File => !!f);
         const existingUrls = images
           .filter((item) => !item.file && item.url && !item.url.startsWith("blob:"))
           .map((item) => item.url);
@@ -1123,6 +1163,9 @@ export function TradeWriteForm({
           });
           return;
         }
+        if (skipUsedCarBuyImages) {
+          mergedImageUrls = editPostId ? [] : [];
+        }
         /** 수정 시 빈 배열을 넘겨야 기존 이미지가 DB에서 제거됨(undefined면 update가 images를 건드리지 않음) */
         const imageUrlsForSave = editPostId
           ? mergedImageUrls
@@ -1156,6 +1199,7 @@ export function TradeWriteForm({
           carYear,
           mileage,
           carTrade: usedCarTrade,
+          usedCarBodyTypeKey,
           carHasAccident,
           salary,
           workPlace,
@@ -1184,13 +1228,24 @@ export function TradeWriteForm({
         }
         const usedCarPostTitle =
           usedCarTrade === "buy"
-            ? `삽니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
+            ? `삽니다 · ${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
             : usedCarTrade === "sell"
               ? `팝니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
               : "";
+        const locShort = getLocationLabel(region, city).trim();
+        const bn = buildingName.trim();
+        const dt = dealType.trim();
         const postTitle =
           skinKey === "real-estate"
-            ? getLocationLabel(region, city) + (buildingName.trim() ? " " + buildingName.trim() : "")
+            ? bn
+              ? dt
+                ? `${bn} · ${dt}`
+                : bn
+              : locShort
+                ? dt
+                  ? `${locShort} · ${dt}`
+                  : locShort
+                : dt || ""
             : isUsedCarSkin
               ? usedCarPostTitle
               : title.trim();
@@ -1279,6 +1334,7 @@ export function TradeWriteForm({
       carModel,
       carYear,
       mileage,
+      usedCarBodyTypeKey,
       carHasAccident,
       salary,
       workPlace,
@@ -1401,6 +1457,11 @@ export function TradeWriteForm({
 
   const tradeLocationEl = hasLocation ? (
       <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
+        {skinKey === "real-estate" ? (
+          <p className="mb-2 sam-text-body-secondary text-sam-muted">
+            거래·실물 확인은 아래 지도 위치로 안내합니다. 매물 주소와 다를 수 있습니다.
+          </p>
+        ) : null}
         <TradeDefaultLocationBlock
           editPostId={editPostId}
           region={region}
@@ -1457,15 +1518,17 @@ export function TradeWriteForm({
             {tradePolicy.hint}
           </div>
         ) : null}
-        <ImageUploader
-          value={images}
-          onChange={setImages}
-          maxCount={maxProductImages}
-          label="사진"
-          disabled={coreLocked}
-          compact={false}
-          variant="karrot"
-        />
+        {!(isUsedCarSkin && usedCarTrade === "buy") ? (
+          <ImageUploader
+            value={images}
+            onChange={setImages}
+            maxCount={maxProductImages}
+            label="사진"
+            disabled={coreLocked}
+            compact={false}
+            variant="karrot"
+          />
+        ) : null}
         <div className={coreLocked ? "pointer-events-none opacity-60" : ""}>
           <WriteTradeTopicSection
             category={category}
@@ -1476,6 +1539,7 @@ export function TradeWriteForm({
         </div>
         {skinKey === "real-estate" ? (
           <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+            <h4 className="mb-3 sam-text-body font-semibold text-sam-fg">필수 정보</h4>
             <div>
               <label className="mb-1 block sam-text-body-secondary text-sam-fg">
                 건물명 <span className="text-sam-danger">*</span>
@@ -1485,8 +1549,8 @@ export function TradeWriteForm({
                 value={buildingName}
                 onChange={(e) => setBuildingName(e.target.value)}
                 readOnly={coreLocked}
-                className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
-                placeholder="단지·건물명만 입력 (거래 지역은 대표 주소 기준)"
+                className={`w-full max-md:min-h-[48px] ${PHILIFE_FB_INPUT_CLASS}`}
+                placeholder="단지·건물명 (예: OO아파트 101동)"
                 aria-invalid={!!errors.buildingName}
               />
               {errors.buildingName && (
@@ -1495,34 +1559,56 @@ export function TradeWriteForm({
             </div>
           </section>
         ) : skinKey === "used-car" ? (
-          <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-            <p className="mb-2 sam-text-body font-medium text-sam-fg">
-              구분 <span className="text-sam-danger">*</span>
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex cursor-pointer items-center gap-2">
+          <>
+            <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+              <p className="mb-2 sam-text-body font-medium text-sam-fg">
+                구분 <span className="text-sam-danger">*</span>
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={usedCarTrade === "sell"}
+                    onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
+                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
+                  />
+                  <span className="sam-text-body text-sam-fg">팝니다</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={usedCarTrade === "buy"}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      if (checked) setImages([]);
+                      setUsedCarTrade(checked ? "buy" : null);
+                    }}
+                    className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
+                  />
+                  <span className="sam-text-body text-sam-fg">삽니다</span>
+                </label>
+              </div>
+              {(errors.usedCarTrade || errors.title) && (
+                <p className="mt-2 sam-text-body-secondary text-sam-danger">{errors.usedCarTrade || errors.title}</p>
+              )}
+            </section>
+            {usedCarTrade === "buy" ? (
+              <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+                <label className="mb-1.5 block sam-text-body font-semibold text-sam-fg">
+                  희망 모델·브랜드 <span className="font-normal text-sam-muted sam-text-body-secondary">(선택)</span>
+                </label>
                 <input
-                  type="checkbox"
-                  checked={usedCarTrade === "sell"}
-                  onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
-                  className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
+                  type="text"
+                  value={carModel}
+                  onChange={(e) => setCarModel(e.target.value)}
+                  readOnly={coreLocked}
+                  placeholder="예: 테슬라 모델 3, 현대 쏘나타"
+                  maxLength={100}
+                  className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
                 />
-                <span className="sam-text-body text-sam-fg">팝니다</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={usedCarTrade === "buy"}
-                  onChange={(e) => setUsedCarTrade(e.target.checked ? "buy" : null)}
-                  className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
-                />
-                <span className="sam-text-body text-sam-fg">삽니다</span>
-              </label>
-            </div>
-            {(errors.usedCarTrade || errors.title) && (
-              <p className="mt-2 sam-text-body-secondary text-sam-danger">{errors.usedCarTrade || errors.title}</p>
-            )}
-          </section>
+              </section>
+            ) : null}
+          </>
         ) : (
           <section
             className={`${isKarrotGeneral ? KARROT_SECTION : "sam-section"} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
@@ -1722,71 +1808,71 @@ export function TradeWriteForm({
           </section>
         )}
         {skinKey === "real-estate" && (
-          <section className="sam-section">
-            <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">부동산 정보</h4>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    타입 <span className="text-sam-danger">*</span>
-                  </label>
-                  <select
-                    value={estateType}
-                    onChange={(e) => setEstateType(e.target.value)}
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                    aria-invalid={!!errors.estateType}
-                  >
-                    {REAL_ESTATE_TYPES.map((opt) => (
-                      <option key={opt.value || "empty"} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                  {errors.estateType && (
-                    <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.estateType}</p>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    거래유형 <span className="text-sam-danger">*</span>
-                  </label>
-                  <select
-                    value={dealType}
-                    onChange={(e) => setDealType(e.target.value as "임대" | "판매")}
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                  >
-                    {REAL_ESTATE_DEAL_TYPES.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {dealType === "판매" && (
-                <div>
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">판매가 <span className="text-sam-danger">*</span></label>
-                  <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
-                    <span className="shrink-0 sam-text-body font-medium text-sam-muted">
-                      {currencyUnit}
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={price}
-                      onChange={(e) => setPrice(formatPriceInput(e.target.value))}
-                      placeholder="판매가 입력"
-                      className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
-                      aria-invalid={!!errors.price}
-                    />
+          <>
+            <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+              <h4 className="mb-3 sam-text-body font-semibold text-sam-fg">거래·면적·입주</h4>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      타입 <span className="text-sam-danger">*</span>
+                    </label>
+                    <select
+                      value={estateType}
+                      onChange={(e) => setEstateType(e.target.value)}
+                      className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                      aria-invalid={!!errors.estateType}
+                    >
+                      {REAL_ESTATE_TYPES.map((opt) => (
+                        <option key={opt.value || "empty"} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {errors.estateType && (
+                      <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.estateType}</p>
+                    )}
                   </div>
-                  {errors.price && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>}
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      거래유형 <span className="text-sam-danger">*</span>
+                    </label>
+                    <select
+                      value={dealType}
+                      onChange={(e) => setDealType(e.target.value as "임대" | "판매")}
+                      className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                    >
+                      {REAL_ESTATE_DEAL_TYPES.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-              )}
-              {dealType === "임대" && (
-                <>
-                  <div className="grid grid-cols-3 gap-2">
+                {dealType === "판매" && (
+                  <div>
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">판매가 <span className="text-sam-danger">*</span></label>
+                    <div className="flex max-md:min-h-[48px] items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 focus-within:ring-2 focus-within:ring-signature/20">
+                      <span className="shrink-0 sam-text-body font-medium text-sam-muted">
+                        {currencyUnit}
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={price}
+                        onChange={(e) => setPrice(formatPriceInput(e.target.value))}
+                        placeholder="판매가 입력"
+                        className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
+                        aria-invalid={!!errors.price}
+                      />
+                    </div>
+                    {errors.price && <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.price}</p>}
+                  </div>
+                )}
+                {dealType === "임대" && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="min-w-0">
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
                         보증금 <span className="text-sam-danger">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
+                      <div className="flex max-md:min-h-[48px] items-center gap-1 rounded-ui-rect border border-sam-border px-3 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1805,7 +1891,7 @@ export function TradeWriteForm({
                       <label className="mb-1 block sam-text-body-secondary text-sam-fg">
                         월세 <span className="text-sam-danger">*</span>
                       </label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
+                      <div className="flex max-md:min-h-[48px] items-center gap-1 rounded-ui-rect border border-sam-border px-3 py-2">
                         <input
                           type="text"
                           inputMode="numeric"
@@ -1820,171 +1906,139 @@ export function TradeWriteForm({
                         <p className="mt-1 sam-text-helper text-sam-danger">{errors.monthly}</p>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <label className="mb-1 block sam-text-body-secondary text-sam-fg">관리비 (선택)</label>
-                      <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2">
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={managementFee}
-                          onChange={(e) => setManagementFee(formatPriceInput(e.target.value))}
-                          className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
-                        />
-                        <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-xxs">{perMonthSuffix}</span>
-                      </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      크기(sq) <span className="text-sam-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={areaSqm}
+                      onChange={(e) => setAreaSqm(e.target.value)}
+                      className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                      aria-invalid={!!errors.areaSqm}
+                    />
+                    {errors.areaSqm && (
+                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.areaSqm}</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      방수 <span className="text-sam-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={roomCount}
+                      onChange={(e) => setRoomCount(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="0"
+                      className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                      aria-invalid={!!errors.roomCount}
+                    />
+                    {errors.roomCount && (
+                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.roomCount}</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      욕실수 <span className="text-sam-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={bathroomCount}
+                      onChange={(e) => setBathroomCount(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="0"
+                      className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                      aria-invalid={!!errors.bathroomCount}
+                    />
+                    {errors.bathroomCount && (
+                      <p className="mt-1 sam-text-helper text-sam-danger">{errors.bathroomCount}</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                    입주 가능일 <span className="text-sam-danger">*</span>
+                  </label>
+                  <select
+                    value={moveInDate}
+                    onChange={(e) => setMoveInDate(e.target.value)}
+                    className="w-full max-md:min-h-[48px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+                    aria-invalid={!!errors.moveInDate}
+                  >
+                    {MOVE_IN_OPTIONS.map((opt) => (
+                      <option key={opt.value || "empty"} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.moveInDate && (
+                    <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.moveInDate}</p>
+                  )}
+                </div>
+              </div>
+            </section>
+            {dealType === "임대" ? (
+              <section className={`sam-section ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
+                <h4 className="mb-3 sam-text-body font-semibold text-sam-fg">선택 정보</h4>
+                <div className="space-y-4">
+                  <div className="min-w-0">
+                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">
+                      관리비 <span className="font-normal text-sam-muted sam-text-body-secondary">(선택)</span>
+                    </label>
+                    <div className="flex max-md:min-h-[48px] items-center gap-1 rounded-ui-rect border border-sam-border px-3 py-2">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={managementFee}
+                        onChange={(e) => setManagementFee(formatPriceInput(e.target.value))}
+                        className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
+                      />
+                      <span className="shrink-0 sam-text-xxs text-sam-muted sm:sam-text-xxs">{perMonthSuffix}</span>
                     </div>
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 py-0.5">
+                  <label className="flex min-h-[44px] cursor-pointer items-center gap-2 py-1">
                     <input
                       type="checkbox"
                       checked={hasPremium}
                       onChange={(e) => setHasPremium(e.target.checked)}
                       className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                     />
-                    <span className="sam-text-body-secondary text-sam-fg">권리금 있음 (선택)</span>
+                    <span className="sam-text-body-secondary text-sam-fg">
+                      권리금 있음 <span className="font-normal text-sam-muted sam-text-body-secondary">(선택)</span>
+                    </span>
                   </label>
-                </>
-              )}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    크기(sq) <span className="text-sam-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={areaSqm}
-                    onChange={(e) => setAreaSqm(e.target.value)}
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                    aria-invalid={!!errors.areaSqm}
-                  />
-                  {errors.areaSqm && (
-                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.areaSqm}</p>
-                  )}
                 </div>
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    방수 <span className="text-sam-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={roomCount}
-                    onChange={(e) => setRoomCount(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="0"
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                    aria-invalid={!!errors.roomCount}
-                  />
-                  {errors.roomCount && (
-                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.roomCount}</p>
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                    욕실수 <span className="text-sam-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={bathroomCount}
-                    onChange={(e) => setBathroomCount(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="0"
-                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                    aria-invalid={!!errors.bathroomCount}
-                  />
-                  {errors.bathroomCount && (
-                    <p className="mt-1 sam-text-helper text-sam-danger">{errors.bathroomCount}</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block sam-text-body-secondary text-sam-fg">
-                  입주 가능일 <span className="text-sam-danger">*</span>
-                </label>
-                <select
-                  value={moveInDate}
-                  onChange={(e) => setMoveInDate(e.target.value)}
-                  className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                  aria-invalid={!!errors.moveInDate}
-                >
-                  {MOVE_IN_OPTIONS.map((opt) => (
-                    <option key={opt.value || "empty"} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                {errors.moveInDate && (
-                  <p className="mt-1 sam-text-body-secondary text-sam-danger">{errors.moveInDate}</p>
-                )}
-              </div>
-            </div>
-          </section>
+              </section>
+            ) : null}
+          </>
         )}
         {skinKey === "used-car" && (
           <section className="sam-section">
             <h4 className="mb-2 sam-text-body-secondary font-medium text-sam-muted">차량 정보</h4>
             {usedCarTrade === "buy" ? (
-              <>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-body-secondary text-sam-fg">차종</label>
-                    <input
-                      type="text"
-                      value={carModel}
-                      onChange={(e) => setCarModel(e.target.value)}
-                      placeholder="예: 소나타"
-                      className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper leading-tight text-sam-fg sm:sam-text-body-secondary">
-                      년식 (이하) <span className="text-sam-danger">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={carYear}
-                      onChange={(e) => setCarYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder={`${USED_CAR_FORM_YEAR_MIN}~${getUsedCarFormYearMax()}`}
-                      className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body"
-                      aria-invalid={!!errors.carYear}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper leading-tight text-sam-fg sm:sam-text-body-secondary">
-                      금액 (이하) <span className="text-sam-danger">*</span>
-                    </label>
-                    <div className="flex items-center gap-1 rounded-ui-rect border border-sam-border px-2 py-2 focus-within:ring-2 focus-within:ring-signature/20">
-                      <span className="shrink-0 sam-text-helper font-medium text-sam-muted">
-                        {getCurrencyUnitLabel(appSettings.defaultCurrency)}
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={price}
-                        onChange={(e) => setPrice(formatPriceInput(e.target.value))}
-                        placeholder="0"
-                        className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none"
-                        aria-invalid={!!errors.price}
-                      />
-                    </div>
-                  </div>
-                </div>
-                {(errors.price || errors.carYear) && (
-                  <p className="mt-2 sam-text-body-secondary text-sam-danger">{errors.price || errors.carYear}</p>
-                )}
-                {allowPriceOffer && (
-                  <label className="mt-3 flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={isPriceOfferEnabled}
-                      onChange={(e) => setIsPriceOfferEnabled(e.target.checked)}
-                      className="rounded border-sam-border"
-                    />
-                    <span className="sam-text-body-secondary text-sam-muted">가격 제안받기</span>
-                  </label>
-                )}
-              </>
+              <UsedCarBuyFields
+                bodyTypeKey={usedCarBodyTypeKey}
+                setBodyTypeKey={setUsedCarBodyTypeKey}
+                carYear={carYear}
+                setCarYear={setCarYear}
+                price={price}
+                setPrice={setPrice}
+                currencyUnitLabel={getCurrencyUnitLabel(appSettings.defaultCurrency)}
+                isPriceOfferEnabled={isPriceOfferEnabled}
+                setIsPriceOfferEnabled={setIsPriceOfferEnabled}
+                allowPriceOffer={allowPriceOffer}
+                disabled={coreLocked}
+                errors={{
+                  bodyType: errors.usedCarBodyType,
+                  carYear: errors.carYear,
+                  price: errors.price,
+                }}
+              />
             ) : (
               <div className="space-y-2">
                 <UsedCarSellFields

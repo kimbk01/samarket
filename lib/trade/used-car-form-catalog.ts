@@ -1,6 +1,7 @@
 /**
- * 중고차 팝니다 폼 — 브랜드·모델·연식·주행거리 선택용 정적 카탈로그.
- * 저장 계약은 여전히 meta.car_model 단일 문자열(브랜드 라벨 + 공백 + 모델 라벨).
+ * 중고차 폼 정적 카탈로그.
+ * - 팝니다: 브랜드·모델·연식·주행거리 — 저장은 meta.car_model 단일 문자열(브랜드 라벨 + 공백 + 모델 라벨).
+ * - 삽니다: 차량 유형 — meta.car_body_type(키 문자열, 예: sedan).
  */
 
 export const USED_CAR_FORM_YEAR_MIN = 1990;
@@ -16,6 +17,35 @@ export function buildUsedCarYearSelectOptions(): { value: string; label: string 
     out.push({ value: String(y), label: `${y}년` });
   }
   return out;
+}
+
+export type UsedCarBodyTypeKey =
+  | "sedan"
+  | "suv"
+  | "rv"
+  | "van"
+  | "truck"
+  | "sports"
+  | "kei"
+  | "other";
+
+export type UsedCarBodyTypeEntry = { key: UsedCarBodyTypeKey; labelKo: string };
+
+export const USED_CAR_BODY_TYPES: UsedCarBodyTypeEntry[] = [
+  { key: "sedan", labelKo: "승용차" },
+  { key: "suv", labelKo: "SUV" },
+  { key: "rv", labelKo: "RV·승합" },
+  { key: "van", labelKo: "밴" },
+  { key: "truck", labelKo: "트럭" },
+  { key: "sports", labelKo: "스포츠카" },
+  { key: "kei", labelKo: "경차" },
+  { key: "other", labelKo: "기타" },
+];
+
+export function labelForUsedCarBodyTypeKey(key: string): string {
+  const k = key.trim();
+  const hit = USED_CAR_BODY_TYPES.find((x) => x.key === k);
+  return hit?.labelKo ?? k;
 }
 
 export const USED_CAR_BRAND_OTHER_KEY = "other";

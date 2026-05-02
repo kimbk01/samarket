@@ -7,7 +7,13 @@ import { getChildCategories, getChildCategoriesForFeedFilter } from "@/lib/categ
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { TradeTopicChipsRow } from "@/components/home/TradeTopicChipsRow";
 import { PostListByCategory } from "@/components/post/PostListByCategory";
-import { sortKeyToHomePostSort } from "@/lib/constants/sort";
+import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
+import {
+  JOB_WORK_TYPE_OPTIONS,
+  WORK_TERM_LABELS,
+} from "@/lib/jobs/form-options";
+import { JOB_EMPLOYMENT_FILTER_VALUES } from "@/lib/jobs/job-employment-filter";
+import type { TradeFeedClientSort } from "@/lib/posts/trade-feed-client-cache";
 import { encodedTradeMarketSegment } from "@/lib/categories/tradeMarketPath";
 import {
   APP_MAIN_HEADER_INNER_CLASS,
@@ -149,10 +155,48 @@ export function MarketCategoryFeed({
   }, [filterRows, topicRaw]);
 
   const marketBase = `/market/${encodedTradeMarketSegment(category)}`;
-  const postSort = sortKeyToHomePostSort("latest");
+
+  const iconKey = category.icon_key?.trim() ?? "";
+  const slugCat = category.slug?.trim().toLowerCase() ?? "";
+  const isJobsMarket = iconKey === "jobs" || iconKey === "job" || slugCat === "job";
+
+  const fsRaw = searchParams.get("fs")?.trim().toLowerCase() ?? "";
+  const postSort: TradeFeedClientSort =
+    fsRaw === "popular" ? "popular" : fsRaw === "pay_desc" ? "pay_desc" : "latest";
+
+  const jeRaw = searchParams.get("je")?.trim().toLowerCase() ?? "";
+  const jobEmploymentType = (JOB_EMPLOYMENT_FILTER_VALUES as readonly string[]).includes(jeRaw)
+    ? jeRaw
+    : undefined;
+
+  const todayAvailable = searchParams.get("avail") === "1";
+
+  const jkRaw = searchParams.get("jk")?.trim().toLowerCase() ?? "";
+  const jobsListingKind: JobListingKindFilter | undefined = isJobsMarket
+    ? jkRaw === "work"
+      ? "work"
+      : "hire"
+    : undefined;
+
+  const patchMarketQuery = useCallback(
+    (patch: Record<string, string | null | undefined>) => {
+      const q = new URLSearchParams(searchParams.toString());
+      for (const [k, v] of Object.entries(patch)) {
+        if (v == null || v === "") q.delete(k);
+        else q.set(k, v);
+      }
+      const s = q.toString();
+      void router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
   const feedKey = useMemo(() => {
-    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort);
-  }, [category.id, topicRaw, postSort]);
+    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort, jobsListingKind, {
+      jobEmploymentType,
+      todayAvailable,
+    });
+  }, [category.id, topicRaw, postSort, jobsListingKind, jobEmploymentType, todayAvailable]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
 
@@ -168,7 +212,7 @@ export function MarketCategoryFeed({
   const swipeToNext = useCallback(() => {
     const href = resolveTradeSwipeTarget(tabs, activeIndex, "next");
     if (href) void router.push(href, { scroll: false });
-  }, [tabs, activeIndex, router, postSort]);
+  }, [tabs, activeIndex, router]);
 
   const swipeToPrev = useCallback(() => {
     const href = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
@@ -382,27 +426,135 @@ export function MarketCategoryFeed({
           </HorizontalDragScroll>
         </div>
       ) : null;
-    if (!topicBlock) return null;
+    const jobsFilters =
+      isJobsMarket ? (
+        <div className={`${APP_MAIN_HEADER_INNER_CLASS} flex w-full min-w-0 flex-col gap-2 pb-1 pt-1`}>
+          <div className="flex flex-wrap gap-1.5">
+            {(
+              [
+                { key: "latest" as const, label: "최신" },
+                { key: "popular" as const, label: "인기" },
+                { key: "pay_desc" as const, label: "급여순" },
+              ] as const
+            ).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => patchMarketQuery({ fs: key === "latest" ? null : key })}
+                className={postSort === key ? Sam.chip.activeCombo : Sam.chip.neutral}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => patchMarketQuery({ jk: null })}
+              className={jobsListingKind !== "work" ? Sam.chip.activeCombo : Sam.chip.neutral}
+            >
+              구인
+            </button>
+            <button
+              type="button"
+              onClick={() => patchMarketQuery({ jk: "work" })}
+              className={jobsListingKind === "work" ? Sam.chip.activeCombo : Sam.chip.neutral}
+            >
+              구직
+            </button>
+            <button
+              type="button"
+              onClick={() => patchMarketQuery({ avail: todayAvailable ? null : "1" })}
+              className={todayAvailable ? Sam.chip.activeCombo : Sam.chip.neutral}
+            >
+              오늘 가능
+            </button>
+          </div>
+          <HorizontalDragScroll
+            className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
+            style={{ WebkitOverflowScrolling: "touch" }}
+            role="tablist"
+            aria-label="근무 형태"
+          >
+            <div className="flex w-max min-w-0 flex-nowrap items-center gap-1.5 px-0.5">
+              <button
+                type="button"
+                onClick={() => patchMarketQuery({ je: null })}
+                className={!jobEmploymentType ? Sam.chip.activeCombo : Sam.chip.neutral}
+              >
+                형태 전체
+              </button>
+              {JOB_WORK_TYPE_OPTIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => patchMarketQuery({ je: o.value })}
+                  className={jobEmploymentType === o.value ? Sam.chip.activeCombo : Sam.chip.neutral}
+                >
+                  {o.label}
+                </button>
+              ))}
+              {(
+                [
+                  { value: "month_plus" as const, label: WORK_TERM_LABELS.month_plus },
+                  { value: "fulltime" as const, label: WORK_TERM_LABELS.fulltime },
+                ] as const
+              ).map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => patchMarketQuery({ je: value })}
+                  className={jobEmploymentType === value ? Sam.chip.activeCombo : Sam.chip.neutral}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </HorizontalDragScroll>
+        </div>
+      ) : null;
+
+    if (!topicBlock && !jobsFilters) return null;
 
     return (
       <div className={TRADE_SECONDARY_TABS_SHELL_CLASS}>
         <div className="flex w-full min-w-0 flex-col">
           {topicBlock}
+          {jobsFilters}
         </div>
       </div>
     );
-  }, [children, marketBase, topicKeyForChips]);
+  }, [
+    children,
+    marketBase,
+    topicKeyForChips,
+    isJobsMarket,
+    patchMarketQuery,
+    postSort,
+    jobsListingKind,
+    todayAvailable,
+    jobEmploymentType,
+  ]);
 
   const tradeSecondaryTabsSyncKey = useMemo(
     () =>
-      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}`,
-    [category.id, topicKeyForChips, children]
+      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}\u0000${postSort}\u0000${jobsListingKind ?? ""}\u0000${jobEmploymentType ?? ""}\u0000${todayAvailable ? "1" : ""}`,
+    [
+      category.id,
+      topicKeyForChips,
+      children,
+      postSort,
+      jobsListingKind,
+      jobEmploymentType,
+      todayAvailable,
+    ]
   );
 
-  useRegisterTradeSecondaryTabs(children.length > 0, secondaryHeaderNode, tradeSecondaryTabsSyncKey);
+  const hasSecondaryBar = children.length > 0 || isJobsMarket;
+  useRegisterTradeSecondaryTabs(hasSecondaryBar, secondaryHeaderNode, tradeSecondaryTabsSyncKey);
 
   const postsTopGapClass =
-    children.length > 0 ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS : TRADE_GAP_MENU_TO_POSTS_CLASS;
+    hasSecondaryBar ? TRADE_GAP_CATEGORY_BAR_TO_POSTS_CLASS : TRADE_GAP_MENU_TO_POSTS_CLASS;
 
   return (
     <div
@@ -416,6 +568,9 @@ export function MarketCategoryFeed({
           tradeTopicParam={topicRaw}
           category={category}
           sort={postSort}
+          jobsListingKind={jobsListingKind}
+          jobEmploymentType={jobEmploymentType}
+          todayAvailable={todayAvailable}
           initialTradeFeed={initialTradeFeed}
         />
       </div>

@@ -26,6 +26,9 @@ export async function GET(req: NextRequest) {
   const includePosts = req.nextUrl.searchParams.get("includePosts") === "1";
   const topicParam = req.nextUrl.searchParams.get("topic") ?? "";
   const jkParam = req.nextUrl.searchParams.get("jk");
+  const fsParam = req.nextUrl.searchParams.get("fs");
+  const jeParam = req.nextUrl.searchParams.get("je");
+  const availParam = req.nextUrl.searchParams.get("avail");
 
   const viewerUserId = await getOptionalAuthenticatedUserId();
   const result = await loadMarketBootstrapPayload(postsClients, {
@@ -34,6 +37,9 @@ export async function GET(req: NextRequest) {
     jkParam,
     includePosts,
     viewerUserId,
+    fsParam,
+    jeParam,
+    availParam,
   });
 
   if (!result.ok) {

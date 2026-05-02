@@ -41,6 +41,10 @@ export interface ChatProductSummary {
   listPreview?: PostListPreviewModel | null;
   /** meta.trade_chat_kind === "job" — 채팅방 한정 전화 노출 API 사용 */
   isJobTradeChat?: boolean;
+  /** posts.trade_type === "job" 일 때 목록·헤더 보조 */
+  tradeType?: "product" | "job";
+  jobEmploymentType?: string | null;
+  jobApplicationCount?: number;
   /** `posts.meta.trade_chat_call_policy` — 거래 채팅 통화(메신저) 허용 범위 */
   tradeChatCallPolicy?: "none" | "voice_only" | "voice_and_video";
 }

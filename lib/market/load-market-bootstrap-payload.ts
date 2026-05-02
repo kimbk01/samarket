@@ -5,7 +5,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { computeMarketFilterIds } from "@/lib/market/compute-market-filter-ids";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
-import { computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
+import { parseJobEmploymentFilterParam } from "@/lib/jobs/job-employment-filter";
+import { computeTradeFeedKeyForMarketParent, type TradeFeedSort } from "@/lib/posts/trade-feed-key";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-fragment";
 import { fetchTradeCategoryDescendantNodes } from "@/lib/market/trade-category-subtree";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -14,6 +15,13 @@ import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseBootstrapFeedSort(raw: string | undefined | null): TradeFeedSort {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (s === "popular") return "popular";
+  if (s === "pay_desc") return "pay_desc";
+  return "latest";
+}
 
 export type MarketBootstrapInitialFeed = {
   posts: PostWithMeta[];
@@ -43,6 +51,12 @@ export type LoadMarketBootstrapArgs = {
   includePosts: boolean;
   /** `GET /api/trade/feed` 와 동일 — 첫 피드에 찜 맵 포함 */
   viewerUserId?: string | null;
+  /** 알바·공통 마켓 피드 정렬 (`latest` | `popular` | `pay_desc`) */
+  fsParam?: string | null;
+  /** 알바 근무 형태 필터 (`je=`) */
+  jeParam?: string | null;
+  /** 오늘 근무 가능 (`avail=1`) */
+  availParam?: string | null;
 };
 
 export async function loadMarketBootstrapPayload(
@@ -124,7 +138,24 @@ export async function loadMarketBootstrapPayload(
   const viewerUserId = args.viewerUserId?.trim() ?? "";
 
   if (args.includePosts) {
-    const feedKey = computeTradeFeedKeyForMarketParent(parentId, topicParam, "latest", jobListingKindForFeed);
+    const feedSort = parseBootstrapFeedSort(args.fsParam);
+    const je = parseJobEmploymentFilterParam(args.jeParam ?? null);
+    const todayAvail = (args.availParam ?? "").trim() === "1";
+    const keyExtras = { jobEmploymentType: je, todayAvailable: todayAvail };
+    const feedKey = computeTradeFeedKeyForMarketParent(
+      parentId,
+      topicParam,
+      feedSort,
+      jobListingKindForFeed,
+      keyExtras
+    );
+    const feedOptsBase = {
+      page: 1 as const,
+      sort: feedSort,
+      restrictTradeTypeJob: isJobMarket,
+      jobEmploymentType: je,
+      todayAvailable: todayAvail,
+    };
     const useHomeQuery = !isJobMarket && !topicParam.trim();
     if (useHomeQuery) {
       const filterIds = computeMarketFilterIds({
@@ -135,7 +166,7 @@ export async function loadMarketBootstrapPayload(
       const open = await resolveTradeFeedOpenPayload(
         clients,
         filterIds,
-        { page: 1, sort: "latest", jobsListingKind: undefined },
+        { ...feedOptsBase, jobsListingKind: undefined },
         viewerUserId || null
       );
       initialFeed = {
@@ -153,7 +184,7 @@ export async function loadMarketBootstrapPayload(
       const open = await resolveTradeFeedOpenPayload(
         clients,
         filterIds,
-        { page: 1, sort: "latest", jobsListingKind: jobListingKindForFeed },
+        { ...feedOptsBase, jobsListingKind: jobListingKindForFeed },
         viewerUserId || null
       );
       initialFeed = {
