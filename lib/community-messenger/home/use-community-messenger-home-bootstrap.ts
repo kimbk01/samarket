@@ -34,6 +34,14 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 
+/** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 */
+function mergeCriticalRoomPatchesIntoLists<T extends { id: string }>(baseList: T[], incoming: T[]): T[] {
+  if (!incoming.length) return baseList;
+  const incomingIds = new Set(incoming.map((r) => r.id));
+  const tail = baseList.filter((r) => !incomingIds.has(r.id));
+  return [...incoming, ...tail];
+}
+
 const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
 let lastStaleCacheResumeSilentRefreshAt = 0;
 
@@ -80,6 +88,8 @@ export function useCommunityMessengerHomeBootstrap({
   const refreshAbortRef = useRef<AbortController | null>(null);
   const deferredCallLogRequestIdRef = useRef(0);
   const deferredCallLogAbortRef = useRef<AbortController | null>(null);
+  /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
+  const silentFullSupplementTimerRef = useRef<number | null>(null);
 
   /**
    * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
@@ -111,6 +121,10 @@ export function useCommunityMessengerHomeBootstrap({
       if (silentThrottleCoalesceTimerRef.current != null) {
         clearTimeout(silentThrottleCoalesceTimerRef.current);
         silentThrottleCoalesceTimerRef.current = null;
+      }
+      if (silentFullSupplementTimerRef.current != null) {
+        clearTimeout(silentFullSupplementTimerRef.current);
+        silentFullSupplementTimerRef.current = null;
       }
     };
   }, []);
@@ -167,21 +181,32 @@ export function useCommunityMessengerHomeBootstrap({
   }, []);
 
   const mergeHomeSyncIntoBootstrap = useCallback(
-    (payload: {
-      chats?: CommunityMessengerBootstrap["chats"];
-      groups?: CommunityMessengerBootstrap["groups"];
-      requests?: CommunityMessengerBootstrap["requests"];
-      friends?: CommunityMessengerBootstrap["friends"];
-    }) => {
+    (
+      payload: {
+        chats?: CommunityMessengerBootstrap["chats"];
+        groups?: CommunityMessengerBootstrap["groups"];
+        requests?: CommunityMessengerBootstrap["requests"];
+        friends?: CommunityMessengerBootstrap["friends"];
+      },
+      roomMode: "replace" | "critical_patch" = "replace"
+    ) => {
       setData((prev) => {
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
           const base = prev ?? peekBootstrapCache();
           if (!base) return prev;
-          const chats = payload.chats ?? base.chats;
-          const groups = payload.groups ?? base.groups;
-          const requests = payload.requests ?? base.requests;
-          const friends = payload.friends ?? base.friends;
+          const chats =
+            roomMode === "critical_patch"
+              ? mergeCriticalRoomPatchesIntoLists(base.chats, payload.chats ?? [])
+              : payload.chats ?? base.chats;
+          const groups =
+            roomMode === "critical_patch"
+              ? mergeCriticalRoomPatchesIntoLists(base.groups, payload.groups ?? [])
+              : payload.groups ?? base.groups;
+          const requests =
+            roomMode === "critical_patch" ? base.requests : payload.requests ?? base.requests;
+          const friends =
+            roomMode === "critical_patch" ? base.friends : payload.friends ?? base.friends;
           if (
             chats === base.chats &&
             groups === base.groups &&
@@ -255,6 +280,10 @@ export function useCommunityMessengerHomeBootstrap({
     }
     const requestId = ++refreshRequestIdRef.current;
     refreshAbortRef.current?.abort();
+    if (silentFullSupplementTimerRef.current != null) {
+      clearTimeout(silentFullSupplementTimerRef.current);
+      silentFullSupplementTimerRef.current = null;
+    }
     const controller = new AbortController();
     refreshAbortRef.current = controller;
     samarketMessengerHomeDebugEvent("messenger_home_refresh_start", { silent });
@@ -272,7 +301,10 @@ export function useCommunityMessengerHomeBootstrap({
     try {
       if (silent) {
         const tHomeSyncFetch0 = typeof performance !== "undefined" ? performance.now() : null;
-        const { res, json } = await fetchCommunityMessengerHomeSilentLists({ signal: controller.signal });
+        const { res, json } = await fetchCommunityMessengerHomeSilentLists({
+          signal: controller.signal,
+          tier: "critical",
+        });
         if (tHomeSyncFetch0 != null && typeof performance !== "undefined") {
           messengerMonitorHomeSyncFetchMs(Math.round(performance.now() - tHomeSyncFetch0));
         }
@@ -284,12 +316,36 @@ export function useCommunityMessengerHomeBootstrap({
         }
         if (res.ok && json.ok) {
           refreshDataOk = true;
-          mergeHomeSyncIntoBootstrap({
-            chats: json.chats ?? [],
-            groups: json.groups ?? [],
-            requests: json.requests,
-            friends: json.friends,
-          });
+          mergeHomeSyncIntoBootstrap(
+            {
+              chats: json.chats ?? [],
+              groups: json.groups ?? [],
+            },
+            "critical_patch"
+          );
+          silentFullSupplementTimerRef.current = window.setTimeout(() => {
+            silentFullSupplementTimerRef.current = null;
+            void (async () => {
+              if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+              try {
+                const { res: resFull, json: jsonFull } = await fetchCommunityMessengerHomeSilentLists({
+                  signal: controller.signal,
+                  tier: "full",
+                });
+                if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+                if (resFull.ok && jsonFull.ok) {
+                  mergeHomeSyncIntoBootstrap({
+                    chats: jsonFull.chats ?? [],
+                    groups: jsonFull.groups ?? [],
+                    requests: jsonFull.requests,
+                    friends: jsonFull.friends,
+                  });
+                }
+              } catch {
+                /* ignore */
+              }
+            })();
+          }, 400);
         } else {
           const unauthorized = res.status === 401 || res.status === 403;
           if (unauthorized) {

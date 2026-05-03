@@ -61,6 +61,7 @@ import {
 import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import {
   notifyCommunityMessengerFriendRequestAccepted,
@@ -1637,7 +1638,7 @@ function buildParticipantsByRoomMap(
  * - `getCommunityMessengerBootstrap`: 친구·차단·팔로우 ID, `fetchMyRoomsPayload`, (옵션) 탐색 raw, 통화 로그 행을 모은 뒤
  *   **단일** `hydrateProfiles` → `summarizeRoomsBatchWithProfileMap` + 통화 `roomSummaryMap` + `loadSessionMapsForCallLogs`.
  *   `skipDiscoverable` 이면 탐색 오픈그룹 쿼리를 생략하고 `discoverableGroups` 는 빈 배열(클라이언트가 `open-groups`로 후속 로드).
- * - `listCommunityMessengerMyChatsAndGroups` / `listDiscoverableOpenGroupRooms` / `listCommunityMessengerCallLogs`: 단독 엔드포인트에서 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
+ * - `listCommunityMessengerMyChatsAndGroups`: **full** 은 **1회** `hydrateProfiles`; **`tier=critical`(home-sync)** 은 **1회** `hydrateProfilesLabelsOnly`(관계 3쿼리 생략). 단독 엔드포인트·`listDiscoverableOpenGroupRooms` / `listCommunityMessengerCallLogs` 는 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
  * - 방 상세 `getCommunityMessengerRoomDetail`: 해당 방 멤버만 **1회** `hydrateProfilesWithProfileMap`.
  * - `listCommunityMessengerFriends` / `searchCommunityMessengerUsers`: 목록·검색 전용 **1회**.
  * - `loadCallSessionParticipants` / `resolveCommunityMessengerGroupTitle`: 해당 작업 범위 **1회** (세션/그룹 제목용).
@@ -1758,6 +1759,23 @@ type MessengerRoomsPayload = {
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>;
 };
 
+function sliceMessengerRoomsPayloadForHomeSyncCritical(
+  payload: MessengerRoomsPayload,
+  cap: number
+): MessengerRoomsPayload {
+  if (payload.roomRows.length <= cap) return payload;
+  const roomRows = payload.roomRows.slice(0, cap);
+  const allow = new Set(roomRows.map((room) => room.id));
+  const participantRows = payload.participantRows.filter((p) => allow.has(participantRowRoomId(p)));
+  const byRoomId = buildParticipantsByRoomMap(participantRows);
+  return {
+    roomRows,
+    participantRows,
+    byRoomId,
+    roomProfileMap: payload.roomProfileMap,
+  };
+}
+
 type CommunityMessengerBootstrapRoomsDiagnostics = {
   rounds: number;
   queryCount: number;
@@ -1781,6 +1799,71 @@ type CommunityMessengerBootstrapRoomsDiagnostics = {
   round2ParticipantRowCount: number;
   round3RoomProfileCount: number;
 };
+
+function createEmptyBootstrapRoomsDiagnostics(): CommunityMessengerBootstrapRoomsDiagnostics {
+  return {
+    rounds: 0,
+    queryCount: 0,
+    metaChunkCount: 0,
+    roomIdsBeforeCap: 0,
+    roomIdsAfterCap: 0,
+    round1Ms: 0,
+    round2Ms: 0,
+    round2RoomsMs: 0,
+    round2RoomsDbFetchMs: 0,
+    round2RoomsNormalizeMs: 0,
+    round2RoomsMergeMapMs: 0,
+    round2RoomsHydrateLabelMs: 0,
+    round2RoomsPayloadSerializeMs: 0,
+    round2ParticipantsMs: 0,
+    round3Ms: 0,
+    transformMs: 0,
+    postprocessMs: 0,
+    round1RoomIdCount: 0,
+    round2RoomRowCount: 0,
+    round2ParticipantRowCount: 0,
+    round3RoomProfileCount: 0,
+  };
+}
+
+/** participant-only room id 목록이 최근순이 아닐 때 round2 전에 last_message_at 기준으로 자른다 */
+async function narrowRoomIdsByLastMessageAtForRoomLimit(
+  sb: SupabaseLike,
+  roomIds: string[],
+  limit: number,
+  diagnostics?: CommunityMessengerBootstrapRoomsDiagnostics
+): Promise<string[]> {
+  const ids = dedupeIds(roomIds);
+  if (ids.length <= limit) return ids;
+  const metas: Array<{ id: string; lastAt: string }> = [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
+    chunks.push(ids.slice(i, i + COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK));
+  }
+  if (diagnostics) {
+    diagnostics.rounds += 1;
+    diagnostics.queryCount += chunks.length;
+    diagnostics.metaChunkCount = chunks.length;
+  }
+  const tMeta = performance.now();
+  const metaChunks = await Promise.all(
+    chunks.map((chunk) =>
+      (sb as any).from("community_messenger_rooms").select("id, last_message_at").in("id", chunk)
+    )
+  );
+  if (diagnostics) {
+    diagnostics.transformMs += Math.round(performance.now() - tMeta);
+  }
+  for (const { data: metaRows } of metaChunks) {
+    for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
+      const id = trimText(row.id);
+      if (!id) continue;
+      metas.push({ id, lastAt: trimText(row.last_message_at) || "" });
+    }
+  }
+  metas.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+  return metas.slice(0, limit).map((m) => m.id);
+}
 
 export type CommunityMessengerBootstrapDiagnostics = {
   parallelInitialWallMs: number;
@@ -1819,6 +1902,8 @@ export type CommunityMessengerBootstrapDiagnostics = {
 
 /** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
 const COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP = 500;
+/** 홈 silent `GET ...?tier=critical` — 최근 활동 방만 빠르게 동기화; `tier=full`에서 전체 보강 */
+export const COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP = 25;
 /** `id in (…)` 메타 조회 시 PostgREST URL 부담을 줄이기 위한 청크 크기 */
 const COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK = 120;
 
@@ -1894,6 +1979,8 @@ async function fetchMyRoomsPayload(
   options?: {
     diagnostics?: CommunityMessengerBootstrapRoomsDiagnostics;
     includeRoomProfiles?: boolean;
+    /** round2 이전에 room id 개수 상한 — 최근 활동 우선(RPC·메타정렬 경로는 slice, 그 외는 메타 조회 후 자름) */
+    roomLimit?: number;
   }
 ): Promise<MessengerRoomsPayload> {
   const diagnostics = options?.diagnostics;
@@ -1903,12 +1990,14 @@ async function fetchMyRoomsPayload(
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
 
   if (sb) {
+    let roomIdResolution: "rpc" | "fallback_meta_sorted" | "fallback_participant_raw" = "fallback_participant_raw";
     diagnostics && (diagnostics.rounds += 1);
     diagnostics && (diagnostics.queryCount += 1);
     const tRound1 = performance.now();
     let roomIds: string[] = [];
     const rpcRoomIds = await fetchBootstrapRoomIdsViaRpc(sb, userId);
     if (rpcRoomIds) {
+      roomIdResolution = "rpc";
       roomIds = rpcRoomIds.roomIds;
       if (diagnostics) {
         diagnostics.roomIdsBeforeCap = rpcRoomIds.totalCount;
@@ -1927,6 +2016,7 @@ async function fetchMyRoomsPayload(
         if (diagnostics) diagnostics.roomIdsBeforeCap = roomIds.length;
         if (diagnostics) diagnostics.round1RoomIdCount = roomIds.length;
         if (roomIds.length > COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP) {
+          roomIdResolution = "fallback_meta_sorted";
           const metas: Array<{ id: string; lastAt: string }> = [];
           const chunks: string[][] = [];
           for (let i = 0; i < roomIds.length; i += COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK) {
@@ -1960,7 +2050,21 @@ async function fetchMyRoomsPayload(
         if (diagnostics) diagnostics.roomIdsAfterCap = roomIds.length;
       }
     }
+
+    const roomLimitOpt = options?.roomLimit;
+    if (typeof roomLimitOpt === "number" && roomLimitOpt > 0 && roomIds.length > roomLimitOpt) {
+      if (roomIdResolution === "rpc" || roomIdResolution === "fallback_meta_sorted") {
+        roomIds = roomIds.slice(0, roomLimitOpt);
+      } else {
+        roomIds = await narrowRoomIdsByLastMessageAtForRoomLimit(sb, roomIds, roomLimitOpt, diagnostics);
+      }
+      if (diagnostics) {
+        diagnostics.roomIdsAfterCap = roomIds.length;
+      }
+    }
+
     diagnostics && (diagnostics.round1Ms = Math.round(performance.now() - tRound1));
+
     if (roomIds.length) {
       diagnostics && (diagnostics.rounds += 1);
       diagnostics && (diagnostics.queryCount += 2);
@@ -2008,10 +2112,14 @@ async function fetchMyRoomsPayload(
   if (!roomRows.length) {
     const dev = getDevState();
     let roomIds = dedupeIds(dev.participants.filter((row) => row.userId === userId).map((row) => row.roomId));
+    const devRoomCap =
+      typeof options?.roomLimit === "number" && options.roomLimit > 0
+        ? Math.min(COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP, options.roomLimit)
+        : COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP;
     roomRows = dev.rooms
       .filter((room) => roomIds.includes(room.id))
       .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
-      .slice(0, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP);
+      .slice(0, devRoomCap);
     roomIds = roomRows.map((room) => room.id);
     participantRows = dev.participants.filter((row) => roomIds.includes(row.roomId));
   }
@@ -2527,14 +2635,55 @@ export async function listCommunityMessengerCallLogs(userId: string): Promise<Co
 }
 
 /** `GET /api/community-messenger/rooms` 전용 — 부트스트랩 전체 없이 내 채팅·그룹 목록만 조립 */
-export async function listCommunityMessengerMyChatsAndGroups(userId: string): Promise<{
+export async function listCommunityMessengerMyChatsAndGroups(
+  userId: string,
+  options?: { tier?: "critical" | "full" }
+): Promise<{
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];
 }> {
-  const myPayload = await fetchMyRoomsPayload(userId);
+  const tier = options?.tier ?? "full";
+  const isCritical = tier === "critical";
+
+  const criticalRoomsDiag = isCritical ? createEmptyBootstrapRoomsDiagnostics() : undefined;
+  const myPayloadRaw = await fetchMyRoomsPayload(userId, {
+    includeRoomProfiles: !isCritical,
+    roomLimit: isCritical ? COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP : undefined,
+    diagnostics: criticalRoomsDiag,
+  });
+
+  if (isCritical && criticalRoomsDiag) {
+    recordMessengerMonitoringEvent({
+      ts: Date.now(),
+      category: "chat.unread_sync",
+      metric: "home_sync_critical_fetch_my_rooms_round1_ms",
+      source: "server",
+      value: criticalRoomsDiag.round1Ms,
+      unit: "ms",
+      labels: { tier: "critical" },
+    });
+    recordMessengerMonitoringEvent({
+      ts: Date.now(),
+      category: "chat.unread_sync",
+      metric: "home_sync_critical_fetch_my_rooms_round2_ms",
+      source: "server",
+      value: criticalRoomsDiag.round2Ms,
+      unit: "ms",
+      labels: { tier: "critical" },
+    });
+  }
+
+  const myPayload = isCritical
+    ? sliceMessengerRoomsPayloadForHomeSyncCritical(myPayloadRaw, COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP)
+    : myPayloadRaw;
+
   const allIds = dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)]);
   const profileById = new Map(
-    (await hydrateProfiles(userId, allIds, { includeSelf: true })).map((p) => [p.id, p])
+    (
+      isCritical
+        ? await hydrateProfilesLabelsOnly(userId, allIds, { includeSelf: true })
+        : await hydrateProfiles(userId, allIds, { includeSelf: true })
+    ).map((p) => [p.id, p])
   );
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
@@ -2543,15 +2692,19 @@ export async function listCommunityMessengerMyChatsAndGroups(userId: string): Pr
     myPayload.byRoomId,
     profileById
   );
-  await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+  if (!isCritical) {
+    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+  }
   const sbList = getSupabaseOrNull();
   if (sbList) {
     await enrichMessengerTradeUnreadWithLegacyTrade(sbList as any, userId, mySummaries).catch(() => {});
   }
-  const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
-    "@/lib/community-messenger/philife-meeting-open-group-summaries"
-  );
-  await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
+  if (!isCritical) {
+    const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
+      "@/lib/community-messenger/philife-meeting-open-group-summaries"
+    );
+    await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
+  }
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
   return { chats, groups };
@@ -5712,6 +5865,8 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 첫 스냅샷에 포함하고, 통화·presence·enrich 는 후속 부트스트랩으로 합류한다.
    */
   deferSnapshotSecondary?: boolean;
+  /** `critical`: 첫 페인트용 경량 스냅샷(후속 보강 필수). `full`: 기존 전체 스냅샷. */
+  snapshotTier?: "critical" | "full";
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
   /** 비프로덕션 — `x-samarket-e2e-room-diag` 로 활성화된 E2E 방 스냅샷 계측 */
   e2eRoomSnapshotDiag?: boolean;
@@ -5765,6 +5920,20 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
 }
 
+const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN = 8;
+const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX = 12;
+
+function effectiveSnapshotMessageLimitForCache(options?: GetCommunityMessengerRoomSnapshotOptions): number {
+  const raw = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
+  if (options?.snapshotTier === "critical") {
+    return Math.min(
+      COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX,
+      Math.max(COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN, raw)
+    );
+  }
+  return raw;
+}
+
 /** 동일 방·옵션으로 동시에 들어온 스냅샷 요청을 한 번의 로드로 합침(결과 TTL 캐시는 최신 메시지 누락 방지로 두지 않음) */
 type RoomSnapshotInflightEntry = {
   promise: Promise<CommunityMessengerRoomSnapshot | null>;
@@ -5802,11 +5971,12 @@ function messengerRoomSnapshotCacheKey(
   roomId: string,
   messageLimit: number,
   hydrateFullMemberList: boolean,
-  deferSnapshotSecondary: boolean
+  deferSnapshotSecondary: boolean,
+  snapshotTier: "critical" | "full"
 ): string {
   return `${trimText(userId)}\0${trimText(roomId).toLowerCase()}\0${messageLimit}\0${hydrateFullMemberList ? "1" : "0"}\0${
     deferSnapshotSecondary ? "1" : "0"
-  }`;
+  }\0${snapshotTier}`;
 }
 
 /** 부트스트랩에서 전원 멤버 프로필을 생략할 때 — 말풍선·헤더에 필요한 최소 user id */
@@ -5945,9 +6115,10 @@ export async function getCommunityMessengerRoomSnapshot(
   roomId: string,
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
-  const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
+  const messageLimit = effectiveSnapshotMessageLimitForCache(options);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
+  const snapshotTier = options?.snapshotTier === "critical" ? "critical" : "full";
   const id = trimText(roomId);
   if (!id) return null;
   /**
@@ -5960,7 +6131,8 @@ export async function getCommunityMessengerRoomSnapshot(
     id,
     messageLimit,
     hydrateFullMemberList,
-    deferSnapshotSecondary
+    deferSnapshotSecondary,
+    snapshotTier
   );
   const existing = roomSnapshotInflight.get(cacheKey);
   if (existing) {
@@ -5998,7 +6170,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const tBootstrap0 = performance.now();
-  const messageLimit = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
+  const isCriticalTier = options?.snapshotTier === "critical";
+  const messageLimit = effectiveSnapshotMessageLimitForCache(options);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const diagnostics = options?.diagnostics;
   if (diagnostics) {
@@ -6036,7 +6209,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
     /** defer seed: `fetchProfilesByIds` RTT 를 줄이기 위해 participants 와 profiles 를 한 번에 embed (첫 Promise.all 안). */
     const participantProfileEmbedSelect =
-      deferSecondaryRequested && !hydrateFullMemberList
+      (deferSecondaryRequested || isCriticalTier) && !hydrateFullMemberList
         ? ", profiles!community_messenger_participants_user_id_fkey ( id, nickname, username, avatar_url, bio )"
         : "";
     const participantSelectForBootstrap = participantSelectCols + participantProfileEmbedSelect;
@@ -6065,7 +6238,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
     const roomSelectColsFull =
       "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
-    const roomSelectForBootstrap = deferSecondaryRequested ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
+    const roomSelectForBootstrap =
+      deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
       .from("community_messenger_rooms")
       .select(roomSelectForBootstrap)
@@ -6086,9 +6260,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     })();
     /** defer seed RSC: 첫 paint 전 row 수·metadata 페이로드를 줄이기 위해 최근 메시지 fetch 상한만 별도 캡(컬럼 shape 동일). */
     const deferSeedRecentMessagesFetchCap = 12;
-    const messagesQueryLimit = deferSecondaryRequested
-      ? Math.min(messageLimit, deferSeedRecentMessagesFetchCap)
-      : Math.min(messageLimit, 20);
+    const messagesQueryLimit = isCriticalTier
+      ? messageLimit
+      : deferSecondaryRequested
+        ? Math.min(messageLimit, deferSeedRecentMessagesFetchCap)
+        : Math.min(messageLimit, 20);
     const messagesFetch = (async () => {
       const tMessages0 = performance.now();
       const messageRes = await queryCommunityMessengerMessageRowsWithSelectFallback(async (cols) =>
@@ -6150,20 +6326,22 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants = rawParticipantRows;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
-      const rawMessageIdsForExtras = messages.map((m) => m.id);
-      const authorByMidForExtras = communityMessengerAuthorUserIdByMessageIdForReactions(messages);
-      const tMsgExtras0 = performance.now();
-      const [bootstrapHideIds, snapshotRoomMessageReactionsByIdResult] = await Promise.all([
-        fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, userId, rawMessageIdsForExtras),
-        fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, rawMessageIdsForExtras, userId, {
-          authorUserIdByMessageId: authorByMidForExtras,
-        }),
-      ]);
-      if (diagnostics) {
-        diagnostics.messagesPostParallelFetchMs = Math.round(performance.now() - tMsgExtras0);
+      if (!isCriticalTier) {
+        const rawMessageIdsForExtras = messages.map((m) => m.id);
+        const authorByMidForExtras = communityMessengerAuthorUserIdByMessageIdForReactions(messages);
+        const tMsgExtras0 = performance.now();
+        const [bootstrapHideIds, snapshotRoomMessageReactionsByIdResult] = await Promise.all([
+          fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, userId, rawMessageIdsForExtras),
+          fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, rawMessageIdsForExtras, userId, {
+            authorUserIdByMessageId: authorByMidForExtras,
+          }),
+        ]);
+        if (diagnostics) {
+          diagnostics.messagesPostParallelFetchMs = Math.round(performance.now() - tMsgExtras0);
+        }
+        messages = messages.filter((m) => !bootstrapHideIds.has(m.id));
+        snapshotRoomMessageReactionsById = snapshotRoomMessageReactionsByIdResult;
       }
-      messages = messages.filter((m) => !bootstrapHideIds.has(m.id));
-      snapshotRoomMessageReactionsById = snapshotRoomMessageReactionsByIdResult;
       /** 읽음 처리는 `PATCH ... mark_read`(클라) 단일 경로 — 부트스트랩 GET 은 읽기 전용 */
     }
   }
@@ -6249,9 +6427,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       )
     : null;
   const tradeExitSnapshotPromise =
-    sb && earlyTradeContextMetaForExitSnapshot?.kind === "trade"
-      ? loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, earlyTradeContextMetaForExitSnapshot)
-      : Promise.resolve(null);
+    isCriticalTier || !(sb && earlyTradeContextMetaForExitSnapshot?.kind === "trade")
+      ? Promise.resolve(null)
+      : loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, earlyTradeContextMetaForExitSnapshot);
   let tradeProductChatExitForSnapshot: Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>> = null;
 
   /** 상대 last_read_message_id 의 created_at — 프로필 하이드레이션과 동시에 조회해 직렬 RTT 제거 */
@@ -6264,8 +6442,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       : undefined;
   const bootstrapPeerReadCursorIdForFetch = participantLastReadMessageId(bootstrapPeerParticipantForReadCursor);
   const peerReadCursorCreatedAtPromise: Promise<string | null> =
-    sb && bootstrapPeerReadCursorIdForFetch
-      ? (async () => {
+    isCriticalTier || !(sb && bootstrapPeerReadCursorIdForFetch)
+      ? Promise.resolve(null)
+      : (async () => {
           const t0 = performance.now();
           const { data: peerCursorRow } = await (sb as any)
             .from("community_messenger_messages")
@@ -6278,10 +6457,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           }
           const ca = (peerCursorRow as { created_at?: string | null } | null)?.created_at;
           return typeof ca === "string" && ca.trim() ? ca.trim() : null;
-        })()
-      : Promise.resolve(null);
+        })();
 
-  const roomProfileMapPromise = deferSecondary
+  const roomProfileMapPromise = deferSecondary || isCriticalTier
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
     : (async () => {
         const t0 = performance.now();
@@ -6296,7 +6474,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const r = await hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
       includeSelf: true,
       prefetchedProfiles:
-        deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
+        (deferSecondaryRequested || isCriticalTier) && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
           ? embeddedProfilesFromParticipantRows
           : undefined,
     });
@@ -6307,7 +6485,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   })();
   /** defer seed: 거래 방 상품 카드만 프로필과 동시에 로드(통화·presence·enrich 는 여전히 후속 부트스트랩) */
   const tradeDetailParallelForDeferSeed =
-    deferSecondary && room
+    deferSecondary && room && !isCriticalTier
       ? (async () => {
           const t0 = performance.now();
           const r = await tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad);
@@ -6318,7 +6496,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           return r;
         })()
       : Promise.resolve(null);
-  const tradeExitParallelForDeferSeed = deferSecondary
+  const tradeExitParallelForDeferSeed = deferSecondary && !isCriticalTier
     ? (async () => {
         const t0 = performance.now();
         const r = await tradeExitSnapshotPromise;
@@ -6374,7 +6552,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     : null;
   let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
   let didFullSecondaryParallel = false;
-  if (!deferSecondary) {
+  if (!deferSecondary && !isCriticalTier) {
     didFullSecondaryParallel = true;
     const peerFromSummary = trimText(summary.peerUserId ?? "");
     const presenceIds = dedupeIds(
@@ -6445,7 +6623,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs);
       }
     }
-  } else if (room) {
+  } else if (room && !isCriticalTier) {
     /**
      * seed(lite) / RSC 첫 응답: 통화·presence·trade context enrich 은 첫 응답에서 await 하지 않는다.
      * 거래 방 상품 카드(`tradeChatRoomDetail`)는 위에서 프로필과 병렬 로드되어 스냅샷에 포함된다.
@@ -6490,7 +6668,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   if (summary.roomType === "direct" && peerReadCursorId) {
     if (trimText(peerReadCursorId) === trimText(bootstrapPeerReadCursorIdForFetch ?? "")) {
       peerLastReadMessageCreatedAt = peerReadCursorCreatedAtPrefetched;
-    } else if (sb) {
+    } else if (sb && !isCriticalTier) {
       const { data: peerCursorRow } = await (sb as any)
         .from("community_messenger_messages")
         .select("created_at")
@@ -6512,7 +6690,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         }
       : null;
   const peerPresence =
-    deferSecondary || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
+    deferSecondary || isCriticalTier || !peerUserId ? null : (resolvedPresenceMap.get(peerUserId) ?? null);
 
   /** 메시지마다 `members.find` 선형 탐색 제거 — 발신자 id 기준 O(1) */
   const memberByUserId = new Map<string, CommunityMessengerProfileLite>();
@@ -6635,7 +6813,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     const contentTrimmed = deletedForEveryone ? resolveDeletedMessagePlaceholder() : rawContent;
     const imageExtra =
-      safeMt === "image" && !deletedForEveryone
+      !isCriticalTier && safeMt === "image" && !deletedForEveryone
         ? messengerImageClientFieldsFromMetadata(safeMt, metadata, rawContent)
         : {};
     if (mappedMsgAcc) {
@@ -6643,7 +6821,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     const rdb = rowDb ? (message as MessageRow) : null;
     const replyPieces =
-      rdb && trimText(rdb.reply_to_message_id)
+      !isCriticalTier &&
+      rdb &&
+      trimText(rdb.reply_to_message_id)
         ? {
             replyToMessageId: trimText(rdb.reply_to_message_id) || null,
             ...(trimText(rdb.reply_preview_text) ? { replyPreviewText: trimText(rdb.reply_preview_text) } : {}),
@@ -6654,7 +6834,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           }
         : {};
     const rxList = snapshotRoomMessageReactionsById.get(message.id);
-    const reactionPieces = rxList?.length ? { reactions: rxList } : {};
+    const reactionPieces = !isCriticalTier && rxList?.length ? { reactions: rxList } : {};
     const dfeField = deletedForEveryone ? { deletedForEveryoneAt: dfeAt } : {};
     return {
       id: message.id,
@@ -6749,14 +6929,16 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let tradeMessagingForSnapshot: CommunityMessengerTradeMessagingSnapshot | undefined;
   if (sb) {
     let tradePc = tradeProductChatExitForSnapshot;
-    if (!tradePc && summary.contextMeta?.kind === "trade") {
-      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
-    }
-    if (
-      !tradePc &&
-      (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
-    ) {
-      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
+    if (!isCriticalTier) {
+      if (!tradePc && summary.contextMeta?.kind === "trade") {
+        tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
+      }
+      if (
+        !tradePc &&
+        (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
+      ) {
+        tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
+      }
     }
     const ev = evaluateTradeMessagingForMessengerRoom({
       viewerUserId: userId,
@@ -6792,7 +6974,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     members,
     ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
-    ...(deferSecondary ? { bootstrapEnrichmentPending: true as const } : {}),
+    ...(deferSecondary || isCriticalTier ? { bootstrapEnrichmentPending: true as const } : {}),
     messages: mappedMessages,
     myRole: meRole,
     ...(readReceipt ? { readReceipt } : {}),

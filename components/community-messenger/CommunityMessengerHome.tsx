@@ -109,6 +109,7 @@ import {
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
@@ -2133,6 +2134,7 @@ export function CommunityMessengerHome({
           : "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
       }
     >
+      <CommunityMessengerHomeReturnConsume />
       {fromPhilifeHeaderStack ? (
         <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
           <div

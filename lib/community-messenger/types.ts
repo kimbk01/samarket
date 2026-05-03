@@ -307,6 +307,8 @@ export type CommunityMessengerTradeMessagingSnapshot = {
 };
 
 export type CommunityMessengerRoomSnapshot = {
+  /** 클라이언트만 — HTTP 부트스트랩 전 셸·입력창용 가짜 스냅샷(실제 데이터 도착 시 교체) */
+  clientShellPlaceholder?: true;
   viewerUserId: string;
   room: CommunityMessengerRoomSummary & {
     description?: string;

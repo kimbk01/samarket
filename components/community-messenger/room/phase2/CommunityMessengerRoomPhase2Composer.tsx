@@ -344,7 +344,9 @@ export function CommunityMessengerRoomPhase2Composer() {
                         : vm.snapshot.room.roomStatus === "blocked"
                           ? "차단된 방입니다"
                           : "보관된 방입니다"
-                      : "메시지"
+                      : vm.snapshot.clientShellPlaceholder
+                        ? "메시지를 입력하세요"
+                        : "메시지"
                 }
                 className={`max-h-28 min-w-0 w-full resize-none rounded-ui-rect border border-sam-border bg-sam-surface px-2 outline-none ring-1 ring-transparent placeholder:text-sam-meta focus:border-sam-primary focus:ring-sam-primary disabled:opacity-50 ${
                   messengerComposerDense

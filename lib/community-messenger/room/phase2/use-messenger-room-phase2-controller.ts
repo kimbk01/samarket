@@ -86,6 +86,23 @@ export type MessengerAttachmentConfirmDraft =
 
 const MESSENGER_IMAGE_ALBUM_PICK_MAX = 10;
 
+/** `viewerUserId` 비어 있을 때만 — 확정 메시지가 오면 교체. 서버 POST 와 무관(세션 auth). */
+const CM_OPTIMISTIC_SENDER_FALLBACK_ID = "__cm_shell_self__";
+
+function optimisticOutboundSender(
+  snapshot: { viewerUserId: string },
+  roomMembersDisplay: Array<{ id: string; label: string }>
+): { senderId: string; senderLabel: string } {
+  const uid = snapshot.viewerUserId.trim();
+  if (uid) {
+    return {
+      senderId: uid,
+      senderLabel: roomMembersDisplay.find((m) => m.id === uid)?.label ?? "나",
+    };
+  }
+  return { senderId: CM_OPTIMISTIC_SENDER_FALLBACK_ID, senderLabel: "나" };
+}
+
 export function useMessengerRoomPhase2Controller() {
   const phase1 = useMessengerRoomClientPhase1Context();
   const {
@@ -693,12 +710,12 @@ export function useMessengerRoomPhase2Controller() {
       const rid = (replyToMessageId ?? "").trim();
       const replySnap =
         rid && replySourceMessage && replySourceMessage.id === rid ? buildReplyPreviewSnapshot(replySourceMessage) : null;
+      const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
         roomId: streamRoomId,
-        senderId: snapshot.viewerUserId,
-        senderLabel:
-          roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderId: optimisticSender.senderId,
+        senderLabel: optimisticSender.senderLabel,
         messageType: "text",
         content: trimmed,
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
@@ -812,11 +829,12 @@ export function useMessengerRoomPhase2Controller() {
       if (!snapshot || roomUnavailable || !url.startsWith("/stickers/")) return;
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:sticker:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
         roomId: streamRoomId,
-        senderId: snapshot.viewerUserId,
-        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderId: optimisticSender.senderId,
+        senderLabel: optimisticSender.senderLabel,
         messageType: "sticker",
         content: url,
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
@@ -925,11 +943,12 @@ export function useMessengerRoomPhase2Controller() {
       const previews = optimisticPreviewUrls.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
       if (list.length === 0 || list.length !== previews.length) return;
       const tempId = `pending:image:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
         roomId: streamRoomId,
-        senderId: snapshot.viewerUserId,
-        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderId: optimisticSender.senderId,
+        senderLabel: optimisticSender.senderLabel,
         messageType: "image",
         content: previews[0]!,
         ...(previews.length > 1
@@ -1042,11 +1061,12 @@ export function useMessengerRoomPhase2Controller() {
     async (file: File) => {
       if (!snapshot || roomUnavailable) return;
       const tempId = `pending:file:${streamRoomId}:${pendingMessageIdRef.current++}`;
+      const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
       const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
         id: tempId,
         roomId: streamRoomId,
-        senderId: snapshot.viewerUserId,
-        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+        senderId: optimisticSender.senderId,
+        senderLabel: optimisticSender.senderLabel,
         messageType: "file",
         content: "",
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),

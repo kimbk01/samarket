@@ -76,6 +76,7 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
   if (!rid || !uid) return;
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:default`);
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=lite&memberHydration=minimal`);
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal`);
 }
 
 /**
@@ -146,7 +147,6 @@ export function createMessengerRoomBootstrapRefresh(
         viewerBootstrapDedupRef.current.trim() ? viewerBootstrapDedupRef.current.trim() : null
       );
     const shouldBlock = !silent && !loadedRef.current && !primed;
-    if (shouldBlock) setLoading(true);
     try {
       if (primed) {
         setSnapshot(primed);
@@ -177,7 +177,7 @@ export function createMessengerRoomBootstrapRefresh(
       const wantSeed = !silent && !loadedRef.current;
       const wantMinimalMembers = wantSeed || deferredMemberBootstrapRef.current;
       const bootstrapQuery = wantSeed
-        ? "?mode=lite&memberHydration=minimal"
+        ? "?mode=instant&memberHydration=minimal"
         : wantMinimalMembers
           ? "?memberHydration=minimal"
           : "";
@@ -329,7 +329,7 @@ export function createMessengerRoomBootstrapRefresh(
             blocking: true,
             silent,
             cmReqSrc: reqSrc,
-            mode: wantSeed ? "lite" : wantMinimalMembers ? "minimal-members" : "default",
+            mode: wantSeed ? "instant" : wantMinimalMembers ? "minimal-members" : "default",
             ms: elapsed,
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
           });

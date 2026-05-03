@@ -12,6 +12,7 @@ import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
+import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 /** 방 A→B 이동마다 동일 RSC 청크 `prefetch` 가 반복되면 메인 스레드·RSC 큐만 쓴다 — 세션당 1회로 제한 */
 let communityMessengerListRoutesPrefetched = false;
 
@@ -60,8 +61,9 @@ export function CommunityMessengerRoomClient(props: {
     communityMessengerListRoutesPrefetched = true;
     // 복귀 시 홈(리스트) 청크 로드 대기 최소화 — `next dev` 에서는 컴파일 큐만 키우므로 생략
     try {
-      void router.prefetch?.("/community-messenger?section=chats");
-      void router.prefetch?.("/community-messenger?section=chats&filter=private_group");
+      void router.prefetch?.(SAMARKET_ROUTES.chat.messengerHub);
+      void router.prefetch?.(`${SAMARKET_ROUTES.chat.messengerHub}&filter=private_group`);
+      void router.prefetch?.(SAMARKET_ROUTES.chat.messengerMeetingsHub);
     } catch {
       /* ignore */
     }

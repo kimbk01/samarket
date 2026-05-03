@@ -407,6 +407,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })}
             </div>
+          ) : vm.snapshot.clientShellPlaceholder ? (
+            <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label="대화 불러오는 중">
+              <div className="h-3 w-[72%] max-w-sm animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
+              <div className="h-3 w-[88%] max-w-md animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
+              <div className="h-3 w-[56%] max-w-xs animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
+            </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
               {shouldRecoverEmptyTimeline ? (

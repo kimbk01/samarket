@@ -15,6 +15,12 @@ import type {
 
 const FLIGHT_KEY = "community-messenger:home:silent:home_sync";
 
+export type FetchCommunityMessengerHomeSilentListsOpts = {
+  signal?: AbortSignal;
+  /** 기본 full — 홈 첫 silent는 critical 후 idle 에 full 보강 */
+  tier?: "critical" | "full";
+};
+
 export type CommunityMessengerHomeSilentListsPayload = {
   res: Response;
   json: {
@@ -26,26 +32,28 @@ export type CommunityMessengerHomeSilentListsPayload = {
   };
 };
 
+function homeSyncUrl(tier: "critical" | "full"): string {
+  return tier === "critical"
+    ? "/api/community-messenger/home-sync?tier=critical"
+    : "/api/community-messenger/home-sync";
+}
+
+/**
+ * `signal` 이 있어도 tier별 `runSingleFlight` 로 동시 요청 1개로 합침 — full critical 경쟁·중복 완화.
+ */
 export function fetchCommunityMessengerHomeSilentLists(
-  opts: { signal?: AbortSignal } = {}
+  opts: FetchCommunityMessengerHomeSilentListsOpts = {}
 ): Promise<CommunityMessengerHomeSilentListsPayload> {
-  if (opts.signal) {
-    return (async () => {
-      recordMessengerHomeHomeSyncNetworkFetch();
-      const res = await fetch("/api/community-messenger/home-sync", {
-        cache: "default",
-        credentials: "include",
-        signal: opts.signal,
-      });
-      const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
-      return { res, json };
-    })();
-  }
-  return runSingleFlight(FLIGHT_KEY, async () => {
+  const tier = opts.tier ?? "full";
+  const flightKey = `${FLIGHT_KEY}:${tier}`;
+  const url = homeSyncUrl(tier);
+
+  return runSingleFlight(flightKey, async () => {
     recordMessengerHomeHomeSyncNetworkFetch();
-    const res = await fetch("/api/community-messenger/home-sync", {
+    const res = await fetch(url, {
       cache: "default",
       credentials: "include",
+      signal: opts.signal,
     });
     const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
     return { res, json };

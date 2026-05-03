@@ -50,13 +50,15 @@ export function useMessengerRoomBootstrapLifecycle({
       }
       /** `bootstrapEnrichmentPending`: 거래 상세 등 시드 보강 — idle 2s 보다 먼저 한 프레임 뒤 silent GET 으로 카드 합류 */
       if (initialServerSnapshot.bootstrapEnrichmentPending === true) {
-        let raf = 0;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          void refresh(true);
-        });
+        const delayMs = 100 + Math.floor(Math.random() * 101);
+        const t =
+          typeof window !== "undefined"
+            ? window.setTimeout(() => {
+                void refresh(true);
+              }, delayMs)
+            : 0;
         return () => {
-          if (raf !== 0) cancelAnimationFrame(raf);
+          if (t !== 0) clearTimeout(t);
         };
       }
       const idleId = scheduleWhenBrowserIdle(() => {

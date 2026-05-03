@@ -14,6 +14,8 @@ export type CommunityMessengerRoomSnapshotOptions = {
    * 통화·거래 도크·presence·방별 프로필 오버레이·trade 후처리는 생략(`bootstrapEnrichmentPending`).
    */
   deferSnapshotSecondary?: boolean;
+  /** `critical`: 경량 첫 스냅샷(보강 필수). */
+  snapshotTier?: "critical" | "full";
   /** route 계측용 서버 분해 숫자 기록 */
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
   /**

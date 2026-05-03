@@ -46,6 +46,7 @@ import {
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
 import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { shouldAdvancePeerReadReceiptCursor } from "@/lib/community-messenger/room/messenger-peer-read-cursor-guard";
@@ -168,9 +169,11 @@ export function useMessengerRoomClientPhase1({
 }: MessengerRoomClientPhase1Props) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "useMessengerRoomClientPhase1_init_ms");
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "phase1_start_ms");
-  const initialViewerId =
-    (typeof initialViewerUserId === "string" ? initialViewerUserId.trim() : "") ||
-    (initialServerSnapshot?.viewerUserId?.trim() ?? "");
+  const fromPropViewer = typeof initialViewerUserId === "string" ? initialViewerUserId.trim() : "";
+  const fromServerViewer = initialServerSnapshot?.viewerUserId?.trim() ?? "";
+  const initialViewerId = fromPropViewer || fromServerViewer;
+  /** placeholder 전용: 값이 없으면 `undefined` 로 두어 빈 문자열과 구분(스냅샷 필드는 빈 문자열로 저장). */
+  const viewerIdForPlaceholder = fromPropViewer || fromServerViewer || undefined;
   const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
@@ -237,9 +240,10 @@ export function useMessengerRoomClientPhase1({
   const [snapshot, setSnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() => {
     /** `peekHotRoomSnapshot` 제외: 방 이탈 후 새 메시지가 와도 hot 이 갱신되지 않아, 배지로 재입장 시 옛 타임라인이 먼저 깔리는 문제가 난다. */
     const prepared = resolveMessengerRoomInitialSnapshot(roomId, initialViewerId, initialServerSnapshot);
-    initialSnapshotResolved = prepared;
+    const resolved = prepared ?? buildClientShellPlaceholderSnapshot(roomId, viewerIdForPlaceholder);
+    initialSnapshotResolved = resolved;
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_prepare_ms");
-    return prepared;
+    return resolved;
   });
   /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
   const streamRoomId = useMemo(() => {
@@ -289,7 +293,9 @@ export function useMessengerRoomClientPhase1({
   }
 
   useEffect(() => {
-    seedMessengerRealtimeFromRoomSnapshot(snapshot ?? initialServerSnapshot ?? null);
+    const s = snapshot ?? initialServerSnapshot ?? null;
+    if (s?.clientShellPlaceholder) return;
+    seedMessengerRealtimeFromRoomSnapshot(s);
   }, [initialServerSnapshot, snapshot]);
 
   /**
@@ -441,9 +447,8 @@ export function useMessengerRoomClientPhase1({
   }, [initialServerSnapshot?.room, initialServerSnapshot?.viewerUserId, roomId, setSnapshot]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
   const [friendsLoaded, setFriendsLoaded] = useState(false);
-  const [loading, setLoading] = useState(
-    () => !Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
-  );
+  /** 부트스트랩 대기와 입력창 활성을 분리 — 타임라인만 스켈레톤·보강 */
+  const [loading, setLoading] = useState(false);
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -678,6 +683,7 @@ export function useMessengerRoomClientPhase1({
     const snap = snapshot;
     const id = roomId.trim();
     if (!snap?.viewerUserId || !id) return;
+    if (snap.clientShellPlaceholder) return;
     primeHotRoomSnapshot(id, snap);
   }, [roomId, snapshot]);
 
@@ -694,7 +700,7 @@ export function useMessengerRoomClientPhase1({
     return () => {
       const snap = snapshotRef.current;
       const id = String(roomId ?? "").trim();
-      if (snap?.viewerUserId && id) primeHotRoomSnapshot(id, snap);
+      if (snap?.viewerUserId && id && !snap.clientShellPlaceholder) primeHotRoomSnapshot(id, snap);
     };
   }, [roomId]);
 

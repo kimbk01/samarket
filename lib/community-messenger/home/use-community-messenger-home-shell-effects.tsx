@@ -5,7 +5,6 @@ import type { MainTier1ExtrasState } from "@/contexts/MainTier1ExtrasContext";
 import { useEffect, useLayoutEffect } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { consumeCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import {
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
@@ -88,10 +87,6 @@ export function useCommunityMessengerHomeShellEffects({
   fromPhilifeHeaderStack = false,
   mainSection,
 }: Args): void {
-  useEffect(() => {
-    consumeCommunityMessengerHomeReturn();
-  }, []);
-
   useEffect(() => {
     if (!roomActionSheetOpen) return;
     const handleViewportChange = () => {

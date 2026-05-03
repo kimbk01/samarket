@@ -57,7 +57,10 @@ export async function GET(
   const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
+  const hydration = req.nextUrl.searchParams.get("hydration")?.trim().toLowerCase();
+  const isInstantMode = mode === "instant";
   const isSeedMode = mode === "lite" || mode === "seed";
+  const snapshotTier: "critical" | "full" = isInstantMode || hydration === "critical" ? "critical" : "full";
   const hydrateFullMemberList = mode === "expand" || memberHydration === "full";
   const effectiveDefaultLimit =
     mode === "expand"
@@ -70,13 +73,14 @@ export async function GET(
         ? Math.floor(Number(rawLimit)) || effectiveDefaultLimit
         : effectiveDefaultLimit,
     hydrateFullMemberList,
-    deferSnapshotSecondary: isSeedMode,
+    deferSnapshotSecondary: isSeedMode || isInstantMode,
+    snapshotTier,
     diagnostics,
   };
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();
-  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${mode || "default"}:${hydrateFullMemberList ? "full" : "minimal"}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
+  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${mode || "default"}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
   const cached = getCachedRoomBootstrap(cacheKey);
   const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
   const tSnap0 = performance.now();
@@ -105,6 +109,7 @@ export async function GET(
         route: "GET /api/community-messenger/rooms/[roomId]/bootstrap",
         cmReqSrc: cmReqSrcBucket,
         hydration: hydrateFullMemberList ? "full" : "minimal",
+        snapshotTier,
         status: String(snapshot ? 200 : 404),
       },
     });

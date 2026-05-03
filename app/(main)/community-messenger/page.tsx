@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
+import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?: string };
@@ -28,7 +29,14 @@ export default function CommunityMessengerPage({
   searchParams: Promise<MessengerSearch>;
 }) {
   return (
-    <Suspense fallback={<CommunityMessengerHomeShellSkeleton />}>
+    <Suspense
+      fallback={
+        <>
+          <CommunityMessengerHomeReturnConsume />
+          <CommunityMessengerHomeShellSkeleton />
+        </>
+      }
+    >
       <CommunityMessengerPageBody searchParamsPromise={searchParams} />
     </Suspense>
   );

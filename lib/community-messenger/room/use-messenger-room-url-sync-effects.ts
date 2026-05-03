@@ -105,7 +105,7 @@ export function useMessengerRoomUrlSyncEffects({
     const sheet = searchParams.get("sheet");
     if (sheet !== "info") return;
     if (sheetInfoFromUrlHandledRef.current) return;
-    if (!snapshot || loading) return;
+    if (!snapshot || loading || snapshot.clientShellPlaceholder) return;
     sheetInfoFromUrlHandledRef.current = true;
     openInfoSheetFromUrl();
     const next = new URLSearchParams(searchParams.toString());

@@ -38,6 +38,7 @@
 | 2026-05-03 | 운영 절차 | 역행 방지: **`samarket-perf-change-protocol.mdc`**(항시), **`verify:trade-hot-path-contract`**, `npm run check` 포함 | `.cursor/rules/*.mdc`, `scripts/verify-trade-hot-path-contract.cjs`, `package.json` | `npm run verify:trade-hot-path-contract` | 스크립트 완화 시 본 changelog 에 **사유 행** 추가 |
 | 2026-05-03 | 상세 related UI | **유사·판매자 물품 미표시 수정**: related 클라 fetch 가 `runSingleFlight`+Strict Mode 에서 `setRelated` 영구 스킵되던 버그 → `AbortController` 로 교체 (하단 메뉴와 무관) | `PostDetailPageClient.tsx`, `trade-post-detail-chat-hot-path.mdc` | `tsc`, 수동 상세 확인 | 다시 `runSingleFlight`+cancelled 패턴으로 되돌리지 말 것 |
 | 2026-05-03 | 상세 related 신뢰성 | 클라 `/api/.../related` 단독 의존 제거 → **`getItemDetailPageData` 가 `getTradeDetailRelatedData` 를 프로필·제안과 병렬 await** 해 RSC 번들에 실음 (유사·판매자 물품 복구) | `trade-detail.service.ts`, `PostDetailPageClient.tsx`, `trade-post-detail-chat-hot-path.mdc` | `verify:trade-hot-path-contract`, `tsc` | 상세 첫 화면을 클라 related 단독으로만 두지 말 것 |
+| 2026-05-03 | 메신저 탭 | **`GET …/home-sync?tier=critical`** 방 목록 조립 시 프로필을 **`hydrateProfilesLabelsOnly`** 로만 채움(`getViewerRelationSets` 3쿼리 생략). **`tier=full`**·부트스트랩 전체 경로는 기존 **`hydrateProfiles`** 유지 | `lib/community-messenger/service.ts` (`listCommunityMessengerMyChatsAndGroups`) | `npx tsc --noEmit`, 수동 Network `home-sync` critical | critical 단계에서 관계 플래그가 비어 있으면 full 동기 후 정상; 되돌림 시 changelog·의도 명시 |
 
 ---
 

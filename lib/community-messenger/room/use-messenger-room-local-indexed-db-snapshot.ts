@@ -32,7 +32,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   const lastPersistSigRef = useRef("");
   // Local-first: 서버 시드가 없을 때만 — 다음 마이크로태스크에서 바로 읽어 첫 페인트를 당김
   useEffect(() => {
-    if (snapshotRef.current) return;
+    if (snapshotRef.current && !snapshotRef.current.clientShellPlaceholder) return;
     const id = String(roomId ?? "").trim();
     if (!id) return;
     let cancelled = false;
@@ -48,7 +48,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
       }
       if (cancelled) return;
       if (!local) return;
-      if (snapshotRef.current) return;
+      if (snapshotRef.current && !snapshotRef.current.clientShellPlaceholder) return;
       setSnapshot(local);
       setLoading(false);
       loadedRef.current = true;
@@ -62,7 +62,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   // 스냅샷이 갱신될 때 로컬에 persist (best-effort, LRU/TTL/상한은 DB 레이어에서 처리)
   useEffect(() => {
     const snap = snapshotRef.current;
-    if (!snap) return;
+    if (!snap || snap.clientShellPlaceholder) return;
     const id = String(roomId ?? "").trim();
     if (!id) return;
     const latestMessageId = String(snap.messages[snap.messages.length - 1]?.id ?? "").trim();

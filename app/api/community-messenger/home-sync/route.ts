@@ -39,13 +39,15 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.ok) return rateLimit.response;
 
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
+  const tierParam = req.nextUrl.searchParams.get("tier");
+  const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
   const now = Date.now();
   pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, now, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
 
-  const cacheKey = auth.userId;
+  const cacheKey = `${auth.userId}:${tier}`;
   let bundle = !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
   if (!bundle) {
-    bundle = await getCommunityMessengerHomeSyncBundle(auth.userId);
+    bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier);
     const tSet = Date.now();
     communityMessengerHomeSyncCache.set(cacheKey, {
       payload: bundle,
