@@ -23,9 +23,9 @@ const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_BOOTSTRAP_BREAKDOWN === "1";
 
-/** primed 페인트 뒤 full 보강 silent GET — lifecycle `bootstrapEnrichmentPending` 과 동일 100~300ms 밴드 */
+/** primed 페인트 뒤 full 보강 silent GET — 첫 렌더 이후 300~500ms 밴드(즉시 full 금지) */
 function roomBootstrapSecondaryEnrichmentDelayMs(): number {
-  return 100 + Math.floor(Math.random() * 101);
+  return 300 + Math.floor(Math.random() * 201);
 }
 
 function payloadSizeTierKb(sizeBytes: number): { kb: number; tier: "ok" | "review" | "problem" } {
@@ -71,6 +71,9 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:default`);
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=lite&memberHydration=minimal`);
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal`);
+  forgetSingleFlight(
+    `cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block`
+  );
 }
 
 /**
@@ -146,39 +149,50 @@ export function createMessengerRoomBootstrapRefresh(
         setSnapshot(primed);
         setLoading(false);
         const delayMs = roomBootstrapSecondaryEnrichmentDelayMs();
-        if (typeof window !== "undefined") {
+        const scheduleSecondary = () => {
           swrDeferredBootstrapTimerRef.current = window.setTimeout(() => {
             swrDeferredBootstrapTimerRef.current = null;
             void refresh(true, { forceSilentNetwork: true });
           }, delayMs);
-        } else {
-          void refresh(true, { forceSilentNetwork: true });
+        };
+        if (typeof window !== "undefined") {
+          /** 첫 페인트 이후에만 full 보강(즉시 full GET 금지) — ref 는 최종 setTimeout id 만 보관 */
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              scheduleSecondary();
+            });
+          });
+        } else if (typeof setTimeout !== "undefined") {
+          setTimeout(scheduleSecondary, delayMs);
         }
       } else {
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
-      /**
-       * 첫 차단 로드는 seed(`lite`)만, 이후 보강은 minimal members를 유지한 채 background로 붙인다.
-       * - blocking first load: seed + secondary defer
-       * - silent refresh after seed: minimal members + secondary enabled
-       */
-      const wantSeed = !silent && !loadedRef.current;
-      const wantMinimalMembers = wantSeed || deferredMemberBootstrapRef.current;
-      const bootstrapQuery = wantSeed
-        ? "?mode=instant&memberHydration=minimal"
-        : wantMinimalMembers
-          ? "?memberHydration=minimal"
-          : "";
-      /** 계측: silent / 차단 시드 / 네트워크 URL(`cmReqSrc`)만으로 구분 */
-      const reqSrc = silent
-        ? "room_silent"
-        : shouldBlock
-          ? "room_client_block"
-          : "room_client_legacy";
-      const bootstrapQueryWithSrc = bootstrapQuery
-        ? `${bootstrapQuery}&cmReqSrc=${reqSrc}`
-        : `?cmReqSrc=${reqSrc}`;
+      /** 첫 차단 네트워크는 항상 instant+critical(서버에서 trade/normalize/full 병렬 차단) */
+      const BLOCKING_FIRST_BOOTSTRAP_Q =
+        "?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block";
+      const INSTANT_LEGACY_Q =
+        "?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_legacy";
+      let bootstrapQueryWithSrc: string;
+      let reqSrc: string;
+      if (shouldBlock) {
+        bootstrapQueryWithSrc = BLOCKING_FIRST_BOOTSTRAP_Q;
+        reqSrc = "room_client_block";
+      } else if (silent) {
+        reqSrc = "room_silent";
+        /** 보강: tier full — `mode=instant` 없음. force 시 coalesce 키 분리 */
+        bootstrapQueryWithSrc = opts?.forceSilentNetwork
+          ? deferredMemberBootstrapRef.current
+            ? "?memberHydration=minimal&cmReqSrc=room_silent"
+            : "?cmReqSrc=room_silent"
+          : deferredMemberBootstrapRef.current
+            ? "?memberHydration=minimal&cmReqSrc=room_silent"
+            : "?cmReqSrc=room_silent";
+      } else {
+        reqSrc = "room_client_legacy";
+        bootstrapQueryWithSrc = INSTANT_LEGACY_Q;
+      }
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
-      const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
+      const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQueryWithSrc}`;
       if (silent && loadedRef.current && !opts?.forceSilentNetwork) {
         const now = Date.now();
         if (
@@ -300,7 +314,9 @@ export function createMessengerRoomBootstrapRefresh(
       const clientTimings = flightResult.clientTimings;
       if (roomRes.ok && snap) {
         setSnapshot(snap);
-        if (wantMinimalMembers) {
+        const usedMinimalMemberHydration =
+          shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
+        if (usedMinimalMemberHydration) {
           // minimal members 로 시작했으면 멤버 전원 로드는 members sheet에서만.
           deferredMemberBootstrapRef.current = true;
         }
@@ -324,7 +340,7 @@ export function createMessengerRoomBootstrapRefresh(
             blocking: true,
             silent,
             cmReqSrc: reqSrc,
-            mode: wantSeed ? "instant" : wantMinimalMembers ? "minimal-members" : "default",
+            mode: shouldBlock ? "instant" : silent ? "silent" : "instant-legacy",
             ms: elapsed,
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
           });

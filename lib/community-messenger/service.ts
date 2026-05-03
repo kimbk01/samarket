@@ -6173,7 +6173,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const tBootstrap0 = performance.now();
   const isCriticalTier = options?.snapshotTier === "critical";
   const messageLimit = effectiveSnapshotMessageLimitForCache(options);
-  const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  let hydrateFullMemberList = options?.hydrateFullMemberList !== false;
+  if (isCriticalTier) {
+    /** trade / full 프로필 / normalize 병렬 회피 — 라우트 누락 시에도 critical 은 최소 멤버만 */
+    hydrateFullMemberList = false;
+  }
   const diagnostics = options?.diagnostics;
   if (diagnostics) {
     diagnostics.snapshotEntryMs = 0;
@@ -6190,7 +6194,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
    * 거래 1:1 방은 상품 카드(`tradeChatRoomDetail`)만 프로필 하이드레이션과 병렬로 넣어 첫 페인트에 포함한다.
    */
   const deferSecondaryRequested = options?.deferSnapshotSecondary === true;
-  let deferSecondary = false;
+  /** critical 은 2차(거래·normalize·enrich) 경로에 절대 진입하지 않음 */
+  let deferSecondary = Boolean(isCriticalTier);
   let participantsProfilesFetchMs = 0;
   let messagesFetchMs = 0;
   let normalizeMergeMs = 0;

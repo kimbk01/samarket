@@ -55,14 +55,19 @@ export async function GET(
     return canon.response;
   }
   const roomKey = canon.canonicalRoomId;
-  const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
+  const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase() ?? "";
   const rawLimit = req.nextUrl.searchParams.get("messages");
-  const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
-  const hydration = req.nextUrl.searchParams.get("hydration")?.trim().toLowerCase();
-  const isInstantMode = mode === "instant";
+  const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase() ?? "";
+  const hydration = req.nextUrl.searchParams.get("hydration")?.trim().toLowerCase() ?? "";
+  const isInstant = mode === "instant" || hydration === "critical";
   const isSeedMode = mode === "lite" || mode === "seed";
-  const snapshotTier: "critical" | "full" = isInstantMode || hydration === "critical" ? "critical" : "full";
-  const hydrateFullMemberList = mode === "expand" || memberHydration === "full";
+  /** instant/critical 은 항상 경량 티어 — 어떤 기본 분기도 full 로 덮어쓰지 않음 */
+  const snapshotTier: "critical" | "full" = isInstant ? "critical" : "full";
+  const deferSnapshotSecondary = Boolean(isSeedMode || isInstant);
+  let hydrateFullMemberList = mode === "expand" || memberHydration === "full";
+  if (isInstant) {
+    hydrateFullMemberList = false;
+  }
   const effectiveDefaultLimit =
     mode === "expand"
       ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
@@ -77,15 +82,15 @@ export async function GET(
         ? Math.floor(Number(rawLimit)) || effectiveDefaultLimit
         : effectiveDefaultLimit,
     hydrateFullMemberList,
-    /** `hydration=critical` 만 켠 요청도 시드 경로로 묶어 trade normalize 등 full 병렬에 들어가지 않게 한다 */
-    deferSnapshotSecondary: isSeedMode || isInstantMode || hydration === "critical",
+    deferSnapshotSecondary,
     snapshotTier,
     diagnostics,
   };
 
   const t0 = performance.now();
   const readPort = createSupabaseCommunityMessengerReadPort();
-  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${mode || "default"}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
+  const cacheKeyMode = isInstant ? "instant" : mode || "default";
+  const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${cacheKeyMode}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
   const cached = getCachedRoomBootstrap(cacheKey);
   const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
   const tSnap0 = performance.now();
