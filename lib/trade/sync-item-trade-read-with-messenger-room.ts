@@ -3,22 +3,76 @@
  * `product_chats` 미읽음을 같이 맞춘다. 그렇지 않으면 `tradeListUnreadHintFromCursor`·PC 카운트가
  * 남아 탭/목록 병합 뱃지가 사라지지 않는다.
  *
+ * CM 메시지 id 와 `chat_messages` id 는 다르다. `communityMessengerLastReadMessageId` 가 있으면
+ * CM 행 시각 기준으로 원장에 대응되는 `chat_messages` 커서를 고르고, CM 이 원장 꼬리 이상으로
+ * 읽혔으면 `chat_rooms.last_message_id` 로 맞춘다.
+ *
  * @see app/api/chat/rooms/[roomId]/read/route.ts — 동일한 participant·메시지·PC 갱신 의미
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 
 function trimId(value: unknown): string {
   return String(value ?? "").trim();
 }
 
+async function resolveItemTradeLastReadMessageIdForMessengerMark(
+  sbAny: SupabaseClient<any>,
+  args: {
+    itemTradeRoomId: string;
+    cmRoomId: string;
+    cmLastReadMessageId: string | null;
+    chatRoomsLastMessageId: string | null;
+  }
+): Promise<string | null> {
+  const tailId = trimId(args.chatRoomsLastMessageId) || null;
+  const cmMid = trimId(args.cmLastReadMessageId) || null;
+  if (!cmMid) return tailId;
+
+  const { data: cmMsg } = await sbAny
+    .from("community_messenger_messages")
+    .select("created_at")
+    .eq("room_id", args.cmRoomId)
+    .eq("id", cmMid)
+    .maybeSingle();
+  const cmCreatedRaw = (cmMsg as { created_at?: string } | null)?.created_at;
+  const cmCreated = typeof cmCreatedRaw === "string" ? cmCreatedRaw.trim() : "";
+  if (!cmCreated) return tailId;
+
+  if (tailId) {
+    const { data: tailRow } = await sbAny.from("chat_messages").select("created_at").eq("id", tailId).maybeSingle();
+    const tailCreatedRaw = (tailRow as { created_at?: string } | null)?.created_at;
+    const tailCreated = typeof tailCreatedRaw === "string" ? tailCreatedRaw.trim() : "";
+    if (tailCreated && cmCreated >= tailCreated) return tailId;
+  }
+
+  const { data: atOrBefore } = await sbAny
+    .from("chat_messages")
+    .select("id")
+    .eq("room_id", args.itemTradeRoomId)
+    .lte("created_at", cmCreated)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const bridged = trimId((atOrBefore as { id?: unknown } | null)?.id) || null;
+  return bridged ?? tailId;
+}
+
 export async function syncItemTradeReadWithMessengerRoomMark(
   sbAny: SupabaseClient<any>,
-  input: { userId: string; communityMessengerRoomId: string }
+  input: {
+    userId: string;
+    communityMessengerRoomId: string;
+    /** CM `mark_read` 로 검증된 커서 — 없으면 원장 꼬리(`chat_rooms.last_message_id`)만 사용 */
+    communityMessengerLastReadMessageId?: string | null;
+  }
 ): Promise<void> {
   const uid = trimId(input.userId);
   const cmId = trimId(input.communityMessengerRoomId);
+  const cmCursor = trimId(input.communityMessengerLastReadMessageId) || null;
   if (!uid || !cmId) return;
 
   const { data: rows, error: selErr } = await sbAny
@@ -41,7 +95,12 @@ export async function syncItemTradeReadWithMessengerRoomMark(
   }>) {
     const itemTradeRoomId = trimId(cr.id);
     if (!itemTradeRoomId) continue;
-    const lastReadId = trimId(cr.last_message_id) || null;
+    const lastReadId = await resolveItemTradeLastReadMessageIdForMessengerMark(sbAny, {
+      itemTradeRoomId,
+      cmRoomId: cmId,
+      cmLastReadMessageId: cmCursor,
+      chatRoomsLastMessageId: trimId(cr.last_message_id) || null,
+    });
 
     const { data: updated, error: upErr } = await sbAny
       .from("chat_room_participants")
@@ -113,5 +172,6 @@ export async function syncItemTradeReadWithMessengerRoomMark(
 
   if (touched) {
     invalidateUserChatUnreadCache(uid);
+    invalidateOwnerHubBadgeCache(uid);
   }
 }

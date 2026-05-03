@@ -55,6 +55,11 @@ import {
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import {
+  MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
+  MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX,
+  MESSENGER_COMPOSER_KEYBOARD_INSET_IOS_EXTRA_PX,
+} from "@/lib/ui/messenger-chat-viewport-tuning";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
@@ -194,13 +199,15 @@ export function CommunityMessengerRoomPhase2Composer() {
     keyboardInsetPx <= 0;
   const footerExtraBottomPx =
     keyboardInsetPx > 0
-      ? keyboardInsetPx + (isLikelyIosWebKit() && messengerComposerDense ? 2 : 0)
+      ? keyboardInsetPx +
+        (isLikelyIosWebKit() && messengerComposerDense ? MESSENGER_COMPOSER_KEYBOARD_INSET_IOS_EXTRA_PX : 0)
       : iosMessengerSlack
-        ? 14
-        : 10;
+        ? MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX
+        : MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX;
   return (
     <>
       <footer
+        data-cm-composer
         {...(!vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
         className={`sticky bottom-0 z-[5] shrink-0 border-t border-[color:var(--cm-room-divider)] px-3 pt-2 transition-[background-color] duration-200 ${
           vm.voiceRecording

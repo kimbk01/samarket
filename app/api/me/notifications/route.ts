@@ -12,13 +12,10 @@ import {
   invalidateNotificationUnreadCountCache,
   type UnreadCountMode,
 } from "@/lib/notifications/notification-unread-count-cache";
+import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function isChatMessageNotificationRow(row: { notification_type?: unknown } | null | undefined): boolean {
-  return String(row?.notification_type ?? "").trim().toLowerCase() === "chat";
-}
 
 function isUnreachableUpstreamError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
@@ -104,12 +101,35 @@ export async function GET(req: NextRequest) {
           return count ?? 0;
         }
 
-        const { data, error } = await sb
+        type UnreadScanRow = {
+          id?: unknown;
+          meta?: unknown;
+          notification_type?: string;
+          push_kind?: unknown;
+        };
+
+        const scanWithPk = await sb
           .from("notifications")
-          .select("id, meta, notification_type")
+          .select("id, meta, notification_type, push_kind")
           .eq("user_id", userId)
           .eq("is_read", false)
           .limit(UNREAD_SCAN_CAP);
+
+        let data = scanWithPk.data as UnreadScanRow[] | null;
+        let error = scanWithPk.error;
+        if (
+          error &&
+          /push_kind|column|schema cache/i.test(String(error.message ?? ""))
+        ) {
+          const scanFallback = await sb
+            .from("notifications")
+            .select("id, meta, notification_type")
+            .eq("user_id", userId)
+            .eq("is_read", false)
+            .limit(UNREAD_SCAN_CAP);
+          data = scanFallback.data as UnreadScanRow[] | null;
+          error = scanFallback.error;
+        }
 
         if (error) {
           if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
@@ -145,14 +165,14 @@ export async function GET(req: NextRequest) {
             (r) =>
               !isOwnerStoreCommerceNotificationRow(r) &&
               !isBuyerStoreCommerceNotificationRow(r) &&
-              !isChatMessageNotificationRow(r)
+              !isInAppChatMessageNotificationRow(r)
           ).length;
         }
         if (mode === "consumer_no_chat") {
           return rows.filter(
             (r) =>
               !isOwnerStoreCommerceNotificationRow(r) &&
-              !isChatMessageNotificationRow(r)
+              !isInAppChatMessageNotificationRow(r)
           ).length;
         }
         return rows.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).length;
@@ -246,7 +266,7 @@ export async function GET(req: NextRequest) {
         list = list.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).slice(0, 80);
       }
       if (excludeChatMessageList) {
-        list = list.filter((r) => !isChatMessageNotificationRow(r));
+        list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
       }
       return NextResponse.json({ ok: true, notifications: list });
     }
@@ -264,7 +284,7 @@ export async function GET(req: NextRequest) {
         list = list.slice(0, 80);
       }
       if (excludeChatMessageList) {
-        list = list.filter((r) => !isChatMessageNotificationRow(r));
+        list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
       }
       return NextResponse.json({ ok: true, notifications: list });
     }
@@ -282,7 +302,7 @@ export async function GET(req: NextRequest) {
     }
   }
   if (excludeChatMessageList) {
-    notifications = notifications.filter((r) => !isChatMessageNotificationRow(r));
+    notifications = notifications.filter((r) => !isInAppChatMessageNotificationRow(r));
   }
 
   if (explicitPage) {
@@ -439,12 +459,34 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (body.mark_my_notifications_read_excluding_owner_and_chat === true) {
-    const { data, error } = await sb
+    type MarkReadScanRow = {
+      id?: unknown;
+      meta?: unknown;
+      notification_type?: string;
+      push_kind?: unknown;
+    };
+
+    const markWithPk = await sb
       .from("notifications")
-      .select("id, meta, notification_type")
+      .select("id, meta, notification_type, push_kind")
       .eq("user_id", userId)
       .eq("is_read", false)
       .limit(500);
+    let data = markWithPk.data as MarkReadScanRow[] | null;
+    let error = markWithPk.error;
+    if (
+      error &&
+      /push_kind|column|schema cache/i.test(String(error.message ?? ""))
+    ) {
+      const markFallback = await sb
+        .from("notifications")
+        .select("id, meta, notification_type")
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .limit(500);
+      data = markFallback.data as MarkReadScanRow[] | null;
+      error = markFallback.error;
+    }
     if (error) {
       if (error.message?.includes("meta") && error.message.includes("does not exist")) {
         return NextResponse.json({ ok: true, updated: 0 });
@@ -452,7 +494,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
     const ids = (data ?? [])
-      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isChatMessageNotificationRow(r))
+      .filter((r) => !isOwnerStoreCommerceNotificationRow(r) && !isInAppChatMessageNotificationRow(r))
       .map((r) => r.id as string)
       .filter(Boolean);
     if (ids.length === 0) {

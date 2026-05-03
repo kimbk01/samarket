@@ -48,7 +48,7 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
  */
 export function createMessengerRoomBootstrapRefresh(
   deps: MessengerRoomBootstrapRefreshDeps
-): (silent?: boolean) => Promise<void> {
+): (silent?: boolean, opts?: { forceSilentNetwork?: boolean }) => Promise<void> {
   /** 시드 직후 동일 silent·동일 flightKey 가 연속으로 겹칠 때(againRef 등) 짧은 창에서 한 번만 네트워크를 연다. */
   const silentSameKeyCoalesceRef = { key: "", at: 0 };
   const {
@@ -74,11 +74,14 @@ export function createMessengerRoomBootstrapRefresh(
    */
   const coalesceTimerRef = silentBootstrapThrottleCoalesceTimerRef;
 
-  async function refresh(silent = false): Promise<void> {
+  async function refresh(
+    silent = false,
+    opts?: { /** 상대 읽음 커서 등 — 220ms 동일 키 스킵 없이 반드시 네트워크 */ forceSilentNetwork?: boolean }
+  ): Promise<void> {
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntil) return;
-      if (now - lastSilentRefreshAt < 420) {
+      if (!opts?.forceSilentNetwork && now - lastSilentRefreshAt < 420) {
         if (coalesceTimerRef.current != null) clearTimeout(coalesceTimerRef.current);
         coalesceTimerRef.current = setTimeout(() => {
           coalesceTimerRef.current = null;
@@ -143,7 +146,7 @@ export function createMessengerRoomBootstrapRefresh(
         : `?cmReqSrc=${reqSrc}`;
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
       const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQuery || "default"}`;
-      if (silent && loadedRef.current) {
+      if (silent && loadedRef.current && !opts?.forceSilentNetwork) {
         const now = Date.now();
         if (
           silentSameKeyCoalesceRef.key === flightKey &&
@@ -154,6 +157,10 @@ export function createMessengerRoomBootstrapRefresh(
         }
         silentSameKeyCoalesceRef.key = flightKey;
         silentSameKeyCoalesceRef.at = now;
+      }
+      if (silent && loadedRef.current && opts?.forceSilentNetwork) {
+        silentSameKeyCoalesceRef.key = "";
+        silentSameKeyCoalesceRef.at = 0;
       }
       const { roomRes, snap } = await runSingleFlight(flightKey, async () => {
         const tFetch = typeof performance !== "undefined" ? performance.now() : Date.now();

@@ -92,6 +92,39 @@ describe("resolveMainBottomNavDisplayItems", () => {
     });
     expect(items.find((i) => i.id === "home")?.href).toBe("/market");
   });
+
+  it("저장본에서 내장 탭 행이 빠졌으면 기본값으로 끝에 복구(내정보 등)", () => {
+    const items = resolveMainBottomNavDisplayItems({
+      items: [
+        { id: "community", visible: true, label: "커뮤니티", href: "/philife", icon: "community" },
+        { id: "home", visible: true, label: "거래", href: "/market", icon: "trade" },
+        { id: "stores", visible: true, label: "배달", href: "/stores", icon: "stores" },
+        { id: "chat", visible: true, label: "메신저", href: "/community-messenger", icon: "chat" },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
+    expect(items.find((i) => i.id === "my")).toMatchObject({
+      href: "/mypage",
+      label: "내정보",
+      icon: "my",
+    });
+  });
+
+  it("custom_* 탭이 있으면 빠진 내장 탭을 자동 채우지 않음", () => {
+    const items = resolveMainBottomNavDisplayItems({
+      items: [
+        { id: "home", visible: true, label: "홈", href: "/market", icon: "home" },
+        {
+          id: "custom_x1",
+          visible: true,
+          label: "서비스",
+          href: "/services",
+          icon: "stores",
+        },
+      ],
+    });
+    expect(items.map((i) => i.id)).toEqual(["home", "custom_x1"]);
+  });
 });
 
 describe("validateMainBottomNavPayload", () => {

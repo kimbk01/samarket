@@ -50,8 +50,17 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
   stickToBottomRef: MutableRefObject<boolean>;
+  /** 상대 INSERT 직후 `mark_read` 가시 조건 완화 — @see useMessengerRoomOpenMarkReadEffect */
+  peerTailMarkReadHintRef?: MutableRefObject<string | null>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   onRefresh: () => void;
+  /** @see global-messenger-room-bundle-channel `community_messenger_participants` */
+  onParticipantPostgres?: (payload: {
+    eventType: string;
+    roomId: string;
+    newRecord: Record<string, unknown> | null;
+    oldRecord: Record<string, unknown> | null;
+  }) => void;
 };
 
 export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtimeMessageIngestArgs): void {
@@ -65,8 +74,10 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     snapshotRef,
     roomMembersDisplayRef,
     stickToBottomRef,
+    peerTailMarkReadHintRef,
     setRoomMessages,
     onRefresh,
+    onParticipantPostgres,
   } = args;
 
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
@@ -131,6 +142,14 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             Boolean(event.message.senderId) &&
             messengerUserIdsEqual(event.message.senderId, snap.viewerUserId);
           if (event.eventType === "INSERT" && !isOwnInsert) {
+            if (
+              peerTailMarkReadHintRef &&
+              typeof document !== "undefined" &&
+              document.visibilityState === "visible"
+            ) {
+              const mid = String(event.message.id ?? "").trim();
+              if (mid) peerTailMarkReadHintRef.current = mid;
+            }
             postCommunityMessengerBusEvent({
               type: "cm.room.incoming_message",
               roomId: streamRoomId.trim(),
@@ -164,7 +183,15 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
         messageIds: batch.map((e) => e.message.id),
       });
     }
-  }, [routeRoomId, roomMembersDisplayRef, setRoomMessages, snapshotRef, stickToBottomRef, streamRoomId]);
+  }, [
+    routeRoomId,
+    peerTailMarkReadHintRef,
+    roomMembersDisplayRef,
+    setRoomMessages,
+    snapshotRef,
+    stickToBottomRef,
+    streamRoomId,
+  ]);
 
   const handleRealtimeMessageEvent = useCallback(
     (event: CommunityMessengerRoomRealtimeMessageEvent) => {
@@ -233,5 +260,6 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     enabled: realtimeEnabled,
     onRefresh,
     onMessageEvent: handleRealtimeMessageEvent,
+    onParticipantPostgres,
   });
 }

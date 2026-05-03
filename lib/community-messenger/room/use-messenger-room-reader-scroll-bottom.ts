@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, type MutableRefObject, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 /**
+ * @see docs/community-messenger-mobile-room-viewport.md
+ *
  * 하단 스크롤·stickToBottom·reader store 위치 힌트.
  * `useMessengerRoomClientPhase1` 의 scrollMessengerToBottom / updateStickToBottomFromScroll / 관련 effect 본문·deps 그대로.
  */
@@ -39,6 +42,25 @@ export function useMessengerRoomReaderScrollBottom({
   scrollMessengerToBottom: () => void;
   updateStickToBottomFromScroll: () => void;
 } {
+  /** 키보드·도크로 스크롤 박스 높이만 바뀔 때 하단 거리(px) 보존용 스냅샷 */
+  const lastScrollGeomRef = useRef<{ sh: number; st: number; ch: number; ready: boolean }>({
+    sh: 0,
+    st: 0,
+    ch: 0,
+    ready: false,
+  });
+
+  const syncScrollGeomFromViewport = useCallback(() => {
+    const el = messagesViewportRef.current;
+    if (!el) return;
+    lastScrollGeomRef.current = {
+      sh: el.scrollHeight,
+      st: el.scrollTop,
+      ch: el.clientHeight,
+      ready: true,
+    };
+  }, [messagesViewportRef]);
+
   const scrollMessengerToBottom = useCallback(() => {
     const id = roomId?.trim();
     if (id && messengerRolloutUsesRoomScrollHints()) {
@@ -50,16 +72,23 @@ export function useMessengerRoomReaderScrollBottom({
         const vp = messagesViewportRef.current;
         if (vp) vp.scrollTop = vp.scrollHeight;
         messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+        syncScrollGeomFromViewport();
       });
     });
-  }, [roomId]);
+  }, [roomId, syncScrollGeomFromViewport]);
 
   const updateStickToBottomFromScroll = useCallback(() => {
     const el = messagesViewportRef.current;
     if (!el) return;
-    const threshold = 100;
+    const threshold = MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX;
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
     stickToBottomRef.current = dist < threshold;
+    lastScrollGeomRef.current = {
+      sh: el.scrollHeight,
+      st: el.scrollTop,
+      ch: el.clientHeight,
+      ready: true,
+    };
     const id = roomId?.trim();
     if (!id || !messengerRolloutUsesRoomScrollHints()) return;
     let pos: MessengerChatViewPosition;
@@ -73,8 +102,19 @@ export function useMessengerRoomReaderScrollBottom({
     useMessengerRoomReaderStateStore.getState().setScrollPosition(id, pos);
   }, [roomId, activeSheet]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     stickToBottomRef.current = true;
+    const el = messagesViewportRef.current;
+    if (!el) {
+      lastScrollGeomRef.current = { sh: 0, st: 0, ch: 0, ready: false };
+      return;
+    }
+    lastScrollGeomRef.current = {
+      sh: el.scrollHeight,
+      st: el.scrollTop,
+      ch: el.clientHeight,
+      ready: true,
+    };
   }, [roomId]);
 
   useEffect(() => {
@@ -82,6 +122,64 @@ export function useMessengerRoomReaderScrollBottom({
       scrollMessengerToBottom();
     }
   }, [roomMessages, scrollMessengerToBottom]);
+
+  /**
+   * 키보드·거래 도크 등으로 스크롤 컨테이너 높이만 변할 때:
+   * - 과거 스크롤 중이면 **하단까지의 거리**를 유지해 같은 메시지가 보이게 한다.
+   * - 하단 근처이면 최신 쪽으로 맞춘다.
+   */
+  useLayoutEffect(() => {
+    const el = messagesViewportRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    let rafId = 0;
+    const restoreScrollAfterChromeChange = () => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const box = messagesViewportRef.current;
+          if (!box || !lastScrollGeomRef.current.ready) return;
+          const prev = lastScrollGeomRef.current;
+          const distFromBottom = prev.sh - prev.st - prev.ch;
+          if (stickToBottomRef.current) {
+            box.scrollTop = box.scrollHeight - box.clientHeight;
+          } else {
+            const maxScroll = Math.max(0, box.scrollHeight - box.clientHeight);
+            const target = box.scrollHeight - box.clientHeight - distFromBottom;
+            box.scrollTop = Math.max(0, Math.min(maxScroll, target));
+          }
+          syncScrollGeomFromViewport();
+        });
+      });
+    };
+
+    const ro = new ResizeObserver(() => {
+      restoreScrollAfterChromeChange();
+    });
+    ro.observe(el);
+
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    /**
+     * - visualViewport: iOS·주소창·키보드
+     * - window resize / orientation: Android Chrome 주소창·멀티윈도·WebView 이 RO·vv 보다 늦는 경우
+     * 모두 동일 rAF로 합쳐 중복 스크롤 보정을 막는다.
+     */
+    const onVv = () => restoreScrollAfterChromeChange();
+    const onLayoutViewport = () => restoreScrollAfterChromeChange();
+    vv?.addEventListener("resize", onVv);
+    vv?.addEventListener("scroll", onVv);
+    window.addEventListener("resize", onLayoutViewport);
+    window.addEventListener("orientationchange", onLayoutViewport);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+      vv?.removeEventListener("resize", onVv);
+      vv?.removeEventListener("scroll", onVv);
+      window.removeEventListener("resize", onLayoutViewport);
+      window.removeEventListener("orientationchange", onLayoutViewport);
+    };
+  }, [roomId, syncScrollGeomFromViewport, messagesViewportRef]);
 
   return { scrollMessengerToBottom, updateStickToBottomFromScroll };
 }

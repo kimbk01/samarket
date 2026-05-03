@@ -45,10 +45,13 @@ import {
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { createMessengerRoomBootstrapRefresh } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
+import {
+  createMessengerRoomBootstrapRefresh,
+  forgetMessengerRoomClientBootstrapFlights,
+} from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
-import { useMessengerRoomChatVirtualizer } from "@/lib/community-messenger/room/use-messenger-room-chat-virtualizer";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
@@ -196,6 +199,12 @@ export function useMessengerRoomClientPhase1({
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const stickToBottomRef = useRef(true);
+  /** 상대 Realtime INSERT 직후 `mark_read` 가시 비율 완화 — @see useMessengerRoomOpenMarkReadEffect */
+  const peerTailMarkReadHintRef = useRef<string | null>(null);
+  /** 방 전환 시 이전 방 꼬리 힌트가 남지 않게 */
+  useEffect(() => {
+    peerTailMarkReadHintRef.current = null;
+  }, [roomId]);
   /** 서버+클라 이중 bump 가 같은 틱에 오면 catch-up 을 한 번만 돌린다 */
   const remoteBumpCatchUpRafRef = useRef<number | null>(null);
   /** canonical·raw 채널 이중 발행 시 동일 페이로드로 catch-up 이 두 번 도는 것 방지 */
@@ -495,8 +504,8 @@ export function useMessengerRoomClientPhase1({
   }, []);
 
   const refresh = useCallback(
-    async (silent?: boolean) => {
-      if (silent === true) {
+    async (silent?: boolean, opts?: { forceSilentNetwork?: boolean }) => {
+      if (silent === true && !opts?.forceSilentNetwork) {
         if (seededRoomEntryRef.current && releaseSeededFirstSilentHoldRef.current) {
           await seededFirstSilentHoldPromiseRef.current;
         }
@@ -525,7 +534,7 @@ export function useMessengerRoomClientPhase1({
           return awaitSlot.promise;
         }
       }
-      await refreshBootstrap(silent);
+      await refreshBootstrap(silent, opts);
     },
     [refreshBootstrap]
   );
@@ -627,6 +636,64 @@ export function useMessengerRoomClientPhase1({
     refresh,
   });
 
+  /**
+   * 상대 `community_messenger_participants` UPDATE 가 오면 읽음 커서를 스냅샷에 즉시 반영한다.
+   * `refresh(true)` 만 기다리면 silent 부트스트랩 220ms coalesce 등으로 라벨이 늦거나 유실될 수 있다.
+   */
+  const onParticipantPostgresForPeerRead = useCallback(
+    (payload: {
+      eventType: string;
+      roomId: string;
+      newRecord: Record<string, unknown> | null;
+      oldRecord: Record<string, unknown> | null;
+    }) => {
+      const evRoom = payload.roomId.trim();
+      const ledgerRoomId = streamRoomId.trim();
+      if (!evRoom || !ledgerRoomId || evRoom.toLowerCase() !== ledgerRoomId.toLowerCase()) return;
+      if (payload.eventType === "DELETE") return;
+      const row = payload.newRecord;
+      if (!row) return;
+      const peerUid = String(row.user_id ?? "").trim();
+      const snap = snapshotRef.current;
+      if (!snap || snap.room.roomType !== "direct" || !snap.readReceipt) return;
+      if (!peerUid || messengerUserIdsEqual(peerUid, snap.viewerUserId)) return;
+      const lrmRaw = row.last_read_message_id;
+      const lrmStr = typeof lrmRaw === "string" && lrmRaw.trim() ? lrmRaw.trim() : null;
+      const lraRaw = row.last_read_at;
+      const lraStr = typeof lraRaw === "string" && lraRaw.trim() ? lraRaw.trim() : null;
+      if (!lrmStr && !lraStr) return;
+
+      let createdAtForCursor: string | undefined;
+      if (lrmStr) {
+        const fromLive = roomMessagesRef.current.find((m) => m.id === lrmStr)?.createdAt;
+        const fromSnap = snap.messages.find((m) => m.id === lrmStr)?.createdAt;
+        const t = fromLive ?? fromSnap;
+        if (typeof t === "string" && t.trim()) createdAtForCursor = t.trim();
+      }
+
+      setSnapshot((prev) => {
+        if (!prev || String(prev.room.id) !== String(snap.room.id) || !prev.readReceipt) return prev;
+        return {
+          ...prev,
+          readReceipt: {
+            ...prev.readReceipt,
+            ...(lrmStr ? { lastReadMessageId: lrmStr } : {}),
+            ...(lraStr ? { lastReadAt: lraStr } : {}),
+            ...(createdAtForCursor != null ? { lastReadMessageCreatedAt: createdAtForCursor } : {}),
+          },
+        };
+      });
+      const uid = snap.viewerUserId.trim();
+      if (uid) {
+        queueMicrotask(() => {
+          forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
+          void refresh(true, { forceSilentNetwork: true });
+        });
+      }
+    },
+    [streamRoomId, refresh]
+  );
+
   useMessengerRoomRealtimeMessageIngest({
     routeRoomId: String(roomId ?? "").trim(),
     streamRoomId,
@@ -637,15 +704,21 @@ export function useMessengerRoomClientPhase1({
     snapshotRef,
     roomMembersDisplayRef,
     stickToBottomRef,
+    peerTailMarkReadHintRef,
     setRoomMessages,
+    onParticipantPostgres: onParticipantPostgresForPeerRead,
     onRefresh: () => {
       // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
       // 방 화면은 unread/participants 변화(onRefresh)만으로 즉시 증분 동기화해 따라잡는다.
       void (async () => {
-        const merged = await catchUpNewerMessages();
-        if (!merged) {
-          void refresh(true);
-        }
+        await catchUpNewerMessages();
+        /**
+         * 상대 mark_read 만 오고 신규 메시지 REST 가 비면 `catchUpNewerMessages` 가 false → 기존에도 refresh 했음.
+         * 반대로 peer 읽음 커서 갱신이 **내 타임라인보다 먼저** 도착하면 after= 증분만 성공(true) 하고
+         * 전체 부트스트랩을 건너뛰어 `readReceipt`(상대 last_read_message_id) 가 영구히 낡은 채로 남을 수 있다.
+         * 증분 후 항상 silent 부트스트랩으로 스냅샷(읽음 표시 포함)을 맞춘다 — coalesce 로 폭주 완화.
+         */
+        void refresh(true);
       })();
     },
   });
@@ -720,6 +793,7 @@ export function useMessengerRoomClientPhase1({
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
+    peerTailMarkReadHintRef,
   });
 
   useEffect(() => {
@@ -787,15 +861,6 @@ export function useMessengerRoomClientPhase1({
     topOlderSentinelRef,
     olderMessagesExhaustedRef,
     loadOlderMessagesRef,
-  });
-
-  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
-    roomId,
-    activeSheet,
-    stickToBottomRef,
-    messagesViewportRef,
-    messageEndRef,
-    roomMessages,
   });
 
   const roomMembersDisplay = useMemo(() => {
@@ -904,7 +969,21 @@ export function useMessengerRoomClientPhase1({
     linkMessageCount,
   } = useMessengerRoomDerivedMessageLists(roomMessages, hiddenCallStubIds, roomSearchQuery);
 
-  const chatVirtualizer = useMessengerRoomChatVirtualizer(displayRoomMessages.length, messagesViewportRef);
+  const chatVirtualizer = useVirtualizer({
+    count: displayRoomMessages.length,
+    getScrollElement: () => messagesViewportRef.current,
+    estimateSize: () => 96,
+    overscan: 12,
+  });
+
+  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
+    roomId,
+    activeSheet,
+    stickToBottomRef,
+    messagesViewportRef,
+    messageEndRef,
+    roomMessages,
+  });
 
   useEffect(() => {
     urlDeepLinkMessageHandledRef.current = "";

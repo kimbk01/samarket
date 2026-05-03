@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-30T08:52:07.455Z",
+  "updatedAt": "2026-05-03T12:00:00.000Z",
   "currentTarget": "messenger",
   "inProgress": {
     "domain": "cross-domain-entry",
@@ -844,7 +844,8 @@
     "2026-04-26: store-delivery-api-client — GET /api/stores/:slug/reviews 15s 성공 캐시 + runSingleFlight",
     "2026-04-26: MessageReactionRosterSheet — GET …/reactions runSingleFlight(`messenger:reaction-roster:…`)",
     "2026-04-26: 사용자 요청 세션 종료 — currentTarget login 초기화",
-    "2026-04-26: PurchaseDetailView — GET /api/my/purchases/:chatId runSingleFlight(fetch만) + credentials + clone.json"
+    "2026-04-26: PurchaseDetailView — GET /api/my/purchases/:chatId runSingleFlight(fetch만) + credentials + clone.json",
+    "2026-05-03: mobile chat viewport stability — phase1 code-complete (실기기 검증 전까지 ‘모바일 채팅 viewport 안정화 1차 완료’로 기록). mobile chat viewport stability: phase1 code-complete; tsc: pass; device verification: pending; allowed future changes: lib/ui/messenger-chat-viewport-tuning.ts 숫자 조정만 우선; prohibited: 구조 변경, 신규 훅 추가, 대규모 리팩터링"
   ],
   "completed": [
     {
@@ -8947,6 +8948,14 @@
     "components/my/mypage/MypageInstagramView.tsx"
   ],
   "history": [
+    {
+      "at": "2026-05-03T12:00:00.000Z",
+      "domain": "messenger",
+      "action": "milestone",
+      "file": "lib/ui/messenger-chat-viewport-tuning.ts, lib/ui/use-chat-viewport-resize.ts, components/community-messenger/room (Phase2), docs/community-messenger-mobile-room-viewport.md",
+      "reason": "모바일 커뮤니티 메신저 방 viewport 안정화 1차 — 코드 기준 완료, 실기기 QA 전",
+      "result": "mobile chat viewport stability: phase1 code-complete; tsc: pass; device verification: pending; allowed future changes: lib/ui/messenger-chat-viewport-tuning.ts 숫자 조정만 우선; prohibited: 구조 변경, 신규 훅 추가, 대규모 리팩터링"
+    },
     {
       "at": "2026-04-30T08:31:53.407Z",
       "domain": "cross-domain-entry",

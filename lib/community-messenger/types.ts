@@ -278,6 +278,11 @@ export type CommunityMessengerReadReceipt = {
   readerUserId: string;
   lastReadAt: string | null;
   lastReadMessageId: string | null;
+  /**
+   * 상대 `last_read_message_id` 행의 `created_at` — 부트스트랩 메시지 창에 커서 id 가 없어도
+   * 내 발화 대비 읽음 여부를 `(created_at,id)` 순으로 판정하기 위해 포함한다.
+   */
+  lastReadMessageCreatedAt?: string | null;
 };
 
 export type CommunityMessengerPeerPresenceSnapshot = {

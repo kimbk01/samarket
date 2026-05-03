@@ -239,11 +239,14 @@ export function patchRoomSummaryInSnapshotCache(args: {
   patchHotMap(roomId, viewerUserId, update);
 }
 
+/**
+ * 내 unread 만 반영한다. `readReceipt.lastReadMessageId` 는 **상대** participant 행에서 오므로
+ * 내 mark_read 커서로 덮어쓰면 안 됨 — 부트스트랩·Realtime refresh 로만 갱신한다.
+ */
 export function patchRoomReadStateInSnapshotCache(args: {
   roomId: string;
   viewerUserId: string;
   unreadCount: number;
-  lastReadMessageId?: string | null;
 }): void {
   const roomId = args.roomId.trim();
   const viewerUserId = args.viewerUserId.trim();
@@ -252,16 +255,6 @@ export function patchRoomReadStateInSnapshotCache(args: {
     ({
       ...snapshot,
       room: { ...snapshot.room, unreadCount: Math.max(0, Math.floor(args.unreadCount || 0)) },
-      ...(args.lastReadMessageId !== undefined
-        ? {
-            readReceipt: {
-              roomId,
-              readerUserId: snapshot.readReceipt?.readerUserId ?? "",
-              lastReadAt: snapshot.readReceipt?.lastReadAt ?? null,
-              lastReadMessageId: args.lastReadMessageId ?? null,
-            },
-          }
-        : null),
     } satisfies CommunityMessengerRoomSnapshot);
   patchEntryMap(entries, roomId, viewerUserId, update);
   patchHotMap(roomId, viewerUserId, update);

@@ -14,6 +14,7 @@ import {
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import { resolveMessengerTabTotalUnreadBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 
 /**
  * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
@@ -33,7 +34,8 @@ export function PhilifeHeaderMessengerButton() {
   const label = t("nav_bottom_messenger");
   const useStack = isMessengerFromHeaderStackSurface(pathname);
   const ownerHub = useOwnerHubBadgeBreakdown();
-  const unread = Math.max(0, Number(ownerHub.communityMessengerUnread) || 0);
+  /** 거래 레거시 채팅(`chatUnread`) + 메신저(`communityMessengerUnread`) — 종 알림과 분리(notif-0002) */
+  const unread = resolveMessengerTabTotalUnreadBadgeCount(ownerHub);
 
   const openMessengerStack = useCallback(() => {
     if (!guardBeforeNavigate()) return;

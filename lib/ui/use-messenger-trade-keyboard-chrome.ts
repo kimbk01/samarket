@@ -6,20 +6,14 @@ import {
   readSamarketShellKeyboardBottomInsetCssPx,
   subscribeSamarketShellKeyboardInsets,
 } from "@/lib/platform/samarket-shell-keyboard";
-
-/** 기본(안드로이드·데스크톱 등): overlap 히스테리시스 */
-const OVERLAP_OPEN_PX = 64;
-const OVERLAP_CLOSE_PX = 36;
-
-/** iOS Safari: innerHeight·vv 동기화가 늦고 값이 작게 나오는 경우가 많아 임계를 낮춤 */
-const IOS_OVERLAP_OPEN_PX = 36;
-const IOS_OVERLAP_CLOSE_PX = 22;
-
-/** iOS: blur 직후 키보드가 아직 올라가 있으면 overlap이 잠깐 0으로 보일 수 있음 — 재측정 지연 */
-const IOS_BLUR_REMEASURE_MS = 280;
-
-/** iOS: 포커스 직후 vv·innerHeight 안정화 대기 */
-const IOS_FOCUS_REMEASURE_EXTRA_MS = [100, 260] as const;
+import {
+  MESSENGER_KEYBOARD_IOS_BLUR_REMEASURE_MS,
+  MESSENGER_KEYBOARD_IOS_FOCUS_REMEASURE_EXTRA_MS,
+  MESSENGER_KEYBOARD_OVERLAP_CLOSE_PX,
+  MESSENGER_KEYBOARD_OVERLAP_IOS_CLOSE_PX,
+  MESSENGER_KEYBOARD_OVERLAP_IOS_OPEN_PX,
+  MESSENGER_KEYBOARD_OVERLAP_OPEN_PX,
+} from "@/lib/ui/messenger-chat-viewport-tuning";
 
 /**
  * 커뮤니티 메신저 **방**(일반·그룹·오픈·거래): `visualViewport`·네이티브 `samarketShell` 과 입력 포커스로
@@ -37,8 +31,8 @@ export function useMessengerTradeKeyboardChrome(opts: {
 
   const measure = useCallback(() => {
     const ios = typeof window !== "undefined" && isLikelyIosWebKit();
-    const openPx = ios ? IOS_OVERLAP_OPEN_PX : OVERLAP_OPEN_PX;
-    const closePx = ios ? IOS_OVERLAP_CLOSE_PX : OVERLAP_CLOSE_PX;
+    const openPx = ios ? MESSENGER_KEYBOARD_OVERLAP_IOS_OPEN_PX : MESSENGER_KEYBOARD_OVERLAP_OPEN_PX;
+    const closePx = ios ? MESSENGER_KEYBOARD_OVERLAP_IOS_CLOSE_PX : MESSENGER_KEYBOARD_OVERLAP_CLOSE_PX;
 
     const shellInset = typeof window !== "undefined" ? readSamarketShellKeyboardBottomInsetCssPx() : null;
     if (shellInset != null) {
@@ -127,7 +121,7 @@ export function useMessengerTradeKeyboardChrome(opts: {
     });
     const timers: ReturnType<typeof setTimeout>[] = [];
     if (isLikelyIosWebKit()) {
-      for (const ms of IOS_FOCUS_REMEASURE_EXTRA_MS) {
+      for (const ms of MESSENGER_KEYBOARD_IOS_FOCUS_REMEASURE_EXTRA_MS) {
         timers.push(setTimeout(bump, ms));
       }
     }
@@ -143,7 +137,7 @@ export function useMessengerTradeKeyboardChrome(opts: {
   useEffect(() => {
     if (!enabled || composerFocused) return;
     if (!isLikelyIosWebKit()) return;
-    const t = window.setTimeout(() => measure(), IOS_BLUR_REMEASURE_MS);
+    const t = window.setTimeout(() => measure(), MESSENGER_KEYBOARD_IOS_BLUR_REMEASURE_MS);
     return () => window.clearTimeout(t);
   }, [composerFocused, enabled, measure]);
 

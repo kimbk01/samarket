@@ -3,8 +3,9 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
+  CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+  CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX,
   CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
-  CM_ROOM_BOTTOM_READ_DWELL_MS,
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/room/messenger-room-read-gate";
@@ -50,12 +51,17 @@ function isLatestMessageVisibleEnoughInViewport(root: HTMLElement | null, messag
   return overlap / h >= CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO;
 }
 
+function isMessagesViewportShowingThreadTail(root: HTMLElement | null, bottomGapPx: number): boolean {
+  if (!root) return false;
+  const gap = root.scrollHeight - root.scrollTop - root.clientHeight;
+  if (!Number.isFinite(gap)) return false;
+  if (root.scrollHeight <= root.clientHeight + 6) return true;
+  return gap <= bottomGapPx;
+}
+
 /**
- * **메시지 리스트가 보이는 상태**에서(unread 0 이어도 타임라인 최신 id 가 바뀌면 상대 읽음 커서 진행)
- * - 탭/창 활성 + 하단 고정 + **최신 말풍선이 뷰포트에 실제로 노출**
- * - 시트·액션·라이트박스·통화 패널 등 **오버레이 없음**
- * - 기본은 즉시(`CM_ROOM_BOTTOM_READ_DWELL_MS=0`)지만, 필요 시 체류 지연 값을 다시 줄 수 있다.
- * - 조건이 맞을 때 `mark_read` 1회
+ * - **방 진입 1회**: `flushOpen` — 서버 꼬리까지 배치 읽음 (카카오식·뷰포트 불필요·포그라운드만).
+ * - **이후 꼬리**: 포그라운드 + 대화 하단 가시 시 `mark_read` 커서 — 스크롤은 debounce.
  */
 export function useMessengerRoomOpenMarkReadEffect(args: {
   roomId: string;
@@ -70,8 +76,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   roomLoadingRef: MutableRefObject<boolean>;
   /** unread / latest message / overlay / loading 변화 시 재평가 트리거 */
   readGateVersion: string;
-  /** 하단 체류 후 `mark_read` 지연 — 0 이면 조건 충족 시 즉시 PATCH */
-  readBottomDwellMs?: number;
+  /**
+   * 상대 INSERT 직후 설정 — 하단 고정인데 말풍선 DOM 비율만 미달일 때 읽음 후보를 한 번 풀어준다.
+   */
+  peerTailMarkReadHintRef?: MutableRefObject<string | null>;
 }): void {
   const {
     roomId,
@@ -83,8 +91,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
-    readBottomDwellMs = CM_ROOM_BOTTOM_READ_DWELL_MS,
+    peerTailMarkReadHintRef,
   } = args;
+
+  const enterFlushCompletedRef = useRef(false);
+  useEffect(() => {
+    enterFlushCompletedRef.current = false;
+  }, [roomId]);
+
   const readMarkReadyRecordedRoomRef = useRef<string | null>(null);
   const unreadReadSyncRecordedRoomRef = useRef<string | null>(null);
   const readMarkEffectStartRecordedRoomRef = useRef<string | null>(null);
@@ -110,128 +124,69 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
     }
 
-    let dwellStartAt: number | null = null;
-    let dwellAnchorMessageId: string | null = null;
     let cancelled = false;
-    let dwellTimer: ReturnType<typeof setTimeout> | null = null;
+    let scrollDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const clearDwellTimer = () => {
-      if (dwellTimer != null) {
-        clearTimeout(dwellTimer);
-        dwellTimer = null;
+    const clearScrollDebounce = () => {
+      if (scrollDebounceTimer != null) {
+        clearTimeout(scrollDebounceTimer);
+        scrollDebounceTimer = null;
       }
     };
 
-    const reevaluate = () => {
-      if (cancelled) return;
+    const patchMarkRead = (opts: { flushOpen: boolean; lastReadMessageId?: string | null }) => {
       const snap = snapshotRef.current;
       if (!snap || String(snap.room.id) !== String(id)) return;
+      if (roomOpenMarkReadRef.current.phase !== "idle") return;
 
-      const lastIdEarly = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
-      if (roomOpenMarkReadRef.current.phase === "done") {
-        const markedEarly = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
-        if (
-          snap.room.unreadCount >= 1 ||
-          (Boolean(lastIdEarly) && Boolean(markedEarly) && lastIdEarly !== markedEarly)
-        ) {
-          const cur = roomOpenMarkReadRef.current;
-          roomOpenMarkReadRef.current = {
-            roomId: id,
-            phase: "idle",
-            lastMarkedMessageId: cur.lastMarkedMessageId,
-          };
-        }
-      }
-      if (roomOpenMarkReadRef.current.phase !== "idle") {
-        dwellStartAt = null;
-        dwellAnchorMessageId = null;
-        clearDwellTimer();
-        return;
-      }
-      const lastId = lastIdEarly;
-      if (lastId && roomOpenMarkReadRef.current.lastMarkedMessageId === lastId) {
-        dwellStartAt = null;
-        dwellAnchorMessageId = null;
-        clearDwellTimer();
-        return;
-      }
-
-      if (roomLoadingRef.current || readPhase1OverlayBlockedRef.current || isMessengerRoomReadGateExtraBlocked()) {
-        dwellStartAt = null;
-        dwellAnchorMessageId = null;
-        clearDwellTimer();
-        return;
-      }
-
-      const visible =
-        typeof document === "undefined" ? true : document.visibilityState === "visible";
-      const focused = typeof document === "undefined" ? true : document.hasFocus();
-      const atBottom = stickToBottomRef.current;
-      const vp = messagesViewportRef.current;
-      const latestVisible = isLatestMessageVisibleEnoughInViewport(vp, lastId);
-
-      if (!visible || !focused || !atBottom || !lastId || !latestVisible) {
-        dwellStartAt = null;
-        dwellAnchorMessageId = null;
-        clearDwellTimer();
-        return;
-      }
-      if (readMarkReadyRecordedRoomRef.current !== id) {
-        readMarkReadyRecordedRoomRef.current = id;
-        recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_ready_ms");
-      }
-
-      const now = Date.now();
-      if (dwellStartAt == null || dwellAnchorMessageId !== lastId) {
-        dwellStartAt = now;
-        dwellAnchorMessageId = lastId;
-        clearDwellTimer();
-        dwellTimer = setTimeout(() => {
-          dwellTimer = null;
-          reevaluate();
-        }, readBottomDwellMs);
-        return;
-      }
-
-      if (now - dwellStartAt < readBottomDwellMs) {
-        clearDwellTimer();
-        dwellTimer = setTimeout(() => {
-          dwellTimer = null;
-          reevaluate();
-        }, readBottomDwellMs - (now - dwellStartAt));
-        return;
-      }
+      const optimisticId =
+        opts.flushOpen === true ? lastMarkableMessageId(roomMessagesRef.current, snap.messages) : opts.lastReadMessageId ?? null;
 
       roomOpenMarkReadRef.current.phase = "in_flight";
-      dwellStartAt = null;
-      dwellAnchorMessageId = null;
-      clearDwellTimer();
       const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+
       applyRoomReadEvent({
         viewerUserId: snap.viewerUserId,
         roomId: id,
-        lastReadMessageId: lastId,
+        lastReadMessageId: optimisticId ?? undefined,
       });
       postCommunityMessengerBusEvent({
         type: "cm.room.read",
         roomId: id,
         viewerUserId: snap.viewerUserId,
-        lastReadMessageId: lastId,
+        lastReadMessageId: optimisticId,
         at: Date.now(),
       });
+
       void (async () => {
         try {
           const res = await fetch(communityMessengerRoomResourcePath(id), {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ action: "mark_read", lastReadMessageId: lastId }),
+            body: JSON.stringify(
+              opts.flushOpen ? { action: "mark_read", flushOpen: true } : { action: "mark_read", lastReadMessageId: opts.lastReadMessageId }
+            ),
           });
-          const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            lastReadMessageId?: string | null;
+          };
+          const serverLastId =
+            typeof json.lastReadMessageId === "string" && json.lastReadMessageId.trim()
+              ? json.lastReadMessageId.trim()
+              : opts.lastReadMessageId ?? optimisticId;
+
           if (res.ok && json.ok) {
+            if (opts.flushOpen === true) {
+              enterFlushCompletedRef.current = true;
+            }
+            if (peerTailMarkReadHintRef?.current && peerTailMarkReadHintRef.current === (opts.lastReadMessageId ?? optimisticId)) {
+              peerTailMarkReadHintRef.current = null;
+            }
             if (typeof performance !== "undefined") {
               const unreadReadSyncMs = Math.round(performance.now() - t0);
-              messengerMonitorUnreadListSync(id, unreadReadSyncMs, "room_open");
+              messengerMonitorUnreadListSync(id, unreadReadSyncMs, opts.flushOpen ? "room_open" : "mark_read");
               if (unreadReadSyncRecordedRoomRef.current !== id) {
                 unreadReadSyncRecordedRoomRef.current = id;
                 recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", unreadReadSyncMs);
@@ -240,7 +195,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             roomOpenMarkReadRef.current = {
               roomId: id,
               phase: "done",
-              lastMarkedMessageId: lastId,
+              lastMarkedMessageId: serverLastId ?? null,
             };
             const snapAfter = snapshotRef.current;
             if (snapAfter && String(snapAfter.room.id) === String(id)) {
@@ -279,10 +234,130 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       })();
     };
 
+    const reevaluate = (opts?: { tailOnly?: boolean }) => {
+      if (cancelled) return;
+      const snap = snapshotRef.current;
+      if (!snap || String(snap.room.id) !== String(id)) return;
+
+      const lastIdEarly = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+      if (roomOpenMarkReadRef.current.phase === "done") {
+        const markedEarly = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
+        if (
+          snap.room.unreadCount >= 1 ||
+          (Boolean(lastIdEarly) && Boolean(markedEarly) && lastIdEarly !== markedEarly)
+        ) {
+          const cur = roomOpenMarkReadRef.current;
+          roomOpenMarkReadRef.current = {
+            roomId: id,
+            phase: "idle",
+            lastMarkedMessageId: cur.lastMarkedMessageId,
+          };
+        }
+      }
+      if (roomOpenMarkReadRef.current.phase !== "idle") {
+        clearScrollDebounce();
+        return;
+      }
+
+      const lastId = lastIdEarly;
+      if (lastId && roomOpenMarkReadRef.current.lastMarkedMessageId === lastId) {
+        clearScrollDebounce();
+        return;
+      }
+
+      if (roomLoadingRef.current || readPhase1OverlayBlockedRef.current || isMessengerRoomReadGateExtraBlocked()) {
+        clearScrollDebounce();
+        return;
+      }
+
+      const visible = typeof document === "undefined" ? true : document.visibilityState === "visible";
+      if (!visible) {
+        clearScrollDebounce();
+        return;
+      }
+
+      /** 진입 플러시 전에는 스크롤 기반 커서 PATCH 금지 (순서 꼬임 방지) */
+      if (opts?.tailOnly && !enterFlushCompletedRef.current) {
+        return;
+      }
+
+      /** [3] 방 진입 즉시 플러시 — 로딩 종료·오버레이 없음·포그라운드 */
+      if (!opts?.tailOnly && !enterFlushCompletedRef.current) {
+        clearScrollDebounce();
+        patchMarkRead({ flushOpen: true });
+        return;
+      }
+
+      const atBottom = stickToBottomRef.current;
+      const vp = messagesViewportRef.current;
+      const threadTailByScroll = isMessagesViewportShowingThreadTail(vp, CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX);
+      const latestVisible = isLatestMessageVisibleEnoughInViewport(vp, lastId);
+      const latestDomMissing =
+        Boolean(lastId) &&
+        (typeof document === "undefined" ? false : document.getElementById(`cm-room-msg-${lastId}`) == null);
+      const hintId = peerTailMarkReadHintRef?.current?.trim() ?? "";
+      const peerTailViewportBypass =
+        Boolean(lastId) &&
+        hintId !== "" &&
+        hintId === lastId &&
+        (threadTailByScroll || atBottom);
+      const viewportOk =
+        Boolean(lastId) &&
+        (threadTailByScroll ||
+          latestVisible ||
+          (atBottom && latestDomMissing) ||
+          peerTailViewportBypass);
+
+      if (!viewportOk || !lastId) {
+        clearScrollDebounce();
+        return;
+      }
+
+      if (readMarkReadyRecordedRoomRef.current !== id) {
+        readMarkReadyRecordedRoomRef.current = id;
+        recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_ready_ms");
+      }
+
+      clearScrollDebounce();
+      scrollDebounceTimer = setTimeout(() => {
+        scrollDebounceTimer = null;
+        if (cancelled) return;
+        if (roomOpenMarkReadRef.current.phase !== "idle") return;
+        if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+        if (roomLoadingRef.current || readPhase1OverlayBlockedRef.current || isMessengerRoomReadGateExtraBlocked()) return;
+
+        const snap2 = snapshotRef.current;
+        if (!snap2 || String(snap2.room.id) !== String(id)) return;
+        const lastId2 = lastMarkableMessageId(roomMessagesRef.current, snap2.messages);
+        if (!lastId2 || roomOpenMarkReadRef.current.lastMarkedMessageId === lastId2) return;
+
+        const vp2 = messagesViewportRef.current;
+        const threadOk = isMessagesViewportShowingThreadTail(vp2, CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX);
+        const latestOk = isLatestMessageVisibleEnoughInViewport(vp2, lastId2);
+        const domMiss =
+          Boolean(lastId2) &&
+          (typeof document === "undefined" ? false : document.getElementById(`cm-room-msg-${lastId2}`) == null);
+        const hint2 = peerTailMarkReadHintRef?.current?.trim() ?? "";
+        const bypass =
+          Boolean(lastId2) &&
+          hint2 !== "" &&
+          hint2 === lastId2 &&
+          (threadOk || stickToBottomRef.current);
+        const ok =
+          threadOk ||
+          latestOk ||
+          (stickToBottomRef.current && domMiss) ||
+          bypass;
+        if (!ok) return;
+
+        patchMarkRead({ flushOpen: false, lastReadMessageId: lastId2 });
+      }, CM_MARK_READ_SCROLL_DEBOUNCE_MS);
+    };
+
     const onVisibility = () => reevaluate();
     const onFocus = () => reevaluate();
     const onResize = () => reevaluate();
-    const onViewportScroll = () => reevaluate();
+    const onViewportScroll = () => reevaluate({ tailOnly: true });
     const viewport = messagesViewportRef.current;
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", onFocus);
@@ -292,12 +367,34 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       readMarkEffectEndRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_end_ms");
     }
+    let mutationDebounce: ReturnType<typeof setTimeout> | null = null;
+    const mutationScheduleReevaluate = () => {
+      if (mutationDebounce != null) clearTimeout(mutationDebounce);
+      mutationDebounce = setTimeout(() => {
+        mutationDebounce = null;
+        reevaluate();
+      }, 40);
+    };
+    let mutationObserver: MutationObserver | null = null;
+    if (viewport && typeof MutationObserver !== "undefined") {
+      mutationObserver = new MutationObserver(mutationScheduleReevaluate);
+      mutationObserver.observe(viewport, { childList: true, subtree: true });
+    }
+
     queueMicrotask(() => {
       reevaluate();
+      requestAnimationFrame(() => {
+        reevaluate();
+        requestAnimationFrame(() => {
+          reevaluate();
+        });
+      });
     });
     return () => {
       cancelled = true;
-      clearDwellTimer();
+      clearScrollDebounce();
+      if (mutationDebounce != null) clearTimeout(mutationDebounce);
+      mutationObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("resize", onResize);
@@ -313,6 +410,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     readPhase1OverlayBlockedRef,
     roomLoadingRef,
     readGateVersion,
-    readBottomDwellMs,
+    peerTailMarkReadHintRef,
   ]);
 }

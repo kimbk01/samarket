@@ -50,6 +50,12 @@ type HomeRealtimeListener = {
 type RoomRealtimeListener = {
   onRefresh: () => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
+  onParticipantPostgres?: (payload: {
+    eventType: string;
+    roomId: string;
+    newRecord: Record<string, unknown> | null;
+    oldRecord: Record<string, unknown> | null;
+  }) => void;
 };
 
 type HomeRealtimeEntry = {
@@ -312,15 +318,18 @@ export function useCommunityMessengerRoomRealtime(args: {
   enabled: boolean;
   onRefresh: () => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
+  onParticipantPostgres?: RoomRealtimeListener["onParticipantPostgres"];
 }) {
   const listenerRef = useRef<RoomRealtimeListener>({
     onRefresh: args.onRefresh,
     onMessageEvent: args.onMessageEvent,
+    onParticipantPostgres: args.onParticipantPostgres,
   });
   useEffect(() => {
     listenerRef.current.onRefresh = args.onRefresh;
     listenerRef.current.onMessageEvent = args.onMessageEvent;
-  }, [args.onRefresh, args.onMessageEvent]);
+    listenerRef.current.onParticipantPostgres = args.onParticipantPostgres;
+  }, [args.onRefresh, args.onMessageEvent, args.onParticipantPostgres]);
 
   const viewerForChannel = (args.viewerUserId ?? "").trim() || "anon";
 

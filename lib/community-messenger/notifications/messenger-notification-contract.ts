@@ -20,7 +20,7 @@
  * 인앱 알림음 (`playCoalescedChatNotificationSound`)
  * ---------------------------------------------------------------------------
  * - 동일 방 + 포그라운드 + 창 포커스: **INSERT 경로 낙관 bump·즉시 톤 생략** (`notifyMessengerHomeRealtimeMessageInsert`).
- * - 동일 방 + 포그라운드 + 창 포커스 + 타임라인 하단 근처: **즉시 mark_read** 로 서버 unread 정리 (`useMessengerRoomOpenMarkReadEffect`).
+ * - 동일 방 + 탭 포그라운드 + 최신 말풍선 가시(또는 하단 고정·DOM 지연): **즉시 mark_read** (`useMessengerRoomOpenMarkReadEffect`) — `document.hasFocus()` 미사용(모바일).
  * - 동일 방 + 포그라운드 + 포커스 + 스크롤 위: **무음** (방 UI “새 메시지 n개”·participant 톤 정책은 `resolveParticipantUnreadDeltaInAppEffects` + reader store).
  * - 동일 방 + 포그라운드 + **창 blur**: **톤 허용** (탭은 메신저이나 다른 창을 보는 경우).
  * - 백그라운드: **톤 허용** (뮤트·알림 설정 제외).

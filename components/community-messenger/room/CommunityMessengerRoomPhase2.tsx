@@ -1,12 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
-import { useVisualViewportMessengerRoomBox } from "@/lib/ui/use-visual-viewport-messenger-room-box";
+import { useChatViewportResize } from "@/lib/ui/use-chat-viewport-resize";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
 import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
@@ -41,17 +41,25 @@ type CommunityMessengerRoomClientPhase2MainProps = {
     snapshot: NonNullable<MessengerRoomPhase2Controller["snapshot"]>;
   };
   keyboardOverlapSuppressed: boolean;
-  mobileShellStyle: { maxHeight: number } | undefined;
+  /** 좁은 화면: visualViewport 기반 CSS 변수·셸 높이 */
+  narrowViewport: boolean;
   messengerKeyboardChromeOpen: boolean;
 };
 
 function CommunityMessengerRoomClientPhase2Main({
   room,
   keyboardOverlapSuppressed,
-  mobileShellStyle,
+  narrowViewport,
   messengerKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
+  /** 셸 DOM 이 붙은 뒤에만 vv 변수 구독 — 첫 프레임에 ref 미부착으로 훅이 빠지는 경우 방지 @see docs/community-messenger-mobile-room-viewport.md */
+  const [chatShellMounted, setChatShellMounted] = useState(false);
+  const setMessengerShellRef = useCallback((node: HTMLDivElement | null) => {
+    rootRef.current = node;
+    setChatShellMounted(Boolean(node));
+  }, []);
+  useChatViewportResize({ enabled: narrowViewport && chatShellMounted, shellRef: rootRef });
   const phase2EnterRecordedRef = useRef(false);
   const roomStateCommitRecordedRef = useRef(false);
   const messagesStateCommitRecordedRef = useRef(false);
@@ -266,11 +274,19 @@ function CommunityMessengerRoomClientPhase2Main({
     >
       <MessengerRoomPhase2ViewProvider value={view}>
         <div
-          ref={rootRef}
+          ref={setMessengerShellRef}
           data-messenger-shell
           data-cm-room
           className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
-          style={mobileShellStyle}
+          style={
+            narrowViewport
+              ? ({
+                  height: "var(--chat-viewport-height, 100dvh)",
+                  maxHeight: "var(--chat-viewport-height, 100dvh)",
+                  minHeight: 0,
+                } satisfies CSSProperties)
+              : undefined
+          }
         >
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />
@@ -300,12 +316,8 @@ export function CommunityMessengerRoomClientPhase2() {
     peerUserId: room.snapshot?.room.peerUserId ?? null,
   });
   const isNarrowViewport = useMatchMaxWidthMd();
-  const vvBox = useVisualViewportMessengerRoomBox(isNarrowViewport);
-  const keyboardOverlapSuppressed = Boolean(isNarrowViewport && vvBox);
-  const mobileShellStyle =
-    isNarrowViewport && vvBox
-      ? ({ maxHeight: vvBox.heightPx } as const)
-      : undefined;
+  /** 모바일 셸이 vv 변수로 높이를 잡으므로 하단 탭·별도 키보드 inset 이중 보정 억제 */
+  const keyboardOverlapSuppressed = Boolean(isNarrowViewport);
 
   /** 일반·그룹·오픈·거래 1:1 등 모든 메신저 방 — 좁은 화면에서 키보드 크롬 추정(`ConditionalAppShell` 하단 탭은 방 경로에서 항상 숨김) */
   const messengerKeyboardChromeEnabled = isNarrowViewport && Boolean(room.snapshot);
@@ -338,7 +350,7 @@ export function CommunityMessengerRoomClientPhase2() {
     <CommunityMessengerRoomClientPhase2Main
       room={{ ...room, snapshot }}
       keyboardOverlapSuppressed={keyboardOverlapSuppressed}
-      mobileShellStyle={mobileShellStyle}
+      narrowViewport={isNarrowViewport}
       messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
     />
   );

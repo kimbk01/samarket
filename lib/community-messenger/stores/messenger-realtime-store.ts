@@ -72,9 +72,14 @@ function normalizeRoomId(roomId: string | null | undefined): string {
   return String(roomId ?? "").trim();
 }
 
-function visibleFocused(): boolean {
+/**
+ * 동일 방 실시간 수신 시 “안 읽은 처리” 분기용 — 탭만 보이면 충분.
+ * `document.hasFocus()` 는 다른 브라우저 창·DevTools 포커스에서 거짓이라, 포커스만 다른 채 같은 방을 보고 있어도
+ * unread 증가·읽음 PATCH 가 어긋날 수 있다 (`mark_read` 이펙트는 포커스를 쓰지 않음).
+ */
+function activeRoomTabForeground(): boolean {
   if (typeof document === "undefined") return true;
-  return document.visibilityState === "visible" && (typeof document.hasFocus !== "function" || document.hasFocus());
+  return document.visibilityState === "visible";
 }
 
 function sortRoomOrder(roomSummariesById: Record<string, CommunityMessengerRoomSummary>): string[] {
@@ -323,7 +328,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         explicitMessage?.senderId ??
         (typeof input.messageRow?.sender_id === "string" ? input.messageRow.sender_id.trim() : null);
       const isMine = Boolean(viewer && senderId && messengerUserIdsEqual(senderId, viewer));
-      const sameRoomVisible = state.activeRoomId === rid && visibleFocused();
+      const sameRoomVisible = state.activeRoomId === rid && activeRoomTabForeground();
       const shouldIncrementUnread = !duplicate && !isMine && !sameRoomVisible;
       const baseUnread = Math.max(
         0,
@@ -434,14 +439,6 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
           viewerUserId: viewer,
           patch: next,
         });
-        if ((input.unreadCount ?? null) === 0) {
-          patchRoomReadStateInSnapshotCache({
-            roomId: rid,
-            viewerUserId: viewer,
-            unreadCount: 0,
-            lastReadMessageId: input.lastReadMessageId ?? null,
-          });
-        }
       }
       applyCommunityMessengerUnreadOptimistic(totalUnread);
       return {
@@ -477,7 +474,6 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
           roomId: rid,
           viewerUserId: viewer,
           unreadCount: 0,
-          lastReadMessageId: input.lastReadMessageId ?? null,
         });
       }
       applyCommunityMessengerUnreadOptimistic(totalUnread);
@@ -486,10 +482,11 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         roomSummariesById,
         unreadByRoomId,
         totalUnread,
-        lastReadByRoomId: {
-          ...state.lastReadByRoomId,
-          [rid]: input.lastReadMessageId ?? null,
-        },
+        /**
+         * `lastReadByRoomId` 는 **상대** 읽음 커서(`seedRoomSnapshot`·readReceipt) 전용.
+         * 내 `mark_read` 꼬리 id 를 넣으면 상대 읽음 표시·스토어가 뒤틀린다.
+         */
+        lastReadByRoomId: state.lastReadByRoomId,
       };
     });
   },

@@ -77,7 +77,7 @@ export async function PATCH(
   let body:
     | { action?: "invite"; memberIds?: string[] }
     | { action?: "participant_settings"; isMuted?: boolean; isPinned?: boolean }
-    | { action?: "mark_read"; lastReadMessageId?: string }
+    | { action?: "mark_read"; lastReadMessageId?: string; flushOpen?: boolean }
     | { action?: "archive"; archived?: boolean }
     | { action?: "group_notice"; noticeText?: string }
     | {
@@ -127,6 +127,7 @@ export async function PATCH(
       userId: auth.userId,
       roomId,
       lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
+      flushOpen: body.flushOpen === true,
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }

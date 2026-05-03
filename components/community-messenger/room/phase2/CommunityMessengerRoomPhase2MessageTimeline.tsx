@@ -339,6 +339,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
    * 역순 1회로 mine id 확정 후, 읽음 판별에 필요한 두 id만 단일 순방향 스캔으로 찾는다.
    */
   const { latestReadableMineMessageId, peerHasReadMyLatestMessage } = useMemo(() => {
+    /** 1:1만 말풍선 옆 읽음/안읽음 — 그룹은 커서 스냅샷이 없어 오표시 방지 */
+    if (vm.snapshot.room.roomType !== "direct") {
+      return { latestReadableMineMessageId: null, peerHasReadMyLatestMessage: false };
+    }
+
     const msgs = vm.displayRoomMessages;
     let latestMineId: string | null = null;
     for (let i = msgs.length - 1; i >= 0; i -= 1) {
@@ -351,6 +356,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     }
 
     const readCursor = vm.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
+    const cursorCreatedAtServer = vm.snapshot.readReceipt?.lastReadMessageCreatedAt?.trim() ?? "";
+
     if (!readCursor) {
       return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
     }
@@ -387,6 +394,23 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       cMsg = cMsg ?? byId.get(readCursor);
       mMsg = mMsg ?? byId.get(latestMineId);
     }
+
+    /** 부트스트랩 메시지 창에 상대 읽음 커서 id 가 없을 때 — 서버가 내려준 커서 created_at 으로만 타임라인 비교 */
+    if (!cMsg && mMsg && cursorCreatedAtServer) {
+      const tb = new Date(mMsg.createdAt).getTime();
+      const tc = new Date(cursorCreatedAtServer).getTime();
+      if (tc > tb) {
+        return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: true };
+      }
+      if (tc < tb) {
+        return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
+      }
+      return {
+        latestReadableMineMessageId: latestMineId,
+        peerHasReadMyLatestMessage: readCursor.localeCompare(latestMineId) >= 0,
+      };
+    }
+
     if (!cMsg || !mMsg) {
       return { latestReadableMineMessageId: latestMineId, peerHasReadMyLatestMessage: false };
     }
@@ -403,7 +427,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       latestReadableMineMessageId: latestMineId,
       peerHasReadMyLatestMessage: readCursor.localeCompare(latestMineId) >= 0,
     };
-  }, [vm.displayRoomMessages, vm.snapshot.messages, vm.snapshot.readReceipt?.lastReadMessageId]);
+  }, [
+    vm.displayRoomMessages,
+    vm.snapshot.messages,
+    vm.snapshot.room.roomType,
+    vm.snapshot.readReceipt?.lastReadMessageId,
+    vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
+  ]);
 
   /**
    * 스크롤은 초당 수십~수백 번 이벤트가 발생할 수 있어, state set 을 그대로 두면
@@ -473,6 +503,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         ref={vm.messagesViewportRef}
         data-cm-line-timeline
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
+        style={{
+          scrollPaddingBottom: "var(--chat-composer-height, 0px)",
+        }}
         onScroll={scheduleScroll}
       >
         <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
@@ -857,9 +890,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                               <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
                                 {formatTime(item.createdAt)}
                               </span>
-                              {latestReadableMineMessageId === item.id ? (
+                              {latestReadableMineMessageId === item.id && !peerHasReadMyLatestMessage ? (
                                 <span className="shrink-0 self-end pb-1 sam-text-xxs leading-none text-[color:var(--cm-room-text-muted)]">
-                                  {peerHasReadMyLatestMessage ? "읽음" : "안읽음"}
+                                  안읽음
                                 </span>
                               ) : null}
                               {renderBubbleStack(viberBubble)}

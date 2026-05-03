@@ -256,6 +256,19 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
 function onOwnerHubRefresh(ev?: Event) {
   const detail = (ev as CustomEvent<OwnerHubBadgeRefreshDetail> | undefined)?.detail;
   if (detail?.source === "community_messenger") {
+    /**
+     * 일반 participant 이벤트는 짧은 간격·비-force 로 왕복을 줄인다.
+     * 방 안 읽음 처리 직후에는 `fetchOwnerHubBadgeNow(false)` 가 22s MIN_FETCH_GAP 에 걸려
+     * 탭 배지가 안 줄어드는 경우가 있어 mark_read 계열만 즉시 `cmFresh=1` 조회한다.
+     */
+    const immediateFresh =
+      detail.key === "room_open_mark_read" ||
+      detail.key === "room_phase2_mark_read";
+    if (immediateFresh) {
+      lastMessengerParticipantForceRefreshAt = Date.now();
+      void fetchOwnerHubBadgeNow(true);
+      return;
+    }
     scheduleMessengerParticipantHubBadgeRefresh();
     return;
   }

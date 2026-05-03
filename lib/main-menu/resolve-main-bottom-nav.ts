@@ -168,6 +168,25 @@ export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNav
   }
 
   if (ordered.length === 0) return fallback;
+
+  /**
+   * 저장본에서 내장 탭 **행**을 통째로 삭제한 경우(예: 내정보 `my`) — 순서 유지·누락분만 `BOTTOM_NAV_ITEMS` 순으로 끝에 채움.
+   * `custom_*` 가 하나라도 있으면 운영자가 의도적으로 탭 수를 줄인 것으로 보고 자동 삽입하지 않음.
+   */
+  const hasCustomTab = ordered.some((r) => isCustomBottomNavTabId(r.id));
+  if (!hasCustomTab) {
+    const presentIds = new Set<string>(ordered.map((r) => r.id));
+    for (const baseRow of BOTTOM_NAV_ITEMS) {
+      const bid = baseRow.id;
+      if (!isBuiltinBottomNavTabId(bid)) continue;
+      if (presentIds.has(bid)) continue;
+      const base = defaults.get(bid);
+      if (!base) continue;
+      ordered.push({ ...base, visible: true });
+      presentIds.add(bid);
+    }
+  }
+
   return ordered;
 }
 

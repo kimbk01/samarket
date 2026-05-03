@@ -5325,12 +5325,67 @@ export async function markCommunityMessengerRoomAsRead(input: {
   userId: string;
   roomId: string;
   lastReadMessageId?: string;
+  /**
+   * 카카오식 방 진입 즉시: 서버 꼬리 메시지까지 배치 읽음 + unread 재집계 (뷰포트 불필요).
+   * `community_messenger_apply_room_read_mark(p_mode=open)` 사용.
+   */
+  flushOpen?: boolean;
 }): Promise<{ ok: boolean; error?: string; lastReadAt?: string | null; lastReadMessageId?: string | null }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_not_found" };
   const requestedLastReadMessageId = trimText(input.lastReadMessageId);
+  const flushOpen = input.flushOpen === true;
   const sb = getSupabaseOrNull();
   if (sb) {
+    const rpcMode: "open" | "cursor" = flushOpen || !requestedLastReadMessageId ? "open" : "cursor";
+    const rpcThrough = rpcMode === "cursor" ? requestedLastReadMessageId : null;
+
+    const { data: rpcRaw, error: rpcError } = await (sb as any).rpc("community_messenger_apply_room_read_mark", {
+      p_room_id: roomId,
+      p_reader_id: input.userId,
+      p_mode: rpcMode,
+      p_through_message_id: rpcThrough,
+    });
+
+    const rpcPayload = rpcRaw as { ok?: unknown; lastReadMessageId?: unknown; lastReadAt?: unknown; error?: unknown } | null;
+
+    if (!rpcError && rpcPayload?.ok === true) {
+      const cursorId =
+        typeof rpcPayload?.lastReadMessageId === "string"
+          ? trimText(rpcPayload.lastReadMessageId)
+          : rpcPayload?.lastReadMessageId != null
+            ? trimText(String(rpcPayload.lastReadMessageId))
+            : null;
+      let readAt: string | null = null;
+      const rawAt = rpcPayload?.lastReadAt;
+      if (typeof rawAt === "string" && rawAt.trim()) readAt = rawAt.trim();
+      else if (rawAt instanceof Date && !Number.isNaN(rawAt.getTime())) readAt = rawAt.toISOString();
+      if (!readAt) readAt = nowIso();
+      await syncItemTradeReadWithMessengerRoomMark(sb as any, {
+        userId: input.userId,
+        communityMessengerRoomId: roomId,
+        communityMessengerLastReadMessageId: cursorId,
+      });
+      invalidateOwnerHubBadgeCache(input.userId);
+      return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
+    }
+
+    if (!rpcError && rpcPayload?.ok === false) {
+      const reason = typeof rpcPayload.error === "string" ? rpcPayload.error.trim() : "";
+      return { ok: false, error: reason || "room_read_failed" };
+    }
+
+    const rpcErrMsg = rpcError ? String((rpcError as { message?: string }).message ?? rpcError) : "";
+    const useLegacyParticipantUpdate =
+      !!rpcError &&
+      (/does not exist/i.test(rpcErrMsg) ||
+        /community_messenger_apply_room_read_mark/i.test(rpcErrMsg) ||
+        rpcErrMsg.toLowerCase().includes("schema cache"));
+
+    if (rpcError && !useLegacyParticipantUpdate) {
+      return { ok: false, error: rpcErrMsg || "room_read_failed" };
+    }
+
     const [{ data: participant, error: participantError }, latestMessageResult] = await Promise.all([
       (sb as any)
         .from("community_messenger_participants")
@@ -5369,6 +5424,7 @@ export async function markCommunityMessengerRoomAsRead(input: {
         await syncItemTradeReadWithMessengerRoomMark(sb as any, {
           userId: input.userId,
           communityMessengerRoomId: roomId,
+          communityMessengerLastReadMessageId: cursorId,
         });
         invalidateOwnerHubBadgeCache(input.userId);
         return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
@@ -6272,6 +6328,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       : undefined;
   const peerUserId = trimText(summary.peerUserId ?? "");
   const resolvedPresenceMap = presenceMap;
+  const peerReadCursorId = peerParticipant ? participantLastReadMessageId(peerParticipant) : null;
+  let peerLastReadMessageCreatedAt: string | null = null;
+  if (sb && peerReadCursorId) {
+    const { data: peerCursorRow } = await (sb as any)
+      .from("community_messenger_messages")
+      .select("created_at")
+      .eq("room_id", id)
+      .eq("id", peerReadCursorId)
+      .maybeSingle();
+    const ca = (peerCursorRow as { created_at?: string | null } | null)?.created_at;
+    peerLastReadMessageCreatedAt = typeof ca === "string" && ca.trim() ? ca.trim() : null;
+  }
   const readReceipt: CommunityMessengerReadReceipt | null =
     summary.roomType === "direct" && peerParticipant
       ? {
@@ -6279,6 +6347,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
           readerUserId: peerUserId || ("user_id" in peerParticipant ? peerParticipant.user_id : peerParticipant.userId),
           lastReadAt: participantLastReadAt(peerParticipant),
           lastReadMessageId: participantLastReadMessageId(peerParticipant),
+          lastReadMessageCreatedAt: peerLastReadMessageCreatedAt,
         }
       : null;
   const peerPresence =

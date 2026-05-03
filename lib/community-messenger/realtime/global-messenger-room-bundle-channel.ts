@@ -38,6 +38,16 @@ const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
 export type GlobalRoomRealtimeListenerRef = MutableRefObject<{
   onRefresh: () => void;
   onMessageEvent?: (event: CommunityMessengerRoomRealtimeMessageEvent) => void;
+  /**
+   * `community_messenger_participants` postgres_changes — 상대 읽음 커서 등 HTTP refresh 없이 즉시 병합.
+   * @see useMessengerRoomClientPhase1 읽음 라벨 동기화
+   */
+  onParticipantPostgres?: (payload: {
+    eventType: string;
+    roomId: string;
+    newRecord: Record<string, unknown> | null;
+    oldRecord: Record<string, unknown> | null;
+  }) => void;
 }>;
 
 type RoomSchedulers = {
@@ -79,6 +89,26 @@ function emitRoomRefreshForRoom(entry: GlobalMessengerRoomBundleEntry, streamRoo
   const set = entry.listenersByRoom.get(key);
   if (!set) return;
   for (const ref of set) ref.current.onRefresh();
+}
+
+function emitRoomParticipantPostgresForRoom(
+  entry: GlobalMessengerRoomBundleEntry,
+  streamRoomId: string,
+  payload: { eventType: string; new: unknown; old: unknown }
+): void {
+  const key = normalizeRoomKey(streamRoomId);
+  const set = entry.listenersByRoom.get(key);
+  if (!set) return;
+  const newRecord = payload.new && typeof payload.new === "object" ? (payload.new as Record<string, unknown>) : null;
+  const oldRecord = payload.old && typeof payload.old === "object" ? (payload.old as Record<string, unknown>) : null;
+  for (const ref of set) {
+    ref.current.onParticipantPostgres?.({
+      eventType: payload.eventType,
+      roomId: streamRoomId.trim(),
+      newRecord,
+      oldRecord,
+    });
+  }
 }
 
 function getOrCreateRoomSchedulers(entry: GlobalMessengerRoomBundleEntry, roomKey: string): RoomSchedulers {
@@ -243,7 +273,14 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
         if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
-        if (!cancelled) getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+        if (!cancelled) {
+          getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
+          emitRoomParticipantPostgresForRoom(entry, rid, {
+            eventType: payload.eventType,
+            new: payload.new,
+            old: payload.old,
+          });
+        }
       }
     );
 
