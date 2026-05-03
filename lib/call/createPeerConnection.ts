@@ -7,7 +7,7 @@ export type CreatePeerConnectionOptions = {
 };
 
 /**
- * 표준 RTCPeerConnection 생성 — 직접 통화(`useCommunityMessengerCall`) 경로와 공유.
+ * 표준 RTCPeerConnection 생성 — 통화 클라(Agora·그룹 WebRTC 등)와 공유.
  */
 export async function createMessengerPeerConnection(options?: CreatePeerConnectionOptions): Promise<RTCPeerConnection> {
   const iceServers = options?.iceServers ?? (await fetchMessengerIceServers());

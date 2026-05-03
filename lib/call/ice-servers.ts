@@ -20,7 +20,7 @@ function hasRelay(servers: RTCIceServer[]): boolean {
   });
 }
 
-/** `/api/community-messenger/calls/ice-servers` — `useCommunityMessengerCall` 과 동일 소스 */
+/** `/api/community-messenger/calls/ice-servers` — 통화 클라(Agora 등)와 동일 소스 */
 export async function fetchMessengerIceServers(): Promise<RTCIceServer[]> {
   if (typeof window === "undefined") return DEFAULT_ICE;
   if (cache && cacheExp > Date.now()) return cache;

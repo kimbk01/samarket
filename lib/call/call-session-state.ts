@@ -1,5 +1,5 @@
 /**
- * LEGACY 보조 — 현재는 `useCommunityMessengerCall`(레거시·미사용 훅)·`use-call-session.ts`(미연결) 에만 묶여 있다.
+ * LEGACY 보조 — `use-call-session.ts`(미연결) 등 레거시 패널 합성 참고용.
  *
  * 1:1 통화 UI·계측용 단일 상태 — WebRTC transport와 패널(발신/수신/연결)을 합성한다.
  * DB `CommunityMessengerCallSessionStatus` 와 1:1이 아니며, 클라이언트 표시용이다.
@@ -37,7 +37,7 @@ export type CallSessionPhaseInput = {
 const MAX_AUTO_ICE_RETRY = 2;
 
 /**
- * 레거시 `useCommunityMessengerCall` 의 panel + transportState 를 단일 phase 로 합성한다.
+ * 레거시 패널 + transportState 를 단일 phase 로 합성한다.
  *
  * - `accepted`: 세션은 수락됐으나 아직 미디어 경로 협상 중(패널 connecting + transport 아직 connected 아님)에 가깝게 매핑
  * - `ended`: 이 훅만으로는 구분 불가 → 항상 `idle`; 종료 사유는 `errorMessage`/토스트로 처리

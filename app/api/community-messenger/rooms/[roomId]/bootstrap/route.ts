@@ -7,7 +7,10 @@ import type {
   CommunityMessengerRoomSnapshotDiagnostics,
   CommunityMessengerRoomSnapshotOptions,
 } from "@/lib/chat-domain/ports/community-messenger-read";
-import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
+import {
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
+} from "@/lib/community-messenger/types";
 import {
   classifyCommunityMessengerRoomBootstrapCmReqSrc,
   communityMessengerRoomBootstrapApiTimingRouteKey,
@@ -25,8 +28,6 @@ import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cach
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
 
 /**
  * GET — 한 번에 방 메타, 참가자(멤버), 최근 메시지, 내 unread(room.unreadCount), activeCall.
@@ -65,7 +66,10 @@ export async function GET(
   const effectiveDefaultLimit =
     mode === "expand"
       ? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
-      : Math.min(COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT);
+      : Math.min(
+          COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
+          COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
+        );
   const diagnostics: CommunityMessengerRoomSnapshotDiagnostics = {};
   const opts: CommunityMessengerRoomSnapshotOptions = {
     initialMessageLimit:
@@ -73,7 +77,8 @@ export async function GET(
         ? Math.floor(Number(rawLimit)) || effectiveDefaultLimit
         : effectiveDefaultLimit,
     hydrateFullMemberList,
-    deferSnapshotSecondary: isSeedMode || isInstantMode,
+    /** `hydration=critical` 만 켠 요청도 시드 경로로 묶어 trade normalize 등 full 병렬에 들어가지 않게 한다 */
+    deferSnapshotSecondary: isSeedMode || isInstantMode || hydration === "critical",
     snapshotTier,
     diagnostics,
   };

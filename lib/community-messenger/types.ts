@@ -327,6 +327,16 @@ export type CommunityMessengerRoomSnapshot = {
    */
   bootstrapEnrichmentPending?: boolean;
   messages: CommunityMessengerMessage[];
+  /**
+   * 이 응답을 만들 때 최근 메시지 SQL `limit`에 쓴 값 — `hasMoreOlderMessages` 보조·구형 클라 폴백.
+   * 부트스트랩 시드(기본 `COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT`)와 `GET ...?messages=` 커스텀 모두 포함.
+   */
+  bootstrapInitialMessageLimit?: number;
+  /**
+   * DB에 타임라인상 더 오래된(이 스냅샷 최상단보다 이전) 메시지가 있을 가능성.
+   * `fetch limit`만큼 행을 채워 받았을 때 true(정확히 limit개면 다음 `before` 페이지 시도 가능).
+   */
+  hasMoreOlderMessages?: boolean;
   myRole: "owner" | "admin" | "member";
   readReceipt?: CommunityMessengerReadReceipt | null;
   peerPresence?: CommunityMessengerPeerPresenceSnapshot | null;
@@ -342,6 +352,9 @@ export type CommunityMessengerRoomSnapshot = {
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */
 export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT = 30;
+
+/** 비-expand 부트스트랩 시드 기본 — 페이로드·스냅샷 ms 절감용(라우트 `effectiveDefaultLimit`와 동일 원천) */
+export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 12;
 
 /** 그룹방 스냅샷에 실을 프로필(참가자) 상한 — 전원 하이드레이션 비용·응답 크기 완화 */
 export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP = 60;

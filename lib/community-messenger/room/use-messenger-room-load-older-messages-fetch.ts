@@ -11,7 +11,11 @@ import {
 } from "react";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
-import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import {
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
+  type CommunityMessengerMessage,
+  type CommunityMessengerRoomSnapshot,
+} from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
 export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
@@ -21,7 +25,6 @@ export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   messagesViewportRef: MutableRefObject<HTMLDivElement | null>;
-  CM_SNAPSHOT_FIRST_PAGE: number;
   olderMessagesExhaustedRef: MutableRefObject<boolean>;
   loadOlderMessagesRef: MutableRefObject<() => void>;
   hasMoreOlderMessages: boolean;
@@ -41,7 +44,6 @@ export function useMessengerRoomLoadOlderMessagesFetch({
   roomMessages,
   setRoomMessages,
   messagesViewportRef,
-  CM_SNAPSHOT_FIRST_PAGE,
   olderMessagesExhaustedRef,
   loadOlderMessagesRef,
   hasMoreOlderMessages,
@@ -67,7 +69,15 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     if (!snapshot) return;
     if (String(snapshot.room.id) !== String(roomId)) return;
     if (!olderMessagesExhaustedRef.current) {
-      setHasMoreOlderMessages(snapshot.messages.length >= CM_SNAPSHOT_FIRST_PAGE);
+      const serverFlag = snapshot.hasMoreOlderMessages;
+      const lim = snapshot.bootstrapInitialMessageLimit;
+      const next =
+        typeof serverFlag === "boolean"
+          ? serverFlag
+          : typeof lim === "number" && lim > 0
+            ? snapshot.messages.length >= lim
+            : snapshot.messages.length >= COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT;
+      setHasMoreOlderMessages(next);
     }
   }, [roomId, snapshot]);
 

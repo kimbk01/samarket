@@ -83,6 +83,7 @@ import {
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
   type CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
   type CommunityMessengerCallLogDisplayType,
@@ -6202,6 +6203,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let snapshotRoomMessageReactionsById = new Map<string, NonNullable<CommunityMessengerMessage["reactions"]>>();
   let roomTotalMemberCount: number | undefined;
   let membersTruncated = false;
+  /** `mappedMessages` 이전 DB/데브 행 기준 — 타임라인 `before` 페이지 가능 여부 */
+  let snapshotHasMoreOlderMessages = false;
+  /** 최근 메시지 fetch 에 실제 사용한 `limit`(스냅샷·클라 이전 메시지 UX) */
+  let snapshotBootstrapInitialMessageLimit: number | undefined;
   /** defer seed + Supabase: participants embed 에서 수집한 프로필 — `hydrateProfilesLabelsOnlyWithMap` 의 추가 `fetchProfilesByIds` 를 줄인다. */
   let embeddedProfilesFromParticipantRows = new Map<string, ProfileRow>();
   if (sb) {
@@ -6259,11 +6264,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       };
     })();
     /** defer seed RSC: 첫 paint 전 row 수·metadata 페이로드를 줄이기 위해 최근 메시지 fetch 상한만 별도 캡(컬럼 shape 동일). */
-    const deferSeedRecentMessagesFetchCap = 12;
     const messagesQueryLimit = isCriticalTier
       ? messageLimit
       : deferSecondaryRequested
-        ? Math.min(messageLimit, deferSeedRecentMessagesFetchCap)
+        ? Math.min(messageLimit, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT)
         : Math.min(messageLimit, 20);
     const messagesFetch = (async () => {
       const tMessages0 = performance.now();
@@ -6326,6 +6330,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants = rawParticipantRows;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
+      {
+        const rawIncomingCount = ((messageData ?? []) as MessageRow[]).length;
+        snapshotBootstrapInitialMessageLimit = messagesQueryLimit;
+        snapshotHasMoreOlderMessages = rawIncomingCount >= messagesQueryLimit;
+      }
       if (!isCriticalTier) {
         const rawMessageIdsForExtras = messages.map((m) => m.id);
         const authorByMidForExtras = communityMessengerAuthorUserIdByMessageIdForReactions(messages);
@@ -6390,8 +6399,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     {
       const sorted = dev.messages.filter((row) => row.roomId === id).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-      messages =
-        sorted.length <= messageLimit ? sorted : sorted.slice(sorted.length - messageLimit);
+      const tookAll = sorted.length <= messageLimit;
+      messages = tookAll ? sorted : sorted.slice(sorted.length - messageLimit);
+      snapshotBootstrapInitialMessageLimit = messageLimit;
+      snapshotHasMoreOlderMessages = !tookAll;
     }
     const mine = participants.find((row) => ("user_id" in row ? row.user_id : row.userId) === userId);
     if (mine && !("user_id" in mine)) mine.unreadCount = 0;
@@ -6552,6 +6563,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     : null;
   let presenceMap = new Map<string, CommunityMessengerPeerPresenceSnapshot>();
   let didFullSecondaryParallel = false;
+  /** full 티어 + 2차 미연기 아님: 통화·trade normalize·enrich·exit 스냅샷을 한 번에 병렬 처리 */
   if (!deferSecondary && !isCriticalTier) {
     didFullSecondaryParallel = true;
     const peerFromSummary = trimText(summary.peerUserId ?? "");
@@ -6926,19 +6938,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
   }
 
+  /** `critical` 티어: trade exit·상세·normalize·enrich 없음 — silent full 부트스트랩에서만 채운다 */
   let tradeMessagingForSnapshot: CommunityMessengerTradeMessagingSnapshot | undefined;
-  if (sb) {
+  if (sb && !isCriticalTier) {
     let tradePc = tradeProductChatExitForSnapshot;
-    if (!isCriticalTier) {
-      if (!tradePc && summary.contextMeta?.kind === "trade") {
-        tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
-      }
-      if (
-        !tradePc &&
-        (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
-      ) {
-        tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
-      }
+    if (!tradePc && summary.contextMeta?.kind === "trade") {
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
+    }
+    if (
+      !tradePc &&
+      (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
+    ) {
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
     }
     const ev = evaluateTradeMessagingForMessengerRoom({
       viewerUserId: userId,
@@ -6976,6 +6987,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
     ...(deferSecondary || isCriticalTier ? { bootstrapEnrichmentPending: true as const } : {}),
     messages: mappedMessages,
+    bootstrapInitialMessageLimit: snapshotBootstrapInitialMessageLimit,
+    hasMoreOlderMessages: snapshotHasMoreOlderMessages,
     myRole: meRole,
     ...(readReceipt ? { readReceipt } : {}),
     ...(peerPresence ? { peerPresence } : {}),

@@ -27,7 +27,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     !vm.showRemoteVideo &&
     !vm.showLocalVideo &&
     (vm.direction === "outgoing" ||
-      (vm.direction === "incoming" && (vm.phase === "connecting" || vm.phase === "connected")));
+      (vm.direction === "incoming" &&
+        (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
   return (
@@ -94,7 +95,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
 
-        {!vm.showRemoteVideo && !outgoingSoloVideoLayout ? (
+        {!vm.showRemoteVideo && !outgoingSoloVideoLayout && !vm.showLocalVideo ? (
           <div className="absolute inset-0 z-[4] flex flex-col items-center justify-center px-8">
             {vm.mode === "video" && vm.peerAvatarUrl ? (
               <img
@@ -102,6 +103,18 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 alt=""
                 className="mb-5 h-24 w-24 shrink-0 rounded-full object-cover shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
               />
+            ) : vm.mode === "video" ? (
+              <div
+                className="mb-5 flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-white/14 text-[1.65rem] font-semibold uppercase tracking-wide text-white shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/22"
+                aria-hidden
+              >
+                {(() => {
+                  const t = vm.peerLabel.trim();
+                  if (!t) return "?";
+                  const first = [...t][0];
+                  return first && first !== " " ? first.toUpperCase() : "?";
+                })()}
+              </div>
             ) : null}
             <CallStatusText
               title={vm.peerLabel}

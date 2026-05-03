@@ -6,12 +6,13 @@ import { loadCommunityMessengerRoomBootstrap } from "@/lib/chat-domain/use-cases
 import { createSupabaseCommunityMessengerReadPort } from "@/lib/chat-infra-supabase/community-messenger/supabase-read-adapter";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runCommunityMessengerRoomTradeDiagnosticsParallelForE2e } from "@/lib/community-messenger/service";
-import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
+import {
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
+} from "@/lib/community-messenger/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 20;
 
 /**
  * E2E·성능 추적: RSC 인라인 진단 제거 후에도 `#samarket-room-snapshot-diag` 와 동일 구조의 JSON 을

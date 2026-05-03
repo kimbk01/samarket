@@ -1002,7 +1002,6 @@ export function useMessengerRoomClientPhase1({
     roomMessages,
     setRoomMessages,
     messagesViewportRef,
-    CM_SNAPSHOT_FIRST_PAGE,
     olderMessagesExhaustedRef,
     loadOlderMessagesRef,
     hasMoreOlderMessages,

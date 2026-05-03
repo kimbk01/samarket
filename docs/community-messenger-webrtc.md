@@ -53,7 +53,7 @@ ICE 서버 목록은 **`GET /api/community-messenger/calls/ice-servers`** (인�
 ### 미디어 (느린 링크)
 
 - 영상: 연결 후 `degradationPreference: maintain-framerate` (오디오·움직임 우선)
-- RTT가 나쁘게 측정되면 송신 비디오 `maxBitrate` 상한 + `scaleResolutionDownBy: 2` 적용 (`use-community-messenger-call`)
+- RTT가 나쁘게 측정되면 송신 비디오 `maxBitrate` 상한 + `scaleResolutionDownBy: 2` 적용 — Agora 클라·`lib/call/webrtc-configuration.ts` 계열과 동일 정책
 
 ### 사전 준비
 

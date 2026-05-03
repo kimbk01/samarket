@@ -23,15 +23,9 @@ const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_BOOTSTRAP_BREAKDOWN === "1";
 
-/** stale-while-revalidate: 소비된 목록 캐시로 페인트한 뒤 네트워크 재검증(2~5s 지터) */
-const ROOM_BOOTSTRAP_SWR_DELAY_MS_MIN = 2000;
-const ROOM_BOOTSTRAP_SWR_DELAY_MS_MAX = 5000;
-
-function roomBootstrapSwrDelayMs(): number {
-  return (
-    ROOM_BOOTSTRAP_SWR_DELAY_MS_MIN +
-    Math.floor(Math.random() * (ROOM_BOOTSTRAP_SWR_DELAY_MS_MAX - ROOM_BOOTSTRAP_SWR_DELAY_MS_MIN + 1))
-  );
+/** primed 페인트 뒤 full 보강 silent GET — lifecycle `bootstrapEnrichmentPending` 과 동일 100~300ms 밴드 */
+function roomBootstrapSecondaryEnrichmentDelayMs(): number {
+  return 100 + Math.floor(Math.random() * 101);
 }
 
 function payloadSizeTierKb(sizeBytes: number): { kb: number; tier: "ok" | "review" | "problem" } {
@@ -65,7 +59,7 @@ export type MessengerRoomBootstrapRefreshDeps = {
   silentRoomRefreshAgainRef: MutableRefObject<boolean>;
   /** `roomId` 전환 시 이전 클로저의 coalesce 타이머가 잘못된 방을 fetch 하지 않도록 훅에서 안정적으로 넘긴다. */
   silentBootstrapThrottleCoalesceTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
-  /** `consumeRoomSnapshot` 즉시 렌더 후 지연 SWR 부트스트랩 타이머 — 언마운트·재진입 시 클리어 */
+  /** `consumeRoomSnapshot` 직후 full 보강 silent 타이머(100~300ms) — 언마운트·재진입 시 클리어 */
   swrDeferredBootstrapTimerRef: MutableRefObject<number | null>;
 };
 
@@ -80,7 +74,7 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
 }
 
 /**
- * 메신저 방 HTTP 부트스트랩 갱신 — `CommunityMessengerRoomClient` 와 동일 동작(프라임·rAF·single-flight).
+ * 메신저 방 HTTP 부트스트랩 갱신 — `CommunityMessengerRoomClient` 와 동일 동작(프라임·single-flight).
  * 컴포넌트 밖 두어 리렌더마다 콜백 본문 재생성 범위를 줄인다.
  */
 export function createMessengerRoomBootstrapRefresh(
@@ -151,14 +145,7 @@ export function createMessengerRoomBootstrapRefresh(
       if (primed) {
         setSnapshot(primed);
         setLoading(false);
-        await new Promise<void>((resolve) => {
-          if (typeof requestAnimationFrame === "undefined") {
-            queueMicrotask(() => resolve());
-          } else {
-            requestAnimationFrame(() => resolve());
-          }
-        });
-        const delayMs = roomBootstrapSwrDelayMs();
+        const delayMs = roomBootstrapSecondaryEnrichmentDelayMs();
         if (typeof window !== "undefined") {
           swrDeferredBootstrapTimerRef.current = window.setTimeout(() => {
             swrDeferredBootstrapTimerRef.current = null;
@@ -214,6 +201,14 @@ export function createMessengerRoomBootstrapRefresh(
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
         }
         cmCallIncomingTraceMaybeRoomBootstrap(roomId, "start");
+        if (shouldBlock && typeof console !== "undefined") {
+          const suf = roomId.trim();
+          console.info("[cm-room-bootstrap] blocking_fetch_start", {
+            perfNow: typeof performance !== "undefined" ? performance.now() : Date.now(),
+            roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
+            cmReqSrc: reqSrc,
+          });
+        }
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
           cache: "default",
           credentials: "include",

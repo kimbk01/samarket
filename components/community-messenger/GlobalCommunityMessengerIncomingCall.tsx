@@ -49,7 +49,7 @@ import {
   cmCallIncomingTraceRegisterRingingRoom,
 } from "@/lib/community-messenger/cm-call-debug";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
   applyIncomingCallSessionsRealtimeEvent,
@@ -105,6 +105,11 @@ const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
  * 수신 벨이 잠깐 멈췄다가 다시 울리는 현상을 막는다(서버는 이미 종료, 클라만 오래된 행을 본 경우).
  */
 const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
+
+/** 터미널 직후 목록 GET: 쿨다운·진행 중 단일 비행을 우회해 stale 응답에 묶이지 않게 함 */
+type IncomingCallsRefreshOpts = {
+  incomingTerminalListSync?: boolean;
+};
 
 function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
   const now = Date.now();
@@ -289,10 +294,14 @@ export function GlobalCommunityMessengerIncomingCall() {
     };
   }, []);
 
-  const refresh = useCallback(async (force = false) => {
+  const refresh = useCallback(async (force = false, opts?: IncomingCallsRefreshOpts) => {
     const now = Date.now();
-    if (!force && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
+    const bypassCooldown = force || Boolean(opts?.incomingTerminalListSync);
+    if (!bypassCooldown && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
       return;
+    }
+    if (opts?.incomingTerminalListSync) {
+      forgetSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY);
     }
     try {
       const res = await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, () =>
@@ -603,7 +612,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               }
             : { sessionStatus: "ringing", isInitiator: false, endedReason: null }
         ).then(() => {
-          void refresh(true);
+          void refresh(true, { incomingTerminalListSync: true });
         });
       }, delay);
       ringMissedScheduleRef.current.set(sid, { deadline, timerId });
@@ -824,7 +833,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               ? merged.terminalStatus
               : "cancelled";
         handleCallTerminalEvent({ ...merged, status: st }, "broadcast_hangup");
-        void refreshRef.current(true);
+        void refreshRef.current(true, { incomingTerminalListSync: true });
       },
     });
     return () => {
@@ -868,7 +877,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             "sw_cancel_wake"
           );
         }
-        void refreshRef.current(true);
+        void refreshRef.current(true, { incomingTerminalListSync: true });
       }
     };
     sw.addEventListener("message", onMessage);
@@ -995,7 +1004,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
                   realtimeDebounceTimerRef.current = null;
                 }
-                void refreshRef.current(true);
+                void refreshRef.current(true, { incomingTerminalListSync: true });
               } else if (p.eventType === "INSERT") {
                 if (realtimeDebounceTimerRef.current != null) {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
@@ -1049,7 +1058,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 window.clearTimeout(realtimeDebounceTimerRef.current);
                 realtimeDebounceTimerRef.current = null;
               }
-              void refreshRef.current(true);
+              void refreshRef.current(true, { incomingTerminalListSync: true });
             }
           )
           .on(
@@ -1318,12 +1327,12 @@ export function GlobalCommunityMessengerIncomingCall() {
           dismissedIncomingSessionsAtRef.current.delete(sessionId);
           setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         }
-        await refresh(true);
+        await refresh(true, { incomingTerminalListSync: true });
         return;
       }
       setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      await refresh(true);
+      await refresh(true, { incomingTerminalListSync: true });
     } finally {
       setBusyId(null);
     }

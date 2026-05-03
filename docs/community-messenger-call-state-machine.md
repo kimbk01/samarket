@@ -30,14 +30,14 @@
 
 그룹 방에서만 `startOutgoingCall`·패널·시그널 루프가 살아 있다.
 
-### 미연결·레거시 후보 (삭제하지 않고 파일 주석·본 절로 분류)
+### 미연결·레거시 후보 (파일 주석·본 절로 분류)
 
 | 파일 | 역할 | 실경로 |
 |------|------|--------|
-| `lib/community-messenger/use-community-messenger-call.ts` | P2P WebRTC 1:1 훅 | **import 없음** — Agora 경로와 혼동 금지 |
-| `lib/call/call-session-state.ts` | 패널+transport → phase 합성 | 위 훅·`use-call-session.ts` 만 참조 |
+| `lib/call/call-session-state.ts` | 패널+transport → phase 합성 | `use-call-session.ts` 등 레거시 참고용 |
 | `lib/call/use-call-session.ts` | `deriveCallSessionPhase` 래퍼 | **import 없음** |
-| `lib/call/call-machine.ts` | `reduceCallMachine` 등 | **import 없음** |
+
+(데드 코드 정리로 제거됨: 옛 P2P 1:1 훅 `use-community-messenger-call.ts`, UI 미사용 `call-machine.ts`.)
 
 ---
 
@@ -168,7 +168,7 @@ Agora 1:1 경로는 **관리 연결 토큰·채널 조인**이 중심이며, 시
 
 | 출처 | 기준 | 용도 |
 |------|------|------|
-| `use-community-messenger-call.ts` / `use-community-messenger-group-call.ts` | **`CALL_RING_TIMEOUT_MS = 35_000`** | 타이머 만료 시 `PATCH missed` 등 |
+| `use-community-messenger-group-call.ts` | 그룹 WebRTC 링·missed 등 타이머 | 타이머 만료 시 `PATCH missed` 등(1:1 Agora는 `CommunityMessengerCallClient`·`messenger-call-ring-timeout` 등 별도) |
 | `GlobalCommunityMessengerIncomingCall` + `CallOverlay` | **`incoming_ring_timeout_seconds`** (기본 **45**, 관리자 설정) | 수신 오버레이 **남은 시간 표시** |
 
 **문제**: 발신/훅은 **35초**, 수신 UI 카운트다운은 **기본 45초**로 **불일치**할 수 있다. 오버레이는 **자동 missed PATCH를 걸지 않고 표시만** 하는 설계이면, 실제 종료 시점은 **발신 측 타이머·서버·동기화**에 더 의존한다.
@@ -185,7 +185,7 @@ Agora 1:1 경로는 **관리 연결 토큰·채널 조인**이 중심이며, 시
 |------|------|
 | **그룹 cancelled → ended reason** | `use-community-messenger-group-call.ts`: 세션 `cancelled` 종료 시 `showEndedPanel` 에 **`reason: "failed"`** 로 넣는 분기가 있다. 의미상 **취소(cancelled)** 와 **실패(failed)** 가 섞일 수 있음 → **수정 후보**. |
 | **1:1 Agora `failed` phase** | `CommunityMessengerCallClient` 의 `resolveDirectCallPhase`는 **`failed` 를 반환하지 않는다**. Agora 조인 실패는 **`errorMessage`** 등으로 처리되며, `CallScreen` 의 **`phase === "failed"`** 문구 분기는 **안정적으로 도달하지 않을 수 있음** → **음성 MVP 전 필수 보강 후보**. |
-| **레거시 훅** | `use-community-messenger-call.ts` 미연결 — 문서·온콜 계약이 이 파일만 가리키면 **실제 Agora 경로와 불일치**. |
+| **옛 P2P 1:1 훅** | `use-community-messenger-call.ts` 는 **레포에서 제거됨** — 문서는 **Agora** `CommunityMessengerCallClient` 기준으로만 맞춘다. |
 
 ---
 
@@ -204,7 +204,7 @@ Agora 1:1 경로는 **관리 연결 토큰·채널 조인**이 중심이며, 시
 1. **링 타임아웃 단일화**: `incoming_ring_timeout_seconds` 를 단일 소스로 두고, **35s 하드코드·45s 표시** 상충 제거.  
 2. **Agora 조인 실패 → 터미널 UI**: `resolveDirectCallPhase` 또는 동등 로직으로 **`failed`(또는 명확한 오류 종료)** 가 일관되게 보이도록 보강.  
 3. **그룹 훅 cancelled 처리**: `showEndedPanel` 의 **`cancelled` → `reason: "failed"`** 오분류 수정.  
-4. **레거시 정리**: `use-community-messenger-call.ts` 를 **삭제·병합·실연결** 중 하나로 결정하고, `docs/call-signaling-contract.md` 등 교차 참조 정리.  
+4. ~~**레거시 정리**~~: `use-community-messenger-call.ts` 데드 코드 제거 및 교차 참조 정리 **완료**.  
 5. **감사 로그 정렬**: `call.invite` 첫 이벤트 `ringing` vs `invited` 등 서버·문서 한 줄로 통일.
 
 ---
@@ -213,7 +213,7 @@ Agora 1:1 경로는 **관리 연결 토큰·채널 조인**이 중심이며, 시
 
 - 1:1 통화 페이지: `components/community-messenger/CommunityMessengerCallClient.tsx` — `resolveDirectCallPhase`
 - 그룹 훅: `lib/community-messenger/use-community-messenger-group-call.ts`
-- 미연결 P2P 훅: `lib/community-messenger/use-community-messenger-call.ts`
+- ~~미연결 P2P 훅~~: 제거됨 — 1:1은 `CommunityMessengerCallClient.tsx`
 - 세션 스키마: `supabase/migrations/20260605001000_community_messenger_webrtc_signaling.sql`
 - 감사·`ended_reason`: `supabase/migrations/20260616140000_community_messenger_call_events.sql`
 - 방당 하나의 live 세션: `supabase/migrations/20260611160000_community_messenger_one_live_call_per_room.sql`

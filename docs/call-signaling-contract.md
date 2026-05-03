@@ -38,7 +38,7 @@ type CallSignalPostBody = {
 
 ## 세션 수명과 채팅 연동
 
-- **실시간 시그널**: Supabase `postgres_changes` on `community_messenger_call_signals` + HTTP 폴링 백업 ([`use-community-messenger-call.ts`](../lib/community-messenger/use-community-messenger-call.ts)).
+- **실시간 시그널**: Supabase `postgres_changes` on `community_messenger_call_signals` + HTTP 폴링 백업 — 구현은 **1:1 Agora** `components/community-messenger/CommunityMessengerCallClient.tsx` 등 제품 경로를 따른다.
 - **통화 로그/알림**: `call_stub` 메시지나 푸시는 **별도 파이프**로, 시그널 페이로드와 혼합하지 않는다.
 - **감사**: 세션 행(`community_messenger_call_sessions` 등)에 참여자·시작/종료 시각·종료 사유를 둔다(기존 서비스 스키마 따름).
 

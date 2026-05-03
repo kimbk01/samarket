@@ -38,6 +38,7 @@ export function buildClientShellPlaceholderSnapshot(
     },
     members: [],
     messages: [],
+    hasMoreOlderMessages: false,
     myRole: "member",
     activeCall: null,
   };

@@ -30,7 +30,8 @@ export function CallScreen({
     return () => window.clearTimeout(timer);
   }, [vm.autoCloseMs]);
 
-  const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing";
+  /** 음성 수신 벨만 텔레그램형 단색 셸 — 영상 수신 링은 발신과 동일 풀스크린(`ConnectedVideoView`) */
+  const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
   /** 발신 영상 솔로(로컬 풀프리뷰) — 배경 레이어가 카메라를 가리지 않게 함 */
   const isOutgoingVideoSolo =
@@ -55,7 +56,7 @@ export function CallScreen({
         />
       )}
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
-        {!(vm.direction === "incoming" && vm.phase === "ringing") ? (
+        {!(vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") ? (
           <CallHeader
             onBack={vm.onBack}
             topLabel={vm.topLabel}
@@ -76,7 +77,7 @@ function renderCallView(
   if (vm.phase === "ended" || vm.phase === "declined" || vm.phase === "missed" || vm.phase === "failed") {
     return <EndedCallView vm={vm} />;
   }
-  if (vm.direction === "incoming" && vm.phase === "ringing") {
+  if (vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") {
     return <IncomingCallView vm={vm} />;
   }
   /** 음성 발신 벨만 전용 패널 — 영상 발신은 아래와 동일 풀스크린으로 통일 */

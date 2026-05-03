@@ -12,7 +12,7 @@ import {
 } from "@/lib/call/call-session-state";
 
 /**
- * 레거시 패널·transport 상태를 단일 phase 로 합성 — `useCommunityMessengerCall` 과 동일 규칙.
+ * 레거시 패널·transport 상태를 단일 phase 로 합성 — 옛 P2P 훅과 동일 규칙(현재 제품 경로는 Agora `CommunityMessengerCallClient`).
  */
 export function useCallSessionPhase(input: CallSessionPhaseInput): {
   phase: ReturnType<typeof deriveCallSessionPhase>["phase"];
