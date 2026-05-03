@@ -23,11 +23,6 @@ type MessengerUIState = {
   selectedFriendId: string | null;
   /** 채팅방 하단 입력 포커스 — 스크롤·키보드 보조 */
   composerFocused: boolean;
-  /**
-   * 커뮤니티 메신저 **방 화면**(`/community-messenger/rooms/...`) + 좁은 화면에서 키보드 크롬이 켜졌을 때 true.
-   * 일반·그룹·오픈·거래 방 공통 — `ConditionalAppShell` 이 하단 탭을 숨긴다.
-   */
-  messengerSuppressBottomNavForKeyboard: boolean;
 
   setActiveSection: (section: MessengerActiveSection) => void;
   setActiveChatFilter: (filter: MessengerChatFilter) => void;
@@ -44,7 +39,6 @@ type MessengerUIState = {
   selectRoom: (roomId: string | null) => void;
   selectFriend: (friendId: string | null) => void;
   setComposerFocused: (v: boolean) => void;
-  setMessengerSuppressBottomNavForKeyboard: (v: boolean) => void;
 };
 
 export const useMessengerUIStore = create<MessengerUIState>((set) => ({
@@ -58,7 +52,6 @@ export const useMessengerUIStore = create<MessengerUIState>((set) => ({
   selectedRoomId: null,
   selectedFriendId: null,
   composerFocused: false,
-  messengerSuppressBottomNavForKeyboard: false,
 
   setActiveSection: (activeSection) => set({ activeSection }),
   setActiveChatFilter: (activeChatFilter) => set({ activeChatFilter }),
@@ -75,6 +68,4 @@ export const useMessengerUIStore = create<MessengerUIState>((set) => ({
   selectRoom: (selectedRoomId) => set({ selectedRoomId }),
   selectFriend: (selectedFriendId) => set({ selectedFriendId }),
   setComposerFocused: (composerFocused) => set({ composerFocused }),
-  setMessengerSuppressBottomNavForKeyboard: (messengerSuppressBottomNavForKeyboard) =>
-    set({ messengerSuppressBottomNavForKeyboard }),
 }));

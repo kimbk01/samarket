@@ -21,6 +21,7 @@ import {
   tradeMeetSpotFromMetaSnapshot,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
+import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
 import {
   clearTradeMeetSpotPickResult,
   clearTradeMeetSpotSessionNavigationState,
@@ -258,6 +259,27 @@ export function JobsWriteForm({
     null
   );
 
+  const effectiveTradeRegionId = useMemo(() => {
+    const r = region.trim();
+    if (r) return r;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.regionId ?? "";
+  }, [region, tradeMeetSpot]);
+
+  const effectiveTradeCityId = useMemo(() => {
+    const c = city.trim();
+    if (c) return c;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.cityId ?? "";
+  }, [city, tradeMeetSpot]);
+
+  const applyMeetSpotPick = useCallback(
+    (next: TradeMeetSpotValue) => {
+      setTradeMeetSpot(next);
+      const loc = inferTradeRegionCityFromMeetSpot(next);
+      if (loc) syncTradeRegionCity(loc.regionId, loc.cityId);
+    },
+    [syncTradeRegionCity]
+  );
+
   const hasLocation = true;
   const pendingMeetSpotFocusRef = useRef(false);
 
@@ -436,14 +458,14 @@ export function JobsWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      setTradeMeetSpot(next);
+      applyMeetSpotPick(next);
       requestAnimationFrame(() => {
         clearTradeMeetSpotPickResult();
       });
     }
     if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
     else restoreTradeMeetSpotReturnScrollPosition();
-  }, [pathname, tradeWriteSheetEpoch, category.id]);
+  }, [pathname, tradeWriteSheetEpoch, category.id, applyMeetSpotPick]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;
@@ -457,19 +479,19 @@ export function JobsWriteForm({
   useEffect(() => {
     const onPageShow = () => {
       const next = consumeTradeMeetSpotPickResult();
-      if (next) setTradeMeetSpot(next);
+      if (next) applyMeetSpotPick(next);
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  }, [applyMeetSpotPick]);
 
   const karrotMeetSpotDisplayLine = useMemo(() => {
     const fromMap = tradeMeetSpot?.displayLine?.trim();
     if (fromMap) return fromMap;
     const rep = representativeTradeMeetFallbackLine?.trim();
     if (rep) return rep;
-    return getLocationLabelIfValid(region, city)?.trim() ?? "";
-  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
+    return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, effectiveTradeRegionId, effectiveTradeCityId]);
 
   const handleResumeJobsPersistedDraft = useCallback(() => {
     const staged = consumeJobsWriteMeetSpotStaging(category.id);
@@ -812,7 +834,7 @@ export function JobsWriteForm({
         }
       }
     }
-    if (!region.trim() || !city.trim()) {
+    if (!effectiveTradeRegionId || !effectiveTradeCityId) {
       next.region =
         listingKind === "work"
           ? "희망 근무지역을 불러오지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요."
@@ -820,7 +842,8 @@ export function JobsWriteForm({
     }
     if (!tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
-        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+        representativeTradeMeetFallbackLine?.trim() ||
+        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
       if (!fallbackLine) {
         next.meetSpot =
           listingKind === "work"
@@ -879,8 +902,8 @@ export function JobsWriteForm({
     workTerm,
     workDate,
     workDateEnd,
-    region,
-    city,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
     description,
     payAmount,
     payType,
@@ -1084,9 +1107,13 @@ export function JobsWriteForm({
           .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
         const imageUrls = [...existingUrls, ...uploaded];
         let meta: Record<string, unknown> = buildMeta();
+        const submitRegion = effectiveTradeRegionId.trim();
+        const submitCity = effectiveTradeCityId.trim();
         const lineFromMap = tradeMeetSpot?.displayLine?.trim();
         const lineFallback =
-          representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+          representativeTradeMeetFallbackLine?.trim() ||
+          getLocationLabelIfValid(submitRegion, submitCity)?.trim() ||
+          "";
         const line = lineFromMap || lineFallback;
         if (line) {
           const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
@@ -1112,8 +1139,8 @@ export function JobsWriteForm({
               price: priceNum,
               isPriceOfferEnabled: false,
               isFreeShare: false,
-              region: region || undefined,
-              city: city || undefined,
+              region: submitRegion || undefined,
+              city: submitCity || undefined,
               barangay: undefined,
               imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
               meta: Object.keys(meta).length > 0 ? meta : undefined,
@@ -1140,8 +1167,8 @@ export function JobsWriteForm({
           price: priceNum,
           isPriceOfferEnabled: false,
           isFreeShare: false,
-          region: region || undefined,
-          city: city || undefined,
+          region: submitRegion || undefined,
+          city: submitCity || undefined,
           barangay: undefined,
           imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
           meta: Object.keys(meta).length > 0 ? meta : undefined,
@@ -1170,8 +1197,8 @@ export function JobsWriteForm({
       images,
       category,
       tradeTopicChildId,
-      region,
-      city,
+      effectiveTradeRegionId,
+      effectiveTradeCityId,
       router,
       pathname,
       onSuccess,
@@ -1194,6 +1221,7 @@ export function JobsWriteForm({
         region={region}
         city={city}
         onSyncRegionCity={syncTradeRegionCity}
+        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.region}
         readOnly={coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}

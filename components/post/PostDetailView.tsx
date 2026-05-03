@@ -837,7 +837,7 @@ export function PostDetailView({
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  /** 신규 채팅은 `openCreateTradeChat` 에서 서버 resolve 후 방으로 이동(실패·게이트만 compose) */
+  /** 신규 채팅은 `openCreateTradeChat` → compose 에서 방 생성 후 메신저 방으로 이동 */
   const chatCtaBusy = false;
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatError, setChatError] = useState("");
@@ -1523,7 +1523,7 @@ export function PostDetailView({
         existingMessengerRoomId: existingTradeMessengerId,
         prepareIfCreate: true,
       });
-    }, 180);
+    }, 72);
   }, [
     uiTradeChatEnabled,
     existingTradeRoomId,
@@ -1577,13 +1577,28 @@ export function PostDetailView({
     prefetchTradeChatShell,
   ]);
 
-  /** 거래 채팅 허브(및 알려진 기존 거래 방) RSC 선로딩 */
+  /** 상세 진입 직후 채팅 라우트·선행 resolve — 탭 전 호버 없이도 체감 지연 완화 */
   useEffect(() => {
     if (resolvedViewerId === undefined || resolvedViewerId === null) return;
     if (postOwnedByUserId(post as unknown as Record<string, unknown>, resolvedViewerId)) return;
     if (!uiTradeChatEnabled) return;
-    prefetchTradeChatShell();
-  }, [post, resolvedViewerId, uiTradeChatEnabled, prefetchTradeChatShell]);
+    prefetchTradeChatEntry(router, {
+      productId: post.id,
+      existingRoomId: existingTradeRoomId,
+      existingRoomSource: existingTradeRoomSource,
+      existingMessengerRoomId: existingTradeMessengerId,
+      prepareIfCreate: !existingTradeRoomId,
+    });
+  }, [
+    post,
+    post.id,
+    resolvedViewerId,
+    uiTradeChatEnabled,
+    router,
+    existingTradeRoomId,
+    existingTradeRoomSource,
+    existingTradeMessengerId,
+  ]);
 
   const jobTypeForChatCta = String(detailMetaJob.job_type ?? "").trim();
   const isJobSeekForChatCta =

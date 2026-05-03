@@ -37,7 +37,10 @@ import {
   loadChatRoomDetailForUser,
 } from "@/lib/chats/server/load-chat-room-detail";
 import type { ChatRoom } from "@/lib/types/chat";
-import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
+import {
+  persistProductChatMessengerRoomId,
+  syncChatRoomMessengerLink,
+} from "@/lib/trade/persist-trade-messenger-room-link";
 import { syncItemTradeReadWithMessengerRoomMark } from "@/lib/trade/sync-item-trade-read-with-messenger-room";
 import {
   itemTradeChatRoomIdFromMessengerDirectKey,
@@ -4255,17 +4258,19 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
   if (!seller || !buyer) return { ok: false, error: "product_chat_invalid" };
   if (userId !== seller && userId !== buyer) return { ok: false, error: "not_participant" };
   const peer = userId === seller ? buyer : seller;
-  const itemTradeChatRoomId = trimText(tradeLink?.itemTradeChatRoomId ?? "");
+  const ledgerCrId = trimText(tradeLink?.itemTradeChatRoomId ?? resolved.ledgerChatRoomId ?? "");
   const out = await ensureCommunityMessengerDirectRoom(userId, peer, {
     productChatId,
-    ...(itemTradeChatRoomId ? { itemTradeChatRoomId } : {}),
+    ...(ledgerCrId ? { itemTradeChatRoomId: ledgerCrId } : {}),
   });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
   /** 요약 하이드레이션은 부트스트랩·목록 보강에서도 됨 — `item/start` 응답 RTT 에서 제외 */
   void hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId, pc).catch(() => {});
   const sbPersist = getSupabaseOrNull();
-  /** `item_trade` 행별 메신저는 `chat_rooms.community_messenger_room_id` 로만 고정 — `product_chats` 단일 행을 덮어쓰지 않음 */
-  if (sbPersist && !itemTradeChatRoomId) {
+  /** item_trade 행이 있으면 `chat_rooms` FK만 고정 — 없으면 레거시로 PC 에 메신저 id 기록 */
+  if (sbPersist && ledgerCrId) {
+    await syncChatRoomMessengerLink(sbPersist as never, ledgerCrId, out.roomId);
+  } else if (sbPersist) {
     await persistProductChatMessengerRoomId(sbPersist as never, productChatId, out.roomId);
   }
   return { ok: true, roomId: out.roomId, peerUserId: peer };

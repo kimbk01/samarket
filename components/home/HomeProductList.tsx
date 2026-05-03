@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
@@ -30,6 +30,11 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import {
+  cancelScheduledWhenBrowserIdle,
+  isConstrainedNetwork,
+  scheduleWhenBrowserIdle,
+} from "@/lib/ui/network-policy";
 
 const ReportReasonModal = dynamic(
   () => import("@/components/post/ReportReasonModal").then((m) => m.ReportReasonModal),
@@ -65,6 +70,7 @@ export function HomeProductList({
   /** 서버(RSC)에서 채운 첫 페이지 — 마운트 시 클라이언트 재요청 생략 */
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
 }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const homePostListOptions = useMemo<GetPostsForHomeOptions>(
@@ -194,6 +200,24 @@ export function HomeProductList({
     window.addEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
     return () => window.removeEventListener(TRADE_POST_LIST_CACHE_INVALIDATED, onBust);
   }, [load]);
+
+  /**
+   * 리스트→상세 체감: 상단 카드 `/post/:id` idle prefetch (제거 시 회귀).
+   * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+   */
+  useEffect(() => {
+    if (posts.length === 0) return;
+    if (isConstrainedNetwork()) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    const idleId = scheduleWhenBrowserIdle(() => {
+      const cap = Math.min(INITIAL_VISIBLE_CARD_COUNT, posts.length);
+      for (let i = 0; i < cap; i++) {
+        const pid = posts[i]?.id?.trim();
+        if (pid) void router.prefetch(`/post/${encodeURIComponent(pid)}`);
+      }
+    }, 480);
+    return () => cancelScheduledWhenBrowserIdle(idleId);
+  }, [posts, router]);
 
   useEffect(() => {
     if (posts.length <= 0) {

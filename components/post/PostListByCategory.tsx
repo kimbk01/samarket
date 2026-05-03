@@ -271,7 +271,10 @@ export function PostListByCategory({
   const postsRef = useRef(posts);
   postsRef.current = posts;
 
-  /** 상단 10개 id 시그니처만 바뀔 때 prefetch — `posts` 배열 참조만 갱신된 리렌더에서 중복 호출 방지 */
+  /**
+   * 마켓 카테고리 리스트→상세: 상단 10건 `/post/:id` prefetch (제거·약화 시 회귀).
+   * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+   */
   const routePrefetchTopIdsKey = useMemo(
     () =>
       posts

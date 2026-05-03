@@ -1,0 +1,43 @@
+---
+description: 체감 속도·거래·메신저 핫패스 수정 시 — 이전 상태 대조·계약 검증 필수 (리턴 방지)
+alwaysApply: true
+---
+
+# 성능·체감 속도 관련 수정 — 필수 절차
+
+목표: **속도만 고치겠다며 계약을 되돌려** 같은 병목이 반복되지 않게 한다.
+
+## 언제 적용하나
+
+아래 **어느 하나**를 바꿀 때마다 본 절차를 따른다.
+
+- 거래 목록·상세·채팅 진입 (`/post`, `/market`, prefetch, `trade-detail`, `trade-chat-entry`, compose)
+- 메신저 방·메인 하단 탭·레이아웃 셸 (`conditional-app-shell-flags`, `ConditionalAppShell`, 메신저 Phase2)
+- RSC 첫 응답에 묶는 데이터 범위·병렬 쿼리
+
+## 수정 전 (필수)
+
+1. **계약 문서 읽기**  
+   - 거래 상세·채팅: `.cursor/rules/trade-post-detail-chat-hot-path.mdc`  
+   - 메신저 탭: `.cursor/rules/chat-detail-bottom-nav-authority.mdc`
+2. **이전 상태와 비교** — 변경 파일에 대해 반드시 하나 이상 수행  
+   - `git diff` / `git diff HEAD~1 -- <파일>` 또는 PR 상위 커밋과 비교  
+   - 해당 파일의 **`CONTRACT` / `DO NOT` / `재발 방지` 주석**이 무엇을 막는지 확인
+3. **자동 검증(거래 상세 RSC)** — `services/trade/trade-detail.service.ts` 를 건드리면 로컬에서 실행  
+   - `npm run verify:trade-hot-path-contract`
+
+## 수정 후 (필수)
+
+1. **역행 자가 점검** (`trade-post-detail-chat-hot-path.mdc` 체크리스트와 대조)  
+   - 거래 상세 related 가 RSC `getItemDetailPageData` 에서 `getTradeDetailRelatedData` 로 병렬 포함되는가 (클라 마운트 단독 fetch 에만 의존하지 않는가)  
+   - `openCreateTradeChat` 이 상세에서 동기 `createOrGetChatRoom` 을 기다리지 않는가  
+   - 메신저 방에서 BottomNav 가 경로 플래그 외 스위치로 다시 켜지지 않는가  
+2. **계약 주석을 삭제·축약했다면** 같은 변경에서 `.mdc` 규칙도 함께 갱신했는가  
+3. **수정 이력 기록** — 아래를 바꿨다면 **같은 PR·커밋 묶음**에서 `docs/trade-perf-hot-path-changelog.md` 표에 **한 줄 추가**(append-only). 개선이 아닌 되돌림만 한 경우에도 **사유**를 남긴다.  
+4. `npx tsc --noEmit` 통과 확인
+
+## 금지
+
+- 계약 주석만 지우고 예전(느린) 데이터 묶음으로 되돌리기  
+- 검증 스크립트 실패 시 금지 목록만 지우고 통과시키기 (제품 결정 없이)
+- 핫패스·속도 계약을 바꾸고 **`docs/trade-perf-hot-path-changelog.md` 에 이력을 남기지 않기** (개선·역행 모두 추적 목적)

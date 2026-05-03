@@ -6,6 +6,9 @@ export type TradeMeetSpotValue = {
   lat?: number;
   lng?: number;
   placeId?: string;
+  /** 지도 확인 시 주소 매칭으로 채움 — 글쓰기 `region`/`city` 와 동기화 */
+  appRegionId?: string;
+  appCityId?: string;
 };
 
 /**
@@ -34,7 +37,11 @@ export function tradeMeetSpotFromMetaSnapshot(ts: unknown): TradeMeetSpotValue |
   const lng = coerceTradeMeetSpotLatLng(o.lng) ?? coerceTradeMeetSpotLatLng(o.longitude);
   const pid = o.place_id;
   const placeId = typeof pid === "string" && pid.trim() ? pid.trim() : undefined;
-  return { displayLine: dl, lat, lng, placeId };
+  const appRegionId =
+    typeof o.app_region_id === "string" && o.app_region_id.trim() ? o.app_region_id.trim() : undefined;
+  const appCityId =
+    typeof o.app_city_id === "string" && o.app_city_id.trim() ? o.app_city_id.trim() : undefined;
+  return { displayLine: dl, lat, lng, placeId, appRegionId, appCityId };
 }
 
 /** 글 저장 시 meta — 문자열 좌표도 숫자로 넣어 재조회·지도 시드가 깨지지 않게 함 */
@@ -54,16 +61,24 @@ export function tradeMeetSpotFromClientFields(
         lat?: unknown;
         lng?: unknown;
         placeId?: string | null;
+        appRegionId?: string | null;
+        appCityId?: string | null;
       }
     | null
     | undefined
 ): TradeMeetSpotValue | null {
   const dl = typeof raw?.displayLine === "string" ? raw.displayLine.trim() : "";
   if (!dl) return null;
+  const appRegionId =
+    typeof raw?.appRegionId === "string" && raw.appRegionId.trim() ? raw.appRegionId.trim() : undefined;
+  const appCityId =
+    typeof raw?.appCityId === "string" && raw.appCityId.trim() ? raw.appCityId.trim() : undefined;
   return {
     displayLine: dl,
     lat: coerceTradeMeetSpotLatLng(raw?.lat),
     lng: coerceTradeMeetSpotLatLng(raw?.lng),
     placeId: typeof raw?.placeId === "string" && raw.placeId.trim() ? raw.placeId.trim() : undefined,
+    appRegionId,
+    appCityId,
   };
 }

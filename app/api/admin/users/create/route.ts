@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { createUserAddress } from "@/lib/addresses/user-address-service";
+import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
+import {
+  STORE_PRIVACY_VERSION,
+  STORE_TERMS_VERSION,
+} from "@/lib/auth/store-member-policy";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   buildProfileRegionNameForStorage,
   encodeProfileAppLocationStorage,
 } from "@/lib/profile/profile-location";
+import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -175,11 +182,59 @@ export async function POST(req: NextRequest) {
     region_name,
     address_street_line,
     address_detail,
+    /** 로그인 직후 사이트 동의 화면·클라 재분기 방지 — 운영이 생성한 계정은 현행 버전으로 기록 */
+    terms_accepted_at: nowIso,
+    privacy_accepted_at: nowIso,
+    terms_version: STORE_TERMS_VERSION,
+    privacy_version: STORE_PRIVACY_VERSION,
   };
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {
     await supabase.auth.admin.deleteUser(id);
     return NextResponse.json({ ok: false, error: mapProfileCreateError(profileError.message) }, { status: 500 });
+  }
+
+  if (regionId && cityId) {
+    try {
+      const regionMeta = REGIONS.find((r) => r.id === regionId);
+      const cityMeta = regionMeta?.cities.find((c) => c.id === cityId);
+      const provinceLabel = regionMeta?.name ?? null;
+      const cityLabel = cityMeta?.name ?? null;
+      const streetParts = [streetIn, detailIn].filter(Boolean).join(", ").trim();
+      const contactLine = contactAddressRaw.trim();
+      const localityLine =
+        provinceLabel && cityLabel ? `${provinceLabel} ${cityLabel}`.trim() : (region_name ?? "").trim();
+      const fullAddress =
+        [contactLine, streetParts, localityLine].filter((s) => s.length > 0).join(" · ").trim() ||
+        localityLine ||
+        "Philippines";
+
+      const payload: UserAddressWritePayload = {
+        labelType: "home",
+        nickname: "대표",
+        recipientName: name || nickname,
+        phoneNumber: phoneNumber,
+        countryCode: "PH",
+        countryName: "Philippines",
+        province: provinceLabel,
+        cityMunicipality: cityLabel,
+        streetAddress: streetIn || null,
+        unitFloorRoom: detailIn || null,
+        fullAddress,
+        appRegionId: regionId,
+        appCityId: cityId,
+        useForLife: true,
+        useForTrade: true,
+        useForDelivery: true,
+        isDefaultMaster: true,
+        isDefaultLife: true,
+        isDefaultTrade: true,
+        isDefaultDelivery: true,
+      };
+      await createUserAddress(supabase as any, id, payload);
+    } catch (seedErr) {
+      console.error("[admin/users/create] representative address seed failed", seedErr);
+    }
   }
 
   return NextResponse.json({

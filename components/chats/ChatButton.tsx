@@ -26,7 +26,7 @@ interface ChatButtonProps {
 
 /**
  * 당근형: 채팅하기 / 대화중인 채팅
- * - existingRoomId 없음 → `openCreateTradeChat` 가 서버 resolve 후 메신저 방으로 바로 이동(실패 시에만 compose)
+ * - existingRoomId 없음 → `openCreateTradeChat` 가 compose 로 이동한 뒤 방 확정·메신저 이동
  * - existingRoomId 있음 → 해당 방으로 이동
  */
 export function ChatButton({

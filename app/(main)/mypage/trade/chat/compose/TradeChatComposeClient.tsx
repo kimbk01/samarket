@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * 신규 거래 채팅: 상품 상세는 여기로만 온다 — `openCreateTradeChat` 가 방 생성을 기다리지 않음.
+ * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+ */
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
@@ -12,6 +17,7 @@ import {
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import { patchTradeChatEntryMark, readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
+import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 
@@ -53,8 +59,13 @@ export function TradeChatComposeClient({
         if (replaceStartedRef.current === result.roomId) return;
         replaceStartedRef.current = result.roomId;
         setGoingRoomId(result.roomId);
+        warmChatRoomEntryById(result.roomId, result.roomSource);
+        const navRoomId = result.messengerRoomId?.trim() || result.roomId;
+        const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
+        void router.prefetch(dest);
         const mark = patchTradeChatEntryMark({
           roomId: result.roomId,
+          sourceHint: result.roomSource,
           roomResolvedAt: Date.now(),
         });
         if (mark?.roomResolvedAt) {
@@ -73,8 +84,7 @@ export function TradeChatComposeClient({
         });
         const cmForList = result.messengerRoomId?.trim();
         if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
-        const navRoomId = result.messengerRoomId?.trim() || result.roomId;
-        router.replace(tradeHubChatRoomHref(navRoomId, result.roomSource), { scroll: false });
+        router.replace(dest, { scroll: false });
         return;
       }
       const next = tradeHubChatComposeHref({ productId });

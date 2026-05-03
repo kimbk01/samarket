@@ -22,6 +22,11 @@ export type ResolveProductChatResult = {
   productChatId: string;
   /** 원장에 박힌 메신저 방 ID — 있으면 브리지 없이 바로 CM 부트스트랩 */
   messengerRoomId: string | null;
+  /**
+   * 조회 키가 `chat_rooms`(item_trade)일 때 해당 행 id.
+   * CM `direct_key`를 `trade_item:{id}`로 고정해 `trade_pc:{productChatId}` 와 이중 방을 막는다.
+   */
+  ledgerChatRoomId?: string | null;
 };
 
 /**
@@ -65,9 +70,11 @@ export async function resolveProductChat(
   const ensured = await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId);
   if (!ensured?.id) return null;
   const ensuredMid = trimMessengerId((ensured as ProductChatRow).community_messenger_room_id);
+  const ledgerId = typeof (cr as { id?: unknown }).id === "string" ? (cr as { id: string }).id.trim() : "";
   return {
     productChat: ensured as ProductChatRow,
     productChatId: ensured.id,
     messengerRoomId: crMid ?? ensuredMid,
+    ...(ledgerId ? { ledgerChatRoomId: ledgerId } : {}),
   };
 }

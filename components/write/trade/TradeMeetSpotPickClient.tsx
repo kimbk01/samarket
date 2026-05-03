@@ -36,6 +36,7 @@ import {
   parseMarketTradeWriteReturnCategoryKey,
   scheduleTradeWriteSheetReopenAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
+import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -602,12 +603,15 @@ export function TradeMeetSpotPickClient() {
       if (opts.saveResult) {
         const line =
           displayLine.trim() || geocodedLine.trim() || fallbackCoordLine;
-        if (!line.trim()) return;
+        const lineTrimmed = line.trim();
+        if (!lineTrimmed) return;
+        const matched = matchRegionCityFromFullAddress(lineTrimmed);
         setTradeMeetSpotPickResult({
-          displayLine: line.trim(),
+          displayLine: lineTrimmed,
           lat: marker.lat,
           lng: marker.lng,
           ...(anchoredPlaceId ? { placeId: anchoredPlaceId } : {}),
+          ...(matched ? { appRegionId: matched.regionId, appCityId: matched.cityId } : {}),
         });
       }
       /** 글쓰기 복귀 시 임시저장 이어쓰기 확인 시트가 가로채지 않도록(확인·취소 공통) */

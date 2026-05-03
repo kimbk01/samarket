@@ -1,20 +1,20 @@
+/**
+ * 거래 채팅 라우팅 계약 — 재발 방지
+ *
+ * - `openCreateTradeChat`: 상품 화면에서 방 생성 API 를 **기다리지 않음**. 즉시 compose 로 `replace` 만 한다.
+ * - 방 확정·실패 처리는 `TradeChatComposeClient`.
+ *
+ * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+ */
 import type { ChatRoomSource } from "@/lib/types/chat";
-import { createOrGetChatRoom, prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
+import { prepareTradeChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import {
   TRADE_CHAT_SURFACE,
   tradeHubChatComposeHref,
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
-import { patchTradeChatEntryMark, startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
-import {
-  setTradeChatEntryCreatingOverlayState,
-  setTradeChatEntryCreatingOverlayVisible,
-} from "@/lib/chats/trade-chat-entry-overlay-events";
-import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
-import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
-import { logClientPerf } from "@/lib/performance/samarket-perf";
-import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
+import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 export type TradeChatRouterLike = {
   push: (href: string) => void;
@@ -47,8 +47,8 @@ export function openExistingTradeChat(
 }
 
 /**
- * 신규 거래 채팅: 서버 `entry/resolve` 로 방을 바로 확정한 뒤 메신저 방으로 이동(compose 홉 생략).
- * 인증·전화번호 등 클라 처리가 필요하면 compose 폴백.
+ * 신규 거래 채팅: 상품 화면에서는 대기 없이 compose 로만 이동하고,
+ * 방 생성·게이트·메신저 이동은 `TradeChatComposeClient` 에서 처리한다.
  */
 export function openCreateTradeChat(
   router: TradeChatRouterLike,
@@ -60,51 +60,9 @@ export function openCreateTradeChat(
   if (!productId) return;
   startTradeChatEntryMark({ mode: "create", productId });
   const composeHref = tradeHubChatComposeHref({ productId });
-  void (async () => {
-    let successNavigatedToRoom = false;
-    setTradeChatEntryCreatingOverlayState({ visible: true, phase: "resolving" });
-    try {
-      const result = await createOrGetChatRoom(productId);
-      if (result.ok && result.roomId) {
-        const navRoomId = result.messengerRoomId?.trim() || result.roomId;
-        const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
-        setTradeChatEntryCreatingOverlayState({ visible: true, phase: "entering" });
-        void router.prefetch(dest);
-        const mark = patchTradeChatEntryMark({
-          roomId: result.roomId,
-          sourceHint: result.roomSource,
-          roomResolvedAt: Date.now(),
-        });
-        if (mark?.roomResolvedAt) {
-          logClientPerf("chat-entry.room-resolved", {
-            mode: mark.mode,
-            productId: mark.productId,
-            roomId: result.roomId,
-            elapsedMs: Math.max(0, mark.roomResolvedAt - mark.startedAt),
-          });
-        }
-        emitTradeChatRoomResolved({
-          productId,
-          roomId: result.roomId,
-          messengerRoomId: result.messengerRoomId ?? null,
-          roomSource: result.roomSource,
-        });
-        const cmForList = result.messengerRoomId?.trim();
-        if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
-        router.replace(dest, { scroll: false });
-        successNavigatedToRoom = true;
-        return;
-      }
-      const errMsg = !result.ok ? result.error : "채팅방을 열 수 없습니다.";
-      if (redirectForBlockedAction(router, errMsg, composeHref)) return;
-      void router.prefetch(composeHref);
-      router.push(composeHref);
-    } finally {
-      if (!successNavigatedToRoom) {
-        setTradeChatEntryCreatingOverlayVisible(false);
-      }
-    }
-  })();
+  void router.prefetch(composeHref);
+  void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
+  router.replace(composeHref, { scroll: false });
 }
 
 export function prefetchTradeChatEntry(

@@ -1,0 +1,79 @@
+---
+description: 거래 목록→상세(/post)→채팅 체감 속도 — RSC/후속 API/진입 UX 계약(회귀 금지)
+globs:
+  - "**/trade-detail.service.ts"
+  - "**/PostDetailPageClient.tsx"
+  - "**/PostDetailView.tsx"
+  - "**/trade-chat-entry-navigation.ts"
+  - "**/TradeChatComposeClient.tsx"
+  - "**/api/posts/**/related/**"
+  - "**/HomeProductList.tsx"
+  - "**/PostListByCategory.tsx"
+alwaysApply: false
+---
+
+# 거래 상세·채팅 진입 — 핫 패스 계약 (되돌리지 말 것)
+
+이 규칙은 **의뢰·재작업 시 이전에 고친 병목이 다시 합쳐지는 현상**을 막기 위한 고정 계약이다.  
+아래를 **임시 최적화가 아니라 제품 구조**로 취급한다. 되돌리려면 **명시적 제품 결정 + 이 파일 갱신**이 필요하다.
+
+**수정 이력(개선 고정 상태 추적):** `docs/trade-perf-hot-path-changelog.md` — 계약을 바꿀 때마다 append.
+
+## 1) `/post/[id]` RSC — `getItemDetailPageData` (trade-detail.service.ts)
+
+**본문 직렬 이후 병렬(await `Promise.all`)로 묶어도 되는 것:**
+
+- `loadSellerPublicProfile`
+- 조건부 구매자 `listPriceOffers`
+- **`getTradeDetailRelatedData`** → `sellerItems`·`similarItems`·`ads` (페이지 첫 화면 신뢰 경로 — 본문과 **동일 `PostsReadClients`**)
+
+**금지(직접 호출·직렬 묶음):**
+
+- **`loadTradeDetailRelatedBundle` 를 이 함수 본문에서 직접 호출** (반드시 `getTradeDetailRelatedData` 경유)
+- `resolveViewerItemTradeRoom` (거래방 시드 — 클라 `GET /api/chat/item/room-id`)
+- `listSellerPriceOffersForProduct` RSC 선로드 (모달 `OfferListSeller` 가 fetch)
+
+**첫 응답 직렬 구간:** `loadPostDetailShared` 만 먼저 await — 그 다음 위 병렬 묶음.
+
+## 2) 관련 상품 API — 보조
+
+- **`GET /api/posts/[postId]/related`** → `getTradeDetailRelatedData` — 재사용·외부 호출용. **상세 첫 페인트는 RSC 번들의 related 에 의존**한다 (클라 단독 fetch만으로 채우지 않음 — 환경·Strict 에서 빈 화면 위험).
+
+## 3) 신규 채팅 진입 — `openCreateTradeChat`
+
+- 상품 상세에서는 **`createOrGetChatRoom` 대기·전역 오버레이 없음**
+- **`router.replace(tradeHubChatComposeHref)`** 만 즉시 실행 → `TradeChatComposeClient` 가 방 확정·이동
+
+## 4) 목록 → 상세 prefetch
+
+- **홈:** `HomeProductList` 상단 카드 idle `router.prefetch(/post/:id)` 는 리스트→상세 체감용 — 함부로 제거하지 말 것
+- **카테고리:** `PostListByCategory` 상단 10개 prefetch 유지
+
+## 5) 메신저 방 하단 탭
+
+- **`chat-detail-bottom-nav-authority.mdc`** 와 충돌하지 않게: 채팅 상세 탭 숨김은 **`suppressBottomNavForChatDetail = isChatRoomDetail`** 단일 권한
+
+## 수정 전·후 필수 대조 (리턴·역행 방지)
+
+**원칙:** 속도·구조를 바꿀 때는 **항상 “바로 직전(또는 기준 브랜치)”과 diff 로 비교**하고, 아래를 만족할 때만 마무리한다.
+
+### 수정 전
+
+1. `git diff` / `git diff main -- <파일>` 등으로 **삭제되는 계약 주석·분리된 로드 경로**가 없는지 본다.
+2. 이 파일과 해당 파일의 **CONTRACT / DO NOT** 주석을 다시 읽는다.
+3. `services/trade/trade-detail.service.ts` 를 수정하면 **`npm run verify:trade-hot-path-contract`** 를 실행한다.
+
+### 수정 후 (역행 자가 점검)
+
+- [ ] related 가 **`getTradeDetailRelatedData` 경유**인가 (`loadTradeDetailRelatedBundle` 직접 호출 없음)  
+- [ ] 신규 채팅을 상세에서 동기 `createOrGetChatRoom` 로 대기하지 않았는가  
+- [ ] 메신저 방에서 BottomNav 를 store/키보드로 다시 조종하지 않았는가  
+- [ ] 위 검증 스크립트·`tsc` 가 통과하는가  
+
+**상시 규칙:** `.cursor/rules/samarket-perf-change-protocol.mdc` (에이전트 전역)
+
+## 수정 전 체크리스트
+
+- [ ] related 가 **`getTradeDetailRelatedData`** 로만 들어가고 **`loadTradeDetailRelatedBundle` 직접 호출이 없는가**  
+- [ ] 신규 채팅을 상세에서 동기 `createOrGetChatRoom` 로 대기하지 않았는가  
+- [ ] 메신저 방에서 BottomNav 를 store/키보드로 다시 조종하지 않았는가  

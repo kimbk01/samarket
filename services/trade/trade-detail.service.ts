@@ -3,10 +3,9 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import type { PostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { loadPostDetailShared } from "@/lib/posts/load-post-detail-shared";
-import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import { loadTradeDetailRelatedBundle } from "./trade-related.service";
 import { postAuthorUserId, postOwnedByUserId } from "@/lib/chats/resolve-author-nickname";
-import { listPriceOffers, listSellerPriceOffersForProduct } from "@/lib/offers/offers.service";
+import { listPriceOffers } from "@/lib/offers/offers.service";
 import type { PriceOfferListItem } from "@/lib/offers/types";
 import {
   mapProfileRowToPublicSeller,
@@ -18,6 +17,17 @@ import {
   mergeTradeDetailOpsSettings,
 } from "./trade-settings.service";
 
+/**
+ * 거래 상세 RSC 계약 — 재발 방지
+ *
+ * - 첫 응답(`getItemDetailPageData`): 본문·판매자 프로필·related(`getTradeDetailRelatedData`)·(조건부) 구매자 제안.
+ * - 거래방 시드·판매자 제안 RSC 선로드는 이 타입에 포함하지 않는다(핫패스 계약).
+ * - related 는 본문과 **동일** `PostWithMeta` 스냅샷을 `preloadedItem` 으로 넘겨 중복 `loadPostDetailShared` 를 피한다  
+ *   (두 번째 조회 실패 시 본문만 있고 related 만 빈 회귀 방지).
+ * - `GET /api/posts/[postId]/related` 는 보조 — 상세 첫 화면은 RSC 번들을 신뢰한다.
+ *
+ * 상세 규칙: `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+ */
 export type TradeItemDetailPageData = {
   item: PostWithMeta;
   sellerProfile?: PublicSellerProfileDTO | null;
@@ -115,14 +125,18 @@ export async function getTradeDetailRelatedData(
     sellerLimit?: number;
     similarLimit?: number;
     adsLimit?: number;
+    /** `getItemDetailPageData` 등에서 이미 로드한 본문 — 중복 조회 제거·related 스냅샷 일치 */
+    preloadedItem?: PostWithMeta | null;
   }
 ): Promise<{ sellerItems: PostWithMeta[]; similarItems: PostWithMeta[]; ads: PostWithMeta[] } | null> {
   const itemId = input.itemId.trim();
   if (!itemId) return null;
-  const [item, ops] = await Promise.all([
-    loadPostDetailShared(clients, itemId, input.viewerUserId),
-    loadTradeOpsSettings(clients),
-  ]);
+  const opsPromise = loadTradeOpsSettings(clients);
+  const itemPromise =
+    input.preloadedItem?.id?.trim() === itemId
+      ? Promise.resolve(input.preloadedItem)
+      : loadPostDetailShared(clients, itemId, input.viewerUserId);
+  const [item, ops] = await Promise.all([itemPromise, opsPromise]);
   if (!item || item.type === "community") {
     return { sellerItems: [], similarItems: [], ads: [] };
   }
@@ -162,11 +176,16 @@ export async function getItemDetailPageData(
     adsLimit?: number;
   }
 ): Promise<TradeItemDetailPageData | null> {
+  // related 는 `loadTradeDetailRelatedBundle` 직접 호출 금지 — `getTradeDetailRelatedData` 로만 묶는다.
+  // 클라 `/api/.../related` 단독 의존은 탭·503·Strict 시 빈 화면 이슈가 있어, RSC 에서 동일 clients 로 병렬 채운다.
+
   const itemId = input.itemId.trim();
   if (!itemId) return null;
 
   const item = await loadPostDetailShared(clients, itemId, input.viewerUserId);
-  if (!item) return null;
+  if (!item) {
+    return null;
+  }
 
   const viewerId = input.viewerUserId?.trim() ?? "";
 
@@ -184,9 +203,6 @@ export async function getItemDetailPageData(
     (typeof item.user_id === "string" && item.user_id.trim() ? item.user_id.trim() : "") ||
     postAuthorUserId(item as unknown as Record<string, unknown>) ||
     "";
-  const sellerNickname = typeof item.author_nickname === "string" ? item.author_nickname.trim() : "";
-  const categoryId = item.category_id?.trim() ?? item.trade_category_id?.trim() ?? "";
-  const regionId = item.region?.trim() ?? "";
   const sbOffers = (clients.serviceSb ?? clients.readSb) as SupabaseClient;
   const seedBuyerOffers =
     Boolean(viewerId) &&
@@ -195,14 +211,6 @@ export async function getItemDetailPageData(
     Number.isFinite(item.price) &&
     item.price > 0 &&
     !postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId);
-
-  const seedSellerOffers =
-    Boolean(viewerId) &&
-    item.is_price_offer === true &&
-    typeof item.price === "number" &&
-    Number.isFinite(item.price) &&
-    item.price > 0 &&
-    postOwnedByUserId(item as unknown as Record<string, unknown>, viewerId);
 
   type BuyerOffersResult = Awaited<ReturnType<typeof listPriceOffers>>;
   const buyerOffersPromise: Promise<BuyerOffersResult | null> = seedBuyerOffers
@@ -214,80 +222,39 @@ export async function getItemDetailPageData(
       })
     : Promise.resolve(null);
 
-  type SellerOffersResult = Awaited<ReturnType<typeof listSellerPriceOffersForProduct>>;
-  const sellerOffersPromise: Promise<SellerOffersResult | null> = seedSellerOffers
-    ? listSellerPriceOffersForProduct(sbOffers, viewerId, item.id)
-    : Promise.resolve(null);
+  const relatedPromise = getTradeDetailRelatedData(clients, {
+    itemId: item.id,
+    viewerUserId: viewerId || null,
+    preloadedItem: item,
+  }).catch((err) => {
+    console.error("[getItemDetailPageData] getTradeDetailRelatedData", err);
+    return { sellerItems: [] as PostWithMeta[], similarItems: [] as PostWithMeta[], ads: [] as PostWithMeta[] };
+  });
 
-  const opsPromise = loadTradeOpsSettings(clients);
-  const relatedPromise = opsPromise
-    .then((ops) =>
-      loadTradeDetailRelatedBundle(clients.readSb, {
-        itemId: item.id,
-        sellerId,
-        sellerNickname,
-        categoryId,
-        regionId,
-        sellerLimit: ops.fallbackCount ?? SELLER_LIMIT_DEFAULT,
-        similarLimit: ops.similarCount ?? SIMILAR_LIMIT_DEFAULT,
-        adsLimit: ops.adsCount ?? ADS_LIMIT_DEFAULT,
-        regionEnabled: ops.regionEnabled,
-        regionRequired: ops.regionRequired,
-        regionGroups: ops.regionGroups,
-        completedVisibleDays: ops.completedVisibleDays,
-      })
-    )
-    .catch((err) => {
-      console.error("[getItemDetailPageData] loadTradeDetailRelatedBundle", err);
-      return { sellerItems: [] as PostWithMeta[], similarItems: [] as PostWithMeta[], ads: [] as PostWithMeta[] };
-    });
-
-  const sbChat = clients.serviceSb ?? clients.readSb;
-  const viewerTradeRoomBootstrapPromise: Promise<
-    TradeItemDetailPageData["viewerTradeRoomBootstrap"]
-  > =
-    Boolean(viewerId) && Boolean(sellerId) && viewerId !== sellerId && sbChat
-      ? resolveViewerItemTradeRoom(sbChat as SupabaseClient, {
-          itemId: item.id,
-          viewerUserId: viewerId,
-          sellerId,
-        })
-          .then((resolved) => ({
-            viewerUserId: viewerId,
-            roomId: resolved.roomId,
-            source: resolved.source,
-            messengerRoomId: resolved.messengerRoomId ?? undefined,
-          }))
-          .catch((err) => {
-            console.error("[getItemDetailPageData] resolveViewerItemTradeRoom", err);
-            return undefined;
-          })
-      : Promise.resolve(undefined);
-
-  const [sellerProfile, buyerOffersResult, sellerOffersResult, related, viewerTradeRoomBootstrap] =
-    await Promise.all([
-      loadSellerPublicProfile(clients, sellerId),
-      buyerOffersPromise,
-      sellerOffersPromise,
-      relatedPromise,
-      viewerTradeRoomBootstrapPromise,
-    ]);
+  const [sellerProfile, buyerOffersResult, relatedPack] = await Promise.all([
+    loadSellerPublicProfile(clients, sellerId),
+    buyerOffersPromise,
+    relatedPromise,
+  ]);
 
   const initialViewerBuyerOffers =
     buyerOffersResult && buyerOffersResult.ok ? buyerOffersResult.value : undefined;
 
-  const initialSellerPriceOffers =
-    sellerOffersResult && sellerOffersResult.ok ? sellerOffersResult.value : undefined;
+  const rel =
+    relatedPack ??
+    ({ sellerItems: [], similarItems: [], ads: [] } as {
+      sellerItems: PostWithMeta[];
+      similarItems: PostWithMeta[];
+      ads: PostWithMeta[];
+    });
 
   return {
     item,
     sellerProfile,
-    sellerItems: related.sellerItems,
-    similarItems: related.similarItems,
-    ads: related.ads,
+    sellerItems: rel.sellerItems,
+    similarItems: rel.similarItems,
+    ads: rel.ads,
     viewerUserId: viewerId || null,
-    viewerTradeRoomBootstrap,
-    initialSellerPriceOffers,
     initialViewerBuyerOffers,
   };
 }

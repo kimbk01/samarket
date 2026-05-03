@@ -66,11 +66,21 @@ function persistLanguage(language: AppLanguageCode): void {
   );
 }
 
-export function AppLanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<AppLanguageCode>(DEFAULT_APP_LANGUAGE);
+export function AppLanguageProvider({
+  children,
+  initialLanguage = DEFAULT_APP_LANGUAGE,
+}: {
+  children: ReactNode;
+  /** 서버에서 읽은 쿠키와 동일해야 BottomNav 등 첫 페인트 하이드레이션이 깨지지 않음 */
+  initialLanguage?: AppLanguageCode;
+}) {
+  const [language, setLanguageState] = useState<AppLanguageCode>(() =>
+    normalizeAppLanguage(initialLanguage)
+  );
 
   useEffect(() => {
-    setLanguageState(resolveInitialLanguage());
+    const resolved = resolveInitialLanguage();
+    setLanguageState((prev) => (prev === resolved ? prev : resolved));
   }, []);
 
   useEffect(() => {

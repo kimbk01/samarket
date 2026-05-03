@@ -1,4 +1,4 @@
-/** 상품 상세 등에서 `openCreateTradeChat` 이 방 URL 로 이동하기 전까지 전역 오버레이 표시용 */
+/** 레거시·기타 경로에서 거래 채팅 진입 오버레이를 켤 때 사용 (신규 채팅 기본 플로우는 compose 화면 전용 셸) */
 export const KASAMA_TRADE_CHAT_ENTRY_CREATING_OVERLAY = "kasama:trade-chat-entry-creating-overlay";
 
 export type TradeChatEntryCreatingOverlayPhase = "resolving" | "entering";

@@ -5,17 +5,13 @@ import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import {
-  isCommunityMessengerRoomPathname,
-  resolveConditionalAppShellFlags,
-} from "@/lib/layout/conditional-app-shell-flags";
+import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import {
   resolveBottomNavScrollHideEnabled,
   useBottomNavScrollHide,
 } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
-import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import {
   mainBottomNavPrefetchTriggerKey,
@@ -73,23 +69,13 @@ export function ConditionalAppShell({
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
   const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
-  const messengerSuppressBottomNav = useMessengerUIStore((s) => s.messengerSuppressBottomNavForKeyboard);
-  const messengerRoomKeyboardHidesNav =
-    isCommunityMessengerRoomPathname(pathname) && messengerSuppressBottomNav;
-  const showBottomNavBase = f.showBottomNav && !messengerRoomKeyboardHidesNav;
+  const showBottomNavBase = f.showBottomNav;
   /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래(`/market*`) 동일 */
   const showBottomNavEffective =
     showBottomNavBase && !(isMessengerStackSurface && headerMessengerFromPhilife);
   const bottomNavScrollHideEnabled =
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
-  const chatDetailUsesZeroBottomPadding =
-    f.isChatRoomDetail && (!f.isCommunityMessengerRoom || f.isCommunityMessengerCallPage);
-  const mainBottomClassEffective =
-    messengerRoomKeyboardHidesNav && !chatDetailUsesZeroBottomPadding
-      ? "pb-0"
-      : f.mainBottomClass;
-
   return (
     <div className={`${f.appShellRootClass} min-h-dvh bg-sam-app`}>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
@@ -99,7 +85,7 @@ export function ConditionalAppShell({
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
-        className={`${mainBottomClassEffective} min-w-0 overflow-x-hidden bg-sam-app ${
+        className={`${f.mainBottomClass} min-w-0 overflow-x-hidden bg-sam-app ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
         }`}
       >

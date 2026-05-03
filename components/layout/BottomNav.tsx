@@ -200,7 +200,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
-      <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
+      <span className={isActive ? labelActive : labelInactive} suppressHydrationWarning>
+        {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
+      </span>
     </>
   );
 
@@ -389,7 +391,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
-      <span className={isActive ? labelActive : labelInactive}>{tab.labelKey ? t(tab.labelKey) : tt(tab.label)}</span>
+      <span className={isActive ? labelActive : labelInactive} suppressHydrationWarning>
+        {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
+      </span>
     </>
   );
 

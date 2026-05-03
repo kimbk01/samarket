@@ -9,6 +9,9 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/posts/[postId]/related
  * 거래 상세 본문 이후 related(판매자 다른 글/유사 글/광고) 후속 로드.
+ *
+ * 보조 API — 상세 첫 페인트는 RSC `getItemDetailPageData` 가 `getTradeDetailRelatedData` 로 번들에 실음.
+ * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */
 export async function GET(
   req: NextRequest,

@@ -7,6 +7,7 @@
  * `community_messenger_rooms.direct_key` 가 친구 DM 과 분리된다(`trade_item:` / `trade_pc:`).
  * 동일 상품·동일 쌍은 항상 최근 `updated_at` 방 1개를 재사용한다.
  */
+import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
@@ -17,6 +18,43 @@ import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
+
+function trimMessengerCol(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const t = raw.trim();
+  return t || "";
+}
+
+/**
+ * 메신저 연결·이벤트 로그 — 응답 본문 RTT 에서 제외.
+ * `after()` 로 같은 요청 컨텍스트에서 실행되어 서버리스에서도 응답 직후 작업이 끊기지 않게 한다.
+ */
+function schedulePostItemTradeRoomSideEffects(
+  sbAny: Parameters<typeof ensureMessengerRoomIdForItemTrade>[0],
+  buyerId: string,
+  itemId: string,
+  sellerId: string,
+  chatRoomId: string,
+  eventType: "room_reopened" | "room_created"
+): void {
+  after(async () => {
+    await Promise.all([
+      ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, chatRoomId).catch(() => undefined),
+      (async () => {
+        try {
+          await sbAny.from("chat_event_logs").insert({
+            room_id: chatRoomId,
+            event_type: eventType,
+            actor_user_id: buyerId,
+            metadata: eventType === "room_created" ? { item_id: itemId } : {},
+          });
+        } catch {
+          /* ignore */
+        }
+      })(),
+    ]);
+  });
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,34 +183,25 @@ export async function POST(req: NextRequest) {
         )
       );
     }
-    await sbAny
+    const { data: linkQuick } = await sbAny
       .from("chat_rooms")
       .update({ reopened_at: now, updated_at: now })
-      .eq("id", existing.id);
+      .eq("id", existing.id)
+      .select("community_messenger_room_id")
+      .maybeSingle();
+    const quickMessengerId = trimMessengerCol(
+      (linkQuick as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id
+    );
 
-    /** CM 확정 + 이벤트 로그 — 직렬 대기 1회 제거 */
-    const [messengerRoomId] = await Promise.all([
-      ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, existing.id).catch(() => undefined),
-      (async () => {
-        try {
-          await sbAny.from("chat_event_logs").insert({
-            room_id: existing.id,
-            event_type: "room_reopened",
-            actor_user_id: buyerId,
-            metadata: {},
-          });
-        } catch {
-          /* ignore */
-        }
-      })(),
-    ]);
+    schedulePostItemTradeRoomSideEffects(sbAny, buyerId, itemId, sellerId, existing.id, "room_reopened");
+
     const metaEx = parsePostMetaField(row.meta);
     const tradeChatKind =
       String(metaEx.trade_chat_kind ?? "").toLowerCase() === "job" ? "job" : undefined;
     return NextResponse.json({
       ok: true,
       roomId: existing.id,
-      ...(messengerRoomId ? { messengerRoomId } : {}),
+      ...(quickMessengerId ? { messengerRoomId: quickMessengerId } : {}),
       tradeChatKind,
     });
   }
@@ -214,21 +243,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const [messengerRoomId] = await Promise.all([
-    ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, roomId).catch(() => undefined),
-    (async () => {
-      try {
-        await sbAny.from("chat_event_logs").insert({
-          room_id: roomId,
-          event_type: "room_created",
-          actor_user_id: buyerId,
-          metadata: { item_id: itemId },
-        });
-      } catch {
-        /* ignore */
-      }
-    })(),
-  ]);
+  schedulePostItemTradeRoomSideEffects(sbAny, buyerId, itemId, sellerId, roomId, "room_created");
 
   const metaNew = parsePostMetaField(row.meta);
   const tradeChatKind =
@@ -236,7 +251,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     roomId,
-    ...(messengerRoomId ? { messengerRoomId } : {}),
     tradeChatKind,
   });
 }

@@ -1,0 +1,39 @@
+---
+description: 채팅 상세(메신저 방 등)에서 메인 하단 탭(BottomNav) 표시 — 단일 권한·회귀 방지
+globs:
+  - "**/conditional-app-shell-flags.ts"
+  - "**/ConditionalAppShell.tsx"
+  - "**/useMessengerUIStore.ts"
+  - "**/CommunityMessengerRoomPhase2.tsx"
+alwaysApply: false
+---
+
+# 채팅 상세 — 메인 하단 탭 권한 (단일 정의)
+
+## 불변조건
+
+1. **메인 하단 탭(`BottomNav`)을 채팅 상세에서 숨길지 말지는 `resolveConditionalAppShellFlags` 한 곳으로만 결정한다.**  
+   구체적으로 `suppressBottomNavForChatDetail` ↔ `showBottomNav` 경로 규칙이다.  
+   **`isChatRoomDetail` 이 true인 화면**(예: `/community-messenger/rooms/[roomId]`, 거래 허브 채팅 방, 레거시 `/chats/[id]` 등)에서는 메인 탭을 **표시하지 않는다.**
+
+2. **키보드·입력 포커스·visualViewport 추정은 메인 탭 노출과 분리한다.**  
+   방 내부에서는 `composerFocused`, `useMessengerTradeKeyboardChrome`, safe-area·inset만 조정하고, **`BottomNav` 마운트 여부를 Zustand·Phase 이펙트로 덮어쓰지 않는다.**  
+   (과거 `messengerSuppressBottomNavForKeyboard` + 조건부 숨김은 **이중 권한**으로 로딩·동기화 중 탭 잔류·입력 가림을 재발시켰다.)
+
+3. **메신저 목록·허브**(`/community-messenger` 등, `isCommunityMessengerRoom` 이 아닌 서피스)는 기존처럼 `showBottomNav` 정책을 따른다.  
+   **방(`…/rooms/[id]`)만** 채팅 상세로 분류되는지 `isCommunityMessengerRoomPathname` 등과 함께 확인한다.
+
+## 수정 시 체크
+
+- `suppressBottomNavForChatDetail` 에서 **특정 채팅 상세만 예외로 탭 유지**하는 분기를 넣으면, 런타임 휴리스틱과 다시 충돌한다. 예외가 필요하면 제품 결정·문서화 후 **한 규칙 안에서**만 허용한다.
+- `ConditionalAppShell` 에서 pathname 플래그를 우회하는 **두 번째 탭 표시 스위치**를 두지 않는다.
+
+## 관련 코드
+
+- `lib/layout/conditional-app-shell-flags.ts` — `suppressBottomNavForChatDetail`, `showBottomNav`, `isChatRoomDetail`
+- `components/layout/ConditionalAppShell.tsx` — `showBottomNavBase` / `BottomNav` 마운트
+
+## 연계 (거래 상세·채팅 진입)
+
+- 거래 `/post/[id]` RSC 분리·채팅 compose 진입 계약: **`trade-post-detail-chat-hot-path.mdc`**
+- 속도 관련 수정 시 diff·검증 절차: **`samarket-perf-change-protocol.mdc`** (항시 적용)

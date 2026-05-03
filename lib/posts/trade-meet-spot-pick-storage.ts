@@ -159,7 +159,11 @@ function parsePickResultJson(raw: string): TradeMeetSpotValue | null {
     const lat = coerceTradeMeetSpotLatLng(j.lat);
     const lng = coerceTradeMeetSpotLatLng(j.lng);
     const placeId = typeof j.placeId === "string" && j.placeId.trim() ? j.placeId.trim() : undefined;
-    return { displayLine, lat, lng, placeId };
+    const appRegionId =
+      typeof j.appRegionId === "string" && j.appRegionId.trim() ? j.appRegionId.trim() : undefined;
+    const appCityId =
+      typeof j.appCityId === "string" && j.appCityId.trim() ? j.appCityId.trim() : undefined;
+    return { displayLine, lat, lng, placeId, appRegionId, appCityId };
   } catch {
     return null;
   }

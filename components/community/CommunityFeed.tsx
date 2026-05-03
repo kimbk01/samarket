@@ -36,7 +36,7 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
-import { readPhilifeFeedCache, writePhilifeFeedCache, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
+import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -311,30 +311,18 @@ export function CommunityFeed({
     !!initialGlobalFeedRsc &&
     initialGlobalFeedRsc.seededCategory === categoryParamNorm &&
     initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
-  const recSortKeyForBoot = categoryParamNorm ? "" : sortForCurrentQuery;
-  const sessionSnapBoot = !canBootFromInitialGlobalFeed
-    ? readPhilifeFeedCache(
-        PHILIFE_GLOBAL_FEED_SESSION_KEY,
-        categoryParamNorm,
-        false,
-        typeof window !== "undefined" ? philifeFeedViewerSig() : "_anon",
-        recSortKeyForBoot
-      )
-    : null;
+  /**
+   * 세션 스토리지 스냅샷은 서버에서 읽을 수 없음 — 초기 state 에 넣으면 SSR HTML(스켈레톤)과
+   * 클라 첫 렌더(캐시된 목록)가 달라 하이드레이션 오류가 난다. 복원은 아래 `useLayoutEffect` 가 담당.
+   */
   const bootPosts = canBootFromInitialGlobalFeed
     ? mergeNeighborhoodFeedById([], initialGlobalFeedRsc?.posts ?? [], false)
-    : sessionSnapBoot?.posts?.length
-      ? dedupeNeighborhoodFeedById(sessionSnapBoot.posts)
-      : [];
-  const bootHasMore = canBootFromInitialGlobalFeed
-    ? !!initialGlobalFeedRsc?.hasMore
-    : sessionSnapBoot?.hasMore ?? false;
+    : [];
+  const bootHasMore = canBootFromInitialGlobalFeed ? !!initialGlobalFeedRsc?.hasMore : false;
   const bootNextOffset =
     canBootFromInitialGlobalFeed && typeof initialGlobalFeedRsc?.nextOffset === "number"
       ? initialGlobalFeedRsc.nextOffset
-      : typeof sessionSnapBoot?.nextOffset === "number"
-        ? sessionSnapBoot.nextOffset
-        : 0;
+      : 0;
   const [category, setCategory] = useState<string>(categoryParam);
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);

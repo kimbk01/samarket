@@ -14,7 +14,7 @@ import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-
  *
  * - 사용자가 주소를 저장하면 `SAMARKET_ADDRESSES_UPDATED_EVENT` 가 디스패치된다.
  * - 본 화면은 그 이벤트를 받으면 서버 게이트(`/api/me/mandatory-address-gate`)에 재확인하고,
- *   대표 주소가 확정되면 0.6초 안내 후 `router.replace(next || /philife)` 으로 이동한다.
+ *   대표 주소가 확정되면 즉시 `router.replace(next || /philife)` 으로 이동한다.
  * - `router.back()` 은 사용하지 않는다 (스펙 2).
  * - "나중에 하기" 는 읽기 전용으로 `/philife` 로 보낸다. 글쓰기·채팅·주문 시 다시 게이트가 막는다.
  */
@@ -53,9 +53,7 @@ export function OnboardingAddressClient() {
         } catch {
           /* 흐름 차단 금지 */
         }
-        window.setTimeout(() => {
-          router.replace(target);
-        }, 600);
+        router.replace(target);
       }
     } catch {
       /* 네트워크 실패 시 다음 이벤트에서 재시도 */
@@ -90,7 +88,7 @@ export function OnboardingAddressClient() {
           role="status"
           className="rounded-ui-rect border border-sam-success/40 bg-sam-success-soft px-3 py-2 sam-text-body text-sam-success"
         >
-          주소 설정이 완료되었습니다. 잠시 후 자동으로 이동합니다…
+          주소 설정이 완료되었습니다. 바로 이동합니다…
         </p>
       ) : null}
     </OnboardingShell>

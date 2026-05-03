@@ -24,6 +24,7 @@ import {
   tradeMeetSpotFromMetaSnapshot,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
+import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
 import {
   clearTradeMeetSpotPickResult,
   clearTradeMeetSpotSessionNavigationState,
@@ -169,6 +170,26 @@ export function ExchangeWriteForm({
   const [representativeTradeMeetFallbackLine, setRepresentativeTradeMeetFallbackLine] = useState<string | null>(
     null
   );
+  const effectiveTradeRegionId = useMemo(() => {
+    const r = region.trim();
+    if (r) return r;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.regionId ?? "";
+  }, [region, tradeMeetSpot]);
+
+  const effectiveTradeCityId = useMemo(() => {
+    const c = city.trim();
+    if (c) return c;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.cityId ?? "";
+  }, [city, tradeMeetSpot]);
+
+  const applyMeetSpotPick = useCallback(
+    (next: TradeMeetSpotValue) => {
+      setTradeMeetSpot(next);
+      const loc = inferTradeRegionCityFromMeetSpot(next);
+      if (loc) syncTradeRegionCity(loc.regionId, loc.cityId);
+    },
+    [syncTradeRegionCity]
+  );
   const pendingMeetSpotFocusRef = useRef(false);
   /** 같은 카테고리로 지도 복귀(remount) 시 토픽을 지우지 않음 — `useLayoutEffect` 스테이징 복원 직후 초기화 금지 */
   const prevExchangeCategoryIdRef = useRef<string | null>(null);
@@ -245,14 +266,14 @@ export function ExchangeWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      setTradeMeetSpot(next);
+      applyMeetSpotPick(next);
       requestAnimationFrame(() => {
         clearTradeMeetSpotPickResult();
       });
     }
     if (shouldFocusOnReturn) pendingMeetSpotFocusRef.current = true;
     else restoreTradeMeetSpotReturnScrollPosition();
-  }, [pathname, tradeWriteSheetEpoch, category.id]);
+  }, [pathname, tradeWriteSheetEpoch, category.id, applyMeetSpotPick]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;
@@ -266,11 +287,11 @@ export function ExchangeWriteForm({
   useEffect(() => {
     const onPageShow = () => {
       const next = consumeTradeMeetSpotPickResult();
-      if (next) setTradeMeetSpot(next);
+      if (next) applyMeetSpotPick(next);
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  }, [applyMeetSpotPick]);
 
   useEffect(() => {
     if (!editPostId || !ownerEditSnapshot) return;
@@ -406,8 +427,8 @@ export function ExchangeWriteForm({
     if (fromMap) return fromMap;
     const rep = representativeTradeMeetFallbackLine?.trim();
     if (rep) return rep;
-    return getLocationLabelIfValid(region, city)?.trim() ?? "";
-  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, region, city]);
+    return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
+  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, effectiveTradeRegionId, effectiveTradeCityId]);
 
   const handleResumeExchangePersistedDraft = useCallback(() => {
     const staged = consumeExchangeWriteMeetSpotStaging(category.id);
@@ -588,13 +609,14 @@ export function ExchangeWriteForm({
       next.prep =
         "페소 삽니다: 판매자 준비물·구매자 준비물을 각각 한 가지 이상 선택해 주세요.";
     }
-    if (hasLocation && (!region || !city)) {
+    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     }
     if (!tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
-        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+        representativeTradeMeetFallbackLine?.trim() ||
+        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
       if (!fallbackLine) {
         next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
       }
@@ -608,8 +630,8 @@ export function ExchangeWriteForm({
     sellerPrep.length,
     buyerPrep.length,
     hasLocation,
-    region,
-    city,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
     tradeMeetSpot,
     representativeTradeMeetFallbackLine,
   ]);
@@ -651,9 +673,13 @@ export function ExchangeWriteForm({
           seller_prep: direction === "sell" ? [] : sellerPrep,
           buyer_prep: buyerPrep,
         };
+        const submitRegion = effectiveTradeRegionId.trim();
+        const submitCity = effectiveTradeCityId.trim();
         const lineFromMap = tradeMeetSpot?.displayLine?.trim();
         const lineFallback =
-          representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+          representativeTradeMeetFallbackLine?.trim() ||
+          getLocationLabelIfValid(submitRegion, submitCity)?.trim() ||
+          "";
         const line = lineFromMap || lineFallback;
         if (line) {
           const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
@@ -673,8 +699,8 @@ export function ExchangeWriteForm({
           content,
           price: amountValue,
           imageUrls: mergedImageUrls.length > 0 ? mergedImageUrls : undefined,
-          region: region || undefined,
-          city: city || undefined,
+          region: submitRegion || undefined,
+          city: submitCity || undefined,
           meta,
         };
         if (editPostId) {
@@ -722,8 +748,8 @@ export function ExchangeWriteForm({
       memo,
       category,
       tradeTopicChildId,
-      region,
-      city,
+      effectiveTradeRegionId,
+      effectiveTradeCityId,
       validate,
       onSuccess,
       router,
@@ -753,6 +779,7 @@ export function ExchangeWriteForm({
         region={region}
         city={city}
         onSyncRegionCity={syncTradeRegionCity}
+        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
         error={errors.location}
         readOnly={coreLocked}
         onBeforeNavigateToAddresses={!editPostId ? handleBeforeNavigateToAddresses : undefined}

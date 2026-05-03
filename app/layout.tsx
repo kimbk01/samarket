@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
+import { cookies } from "next/headers";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
+import {
+  APP_LANGUAGE_COOKIE,
+  DEFAULT_APP_LANGUAGE,
+  normalizeAppLanguage,
+  type AppLanguageCode,
+} from "@/lib/i18n/config";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -45,15 +52,19 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jar = await cookies();
+  const langCookie = jar.get(APP_LANGUAGE_COOKIE)?.value;
+  const initialLanguage: AppLanguageCode = normalizeAppLanguage(langCookie ?? DEFAULT_APP_LANGUAGE);
+
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang={initialLanguage} suppressHydrationWarning>
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
-        <AppLanguageProvider>
+        <AppLanguageProvider initialLanguage={initialLanguage}>
           <SupabaseAuthSync />
           {children}
         </AppLanguageProvider>

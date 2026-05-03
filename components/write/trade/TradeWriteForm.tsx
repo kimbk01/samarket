@@ -164,6 +164,7 @@ import {
   tradeMeetSpotFromMetaSnapshot,
   type TradeMeetSpotValue,
 } from "@/lib/posts/trade-meet-spot-types";
+import { inferTradeRegionCityFromMeetSpot } from "@/lib/posts/infer-trade-region-from-meet-spot";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   buildTradeWriteFormSessionDraft,
@@ -349,6 +350,19 @@ export function TradeWriteForm({
     };
   }, [hasLocation]);
 
+  /** 주소록 동기화 없이도 지도 한 줄에서 region/city 추론 — 검증·저장·헤더 라벨 공통 */
+  const effectiveTradeRegionId = useMemo(() => {
+    const r = region.trim();
+    if (r) return r;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.regionId ?? "";
+  }, [region, tradeMeetSpot]);
+
+  const effectiveTradeCityId = useMemo(() => {
+    const c = city.trim();
+    if (c) return c;
+    return inferTradeRegionCityFromMeetSpot(tradeMeetSpot)?.cityId ?? "";
+  }, [city, tradeMeetSpot]);
+
   /** 신규 작성: 카테고리 바뀔 때마다 직거래·나눔 기본값(직거래 우선) — 수정 모드는 스냅샷이 덮어씀 */
   useEffect(() => {
     if (editPostId) return;
@@ -405,6 +419,12 @@ export function TradeWriteForm({
     setRegion(rid);
     setCity(cid);
   }, []);
+
+  const applyMeetSpotPick = useCallback((next: TradeMeetSpotValue) => {
+    setTradeMeetSpot(next);
+    const loc = inferTradeRegionCityFromMeetSpot(next);
+    if (loc) syncTradeRegionCity(loc.regionId, loc.cityId);
+  }, [syncTradeRegionCity]);
 
   const tradeDraftFlushRef = useRef<TradeWriteFormSessionDraftBuildArgs | null>(null);
   /** 확인 나가기·카테고리 이탈 등으로 저장소를 비운 뒤, 언마운트·디바운스 전에 재저장 방지 */
@@ -1051,12 +1071,13 @@ export function TradeWriteForm({
       const priceNum = price.trim() ? Number(price.replace(/,/g, "")) : NaN;
       if (!price.trim() || isNaN(priceNum) || priceNum < 0) next.price = isRealEstateSale ? "판매가를 입력해 주세요." : "가격을 입력해 주세요.";
     }
-    if (hasLocation && (!region || !city))
+    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId))
       next.location =
         "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
     if (hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
-        representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim();
+        representativeTradeMeetFallbackLine?.trim() ||
+        getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
       if (!fallbackLine) {
         next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
       }
@@ -1090,6 +1111,8 @@ export function TradeWriteForm({
     mileage,
     region,
     city,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
     skinKey,
     dealType,
     buildingName,
@@ -1180,9 +1203,11 @@ export function TradeWriteForm({
           hasPrice && !submitFreeShare && price.trim()
             ? Number(price.replace(/,/g, ""))
             : null;
+        const submitRegion = effectiveTradeRegionId.trim();
+        const submitCity = effectiveTradeCityId.trim();
         const derivedNeighborhood =
           skinKey === "real-estate"
-            ? REGIONS.find((r) => r.id === region)?.cities.find((c) => c.id === city)?.name ?? ""
+            ? REGIONS.find((r) => r.id === submitRegion)?.cities.find((c) => c.id === submitCity)?.name ?? ""
             : neighborhood;
         let meta = buildTradeMeta(skinKey, {
           neighborhood: derivedNeighborhood,
@@ -1214,7 +1239,9 @@ export function TradeWriteForm({
         if (hasLocation) {
           const lineFromMap = tradeMeetSpot?.displayLine?.trim();
           const lineFallback =
-            representativeTradeMeetFallbackLine?.trim() || getLocationLabelIfValid(region, city)?.trim() || "";
+            representativeTradeMeetFallbackLine?.trim() ||
+            getLocationLabelIfValid(submitRegion, submitCity)?.trim() ||
+            "";
           const line = lineFromMap || lineFallback;
           if (line) {
             const pin = pickPersistableMeetSpotCoords(tradeMeetSpot);
@@ -1234,7 +1261,7 @@ export function TradeWriteForm({
             : usedCarTrade === "sell"
               ? `팝니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
               : "";
-        const locShort = getLocationLabel(region, city).trim();
+        const locShort = getLocationLabel(submitRegion, submitCity).trim();
         const bn = buildingName.trim();
         const dt = dealType.trim();
         const postTitle =
@@ -1259,8 +1286,8 @@ export function TradeWriteForm({
           price: priceToSend,
           isPriceOfferEnabled,
           isFreeShare: submitFreeShare,
-          region: region || undefined,
-          city: city || undefined,
+          region: submitRegion || undefined,
+          city: submitCity || undefined,
           barangay: undefined,
           imageUrls: imageUrlsForSave,
           meta,
@@ -1354,6 +1381,8 @@ export function TradeWriteForm({
       hasLocation,
       tradeMeetSpot,
       representativeTradeMeetFallbackLine,
+      effectiveTradeRegionId,
+      effectiveTradeCityId,
     ]
   );
 
@@ -1399,7 +1428,7 @@ export function TradeWriteForm({
     const shouldFocusOnReturn = consumeTradeMeetSpotFocusOnReturn();
     const next = peekTradeMeetSpotPickResult();
     if (next) {
-      setTradeMeetSpot(next);
+      applyMeetSpotPick(next);
       /** dev Strict Mode 이중 레이아웃 사이에 세션을 비우지 않도록 페인트 뒤 1회만 제거 */
       requestAnimationFrame(() => {
         clearTradeMeetSpotPickResult();
@@ -1411,7 +1440,7 @@ export function TradeWriteForm({
     } else {
       restoreTradeMeetSpotReturnScrollPosition();
     }
-  }, [pathname, tradeWriteSheetEpoch, category.id]);
+  }, [pathname, tradeWriteSheetEpoch, category.id, applyMeetSpotPick]);
 
   useEffect(() => {
     if (!pendingMeetSpotFocusRef.current) return;
@@ -1429,21 +1458,21 @@ export function TradeWriteForm({
   useEffect(() => {
     const onPageShow = () => {
       const next = consumeTradeMeetSpotPickResult();
-      if (next) setTradeMeetSpot(next);
+      if (next) applyMeetSpotPick(next);
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
+  }, [applyMeetSpotPick]);
 
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
 
   const tradeWriteHeaderTitle = useMemo(() => {
     if (editPostId) return `${category.name} · 수정`;
-    if (region && city && hasLocation) {
-      return `${getLocationLabel(region, city)}에 올리기`;
+    if (effectiveTradeRegionId && effectiveTradeCityId && hasLocation) {
+      return `${getLocationLabel(effectiveTradeRegionId, effectiveTradeCityId)}에 올리기`;
     }
     return `${category.name} · 글쓰기`;
-  }, [editPostId, category.name, region, city, hasLocation]);
+  }, [editPostId, category.name, effectiveTradeRegionId, effectiveTradeCityId, hasLocation]);
 
   /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
   const karrotMeetSpotDisplayLine = useMemo(() => {
@@ -1452,10 +1481,16 @@ export function TradeWriteForm({
     const rep = representativeTradeMeetFallbackLine?.trim();
     if (rep) return rep;
     if (hasLocation) {
-      return getLocationLabelIfValid(region, city)?.trim() ?? "";
+      return getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim() ?? "";
     }
     return "";
-  }, [tradeMeetSpot, representativeTradeMeetFallbackLine, hasLocation, region, city]);
+  }, [
+    tradeMeetSpot,
+    representativeTradeMeetFallbackLine,
+    hasLocation,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
+  ]);
 
   const realEstateBuildingFields = (
     <div className="mt-2 border-t border-[#e4e6eb] pt-2">
@@ -1496,6 +1531,7 @@ export function TradeWriteForm({
         meetSpotHeading="위치"
         belowMeetSpotSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
         denseLayout
+        suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
       />
     </div>
   ) : null;

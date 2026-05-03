@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * 거래 상세 클라 — related 는 RSC `initialBundle` 에 실림 (`getTradeDetailRelatedData` 병렬).
+ *
+ * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -153,11 +159,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
       <PostDetailView
         post={post}
         sellerProfile={initialBundle.sellerProfile ?? null}
-        related={{
-          sellerItems: related.sellerItems,
-          similarItems: related.similarItems,
-          ads: related.ads,
-        }}
+        related={related}
         viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
         initialRouteTotalMs={initialRouteTotalMs}
         serverViewerUserId={
@@ -165,7 +167,6 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
             ? initialBundle.viewerUserId.trim()
             : undefined
         }
-        initialSellerPriceOffers={initialBundle.initialSellerPriceOffers}
         initialViewerBuyerOffers={initialBundle.initialViewerBuyerOffers}
       />
     </>

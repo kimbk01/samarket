@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
@@ -307,20 +307,13 @@ export function CommunityMessengerRoomClientPhase2() {
       ? ({ maxHeight: vvBox.heightPx } as const)
       : undefined;
 
-  /** 일반·그룹·오픈·거래 1:1 등 모든 메신저 방 — 좁은 화면에서 키보드 크롬·하단 탭 숨김 */
+  /** 일반·그룹·오픈·거래 1:1 등 모든 메신저 방 — 좁은 화면에서 키보드 크롬 추정(`ConditionalAppShell` 하단 탭은 방 경로에서 항상 숨김) */
   const messengerKeyboardChromeEnabled = isNarrowViewport && Boolean(room.snapshot);
   const composerFocused = useMessengerUIStore((s) => s.composerFocused);
   const { keyboardChromeOpen: messengerKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
     enabled: messengerKeyboardChromeEnabled,
     composerFocused,
   });
-
-  useEffect(() => {
-    const set = useMessengerUIStore.getState().setMessengerSuppressBottomNavForKeyboard;
-    if (messengerKeyboardChromeEnabled && messengerKeyboardChromeOpen) set(true);
-    else set(false);
-    return () => set(false);
-  }, [messengerKeyboardChromeEnabled, messengerKeyboardChromeOpen]);
 
   if (!room.snapshot) {
     if (room.loading) {

@@ -51,6 +51,11 @@ type TradeDefaultLocationBlockProps = {
   belowMeetSpotSlot?: ReactNode;
   /** 부동산 글쓰기 등 — 안내 문구 생략·패딩 축소 */
   denseLayout?: boolean;
+  /**
+   * 지도에서 거래 장소를 고른 뒤에는 주소록 기준으로 `region`/`city` 를 덮어쓰지 않음
+   * (대표 주소와 핀 위치가 다를 때 검증 실패 방지).
+   */
+  suppressAddressBookRegionSync?: boolean;
 };
 
 export function TradeDefaultLocationBlock({
@@ -68,6 +73,7 @@ export function TradeDefaultLocationBlock({
   meetSpotHeading = "거래 희망 장소",
   belowMeetSpotSlot,
   denseLayout = false,
+  suppressAddressBookRegionSync = false,
 }: TradeDefaultLocationBlockProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -75,6 +81,8 @@ export function TradeDefaultLocationBlock({
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
+  const suppressAddressBookSyncRef = useRef(suppressAddressBookRegionSync);
+  suppressAddressBookSyncRef.current = suppressAddressBookRegionSync;
   const pathnameLoadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathnameEffectFirstRef = useRef(true);
 
@@ -98,7 +106,9 @@ export function TradeDefaultLocationBlock({
       ).trim();
       setDisplayLine(line || null);
       const inferred = inferAppLocationIdsFromUserAddress(addr);
-      if (inferred) syncRef.current(inferred.regionId, inferred.cityId);
+      if (inferred && !suppressAddressBookSyncRef.current) {
+        syncRef.current(inferred.regionId, inferred.cityId);
+      }
     } catch {
       setDisplayLine(null);
     } finally {

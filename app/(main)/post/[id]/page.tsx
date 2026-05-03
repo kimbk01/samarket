@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { withTimeout } from "@/lib/async/with-timeout";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
+/** RSC 상세: related 는 `getTradeDetailRelatedData` 로 병렬 포함·방 시드는 비포함. → trade-post-detail-chat-hot-path.mdc */
 import { getItemDetailPageData } from "@/services/trade/trade-detail.service";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
 
