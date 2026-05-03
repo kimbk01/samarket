@@ -220,11 +220,57 @@ export function messengerMonitorUnreadListSync(
   });
 }
 
-/** 홈 silent 부트스트랩 완료까지 — Realtime 등으로 인한 목록·탭·미읽음 서버 정합 */
-export function messengerMonitorHomeBootstrapUnreadSync(latencyMs: number): void {
+/**
+ * 홈 목록 UI 정합 — `mergeHomeSyncIntoBootstrap` 의 `setData` 업데이터 동기 구간만 (네트워크·fallback 제외).
+ */
+export function messengerMonitorHomeListBootstrapUiAlign(latencyMs: number): void {
   messengerMonitorRecord({
     category: "chat.unread_sync",
     metric: "list_bootstrap_align",
+    value: latencyMs,
+    unit: "ms",
+    labels: { scope: "home_bootstrap" },
+  });
+}
+
+/**
+ * rAF 기반 프레임 간격 (ms) — `NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET=1` 일 때만 호출.
+ * `chat.render` / `frame_budget` · SLO·알림은 `MESSENGER_PERF_THRESHOLDS.frameBudget*`.
+ */
+export function messengerMonitorRenderFrameBudget(
+  roomId: string,
+  durationMs: number,
+  labels: { phase: "room_open" | "scroll"; frameIndex?: string }
+): void {
+  messengerMonitorRecord({
+    category: "chat.render",
+    metric: "frame_budget",
+    value: durationMs,
+    unit: "ms",
+    labels: {
+      roomIdSuffix: roomSuffix(roomId),
+      phase: labels.phase,
+      ...(typeof labels.frameIndex === "string" && labels.frameIndex ? { frameIndex: labels.frameIndex } : {}),
+    },
+  });
+}
+
+/** `GET /api/community-messenger/home-sync` 클라 왕복 (prefetch 병합 전 구간) */
+export function messengerMonitorHomeSyncFetchMs(latencyMs: number): void {
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "home_sync_fetch_ms",
+    value: latencyMs,
+    unit: "ms",
+    labels: { scope: "home_bootstrap" },
+  });
+}
+
+/** silent home-sync 실패 후 `fetchCommunityMessengerBootstrapClient("fresh")` 왕복 */
+export function messengerMonitorSilentFailFallbackBootstrapMs(latencyMs: number): void {
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "silent_fail_fallback_bootstrap_ms",
     value: latencyMs,
     unit: "ms",
     labels: { scope: "home_bootstrap" },

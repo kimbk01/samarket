@@ -17,7 +17,7 @@ type BrowserWithConnection = typeof window & {
 export function isConstrainedNetwork(): boolean {
   if (typeof window === "undefined") return false;
   const browser = window as BrowserWithConnection;
-  const connection = browser.navigator.connection;
+  const connection = browser.navigator?.connection;
   if (!connection) return false;
   if (connection.saveData) return true;
   return connection.effectiveType === "slow-2g" || connection.effectiveType === "2g";

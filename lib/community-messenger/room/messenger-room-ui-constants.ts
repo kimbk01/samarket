@@ -18,3 +18,15 @@ export const CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX = 280;
 
 /** 스크롤·레이아웃 연속 변화 시 mark_read(cursor) 배치 — 요청 폭주 방지 */
 export const CM_MARK_READ_SCROLL_DEBOUNCE_MS = 150;
+
+/** 타임라인 `@tanstack/react-virtual` — 뷰포트 대비 대략 20~40개 DOM 노드(가시 + 오버스캔) 목표 */
+export const MESSENGER_TIMELINE_VIRTUAL_OVERSCAN = 10;
+
+/** 초기 행 높이 추정(px). 실제 높이는 `measureElement` 로 보정 */
+export const MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX = 96;
+
+/**
+ * 타임라인 메시지 배열 상한(메모리·클라 diff 비용). DOM은 가상 스크롤로 일정하게 유지.
+ * 이전 100은 가상화 전 완충용 — 로드 더 보기·긴 스레드와 함께 쓰이면 상한을 크게 둔다.
+ */
+export const MESSENGER_TIMELINE_MESSAGES_CAP = 2500;

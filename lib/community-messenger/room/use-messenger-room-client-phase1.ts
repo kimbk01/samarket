@@ -26,7 +26,10 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useMessengerRoomRealtimeMessageIngest } from "@/lib/community-messenger/room/use-messenger-room-realtime-message-ingest";
+import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import {
+  ROOM_OPEN_ALIGN_TRACE,
+  traceRoomOpenAlignChain,
   useMessengerRoomOpenMarkReadEffect,
   type MessengerRoomOpenMarkReadPhaseRef,
 } from "@/lib/community-messenger/room/use-messenger-room-open-mark-read-effect";
@@ -45,6 +48,7 @@ import {
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { shouldAdvancePeerReadReceiptCursor } from "@/lib/community-messenger/room/messenger-peer-read-cursor-guard";
 import {
   createMessengerRoomBootstrapRefresh,
   forgetMessengerRoomClientBootstrapFlights,
@@ -52,6 +56,10 @@ import {
 import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
+  MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
+} from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
@@ -84,6 +92,10 @@ import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/ro
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
+  onCommunityMessengerBusEvent,
+  postCommunityMessengerBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
+import {
   seedMessengerRealtimeFromRoomSnapshot,
   setActiveMessengerRealtimeRoom,
   applyIncomingMessageEvent,
@@ -92,7 +104,6 @@ import {
   getMessengerRealtimeRoomMessages,
   getMessengerRealtimeRoomSummary,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -120,6 +131,12 @@ import {
   VoiceRecordingLiveWaveform,
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+
+/** Dev Strict Mode 이중 mount 시 동일 방 phase1 early 중복 스킵 — prod 에서는 미사용 */
+let devPhase1EarlyAlignStrictGuardRoomId: string | null = null;
+let devPhase1EarlyAlignStrictGuardAt = 0;
+/** 실제 room 경로 변경 시에만 strict guard 를 리셋 (동일 room Strict 재마운트에서는 유지) */
+let devPhase1StrictGuardLastRoomKey: string | null = null;
 
 /** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
 const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
@@ -179,6 +196,7 @@ export function useMessengerRoomClientPhase1({
   const silentRoomRefreshBusyRef = useRef(false);
   const silentRoomRefreshAgainRef = useRef(false);
   const silentBootstrapThrottleCoalesceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swrDeferredBootstrapTimerRef = useRef<number | null>(null);
   const viewerBootstrapDedupRef = useRef(initialViewerId);
   /** 발신 다이얼 `router.push` 연타 방지 — ref 는 동기 연타, state 는 버튼 비활성 표시 */
   const outgoingDialSyncGuardRef = useRef(false);
@@ -255,6 +273,14 @@ export function useMessengerRoomClientPhase1({
   /** `mark_read` — 시트·메시지 액션 등 오버레이 시 금지 */
   const readPhase1OverlayBlockedRef = useRef(false);
   const roomLoadingRef = useRef(false);
+  /** unread≥1 방 진입 즉시 배지·목록 정렬(`badge_list_align`) — mark_read 게이트보다 앞선다 */
+  const roomOpenBadgeAlignEarlyDoneRef = useRef<{ roomId: string | null; done: boolean }>({
+    roomId: null,
+    done: false,
+  });
+  const routeUnreadReadSyncMsLoggedRef = useRef<string | null>(null);
+  /** 동일 방 입장 세션에서 unread≥1 낙관 정렬·메트릭은 1회만 */
+  const roomOpenEarlyAlignOnceRef = useRef<string | null>(null);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
   if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
@@ -265,6 +291,89 @@ export function useMessengerRoomClientPhase1({
   useEffect(() => {
     seedMessengerRealtimeFromRoomSnapshot(snapshot ?? initialServerSnapshot ?? null);
   }, [initialServerSnapshot, snapshot]);
+
+  /**
+   * `seedRoomSnapshot` 이 스토어에 서버 unread 를 심은 **직후** 동일 틱에서 낙관 0 을 덮어쓴다.
+   * (useLayoutEffect 선행 시 seed useEffect 가 나중에 stale unread 로 되돌리는 순서 역전을 피함)
+   */
+  useEffect(() => {
+    const canonicalId = streamRoomId.trim();
+    if (!canonicalId || !snapshot) return;
+    if (String(snapshot.room.id) !== canonicalId) return;
+    if (snapshot.room.unreadCount < 1) return;
+    if (roomOpenEarlyAlignOnceRef.current === canonicalId) return;
+    const viewer = snapshot.viewerUserId?.trim() || "";
+    if (!viewer) return;
+
+    if (process.env.NODE_ENV !== "production") {
+      const now = performance.now();
+      if (
+        devPhase1EarlyAlignStrictGuardRoomId === canonicalId &&
+        now - devPhase1EarlyAlignStrictGuardAt < 200
+      ) {
+        roomOpenBadgeAlignEarlyDoneRef.current = { roomId: canonicalId, done: true };
+        roomOpenEarlyAlignOnceRef.current = canonicalId;
+        return;
+      }
+    }
+
+    roomOpenEarlyAlignOnceRef.current = canonicalId;
+    const t0 = performance.now();
+    applyRoomReadEvent({ viewerUserId: viewer, roomId: canonicalId });
+    postCommunityMessengerBusEvent({
+      type: "cm.room.read",
+      roomId: canonicalId,
+      viewerUserId: viewer,
+      lastReadMessageId: null,
+      at: Date.now(),
+    });
+    postCommunityMessengerBusEvent({
+      type: "cm.room.local_unread",
+      roomId: canonicalId,
+      viewerUserId: viewer,
+      unreadCount: 0,
+      at: Date.now(),
+    });
+    const alignMs = Math.round(performance.now() - t0);
+    messengerMonitorUnreadListSync(canonicalId, alignMs, "room_open");
+    if (ROOM_OPEN_ALIGN_TRACE) {
+      traceRoomOpenAlignChain("phase1_early", canonicalId, alignMs, t0, {
+        phase: "phase1_early",
+        store_updates_count: 1,
+        bus_events_count: 2,
+        rerender_hint:
+          "zustand_applyRoomReadEvent+totalUnread;owner_hub_applyCommunityMessengerUnreadOptimistic;home_if_list_open",
+      });
+    }
+    roomOpenBadgeAlignEarlyDoneRef.current = { roomId: canonicalId, done: true };
+    if (routeUnreadReadSyncMsLoggedRef.current !== canonicalId) {
+      routeUnreadReadSyncMsLoggedRef.current = canonicalId;
+      recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+    }
+    /** `seedRoomSnapshot` 이 이후 틱에 props 의 stale unread 로 스토어를 되돌리지 않게 */
+    setSnapshot((prev) => {
+      if (!prev || String(prev.room.id) !== canonicalId) return prev;
+      if (prev.room.unreadCount < 1) return prev;
+      return { ...prev, room: { ...prev.room, unreadCount: 0 } };
+    });
+    if (process.env.NODE_ENV !== "production") {
+      devPhase1EarlyAlignStrictGuardRoomId = canonicalId;
+      devPhase1EarlyAlignStrictGuardAt = performance.now();
+    }
+  }, [streamRoomId, snapshot, setSnapshot]);
+
+  useEffect(() => {
+    const canonical = String(roomId ?? "").trim() || null;
+    const roomKey = canonical ?? "";
+    if (devPhase1StrictGuardLastRoomKey !== roomKey) {
+      devPhase1EarlyAlignStrictGuardRoomId = null;
+      devPhase1EarlyAlignStrictGuardAt = 0;
+      devPhase1StrictGuardLastRoomKey = roomKey;
+    }
+    routeUnreadReadSyncMsLoggedRef.current = null;
+    roomOpenEarlyAlignOnceRef.current = null;
+    roomOpenBadgeAlignEarlyDoneRef.current = { roomId: canonical, done: false };
+  }, [roomId]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -442,6 +551,7 @@ export function useMessengerRoomClientPhase1({
         silentRoomRefreshBusyRef,
         silentRoomRefreshAgainRef,
         silentBootstrapThrottleCoalesceTimerRef,
+        swrDeferredBootstrapTimerRef,
       }),
     [
       roomId,
@@ -454,6 +564,7 @@ export function useMessengerRoomClientPhase1({
       silentRoomRefreshBusyRef,
       silentRoomRefreshAgainRef,
       silentBootstrapThrottleCoalesceTimerRef,
+      swrDeferredBootstrapTimerRef,
     ]
   );
 
@@ -483,6 +594,10 @@ export function useMessengerRoomClientPhase1({
     return () => {
       releaseSeededFirstSilentHoldRef.current?.();
       releaseSeededFirstSilentHoldRef.current = null;
+      if (swrDeferredBootstrapTimerRef.current != null) {
+        clearTimeout(swrDeferredBootstrapTimerRef.current);
+        swrDeferredBootstrapTimerRef.current = null;
+      }
       if (entrySilentRefreshDebounceTimerRef.current != null) {
         clearTimeout(entrySilentRefreshDebounceTimerRef.current);
         entrySilentRefreshDebounceTimerRef.current = null;
@@ -663,6 +778,31 @@ export function useMessengerRoomClientPhase1({
       const lraStr = typeof lraRaw === "string" && lraRaw.trim() ? lraRaw.trim() : null;
       if (!lrmStr && !lraStr) return;
 
+      const messageCreatedAtById = new Map<string, string>();
+      for (const m of roomMessagesRef.current) {
+        const id = String(m.id ?? "").trim();
+        if (!id || m.pending) continue;
+        const ca = typeof m.createdAt === "string" && m.createdAt.trim() ? m.createdAt.trim() : "";
+        if (ca) messageCreatedAtById.set(id, ca);
+      }
+      for (const m of snap.messages) {
+        const id = String(m.id ?? "").trim();
+        if (!id || messageCreatedAtById.has(id)) continue;
+        const ca = typeof m.createdAt === "string" && m.createdAt.trim() ? m.createdAt.trim() : "";
+        if (ca) messageCreatedAtById.set(id, ca);
+      }
+
+      if (
+        !shouldAdvancePeerReadReceiptCursor({
+          prev: snap.readReceipt,
+          nextMessageId: lrmStr,
+          nextReadAt: lraStr,
+          messageCreatedAtById,
+        })
+      ) {
+        return;
+      }
+
       let createdAtForCursor: string | undefined;
       if (lrmStr) {
         const fromLive = roomMessagesRef.current.find((m) => m.id === lrmStr)?.createdAt;
@@ -685,6 +825,18 @@ export function useMessengerRoomClientPhase1({
       });
       const uid = snap.viewerUserId.trim();
       if (uid) {
+        applyRoomSummaryPatched({
+          viewerUserId: uid,
+          roomId: ledgerRoomId,
+          lastReadMessageId: lrmStr,
+        });
+        postCommunityMessengerBusEvent({
+          type: "cm.room.summary_patch",
+          roomId: ledgerRoomId,
+          viewerUserId: uid,
+          lastReadMessageId: lrmStr ?? null,
+          at: Date.now(),
+        });
         queueMicrotask(() => {
           forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
           void refresh(true, { forceSilentNetwork: true });
@@ -794,6 +946,7 @@ export function useMessengerRoomClientPhase1({
     roomLoadingRef,
     readGateVersion,
     peerTailMarkReadHintRef,
+    roomOpenBadgeAlignEarlyDoneRef,
   });
 
   useEffect(() => {
@@ -972,8 +1125,9 @@ export function useMessengerRoomClientPhase1({
   const chatVirtualizer = useVirtualizer({
     count: displayRoomMessages.length,
     getScrollElement: () => messagesViewportRef.current,
-    estimateSize: () => 96,
-    overscan: 12,
+    estimateSize: () => MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
+    overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
+    getItemKey: (index) => displayRoomMessages[index]?.id ?? `__cm_timeline_${index}`,
   });
 
   const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({

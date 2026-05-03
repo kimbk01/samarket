@@ -5,8 +5,12 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessengerMonitoringSummary } from "@/lib/community-messenger/monitoring/types";
 import {
+  MESSENGER_PERF_REFERENCE_BOOTSTRAP_FETCH_CLIENT_MS,
+  MESSENGER_PERF_REFERENCE_FRAME_MS,
   MESSENGER_PERF_REFERENCE_P95_MS,
+  MESSENGER_PERF_REFERENCE_PREFETCH_RATIOS,
   MESSENGER_PERF_REFERENCE_RATIOS,
+  MESSENGER_PERF_REFERENCE_ROOM_OPEN_MS,
   MESSENGER_PERF_THRESHOLDS,
 } from "@/lib/community-messenger/monitoring/thresholds";
 
@@ -65,6 +69,21 @@ export function AdminMessengerMonitoringPage() {
             {JSON.stringify(MESSENGER_PERF_REFERENCE_RATIOS, null, 2)}
           </pre>
         </div>
+      </AdminCard>
+
+      <AdminCard title="참조 슬리버 (room_open · bootstrap_fetch · frame · prefetch — 동 문서 상단)">
+        <pre className="overflow-x-auto rounded-ui-rect bg-sam-app p-4 sam-text-xxs leading-relaxed text-sam-fg">
+          {JSON.stringify(
+            {
+              MESSENGER_PERF_REFERENCE_ROOM_OPEN_MS,
+              MESSENGER_PERF_REFERENCE_BOOTSTRAP_FETCH_CLIENT_MS,
+              MESSENGER_PERF_REFERENCE_FRAME_MS,
+              MESSENGER_PERF_REFERENCE_PREFETCH_RATIOS,
+            },
+            null,
+            2
+          )}
+        </pre>
       </AdminCard>
 
       <AdminCard title="SLO 요약 (인메모리 윈도우 — 관측값 vs 목표)">

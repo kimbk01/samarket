@@ -26,7 +26,31 @@ export type CommunityMessengerRoomSnapshotOptions = {
 export type CommunityMessengerRoomSnapshotDiagnostics = {
   roomBootstrapFetchMs?: number;
   messagesFetchMs?: number;
+  /** 숨김 + 리액션 집계를 `Promise.all` 로 병렬 처리한 구간(ms) */
+  messagesPostParallelFetchMs?: number;
   participantsProfilesFetchMs?: number;
+  /** `community_messenger_participants` 병렬 조회(캡/전원) + mine 단건 — profiles 번들과 분리 */
+  participantsSqlFetchMs?: number;
+  /** `fetchRoomProfilesByRoomIds` 단독 (프로필 번들 `Promise.all` 내) */
+  fetchRoomProfilesByRoomIdsMs?: number;
+  /** `hydrateProfilesLabelsOnlyWithMap` 단독 */
+  hydrateProfilesLabelsOnlyWithMapMs?: number;
+  /** defer seed 첫 웨이브: `tradeChatRoomDetailPromiseFromMessengerRoomRow` (병렬 구간) */
+  tradeChatRoomDetailBootstrapParallelMs?: number;
+  /** `deferSnapshotSecondary` 아님: 요약 이후 `tradeChatRoomDetailPromiseFromMessengerRoomRow` await wall */
+  tradeChatRoomDetailNormalizePhaseMs?: number;
+  /** defer seed 첫 웨이브: `loadTradeProductChatExitSnapshotForMessengerRoom` (병렬 구간) */
+  tradeExitSnapshotBootstrapParallelMs?: number;
+  /** 1:1 peer `last_read_message_id` → `created_at` 단건 조회 (병렬 구간) */
+  peerReadCursorFetchMs?: number;
+  /** `buildRoomSummaryFromHydratedMembers` */
+  summaryBuildMs?: number;
+  /** `hydratedLabels.members.map` (멤버 슬롯) */
+  membersMapMs?: number;
+  /** `messages.map` → `CommunityMessengerMessage[]` (CPU) */
+  messagesMapCpuMs?: number;
+  /** `tMappedMessages0` ~ `messages.map` 직전: sender 스캔·peer read receipt 정리 등 */
+  messagesPipelinePrepMs?: number;
   normalizeMergeMs?: number;
   /** `loadCommunityMessengerRoomSnapshotUncached` 진입(`t0`) 기준 누적 ms — 단계 간격은 인접 키 차이 */
   snapshotEntryMs?: number;

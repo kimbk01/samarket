@@ -91,6 +91,23 @@ export function primeNotificationSoundAudio(): void {
   }
 }
 
+/** 통화 종료 정리 후 로깅용 */
+export function getSharedNotificationAudioContextState(): string | null {
+  return sharedAudioCtx?.state ?? null;
+}
+
+/** 알림용 공유 AudioContext 가 재생 중이면 일시 정지 — 통화 세션 잔류 완화 */
+export function suspendSharedNotificationAudioContextBestEffort(): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (sharedAudioCtx && sharedAudioCtx.state === "running") {
+      void sharedAudioCtx.suspend();
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export function playNotificationSound(): void {
   if (typeof window === "undefined") return;
   void (async () => {

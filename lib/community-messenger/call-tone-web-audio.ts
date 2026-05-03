@@ -3,10 +3,18 @@
  * 음성/영상에 서로 다른 주파수·리듬을 둔다.
  */
 
+import {
+  ensureCommunityMessengerAppAudioContext,
+  suspendCommunityMessengerAppAudioContextBestEffort,
+} from "@/lib/community-messenger/cm-app-audio-context";
+
 export type CallToneWebMode = "incoming" | "outgoing";
 export type CallToneWebKind = "voice" | "video";
 
 export type WebAudioCallToneHandle = { stop: () => void };
+
+/** `startWebAudioCallTone` 가 단독 생성한 컨텍스트 — 비정상 종료 시 강제 close */
+const ephemeralCallToneContexts = new Set<AudioContext>();
 
 /**
  * 발신 버튼 등 **동기 사용자 제스처** 안에서만 호출한다.
@@ -14,14 +22,24 @@ export type WebAudioCallToneHandle = { stop: () => void };
  */
 let gesturePrimedToneContext: AudioContext | null = null;
 
+/** 벨 중단 시 공유 컨텍스트는 닫지 않고 suspend — `ensureCommunityMessengerAppAudioContext` 재사용 */
+export function closePrimedWebAudioCallToneContext(): void {
+  gesturePrimedToneContext = null;
+  suspendCommunityMessengerAppAudioContextBestEffort();
+}
+
+/** 정리 후 로깅용 — 공용 컨텍스트 또는 제스처 primed */
+export function getPrimedWebAudioCallToneContextState(): string {
+  if (typeof window === "undefined") return "none";
+  const w = window.__CM_ACTIVE_AUDIO_CONTEXT__;
+  if (w && w.state !== "closed") return w.state;
+  if (!gesturePrimedToneContext || gesturePrimedToneContext.state === "closed") return "none";
+  return gesturePrimedToneContext.state;
+}
+
 export function primeWebAudioCallToneContextFromUserGesture(): void {
-  if (typeof window === "undefined") return;
-  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AC) return;
-  if (!gesturePrimedToneContext || gesturePrimedToneContext.state === "closed") {
-    gesturePrimedToneContext = new AC();
-  }
-  void gesturePrimedToneContext.resume();
+  const ctx = ensureCommunityMessengerAppAudioContext();
+  gesturePrimedToneContext = ctx;
 }
 
 function connectDualTone(
@@ -54,9 +72,17 @@ export function startWebAudioCallTone(mode: CallToneWebMode, kind: CallToneWebKi
   if (!AC) return null;
 
   const primed = gesturePrimedToneContext;
-  const usePrimed = primed != null && primed.state !== "closed";
-  const ctx: AudioContext = usePrimed ? primed : new AC();
+  const appCtx =
+    typeof window !== "undefined" && window.__CM_ACTIVE_AUDIO_CONTEXT__ && window.__CM_ACTIVE_AUDIO_CONTEXT__.state !== "closed"
+      ? window.__CM_ACTIVE_AUDIO_CONTEXT__
+      : null;
+  const shared = primed && primed.state !== "closed" ? primed : appCtx;
+  const usePrimed = shared != null;
+  const ctx: AudioContext = usePrimed ? shared! : new AC();
   const ownsContext = !usePrimed;
+  if (ownsContext) {
+    ephemeralCallToneContexts.add(ctx);
+  }
   if (usePrimed) void ctx.resume();
 
   const master = ctx.createGain();
@@ -117,11 +143,30 @@ export function startWebAudioCallTone(mode: CallToneWebMode, kind: CallToneWebKi
     if (intervalId != null) window.clearInterval(intervalId);
     try {
       master.disconnect();
-      if (ownsContext) void ctx.close();
+      if (ownsContext) {
+        ephemeralCallToneContexts.delete(ctx);
+        void ctx.close();
+      } else if (ctx.state !== "closed") {
+        /** primed 공유 컨텍스트 — 닫지 않고 suspend 해 출력 그래프를 즉시 멈춤 */
+        void ctx.suspend();
+      }
     } catch {
       /* ignore */
     }
   };
 
   return { stop };
+}
+
+/** 링 톤 전용 Web Audio 단독 컨텍스트가 남았으면 닫는다(조인 없이 링만 도는 경우 등). */
+export function forceCloseEphemeralCallToneWebAudioContexts(): void {
+  if (typeof window === "undefined") return;
+  for (const c of [...ephemeralCallToneContexts]) {
+    try {
+      ephemeralCallToneContexts.delete(c);
+      if (c.state !== "closed") void c.close();
+    } catch {
+      /* */
+    }
+  }
 }

@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * LEGACY — 현재 어떤 페이지·훅도 import 하지 않음 (`deriveCallSessionPhase` 래퍼).
+ */
+
 import { useMemo } from "react";
 import {
   deriveCallSessionPhase,

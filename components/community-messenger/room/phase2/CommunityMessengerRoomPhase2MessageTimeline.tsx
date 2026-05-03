@@ -1,307 +1,33 @@
 "use client";
 
-import {
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   communityMessengerRoomIsGloballyUsable,
-  type CommunityMessengerMessage,
   type CommunityMessengerMessageActionAnchorRect,
 } from "@/lib/community-messenger/types";
-
-function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
-  return {
-    top: r.top,
-    left: r.left,
-    right: r.right,
-    bottom: r.bottom,
-    width: r.width,
-    height: r.height,
-  };
-}
-import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { describeManagementEvent } from "@/lib/community-messenger/room/describe-management-event";
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
-import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
-  BackIcon,
-  communityMessengerMemberAvatar,
-  communityMessengerMessageSearchText,
-  communityMessengerVoiceAudioSrc,
-  extractHttpUrls,
-  FileIcon,
-  formatDuration,
-  formatFileMeta,
-  formatParticipantStatus,
-  formatRoomCallStatus,
-  formatTime,
-  formatVoiceRecordTenThousandths,
-  getLatestCallStubForSession,
-  looksLikeDirectImageUrl,
-  mergeRoomMessages,
-  MicHoldIcon,
-  MoreIcon,
-  PlusIcon,
-  SendPlaneIcon,
-  SendVoiceArrowIcon,
-  TrashVoiceIcon,
-  VideoCallIcon,
-  VoiceCallIcon,
-  VoiceRecordingLiveWaveform,
-  ViberChatBubble,
-} from "@/components/community-messenger/room/community-messenger-room-helpers";
-import {
-  CommunityMessengerTradeProcessSection,
-  GroupRoomCallOverlay,
-  MessengerTradeChatRoomDetailPrefetch,
-  SeedTradeChatDetailMemoryFromSnapshot,
-  VoiceMessageBubble,
-} from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
+  CM_CLUSTER_GAP_MS,
+  MESSENGER_TIMELINE_MESSAGES_CAP,
+} from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { communityMessengerMemberAvatar, formatRoomCallStatus } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
-import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 import {
   messengerRoomReadBlockKeyImageLightbox,
   setMessengerRoomReadBlock,
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import {
-  formatReplyQuoteForMessage,
-  formatReplyQuoteKakaoHeader,
-} from "@/lib/community-messenger/message-actions/message-reply-policy";
+  runMessengerRoomOpenFrameBudgetTrace,
+  sampleMessengerScrollFrameBudget,
+} from "@/lib/community-messenger/monitoring/messenger-frame-budget-trace";
 import { MessageReactionRosterSheet } from "@/components/community-messenger/room/message/MessageReactionRosterSheet";
-
-const MESSENGER_TIMELINE_MESSAGES_CAP = 100;
-
-type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean };
-
-const TimelineViberInnerImage = memo(function TimelineViberInnerImage({
-  item,
-  onOpenLightbox,
-}: {
-  item: TimelineViberBubbleMessage;
-  onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
-}) {
-  return <MessengerChatImageBubble item={item} onOpenLightbox={onOpenLightbox} />;
-});
-
-const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker({ item }: { item: TimelineViberBubbleMessage }) {
-  const mineLight = item.isMine;
-  const stickerSrc = item.content.trim();
-  return (
-    <div className="flex flex-col items-stretch p-1">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={stickerSrc}
-        alt=""
-        width={160}
-        height={160}
-        loading="lazy"
-        decoding="async"
-        className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
-      />
-      {item.pending ? (
-        <span className="mt-1 sam-text-xxs text-sam-muted">전송 중…</span>
-      ) : null}
-    </div>
-  );
-});
-
-const TimelineViberInnerVoice = memo(function TimelineViberInnerVoice({
-  item,
-  streamRoomId,
-}: {
-  item: TimelineViberBubbleMessage;
-  streamRoomId: string;
-}) {
-  return (
-    <VoiceMessageBubble
-      src={communityMessengerVoiceAudioSrc(streamRoomId, item)}
-      durationSeconds={item.voiceDurationSeconds ?? 0}
-      isMine={item.isMine}
-      pending={item.pending}
-      waveformPeaks={item.voiceWaveformPeaks ?? null}
-      sentTimeLabel={undefined}
-      mineBubbleStyle={item.isMine ? "viberLight" : "signature"}
-      fallbackSrc={
-        item.pending ? null : /^https?:\/\//i.test(item.content.trim()) ? item.content.trim() : null
-      }
-      mediaType={item.voiceMimeType ?? null}
-    />
-  );
-});
-
-const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
-  item,
-  mediaAutoSaveEnabled,
-}: {
-  item: TimelineViberBubbleMessage;
-  mediaAutoSaveEnabled: boolean;
-}) {
-  return (
-    <div className="min-w-[200px]">
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
-            item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-sam-surface-muted text-sam-fg"
-          }`}
-        >
-          <FileIcon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={`truncate font-semibold ${item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"}`}>
-            {item.fileName?.trim() || "첨부 파일"}
-          </p>
-          <p className={`mt-1 sam-text-helper ${item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}>
-            {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3">
-        {item.pending ? (
-          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>업로드 중…</span>
-        ) : item.content.trim() ? (
-          <a
-            href={item.content.trim()}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={mediaAutoSaveEnabled ? item.fileName?.trim() || "community-messenger-file" : undefined}
-            className={`inline-flex rounded-[10px] border px-3 py-1.5 sam-text-helper font-semibold ${
-              item.isMine
-                ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
-                : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
-            }`}
-          >
-            {mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
-          </a>
-        ) : null}
-      </div>
-    </div>
-  );
-});
-
-const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallStub({
-  item,
-  stubBusy,
-  onOpenOutgoingConfirm,
-  voiceCallLabel,
-  videoCallLabel,
-  callStatusLabel,
-}: {
-  item: TimelineViberBubbleMessage;
-  stubBusy: boolean;
-  onOpenOutgoingConfirm: (kind: "voice" | "video") => void;
-  voiceCallLabel: string;
-  videoCallLabel: string;
-  callStatusLabel: string;
-}) {
-  const kind: "voice" | "video" = item.callKind === "video" ? "video" : "voice";
-  const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
-  return (
-    <button
-      type="button"
-      disabled={stubBusy}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpenOutgoingConfirm(kind);
-      }}
-      className="flex w-full max-w-full items-center gap-2 rounded-[12px] py-0.5 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
-    >
-      <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
-        }`}
-        aria-hidden
-      >
-        <CallGlyph className="h-4 w-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-          <span
-            className={`sam-text-body font-semibold leading-snug ${
-              item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
-            }`}
-          >
-            {item.callKind === "video" ? videoCallLabel : voiceCallLabel}
-          </span>
-          <span
-            className={`sam-text-xxs font-medium leading-snug ${
-              item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
-            }`}
-          >
-            {callStatusLabel}
-          </span>
-        </div>
-      </div>
-    </button>
-  );
-});
-
-const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTextDefault({
-  item,
-  linkPreviewEnabled,
-  sendingLabel,
-}: {
-  item: TimelineViberBubbleMessage;
-  linkPreviewEnabled: boolean;
-  sendingLabel: string;
-}) {
-  const mineLight = item.isMine;
-  return (
-    <div className="flex w-max max-w-full flex-col gap-2">
-      <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
-        <p
-          className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
-            mineLight ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
-          }`}
-        >
-          {item.content}
-        </p>
-        {item.pending ? (
-          <span
-            className={`shrink-0 sam-text-xxs ${mineLight ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}
-          >
-            {sendingLabel}
-          </span>
-        ) : null}
-      </div>
-      {linkPreviewEnabled && extractHttpUrls(item.content).length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {extractHttpUrls(item.content)
-            .slice(0, 2)
-            .map((url) => (
-              <a
-                key={`${item.id}:${url}`}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
-                  mineLight
-                    ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
-                    : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
-                }`}
-              >
-                {url.replace(/^https?:\/\//i, "")}
-              </a>
-            ))}
-        </div>
-      ) : null}
-    </div>
-  );
-});
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const vmRef = useRef(vm);
+  vmRef.current = vm;
   const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
     urls: string[];
@@ -317,6 +43,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const onOpenImageLightbox = useCallback((urls: string[], originals: string[], index: number) => {
     setImageLightbox({ urls, originals, index });
   }, []);
+
+  const onReactionRosterOpen = useCallback(
+    (payload: {
+      messageId: string;
+      reactionKey: string;
+      anchor: CommunityMessengerMessageActionAnchorRect;
+    }) => {
+      setReactionRoster(payload);
+    },
+    []
+  );
 
   const shouldRecoverEmptyTimeline = useMemo(() => {
     const hasLastMessageHint = Boolean(vm.snapshot.room.lastMessage?.trim());
@@ -438,19 +175,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /**
    * 스크롤은 초당 수십~수백 번 이벤트가 발생할 수 있어, state set 을 그대로 두면
    * 장시간 사용 시 렌더/GC 부담이 누적된다. rAF 로 1프레임 1회만 처리한다.
+   * vm 전체를 deps 에 두면 매 렌더마다 onScroll 이 바뀌어 스케줄러가 불안정해지므로 ref 로 최신만 참조.
    */
   const scrollRafRef = useRef<number | null>(null);
   const onScroll = useCallback(() => {
-    vm.updateStickToBottomFromScroll();
-    if (vm.messageActionItem) vm.setMessageActionItem(null);
-    if (vm.callStubSheet) vm.setCallStubSheet(null);
-  }, [
-    vm.updateStickToBottomFromScroll,
-    vm.messageActionItem,
-    vm.setMessageActionItem,
-    vm.callStubSheet,
-    vm.setCallStubSheet,
-  ]);
+    const v = vmRef.current;
+    v.updateStickToBottomFromScroll();
+    if (v.messageActionItem) v.setMessageActionItem(null);
+    if (v.callStubSheet) v.setCallStubSheet(null);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -475,11 +208,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 길이·방 전환 시에만 상한 재적용(vm 객체 참조는 매 렌더 갱신)
   }, [vm.displayRoomMessages.length, vm.setRoomMessages, vm.streamRoomId]);
 
+  /** opt-in 프레임 예산 — env 미설정 시 즉시 반환으로 추가 rAF 없음 */
+  useLayoutEffect(() => {
+    runMessengerRoomOpenFrameBudgetTrace(vm.streamRoomId);
+  }, [vm.streamRoomId]);
+
   const scheduleScroll = useCallback(() => {
     if (scrollRafRef.current != null) return;
     scrollRafRef.current = window.requestAnimationFrame(() => {
       scrollRafRef.current = null;
       onScroll();
+      sampleMessengerScrollFrameBudget(vmRef.current.streamRoomId);
     });
   }, [onScroll]);
 
@@ -570,369 +309,89 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const item = vm.displayRoomMessages[index];
                 if (!item) return null;
                 const prev = index > 0 ? vm.displayRoomMessages[index - 1] : null;
-              const gapMs =
-                prev && prev.messageType !== "system" && item.messageType !== "system"
-                  ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
-                  : 0;
-              const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
-              const peerSenderChanged =
-                vm.isGroupRoom &&
-                !!prev &&
-                prev.messageType !== "system" &&
-                (prev.senderId ?? "") !== (item.senderId ?? "");
-              const mySenderChanged =
-                vm.isGroupRoom &&
-                !!prev &&
-                prev.messageType !== "system" &&
-                (prev.senderId ?? "") !== (item.senderId ?? "");
+                const gapMs =
+                  prev && prev.messageType !== "system" && item.messageType !== "system"
+                    ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
+                    : 0;
+                const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
+                const peerSenderChanged =
+                  vm.isGroupRoom &&
+                  !!prev &&
+                  prev.messageType !== "system" &&
+                  (prev.senderId ?? "") !== (item.senderId ?? "");
+                const mySenderChanged =
+                  vm.isGroupRoom &&
+                  !!prev &&
+                  prev.messageType !== "system" &&
+                  (prev.senderId ?? "") !== (item.senderId ?? "");
 
-              const showPeerAvatar =
-                !item.isMine &&
-                item.messageType !== "system" &&
-                (!prev ||
-                  prev.messageType === "system" ||
-                  prev.isMine ||
-                  peerSenderChanged ||
-                  isNewClusterFromTime);
-              const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
-              const showMyAvatar =
-                item.isMine &&
-                item.messageType !== "system" &&
-                (!prev ||
-                  prev.messageType === "system" ||
-                  !prev.isMine ||
-                  mySenderChanged ||
-                  isNewClusterFromTime);
-              const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
-              const myAvatar = item.isMine ? messageRowPreamble.myRowAvatar : null;
+                const showPeerAvatar =
+                  !item.isMine &&
+                  item.messageType !== "system" &&
+                  (!prev ||
+                    prev.messageType === "system" ||
+                    prev.isMine ||
+                    peerSenderChanged ||
+                    isNewClusterFromTime);
+                const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
+                const showMyAvatar =
+                  item.isMine &&
+                  item.messageType !== "system" &&
+                  (!prev ||
+                    prev.messageType === "system" ||
+                    !prev.isMine ||
+                    mySenderChanged ||
+                    isNewClusterFromTime);
+                const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
+                const myAvatar = item.isMine ? messageRowPreamble.myRowAvatar : null;
 
-              const bindMessageInteraction =
-                item.messageType === "system"
-                  ? {}
-                  : item.messageType === "call_stub"
-                    ? {
-                        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
-                          vm.messageLongPressItemRef.current = item;
-                          const el = e.currentTarget;
-                          vm.messageLongPressTimerRef.current = window.setTimeout(() => {
-                            vm.messageLongPressTimerRef.current = null;
-                            vm.setCallStubSheet({
-                              item,
-                              anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
-                            });
-                          }, 520);
-                        },
-                        onPointerUp: () => {
-                          if (vm.messageLongPressTimerRef.current) {
-                            clearTimeout(vm.messageLongPressTimerRef.current);
-                            vm.messageLongPressTimerRef.current = null;
-                          }
-                          vm.messageLongPressItemRef.current = null;
-                        },
-                        onPointerCancel: () => {
-                          if (vm.messageLongPressTimerRef.current) {
-                            clearTimeout(vm.messageLongPressTimerRef.current);
-                            vm.messageLongPressTimerRef.current = null;
-                          }
-                          vm.messageLongPressItemRef.current = null;
-                        },
-                        onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
-                          e.preventDefault();
-                          vm.setCallStubSheet({
-                            item,
-                            anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
-                          });
-                        },
-                      }
-                    : {
-                        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
-                          vm.messageLongPressItemRef.current = item;
-                          const el = e.currentTarget;
-                          vm.messageLongPressTimerRef.current = window.setTimeout(() => {
-                            vm.messageLongPressTimerRef.current = null;
-                            vm.setMessageActionItem({
-                              item,
-                              anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
-                            });
-                          }, 520);
-                        },
-                        onPointerUp: () => {
-                          if (vm.messageLongPressTimerRef.current) {
-                            clearTimeout(vm.messageLongPressTimerRef.current);
-                            vm.messageLongPressTimerRef.current = null;
-                          }
-                          vm.messageLongPressItemRef.current = null;
-                        },
-                        onPointerCancel: () => {
-                          if (vm.messageLongPressTimerRef.current) {
-                            clearTimeout(vm.messageLongPressTimerRef.current);
-                            vm.messageLongPressTimerRef.current = null;
-                          }
-                          vm.messageLongPressItemRef.current = null;
-                        },
-                        onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
-                          e.preventDefault();
-                          vm.setMessageActionItem({
-                            item,
-                            anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
-                          });
-                        },
-                      };
+                const stubBusy =
+                  item.messageType === "call_stub" &&
+                  (vm.roomUnavailable ||
+                    (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
+                    vm.call.busy === "call-start" ||
+                    vm.call.busy === "device-prepare" ||
+                    vm.call.busy === "call-accept");
 
-              const replyQuote =
-                item.messageType !== "system" && item.messageType !== "call_stub"
-                  ? formatReplyQuoteForMessage(item)
-                  : null;
-
-              const longPressMenuOpenOnBubble =
-                (Boolean(vm.messageActionItem) && vm.messageActionItem?.item.id === item.id) ||
-                (Boolean(vm.callStubSheet) && vm.callStubSheet?.item.id === item.id);
-
-              const renderReplyQuoteInsideBubble = () => {
-                if (!replyQuote) return null;
-                const mine = item.isMine;
                 return (
-                  <button
-                    type="button"
-                    className={`w-full min-w-0 max-w-full shrink-0 border-b text-left transition active:opacity-90 ${
-                      mine
-                        ? "border-sam-primary-border bg-sam-surface/55 px-3 py-1.5"
-                        : "border-[color:var(--cm-room-divider)] bg-black/[0.04] px-3 py-1.5"
-                    }`}
-                    style={{
-                      borderTopLeftRadius: "var(--cm-room-radius-bubble)",
-                      borderTopRightRadius: "var(--cm-room-radius-bubble)",
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void vm.focusTimelineMessage(replyQuote.targetMessageId);
-                    }}
-                    aria-label={`원본 메시지로 이동: ${replyQuote.senderLabel}`}
-                  >
-                    <p
-                      className={`sam-text-xxs font-bold leading-snug ${
-                        mine ? "text-sam-fg" : "text-[color:var(--cm-room-primary)]"
-                      }`}
-                    >
-                      {formatReplyQuoteKakaoHeader(vm.tt(replyQuote.senderLabel))}
-                    </p>
-                    <p
-                      className={`mt-0.5 line-clamp-2 sam-text-xxs leading-snug ${
-                        mine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
-                      }`}
-                    >
-                      {replyQuote.previewText}
-                    </p>
-                  </button>
-                );
-              };
-
-              const renderBubbleStack = (bubbleChild: ReactNode) => (
-                <div
-                  className={`inline-flex max-w-full flex-col ${item.isMine ? "items-end" : "items-start"} ${
-                    longPressMenuOpenOnBubble ? "rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-2 ring-offset-[color:var(--cm-room-bg)]" : ""
-                  }`}
-                  {...bindMessageInteraction}
-                >
-                  {bubbleChild}
-                  {(() => {
-                    const hasRx = Boolean(item.reactions && item.reactions.length > 0);
-                    if (!hasRx) return null;
-                    return (
-                      <div
-                        className={`mt-1 flex max-w-full flex-wrap items-center gap-1.5 ${
-                          item.isMine ? "justify-end" : "justify-start"
-                        }`}
-                      >
-                        {(item.reactions ?? []).map((r) => (
-                          <button
-                            key={`${item.id}:${r.reactionKey}`}
-                            type="button"
-                            className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 sam-text-xxs font-medium transition active:opacity-75 ${
-                              item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReactionRoster({
-                                messageId: item.id,
-                                reactionKey: r.reactionKey,
-                                anchor: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
-                              });
-                            }}
-                            aria-label={`${r.reactionKey} 반응 ${r.count}명, 누가 눌렀는지 보기`}
-                          >
-                            <span className="text-base leading-none">{r.reactionKey}</span>
-                            {r.count >= 1 ? <span className="tabular-nums opacity-90">{r.count}</span> : null}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-
-              const systemBubbleClass =
-                "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
-
-              const stubBusy =
-                item.messageType === "call_stub" &&
-                (vm.roomUnavailable ||
-                  (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
-                  vm.call.busy === "call-start" ||
-                  vm.call.busy === "device-prepare" ||
-                  vm.call.busy === "call-accept");
-
-              const viberInnerBody: ReactNode =
-                item.messageType === "image" ? (
-                  <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
-                ) : item.messageType === "sticker" ? (
-                  <TimelineViberInnerSticker item={item} />
-                ) : item.messageType === "voice" ? (
-                  <TimelineViberInnerVoice item={item} streamRoomId={vm.streamRoomId} />
-                ) : item.messageType === "file" ? (
-                  <TimelineViberInnerFile item={item} mediaAutoSaveEnabled={vm.roomPreferences.mediaAutoSaveEnabled} />
-                ) : item.messageType === "call_stub" ? (
-                  <TimelineViberInnerCallStub
+                  <MessengerTimelineVirtualRow
+                    key={item.id}
                     item={item}
-                    stubBusy={stubBusy}
-                    onOpenOutgoingConfirm={vm.openCallStubOutgoingConfirm}
+                    virtualStart={virtualRow.start}
+                    virtualIndex={virtualRow.index}
+                    measureElement={vm.chatVirtualizer.measureElement}
+                    showPeerAvatar={showPeerAvatar}
+                    showMyAvatar={showMyAvatar}
+                    showBubbleTail={showBubbleTail}
+                    peerAvatar={peerAvatar}
+                    myAvatar={myAvatar}
+                    isGroupRoom={vm.isGroupRoom}
+                    streamRoomId={vm.streamRoomId}
+                    latestReadableMineMessageId={latestReadableMineMessageId}
+                    peerHasReadMyLatestMessage={peerHasReadMyLatestMessage}
+                    timelineHighlightMessageId={vm.timelineHighlightMessageId}
+                    messageActionItemId={vm.messageActionItem?.item.id ?? null}
+                    callStubSheetItemId={vm.callStubSheet?.item.id ?? null}
+                    linkPreviewEnabled={vm.roomPreferences.linkPreviewEnabled}
+                    mediaAutoSaveEnabled={vm.roomPreferences.mediaAutoSaveEnabled}
+                    sendingLabel={vm.t("common_sending")}
                     voiceCallLabel={vm.t("nav_voice_call_label")}
                     videoCallLabel={vm.t("nav_video_call_label")}
                     callStatusLabel={vm.tt(formatRoomCallStatus(item.callStatus))}
-                  />
-                ) : (
-                  <TimelineViberInnerTextDefault
-                    item={item}
-                    linkPreviewEnabled={vm.roomPreferences.linkPreviewEnabled}
-                    sendingLabel={vm.t("common_sending")}
+                    stubBusy={stubBusy}
+                    senderLabelDisplay={vm.tt(item.senderLabel)}
+                    onOpenImageLightbox={onOpenImageLightbox}
+                    onReactionRosterOpen={onReactionRosterOpen}
+                    setMessageActionItem={vm.setMessageActionItem}
+                    setCallStubSheet={vm.setCallStubSheet}
+                    messageLongPressTimerRef={vm.messageLongPressTimerRef}
+                    messageLongPressItemRef={vm.messageLongPressItemRef}
+                    focusTimelineMessage={vm.focusTimelineMessage}
+                    openCallStubOutgoingConfirm={vm.openCallStubOutgoingConfirm}
+                    tt={vm.tt}
                   />
                 );
-
-              const viberBubble = (
-                <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
-                  <div className="flex min-w-0 max-w-full flex-col">
-                    {renderReplyQuoteInsideBubble()}
-                    {item.messageType === "image" || item.messageType === "sticker" ? (
-                      viberInnerBody
-                    ) : (
-                      <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-3 py-2"}>{viberInnerBody}</div>
-                    )}
-                  </div>
-                </ViberChatBubble>
-              );
-
-              return (
-                <div
-                  key={item.id}
-                  data-index={virtualRow.index}
-                  ref={vm.chatVirtualizer.measureElement}
-                  id={`cm-room-msg-${item.id}`}
-                  className={`absolute left-0 top-0 w-full pb-2.5 flex scroll-mt-24 ${
-                    item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
-                  } ${
-                    vm.timelineHighlightMessageId === item.id
-                      ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"
-                      : ""
-                  }`}
-                  style={{
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  {item.messageType === "system" ? (
-                    <div className="max-w-[92%] px-2">
-                      <div className={systemBubbleClass}>
-                        <p className="text-center sam-text-helper leading-5">{item.content}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className={`flex w-full min-w-0 max-w-full items-end gap-3 ${
-                        item.isMine ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      {!item.isMine ? (
-                        <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
-                          {showPeerAvatar ? (
-                            peerAvatar?.avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={peerAvatar.avatarUrl}
-                                alt=""
-                                className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
-                              />
-                            ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
-                                {peerAvatar?.initials?.slice(0, 1) ?? "?"}
-                              </div>
-                            )
-                          ) : (
-                            <div className="h-9 w-9" aria-hidden />
-                          )}
-                        </div>
-                      ) : null}
-
-                      <div
-                        className={`flex min-h-0 min-w-0 flex-1 flex-col ${item.isMine ? "items-end" : "items-start"}`}
-                      >
-                        {vm.isGroupRoom && !item.isMine && showPeerAvatar ? (
-                          <p className="mb-0.5 max-w-full pl-0.5 sam-text-helper font-semibold text-[color:var(--cm-room-primary)]">
-                            {vm.tt(item.senderLabel)}
-                          </p>
-                        ) : null}
-
-                        <div
-                          className={`flex w-full min-w-0 max-w-[min(85vw,70%)] shrink-0 items-end gap-1.5 ${
-                            item.isMine ? "flex-row justify-end" : "flex-row justify-start"
-                          }`}
-                        >
-                          {item.isMine ? (
-                            <>
-                              <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
-                                {formatTime(item.createdAt)}
-                              </span>
-                              {latestReadableMineMessageId === item.id && !peerHasReadMyLatestMessage ? (
-                                <span className="shrink-0 self-end pb-1 sam-text-xxs leading-none text-[color:var(--cm-room-text-muted)]">
-                                  안읽음
-                                </span>
-                              ) : null}
-                              {renderBubbleStack(viberBubble)}
-                            </>
-                          ) : (
-                            <>
-                              {renderBubbleStack(viberBubble)}
-                              <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
-                                {formatTime(item.createdAt)}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {item.isMine ? (
-                        <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
-                          {showMyAvatar ? (
-                            myAvatar?.avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={myAvatar.avatarUrl}
-                                alt=""
-                                className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
-                              />
-                            ) : (
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
-                                {myAvatar?.initials?.slice(0, 1) ?? "나"}
-                              </div>
-                            )
-                          ) : (
-                            <div className="h-9 w-9" aria-hidden />
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+              })}
             </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">

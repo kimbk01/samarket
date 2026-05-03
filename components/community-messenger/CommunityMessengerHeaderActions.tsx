@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { Phone } from "lucide-react";
+
 /**
- * 메신저 홈 상단 우측 액션: 검색 / 알림 / 설정.
+ * 메신저 홈 상단 우측 액션: 검색 / 통화 기록 / 알림 / 설정.
  * 새 대화는 하단 FAB 한 곳만 사용(중복 CTA 제거).
  */
 export function CommunityMessengerHeaderActions({
@@ -19,10 +22,13 @@ export function CommunityMessengerHeaderActions({
     "flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] text-[color:var(--messenger-icon)] active:bg-[color:var(--messenger-surface-muted)]";
 
   return (
-    <div className="flex max-w-[min(100vw-120px,200px)] shrink-0 items-center justify-end gap-1">
+    <div className="flex max-w-[min(100vw-120px,240px)] shrink-0 items-center justify-end gap-1">
       <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label="메신저 검색">
         <SearchIcon />
       </button>
+      <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label="통화 기록">
+        <Phone className="h-5 w-5" aria-hidden />
+      </Link>
       <button
         type="button"
         onClick={onOpenRequestList}

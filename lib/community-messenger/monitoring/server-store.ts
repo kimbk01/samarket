@@ -455,15 +455,47 @@ function buildSloDigest(
   if (unreadList) {
     rows.push({
       id: "unread_home_bootstrap",
-      label: "홈 목록·탭 silent 부트스트랩 정합",
+      label: "홈 목록 UI 정합 (merge·세션 캐시)",
+      unit: "ms",
+      target: ref.unreadRefresh.target,
+      warning: ref.unreadRefresh.warning,
+      critical: ref.unreadRefresh.critical,
+      observedAvg: unreadList.avg,
+      observedLast: unreadList.last,
+      sampleCount: unreadList.count,
+      sourceHint: "chat.unread_sync / list_bootstrap_align — mergeHomeSyncIntoBootstrap 동기 구간만",
+    });
+  }
+
+  const homeSyncFetchClient = findAgg(clientAggregates, "chat.unread_sync:home_sync_fetch_ms:client");
+  if (homeSyncFetchClient) {
+    rows.push({
+      id: "home_sync_fetch_client",
+      label: "홈 silent home-sync (클라 네트워크)",
       unit: "ms",
       target: ref.homeSilentListSync.target,
       warning: ref.homeSilentListSync.warning,
       critical: ref.homeSilentListSync.critical,
-      observedAvg: unreadList.avg,
-      observedLast: unreadList.last,
-      sampleCount: unreadList.count,
-      sourceHint: "chat.unread_sync / list_bootstrap_align (GET /api/community-messenger/home-sync)",
+      observedAvg: homeSyncFetchClient.avg,
+      observedLast: homeSyncFetchClient.last,
+      sampleCount: homeSyncFetchClient.count,
+      sourceHint: "chat.unread_sync / home_sync_fetch_ms — GET /api/community-messenger/home-sync 왕복",
+    });
+  }
+
+  const silentFb = findAgg(clientAggregates, "chat.unread_sync:silent_fail_fallback_bootstrap_ms:client");
+  if (silentFb) {
+    rows.push({
+      id: "silent_fallback_bootstrap",
+      label: "silent 실패 시 fresh 부트스트랩 (클라)",
+      unit: "ms",
+      target: ref.roomBootstrap.target,
+      warning: ref.roomBootstrap.warning,
+      critical: ref.roomBootstrap.critical,
+      observedAvg: silentFb.avg,
+      observedLast: silentFb.last,
+      sampleCount: silentFb.count,
+      sourceHint: "chat.unread_sync / silent_fail_fallback_bootstrap_ms",
     });
   }
 
@@ -480,6 +512,22 @@ function buildSloDigest(
       observedLast: call.last,
       sampleCount: call.count,
       sourceHint: "call.connection / first_connected",
+    });
+  }
+
+  const frameBudget = findAgg(clientAggregates, "chat.render:frame_budget:client");
+  if (frameBudget) {
+    rows.push({
+      id: "frame_budget",
+      label: "클라 프레임 예산 (frame_budget · NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET=1)",
+      unit: "ms",
+      target: MESSENGER_PERF_THRESHOLDS.frameBudgetTargetMs,
+      warning: MESSENGER_PERF_THRESHOLDS.frameBudgetWarningMs,
+      critical: MESSENGER_PERF_THRESHOLDS.frameBudgetCriticalMs,
+      observedAvg: frameBudget.avg,
+      observedLast: frameBudget.last,
+      sampleCount: frameBudget.count,
+      sourceHint: "chat.render / frame_budget",
     });
   }
 

@@ -1,7 +1,9 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
+import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
@@ -14,8 +16,6 @@ import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/mess
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
-import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
-import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 
 /** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
 const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
@@ -52,6 +52,53 @@ type MessengerRoomRowsProps = {
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
 };
+
+function MessengerVirtualRoomRowShell({
+  roomId,
+  lastMessageAt,
+  measureElement,
+  viIndex,
+  viStart,
+  children,
+}: {
+  roomId: string;
+  lastMessageAt: string;
+  measureElement: (el: HTMLElement | null) => void;
+  viIndex: number;
+  viStart: number;
+  children: ReactNode;
+}) {
+  const prefetchAttach = useMessengerRoomListPrefetchRefCallback(
+    roomId,
+    true,
+    messengerRoomPrefetchPriorityScore(lastMessageAt)
+  );
+  const setRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      measureElement(node);
+      prefetchAttach(node);
+    },
+    [measureElement, prefetchAttach]
+  );
+
+  return (
+    <div
+      role="listitem"
+      ref={setRef}
+      data-index={viIndex}
+      className="pb-0"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        transform: `translateY(${viStart}px)`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 function MessengerRoomRows({
   useVirtual,
@@ -112,19 +159,13 @@ function MessengerRoomRows({
       {rowVirtualizer.getVirtualItems().map((vi) => {
         const item = items[vi.index]!;
         return (
-          <div
+          <MessengerVirtualRoomRowShell
             key={item.room.id}
-            role="listitem"
-            ref={rowVirtualizer.measureElement}
-            data-index={vi.index}
-            className="pb-0"
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${vi.start}px)`,
-            }}
+            roomId={item.room.id}
+            lastMessageAt={item.room.lastMessageAt}
+            measureElement={rowVirtualizer.measureElement}
+            viIndex={vi.index}
+            viStart={vi.start}
           >
             <MessengerChatListItem
               item={item}
@@ -143,7 +184,7 @@ function MessengerRoomRows({
               onCloseMenuItem={onCloseMenuItem}
               onResetTransientUi={onResetTransientUi}
             />
-          </div>
+          </MessengerVirtualRoomRowShell>
         );
       })}
     </FlatListContainer>
@@ -214,19 +255,6 @@ export function MessengerChatsScreen({
     onListScrollStart();
   }, [onListScrollStart]);
   useMessengerHomeListDocumentScroll(onDocumentScroll);
-
-  useEffect(() => {
-    // 첫 진입 본문보다 room bootstrap prefetch가 앞서지 않게 idle에서 소량만 큐잉.
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      for (const item of items.slice(0, 4)) {
-        enqueueRoomPrefetch(item.room.id);
-      }
-    }, 1600);
-    return () => {
-      cancelScheduledWhenBrowserIdle(idleId);
-    };
-  }, [items]);
 
   const closeAllTransient = () => {
     setFilterSheetOpen((prev) => (prev ? false : prev));

@@ -7,12 +7,18 @@ export function isCommunityMessengerCallProviderNotConfiguredError(error: unknow
   return /통화 설정이 아직 연결되지|call_provider_not_configured|통화 설정이 아직 연결되지 않았습니다/i.test(msg);
 }
 
-/** 브라우저가 마이크·카메라를 허용하지 않는 출처(HTTP + LAN IP 등) */
+/** IPv6 루프백 등 — `window.location.hostname` 은 `[::1]` 또는 `::1` 형태가 혼재한다 */
+export function isCommunityMessengerLoopbackHostname(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "::1";
+}
+
+/** 브라우저가 마이크·카메라를 허용하지 않는 출처(HTTP + LAN IP 등). localhost / 127.0.0.1 / ::1 은 예외 */
 export function isCommunityMessengerMediaBlockedByInsecureOrigin(): boolean {
   if (typeof window === "undefined") return false;
   if (window.isSecureContext) return false;
   const h = window.location.hostname;
-  if (h === "localhost" || h === "127.0.0.1") return false;
+  if (isCommunityMessengerLoopbackHostname(h)) return false;
   return true;
 }
 

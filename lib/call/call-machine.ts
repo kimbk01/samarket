@@ -1,6 +1,9 @@
 "use client";
 
 /**
+ * LEGACY / UNUSED in shipped UI — `reduceCallMachine`·`callMachineStateLabel` 는 레포 내 import 가 없다.
+ * (Agora 1:1·그룹 WebRTC 훅이 이 모델을 쓰지 않는다. 보존·참고용.)
+ *
  * Call state machine (UI/controller-level) for SAMarket messenger calls.
  *
  * - DB 원장(`community_messenger_call_sessions.status`)과 1:1 매핑이 아니라,

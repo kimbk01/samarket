@@ -4,6 +4,7 @@ import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http
 import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
+import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,5 +55,5 @@ export async function GET(req: NextRequest) {
   }
 
   recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);
-  return jsonOkWithRequest(req, bundle);
+  return jsonOkWithRequest(req, bundle, { headers: messengerApiEdgeCacheHeaders() });
 }

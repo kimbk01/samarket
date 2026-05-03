@@ -71,6 +71,7 @@ import {
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
+import { sendWebPushForCommunityMessengerMissedCall } from "@/lib/push/send-community-messenger-missed-call-push";
 import {
   messengerImageClientFieldsFromMetadata,
   peekMessengerImageMetaDiagnosticsCounts,
@@ -81,6 +82,7 @@ import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerBootstrap,
   CommunityMessengerCallKind,
+  type CommunityMessengerCallLogDisplayType,
   CommunityMessengerCallLog,
   CommunityMessengerCallParticipant,
   CommunityMessengerCallParticipantStatus,
@@ -261,6 +263,10 @@ type CallRow = {
   status: CommunityMessengerCallStatus;
   duration_seconds: number | null;
   started_at: string | null;
+  ended_at?: string | null;
+  /** `fetchCallLogRowsOnly` 에서 sessions 배치 조회로 합성 */
+  sessionEndedAt?: string | null;
+  sessionEndedReason?: string | null;
 };
 
 type CallSessionMetaRow = {
@@ -281,6 +287,7 @@ type CallSessionRow = {
   started_at: string | null;
   answered_at: string | null;
   ended_at: string | null;
+  ended_reason?: string | null;
   created_at: string | null;
 };
 
@@ -381,6 +388,9 @@ type DevCall = {
   status: CommunityMessengerCallStatus;
   durationSeconds: number;
   startedAt: string;
+  /** dev 원장 세션과 합성 (`fetchCallLogRowsOnly`) */
+  sessionEndedAt?: string | null;
+  sessionEndedReason?: string | null;
 };
 
 type DevCallSession = {
@@ -394,6 +404,8 @@ type DevCallSession = {
   startedAt: string;
   answeredAt: string | null;
   endedAt: string | null;
+  /** 클라 연결 실패 등 — dev 전용 */
+  endedReason?: string | null;
   createdAt: string;
   participants: DevCallSessionParticipant[];
 };
@@ -2234,18 +2246,45 @@ async function fetchCallLogRowsOnly(userId: string): Promise<Array<CallRow | Dev
   if (sb) {
     const { data, error } = await (sb as any)
       .from("community_messenger_call_logs")
-      .select("id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at")
+      .select(
+        "id, session_id, room_id, caller_user_id, peer_user_id, call_kind, status, duration_seconds, started_at, ended_at"
+      )
       .or(`caller_user_id.eq.${userId},peer_user_id.eq.${userId}`)
       .order("started_at", { ascending: false })
       .limit(30);
     if (!error || !isMissingTableError(error)) {
-      rows = (data ?? []) as CallRow[];
+      const base = (data ?? []) as CallRow[];
+      const sessionIds = dedupeIds(base.map((r) => trimText(r.session_id ?? "")).filter(Boolean));
+      const sessionById = new Map<string, { ended_at: string | null; ended_reason: string | null }>();
+      if (sessionIds.length) {
+        const { data: srows } = await (sb as any)
+          .from("community_messenger_call_sessions")
+          .select("id, ended_at, ended_reason")
+          .in("id", sessionIds);
+        for (const s of (srows ?? []) as Array<{
+          id: string;
+          ended_at: string | null;
+          ended_reason: string | null;
+        }>) {
+          sessionById.set(s.id, { ended_at: s.ended_at, ended_reason: s.ended_reason });
+        }
+      }
+      rows = base.map((r) => {
+        const sid = trimText(r.session_id ?? "");
+        const s = sid ? sessionById.get(sid) : undefined;
+        return {
+          ...r,
+          sessionEndedAt: s?.ended_at ?? null,
+          sessionEndedReason: s?.ended_reason ?? null,
+        };
+      });
     }
   }
   if (!rows.length) {
-    rows = getDevState().calls
-      .filter((row) => row.callerUserId === userId || row.peerUserId === userId)
-      .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+    rows = getDevState()
+      .calls.filter((row) => row.callerUserId === userId || row.peerUserId === userId)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+      .map((row) => enrichDevCallLogRowWithSession(row));
   }
   return rows;
 }
@@ -2335,6 +2374,45 @@ async function loadSessionMapsForCallLogs(
   return { sessionMap, participantsBySession };
 }
 
+function resolveCommunityMessengerCallLogEndedAtIso(
+  logEndedAt: string | null | undefined,
+  sessionEndedAt: string | null | undefined
+): string | null {
+  const a = trimText(logEndedAt ?? "");
+  if (a) return a;
+  const b = trimText(sessionEndedAt ?? "");
+  if (b) return b;
+  return null;
+}
+
+function computeCommunityMessengerCallLogDisplayType(
+  status: CommunityMessengerCallStatus,
+  endedReason: string | null | undefined,
+  isOutgoing: boolean
+): CommunityMessengerCallLogDisplayType {
+  const er = trimText(endedReason ?? "") || null;
+  if (status === "missed") return isOutgoing ? "missed_outgoing" : "missed_incoming";
+  if (status === "rejected") return "rejected";
+  if (status === "cancelled") return "cancelled";
+  if (status === "dialing") return "outgoing";
+  if (status === "incoming") return "incoming";
+  if (status === "ended") {
+    if (er && er.startsWith("failed_")) return "failed";
+    return isOutgoing ? "outgoing" : "incoming";
+  }
+  return isOutgoing ? "outgoing" : "incoming";
+}
+
+function enrichDevCallLogRowWithSession(row: DevCall): DevCall {
+  const sid = trimText(row.sessionId ?? "");
+  const sess = sid ? getDevState().callSessions.find((s) => s.id === sid) : undefined;
+  return {
+    ...row,
+    sessionEndedAt: sess?.endedAt ?? row.sessionEndedAt ?? null,
+    sessionEndedReason: sess?.endedReason ?? row.sessionEndedReason ?? null,
+  };
+}
+
 function buildCallLogEntriesFromRows(
   userId: string,
   rows: Array<CallRow | DevCall>,
@@ -2376,8 +2454,21 @@ function buildCallLogEntriesFromRows(
       participantLabels.length > 1
         ? `${participantLabels[0]} 외 ${participantLabels.length - 1}명`
         : participantLabels[0] ?? `${participantCount}명 그룹`;
+
+    const sessionEndedReason =
+      trimText(isDbCall ? row.sessionEndedReason ?? "" : row.sessionEndedReason ?? "") || null;
+    const endedAt = resolveCommunityMessengerCallLogEndedAtIso(
+      isDbCall ? row.ended_at : null,
+      isDbCall ? row.sessionEndedAt : row.sessionEndedAt
+    );
+    const isOutgoing = isDbCall
+      ? messengerUserIdsEqual(row.caller_user_id, userId)
+      : messengerUserIdsEqual(row.callerUserId, userId);
+    const displayType = computeCommunityMessengerCallLogDisplayType(row.status, sessionEndedReason, isOutgoing);
+
     return {
       id: row.id,
+      sessionId,
       roomId,
       sessionMode,
       title,
@@ -2389,6 +2480,10 @@ function buildCallLogEntriesFromRows(
       status: row.status as CommunityMessengerCallStatus,
       startedAt,
       durationSeconds: Number((isDbCall ? row.duration_seconds : row.durationSeconds) ?? 0),
+      endedAt,
+      isOutgoing,
+      endedReason: sessionEndedReason,
+      displayType,
     };
   });
 }
@@ -2623,6 +2718,9 @@ async function mapCallSession(
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
     answeredAt: trimText(isDbSession ? session.answered_at : session.answeredAt) || null,
     endedAt: trimText(isDbSession ? session.ended_at : session.endedAt) || null,
+    endedReason: isDbSession
+      ? trimText((session as CallSessionRow).ended_reason ?? "") || null
+      : trimText((session as DevCallSession).endedReason ?? "") || null,
     isMineInitiator: messengerUserIdsEqual(initiatorUserId, userId),
     participants,
   };
@@ -2689,7 +2787,7 @@ async function getActiveCallSessionForRoom(
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
       )
       .eq("room_id", rid)
       .in("status", ["ringing", "active"])
@@ -2736,7 +2834,7 @@ export async function getCommunityMessengerCallSessionById(
       (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .eq("id", id)
         .maybeSingle(),
@@ -5991,7 +6089,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const participantsFetch = (async () => {
       const tParticipants0 = performance.now();
       const [participantRes, myParticipantRes] = await Promise.all([participantsQuery, myParticipantQuery]);
-      participantsProfilesFetchMs += performance.now() - tParticipants0;
+      const dtPart = performance.now() - tParticipants0;
+      participantsProfilesFetchMs += dtPart;
+      if (diagnostics) {
+        diagnostics.participantsSqlFetchMs = Math.round(dtPart);
+      }
       return {
         participantData: participantRes.data,
         myParticipantData: myParticipantRes.data,
@@ -6063,18 +6165,20 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants = rawParticipantRows;
       }
       messages = ((messageData ?? []) as MessageRow[]).slice().reverse();
-      const bootstrapHideIds = await fetchCommunityMessengerHiddenMessageIdsForUser(
-        sb as SupabaseLike,
-        userId,
-        messages.map((m) => m.id)
-      );
+      const rawMessageIdsForExtras = messages.map((m) => m.id);
+      const authorByMidForExtras = communityMessengerAuthorUserIdByMessageIdForReactions(messages);
+      const tMsgExtras0 = performance.now();
+      const [bootstrapHideIds, snapshotRoomMessageReactionsByIdResult] = await Promise.all([
+        fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, userId, rawMessageIdsForExtras),
+        fetchCommunityMessengerReactionAggregatesForMessages(sb as SupabaseLike, rawMessageIdsForExtras, userId, {
+          authorUserIdByMessageId: authorByMidForExtras,
+        }),
+      ]);
+      if (diagnostics) {
+        diagnostics.messagesPostParallelFetchMs = Math.round(performance.now() - tMsgExtras0);
+      }
       messages = messages.filter((m) => !bootstrapHideIds.has(m.id));
-      snapshotRoomMessageReactionsById = await fetchCommunityMessengerReactionAggregatesForMessages(
-        sb as SupabaseLike,
-        messages.map((m) => m.id),
-        userId,
-        { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(messages) }
-      );
+      snapshotRoomMessageReactionsById = snapshotRoomMessageReactionsByIdResult;
       /** 읽음 처리는 `PATCH ... mark_read`(클라) 단일 경로 — 부트스트랩 GET 은 읽기 전용 */
     }
   }
@@ -6165,35 +6269,95 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       : Promise.resolve(null);
   let tradeProductChatExitForSnapshot: Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>> = null;
 
+  /** 상대 last_read_message_id 의 created_at — 프로필 하이드레이션과 동시에 조회해 직렬 RTT 제거 */
+  const bootstrapRoomTypeForPeer = room
+    ? (("room_type" in room ? room.room_type : room.roomType) as string)
+    : "";
+  const bootstrapPeerParticipantForReadCursor =
+    bootstrapRoomTypeForPeer === "direct"
+      ? participants.find((item) => ("user_id" in item ? item.user_id : item.userId) !== userId)
+      : undefined;
+  const bootstrapPeerReadCursorIdForFetch = participantLastReadMessageId(bootstrapPeerParticipantForReadCursor);
+  const peerReadCursorCreatedAtPromise: Promise<string | null> =
+    sb && bootstrapPeerReadCursorIdForFetch
+      ? (async () => {
+          const t0 = performance.now();
+          const { data: peerCursorRow } = await (sb as any)
+            .from("community_messenger_messages")
+            .select("created_at")
+            .eq("room_id", id)
+            .eq("id", bootstrapPeerReadCursorIdForFetch)
+            .maybeSingle();
+          if (diagnostics) {
+            diagnostics.peerReadCursorFetchMs = Math.round(performance.now() - t0);
+          }
+          const ca = (peerCursorRow as { created_at?: string | null } | null)?.created_at;
+          return typeof ca === "string" && ca.trim() ? ca.trim() : null;
+        })()
+      : Promise.resolve(null);
+
   const roomProfileMapPromise = deferSecondary
     ? Promise.resolve(new Map<string, RoomProfileRow | DevRoomProfile>())
-    : fetchRoomProfilesByRoomIds([id]);
+    : (async () => {
+        const t0 = performance.now();
+        const r = await fetchRoomProfilesByRoomIds([id]);
+        if (diagnostics) {
+          diagnostics.fetchRoomProfilesByRoomIdsMs = Math.round(performance.now() - t0);
+        }
+        return r;
+      })();
+  const hydratedLabelsPromise = (async () => {
+    const t0 = performance.now();
+    const r = await hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
+      includeSelf: true,
+      prefetchedProfiles:
+        deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
+          ? embeddedProfilesFromParticipantRows
+          : undefined,
+    });
+    if (diagnostics) {
+      diagnostics.hydrateProfilesLabelsOnlyWithMapMs = Math.round(performance.now() - t0);
+    }
+    return r;
+  })();
   /** defer seed: 거래 방 상품 카드만 프로필과 동시에 로드(통화·presence·enrich 는 여전히 후속 부트스트랩) */
   const tradeDetailParallelForDeferSeed =
     deferSecondary && room
-      ? tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then((r) => {
+      ? (async () => {
+          const t0 = performance.now();
+          const r = await tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad);
           if (diagnostics) {
+            diagnostics.tradeChatRoomDetailBootstrapParallelMs = Math.round(performance.now() - t0);
             diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
           }
           return r;
-        })
+        })()
       : Promise.resolve(null);
-  const tradeExitParallelForDeferSeed = deferSecondary ? tradeExitSnapshotPromise : Promise.resolve(null);
+  const tradeExitParallelForDeferSeed = deferSecondary
+    ? (async () => {
+        const t0 = performance.now();
+        const r = await tradeExitSnapshotPromise;
+        if (diagnostics) {
+          diagnostics.tradeExitSnapshotBootstrapParallelMs = Math.round(performance.now() - t0);
+        }
+        return r;
+      })()
+    : Promise.resolve(null);
   /** 첫 페인트: 관계 집합(`getViewerRelationSets`) 없이 라벨·아바타만 — 통화/presence·(비거래 defer 시)거래도크 는 아래 2차에서 */
   const tProfileHydration0 = performance.now();
-  const [roomProfileMap, hydratedLabels, tradeDetailFromDeferSeedParallel, tradeExitFromDeferSeedParallel] =
-    await Promise.all([
-      roomProfileMapPromise,
-      hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
-        includeSelf: true,
-        prefetchedProfiles:
-          deferSecondaryRequested && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
-            ? embeddedProfilesFromParticipantRows
-            : undefined,
-      }),
-      tradeDetailParallelForDeferSeed,
-      tradeExitParallelForDeferSeed,
-    ]);
+  const [
+    roomProfileMap,
+    hydratedLabels,
+    tradeDetailFromDeferSeedParallel,
+    tradeExitFromDeferSeedParallel,
+    peerReadCursorCreatedAtPrefetched,
+  ] = await Promise.all([
+    roomProfileMapPromise,
+    hydratedLabelsPromise,
+    tradeDetailParallelForDeferSeed,
+    tradeExitParallelForDeferSeed,
+    peerReadCursorCreatedAtPromise,
+  ]);
   if (deferSecondary) {
     tradeProductChatExitForSnapshot = tradeExitFromDeferSeedParallel;
   }
@@ -6212,8 +6376,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const summary = buildRoomSummaryFromHydratedMembers(userId, room, participants, roomProfileMap, hydratedLabels.members, {
     totalMemberCount: roomTotalMemberCount ?? participants.length,
   });
-  normalizeMergeMs += performance.now() - tSummary0;
+  const summaryBuildWall = performance.now() - tSummary0;
+  normalizeMergeMs += summaryBuildWall;
   if (diagnostics) {
+    diagnostics.summaryBuildMs = Math.round(summaryBuildWall);
     diagnostics.normalizeTimelineSummaryEndMs = Math.round(performance.now() - tBootstrap0);
   }
   tHiDeferAfterSummary = performance.now();
@@ -6245,9 +6411,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       }
       return r;
     });
+    const tTradeDetailNorm0 = performance.now();
     const pTrade = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then(
       (r) => {
         if (diagnostics) {
+          diagnostics.tradeChatRoomDetailNormalizePhaseMs = Math.round(performance.now() - tTradeDetailNorm0);
           diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
         }
         return r;
@@ -6306,6 +6474,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       diagnostics.normalizeTimelineParallelOuterEndMs = diagnostics.normalizeTimelineSummaryEndMs;
     }
   }
+  const tMembersMap0 = performance.now();
   const members = hydratedLabels.members.map((profile) =>
     ({
       ...(resolveRoomProfileLite(profile, roomProfileMap.get(roomProfileKey(id, profile.id))) ?? profile),
@@ -6313,6 +6482,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === profile.id)?.role ?? undefined,
     }) satisfies CommunityMessengerProfileLite
   );
+  if (diagnostics) {
+    diagnostics.membersMapMs = Math.round(performance.now() - tMembersMap0);
+  }
   tHiDeferAfterMembersMap = performance.now();
   if (diagnostics) {
     diagnostics.normalizeTimelineMembersMapEndMs = Math.round(performance.now() - tBootstrap0);
@@ -6330,15 +6502,19 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   const resolvedPresenceMap = presenceMap;
   const peerReadCursorId = peerParticipant ? participantLastReadMessageId(peerParticipant) : null;
   let peerLastReadMessageCreatedAt: string | null = null;
-  if (sb && peerReadCursorId) {
-    const { data: peerCursorRow } = await (sb as any)
-      .from("community_messenger_messages")
-      .select("created_at")
-      .eq("room_id", id)
-      .eq("id", peerReadCursorId)
-      .maybeSingle();
-    const ca = (peerCursorRow as { created_at?: string | null } | null)?.created_at;
-    peerLastReadMessageCreatedAt = typeof ca === "string" && ca.trim() ? ca.trim() : null;
+  if (summary.roomType === "direct" && peerReadCursorId) {
+    if (trimText(peerReadCursorId) === trimText(bootstrapPeerReadCursorIdForFetch ?? "")) {
+      peerLastReadMessageCreatedAt = peerReadCursorCreatedAtPrefetched;
+    } else if (sb) {
+      const { data: peerCursorRow } = await (sb as any)
+        .from("community_messenger_messages")
+        .select("created_at")
+        .eq("room_id", id)
+        .eq("id", peerReadCursorId)
+        .maybeSingle();
+      const ca = (peerCursorRow as { created_at?: string | null } | null)?.created_at;
+      peerLastReadMessageCreatedAt = typeof ca === "string" && ca.trim() ? ca.trim() : null;
+    }
   }
   const readReceipt: CommunityMessengerReadReceipt | null =
     summary.roomType === "direct" && peerParticipant
@@ -6429,6 +6605,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   if (traceMappedMessages) {
     resetMessengerImageMetaDiagnosticsCounts();
   }
+  const tBeforeMessageMap = performance.now();
+  if (diagnostics) {
+    diagnostics.messagesPipelinePrepMs = Math.round(tBeforeMessageMap - tMappedMessages0);
+  }
   const mappedMessages: CommunityMessengerMessage[] = messages.map((message, mi) => {
     let tStep = performance.now();
     const senderId = messageSenderIdByMi[mi];
@@ -6511,6 +6691,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       ...reactionPieces,
     };
   });
+  if (diagnostics) {
+    diagnostics.messagesMapCpuMs = Math.round(performance.now() - tBeforeMessageMap);
+  }
   if (mappedMsgAcc && diagnostics) {
     const rounded: Record<string, number> = {};
     let maxN = "";
@@ -8956,11 +9139,22 @@ export async function startCommunityMessengerCallSession(input: {
   userId: string;
   roomId: string;
   callKind: CommunityMessengerCallKind;
-}): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  session?: CommunityMessengerCallSession;
+  error?: string;
+  /** 개발 전용 — 클라 `[cm-call-latency] db_insert_or_rpc_done` 분해용 */
+  _callStartTimingsMs?: Record<string, number>;
+}> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_required" };
 
+  const recordTimings = process.env.NODE_ENV === "development";
+  const timing: Record<string, number> = {};
+  const t0 = performance.now();
+
   const resolved = await resolveRoomContextForCallSessionStart(input.userId, roomId);
+  if (recordTimings) timing.resolve_room_context_ms = Math.round(performance.now() - t0);
   if (!resolved) return { ok: false, error: "room_not_found" };
 
   let snapshot: CommunityMessengerRoomSnapshot | null = null;
@@ -8999,6 +9193,7 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
+  const tGateStart = performance.now();
   if (!isGroupRoom && sb) {
     const tradeCallGate = await assertMessengerTradeDirectRoomAllowsCallKind({
       supabase: sb,
@@ -9019,6 +9214,8 @@ export async function startCommunityMessengerCallSession(input: {
         return { ok: false, error: "peer_busy" };
       }
     }
+    if (recordTimings) timing.pre_insert_gate_ms = Math.round(performance.now() - tGateStart);
+    const tDbStart = performance.now();
     const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .insert({
@@ -9032,12 +9229,26 @@ export async function startCommunityMessengerCallSession(input: {
         started_at: startedAt,
         updated_at: startedAt,
       })
-      .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
-      )
+      /** PostgREST 반환 최소화 — mapCallSession 은 insert 페이로드와 합쳐 구성 */
+      .select("id, status, created_at")
       .single();
     if (!error && data) {
-      const inserted = data as CallSessionRow;
+      const rowMin = data as { id: string; status: string; created_at: string | null };
+      const inserted: CallSessionRow = {
+        id: rowMin.id,
+        room_id: roomId,
+        initiator_user_id: input.userId,
+        recipient_user_id: peerUserId,
+        session_mode: isGroupRoom ? "group" : "direct",
+        max_participants: isGroupRoom ? 4 : 2,
+        call_kind: input.callKind,
+        status: rowMin.status as CommunityMessengerCallSessionStatus,
+        started_at: startedAt,
+        answered_at: null,
+        ended_at: null,
+        ended_reason: null,
+        created_at: rowMin.created_at ?? startedAt,
+      };
       const participantRows = isGroupRoom
         ? snapshot!.members.map((member) => ({
             session_id: inserted.id,
@@ -9122,16 +9333,21 @@ export async function startCommunityMessengerCallSession(input: {
           left_at: row.left_at,
           created_at: row.created_at,
         }));
+      if (recordTimings) timing.db_insert_rpc_ms = Math.round(performance.now() - tDbStart);
+      const tMapStart = performance.now();
+      const mappedSession = await mapCallSession(
+        input.userId,
+        inserted as CallSessionRow,
+        syntheticParticipantRows,
+        undefined,
+        true,
+        "labels_only"
+      );
+      if (recordTimings) timing.map_session_ms = Math.round(performance.now() - tMapStart);
       return {
         ok: true,
-        session: await mapCallSession(
-          input.userId,
-          inserted as CallSessionRow,
-          syntheticParticipantRows,
-          undefined,
-          true,
-          "labels_only"
-        ),
+        session: mappedSession,
+        ...(recordTimings ? { _callStartTimingsMs: timing } : {}),
       };
     }
     if (error && isUniqueViolationError(error)) {
@@ -9210,7 +9426,7 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -9289,7 +9505,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
   if (!uid) return { ok: false, error: "forbidden" };
 
   const sessionSelect =
-    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at";
+    "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at";
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -9352,6 +9568,8 @@ export async function updateCommunityMessengerCallSession(input: {
   sessionId: string;
   action: "accept" | "reject" | "cancel" | "end" | "missed";
   durationSeconds?: number;
+  /** Agora/P2P 조인 실패 등 — `ended` 시 DB `ended_reason` (CHECK 없음) */
+  clientEndedReason?: string;
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
@@ -9410,9 +9628,29 @@ export async function updateCommunityMessengerCallSession(input: {
       if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
       return { nextStatus: "missed", endedAt: nowIso() };
     }
-    if (status !== "active") return null;
-    if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
-    return { nextStatus: "ended", endedAt: nowIso() };
+    if (input.action === "end") {
+      const fr = trimText(input.clientEndedReason ?? "");
+      const isFailedJoin =
+        fr === "failed_permission" ||
+        fr === "failed_insecure_context" ||
+        fr === "failed_ice" ||
+        fr === "failed_network" ||
+        fr === "failed_signaling";
+      if (status === "ringing" && messengerUserIdsEqual(initiatorUserId, input.userId) && isFailedJoin) {
+        return { nextStatus: "ended", endedAt: nowIso() };
+      }
+      /**
+       * 발신 대기 중 잘못 `end`만 온 클라·구버전 호환 — `cancel` 과 동일하게 링 종료.
+       * (클라 정상 경로는 `cancel` 이지만, 종료 UI·상태는 반드시 터미널로 고정되어야 함)
+       */
+      if (status === "ringing" && messengerUserIdsEqual(initiatorUserId, input.userId)) {
+        return { nextStatus: "cancelled", endedAt: nowIso() };
+      }
+      if (status !== "active") return null;
+      if (!messengerUserIdsEqual(initiatorUserId, input.userId) && !messengerUserIdsEqual(recipientUserId, input.userId)) return null;
+      return { nextStatus: "ended", endedAt: nowIso() };
+    }
+    return null;
   };
   const resolveHangupReason = (
     action: "accept" | "reject" | "cancel" | "end" | "missed",
@@ -9450,7 +9688,7 @@ export async function updateCommunityMessengerCallSession(input: {
     const { data: row } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
       )
       .eq("id", sessionId)
       .maybeSingle();
@@ -9479,7 +9717,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .update({ status: "cancelled", ended_at: now, updated_at: now, ended_reason: "canceled" })
             .eq("id", sessionId)
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
             )
             .single();
           if (updated) {
@@ -9533,7 +9771,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .update({ status: "missed", ended_at: now, updated_at: now, ended_reason: "missed" })
             .eq("id", sessionId)
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
             )
             .single();
           if (updated) {
@@ -9583,7 +9821,7 @@ export async function updateCommunityMessengerCallSession(input: {
           .update(updatePayload)
           .eq("id", sessionId)
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
           .single();
         if (!updated) return { ok: false, error: "call_session_update_failed" };
@@ -9633,14 +9871,24 @@ export async function updateCommunityMessengerCallSession(input: {
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
         const er = endedReasonForSessionDelta(input.action, next.nextStatus);
-        if (er) updatePayload.ended_reason = er;
+        const fr = trimText(input.clientEndedReason ?? "");
+        const useClientFailure =
+          input.action === "end" &&
+          next.nextStatus === "ended" &&
+          (fr === "failed_permission" ||
+            fr === "failed_insecure_context" ||
+            fr === "failed_ice" ||
+            fr === "failed_network" ||
+            fr === "failed_signaling");
+        if (useClientFailure) updatePayload.ended_reason = fr;
+        else if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
         const result = await (sb as any)
           .from("community_messenger_call_sessions")
           .update(updatePayload)
           .eq("id", sessionId)
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
           .single();
         updated = (result.data as CallSessionRow | null) ?? null;
@@ -9679,6 +9927,22 @@ export async function updateCommunityMessengerCallSession(input: {
           eventType: auditEventTypeForAction(input.action, next.nextStatus),
           payload: { next_status: next.nextStatus, scope: "direct" },
         });
+        if (
+          next.nextStatus === "missed" &&
+          (updated.session_mode ?? "direct") === "direct"
+        ) {
+          const roomIdM = trimText(updated.room_id ?? "");
+          const initM = trimText(updated.initiator_user_id ?? "");
+          const recipM = trimText(updated.recipient_user_id ?? "");
+          if (roomIdM && initM && recipM) {
+            void sendWebPushForCommunityMessengerMissedCall({
+              sessionId: updated.id,
+              roomId: roomIdM,
+              initiatorUserId: initM,
+              recipientUserId: recipM,
+            }).catch(() => {});
+          }
+        }
         if (isTerminalCallSessionStatus(next.nextStatus)) {
           const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
             ? updated.recipient_user_id
@@ -9768,6 +10032,20 @@ export async function updateCommunityMessengerCallSession(input: {
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;
+  if (next.nextStatus === "ended") {
+    const fr = trimText(input.clientEndedReason ?? "");
+    if (
+      fr === "failed_permission" ||
+      fr === "failed_insecure_context" ||
+      fr === "failed_ice" ||
+      fr === "failed_network" ||
+      fr === "failed_signaling"
+    ) {
+      session.endedReason = fr;
+    } else {
+      session.endedReason = endedReasonForSessionDelta(input.action, next.nextStatus);
+    }
+  }
   for (const participant of session.participants) {
     if (!messengerUserIdsEqual(participant.userId, input.userId)) continue;
     participant.participationStatus =
@@ -9898,7 +10176,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .eq("recipient_user_id", userId)
         .eq("session_mode", "direct")
@@ -9919,7 +10197,7 @@ export async function listIncomingCommunityMessengerCallSessions(
         (sb as any)
           .from("community_messenger_call_sessions")
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
           .eq("recipient_user_id", userId)
           .eq("session_mode", "direct")
@@ -9945,7 +10223,7 @@ export async function listIncomingCommunityMessengerCallSessions(
       const { data } = await (sb as any)
         .from("community_messenger_call_sessions")
         .select(
-          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, created_at"
+          "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
         )
         .in("id", groupSessionIds)
         .eq("session_mode", "group")

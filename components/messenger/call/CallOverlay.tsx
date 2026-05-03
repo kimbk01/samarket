@@ -49,16 +49,20 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
         return;
       }
       const end = start + sec * 1000;
-      setRemainSec(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+      const rem = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      /* 0 이면 "남은 0초"만 남고 오버레이가 계속 떠 보이므로 표시 생략 */
+      setRemainSec(rem <= 0 ? null : rem);
     };
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [busyId, ringTimeoutSeconds, session.id, session.startedAt]);
 
-  const callTypeLabel = session.callKind === "video" ? "영상 통화" : "음성 통화";
+  const statusMain =
+    session.callKind === "video" ? "영상 통화가 왔습니다" : "전화가 왔습니다";
   const baseSub = sessionActionError ?? incomingListError ?? "";
-  const tail = remainSec != null ? `${baseSub ? " " : ""}· 남은 ${remainSec}초` : "";
+  const tail =
+    remainSec != null && remainSec > 0 ? `${baseSub ? " " : ""}· 남은 ${remainSec}초` : "";
   const subStatusText = (baseSub + tail).trim() || null;
 
   const incomingVm: CallScreenViewModel = {
@@ -67,7 +71,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     phase: "ringing",
     peerLabel: session.peerLabel,
     peerAvatarUrl: session.peerAvatarUrl ?? null,
-    statusText: callTypeLabel,
+    statusText: statusMain,
     subStatusText,
     topLabel: null,
     footerNote: null,

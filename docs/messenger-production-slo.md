@@ -57,6 +57,16 @@
 2. 프로덕션 알림은 **임계 초과 시** `console.warn` + 관리자 **최근 알림** 패널  
 3. 멀티 인스턴스 시 인메모리 집계는 노드별 — **APM/로그**로 통합 권장
 
+## 6. Edge 캐시 · 배포 리전 · 클라 네트워크
+
+**공유 캐시 헤더 (CDN):** `GET /api/community-messenger/rooms/[roomId]/bootstrap` 및 `GET /api/community-messenger/home-sync` 성공 응답은 `Cache-Control: public, max-age=0, s-maxage=5, stale-while-revalidate=30` 과 `Vary: Cookie` 를 붙인다 (`lib/http/messenger-api-edge-cache.ts`). 브라우저가 이를 따르려면 클라 `fetch`는 **`cache: "default"`** 와 **`credentials: "include"`** 로 호출해야 한다 (`cache: "no-store"` 는 무시).
+
+**리전:** 필리핀 등 해외 사용자 RTT를 줄이려면 호스트(Vercel 등)를 사용자와 가까운 PoP·프로비저닝 리전에 두고, DB·Supabase는 물리 거리와 함께 튜닝한다. Vercel은 프로젝트 **Functions / Fluid** 리전 설정과 Edge Network가 요청 경로에 미치는 영향을 확인한다.
+
+**Keep-alive:** 브라우저에서 동일 출처 API로의 `fetch`는 일반적으로 **HTTP/2 멀티플렉싱·연결 재사용**을 사용한다. 별도 `Connection` 헤더 조작은 필요 없다.
+
+**Preconnect:** 루트 레이아웃에서 요청 `Host` / `X-Forwarded-*` 로 앱 오리진을 잡아 `<link rel="preconnect" href={origin} />` 를 넣어 첫 TLS·연결 비용을 줄인다.
+
 ## 관련 문서
 
 - 단일 부트스트랩 계약: [messenger-bootstrap-contract.md](./messenger-bootstrap-contract.md)

@@ -104,7 +104,12 @@ describe("messenger home verification counters (실행 횟수)", () => {
   });
 
   it("warm: 캐시가 이미 있으면 네트워크를 다시 호출하지 않는다", async () => {
-    vi.stubGlobal("window", {});
+    vi.stubGlobal("window", {
+      setTimeout: globalThis.setTimeout.bind(globalThis) as typeof window.setTimeout,
+      document: { visibilityState: "visible" as const },
+      navigator: {},
+      requestIdleCallback: (cb: () => void) => globalThis.setTimeout(cb, 0),
+    } as unknown as Window & typeof globalThis);
     primeBootstrapCache({
       me: null,
       tabs: { friends: 0, chats: 0, groups: 0, calls: 0 },

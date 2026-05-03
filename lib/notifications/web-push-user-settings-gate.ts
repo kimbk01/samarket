@@ -40,6 +40,7 @@ function resolvePushKind(out: NotificationSideEffectPayloadOut): WebPushKind {
   }
   const nt = String(out.notification_type ?? "").toLowerCase();
   if (nt === "community_messenger_incoming_call") return "chat";
+  if (nt === "community_messenger_missed_call") return "chat";
   if (nt === "chat") return "chat";
   if (nt === "commerce") return "delivery";
   if (nt === "system") return "system";

@@ -8,6 +8,7 @@ import {
   Monitor,
   PhoneOff,
   PictureInPicture2,
+  Settings,
   Video,
   VideoOff,
 } from "lucide-react";
@@ -91,6 +92,7 @@ function CallActionGlyph({ item }: { item: CallActionItem }) {
   if (icon === "close") return <PhoneOff size={SIZE} className="text-white" />;
   if (icon === "back") return <IosFilledPhoneGlyph className="text-white" />;
   if (icon === "message") return <Monitor size={SIZE} className="text-white" />;
+  if (icon === "settings") return <Settings size={SIZE} className="text-white" />;
 
   return <Headphones size={SIZE} className="text-white" />;
 }

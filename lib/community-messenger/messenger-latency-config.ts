@@ -229,12 +229,14 @@ export function getCallSessionClientPollIntervalMs(
      * Realtime SUBSCRIBED 상태에서도 연결중 구간은 유실·지연 대비가 필요하다.
      * (caller가 reject/end를 늦게 받는 문제 방지)
      */
-    if (status === "ringing") return tier === "production" ? 1800 : 1500;
+    /** ringing → active 전환을 상대 수락 직후 빨리 반영(Realtime 페이로드 지연 보완) */
+    if (status === "ringing") return tier === "production" ? 650 : 550;
     if (status === "active") return tier === "production" ? 2200 : 1800;
     return tier === "production" ? 2600 : 2200;
   }
 
-  if (status === "ringing") return tier === "production" ? 1600 : 1400;
+  /** SUBSCRIBE 지연 시 백업 GET 로도 빨리 active 반영 */
+  if (status === "ringing") return tier === "production" ? 700 : 600;
   if (status === "active" && joined && remoteJoined) return tier === "production" ? 5000 : 4000;
   if (status === "active" && joined) return tier === "production" ? 1400 : 1200;
   if (status === "active") return tier === "production" ? 1500 : 1300;

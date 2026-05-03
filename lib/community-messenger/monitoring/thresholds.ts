@@ -28,11 +28,42 @@ export const MESSENGER_PERF_DESIGN_LIMITS = {
   groupParticipantsOptimize: { review: 50, required: 100, strict: 200 },
 } as const;
 
+/**
+ * room_open·목록 정합 슬리버 (ms) — `docs/messenger-performance-targets.md` 「운영 슬리버」room_open 절.
+ * p95·대시보드 룰에만 쓰고, 알림 env(`MESSENGER_PERF_*`)와는 별개.
+ */
+export const MESSENGER_PERF_REFERENCE_ROOM_OPEN_MS = {
+  /** `list_bootstrap_align` — 동기 병합만 */
+  listBootstrapAlignBand: { min: 5, max: 30 },
+  /** `badge_list_align` + kind `room_open` */
+  roomOpenAlignBand: { min: 0, max: 10 },
+} as const;
+
+/**
+ * 클라 방 부트스트랩 fetch (`bootstrap_fetch`) 슬리버 — 동 문서 「bootstrap_fetch」절.
+ * HIT: 즉시 시드·상위 왕복만 / MISS: 단일 HTTP 부트스트랩 RTT.
+ */
+export const MESSENGER_PERF_REFERENCE_BOOTSTRAP_FETCH_CLIENT_MS = {
+  snapshotCacheHitBand: { min: 0, max: 100 },
+  snapshotCacheMissBand: { min: 200, max: 500 },
+} as const;
+
+/** 클라 렌더 예산 (60fps) — Performance 패널 frame time 참조용, 알림 env 와 별개 */
+export const MESSENGER_PERF_REFERENCE_FRAME_MS = { target: 16, warning: 22, critical: 33 } as const;
+
 /** 비율·건수 SLO 참조 (실패율 = 실패/시도) — `messenger-performance-targets.md` 운영안과 정합 */
 export const MESSENGER_PERF_REFERENCE_RATIOS = {
   reconnectSessionRate: { target: 0.01, warning: 0.03, critical: 0.05 },
   subscriptionFailureRate: { target: 0.001, warning: 0.01, critical: 0.05 },
   signalingFailureRate: { target: 0.001, warning: 0.01, critical: 0.05 },
+} as const;
+
+/**
+ * 프리패치·캐시 히트율 (높을수록 좋음) — `shouldAlertFailureRate` 와 혼동 금지.
+ * `docs/messenger-performance-targets.md` 「prefetch」.
+ */
+export const MESSENGER_PERF_REFERENCE_PREFETCH_RATIOS = {
+  roomSnapshotHitRate: { target: 0.95, warning: 0.85, critical: 0.72 },
 } as const;
 
 /** 기본 임계값 — 필요 시 env 로 덮어쓸 수 있게 설계 (알림 = 치명 구간에 가깝게 동작) */
@@ -53,8 +84,12 @@ export const MESSENGER_PERF_THRESHOLDS = {
   realtimeEventDelayMs: Number(process.env.MESSENGER_PERF_REALTIME_EVENT_MS ?? 2000),
   /** 미읽음·목록·배지 정합 지연 (ms) — `badge_list_align` 등 가벼운 동기 */
   unreadSyncDelayMs: Number(process.env.MESSENGER_PERF_UNREAD_SYNC_MS ?? 1000),
-  /** 홈 silent `list_bootstrap_align` — rooms·요청·친구 묶음 1회 RTT·Supabase 병렬 구간 (1000ms는 과도한 오탐) */
-  homeListSyncMs: Number(process.env.MESSENGER_PERF_HOME_LIST_SYNC_MS ?? 2000),
+  /** 홈 `list_bootstrap_align` — mergeHomeSyncIntoBootstrap·로컬 스토어 반영 동기 구간만 */
+  homeUiListAlignMs: Number(process.env.MESSENGER_PERF_HOME_UI_ALIGN_MS ?? 400),
+  /** 홈 silent `GET /api/community-messenger/home-sync` 클라 네트워크 구간 */
+  homeSyncFetchMs: Number(process.env.MESSENGER_PERF_HOME_SYNC_FETCH_MS ?? 2000),
+  /** silent 실패 시 fresh 부트스트랩 폴백 왕복 */
+  silentFailFallbackBootstrapMs: Number(process.env.MESSENGER_PERF_SILENT_FALLBACK_BOOTSTRAP_MS ?? 8000),
   /** 추정 패킷 손실률 (%) */
   packetLossPercent: Number(process.env.MESSENGER_PERF_PACKET_LOSS_PCT ?? 8),
   /** 단일 API 핸들러 (서버 측) */
@@ -65,6 +100,22 @@ export const MESSENGER_PERF_THRESHOLDS = {
   roomTapToMountMs: Number(process.env.MESSENGER_PERF_ROOM_TAP_TO_MOUNT_MS ?? 1200),
   /** 방→리스트 마운트(클라) */
   roomToListMountMs: Number(process.env.MESSENGER_PERF_ROOM_TO_LIST_MOUNT_MS ?? 900),
+  /** 클라 프레임 예산 — `chat.render` / `frame_budget` (opt-in 측정) */
+  frameBudgetTargetMs: Number(
+    process.env.NEXT_PUBLIC_MESSENGER_PERF_FRAME_BUDGET_TARGET_MS ??
+      process.env.MESSENGER_PERF_FRAME_BUDGET_TARGET_MS ??
+      MESSENGER_PERF_REFERENCE_FRAME_MS.target
+  ),
+  frameBudgetWarningMs: Number(
+    process.env.NEXT_PUBLIC_MESSENGER_PERF_FRAME_BUDGET_WARNING_MS ??
+      process.env.MESSENGER_PERF_FRAME_BUDGET_WARNING_MS ??
+      MESSENGER_PERF_REFERENCE_FRAME_MS.warning
+  ),
+  frameBudgetCriticalMs: Number(
+    process.env.NEXT_PUBLIC_MESSENGER_PERF_FRAME_BUDGET_CRITICAL_MS ??
+      process.env.MESSENGER_PERF_FRAME_BUDGET_CRITICAL_MS ??
+      MESSENGER_PERF_REFERENCE_FRAME_MS.critical
+  ),
   /** 재연결 세션 비율 (0~1) — 알림용 */
   reconnectSessionRateCritical: Number(process.env.MESSENGER_PERF_RECONNECT_SESSION_RATE ?? 0.05),
   subscriptionFailRateCritical: Number(process.env.MESSENGER_PERF_SUBSCRIPTION_FAIL_RATE ?? 0.05),
@@ -109,7 +160,13 @@ export function shouldAlertLatency(
     return valueMs > MESSENGER_PERF_THRESHOLDS.unreadSyncDelayMs ? "unreadSyncDelayMs" : null;
   }
   if (category === "chat.unread_sync" && metric === "list_bootstrap_align") {
-    return valueMs > MESSENGER_PERF_THRESHOLDS.homeListSyncMs ? "homeListSyncMs" : null;
+    return valueMs > MESSENGER_PERF_THRESHOLDS.homeUiListAlignMs ? "homeUiListAlignMs" : null;
+  }
+  if (category === "chat.unread_sync" && metric === "home_sync_fetch_ms") {
+    return valueMs > MESSENGER_PERF_THRESHOLDS.homeSyncFetchMs ? "homeSyncFetchMs" : null;
+  }
+  if (category === "chat.unread_sync" && metric === "silent_fail_fallback_bootstrap_ms") {
+    return valueMs > MESSENGER_PERF_THRESHOLDS.silentFailFallbackBootstrapMs ? "silentFailFallbackBootstrapMs" : null;
   }
   if (category === "api.community_messenger" || category === "api.integrated_chat") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.apiMs ? "apiMs" : null;
@@ -122,6 +179,11 @@ export function shouldAlertLatency(
   }
   if (category === "chat.room_nav" && metric === "room_to_list_mount") {
     return valueMs > MESSENGER_PERF_THRESHOLDS.roomToListMountMs ? "roomToListMountMs" : null;
+  }
+  if (category === "chat.render" && metric === "frame_budget") {
+    if (valueMs > MESSENGER_PERF_THRESHOLDS.frameBudgetCriticalMs) return "frameBudgetCriticalMs";
+    if (valueMs > MESSENGER_PERF_THRESHOLDS.frameBudgetWarningMs) return "frameBudgetWarningMs";
+    return null;
   }
   return null;
 }

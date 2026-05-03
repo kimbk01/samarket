@@ -1,4 +1,6 @@
 /**
+ * LEGACY 보조 — 현재는 `useCommunityMessengerCall`(레거시·미사용 훅)·`use-call-session.ts`(미연결) 에만 묶여 있다.
+ *
  * 1:1 통화 UI·계측용 단일 상태 — WebRTC transport와 패널(발신/수신/연결)을 합성한다.
  * DB `CommunityMessengerCallSessionStatus` 와 1:1이 아니며, 클라이언트 표시용이다.
  */

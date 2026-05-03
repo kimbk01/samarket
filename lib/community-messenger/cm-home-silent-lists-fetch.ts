@@ -33,7 +33,8 @@ export function fetchCommunityMessengerHomeSilentLists(
     return (async () => {
       recordMessengerHomeHomeSyncNetworkFetch();
       const res = await fetch("/api/community-messenger/home-sync", {
-        cache: "no-store",
+        cache: "default",
+        credentials: "include",
         signal: opts.signal,
       });
       const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
@@ -42,7 +43,10 @@ export function fetchCommunityMessengerHomeSilentLists(
   }
   return runSingleFlight(FLIGHT_KEY, async () => {
     recordMessengerHomeHomeSyncNetworkFetch();
-    const res = await fetch("/api/community-messenger/home-sync", { cache: "no-store" });
+    const res = await fetch("/api/community-messenger/home-sync", {
+      cache: "default",
+      credentials: "include",
+    });
     const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
     return { res, json };
   });

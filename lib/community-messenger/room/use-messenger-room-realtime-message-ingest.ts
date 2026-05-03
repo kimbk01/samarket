@@ -117,6 +117,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     }
     setRoomMessages((prev) => {
       let cur = prev;
+      const incomingToMerge: CommunityMessengerMessage[] = [];
       for (const event of batch) {
         if (event.eventType === "DELETE") {
           cur = cur.filter((item) => item.id !== event.message.id);
@@ -166,10 +167,10 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               at: Date.now(),
             });
           }
-          cur = mergeRoomMessages(cur, [mapped]);
+          incomingToMerge.push(mapped);
         }
       }
-      return cur;
+      return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
     });
     if (insertFromOthers > 0 && rid) {
       useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
@@ -211,14 +212,15 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     pendingRealtimeRef.current = [];
     setRoomMessages((prev) => {
       let cur = prev;
+      const incomingToMerge: CommunityMessengerMessage[] = [];
       for (const event of queued) {
         if (event.eventType === "DELETE") {
           cur = cur.filter((item) => item.id !== event.message.id);
         } else {
-          cur = mergeRoomMessages(cur, [mapRealtimeRoomMessage(snapshot, roomMembersDisplayRef.current, event.message)]);
+          incomingToMerge.push(mapRealtimeRoomMessage(snapshot, roomMembersDisplayRef.current, event.message));
         }
       }
-      return cur;
+      return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
     });
   }, [snapshot, roomMembersDisplayRef, setRoomMessages]);
 

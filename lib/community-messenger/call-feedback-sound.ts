@@ -1,6 +1,9 @@
 import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
-import { primeWebAudioCallToneContextFromUserGesture, startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
+import {
+  primeWebAudioCallToneContextFromUserGesture,
+  startWebAudioCallTone,
+} from "@/lib/community-messenger/call-tone-web-audio";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
   fetchMessengerCallSoundConfig,
@@ -9,6 +12,8 @@ import {
   resolveMessengerCallMissedSoundUrl,
   resolveMessengerCallToneUrl,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
+import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
+import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
 
 type CallToneMode = "incoming" | "outgoing";
 
@@ -23,10 +28,101 @@ const TONE_INTERVAL_MS: Record<CallToneMode, number> = {
 
 let activeToneStopper: (() => void) | null = null;
 
-/** 어디서든 호출 가능 — 통화 연결·종료·화면 전환 직후 벨이 남지 않게 한다 */
-export function stopCommunityMessengerCallFeedback(): void {
+/**
+ * `new Audio()` 로만 재생하는 링·원샷은 DOM 에 안 붙어 `querySelectorAll` 로 안 잡힘 — 추적 후 강제 정리.
+ */
+const detachedCommunityMessengerCallHtmlAudio = new Set<HTMLAudioElement>();
+
+function trackDetachedCommunityMessengerCallAudio(el: HTMLAudioElement): void {
+  detachedCommunityMessengerCallHtmlAudio.add(el);
+}
+
+function untrackDetachedCommunityMessengerCallAudio(el: HTMLAudioElement): void {
+  detachedCommunityMessengerCallHtmlAudio.delete(el);
+}
+
+/** 링·통화 원샷 등 분리 HTMLAudio — 출력 장치 잔류 방지용 멱등 정리 */
+export function forceKillDetachedCommunityMessengerCallHtmlAudio(): void {
+  if (typeof window === "undefined") return;
+  for (const el of [...detachedCommunityMessengerCallHtmlAudio]) {
+    try {
+      el.pause();
+      el.srcObject = null;
+      el.removeAttribute("src");
+      const sink = el as HTMLAudioElement & { setSinkId?: (sinkId: string) => Promise<void> };
+      if (typeof sink.setSinkId === "function") {
+        void sink.setSinkId("").catch(() => {});
+      }
+      el.load();
+    } catch {
+      /* */
+    }
+    detachedCommunityMessengerCallHtmlAudio.delete(el);
+  }
+}
+
+function stopActiveMessengerRingtoneLoop(): void {
   if (typeof window === "undefined") return;
   activeToneStopper?.();
+  /** 링 Web Audio primed 컨텍스트도 같이 내려 스피커/BT 세션 잔류 완화 */
+  closePrimedWebAudioCallToneContext();
+}
+
+/**
+ * `startCommunityMessengerCallTone` 로 재생 중인 수·발신 링 루프만 중단한다.
+ * Agora 통화 트랙과 동시에 재생되면 안 되므로 수락·조인 직전·종료 시 반드시 호출한다.
+ */
+export function stopCommunityMessengerCallTone(): void {
+  cmCallAudioCleanup("stopCommunityMessengerCallTone", {});
+  stopActiveMessengerRingtoneLoop();
+}
+
+/** 어디서든 호출 가능 — 통화 연결·종료·화면 전환 직후 벨이 남지 않게 한다 */
+export function stopCommunityMessengerCallFeedback(): void {
+  cmCallAudioCleanup("stopCommunityMessengerCallFeedback", {});
+  stopActiveMessengerRingtoneLoop();
+}
+
+const CM_OUTGOING_RING_SKIP_DUP_KEY = "cm_outgoing_ring_skip_dup";
+
+/**
+ * 발신 버튼 핸들러에서 `await` 전에만 호출 — 사용자 활성이 남아 있는 동안 Web Audio 링백만 즉시 시작한다.
+ * (`startCommunityMessengerCallTone` 의 설정 fetch await 으로 제스처가 끊기는 문제 완화)
+ */
+export function primeOutgoingRingbackWebAudioFromUserGesture(callKind: CommunityMessengerCallKind): void {
+  if (typeof window === "undefined") return;
+  activeToneStopper?.();
+  primeWebAudioCallToneContextFromUserGesture();
+  const kind: "voice" | "video" = callKind === "video" ? "video" : "voice";
+  const web = startWebAudioCallTone("outgoing", kind);
+  if (!web) return;
+  const stop = () => {
+    web.stop();
+    if (activeToneStopper === stop) activeToneStopper = null;
+  };
+  activeToneStopper = stop;
+}
+
+/** 통화 페이지가 같은 세션으로 올라오면 effect 중복 시작 방지 */
+export function rememberOutgoingRingtonePrimedForSession(sessionId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(CM_OUTGOING_RING_SKIP_DUP_KEY, sessionId);
+  } catch {
+    /* */
+  }
+}
+
+export function consumeOutgoingRingtonePrimedSessionFlag(sessionId: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const v = sessionStorage.getItem(CM_OUTGOING_RING_SKIP_DUP_KEY);
+    if (v !== sessionId) return false;
+    sessionStorage.removeItem(CM_OUTGOING_RING_SKIP_DUP_KEY);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -35,19 +131,33 @@ export function stopCommunityMessengerCallFeedback(): void {
  */
 export function unlockCommunityMessengerCallPlaybackFromUserGesture(): void {
   if (typeof window === "undefined") return;
+  cmCallLatencyInfo("audio_unlock_start", {});
   primeWebAudioCallToneContextFromUserGesture();
   try {
     const a = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+    trackDetachedCommunityMessengerCallAudio(a);
     a.preload = "auto";
     a.muted = true;
     a.volume = 0;
-    void a.play().then(() => {
-      a.pause();
-      a.currentTime = 0;
-    });
+    void a.play().then(
+      () => {
+        a.pause();
+        a.currentTime = 0;
+        untrackDetachedCommunityMessengerCallAudio(a);
+      },
+      () => {
+        untrackDetachedCommunityMessengerCallAudio(a);
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+          console.warn("[community-messenger-call] muted HTMLAudio priming play rejected (autoplay policy)");
+        }
+      }
+    );
   } catch {
-    /* ignore */
+    if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+      console.warn("[community-messenger-call] HTMLAudio priming threw");
+    }
   }
+  cmCallLatencyInfo("audio_unlock_done", {});
 }
 
 export type StartCallToneOptions = {
@@ -69,6 +179,11 @@ export async function startCommunityMessengerCallTone(
 
   activeToneStopper?.();
 
+  cmCallAudioCleanup("ringtone_start", {
+    mode,
+    callKind: options?.callKind === "video" ? "video" : "voice",
+  });
+
   primeNotificationSoundAudio();
   /** 수발신 벨 시작마다 최신 관리자 설정을 쓴다(다른 탭에서 저장한 뒤에도 동일 탭에서 반영). */
   await fetchMessengerCallSoundConfig({ force: true });
@@ -84,6 +199,7 @@ export async function startCommunityMessengerCallTone(
     let audio: HTMLAudioElement | null = null;
     const clear = () => {
       if (audio) {
+        untrackDetachedCommunityMessengerCallAudio(audio);
         audio.pause();
         audio.currentTime = 0;
         audio = null;
@@ -91,13 +207,15 @@ export async function startCommunityMessengerCallTone(
     };
     primeNotificationSoundAudio();
     for (const useCrossOrigin of [true, false] as const) {
+      let next: HTMLAudioElement | null = null;
       try {
-        const next = new Audio(adminUrl);
+        next = new Audio(adminUrl);
+        trackDetachedCommunityMessengerCallAudio(next);
         if (useCrossOrigin) next.crossOrigin = "anonymous";
         next.preload = "auto";
         next.loop = true;
         next.volume = mode === "incoming" ? vIn : vOut;
-        await applyPreferredSinkToHtmlAudioElement(next);
+        /** 링/링백은 기본 출력 — setSinkId 가 BT·통화 오디오 모드로 끌어올리는 것을 피함 */
         await next.play();
         audio = next;
         const stop = () => {
@@ -107,6 +225,7 @@ export async function startCommunityMessengerCallTone(
         activeToneStopper = stop;
         return { stop };
       } catch {
+        if (next) untrackDetachedCommunityMessengerCallAudio(next);
         clear();
       }
     }
@@ -132,6 +251,7 @@ export async function startCommunityMessengerCallTone(
       intervalId = null;
     }
     if (audio) {
+      untrackDetachedCommunityMessengerCallAudio(audio);
       audio.pause();
       audio.currentTime = 0;
       audio = null;
@@ -144,17 +264,18 @@ export async function startCommunityMessengerCallTone(
     primeNotificationSoundAudio();
     try {
       const next = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+      trackDetachedCommunityMessengerCallAudio(next);
       next.preload = "auto";
       next.loop = true;
       next.volume = mode === "incoming" ? vIn : vOut;
       next.playbackRate = mode === "incoming" ? 1 : 0.94;
       audio = next;
       void (async () => {
-        await applyPreferredSinkToHtmlAudioElement(next);
         const result = next.play();
         if (result && typeof result.catch === "function") {
           void result.catch(() => {
             if (stopped) return;
+            if (audio) untrackDetachedCommunityMessengerCallAudio(audio);
             audio = null;
             playNotificationSound();
             intervalId = window.setInterval(() => {
@@ -245,11 +366,26 @@ export async function playCommunityMessengerCallSignalSound(
   if (url) {
     try {
       const audio = new Audio(url);
+      trackDetachedCommunityMessengerCallAudio(audio);
       audio.crossOrigin = "anonymous";
       audio.volume = kind === "missed" ? 0.68 : 0.42;
       void (async () => {
         await applyPreferredSinkToHtmlAudioElement(audio);
-        void audio.play().catch(() => playNotificationSound());
+        const done = () => untrackDetachedCommunityMessengerCallAudio(audio);
+        audio.addEventListener("ended", done, { once: true });
+        audio.addEventListener(
+          "error",
+          () => {
+            done();
+          },
+          { once: true }
+        );
+        try {
+          await audio.play();
+        } catch {
+          done();
+          playNotificationSound();
+        }
       })();
     } catch {
       playNotificationSound();

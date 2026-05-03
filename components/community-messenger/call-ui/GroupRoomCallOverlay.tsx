@@ -46,7 +46,14 @@ export function GroupRoomCallOverlay({
     const endedVm: CallScreenViewModel = {
       mode: endedPanel.kind === "video" ? "video" : "voice",
       direction: "outgoing",
-      phase: endedPanel.reason === "declined" ? "declined" : endedPanel.reason === "missed" ? "missed" : endedPanel.reason === "failed" ? "failed" : "ended",
+      phase:
+        endedPanel.reason === "declined"
+          ? "declined"
+          : endedPanel.reason === "missed"
+            ? "missed"
+            : endedPanel.reason === "failed"
+              ? "failed"
+              : "ended",
       peerLabel: endedPanel.peerLabel,
       peerAvatarUrl: null,
       statusText:
@@ -56,7 +63,9 @@ export function GroupRoomCallOverlay({
             ? "부재중 알림"
             : endedPanel.reason === "failed"
               ? "연결 실패"
-              : "통화 종료",
+              : endedPanel.reason === "canceled"
+                ? "통화가 취소되었습니다"
+                : "통화 종료",
       subStatusText: groupCall.errorMessage,
       topLabel: isGroupRoom ? `${groupPrefix}${endedPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}` : null,
       connectedAt: groupCall.connectedAt,

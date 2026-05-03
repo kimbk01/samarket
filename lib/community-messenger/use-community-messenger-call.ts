@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * LEGACY — 라우트된 1:1 통화 MVP 실경로에서 사용되지 않음.
+ *
+ * 현재 1:1은 Agora (`CommunityMessengerCallClient`)만 타며, 본 훅(WebRTC P2P·시그널 폴링)은
+ * 레포 내 다른 모듈에서 import 되지 않는다. 삭제 대신 보존용 레거시 묶음으로 둔다.
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import {
@@ -18,6 +25,11 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import {
+  fetchMessengerCallSoundConfig,
+  getMessengerCallSoundConfigCache,
+} from "@/lib/community-messenger/messenger-call-sound-config-client";
+import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import {
   callSessionPhaseLabel,
@@ -69,7 +81,6 @@ type PendingIncomingAcceptance = {
   callKind: CommunityMessengerCallKind;
 };
 
-const CALL_RING_TIMEOUT_MS = 35_000;
 /** postgres_changes 로 시그널이 오면 HTTP 폴링은 느린 백업 주기만 유지 */
 const CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
 const CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
@@ -423,27 +434,40 @@ export function useCommunityMessengerCall(args: {
     if (!args.activeCall || args.activeCall.status !== "ringing" || !args.activeCall.isMineInitiator) return;
     const sessionId = args.activeCall.id;
     const peerUserId = args.activeCall.peerUserId;
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          if (peerUserId) {
-            await sendSignal(sessionId, peerUserId, "hangup", { reason: "missed" });
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      let cfg = getMessengerCallSoundConfigCache();
+      if (cfg === undefined || cfg === null) {
+        cfg = await fetchMessengerCallSoundConfig();
+      }
+      const ms = incomingRingTimeoutMsFromConfig(cfg ?? undefined);
+      if (cancelled) return;
+      timer = setTimeout(() => {
+        void (async () => {
+          try {
+            if (peerUserId) {
+              await sendSignal(sessionId, peerUserId, "hangup", { reason: "missed" });
+            }
+            await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "missed" }),
+            });
+            cleanupMedia();
+            setPanel(null);
+            setErrorMessage("상대방이 받지 않아 부재중 통화로 처리되었습니다.");
+            await args.onRefresh();
+          } catch {
+            /* ignore timeout failure */
           }
-          await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "missed" }),
-          });
-          cleanupMedia();
-          setPanel(null);
-          setErrorMessage("상대방이 받지 않아 부재중 통화로 처리되었습니다.");
-          await args.onRefresh();
-        } catch {
-          /* ignore timeout failure */
-        }
-      })();
-    }, CALL_RING_TIMEOUT_MS);
-    return () => clearTimeout(timer);
+        })();
+      }, ms);
+    })();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
+    };
   }, [args, cleanupMedia, sendSignal]);
 
   const flushPendingCandidates = useCallback(async () => {

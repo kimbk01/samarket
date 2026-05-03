@@ -4,7 +4,18 @@ import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
-import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  unlockCommunityMessengerCallPlaybackFromUserGesture,
+} from "@/lib/community-messenger/call-feedback-sound";
+import {
+  cmCallLatencyInfo,
+  cmCallLatencyMarkClick,
+  setCmCallLatencyContext,
+} from "@/lib/community-messenger/cm-call-debug";
+import {
+  buildCommunityMessengerOutgoingDialHref,
+  rememberCallNavigationReturnPath,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   tradeChatCallPolicyAllowsVideo,
@@ -72,15 +83,13 @@ export function TradeChatCallHeaderButtons(props: {
           }
           messengerRoomId = json.roomId.trim();
         }
-        const result = await startOutgoingCallSessionAndOpen(
-          { roomId: messengerRoomId, peerUserId: null, kind },
-          router
-        );
-        if (!result.ok) {
-          const next = pathname.trim() || "/philife";
-          if (redirectForBlockedAction(router, result.userMessage, next)) return;
-          onErrorMessage(result.userMessage);
-        }
+        rememberCallNavigationReturnPath();
+        cmCallLatencyInfo("outgoing_route_push_start", {
+          roomId: messengerRoomId,
+          callKind: kind,
+          role: "initiator",
+        });
+        router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
       } catch {
         onErrorMessage("네트워크 오류로 통화를 시작하지 못했습니다.");
       } finally {
@@ -98,6 +107,9 @@ export function TradeChatCallHeaderButtons(props: {
         type="button"
         disabled={busy}
         onClick={() => {
+          cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
+          setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
+          unlockCommunityMessengerCallPlaybackFromUserGesture();
           void primeCommunityMessengerDevicePermissionFromUserGesture("voice");
           void startCall("voice");
         }}
@@ -111,6 +123,9 @@ export function TradeChatCallHeaderButtons(props: {
           type="button"
           disabled={busy}
           onClick={() => {
+            cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
+            setCmCallLatencyContext({ role: "initiator", callKind: "video" });
+            unlockCommunityMessengerCallPlaybackFromUserGesture();
             void primeCommunityMessengerDevicePermissionFromUserGesture("video");
             void startCall("video");
           }}

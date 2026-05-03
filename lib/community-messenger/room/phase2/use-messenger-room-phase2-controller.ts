@@ -19,7 +19,11 @@ import {
   primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
-import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  startCommunityMessengerCallTone,
+  type CallToneController,
+  unlockCommunityMessengerCallPlaybackFromUserGesture,
+} from "@/lib/community-messenger/call-feedback-sound";
 import { useCommunityMessengerRoomGroupCall } from "@/lib/community-messenger/room/community-messenger-group-call-context";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -39,9 +43,10 @@ import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/r
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import {
+  buildCommunityMessengerOutgoingDialHref,
   rememberCallNavigationReturnPath,
-  startOutgoingCallSessionAndOpen,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } from "@/lib/community-messenger/cm-call-debug";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import {
@@ -499,13 +504,12 @@ export function useMessengerRoomPhase2Controller() {
       rememberCallNavigationReturnPath();
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
       const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
-      void router.prefetch(href);
       router.push(href);
     },
     [router]
   );
 
-  /** 발신 — roomManaged. 세션 POST 후 `/calls/:id` 로만 이동(`calls/outgoing` 중간 화면 없음). */
+  /** 발신 — roomManaged. 즉시 `/calls/outgoing` 으로 이동해 준비 UI 표시 후 세션 POST (`OutgoingDialPageClient`). */
   const startManagedDirectCall = useCallback(
     (kind: "voice" | "video"): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
@@ -514,37 +518,43 @@ export function useMessengerRoomPhase2Controller() {
       setOutgoingDialLocked(true);
 
       setManagedDirectCallError(null);
-      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
       const existingSession = snapshot?.activeCall;
       if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
+        unlockCommunityMessengerCallPlaybackFromUserGesture();
         openDirectCallPage(existingSession.id);
         return true;
       }
 
       const rid = roomId.trim();
-      void (async () => {
-        try {
-          logClientPerf("messenger-call.dial.push", { phase: "room_managed_session_open", roomId: rid, kind });
-          const result = await startOutgoingCallSessionAndOpen({ roomId: rid, peerUserId: null, kind }, router);
-          if (!result.ok) {
-            const next =
-              (pathname ?? "").trim() ||
-              `/community-messenger/rooms/${encodeURIComponent(streamRoomId)}`;
-            if (redirectForBlockedAction(router, result.userMessage, next)) return;
-            setManagedDirectCallError(result.userMessage);
-          }
-        } catch {
-          setManagedDirectCallError("통화 화면으로 이동하지 못했습니다.");
-        } finally {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }
-      })();
+      const peerLabel = snapshot?.room.title?.trim();
+      cmCallLatencyMarkClick({
+        surface: "room_managed",
+        roomId: rid,
+        kind,
+        peerLabel: peerLabel ?? null,
+      });
+      setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: rid });
+      rememberCallNavigationReturnPath();
+      /** 세션 POST 는 다음 화면 effect — 여기서 priming 하지 않으면 Web Audio 가 제스처 밖에서 resume 되어 경고·잔음이 난다 */
+      unlockCommunityMessengerCallPlaybackFromUserGesture();
+      cmCallLatencyInfo("outgoing_route_push_start", {
+        roomId: rid,
+        callKind: kind,
+        role: "initiator",
+        peerLabel: peerLabel ?? null,
+      });
+      logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
+      router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel }));
+      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 0);
       return true;
     },
-    [isGroupRoom, openDirectCallPage, pathname, roomId, roomUnavailable, router, snapshot?.activeCall, streamRoomId]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title]
   );
 
   useEffect(() => {
@@ -1483,37 +1493,37 @@ export function useMessengerRoomPhase2Controller() {
     [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, router]
   );
 
-  /** 발신 — 멤버 시트 등. 세션 POST 후 `/calls/:id` 로만 이동. */
+  /** 발신 — 멤버 시트 등. 즉시 `/calls/outgoing` → 세션 생성 후 `/calls/:id`. */
   const startDirectCallWithMember = useCallback(
     (peerUserId: string, kind: "voice" | "video", peerLabelHint?: string): boolean => {
       if (outgoingDialSyncGuardRef.current) return false;
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 
-      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
-
       const peer = peerUserId.trim();
-      void (async () => {
-        try {
-          logClientPerf("messenger-call.dial.push", { phase: "member_sheet_session_open", peerUserId: peer, kind });
-          const result = await startOutgoingCallSessionAndOpen({ roomId: null, peerUserId: peer, kind }, router);
-          if (!result.ok) {
-            const next =
-              (pathname ?? "").trim() ||
-              `/community-messenger/rooms/${encodeURIComponent(streamRoomId)}`;
-            if (redirectForBlockedAction(router, result.userMessage, next)) return;
-            showMessengerSnackbar(result.userMessage, { variant: "error" });
-          }
-        } catch {
-          showMessengerSnackbar("통화 화면으로 이동하지 못했습니다.", { variant: "error" });
-        } finally {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }
-      })();
+      cmCallLatencyMarkClick({
+        surface: "member_sheet",
+        peerUserId: peer,
+        kind,
+      });
+      setCmCallLatencyContext({ role: "initiator", callKind: kind });
+      rememberCallNavigationReturnPath();
+      unlockCommunityMessengerCallPlaybackFromUserGesture();
+      cmCallLatencyInfo("outgoing_route_push_start", {
+        peerUserId: peer,
+        callKind: kind,
+        role: "initiator",
+      });
+      logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
+      router.push(buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer }));
+      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 0);
       return true;
     },
-    [pathname, router, streamRoomId]
+    [router]
   );
 
   const removeGroupMember = useCallback(

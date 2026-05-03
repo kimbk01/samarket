@@ -21,6 +21,7 @@ import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/ser
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getOrCreateRequestId } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
+import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,15 +124,28 @@ export async function GET(
     ...snapshot,
   };
   const responseSizeBytes = new TextEncoder().encode(JSON.stringify(body)).length;
+  const d = diagnostics;
   const headers = new Headers({
-    "Cache-Control": "no-store",
+    ...messengerApiEdgeCacheHeaders(),
     [SAMARKET_REQUEST_ID_HEADER]: requestId,
     "x-samarket-route-total-ms": String(ms),
     "x-samarket-response-size-bytes": String(responseSizeBytes),
-    "x-samarket-room-bootstrap-fetch-ms": String(diagnostics.roomBootstrapFetchMs ?? 0),
-    "x-samarket-messages-fetch-ms": String(diagnostics.messagesFetchMs ?? 0),
-    "x-samarket-participants-profiles-fetch-ms": String(diagnostics.participantsProfilesFetchMs ?? 0),
-    "x-samarket-normalize-merge-ms": String(diagnostics.normalizeMergeMs ?? 0),
+    "x-samarket-room-bootstrap-fetch-ms": String(d.roomBootstrapFetchMs ?? 0),
+    "x-samarket-messages-fetch-ms": String(d.messagesFetchMs ?? 0),
+    "x-samarket-messages-hide-reactions-parallel-ms": String(d.messagesPostParallelFetchMs ?? 0),
+    "x-samarket-participants-profiles-fetch-ms": String(d.participantsProfilesFetchMs ?? 0),
+    "x-samarket-participants-sql-ms": String(d.participantsSqlFetchMs ?? 0),
+    "x-samarket-room-profiles-map-ms": String(d.fetchRoomProfilesByRoomIdsMs ?? 0),
+    "x-samarket-hydrate-labels-ms": String(d.hydrateProfilesLabelsOnlyWithMapMs ?? 0),
+    "x-samarket-trade-detail-bootstrap-parallel-ms": String(d.tradeChatRoomDetailBootstrapParallelMs ?? 0),
+    "x-samarket-trade-exit-snapshot-parallel-ms": String(d.tradeExitSnapshotBootstrapParallelMs ?? 0),
+    "x-samarket-peer-read-cursor-ms": String(d.peerReadCursorFetchMs ?? 0),
+    "x-samarket-trade-detail-normalize-ms": String(d.tradeChatRoomDetailNormalizePhaseMs ?? 0),
+    "x-samarket-summary-build-ms": String(d.summaryBuildMs ?? 0),
+    "x-samarket-members-map-ms": String(d.membersMapMs ?? 0),
+    "x-samarket-messages-pipeline-prep-ms": String(d.messagesPipelinePrepMs ?? 0),
+    "x-samarket-messages-map-cpu-ms": String(d.messagesMapCpuMs ?? 0),
+    "x-samarket-normalize-merge-ms": String(d.normalizeMergeMs ?? 0),
   });
   return NextResponse.json(body, { headers });
 }

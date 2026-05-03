@@ -67,13 +67,15 @@ export function useMessengerRoomReaderScrollBottom({
       useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
       useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
     }
+    /** 한 프레임 1회 rAF — 이중 rAF 는 동일 16ms 예산에서 레이아웃 읽기·쓰기를 늘린다. */
     window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const vp = messagesViewportRef.current;
-        if (vp) vp.scrollTop = vp.scrollHeight;
-        messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
-        syncScrollGeomFromViewport();
-      });
+      const vp = messagesViewportRef.current;
+      if (vp) {
+        const sh = vp.scrollHeight;
+        vp.scrollTop = sh;
+      }
+      messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+      syncScrollGeomFromViewport();
     });
   }, [roomId, syncScrollGeomFromViewport]);
 
@@ -81,12 +83,15 @@ export function useMessengerRoomReaderScrollBottom({
     const el = messagesViewportRef.current;
     if (!el) return;
     const threshold = MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX;
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const sh = el.scrollHeight;
+    const st = el.scrollTop;
+    const ch = el.clientHeight;
+    const dist = sh - st - ch;
     stickToBottomRef.current = dist < threshold;
     lastScrollGeomRef.current = {
-      sh: el.scrollHeight,
-      st: el.scrollTop,
-      ch: el.clientHeight,
+      sh,
+      st,
+      ch,
       ready: true,
     };
     const id = roomId?.trim();
@@ -135,21 +140,22 @@ export function useMessengerRoomReaderScrollBottom({
     let rafId = 0;
     const restoreScrollAfterChromeChange = () => {
       cancelAnimationFrame(rafId);
+      /** ResizeObserver·vv 콜백당 스케줄 1회 rAF 로 레이아웃 스래시 완화 */
       rafId = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const box = messagesViewportRef.current;
-          if (!box || !lastScrollGeomRef.current.ready) return;
-          const prev = lastScrollGeomRef.current;
-          const distFromBottom = prev.sh - prev.st - prev.ch;
-          if (stickToBottomRef.current) {
-            box.scrollTop = box.scrollHeight - box.clientHeight;
-          } else {
-            const maxScroll = Math.max(0, box.scrollHeight - box.clientHeight);
-            const target = box.scrollHeight - box.clientHeight - distFromBottom;
-            box.scrollTop = Math.max(0, Math.min(maxScroll, target));
-          }
-          syncScrollGeomFromViewport();
-        });
+        const box = messagesViewportRef.current;
+        if (!box || !lastScrollGeomRef.current.ready) return;
+        const prev = lastScrollGeomRef.current;
+        const distFromBottom = prev.sh - prev.st - prev.ch;
+        const sh = box.scrollHeight;
+        const ch = box.clientHeight;
+        const maxScroll = Math.max(0, sh - ch);
+        if (stickToBottomRef.current) {
+          box.scrollTop = maxScroll;
+        } else {
+          const target = maxScroll - distFromBottom;
+          box.scrollTop = Math.max(0, Math.min(maxScroll, target));
+        }
+        syncScrollGeomFromViewport();
       });
     };
 

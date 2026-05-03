@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { CallBackground } from "./CallBackground";
 import { CallHeader } from "./CallHeader";
@@ -18,15 +18,17 @@ export function CallScreen({
   vm: CallScreenViewModel;
   variant?: "overlay" | "page" | "dock-top";
 }) {
+  /** secondaryActions 배열 참조가 매 렌더 바뀌면 타이머가 끝까지 가지 못함 — ref 로 최신 닫기만 실행 */
+  const terminalCloseRef = useRef<(() => void) | null>(null);
+  terminalCloseRef.current =
+    vm.secondaryActions?.find((item) => item.icon === "close")?.onClick ?? null;
   useEffect(() => {
-    if (!vm.autoCloseMs || !vm.secondaryActions?.length) return;
-    const close = vm.secondaryActions.find((item) => item.icon === "close");
-    if (!close) return;
+    if (!vm.autoCloseMs) return;
     const timer = window.setTimeout(() => {
-      close.onClick();
+      terminalCloseRef.current?.();
     }, vm.autoCloseMs);
     return () => window.clearTimeout(timer);
-  }, [vm.autoCloseMs, vm.secondaryActions]);
+  }, [vm.autoCloseMs]);
 
   const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";

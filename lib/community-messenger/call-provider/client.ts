@@ -4,6 +4,8 @@ import AgoraRTC, {
   type IAgoraRTCClient,
   type ILocalAudioTrack,
   type ILocalVideoTrack,
+  type IRemoteAudioTrack,
+  type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
 import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
 import { consumePrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
@@ -13,6 +15,12 @@ import {
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
+import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
+import {
+  closePrimedWebAudioCallToneContext,
+  getPrimedWebAudioCallToneContextState,
+} from "@/lib/community-messenger/call-tone-web-audio";
+import { getSharedNotificationAudioContextState } from "@/lib/notifications/play-notification-sound";
 
 export type CommunityMessengerAgoraLocalTracks = {
   audioTrack: ILocalAudioTrack;
@@ -195,12 +203,231 @@ export async function publishCommunityMessengerAgoraTracks(args: {
 
 export async function closeCommunityMessengerAgoraTracks(tracks: CommunityMessengerAgoraLocalTracks | null) {
   if (!tracks) return;
-  tracks.audioTrack.stop();
-  tracks.audioTrack.close();
-  if (tracks.videoTrack) {
-    tracks.videoTrack.stop();
-    tracks.videoTrack.close();
+  try {
+    tracks.audioTrack.stop();
+  } catch {
+    /* already stopped */
   }
+  try {
+    tracks.audioTrack.close();
+  } catch {
+    /* idempotent */
+  }
+  if (tracks.videoTrack) {
+    try {
+      tracks.videoTrack.stop();
+    } catch {
+      /* */
+    }
+    try {
+      tracks.videoTrack.close();
+    } catch {
+      /* */
+    }
+  }
+}
+
+export type CommunityMessengerAgoraCleanupStats = {
+  localAudioClosed: boolean;
+  localVideoClosed: boolean;
+  remoteTrackCount: number;
+  mediaElementCount: number;
+  audioContextState: string;
+  speakerRestored: boolean;
+};
+
+/**
+ * 1:1 Agora 통화 자원을 한 경로로 정리 (순서 고정 — 마이크/BT 통화 모드·미디어 요소 잔류 해제).
+ * PATCH 여부와 무관하게 동일 호출. 중복 호출: SDK 가 이미 내려간 경우 catch 로 무시.
+ */
+export async function cleanupCommunityMessengerAgoraCallResources(input: {
+  client: IAgoraRTCClient | null;
+  tracks: CommunityMessengerAgoraLocalTracks | null;
+  remoteAudioTrack?: IRemoteAudioTrack | null;
+  remoteVideoTrack?: IRemoteVideoTrack | null;
+}): Promise<CommunityMessengerAgoraCleanupStats> {
+  const { client, tracks } = input;
+  const remoteAudioTrack = input.remoteAudioTrack ?? null;
+  const remoteVideoTrack = input.remoteVideoTrack ?? null;
+
+  const remoteTrackCount =
+    (remoteAudioTrack ? 1 : 0) + (remoteVideoTrack ? 1 : 0);
+
+  let mediaElementCount = 0;
+  if (typeof document !== "undefined") {
+    try {
+      mediaElementCount = document.querySelectorAll("audio, video").length;
+    } catch {
+      mediaElementCount = 0;
+    }
+  }
+
+  let localAudioClosed = !tracks?.audioTrack;
+  let localVideoClosed = !tracks?.videoTrack;
+  let speakerRestored = !remoteAudioTrack;
+
+  if (tracks?.audioTrack) {
+    try {
+      await tracks.audioTrack.setEnabled(false);
+    } catch {
+      /* */
+    }
+  }
+  if (tracks?.videoTrack) {
+    try {
+      await tracks.videoTrack.setEnabled(false);
+    } catch {
+      /* */
+    }
+  }
+
+  if (client) {
+    try {
+      if (tracks && (tracks.audioTrack || tracks.videoTrack)) {
+        const pub: Array<ILocalAudioTrack | ILocalVideoTrack> = [];
+        if (tracks.audioTrack) pub.push(tracks.audioTrack);
+        if (tracks.videoTrack) pub.push(tracks.videoTrack);
+        if (pub.length > 0) {
+          await client.unpublish(pub);
+        }
+      } else {
+        await client.unpublish();
+      }
+    } catch {
+      /* already unpublished / not joined */
+    }
+  }
+
+  if (tracks?.audioTrack) {
+    try {
+      tracks.audioTrack.stop();
+    } catch {
+      /* */
+    }
+    try {
+      await tracks.audioTrack.close();
+      localAudioClosed = true;
+    } catch {
+      localAudioClosed = false;
+    }
+  }
+  if (tracks?.videoTrack) {
+    try {
+      tracks.videoTrack.stop();
+    } catch {
+      /* */
+    }
+    try {
+      await tracks.videoTrack.close();
+      localVideoClosed = true;
+    } catch {
+      localVideoClosed = false;
+    }
+  }
+
+  if (remoteAudioTrack) {
+    try {
+      /** 스피커 출력으로 고정된 재생 장치를 통화 종료 직전 되돌림 — BT/통화 세션 잔류 완화 */
+      await applyAgoraRemoteSpeakerPreference(remoteAudioTrack, false);
+      speakerRestored = true;
+    } catch {
+      speakerRestored = false;
+    }
+    try {
+      remoteAudioTrack.stop();
+    } catch {
+      /* */
+    }
+  }
+  if (remoteVideoTrack) {
+    try {
+      remoteVideoTrack.stop();
+    } catch {
+      /* */
+    }
+  }
+
+  if (typeof document !== "undefined") {
+    try {
+      document.querySelectorAll("audio").forEach((el) => {
+        const a = el as HTMLAudioElement;
+        try {
+          a.pause();
+        } catch {
+          /* */
+        }
+        try {
+          a.srcObject = null;
+        } catch {
+          /* */
+        }
+        try {
+          a.removeAttribute("src");
+        } catch {
+          /* */
+        }
+        try {
+          a.load();
+        } catch {
+          /* */
+        }
+      });
+      document.querySelectorAll("video").forEach((el) => {
+        const v = el as HTMLVideoElement;
+        try {
+          v.pause();
+        } catch {
+          /* */
+        }
+        try {
+          v.srcObject = null;
+        } catch {
+          /* */
+        }
+        try {
+          v.removeAttribute("src");
+        } catch {
+          /* */
+        }
+        try {
+          v.load();
+        } catch {
+          /* */
+        }
+      });
+    } catch {
+      /* */
+    }
+  }
+
+  closePrimedWebAudioCallToneContext();
+
+  if (client) {
+    try {
+      await client.leave();
+    } catch {
+      /* */
+    }
+    try {
+      client.removeAllListeners();
+    } catch {
+      /* */
+    }
+  }
+
+  const audioContextState = [
+    `tone:${getPrimedWebAudioCallToneContextState()}`,
+    `notify:${getSharedNotificationAudioContextState() ?? "none"}`,
+  ].join("|");
+
+  return {
+    localAudioClosed,
+    localVideoClosed,
+    remoteTrackCount,
+    mediaElementCount,
+    audioContextState,
+    speakerRestored,
+  };
 }
 
 /** 영상 통화에서 전후면·외장 캠 전환 시 사용 */

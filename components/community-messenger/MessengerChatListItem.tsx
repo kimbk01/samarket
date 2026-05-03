@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
+import {
+  enqueueRoomPrefetch,
+  messengerRoomPrefetchPriorityScore,
+} from "@/lib/community-messenger/room-prefetch-queue";
+import {
+  isRoomSnapshotFresh,
+  prefetchCommunityMessengerRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
+import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
@@ -33,6 +41,17 @@ const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
 const LONG_PRESS_THRESHOLD_MS = 560;
+
+/** 클릭~라우팅 사이 스냅샷 GET(`runSingleFlight`)이 붙을 시간 — 상한만 두고 이미 fresh면 대기 없음 */
+const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 100;
+const ROOM_NAV_SNAPSHOT_LEAD_MS_MAX = 150;
+
+function messengerRoomNavSnapshotLeadMs(): number {
+  return (
+    ROOM_NAV_SNAPSHOT_LEAD_MS_MIN +
+    Math.floor(Math.random() * (ROOM_NAV_SNAPSHOT_LEAD_MS_MAX - ROOM_NAV_SNAPSHOT_LEAD_MS_MIN + 1))
+  );
+}
 
 export type MessengerMenuAnchorRect = {
   top: number;
@@ -94,6 +113,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const router = useRouter();
   const room = item.room;
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const roomPrefetchPriority = useMemo(
+    () => messengerRoomPrefetchPriorityScore(room.lastMessageAt),
+    [room.lastMessageAt]
+  );
+  const prefetchAttach = useMessengerRoomListPrefetchRefCallback(room.id, true, roomPrefetchPriority);
+  const setMainRowRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      rowRef.current = node;
+      prefetchAttach(node);
+    },
+    [prefetchAttach]
+  );
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isPressedVisual, setIsPressedVisual] = useState(false);
@@ -142,12 +173,30 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           ? "보관됨"
           : null;
 
+  const roomHref = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
+
+  const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
+    primeMessengerRoomEntrySnapshot({ viewerUserId, room });
+    enqueueRoomPrefetch(room.id, roomPrefetchPriority);
+    void prefetchCommunityMessengerRoomSnapshot(room.id);
+    void router.prefetch(roomHref);
+  }, [room, roomHref, roomPrefetchPriority, viewerUserId, router]);
+
   const navigateToCommunityRoom = useCallback(
-    (rid: string) => {
+    async (rid: string) => {
       const id = String(rid ?? "").trim();
       if (!id) return;
       primeMessengerRoomEntrySnapshot({ viewerUserId, room });
       beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(id)}`);
+
+      if (!isRoomSnapshotFresh(id, viewerUserId)) {
+        const leadMs = messengerRoomNavSnapshotLeadMs();
+        await Promise.race([
+          prefetchCommunityMessengerRoomSnapshot(id),
+          new Promise<void>((resolve) => setTimeout(resolve, leadMs)),
+        ]);
+      }
+
       recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
       router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
     },
@@ -255,12 +304,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     longPressTriggeredRef.current = false;
     tapNavigateArmedRef.current = true;
     setIsPressedVisual(!swipeOpen);
-    {
-      const href = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
-      primeMessengerRoomEntrySnapshot({ viewerUserId, room });
-      enqueueRoomPrefetch(room.id);
-      void router.prefetch(href);
-    }
+    kickRoomNavPrefetchOnPointerDown();
     dragRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -269,7 +313,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, room, router, swipeOpen, viewerUserId]);
+  }, [clearReleasePressTimer, compact, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -336,7 +380,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         }
         // 라우팅을 가장 먼저 시작(메인스레드 정리/리렌더보다 우선) — 체감 멈칫 최소화.
         markCommunityMessengerRoomNavTap(room.id);
-        navigateToCommunityRoom(room.id);
+        void navigateToCommunityRoom(room.id);
         setIsPressedVisual(true);
         releasePressedVisual(PRESS_RELEASE_MS);
         return;
@@ -524,18 +568,23 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   if (compact && onCompactLongPress) {
     return (
       <div
+        ref={prefetchAttach}
         role="button"
         tabIndex={0}
         {...bind}
+        onPointerDown={(e) => {
+          kickRoomNavPrefetchOnPointerDown();
+          bind.onPointerDown(e);
+        }}
         onClick={() => {
           if (consumeClickSuppression()) return;
-          navigateToCommunityRoom(room.id);
+          void navigateToCommunityRoom(room.id);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             if (consumeClickSuppression()) return;
-            navigateToCommunityRoom(room.id);
+            void navigateToCommunityRoom(room.id);
           }
         }}
         className="block cursor-default border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-0 py-0 touch-manipulation transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]"
@@ -548,15 +597,16 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   if (compact) {
     return (
       <Link
+        ref={prefetchAttach}
         prefetch
-        href={`/community-messenger/rooms/${encodeURIComponent(room.id)}`}
+        href={roomHref}
         onPointerDown={() => {
-          enqueueRoomPrefetch(room.id);
-          void router.prefetch(`/community-messenger/rooms/${encodeURIComponent(room.id)}`);
+          kickRoomNavPrefetchOnPointerDown();
         }}
-        onClick={() =>
-          beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(room.id)}`)
-        }
+        onClick={(e) => {
+          e.preventDefault();
+          void navigateToCommunityRoom(room.id);
+        }}
         className="block border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-0 py-0 transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]"
       >
         {rowContent}
@@ -566,7 +616,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   return (
     <div
-      ref={rowRef}
+      ref={setMainRowRef}
       className="relative w-full min-w-0 overflow-hidden border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)]"
       data-messenger-chat-row="true"
     >
@@ -622,7 +672,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
                 closeSwipe();
                 return;
               }
-              navigateToCommunityRoom(room.id);
+              void navigateToCommunityRoom(room.id);
             }
           }}
           className="block w-full flex-1 cursor-default border-0 px-0 py-0 transition-colors duration-100 ease-out"

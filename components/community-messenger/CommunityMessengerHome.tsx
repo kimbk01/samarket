@@ -70,7 +70,18 @@ import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/ho
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
-import { startOutgoingCallSessionAndOpen } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  unlockCommunityMessengerCallPlaybackFromUserGesture,
+} from "@/lib/community-messenger/call-feedback-sound";
+import {
+  cmCallLatencyInfo,
+  cmCallLatencyMarkClick,
+  setCmCallLatencyContext,
+} from "@/lib/community-messenger/cm-call-debug";
+import {
+  buildCommunityMessengerOutgoingDialHref,
+  rememberCallNavigationReturnPath,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   communityMessengerFriendRequestFailureMessage,
@@ -86,6 +97,11 @@ import {
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
+import {
+  enqueueRoomPrefetch,
+  messengerRoomPrefetchPriorityScore,
+  MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT,
+} from "@/lib/community-messenger/room-prefetch-queue";
 import {
   invalidateRoomSnapshot,
   peekRoomSnapshot,
@@ -685,44 +701,52 @@ export function CommunityMessengerHome({
     ]
   );
 
-  /** 1:1 발신 — 세션 생성 후 `/calls/:sessionId` 로만 이동(`calls/outgoing` 중간 화면 없음). `peerLabelForDial` 은 확인 모달 표시명. */
+  /** 1:1 발신 — 즉시 `/calls/outgoing` 셸로 이동 후 세션 POST·`/calls/:sessionId` (`OutgoingDialPageClient`). */
   const startDirectCall = useCallback(
-    (peerUserId: string, kind: "voice" | "video", _peerLabelForDial?: string | null): boolean => {
+    (peerUserId: string, kind: "voice" | "video", peerLabelForDial?: string | null): boolean => {
       if (outgoingDialSyncGuardRef.current) return false;
       outgoingDialSyncGuardRef.current = true;
       setActionError(null);
+      cmCallLatencyMarkClick({ surface: "messenger_home", callKind: kind });
       void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
       const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
       if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
         void reviveDirectRoomForEntry(existingRoom);
       }
 
-      void (async () => {
-        try {
-          const roomId = existingRoom?.id?.trim() ? existingRoom.id.trim() : null;
-          const peer = peerUserId.trim();
-          const result = await startOutgoingCallSessionAndOpen(
-            {
-              roomId,
-              peerUserId: roomId ? null : peer,
-              kind,
-            },
-            router
-          );
-          if (!result.ok) {
-            const next = pathname.trim() || "/community-messenger";
-            if (redirectForBlockedAction(router, result.userMessage, next)) return;
-            setActionError(result.userMessage);
-          }
-        } catch {
-          setActionError("통화 화면으로 이동하지 못했습니다.");
-        } finally {
+      const roomId = existingRoom?.id?.trim() ? existingRoom.id.trim() : null;
+      const peer = peerUserId.trim();
+      const pl = peerLabelForDial?.trim();
+      setCmCallLatencyContext({
+        role: "initiator",
+        callKind: kind,
+        roomId: roomId ?? undefined,
+      });
+      unlockCommunityMessengerCallPlaybackFromUserGesture();
+      cmCallLatencyInfo("outgoing_route_push_start", {
+        peerUserId: peer,
+        roomId: roomId ?? undefined,
+        callKind: kind,
+        role: "initiator",
+      });
+      rememberCallNavigationReturnPath();
+      router.push(
+        buildCommunityMessengerOutgoingDialHref(
+          roomId
+            ? { kind, roomId, peerLabel: pl || undefined }
+            : { kind, peerUserId: peer, peerLabel: pl || undefined }
+        )
+      );
+      if (typeof window !== "undefined") {
+        window.setTimeout(() => {
           outgoingDialSyncGuardRef.current = false;
-        }
-      })();
+        }, 0);
+      } else {
+        outgoingDialSyncGuardRef.current = false;
+      }
       return true;
     },
-    [data?.chats, pathname, reviveDirectRoomForEntry, router]
+    [data?.chats, reviveDirectRoomForEntry, router]
   );
 
   const searchUsers = useCallback(async () => {
@@ -1457,6 +1481,23 @@ export function CommunityMessengerHome({
     roomSearchKeyword,
     openGroupSearch,
   });
+
+  const listPrefetchSeedSig = useMemo(() => {
+    if (mainSection !== "chats" && mainSection !== "open_chat" && mainSection !== "archive") return "";
+    return primaryListItems
+      .slice(0, MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT)
+      .map((it) => `${it.room.id}:${it.room.lastMessageAt}`)
+      .join(",");
+  }, [mainSection, primaryListItems]);
+
+  useEffect(() => {
+    if (!listPrefetchSeedSig) return;
+    if (!data?.me?.id) return;
+    const top = primaryListItems.slice(0, MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT);
+    for (const it of top) {
+      enqueueRoomPrefetch(it.room.id, messengerRoomPrefetchPriorityScore(it.room.lastMessageAt));
+    }
+  }, [data?.me?.id, listPrefetchSeedSig, primaryListItems]);
 
   useEffect(() => {
     if (!publicGroupFindOpen || !data?.me?.id) return;

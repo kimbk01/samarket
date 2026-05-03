@@ -20,9 +20,14 @@ import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-au
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   playCommunityMessengerCallSignalSound,
-  stopCommunityMessengerCallFeedback,
+  stopCommunityMessengerCallTone,
 } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import {
+  fetchMessengerCallSoundConfig,
+  getMessengerCallSoundConfigCache,
+} from "@/lib/community-messenger/messenger-call-sound-config-client";
+import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
@@ -54,7 +59,8 @@ type GroupCallPanelState = {
 type GroupCallEndedState = {
   kind: CommunityMessengerCallKind;
   peerLabel: string;
-  reason: "ended" | "declined" | "missed" | "failed";
+  /** DB `cancelled` → `canceled` (ICE/WebRTC `failed` 와 무관) */
+  reason: "ended" | "declined" | "missed" | "failed" | "canceled";
   endedAt: number;
   endedDurationSeconds: number | null;
 };
@@ -78,7 +84,6 @@ type Props = {
 
 type BindRemoteVideo = (userId: string, node: HTMLVideoElement | null) => void;
 
-const CALL_RING_TIMEOUT_MS = 35_000;
 const GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
 const GROUP_CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
 const GROUP_CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
@@ -546,7 +551,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
           const reason = typeof payload?.reason === "string" ? payload.reason : "";
           if (panel?.mode === "incoming") {
             suppressIncomingPanelForSessionIdRef.current = sid;
-            stopCommunityMessengerCallFeedback();
+            stopCommunityMessengerCallTone();
             cleanupMedia();
             setPanel(null);
             void (async () => {
@@ -559,7 +564,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
             return;
           }
           if (panel?.mode === "dialing" && active?.isMineInitiator && (reason === "reject" || reason === "cancel")) {
-            stopCommunityMessengerCallFeedback();
+            stopCommunityMessengerCallTone();
             cleanupMedia();
             setPanel(null);
             void args.onRefresh();
@@ -655,7 +660,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
           : activeCall.status === "missed"
             ? "missed"
             : activeCall.status === "cancelled"
-              ? "failed"
+              ? "canceled"
               : "ended",
         activeCall.endedAt ? new Date(activeCall.endedAt).getTime() : Date.now()
       );
@@ -667,30 +672,44 @@ export function useCommunityMessengerGroupCall(args: Props) {
   useEffect(() => {
     if (!args.enabled || !args.activeCall || args.activeCall.sessionMode !== "group") return;
     if (!args.activeCall.isMineInitiator || args.activeCall.status !== "ringing") return;
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(args.activeCall!.id)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "missed" }),
-          });
-          const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-          if (!patchRes.ok || !patchJson.ok) {
+    const sessionId = args.activeCall.id;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      let cfg = getMessengerCallSoundConfigCache();
+      if (cfg === undefined || cfg === null) {
+        cfg = await fetchMessengerCallSoundConfig();
+      }
+      const ms = incomingRingTimeoutMsFromConfig(cfg ?? undefined);
+      if (cancelled) return;
+      timer = setTimeout(() => {
+        void (async () => {
+          try {
+            const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "missed" }),
+            });
+            const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+            if (!patchRes.ok || !patchJson.ok) {
+              setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
+              return;
+            }
+            cleanupMedia();
+            showEndedPanel(args.activeCall!.callKind, args.activeCall!.peerLabel, "missed", Date.now());
+            setPanel(null);
+            setErrorMessage("참여자가 없어 그룹 통화 호출을 종료했습니다.");
+            await args.onRefresh();
+          } catch {
             setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
-            return;
           }
-          cleanupMedia();
-          showEndedPanel(args.activeCall!.callKind, args.activeCall!.peerLabel, "missed", Date.now());
-          setPanel(null);
-          setErrorMessage("참여자가 없어 그룹 통화 호출을 종료했습니다.");
-          await args.onRefresh();
-        } catch {
-          setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
-        }
-      })();
-    }, CALL_RING_TIMEOUT_MS);
-    return () => clearTimeout(timer);
+        })();
+      }, ms);
+    })();
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) clearTimeout(timer);
+    };
   }, [args, cleanupMedia, showEndedPanel]);
 
   useEffect(() => {

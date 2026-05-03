@@ -57,6 +57,7 @@ export async function PATCH(
   let body: {
     action?: "accept" | "reject" | "cancel" | "end" | "missed" | "upgrade_to_video" | "downgrade_to_voice";
     durationSeconds?: number;
+    clientEndedReason?: string;
   };
   try {
     body = await req.json();
@@ -97,6 +98,8 @@ export async function PATCH(
     sessionId,
     action: body.action,
     durationSeconds: Number(body.durationSeconds ?? 0),
+    clientEndedReason:
+      typeof body.clientEndedReason === "string" ? body.clientEndedReason : undefined,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

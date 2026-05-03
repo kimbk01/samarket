@@ -28,6 +28,28 @@ import {
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 
+/**
+ * Phase1 가 연속으로 `cm.room.read` → `cm.room.local_unread`(0) 를 보낼 때
+ * 동일 스택에서 중복으로 `applyRoomSummaryPatched`·`setData` 가 도는 것을 막는다.
+ */
+let busUnreadZeroHandledAfterReadRoomId: string | null = null;
+
+function registerBusRoomReadUnreadZeroForDedupe(roomId: string): void {
+  busUnreadZeroHandledAfterReadRoomId = roomId;
+  queueMicrotask(() => {
+    if (busUnreadZeroHandledAfterReadRoomId === roomId) {
+      busUnreadZeroHandledAfterReadRoomId = null;
+    }
+  });
+}
+
+function tryConsumeBusLocalUnreadDuplicateAfterRead(roomId: string, unreadCount: number): boolean {
+  if (unreadCount !== 0) return false;
+  if (busUnreadZeroHandledAfterReadRoomId !== roomId) return false;
+  busUnreadZeroHandledAfterReadRoomId = null;
+  return true;
+}
+
 function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string): boolean {
   const rid = String(roomId ?? "").trim();
   if (!rid) return false;
@@ -236,6 +258,9 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
       if (ev.type === "cm.room.local_unread") {
         if (String(ev.viewerUserId) !== me) return;
+        if (tryConsumeBusLocalUnreadDuplicateAfterRead(ev.roomId, ev.unreadCount)) {
+          return;
+        }
         applyRoomSummaryPatched({
           viewerUserId: me,
           roomId: ev.roomId,
@@ -332,6 +357,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           primeBootstrapCache(next);
           return next;
         });
+        registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
         return;
       }
 

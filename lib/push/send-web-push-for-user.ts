@@ -56,6 +56,15 @@ function buildPayload(out: NotificationSideEffectPayloadOut): string {
     body.tag = `samarket-incoming-call-${sid}`;
     body.call_push_kind = "incoming_call";
   }
+  if (
+    out.notification_type === "community_messenger_missed_call" &&
+    typeof body.sessionId === "string" &&
+    body.sessionId.trim()
+  ) {
+    const sid = body.sessionId.trim();
+    body.tag = `samarket-missed-call-${sid}`;
+    body.call_push_kind = "missed_call";
+  }
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) return s;
   const trim = { ...body, title: String(out.title).slice(0, 80), body: (out.body ?? "").slice(0, 160) };

@@ -8,7 +8,7 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import {
   playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
-  stopCommunityMessengerCallFeedback,
+  stopCommunityMessengerCallTone,
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
 import { isCommunityMessengerIncomingCallSoundEnabled } from "@/lib/community-messenger/preferences";
@@ -35,7 +35,7 @@ export async function playOutgoingRingback(callKind: CommunityMessengerCallKind)
 export function stopAllCallSounds(): void {
   activeRing?.stop();
   activeRing = null;
-  stopCommunityMessengerCallFeedback();
+  stopCommunityMessengerCallTone();
 }
 
 /** 부재 / 통화 종료 원샷 — `resolveMessengerCallMissedSoundUrl` 등 관리자 키 반영 */

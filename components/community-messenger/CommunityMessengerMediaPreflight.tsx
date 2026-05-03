@@ -6,6 +6,7 @@ import {
   markCommunityMessengerMediaTrustedOnce,
 } from "@/lib/community-messenger/call-permission";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
+import { ensureCommunityMessengerAppAudioContext } from "@/lib/community-messenger/cm-app-audio-context";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -22,6 +23,12 @@ const SESSION_PREFLIGHT_OK_KEY = "cm_messenger_entry_media_preflight_ok_v1";
 export function CommunityMessengerMediaPreflight() {
   const attemptedRef = useRef(false);
   const callChunkWarmupIdleRef = useRef<number>(-1);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    /** Web Audio 공용 컨텍스트 1회 — 벨/톤이 매번 `new AudioContext` 하지 않도록 */
+    void ensureCommunityMessengerAppAudioContext();
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined" || attemptedRef.current) return;

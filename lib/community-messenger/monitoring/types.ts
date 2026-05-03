@@ -10,6 +10,7 @@ export type MessengerMonitoringSource = "client" | "server";
 export type MessengerMonitoringCategory =
   | "chat.room_load"
   | "chat.room_nav"
+  | "chat.render"
   | "chat.message_latency"
   | "chat.realtime"
   | "chat.unread_sync"

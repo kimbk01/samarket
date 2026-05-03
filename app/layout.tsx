@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -61,8 +61,21 @@ export default async function RootLayout({
   const langCookie = jar.get(APP_LANGUAGE_COOKIE)?.value;
   const initialLanguage: AppLanguageCode = normalizeAppLanguage(langCookie ?? DEFAULT_APP_LANGUAGE);
 
+  const hdr = await headers();
+  const forwardedHost = hdr.get("x-forwarded-host");
+  const host = (forwardedHost ?? hdr.get("host") ?? "").split(",")[0]?.trim() ?? "";
+  const forwardedProto = hdr.get("x-forwarded-proto");
+  const proto =
+    typeof forwardedProto === "string"
+      ? forwardedProto.split(",")[0]?.trim() || "https"
+      : "https";
+  const appOrigin = host ? `${proto}://${host}` : "";
+
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
+      <head>
+        {appOrigin ? <link rel="preconnect" href={appOrigin} /> : null}
+      </head>
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <SupabaseAuthSync />

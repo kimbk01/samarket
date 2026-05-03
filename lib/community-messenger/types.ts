@@ -342,8 +342,20 @@ export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT = 30;
 /** 그룹방 스냅샷에 실을 프로필(참가자) 상한 — 전원 하이드레이션 비용·응답 크기 완화 */
 export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP = 60;
 
+/** `listCommunityMessengerCallLogs` UI용 최종 분류 — 서버에서 계산 */
+export type CommunityMessengerCallLogDisplayType =
+  | "missed_outgoing"
+  | "missed_incoming"
+  | "rejected"
+  | "cancelled"
+  | "failed"
+  | "outgoing"
+  | "incoming";
+
 export type CommunityMessengerCallLog = {
   id: string;
+  /** community_messenger_call_logs.session_id — 통화 상세 딥링크용 */
+  sessionId: string | null;
   roomId: string | null;
   sessionMode: CommunityMessengerCallSessionMode;
   title: string;
@@ -355,6 +367,13 @@ export type CommunityMessengerCallLog = {
   status: CommunityMessengerCallStatus;
   startedAt: string;
   durationSeconds: number;
+  /** call_logs.ended_at 우선, 없으면 세션 ended_at */
+  endedAt: string | null;
+  /** call_logs.caller_user_id === 나 */
+  isOutgoing: boolean;
+  /** community_messenger_call_sessions.ended_reason */
+  endedReason: string | null;
+  displayType: CommunityMessengerCallLogDisplayType;
 };
 
 export type CommunityMessengerCallSession = {
@@ -371,6 +390,8 @@ export type CommunityMessengerCallSession = {
   startedAt: string;
   answeredAt: string | null;
   endedAt: string | null;
+  /** DB `ended_reason` — 클라 연결 실패 등 계약 문자열 */
+  endedReason?: string | null;
   isMineInitiator: boolean;
   participants: CommunityMessengerCallParticipant[];
 };

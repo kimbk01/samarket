@@ -13,7 +13,11 @@ import {
   type SetStateAction,
 } from "react";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
-import { messengerMonitorHomeBootstrapUnreadSync } from "@/lib/community-messenger/monitoring/client";
+import {
+  messengerMonitorHomeListBootstrapUiAlign,
+  messengerMonitorHomeSyncFetchMs,
+  messengerMonitorSilentFailFallbackBootstrapMs,
+} from "@/lib/community-messenger/monitoring/client";
 import {
   clearBootstrapCache,
   peekBootstrapCache,
@@ -170,35 +174,42 @@ export function useCommunityMessengerHomeBootstrap({
       friends?: CommunityMessengerBootstrap["friends"];
     }) => {
       setData((prev) => {
-        const base = prev ?? peekBootstrapCache();
-        if (!base) return prev;
-        const chats = payload.chats ?? base.chats;
-        const groups = payload.groups ?? base.groups;
-        const requests = payload.requests ?? base.requests;
-        const friends = payload.friends ?? base.friends;
-        if (
-          chats === base.chats &&
-          groups === base.groups &&
-          requests === base.requests &&
-          friends === base.friends
-        ) {
-          return prev;
+        const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
+        try {
+          const base = prev ?? peekBootstrapCache();
+          if (!base) return prev;
+          const chats = payload.chats ?? base.chats;
+          const groups = payload.groups ?? base.groups;
+          const requests = payload.requests ?? base.requests;
+          const friends = payload.friends ?? base.friends;
+          if (
+            chats === base.chats &&
+            groups === base.groups &&
+            requests === base.requests &&
+            friends === base.friends
+          ) {
+            return prev;
+          }
+          const next: CommunityMessengerBootstrap = {
+            ...base,
+            chats,
+            groups,
+            requests,
+            friends,
+            tabs: {
+              ...base.tabs,
+              chats: chats.length,
+              groups: groups.length,
+              friends: friends.length,
+            },
+          };
+          primeBootstrapCache(next);
+          return next;
+        } finally {
+          if (tUiAlign0 != null && typeof performance !== "undefined") {
+            messengerMonitorHomeListBootstrapUiAlign(Math.round(performance.now() - tUiAlign0));
+          }
         }
-        const next: CommunityMessengerBootstrap = {
-          ...base,
-          chats,
-          groups,
-          requests,
-          friends,
-          tabs: {
-            ...base.tabs,
-            chats: chats.length,
-            groups: groups.length,
-            friends: friends.length,
-          },
-        };
-        primeBootstrapCache(next);
-        return next;
       });
     },
     []
@@ -260,8 +271,11 @@ export function useCommunityMessengerHomeBootstrap({
     if (shouldBlock) setLoading(true);
     try {
       if (silent) {
-        const tSilentFetch = typeof performance !== "undefined" ? performance.now() : null;
+        const tHomeSyncFetch0 = typeof performance !== "undefined" ? performance.now() : null;
         const { res, json } = await fetchCommunityMessengerHomeSilentLists({ signal: controller.signal });
+        if (tHomeSyncFetch0 != null && typeof performance !== "undefined") {
+          messengerMonitorHomeSyncFetchMs(Math.round(performance.now() - tHomeSyncFetch0));
+        }
         if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
         if (res.status === 429) {
           const ra = res.headers.get("Retry-After");
@@ -276,9 +290,6 @@ export function useCommunityMessengerHomeBootstrap({
             requests: json.requests,
             friends: json.friends,
           });
-          if (tSilentFetch != null) {
-            messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
-          }
         } else {
           const unauthorized = res.status === 401 || res.status === 403;
           if (unauthorized) {
@@ -291,7 +302,11 @@ export function useCommunityMessengerHomeBootstrap({
               return;
             }
             samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "fresh" });
+            const tSilentFallback0 = typeof performance !== "undefined" ? performance.now() : null;
             const resFull = await fetchCommunityMessengerBootstrapClient("fresh", { signal: controller.signal });
+            if (tSilentFallback0 != null && typeof performance !== "undefined") {
+              messengerMonitorSilentFailFallbackBootstrapMs(Math.round(performance.now() - tSilentFallback0));
+            }
             if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
             const jsonFull = await parseBootstrapJson<CommunityMessengerBootstrap & {
               ok?: boolean;
@@ -323,9 +338,6 @@ export function useCommunityMessengerHomeBootstrap({
               setPageError(null);
               setData(next);
               primeBootstrapCache(next);
-              if (tSilentFetch != null) {
-                messengerMonitorHomeBootstrapUnreadSync(Math.round(performance.now() - tSilentFetch));
-              }
               if ((next.discoverableGroups?.length ?? 0) === 0) {
                 scheduleWhenBrowserIdle(() => {
                   void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");

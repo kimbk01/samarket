@@ -71,10 +71,11 @@ export function buildCommunityMessengerNativeIncomingCallPayload(
     peerLabel: session.peerLabel,
     callKind: session.callKind,
     startedAt: session.startedAt,
+    /** 네이티브 수락은 PATCH 선행 후 이 URL 로 진입해야 함 — 웹뷰에 `?action=accept` 지연 PATCH 금지 */
     acceptUrl:
       session.sessionMode === "group"
         ? `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
-        : `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`,
+        : `/community-messenger/calls/${encodeURIComponent(session.id)}`,
     rejectUrl: `/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`,
     fallbackUrl: `/community-messenger/calls/${encodeURIComponent(session.id)}`,
   };

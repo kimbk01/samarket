@@ -7,16 +7,18 @@ import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { prefetchTrace } from "@/lib/community-messenger/prefetch-dev-trace";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 60_000;
-const MAX_ENTRIES = 120;
+/** 방 스냅샷 메인 캐시 — LRU 상한 50 (접근 시 순서 bump, TTL 60s 유지) */
+const MAX_ENTRIES = 50;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
 /** 계측: 목록·호버 프리패치 — 방 클라 `createMessengerRoomBootstrapRefresh` GET 과 URL 로그에서 분리 */
 const ROOM_PREFETCH_QUERY = "?mode=lite&memberHydration=minimal&cmReqSrc=list_prefetch";
 
-/** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(세션 내 소량 LRU) */
-const HOT_MAX = 32;
+/** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(메인 LRU 와 유사 규모) */
+const HOT_MAX = 55;
 const hotEntries = new Map<string, CommunityMessengerRoomSnapshot>();
 
 function pruneHotIfNeeded(): void {
@@ -49,8 +51,17 @@ function pruneIfNeeded(now = Date.now()): void {
   }
 }
 
+/** Map 삽입 순서 = LRU — 기존 키는 삭제 후 다시 넣어 최근 사용으로 올린다(TTL 시각 `at` 유지). */
+function touchLruEntry(key: string): void {
+  const row = entries.get(key);
+  if (!row) return;
+  entries.delete(key);
+  entries.set(key, row);
+}
+
 export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot) {
   const k = cacheKey(roomId, snapshot.viewerUserId);
+  entries.delete(k);
   entries.set(k, { snapshot, at: Date.now() });
   pruneIfNeeded();
 }
@@ -127,15 +138,24 @@ export function peekRoomSnapshot(roomId: string, viewerUserId?: string | null): 
     const k = cacheKey(r, viewerUserId.trim());
     const row = entries.get(k);
     if (!row) return null;
+    touchLruEntry(k);
     return row.snapshot;
   }
   const suffix = `:${r}`;
+  let bestKey: string | null = null;
   let best: { snapshot: CommunityMessengerRoomSnapshot; at: number } | null = null;
   for (const [k, row] of entries) {
     if (!k.endsWith(suffix)) continue;
-    if (!best || row.at > best.at) best = row;
+    if (!best || row.at > best.at) {
+      best = row;
+      bestKey = k;
+    }
   }
-  return best?.snapshot ?? null;
+  if (bestKey && best) {
+    touchLruEntry(bestKey);
+    return best.snapshot;
+  }
+  return null;
 }
 
 export function isRoomSnapshotFresh(roomId: string, viewerUserId?: string | null): boolean {
@@ -296,16 +316,31 @@ export async function prefetchCommunityMessengerRoomSnapshot(
   const key = roomId.trim();
   if (!key) return false;
   const force = opts?.force === true;
-  return runSingleFlight(`cm:prefetch-room-snapshot:${key}`, async () => {
-    if (!force && isRoomSnapshotFresh(key)) return true;
+  const flightKey = `cm:prefetch-room-snapshot:${key}`;
+  const inflight = getSingleFlightPromise<boolean>(flightKey);
+  if (inflight) {
+    prefetchTrace("prefetch_join_single_flight", { roomIdSuffix: key.slice(-8) });
+    return inflight;
+  }
+  return runSingleFlight(flightKey, async () => {
+    prefetchTrace("prefetch_flight_execute", { roomIdSuffix: key.slice(-8), force });
+    if (!force && isRoomSnapshotFresh(key)) {
+      prefetchTrace("prefetch_skip_fresh_inside_flight", { roomIdSuffix: key.slice(-8) });
+      return true;
+    }
     if (force) invalidateRoomSnapshot(key);
     try {
       /**
        * 프리패치는 첫 화면용 경량 시드만 당겨온다.
        * 멤버 전체/2차 보강은 방 페이지 lifecycle 의 silent refresh 가 이어받는다.
        */
+      prefetchTrace("prefetch_http_get", {
+        roomIdSuffix: key.slice(-8),
+        query: ROOM_PREFETCH_QUERY,
+      });
       const res = await fetch(`${communityMessengerRoomBootstrapPath(key)}${ROOM_PREFETCH_QUERY}`, {
-        cache: "no-store",
+        cache: "default",
+        credentials: "include",
       });
       const json = await res.json().catch(() => null);
       const snap = parseCommunityMessengerRoomSnapshotResponse(json);

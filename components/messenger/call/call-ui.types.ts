@@ -47,7 +47,8 @@ export type CallActionIcon =
   | "message"
   | "close"
   | "retry"
-  | "back";
+  | "back"
+  | "settings";
 
 export type CallActionItem = {
   id: string;
