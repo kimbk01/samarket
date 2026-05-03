@@ -483,6 +483,18 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       stopCommunityMessengerCallTone();
 
+      if (statusNorm === "cancelled") {
+        console.info("[cm-call-state] incoming_cancel_received", {
+          sessionId: sessionId || undefined,
+          sourceTag,
+        });
+      } else if (statusNorm === "rejected") {
+        console.info("[cm-call-state] incoming_reject_received", {
+          sessionId: sessionId || undefined,
+          sourceTag,
+        });
+      }
+
       const afterDismissed = filterIncomingSessionsRespectingDismissed(next, dismissedIncomingSessionsAtRef.current);
       const afterHard = filterIncomingSessionsRespectingHardClear(
         afterDismissed,

@@ -68,9 +68,10 @@ const eslintConfig = defineConfig([
    * Phase2 room view는 Context로 묶인 ViewModel(`vm`)에 ref·state·handler가 함께 있어,
    * `react-hooks/refs`가 JSX의 `ref={vm.*Ref}`·`value={vm.*}` 등을 전부 “렌더 중 ref 접근”으로 오탐한다.
    * (실제로는 ref 콜백에 객체를 넘기는 정상 패턴이다.)
+   * `ConnectedVideoView` 도 ViewModel에 `pipRef` 등 RefObject 를 넘기는 동일 패턴으로 오탐한다.
    */
   {
-    files: ["components/community-messenger/room/phase2/**/*.tsx"],
+    files: ["components/community-messenger/room/phase2/**/*.tsx", "components/messenger/call/ConnectedVideoView.tsx"],
     rules: {
       "react-hooks/refs": "off",
     },

@@ -185,8 +185,11 @@ export async function startCommunityMessengerCallTone(
   });
 
   primeNotificationSoundAudio();
-  /** 수발신 벨 시작마다 최신 관리자 설정을 쓴다(다른 탭에서 저장한 뒤에도 동일 탭에서 반영). */
-  await fetchMessengerCallSoundConfig({ force: true });
+  /**
+   * 유지 이유: 수신 벨은 사용자 제스처 없이 시작되는 경우가 많아, 설정 API(await)가 벨 첫 재생을 막으면 체감 지연이 커진다.
+   * `void fetch`로 최신 관리자 음원은 백그라운드 반영하고, 첫 틱은 캐시·합성/HTML 경로로 즉시 시작한다.
+   */
+  void fetchMessengerCallSoundConfig({ force: true });
 
   const cfg = getMessengerCallSoundConfigCache();
   const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";

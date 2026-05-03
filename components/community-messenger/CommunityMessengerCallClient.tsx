@@ -380,19 +380,17 @@ export function CommunityMessengerCallClient({
     if (/불안정|보통|다소/.test(lastMileLine)) return "text-yellow-200/90";
     return "text-emerald-400/95";
   }, [lastMileLine]);
-  /** PiP 드래그 후 픽셀 위치(null 이면 좌하단 기본 배치) */
-  const [pipPixelPosition, setPipPixelPosition] = useState<{ left: number; top: number } | null>(null);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
   const pipWrapRef = useRef<HTMLDivElement | null>(null);
-  const pipDragRef = useRef<{
-    pointerId: number;
-    startClientX: number;
-    startClientY: number;
-    startLeft: number;
-    startTop: number;
-  } | null>(null);
+  /** PiP는 우하단 고정 — 탭만 메인↔PiP 스왑(드래그 이동 없음) */
+  const pipTapRef = useRef<{ pointerId: number; startClientX: number; startClientY: number } | null>(null);
+  const cmCallVideoLogOnceRef = useRef({
+    localReady: false,
+    remoteReady: false,
+    pipRendered: false,
+  });
   /** 상대 영상 최초 수신 시에만 기본 레이아웃(상대 풀·나 PiP) 적용 — 사용자 스왑 유지 */
   const hadRemoteVideoForLayoutRef = useRef(false);
   const layoutSwappedRef = useRef(false);
@@ -855,7 +853,6 @@ export function CommunityMessengerCallClient({
     const sid = session.id;
     const startedAt = session.startedAt;
     let cancelled = false;
-    let timer: number | undefined;
 
     /**
      * 타이머 등록을 네트워크 왕복(`await fetchMessengerCallSoundConfig`)에 묶지 않는다.
@@ -871,7 +868,7 @@ export function CommunityMessengerCallClient({
     if (!Number.isFinite(startMs)) return () => {};
     const timeoutMs = incomingRingTimeoutMsFromConfig(getMessengerCallSoundConfigCache());
     const delay = Math.max(0, startMs + timeoutMs - Date.now());
-    timer = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       if (cancelled) return;
       const c2 = sessionRef.current;
       if (!c2 || c2.id !== sid || c2.status !== "ringing") return;
@@ -897,7 +894,7 @@ export function CommunityMessengerCallClient({
 
     return () => {
       cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
+      window.clearTimeout(timer);
     };
   }, [refreshSession, session?.id, session?.sessionMode, session?.startedAt, session?.status, session]);
 
@@ -966,9 +963,9 @@ export function CommunityMessengerCallClient({
       setCamOff(false);
       setMicMuted(false);
       micMutedRef.current = false;
-      setPipPixelPosition(null);
       useRearFacingRef.current = false;
       setLastMileLine("네트워크 품질 · 확인 중");
+      cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
 
       await runCommunityMessengerCallMediaCleanup({
         reason: "call_client_cleanup",
@@ -1007,9 +1004,24 @@ export function CommunityMessengerCallClient({
         }
       }
       await cleanupClient(domAudioNuclear);
+      console.info("[cm-call-state] call_ended_cleanup_done", {
+        sessionId: sessionRef.current?.id ?? sessionId,
+        domAudioNuclear,
+      });
     },
-    [cleanupClient]
+    [cleanupClient, sessionId]
   );
+
+  useEffect(() => {
+    if (session?.callKind !== "video") return;
+    if (!joined || !remoteJoined || !localVideoReady) return;
+    if (cmCallVideoLogOnceRef.current.pipRendered) return;
+    cmCallVideoLogOnceRef.current.pipRendered = true;
+    console.info("[cm-call-video] pip_rendered", {
+      sessionId: session?.id?.slice(-8),
+      layoutSwapped,
+    });
+  }, [session?.callKind, session?.id, joined, remoteJoined, localVideoReady, layoutSwapped]);
 
   useEffect(() => {
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
@@ -1095,11 +1107,13 @@ export function CommunityMessengerCallClient({
     const s = sessionRef.current;
     /** 상대가 채널에 붙기 전까지만 풀화면 로컬 — 이후엔 PiP+메인(원격 대기) */
     const soloOutgoingLocalFull = Boolean(s?.callKind === "video" && s.isMineInitiator && !remoteJoinedRef.current);
+    /** 수신자도 발신과 동일: 상대 미디어 전까지 본인 영상은 풀(카카오·텔레그램형), 작은 타일은 비움 */
+    const soloIncomingLocalFull = Boolean(s?.callKind === "video" && !s.isMineInitiator && !remoteJoinedRef.current);
 
     const sm = smallVideoRef.current;
     const lg = largeVideoRef.current;
 
-    if (soloOutgoingLocalFull) {
+    if (soloOutgoingLocalFull || soloIncomingLocalFull) {
       if (sm) sm.innerHTML = "";
       if (lg) lg.innerHTML = "";
       if (!videoTrack || !lg) {
@@ -1107,11 +1121,20 @@ export function CommunityMessengerCallClient({
         return;
       }
       if (!videoTrack.enabled) {
-        setLocalVideoReady(false);
+        if (sm) sm.innerHTML = "";
+        if (lg) lg.innerHTML = "";
+        setLocalVideoReady(true);
         return;
       }
       videoTrack.play(lg, { fit: "cover", mirror: true });
       setLocalVideoReady(true);
+      if (!cmCallVideoLogOnceRef.current.localReady) {
+        cmCallVideoLogOnceRef.current.localReady = true;
+        console.info("[cm-call-video] local_track_ready", {
+          sessionId: sessionRef.current?.id?.slice(-8),
+          layout: "solo_full",
+        });
+      }
       return;
     }
 
@@ -1122,11 +1145,19 @@ export function CommunityMessengerCallClient({
       return;
     }
     if (!videoTrack.enabled) {
-      setLocalVideoReady(false);
+      if (localEl) localEl.innerHTML = "";
+      setLocalVideoReady(true);
       return;
     }
     videoTrack.play(localEl, { fit: "cover", mirror: true });
     setLocalVideoReady(true);
+    if (!cmCallVideoLogOnceRef.current.localReady) {
+      cmCallVideoLogOnceRef.current.localReady = true;
+      console.info("[cm-call-video] local_track_ready", {
+        sessionId: sessionRef.current?.id?.slice(-8),
+        layout: swapped ? "pip_swapped" : "pip_default",
+      });
+    }
   }, []);
 
   const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
@@ -1139,6 +1170,10 @@ export function CommunityMessengerCallClient({
       /* 큰·작은 슬롯 모두 영역을 꽉 채움(상하 우선 시 좌우 크롭). */
       track.play(remoteEl, { fit: "cover", mirror: false });
       setRemoteVideoReady(true);
+      if (!cmCallVideoLogOnceRef.current.remoteReady) {
+        cmCallVideoLogOnceRef.current.remoteReady = true;
+        console.info("[cm-call-video] remote_track_ready", { sessionId: sessionRef.current?.id?.slice(-8) });
+      }
       /* 원격 수신 직후 로컬이 솔로 풀에 남는 것을 막음 — layout effect deps 에서 remoteVideoReady 를 뺌 */
       bindLocalVideoTrack();
       return;
@@ -1156,14 +1191,19 @@ export function CommunityMessengerCallClient({
     const soloOutgoingLocalFull = Boolean(
       session.callKind === "video" && session.isMineInitiator && !remoteJoined
     );
+    const soloIncomingLocalFull = Boolean(
+      session.callKind === "video" && !session.isMineInitiator && !remoteJoined
+    );
 
-    if (soloOutgoingLocalFull) {
+    if (soloOutgoingLocalFull || soloIncomingLocalFull) {
       const sm = smallVideoRef.current;
       const lg = largeVideoRef.current;
       if (sm) sm.innerHTML = "";
       if (lg) lg.innerHTML = "";
-      if (local && lg && local.enabled) {
-        local.play(lg, { fit: "cover", mirror: true });
+      if (local && lg) {
+        if (local.enabled) {
+          local.play(lg, { fit: "cover", mirror: true });
+        }
         setLocalVideoReady(true);
       } else {
         setLocalVideoReady(false);
@@ -1185,10 +1225,8 @@ export function CommunityMessengerCallClient({
     if (local && localEl) {
       if (local.enabled) {
         local.play(localEl, { fit: "cover", mirror: true });
-        setLocalVideoReady(true);
-      } else {
-        setLocalVideoReady(false);
       }
+      setLocalVideoReady(true);
     } else {
       setLocalVideoReady(false);
     }
@@ -1243,9 +1281,11 @@ export function CommunityMessengerCallClient({
     };
   }, [session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
 
+  /** 모바일: facingMode user/environment 우선 · 데스크톱/실패 시 videoinput 목록 순환 · 실패 시 catch 에서 이전 facing 복구 */
   const switchCameraFacing = useCallback(async () => {
     const v = localTracksRef.current?.videoTrack;
     if (!v || !isCameraVideoTrackWithDevice(v)) return;
+    console.info("[cm-call-video] camera_switch_start", { sessionId: sessionRef.current?.id?.slice(-8) });
     setBusy("camera");
     try {
       useRearFacingRef.current = !useRearFacingRef.current;
@@ -1266,6 +1306,7 @@ export function CommunityMessengerCallClient({
       }
     } finally {
       bindLocalVideoTrack();
+      console.info("[cm-call-video] camera_switch_done", { sessionId: sessionRef.current?.id?.slice(-8) });
       setBusy(null);
     }
   }, [bindLocalVideoTrack]);
@@ -1317,96 +1358,22 @@ export function CommunityMessengerCallClient({
     }
   }, []);
 
-  useEffect(() => {
-    setPipPixelPosition(null);
-  }, [sessionId]);
-
-  const clampPipToStage = useCallback(() => {
-    const stage = videoStageRef.current;
-    const pip = pipWrapRef.current;
-    if (!stage || !pip) return;
-    const pad = 8;
-    const sw = stage.clientWidth;
-    const sh = stage.clientHeight;
-    const pw = pip.offsetWidth;
-    const ph = pip.offsetHeight;
-    if (pw <= 0 || ph <= 0) return;
-    const maxL = Math.max(pad, sw - pw - pad);
-    const maxT = Math.max(pad, sh - ph - pad);
-    setPipPixelPosition((prev) => {
-      if (!prev) return prev;
-      return {
-        left: Math.min(maxL, Math.max(pad, prev.left)),
-        top: Math.min(maxT, Math.max(pad, prev.top)),
-      };
-    });
-  }, []);
-
-  useEffect(() => {
-    if (pipPixelPosition === null) return;
-    const onResize = () => clampPipToStage();
-    window.addEventListener("resize", onResize);
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
-    const el = videoStageRef.current;
-    if (el && ro) ro.observe(el);
-    onResize();
-    return () => {
-      window.removeEventListener("resize", onResize);
-      ro?.disconnect();
-    };
-  }, [pipPixelPosition, clampPipToStage]);
-
-  const onPipPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      const stage = videoStageRef.current;
-      const pip = pipWrapRef.current;
-      if (!stage || !pip) return;
-      e.preventDefault();
-      const stageRect = stage.getBoundingClientRect();
-      const pipRect = pip.getBoundingClientRect();
-      const left = pipPixelPosition?.left ?? pipRect.left - stageRect.left;
-      const top = pipPixelPosition?.top ?? pipRect.top - stageRect.top;
-      pipDragRef.current = {
-        pointerId: e.pointerId,
-        startClientX: e.clientX,
-        startClientY: e.clientY,
-        startLeft: left,
-        startTop: top,
-      };
-      setPipPixelPosition({ left, top });
-      e.currentTarget.setPointerCapture(e.pointerId);
-    },
-    [pipPixelPosition]
-  );
-
-  const onPipPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = pipDragRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    const stage = videoStageRef.current;
-    const pip = pipWrapRef.current;
-    if (!stage || !pip) return;
+  const onPipPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
-    const dx = e.clientX - d.startClientX;
-    const dy = e.clientY - d.startClientY;
-    const pad = 8;
-    const sw = stage.clientWidth;
-    const sh = stage.clientHeight;
-    const pw = pip.offsetWidth;
-    const ph = pip.offsetHeight;
-    if (pw <= 0 || ph <= 0) return;
-    let left = d.startLeft + dx;
-    let top = d.startTop + dy;
-    left = Math.min(Math.max(pad, left), Math.max(pad, sw - pw - pad));
-    top = Math.min(Math.max(pad, top), Math.max(pad, sh - ph - pad));
-    setPipPixelPosition({ left, top });
+    pipTapRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
   const onPipPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = pipDragRef.current;
+    const d = pipTapRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
     const moved = Math.hypot(e.clientX - d.startClientX, e.clientY - d.startClientY);
-    pipDragRef.current = null;
+    pipTapRef.current = null;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -1415,49 +1382,13 @@ export function CommunityMessengerCallClient({
     const TAP_PX = 14;
     if (moved < TAP_PX) {
       setLayoutSwapped((prev) => !prev);
-      return;
     }
-    const stage = videoStageRef.current;
-    const pip = pipWrapRef.current;
-    if (!stage || !pip) return;
-    const sr = stage.getBoundingClientRect();
-    const pr = pip.getBoundingClientRect();
-    const pad = 12;
-    const sw = stage.clientWidth;
-    const sh = stage.clientHeight;
-    const pw = pip.offsetWidth;
-    const ph = pip.offsetHeight;
-    if (pw <= 0 || ph <= 0) return;
-    let left = pr.left - sr.left;
-    let top = pr.top - sr.top;
-    const maxL = Math.max(pad, sw - pw - pad);
-    const maxT = Math.max(pad, sh - ph - pad);
-    left = Math.min(maxL, Math.max(pad, left));
-    top = Math.min(maxT, Math.max(pad, top));
-    const cx = left + pw / 2;
-    const cy = top + ph / 2;
-    const corners: { left: number; top: number }[] = [
-      { left: pad, top: pad },
-      { left: maxL, top: pad },
-      { left: pad, top: maxT },
-      { left: maxL, top: maxT },
-    ];
-    let best = corners[0]!;
-    let bestD = Infinity;
-    for (const c of corners) {
-      const dc = Math.hypot(cx - (c.left + pw / 2), cy - (c.top + ph / 2));
-      if (dc < bestD) {
-        bestD = dc;
-        best = c;
-      }
-    }
-    setPipPixelPosition({ left: best.left, top: best.top });
   }, []);
 
   const onPipPointerCancel = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = pipDragRef.current;
+    const d = pipTapRef.current;
     if (!d || e.pointerId !== d.pointerId) return;
-    pipDragRef.current = null;
+    pipTapRef.current = null;
   }, []);
 
   const joinCall = useCallback(
@@ -3245,20 +3176,23 @@ export function CommunityMessengerCallClient({
       </div>
     ) : undefined,
     miniVideoSlot: videoCall ? (
-      <div className="h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+      <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />
+        {camOff ? (
+          <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/75 px-2">
+            <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">카메라 꺼짐</span>
+          </div>
+        ) : null}
       </div>
     ) : undefined,
     showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
-    showLocalVideo: videoCall && joined && remoteJoined && localVideoReady && !camOff,
+    showLocalVideo: videoCall && joined && remoteJoined && localVideoReady,
     videoPipLayout:
-      videoCall && joined && remoteJoined && localVideoReady && !camOff
+      videoCall && joined && remoteJoined && localVideoReady
         ? {
             stageRef: videoStageRef,
             pipRef: pipWrapRef,
-            pipPixelPosition,
             onPipPointerDown,
-            onPipPointerMove,
             onPipPointerUp,
             onPipPointerCancel,
             pipLabel: layoutSwapped ? session.peerLabel : "나",

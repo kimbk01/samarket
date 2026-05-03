@@ -15,12 +15,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     endedDurationSeconds: vm.endedDurationSeconds,
   });
 
-  const pip = vm.videoPipLayout;
-  const pipPixel = pip?.pipPixelPosition;
-  const pipStyle =
-    pipPixel != null
-      ? ({ position: "absolute", left: pipPixel.left, top: pipPixel.top } as const)
-      : undefined;
+  const pipBindings = vm.videoPipLayout;
 
   /**
    * 원격 영상 전 풀블리드 로컬 레이어 위 상단 상태줄(텔레그램형).
@@ -37,7 +32,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
 
   return (
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
-      <div ref={pip?.stageRef} className="relative min-h-0 flex-1">
+      <div ref={pipBindings?.stageRef} className="relative min-h-0 flex-1">
         {/* 비디오 레이어는 항상 뒤 — 로컬 풀프리뷰가 상태 문구를 덮지 않게 함 */}
         <div className="absolute inset-0 z-0">{vm.mainVideoSlot}</div>
 
@@ -100,7 +95,14 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {!vm.showRemoteVideo && !outgoingSoloVideoLayout ? (
-          <div className="absolute inset-0 z-[4] flex items-center justify-center px-8">
+          <div className="absolute inset-0 z-[4] flex flex-col items-center justify-center px-8">
+            {vm.mode === "video" && vm.peerAvatarUrl ? (
+              <img
+                src={vm.peerAvatarUrl}
+                alt=""
+                className="mb-5 h-24 w-24 shrink-0 rounded-full object-cover shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
+              />
+            ) : null}
             <CallStatusText
               title={vm.peerLabel}
               status={vm.statusText}
@@ -109,17 +111,15 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             />
           </div>
         ) : null}
-        {vm.showLocalVideo && pip ? (
+        {vm.showLocalVideo && pipBindings ? (
           <MiniLocalVideo
-            ref={pip.pipRef}
-            label={pip.pipLabel}
+            ref={pipBindings.pipRef}
+            label={pipBindings.pipLabel}
             minimized
-            style={pipStyle}
-            useFreePosition={pipPixel != null}
-            onPointerDown={pip.onPipPointerDown}
-            onPointerMove={pip.onPipPointerMove}
-            onPointerUp={pip.onPipPointerUp}
-            onPointerCancel={pip.onPipPointerCancel}
+            useFreePosition={false}
+            onPointerDown={pipBindings.onPipPointerDown}
+            onPointerUp={pipBindings.onPipPointerUp}
+            onPointerCancel={pipBindings.onPipPointerCancel}
           >
             {vm.miniVideoSlot}
           </MiniLocalVideo>

@@ -142,4 +142,10 @@ export async function runCommunityMessengerCallMediaCleanup(args: {
       }
     }
   }
+
+  console.info("[cm-call-video] media_cleanup_done", {
+    reason,
+    sessionId: sessionId ?? undefined,
+    domAudioNuclear,
+  });
 }
