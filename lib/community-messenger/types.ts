@@ -213,6 +213,8 @@ export type CommunityMessengerMessage = {
   callStatus?: CommunityMessengerCallStatus | null;
   /** call_stub metadata.sessionId — 방 스냅샷 activeCall 과 채팅 로그를 맞추는 데 사용 */
   callSessionId?: string | null;
+  /** call_stub metadata.tmpSessionId — 다이얼 tmp_* 매칭 */
+  callTmpSessionId?: string | null;
   /** messageType === "voice" 일 때 재생 URL(보통 content 와 동일) */
   voiceDurationSeconds?: number | null;
   /** messageType === "voice" 일 때 0–1 막대 높이 (텔레그램 스타일 파형) */
@@ -394,6 +396,12 @@ export type CommunityMessengerCallSession = {
   endedReason?: string | null;
   isMineInitiator: boolean;
   participants: CommunityMessengerCallParticipant[];
+  /** `invite_preview`: 브로드캐스트만으로 만든 최소 세션 — 터미널 시 반드시 제거 */
+  source?: "invite_preview" | string;
+  isPreview?: boolean;
+  /** 발신 측 tmp 세션 id와 수신 측 id 연결(선택) */
+  tmpSessionId?: string | null;
+  cancelledAt?: string | null;
 };
 
 export type CommunityMessengerCallParticipant = {

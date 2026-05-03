@@ -82,6 +82,64 @@ export function communityMessengerIncomingSessionFromRealtimeRow(
 }
 
 /**
+ * Broadcast `cm_invite_ring` 만으로 수신 벨 UI 를 열기 위한 최소 세션(GET·부트스트랩 전).
+ * `initiatorUserId` 가 페이로드에 없으면 null (구 클라이언트 호환).
+ */
+export function communityMessengerIncomingSessionFromInviteBroadcast(
+  viewerUserId: string,
+  payload: Record<string, unknown>
+): CommunityMessengerCallSession | null {
+  const selfId = trimText(viewerUserId);
+  if (!selfId) return null;
+  const id = trimText(payload.sessionId);
+  const tmpAlias = trimText(payload.tmpSessionId);
+  const roomId = trimText(payload.roomId);
+  const initiatorUserId = trimText(payload.initiatorUserId);
+  const callKind = trimText(payload.callKind) as CommunityMessengerCallKind;
+  const startedAt = trimText(payload.startedAt) || new Date().toISOString();
+  if (!id || !roomId || !initiatorUserId) return null;
+  if (callKind !== "voice" && callKind !== "video") return null;
+
+  const recipientUserId = selfId;
+  const status = "ringing" as const;
+  const answeredAt = null;
+  const endedAt = null;
+  const peerUserId = initiatorUserId;
+  const participants: CommunityMessengerCallParticipant[] = [initiatorUserId, recipientUserId]
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .map((uid) => ({
+      userId: uid,
+      label: peerFallbackLabel(uid),
+      status: "invited" as const,
+      joinedAt: null,
+      leftAt: null,
+      isMe: messengerUserIdsEqual(uid, selfId),
+    }));
+  const peerLabel =
+    participants.find((p) => p.userId === peerUserId)?.label ?? peerFallbackLabel(peerUserId);
+
+  return {
+    id,
+    roomId,
+    sessionMode: "direct",
+    initiatorUserId,
+    recipientUserId,
+    peerUserId,
+    peerLabel,
+    callKind,
+    status,
+    startedAt,
+    answeredAt,
+    endedAt,
+    isMineInitiator: false,
+    participants,
+    source: "invite_preview",
+    isPreview: true,
+    ...(tmpAlias ? { tmpSessionId: tmpAlias } : {}),
+  };
+}
+
+/**
  * Realtime 이벤트 한 건을 수신 목록 상태에 반영한다.
  */
 export function applyIncomingCallSessionsRealtimeEvent(

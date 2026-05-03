@@ -17,6 +17,7 @@ import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cac
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
+import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
 
 const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
@@ -212,6 +213,7 @@ export function createMessengerRoomBootstrapRefresh(
         if (shouldBlock) {
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
         }
+        cmCallIncomingTraceMaybeRoomBootstrap(roomId, "start");
         const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
           cache: "default",
           credentials: "include",
@@ -261,6 +263,7 @@ export function createMessengerRoomBootstrapRefresh(
         const snap = parseCommunityMessengerRoomSnapshotResponse(raw);
         const snapshotParseMsNum =
           typeof performance !== "undefined" ? Math.round(performance.now() - tSnap0) : Math.round(Date.now() - (tSnap0 as number));
+        cmCallIncomingTraceMaybeRoomBootstrap(roomId, "done");
         if (shouldBlock) {
           recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_json_parse_complete_ms");
           recordRouteEntryJsonParseComplete("messenger_room_entry");

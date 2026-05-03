@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerCallKind,
+  CommunityMessengerCallStatus,
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
   CommunityMessengerRoomSummary,
@@ -21,6 +23,7 @@ import {
   pruneSeenIncomingMessageIdsByRoom,
   pruneTrackedRoomMaps,
 } from "@/lib/community-messenger/stores/messenger-realtime-prune";
+import { sessionKeysMatchMessage } from "@/lib/community-messenger/call-event-message";
 
 type IncomingMessageEventInput = {
   viewerUserId?: string | null;
@@ -169,6 +172,10 @@ function mergeMessages(
   return next;
 }
 
+function trimMeta(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function createPlaceholderMessage(args: {
   roomId: string;
   viewerUserId: string | null;
@@ -184,16 +191,34 @@ function createPlaceholderMessage(args: {
   const senderId = typeof row.sender_id === "string" ? row.sender_id.trim() : null;
   const viewer = args.viewerUserId?.trim() || null;
   const isMine = Boolean(viewer && senderId && messengerUserIdsEqual(senderId, viewer));
-  return {
+  const mt = previewMessageType(row);
+  const base: CommunityMessengerMessage = {
     id,
     roomId: args.roomId,
     senderId,
     senderLabel: isMine ? "나" : room?.roomType === "direct" ? room.title : "새 메시지",
-    messageType: previewMessageType(row),
+    messageType: mt,
     content: typeof row.content === "string" ? row.content : "",
     createdAt,
     isMine,
   };
+  if (mt === "call_stub") {
+    const meta = (row.metadata ?? {}) as Record<string, unknown>;
+    const ckRaw = trimMeta(meta.callKind);
+    const ck: CommunityMessengerCallKind | null =
+      ckRaw === "video" || ckRaw === "voice" ? ckRaw : null;
+    const csRaw = trimMeta(meta.callStatus);
+    const cs = (csRaw || null) as CommunityMessengerCallStatus | null;
+    return {
+      ...base,
+      messageType: "call_stub",
+      callKind: ck,
+      callStatus: cs,
+      callSessionId: trimMeta(meta.sessionId) || null,
+      callTmpSessionId: trimMeta(meta.tmpSessionId) || null,
+    };
+  }
+  return base;
 }
 
 function patchSummaryFromPreview(
@@ -522,6 +547,31 @@ export function getMessengerRealtimeRoomSummary(roomId: string): CommunityMessen
 
 export function getMessengerRealtimeRoomMessages(roomId: string): CommunityMessengerMessage[] {
   return useMessengerRealtimeStore.getState().messagesByRoomId[normalizeRoomId(roomId)] ?? [];
+}
+
+/**
+ * 터미널 이벤트 직전 — 같은 세션의 링 스텁(`dialing`/`incoming`)만 제거해 최종 한 줄로 치환된다.
+ */
+export function removeRingingCallStubsForSessionKeys(input: {
+  roomId: string;
+  sessionId?: string | null;
+  tmpSessionId?: string | null;
+}): void {
+  const rid = normalizeRoomId(input.roomId);
+  if (!rid) return;
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid] ?? [];
+    const next = list.filter((m) => {
+      if (m.messageType !== "call_stub") return true;
+      if (!sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)) {
+        return true;
+      }
+      const st = m.callStatus;
+      return st !== "dialing" && st !== "incoming";
+    });
+    if (next.length === list.length) return state;
+    return { ...state, messagesByRoomId: { ...state.messagesByRoomId, [rid]: next } };
+  });
 }
 
 export function primeMessengerRoomEntrySnapshot(args: {

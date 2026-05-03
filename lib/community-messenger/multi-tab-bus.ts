@@ -66,6 +66,17 @@ export type MessengerBusEvent =
        */
       lastReadMessageId?: string | null;
       at: number;
+    }
+  | {
+      /** 수신/발신 탭 — 통화 터미널(취소·종료) 시 프리뷰·활성 스냅샷 정리 */
+      type: "cm.call.session_terminal";
+      sessionId?: string;
+      tmpSessionId?: string | null;
+      roomId?: string | null;
+      initiatorUserId?: string | null;
+      callKind?: "voice" | "video" | null;
+      status: string;
+      at: number;
     };
 
 const CHANNEL = "samarket:community-messenger";
@@ -121,6 +132,11 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
   const onMsg = (e: MessageEvent) => {
     const d = e.data as any;
     if (!d || typeof d !== "object") return;
+    if (d.type === "cm.call.session_terminal") {
+      if (typeof d.status !== "string" || !d.status.trim()) return;
+      handler(d as MessengerBusEvent);
+      return;
+    }
     if (
       d.type !== "cm.room.message_sent" &&
       d.type !== "cm.room.bump" &&

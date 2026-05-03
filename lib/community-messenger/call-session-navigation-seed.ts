@@ -9,6 +9,10 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import {
   cmCallFlow,
+  cmCallIncomingTraceBindSession,
+  cmCallIncomingTraceMarkCallPostStart,
+  cmCallIncomingTracePatch,
+  cmCallIncomingTracePublishToStorage,
   cmCallLatency,
   cmCallLatencyAnalysis,
   cmCallLatencyInfo,
@@ -294,6 +298,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
     callKind: args.kind,
     role: "initiator",
   });
+  cmCallIncomingTraceMarkCallPostStart();
   const postT0 = typeof performance !== "undefined" ? performance.now() : 0;
   const res = await fetch(
     `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`,
@@ -337,6 +342,9 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   }
   const clientPostMs =
     typeof performance !== "undefined" ? Math.round(performance.now() - postT0) : undefined;
+  cmCallIncomingTraceBindSession(json.session.id);
+  cmCallIncomingTracePatch(json.session.id, { call_post_done_ms: Date.now() });
+  cmCallIncomingTracePublishToStorage(json.session.id);
   cmCallLatencyInfo("create_call_session_post_done", {
     sessionId: json.session.id,
     roomId,
@@ -397,9 +405,23 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
     role: "initiator",
     roomId: result.roomId,
   });
+  const dialTmpBeforeRoute =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
+            const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
+            return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   navigate(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
   if (result.session.sessionMode === "direct") {
-    void notifyCommunityMessengerCallInviteRingBestEffort(result.session);
+    void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
+      dialTmpSessionId: dialTmpBeforeRoute,
+    });
   }
   return result;
 }
@@ -435,9 +457,23 @@ export async function startOutgoingCallSessionAndOpen(
     role: "initiator",
     roomId: result.roomId,
   });
+  const dialTmpBeforeRoute =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
+            const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
+            return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
   router.push(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
   if (result.session.sessionMode === "direct") {
-    void notifyCommunityMessengerCallInviteRingBestEffort(result.session);
+    void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
+      dialTmpSessionId: dialTmpBeforeRoute,
+    });
   }
   return result;
 }

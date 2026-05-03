@@ -88,10 +88,17 @@ export function resetCmCallLatencyAnchor(): void {
   latencyAnchorMs = 0;
 }
 
+let pendingIncomingCallerClickWallMs: number | null = null;
+/** `POST .../calls` 직전 시각 — 세션 id 확정 후 `cmCallIncomingTraceBindSession` 에 합류 */
+let pendingCallPostStartWallMs: number | null = null;
+
 /** 전화 버튼 등 발신 제스처 시각 — 이후 단계에 sinceClick 계산 */
 export function cmCallLatencyMarkClick(extra: Record<string, unknown> = {}): void {
   if (!cmCallLatencyEnabled || typeof performance === "undefined") return;
   latencyAnchorMs = performance.now();
+  if (typeof Date !== "undefined") {
+    pendingIncomingCallerClickWallMs = Date.now();
+  }
   cmCallLatencyInfo("call_button_click", { sinceClick: 0, ...extra });
 }
 
@@ -191,4 +198,157 @@ export function cmCallFlow(step: string, extra: Record<string, unknown> = {}): v
     t: Math.round(performance.now() * 100) / 100,
     ...extra,
   });
+}
+
+/** 수신 지연 E2E — `Date.now()` 기준(탭 간 상관). 프로덕션 noop. */
+export type CmCallIncomingE2eTrace = {
+  caller_click_ms?: number;
+  call_post_start_ms?: number;
+  call_post_done_ms?: number;
+  signal_emit_ms?: number;
+  receiver_signal_received_ms?: number;
+  receiver_incoming_ui_open_ms?: number;
+  receiver_room_bootstrap_start_ms?: number;
+  receiver_room_bootstrap_done_ms?: number;
+};
+
+const incomingE2eTraces = new Map<string, CmCallIncomingE2eTrace>();
+/** ringing 수신 UI가 열린 동안 room bootstrap 상관용 */
+const incomingRingingRoomToSessionId = new Map<string, string>();
+
+const INCOMING_E2E_LS_PREFIX = "samarket.cm_call_incoming_e2e.";
+
+/** 발신 탭 → 수신 탭: 동일 세션 id 로 caller_click·POST·signal_emit 상관 */
+export function cmCallIncomingTracePublishToStorage(sessionId: string): void {
+  if (!cmCallLatencyEnabled || typeof localStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const row = incomingE2eTraces.get(sid);
+  if (!row) return;
+  try {
+    localStorage.setItem(`${INCOMING_E2E_LS_PREFIX}${sid}`, JSON.stringify(row));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
+export function cmCallIncomingTraceMergeFromStorage(sessionId: string): void {
+  if (!cmCallLatencyEnabled || typeof localStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    const raw = localStorage.getItem(`${INCOMING_E2E_LS_PREFIX}${sid}`);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as CmCallIncomingE2eTrace;
+    const cur = incomingE2eTraces.get(sid) ?? {};
+    incomingE2eTraces.set(sid, { ...parsed, ...cur });
+  } catch {
+    /* ignore */
+  }
+}
+
+export function cmCallIncomingTraceMarkCallPostStart(): void {
+  if (!cmCallLatencyEnabled) return;
+  pendingCallPostStartWallMs = Date.now();
+}
+
+export function cmCallIncomingTraceBindSession(sessionId: string): void {
+  if (!cmCallLatencyEnabled) return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const cur = incomingE2eTraces.get(sid) ?? {};
+  if (pendingIncomingCallerClickWallMs != null) {
+    cur.caller_click_ms = pendingIncomingCallerClickWallMs;
+    pendingIncomingCallerClickWallMs = null;
+  }
+  if (pendingCallPostStartWallMs != null) {
+    cur.call_post_start_ms = pendingCallPostStartWallMs;
+    pendingCallPostStartWallMs = null;
+  }
+  incomingE2eTraces.set(sid, cur);
+}
+
+export function cmCallIncomingTracePatch(
+  sessionId: string,
+  patch: Partial<CmCallIncomingE2eTrace>,
+  opts?: { onlyIfUnset?: boolean }
+): void {
+  if (!cmCallLatencyEnabled) return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const cur = incomingE2eTraces.get(sid) ?? {};
+  const onlyIfUnset = opts?.onlyIfUnset === true;
+  for (const [k, v] of Object.entries(patch) as [keyof CmCallIncomingE2eTrace, number | undefined][]) {
+    if (v === undefined) continue;
+    if (onlyIfUnset && cur[k] !== undefined) continue;
+    (cur as Record<string, number>)[k as string] = v;
+  }
+  incomingE2eTraces.set(sid, cur);
+}
+
+export function cmCallIncomingTraceRegisterRingingRoom(sessionId: string, roomId: string): void {
+  if (!cmCallLatencyEnabled) return;
+  const s = sessionId.trim();
+  const r = roomId.trim();
+  if (!s || !r) return;
+  incomingRingingRoomToSessionId.set(r, s);
+}
+
+export function cmCallIncomingTraceClearRingingRoom(roomId: string): void {
+  if (!cmCallLatencyEnabled) return;
+  incomingRingingRoomToSessionId.delete(roomId.trim());
+}
+
+export function cmCallIncomingTraceMaybeRoomBootstrap(roomId: string, phase: "start" | "done"): void {
+  if (!cmCallLatencyEnabled) return;
+  const sid = incomingRingingRoomToSessionId.get(roomId.trim());
+  if (!sid) return;
+  const now = Date.now();
+  if (phase === "start") {
+    cmCallIncomingTracePatch(sid, { receiver_room_bootstrap_start_ms: now }, { onlyIfUnset: true });
+    return;
+  }
+  const row = incomingE2eTraces.get(sid);
+  if (row?.receiver_room_bootstrap_start_ms == null) return;
+  cmCallIncomingTracePatch(sid, { receiver_room_bootstrap_done_ms: now }, { onlyIfUnset: true });
+}
+
+export function cmCallIncomingTraceLogTable(sessionId: string): void {
+  if (!cmCallLatencyEnabled || typeof console === "undefined") return;
+  const sid = sessionId.trim();
+  const row = incomingE2eTraces.get(sid);
+  if (!row) return;
+  const pick = (k: keyof CmCallIncomingE2eTrace) => row[k];
+  const sig = pick("receiver_signal_received_ms");
+  const ui = pick("receiver_incoming_ui_open_ms");
+  const clk = pick("caller_click_ms");
+  const rows: { metric: string; epoch_ms?: number; delta_ms?: number }[] = [
+    { metric: "caller_click_ms", epoch_ms: clk },
+    { metric: "call_post_start_ms", epoch_ms: pick("call_post_start_ms") },
+    { metric: "call_post_done_ms", epoch_ms: pick("call_post_done_ms") },
+    { metric: "signal_emit_ms", epoch_ms: pick("signal_emit_ms") },
+    { metric: "receiver_signal_received_ms", epoch_ms: sig },
+    { metric: "receiver_incoming_ui_open_ms", epoch_ms: ui },
+    {
+      metric: "delta_receiver_signal_to_ui",
+      delta_ms: sig != null && ui != null ? ui - sig : undefined,
+    },
+    {
+      metric: "delta_caller_click_to_receiver_ui",
+      delta_ms: clk != null && ui != null ? ui - clk : undefined,
+    },
+    { metric: "receiver_room_bootstrap_start_ms", epoch_ms: pick("receiver_room_bootstrap_start_ms") },
+    { metric: "receiver_room_bootstrap_done_ms", epoch_ms: pick("receiver_room_bootstrap_done_ms") },
+  ];
+  console.info("[cm-call-incoming-e2e]", { sessionIdSuffix: sid.slice(-8), ...row });
+  if (typeof console.table === "function") {
+    console.table(rows);
+  }
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(`${INCOMING_E2E_LS_PREFIX}${sid}`);
+    }
+  } catch {
+    /* ignore */
+  }
 }

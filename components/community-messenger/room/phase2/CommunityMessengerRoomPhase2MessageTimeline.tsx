@@ -10,6 +10,10 @@ import {
   MESSENGER_TIMELINE_MESSAGES_CAP,
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { communityMessengerMemberAvatar, formatRoomCallStatus } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  getCallStubTimelineStatusLine,
+  inferResolvedEventFromStoredCallStatus,
+} from "@/lib/community-messenger/call-event-message";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
@@ -377,7 +381,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     sendingLabel={vm.t("common_sending")}
                     voiceCallLabel={vm.t("nav_voice_call_label")}
                     videoCallLabel={vm.t("nav_video_call_label")}
-                    callStatusLabel={vm.tt(formatRoomCallStatus(item.callStatus))}
+                    callStatusLabel={
+                      item.messageType === "call_stub"
+                        ? getCallStubTimelineStatusLine({
+                            callKind: item.callKind ?? "voice",
+                            resolvedEvent: inferResolvedEventFromStoredCallStatus(item.callStatus),
+                            callStatusFallback: item.callStatus,
+                            viewerUserId: vm.snapshot.viewerUserId ?? "",
+                            senderUserId: item.senderId,
+                          })
+                        : vm.tt(formatRoomCallStatus(item.callStatus))
+                    }
                     stubBusy={stubBusy}
                     senderLabelDisplay={vm.tt(item.senderLabel)}
                     onOpenImageLightbox={onOpenImageLightbox}

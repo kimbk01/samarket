@@ -46,6 +46,7 @@ import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   notifyCommunityMessengerCallInviteRingBestEffort,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   applyRemoteOfferWithPerfectNegotiation,
   createPerfectNegotiationState,
@@ -1173,7 +1174,13 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-reject");
     try {
       if (peerId) {
-        void notifyCommunityMessengerCallInviteHangupBestEffort(peerId, sessionId, { roomId: args.roomId });
+        void notifyCommunityMessengerCallInviteHangupBestEffort(peerId, sessionId, {
+          roomId: args.roomId,
+          initiatorUserId: args.activeCall?.initiatorUserId ?? undefined,
+          callKind: args.activeCall?.callKind,
+          terminalStatus: "rejected",
+          tmpSessionId: isCommunityMessengerTempCallSessionId(sessionId) ? sessionId : undefined,
+        });
         try {
           await sendSignal(sessionId, peerId, "hangup", { reason: "reject" });
         } catch {
@@ -1304,7 +1311,13 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-cancel");
     closeSessionImmediately(sessionId);
     try {
-      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, { roomId: args.roomId });
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, {
+        roomId: args.roomId,
+        initiatorUserId: args.viewerUserId,
+        callKind: args.activeCall?.callKind ?? "voice",
+        terminalStatus: "cancelled",
+        tmpSessionId: isCommunityMessengerTempCallSessionId(sessionId) ? sessionId : undefined,
+      });
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "cancel" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
@@ -1422,7 +1435,13 @@ export function useCommunityMessengerCall(args: {
     setBusy("call-end");
     closeSessionImmediately(sessionId);
     try {
-      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, { roomId: args.roomId });
+      void notifyCommunityMessengerCallInviteHangupBestEffort(args.peerUserId, sessionId, {
+        roomId: args.roomId,
+        initiatorUserId: args.viewerUserId,
+        callKind: args.activeCall?.callKind ?? "voice",
+        terminalStatus: "ended",
+        tmpSessionId: isCommunityMessengerTempCallSessionId(sessionId) ? sessionId : undefined,
+      });
       await Promise.allSettled([
         sendSignal(sessionId, args.peerUserId, "hangup", { reason: "end" }),
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {

@@ -28,7 +28,9 @@ import {
   isCommunityMessengerStickerPublicPath,
   normalizeCommunityMessengerStickerContent,
 } from "@/lib/stickers/sticker-content";
-import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import {
+  buildCommunityMessengerCallStubLabel,
+} from "@/lib/community-messenger/call-stub-message-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichMessengerTradeUnreadWithLegacyTrade } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
@@ -804,6 +806,7 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     callKind: trimText(metadata.callKind) as CommunityMessengerCallKind | null,
     callStatus: trimText(metadata.callStatus) as CommunityMessengerCallStatus | null,
     callSessionId: trimText(metadata.sessionId as string) || null,
+    callTmpSessionId: trimText(metadata.tmpSessionId as string) || null,
     ...(replyToMessageId
       ? {
           replyToMessageId,
@@ -2884,28 +2887,6 @@ export async function getCommunityMessengerCallSessionById(
   return mapCallSession(userId, session, undefined, undefined, undefined, "labels_only");
 }
 
-function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
-  if (status === "missed") return "부재중";
-  if (status === "rejected") return "거절됨";
-  if (status === "cancelled") return "취소됨";
-  if (status === "ended") return "통화 종료";
-  if (status === "incoming") return "수신 중";
-  return "발신 중";
-}
-
-function buildCommunityMessengerCallStubLabel(
-  callKind: CommunityMessengerCallKind,
-  status: CommunityMessengerCallStatus,
-  durationSeconds?: number
-): string {
-  const kindLabel = callKind === "video" ? "영상 통화" : "음성 통화";
-  const dur = Math.max(0, Math.floor(Number(durationSeconds ?? 0)));
-  if (status === "ended" && dur > 0) {
-    return `${kindLabel} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
-  }
-  return `${kindLabel} · ${formatCommunityMessengerCallStubStatus(status)}`;
-}
-
 function isCallStubRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -2915,10 +2896,12 @@ function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | nul
   return trimText(metadata.sessionId) === sessionId;
 }
 
-async function appendCallStubMessage(input: {
+export async function appendCommunityMessengerCallStubMessage(input: {
   userId: string;
   roomId: string | null;
   sessionId?: string | null;
+  /** 프리뷰 tmp_ — 세션 id 전엔 metadata 보조 */
+  tmpSessionId?: string | null;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   createdAt: string;
@@ -2928,10 +2911,12 @@ async function appendCallStubMessage(input: {
 }) {
   if (!input.roomId) return;
   const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status, input.durationSeconds);
+  const tmp = trimText(input.tmpSessionId ?? "");
   const metadata = {
     callKind: input.callKind,
     callStatus: input.status,
     sessionId: trimText(input.sessionId ?? "") || null,
+    ...(tmp ? { tmpSessionId: tmp } : {}),
     durationSeconds:
       input.status === "ended" && Math.max(0, Number(input.durationSeconds ?? 0)) > 0
         ? Math.max(0, Math.floor(Number(input.durationSeconds ?? 0)))
@@ -9024,7 +9009,7 @@ export async function createCommunityMessengerCallLog(input: {
   if (sb) {
     const { error } = await (sb as any).from("community_messenger_call_logs").insert(payload);
     if (!error) {
-      await appendCallStubMessage({
+      await appendCommunityMessengerCallStubMessage({
         userId: input.userId,
         roomId,
         sessionId,
@@ -9033,6 +9018,21 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         replaceExisting: input.replaceExistingStub,
         incrementUnread: !input.replaceExistingStub,
+        durationSeconds: input.durationSeconds,
+      });
+      return { ok: true };
+    }
+    /** `session_id` 유니크로 로그 행만 막힌 경우에도 채팅 스텁은 갱신해야 함 */
+    if (isUniqueViolationError(error) && sessionId) {
+      await appendCommunityMessengerCallStubMessage({
+        userId: input.userId,
+        roomId,
+        sessionId,
+        callKind: input.callKind,
+        status: input.status,
+        createdAt: startedAt,
+        replaceExisting: input.replaceExistingStub ?? true,
+        incrementUnread: false,
         durationSeconds: input.durationSeconds,
       });
       return { ok: true };
@@ -9052,7 +9052,7 @@ export async function createCommunityMessengerCallLog(input: {
     durationSeconds: Math.max(0, Number(input.durationSeconds ?? 0)),
     startedAt,
   });
-  await appendCallStubMessage({
+  await appendCommunityMessengerCallStubMessage({
     userId: input.userId,
     roomId,
     sessionId,
@@ -9288,7 +9288,7 @@ export async function startCommunityMessengerCallSession(input: {
       }
       if (!isGroupRoom) {
         /* 채팅 스텁은 수신 실시간보다 늦어도 되므로 발신 응답을 막지 않는다 */
-        void appendCallStubMessage({
+        void appendCommunityMessengerCallStubMessage({
           userId: input.userId,
           roomId,
           sessionId: inserted.id,
@@ -9403,7 +9403,7 @@ export async function startCommunityMessengerCallSession(input: {
   session.participants = session.participants.map((item) => ({ ...item, sessionId: session.id }));
   dev.callSessions.unshift(session);
   if (!isGroupRoom) {
-    await appendCallStubMessage({
+    await appendCommunityMessengerCallStubMessage({
       userId: input.userId,
       roomId,
       sessionId: session.id,

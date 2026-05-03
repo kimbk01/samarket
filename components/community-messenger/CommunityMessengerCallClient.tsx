@@ -87,6 +87,8 @@ import {
   notifyCommunityMessengerCallInviteRingBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   logCommunityMessengerCallSessionPatchDev,
   patchCommunityMessengerCallSession,
@@ -118,6 +120,24 @@ type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallC
 
 function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["status"]): boolean {
   return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+}
+
+/**
+ * 음성 통화 스피커 버튼 기본값 — 모바일은 이어피스(off), 데스크톱(PC·브라우저)은 스피커(on).
+ * 음성에서 `speakerEnabled === false` 일 때 버튼 `active` 스타일이 꺼져 보여 ‘비활성’처럼 보이던 문제를 완화한다.
+ * (실제 출력 라우팅은 조인 후 `applyAgoraRemoteSpeakerPreference` — 오디오 엔진·AudioContext 는 변경하지 않음.)
+ */
+function defaultSpeakerEnabledForCallKind(kind: CommunityMessengerCallKind): boolean {
+  if (kind === "video") return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    const hover = window.matchMedia("(hover: hover)").matches;
+    if (fine && hover) return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
 }
 
 /**
@@ -341,8 +361,10 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     micMutedRef.current = micMuted;
   }, [micMuted]);
-  /** 음성: 기본 이어폰(off). 영상: 기본 스피커폰(on). */
-  const [speakerEnabled, setSpeakerEnabled] = useState(false);
+  /** 음성: 모바일 이어피스(off)·데스크톱 스피커(on). 영상: 스피커폰(on). */
+  const [speakerEnabled, setSpeakerEnabled] = useState(() =>
+    typeof window !== "undefined" ? defaultSpeakerEnabledForCallKind("voice") : false
+  );
   const speakerEnabledRef = useRef(false);
   speakerEnabledRef.current = speakerEnabled;
   const callKindBootRef = useRef<{ sid: string | null; kind: CommunityMessengerCallKind | null }>({
@@ -388,6 +410,29 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+
+  useEffect(() => {
+    const off = onCommunityMessengerBusEvent((ev) => {
+      if (ev.type !== "cm.call.session_terminal") return;
+      const cur = sessionRef.current;
+      if (!cur) return;
+      const sidOk = Boolean(ev.sessionId && ev.sessionId === cur.id);
+      const evRid = ev.roomId?.trim();
+      const evIni = ev.initiatorUserId?.trim();
+      const triple =
+        Boolean(evRid && evIni) &&
+        (ev.callKind === "voice" || ev.callKind === "video") &&
+        messengerUserIdsEqual(cur.roomId, evRid) &&
+        messengerUserIdsEqual(cur.initiatorUserId, evIni) &&
+        cur.callKind === ev.callKind;
+      if (!sidOk && !triple) return;
+      if (cur.status === "ringing" && !cur.isMineInitiator) {
+        queueMicrotask(() => navigateBackFromCommunityMessengerCall(router, cur.roomId));
+      }
+    });
+    return off;
+  }, [router]);
+
   const latencyFirstScreenLoggedRef = useRef(false);
   const remoteAudioFirstFrameLoggedRef = useRef(false);
   const remoteUserJoinedLoggedRef = useRef(false);
@@ -461,7 +506,9 @@ export function CommunityMessengerCallClient({
       });
       router.replace(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
       if (result.session.sessionMode === "direct") {
-        void notifyCommunityMessengerCallInviteRingBestEffort(result.session);
+        void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
+          dialTmpSessionId: isCommunityMessengerTempCallSessionId(sessionId) ? sessionId : null,
+        });
       }
     })();
     return () => {
@@ -630,13 +677,13 @@ export function CommunityMessengerCallClient({
     const b = callKindBootRef.current;
     if (b.sid !== session.id) {
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
-      const nextSpeakerEnabled = session.callKind === "video";
+      const nextSpeakerEnabled = defaultSpeakerEnabledForCallKind(session.callKind);
       setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
       return;
     }
     if (b.kind !== session.callKind) {
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
-      const nextSpeakerEnabled = session.callKind === "video";
+      const nextSpeakerEnabled = defaultSpeakerEnabledForCallKind(session.callKind);
       setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
     }
   }, [session?.id, session?.callKind]);
@@ -1834,7 +1881,13 @@ export function CommunityMessengerCallClient({
     void (async () => {
       try {
         if (peer) {
-          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, { roomId: roomIdR });
+          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
+            roomId: roomIdR,
+            initiatorUserId: session.initiatorUserId,
+            callKind: session.callKind,
+            terminalStatus: "rejected",
+            tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+          });
           try {
             await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" });
           } catch {
@@ -1934,7 +1987,13 @@ export function CommunityMessengerCallClient({
     void (async () => {
       try {
         if (peer) {
-          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, { roomId: roomId });
+          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
+            roomId: roomId,
+            initiatorUserId: session.initiatorUserId,
+            callKind: session.callKind,
+            terminalStatus: optimisticEnd,
+            tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+          });
           try {
             await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason });
           } catch {
