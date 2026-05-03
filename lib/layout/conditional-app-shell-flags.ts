@@ -154,13 +154,13 @@ export function resolveConditionalAppShellFlags(
     !isTradeFloatingSurface &&
     !isTradeMeetSpotPickRoute;
   /**
-   * 채팅 상세에서 메인 BottomNav 숨김 — 단일 권한 (재발 방지).
-   * 과거: `!isCommunityMessengerRoom` 예외로 방에서 탭 유지 + store 로 숨김 → 이중 권한·입력 가림.
-   * 지금: `isChatRoomDetail` 이면 무조건 탭 비표시. 키보드는 composer inset 만 담당.
-   * `.cursor/rules/chat-detail-bottom-nav-authority.mdc`
+   * 채팅 상세·메신저 전역에서 메인 BottomNav 숨김 — 단일 권한 (재발 방지).
+   * - 방·통화·레거시 `/chats/:id` 등: `isChatRoomDetail`
+   * - 메신저 허브(`/community-messenger` 목록·친구·거래채팅 필터 등): `isCommunityMessengerSurface` — 하단은 `CommunityMessengerHomeBottomNav` 전용
+   * 키보드·composer inset 과 분리. `.cursor/rules/chat-detail-bottom-nav-authority.mdc`
    */
-  const suppressBottomNavForChatDetail = isChatRoomDetail;
-  /** 메신저 허브(`/community-messenger` 목록 등)·기타 서피스만 메인 하단 탭 표시 */
+  const suppressBottomNavForChatDetail = isChatRoomDetail || isCommunityMessengerSurface;
+  /** 메인 하단 탭 — 메신저·채팅 상세 제외 서피스만 */
   const showBottomNav =
     !hideBarAndFloat &&
     !isWritePage &&

@@ -155,7 +155,6 @@ export function RegionBar({
                   <TradeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
-                  <PhilifeHeaderAddressMenuButton />
                 </div>
               </div>
             </>
