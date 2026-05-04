@@ -234,7 +234,6 @@ export function useCommunityMessengerHomeShellEffects({
         alignTier1TitleStart: true,
         backHref,
         preferHistoryBack: false,
-        ...(pillar ? { messengerNavIntent: "pillar-back" as const } : {}),
       },
     });
     return () => setMainTier1Extras(null);

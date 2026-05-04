@@ -18,6 +18,7 @@ import {
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
+import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
@@ -214,8 +215,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
       recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
       const dest = communityMessengerRoomHref(id, fromEntryOrigin, roomListSource);
-      /** View Transition 생략 — 진입 지연·추가 프레임 비용 제거(헤더 뒤로가기는 `AppBackButton` 에서만 VT) */
-      router.push(dest);
+      runMessengerViewTransition(() => {
+        router.push(dest);
+      }, "room-forward");
     },
     [fromEntryOrigin, room, roomListSource, router, viewerUserId]
   );

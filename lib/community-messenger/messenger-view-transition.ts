@@ -1,6 +1,8 @@
 /**
  * 메신저 라우트 전환용 View Transitions (`document.startViewTransition`).
  * `community-messenger/layout` 의 `.sam-messenger-vt-root` 에 `view-transition-name: messenger-surface` 가 있어야 한다.
+ *
+ * 정책: **push(forward)만 VT**, `*-back`·`prefers-reduced-motion: reduce` 는 VT 생략(즉시 navigate).
  */
 
 export type MessengerNavTransitionIntent =
@@ -28,15 +30,39 @@ function scheduleClearIntent(): void {
   });
 }
 
+function isBackNavIntent(intent: MessengerNavTransitionIntent): boolean {
+  return intent === "pillar-back" || intent === "room-back";
+}
+
+function prefersReducedMotionCoarse(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 지원 브라우저에서는 VT 로 네비게이션을 감싸고, 미지원 시 즉시 `navigate()` 만 실행한다.
+ * 지원 브라우저에서는 **forward(`pillar-forward`·`room-forward`)만** VT 로 감싼다.
+ * pop/back·reduced-motion 은 VT 없이 즉시 `navigate()`.
  */
 export function runMessengerViewTransition(
   navigate: () => void | Promise<void>,
   intent: MessengerNavTransitionIntent
 ): void {
-  setHtmlIntent(intent);
   const finish = () => scheduleClearIntent();
+
+  if (isBackNavIntent(intent) || prefersReducedMotionCoarse()) {
+    try {
+      void navigate();
+    } finally {
+      finish();
+    }
+    return;
+  }
+
+  setHtmlIntent(intent);
 
   const vtFn = typeof document !== "undefined" ? document.startViewTransition?.bind(document) : undefined;
   if (!vtFn) {

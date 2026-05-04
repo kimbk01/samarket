@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
@@ -8,6 +9,7 @@ import {
   type MessengerPillarSummary,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { withMessengerEntryOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 
 /**
  * 메신저 받은메시지함 상단의 「거래 채팅」/「배달 채팅」 묶음 행.
@@ -101,6 +103,7 @@ type Props = {
 };
 
 export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery = null }: Props) {
+  const router = useRouter();
   const copy = VARIANT_COPY[variant];
 
   const href = useMemo(() => {
@@ -143,6 +146,13 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       data-messenger-pillar-row={variant}
       className="block select-none touch-manipulation rounded-[var(--messenger-radius-md)] transition-[transform,background-color,box-shadow] duration-100 ease-out will-change-transform active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)] [box-shadow:inset_0_0_0_1px_transparent] active:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_2px_10px_rgba(0,0,0,0.1)]"
       aria-label={`${copy.title} 묶음 보기`}
+      onClick={(e) => {
+        if (shouldSkipMessengerNavTransitionModifiers(e)) return;
+        e.preventDefault();
+        runMessengerViewTransition(() => {
+          router.push(href);
+        }, "pillar-forward");
+      }}
     >
       <MessengerListRow
         avatar={avatar}

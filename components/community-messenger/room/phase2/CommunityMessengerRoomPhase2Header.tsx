@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
+import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
@@ -15,6 +18,7 @@ import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messen
 
 export function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2HeaderView();
+  const searchParams = useSearchParams();
   const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
   /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
   const typingPeerCount = useMessengerTypingStore((state) => {
@@ -73,11 +77,12 @@ export function CommunityMessengerRoomPhase2Header() {
             type="button"
             onClick={() => {
               markCommunityMessengerHomeReturn();
-              const backHref =
-                vm.snapshot.room.roomType === "open_group"
-                  ? SAMARKET_ROUTES.chat.messengerMeetingsHub
-                  : SAMARKET_ROUTES.chat.messengerHub;
-              vm.router.replace(backHref, { scroll: false });
+              if (vm.snapshot.room.roomType === "open_group") {
+                vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
+                return;
+              }
+              const fallback = buildMessengerRoomListBackHref(searchParams);
+              runHistoryBackWithFallback(vm.router, fallback);
             }}
             className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}

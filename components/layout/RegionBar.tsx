@@ -198,16 +198,13 @@ export function RegionBar({
   const hideBack = o?.hideBack ?? base.hideBack ?? false;
   const isMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
   /**
-   * 메신저 채팅방 뒤로가기: 방 URL 의 `cm_list`·`from` 으로 목록을 확정
-   * (거래 목록 / 배달 목록 / 인박스 전체) — 3→2→1 스택이 히스토리와 무관하게 유지.
-   * `preferHistoryBack: false` 로 고정 `href` + View Transition(`room-back`).
+   * 메신저 채팅방 뒤로가기: **직전 화면(목록) 우선** — `runHistoryBackWithFallback`.
+   * 폴백은 방 URL 의 `cm_list`·`from` 으로 `buildMessengerRoomListBackHref` (쿼리 누락·새 탭 등).
    */
   const backHref = isMessengerRoom
     ? buildMessengerRoomListBackHref(searchParams)
     : o?.backHref ?? base.backHref;
-  const preferHistoryBack = isMessengerRoom ? false : o?.preferHistoryBack ?? base.preferHistoryBack;
-  const messengerNavIntent =
-    o?.messengerNavIntent ?? (isMessengerRoom ? ("room-back" as const) : undefined);
+  const preferHistoryBack = isMessengerRoom ? true : o?.preferHistoryBack ?? base.preferHistoryBack;
   const ariaLabel = tt(o?.ariaLabel ?? base.ariaLabel);
   const subtitleRaw = o?.subtitle ?? base.subtitle;
   const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;
@@ -268,12 +265,7 @@ export function RegionBar({
           ) : hideBack ? (
             <div className="h-9 w-9 shrink-0" aria-hidden />
           ) : (
-            <AppBackButton
-              preferHistoryBack={preferHistoryBack}
-              backHref={backHref}
-              ariaLabel={ariaLabel}
-              messengerNavIntent={messengerNavIntent}
-            />
+            <AppBackButton preferHistoryBack={preferHistoryBack} backHref={backHref} ariaLabel={ariaLabel} />
           )}
         </div>
         <div className={titleColClass}>

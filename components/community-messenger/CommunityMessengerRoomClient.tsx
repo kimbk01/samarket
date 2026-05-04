@@ -11,6 +11,7 @@ import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtim
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
+import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 /** 방 A→B 이동마다 동일 RSC 청크 `prefetch` 가 반복되면 메인 스레드·RSC 큐만 쓴다 — 세션당 1회로 제한 */
@@ -128,7 +129,9 @@ export function CommunityMessengerRoomClient(props: {
   return (
     <MessengerRoomClientPhase1Context.Provider value={phase1}>
       <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>
-        <CommunityMessengerRoomClientPhase2 />
+        <MessengerRoomSwipeBackShell roomType={phase1.snapshot?.room.roomType}>
+          <CommunityMessengerRoomClientPhase2 />
+        </MessengerRoomSwipeBackShell>
       </MessengerRoomGroupCallShell>
     </MessengerRoomClientPhase1Context.Provider>
   );

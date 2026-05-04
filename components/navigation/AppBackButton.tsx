@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
-import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 
 export function AppBackIcon({ className }: { className?: string }) {
   return (
@@ -56,8 +55,6 @@ type AppBackButtonProps = {
   iconClassName?: string;
   /** 접근성 라벨 (기본: 뒤로가기) */
   ariaLabel?: string;
-  /** 메신저 트리 전용 View Transition(고정 `backHref` 링크 분기). */
-  messengerNavIntent?: "pillar-back" | "room-back";
 };
 
 const structuralClass =
@@ -71,7 +68,6 @@ export function AppBackButton({
   className,
   iconClassName,
   ariaLabel = "뒤로가기",
-  messengerNavIntent,
 }: AppBackButtonProps) {
   const { tt } = useI18n();
   const router = useRouter();
@@ -85,15 +81,6 @@ export function AppBackButton({
         className={mergedClass}
         aria-label={resolvedAriaLabel}
         scroll={false}
-        onClick={(e) => {
-          if (!messengerNavIntent) return;
-          if (shouldSkipMessengerNavTransitionModifiers(e)) return;
-          if (typeof document === "undefined" || typeof document.startViewTransition !== "function") return;
-          e.preventDefault();
-          runMessengerViewTransition(() => {
-            router.push(backHref);
-          }, messengerNavIntent);
-        }}
       >
         <AppBackIcon className={iconClassName} />
       </Link>
@@ -105,12 +92,6 @@ export function AppBackButton({
       <button
         type="button"
         onClick={() => {
-          if (messengerNavIntent && typeof document !== "undefined" && typeof document.startViewTransition === "function") {
-            runMessengerViewTransition(() => {
-              runHistoryBackWithFallback(router, backHref);
-            }, messengerNavIntent);
-            return;
-          }
           runHistoryBackWithFallback(router, backHref);
         }}
         className={mergedClass}

@@ -1,10 +1,16 @@
 /**
  * 메신저 `/community-messenger` 트리 전용 View Transitions.
  * `html[data-sam-messenger-vt=...]` 는 `messenger-view-transition.ts` 가 네비 직전에 잠깐 설정한다.
+ *
+ * 목록↔방 슬라이드: `MESSENGER_LIST_ROOM_SLIDE_MS` (`lib/community-messenger/messenger-list-room-slide.ts`) 와 동일 유지.
  */
 
 .sam-messenger-vt-root {
   view-transition-name: messenger-surface;
+}
+
+:root {
+  --sam-messenger-slide-duration: 240ms;
 }
 
 /* 묶음 진입: 새 화면이 왼쪽에서 들어오고 이전(인박스)이 오른쪽으로 밀림(좌→우 체감) */
@@ -91,35 +97,35 @@
 
 @supports (view-transition-name: messenger-surface) {
   html[data-sam-messenger-vt="pillar-forward"]::view-transition-old(messenger-surface) {
-    animation: sam-messenger-vt-pillar-forward-old 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-pillar-forward-old var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="pillar-forward"]::view-transition-new(messenger-surface) {
-    animation: sam-messenger-vt-pillar-forward-new 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-pillar-forward-new var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="pillar-back"]::view-transition-old(messenger-surface) {
-    animation: sam-messenger-vt-pillar-back-old 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-pillar-back-old var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="pillar-back"]::view-transition-new(messenger-surface) {
-    animation: sam-messenger-vt-pillar-back-new 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-pillar-back-new var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="room-forward"]::view-transition-old(messenger-surface) {
-    animation: sam-messenger-vt-room-forward-old 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-room-forward-old var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="room-forward"]::view-transition-new(messenger-surface) {
-    animation: sam-messenger-vt-room-forward-new 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-room-forward-new var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="room-back"]::view-transition-old(messenger-surface) {
-    animation: sam-messenger-vt-room-back-old 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-room-back-old var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 
   html[data-sam-messenger-vt="room-back"]::view-transition-new(messenger-surface) {
-    animation: sam-messenger-vt-room-back-new 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: sam-messenger-vt-room-back-new var(--sam-messenger-slide-duration) cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 }
 

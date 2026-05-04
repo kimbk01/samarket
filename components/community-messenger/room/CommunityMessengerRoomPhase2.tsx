@@ -32,7 +32,9 @@ import {
   recordRouteEntryFullRender,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+import { useSearchParams } from "next/navigation";
+import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -310,6 +312,7 @@ function CommunityMessengerRoomClientPhase2Main({
 
 export function CommunityMessengerRoomClientPhase2() {
   const room = useMessengerRoomPhase2Controller();
+  const searchParams = useSearchParams();
   useCommunityMessengerRoomTypingRuntime({
     roomId: room.snapshot?.room.id ?? null,
     viewerUserId: room.snapshot?.viewerUserId ?? null,
@@ -336,7 +339,10 @@ export function CommunityMessengerRoomClientPhase2() {
         <p className="sam-text-body-lg font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
         <button
           type="button"
-          onClick={() => room.router.replace(SAMARKET_ROUTES.chat.messengerHub, { scroll: false })}
+          onClick={() => {
+            const fallback = buildMessengerRoomListBackHref(searchParams);
+            runHistoryBackWithFallback(room.router, fallback);
+          }}
           className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >
           {room.t("nav_messenger_home")}

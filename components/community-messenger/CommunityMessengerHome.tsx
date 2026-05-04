@@ -366,6 +366,8 @@ export function CommunityMessengerHome({
       setMainSection,
       setChatInboxFilter,
       setChatKindFilter,
+      pillar,
+      messengerEntryOrigin: searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
     });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);

@@ -3,6 +3,11 @@
 import { useCallback } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
+  communityMessengerRoomHref,
+  type MessengerRoomListSource,
+} from "@/lib/community-messenger/messenger-entry-origin";
+import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
+import {
   chipToInboxKind,
   messengerChatFiltersToSearchParams,
   type MessengerChatInboxFilter,
@@ -10,6 +15,12 @@ import {
   type MessengerChatListChip,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
+
+function roomListSourceFromPillar(pillar: "trade" | "delivery" | null | undefined): MessengerRoomListSource {
+  if (pillar === "trade") return "trade";
+  if (pillar === "delivery") return "delivery";
+  return "inbox";
+}
 
 type Args = {
   router: AppRouterInstance;
@@ -19,6 +30,10 @@ type Args = {
   setMainSection: (next: MessengerMainSection) => void;
   setChatInboxFilter: (next: MessengerChatInboxFilter) => void;
   setChatKindFilter: (next: MessengerChatKindFilter) => void;
+  /** 거래/배달 전용 서브 라우트일 때 방 URL 에 `cm_list` 부착 */
+  pillar?: "trade" | "delivery" | null;
+  /** 방 진입 시 `?from=` 유지 */
+  messengerEntryOrigin?: string | null;
 };
 
 export function useCommunityMessengerHomeNavigation({
@@ -29,6 +44,8 @@ export function useCommunityMessengerHomeNavigation({
   setMainSection,
   setChatInboxFilter,
   setChatKindFilter,
+  pillar = null,
+  messengerEntryOrigin = null,
 }: Args) {
   const replaceMessengerSectionUrl = useCallback(
     (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
@@ -52,9 +69,13 @@ export function useCommunityMessengerHomeNavigation({
     (roomId: string) => {
       const id = String(roomId ?? "").trim();
       if (!id) return;
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+      const listSource = roomListSourceFromPillar(pillar);
+      const dest = communityMessengerRoomHref(id, messengerEntryOrigin, listSource);
+      runMessengerViewTransition(() => {
+        router.push(dest);
+      }, "room-forward");
     },
-    [router]
+    [router, pillar, messengerEntryOrigin]
   );
 
   const onPrimarySectionChange = useCallback(

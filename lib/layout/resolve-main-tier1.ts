@@ -149,9 +149,10 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       backHref: "/community-messenger?section=chats",
       /**
-       * `RegionBar` 가 `buildMessengerRoomListBackHref`(`cm_list`·`from`)로 `backHref` 를 덮는다.
+       * `RegionBar` 가 `buildMessengerRoomListBackHref`(`cm_list`·`from`)로 `backHref` 를 덮고,
+       * 방 화면에서는 **히스토리 백 우선**(`preferHistoryBack: true`)으로 직전 목록 복귀.
        */
-      preferHistoryBack: false,
+      preferHistoryBack: true,
       ariaLabel: "메신저로 돌아가기",
       titleText: "메신저 대화",
       subtitle: "1:1·그룹 채팅",
