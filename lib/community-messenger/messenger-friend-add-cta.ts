@@ -12,6 +12,8 @@ export type MessengerFriendAddCta =
   | { kind: "add" }
   | { kind: "pending_outgoing"; requestId: string }
   | { kind: "pending_incoming"; requestId: string }
+  /** 상대 거절 후 서버 쿨다운 — `remainingMs`는 호출 시점 기준 남은 시간 */
+  | { kind: "cooldown"; remainingMs: number }
   | { kind: "friend" }
   | { kind: "blocked" };
 
@@ -26,6 +28,7 @@ export const MessengerFriendAddCtaLabels = {
   message: "메시지 보내기",
   unavailable: "이용 불가",
   blockedChip: "차단됨",
+  cooldown: "재요청 제한",
 } as const;
 
 /** `MessengerFriendRequestsSheet` — 섹션·빈 목록·헤더 (CTA 버튼은 `MessengerFriendAddCtaLabels`) */
@@ -43,10 +46,18 @@ export const MessengerFriendRequestSheetLabels = {
   processing: "처리 중…",
 } as const;
 
+export type ResolveMessengerFriendAddCtaOpts = {
+  /** peer id → unix ms; 해당 시각까지 재요청 불가 UI */
+  cooldownUntilByPeerId?: Record<string, number>;
+  /** 쿨다운 남은 시간 계산용(검색 행 1초 갱신 등) */
+  nowMs?: number;
+};
+
 export function resolveMessengerFriendAddCta(
   peer: Pick<CommunityMessengerProfileLite, "id" | "isFriend" | "blocked">,
   viewerUserId: string,
-  requests: CommunityMessengerFriendRequest[]
+  requests: CommunityMessengerFriendRequest[],
+  opts?: ResolveMessengerFriendAddCtaOpts
 ): MessengerFriendAddCta {
   const vid = viewerUserId.trim();
   const pid = peer.id.trim();
@@ -59,6 +70,13 @@ export function resolveMessengerFriendAddCta(
     if (r.requesterId === vid && r.addresseeId === pid) return { kind: "pending_outgoing", requestId: r.id };
     if (r.requesterId === pid && r.addresseeId === vid) return { kind: "pending_incoming", requestId: r.id };
   }
+
+  const now = typeof opts?.nowMs === "number" ? opts.nowMs : Date.now();
+  const until = opts?.cooldownUntilByPeerId?.[pid];
+  if (until != null && until > now) {
+    return { kind: "cooldown", remainingMs: until - now };
+  }
+
   return { kind: "add" };
 }
 

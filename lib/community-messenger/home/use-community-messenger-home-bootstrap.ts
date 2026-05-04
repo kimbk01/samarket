@@ -23,7 +23,11 @@ import {
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
-import type { CommunityMessengerBootstrap, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerBootstrap,
+  CommunityMessengerCallLog,
+  CommunityMessengerFriendRequest,
+} from "@/lib/community-messenger/types";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -40,6 +44,33 @@ function mergeCriticalRoomPatchesIntoLists<T extends { id: string }>(baseList: T
   const incomingIds = new Set(incoming.map((r) => r.id));
   const tail = baseList.filter((r) => !incomingIds.has(r.id));
   return [...incoming, ...tail];
+}
+
+/**
+ * silent full 보강 등으로 서버 `requests` 가 통째로 올 때, 복제 지연으로 새 outgoing pending 이 빠지면
+ * 검색 행이 쿨다운으로만 보이는 현상이 난다. 클라에만 남은 내 pending outgoing 은 유지한다.
+ */
+function mergeFriendRequestsKeepStaleOutgoing(
+  base: CommunityMessengerBootstrap,
+  serverList: CommunityMessengerFriendRequest[] | undefined
+): CommunityMessengerFriendRequest[] {
+  const server = serverList ?? [];
+  const meId = base.me?.id?.trim();
+  if (!meId) return server;
+  const prev = base.requests ?? [];
+  const extra = prev.filter((r) => {
+    if (r.status !== "pending" || r.direction !== "outgoing" || r.requesterId !== meId) return false;
+    return !server.some((s) => {
+      if (String(s.id) === String(r.id)) return true;
+      return (
+        s.status === "pending" &&
+        s.requesterId === r.requesterId &&
+        s.addresseeId === r.addresseeId
+      );
+    });
+  });
+  if (!extra.length) return server;
+  return [...server, ...extra];
 }
 
 const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
@@ -204,7 +235,11 @@ export function useCommunityMessengerHomeBootstrap({
               ? mergeCriticalRoomPatchesIntoLists(base.groups, payload.groups ?? [])
               : payload.groups ?? base.groups;
           const requests =
-            roomMode === "critical_patch" ? base.requests : payload.requests ?? base.requests;
+            roomMode === "critical_patch"
+              ? base.requests
+              : payload.requests !== undefined
+                ? mergeFriendRequestsKeepStaleOutgoing(base, payload.requests)
+                : payload.requests ?? base.requests;
           const friends =
             roomMode === "critical_patch" ? base.friends : payload.friends ?? base.friends;
           if (
@@ -392,8 +427,18 @@ export function useCommunityMessengerHomeBootstrap({
               };
               setAuthRequired(false);
               setPageError(null);
-              setData(next);
-              primeBootstrapCache(next);
+              setData((prev) => {
+                if (!prev) {
+                  primeBootstrapCache(next);
+                  return next;
+                }
+                const merged: CommunityMessengerBootstrap = {
+                  ...next,
+                  requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
+                };
+                primeBootstrapCache(merged);
+                return merged;
+              });
               if ((next.discoverableGroups?.length ?? 0) === 0) {
                 scheduleWhenBrowserIdle(() => {
                   void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
@@ -444,8 +489,18 @@ export function useCommunityMessengerHomeBootstrap({
           };
           setAuthRequired(false);
           setPageError(null);
-          setData(next);
-          primeBootstrapCache(next);
+          setData((prev) => {
+            if (!prev) {
+              primeBootstrapCache(next);
+              return next;
+            }
+            const merged: CommunityMessengerBootstrap = {
+              ...next,
+              requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
+            };
+            primeBootstrapCache(merged);
+            return merged;
+          });
           if (useLiteBootstrap) {
             scheduleWhenBrowserIdle(() => {
               void refresh(true);

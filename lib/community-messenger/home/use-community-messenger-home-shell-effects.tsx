@@ -26,10 +26,8 @@ import {
   type MessengerChatKindFilter,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type {
-  CommunityMessengerBootstrap,
-  CommunityMessengerFriendRequest,
-} from "@/lib/community-messenger/types";
+import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
+import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import type {
   MessengerNotificationSettings,
   FriendSheetState,
@@ -55,8 +53,6 @@ type Args = {
   setChatKindFilter: Dispatch<SetStateAction<MessengerChatKindFilter>>;
   setNotificationSettings: Dispatch<SetStateAction<MessengerNotificationSettings>>;
   data: CommunityMessengerBootstrap | null;
-  incomingFriendRequestPopup: CommunityMessengerFriendRequest | null;
-  setIncomingFriendRequestPopup: Dispatch<SetStateAction<CommunityMessengerFriendRequest | null>>;
   /** `/philife` 헤더 푸시 스택: URL `section` 동기화·1단 `rightSlot` 은 별도 처리 */
   fromPhilifeHeaderStack?: boolean;
   mainSection: MessengerMainSection;
@@ -82,8 +78,6 @@ export function useCommunityMessengerHomeShellEffects({
   setChatKindFilter,
   setNotificationSettings,
   data,
-  incomingFriendRequestPopup,
-  setIncomingFriendRequestPopup,
   fromPhilifeHeaderStack = false,
   mainSection,
 }: Args): void {
@@ -208,10 +202,6 @@ export function useCommunityMessengerHomeShellEffects({
   }, [setNotificationSettings]);
 
   useEffect(() => {
-    if (!incomingFriendRequestPopup) return;
-    const stillPending = (data?.requests ?? []).some(
-      (r) => r.id === incomingFriendRequestPopup.id && r.direction === "incoming"
-    );
-    if (!stillPending) setIncomingFriendRequestPopup(null);
-  }, [data?.requests, incomingFriendRequestPopup, setIncomingFriendRequestPopup]);
+    useIncomingFriendRequestPopupStore.getState().syncIncomingFromBootstrapRequests(data?.requests);
+  }, [data?.requests]);
 }

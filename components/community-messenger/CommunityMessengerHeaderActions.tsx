@@ -33,7 +33,7 @@ export function CommunityMessengerHeaderActions({
         type="button"
         onClick={onOpenRequestList}
         className={`relative ${iconBtn}`}
-        aria-label={`알림${incomingRequestCount > 0 ? ` ${incomingRequestCount}건` : ""}`}
+        aria-label={`알림${incomingRequestCount > 0 ? ` · 친구 요청 대기 ${incomingRequestCount}건` : ""}`}
       >
         <BellListIcon />
         {incomingRequestCount > 0 ? (

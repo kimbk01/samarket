@@ -59,6 +59,33 @@ describe("resolveMessengerFriendAddCta", () => {
   it("returns add when no row", () => {
     expect(resolveMessengerFriendAddCta(baseProfile, "me", [])).toEqual({ kind: "add" });
   });
+
+  it("returns cooldown when peer id is in cooldown map", () => {
+    const now = 1_000_000;
+    const until = now + 90_000;
+    expect(
+      resolveMessengerFriendAddCta(baseProfile, "me", [], {
+        cooldownUntilByPeerId: { u1: until },
+        nowMs: now,
+      })
+    ).toEqual({ kind: "cooldown", remainingMs: 90_000 });
+  });
+
+  it("pending outgoing wins over cooldown", () => {
+    const now = 1_000_000;
+    const r = req({
+      id: "r1",
+      direction: "outgoing",
+      requesterId: "me",
+      addresseeId: "u1",
+    });
+    expect(
+      resolveMessengerFriendAddCta(baseProfile, "me", [r], {
+        cooldownUntilByPeerId: { u1: now + 999_999 },
+        nowMs: now,
+      })
+    ).toEqual({ kind: "pending_outgoing", requestId: "r1" });
+  });
 });
 
 describe("mergeCommunityMessengerProfileFromBootstrap", () => {

@@ -7,6 +7,7 @@ import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesce
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { isNotificationDomain, type NotificationDomain } from "@/lib/notifications/notification-domains";
+import { upsertIncomingFriendRequestPopupFromNotificationInsertRow } from "@/lib/community-messenger/incoming-friend-request-popup-from-notification-row";
 
 export type SupabaseNotificationsRealtimeOptions = {
   /** false면 구독 자체를 생성하지 않음 (라우트 전환 시 재마운트/재구독 비용을 구조적으로 제거하기 위한 게이트) */
@@ -85,6 +86,10 @@ export function useSupabaseNotificationsRealtime(
           },
           (payload) => {
             markRealtimeSignal();
+            const ev = payload as { eventType?: string; new?: Record<string, unknown> };
+            if (ev.new && typeof ev.new === "object") {
+              upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
+            }
             if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
               const row = (payload as { new?: Record<string, unknown> }).new ?? {};
               const onInsertSound = onInsertSoundRef.current;
@@ -137,6 +142,12 @@ export function useSupabaseNotificationsRealtime(
       markRealtimeSignal = sub.markSignal;
       currentSub = sub;
     };
+
+    void sb.auth.getSession().then(({ data: { session } }) => {
+      if (cancelled) return;
+      const uid = session?.user?.id?.trim();
+      if (uid) subscribeForUser(uid);
+    });
 
     const {
       data: { subscription },

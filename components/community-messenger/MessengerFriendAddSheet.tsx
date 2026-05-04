@@ -3,7 +3,12 @@
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
-import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
+import {
+  formatFriendRejectCooldownShort,
+  isMessengerFriendRequestBusy,
+  shouldDisableMessengerIncomingFriendActionButtons,
+  shouldDisableMessengerOutgoingFriendCancelButton,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { MessengerFriendAddCtaLabels, resolveMessengerFriendAddCta } from "@/lib/community-messenger/messenger-friend-add-cta";
 import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -31,6 +36,10 @@ type Props = {
   onRespondIncomingFriendRequest: (requestId: string, action: "accept" | "reject") => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
+  /** 거절 후 재요청 불가(unix ms) — peer id 키 */
+  cooldownUntilByPeerId: Record<string, number>;
+  /** 쿨다운 남은 시간 표시용 현재 시각(부모에서 1초 간격 갱신) */
+  cooldownNowMs: number;
 };
 
 const TAB_ORDER: MessengerFriendAddTab[] = ["id", "contacts", "invite"];
@@ -69,6 +78,8 @@ export function MessengerFriendAddSheet({
   onCancelOutgoingFriendRequest,
   onRespondIncomingFriendRequest,
   inviteUrl,
+  cooldownUntilByPeerId,
+  cooldownNowMs,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
@@ -138,7 +149,8 @@ export function MessengerFriendAddSheet({
           })}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-3 pt-3">
           {friendAddTab === "contacts" ? (
             <div className="space-y-2">
               <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -169,6 +181,60 @@ export function MessengerFriendAddSheet({
 
           {friendAddTab === "id" ? (
             <div className="space-y-3">
+              {(() => {
+                const outgoingPending = friendRequests.filter(
+                  (r) => r.direction === "outgoing" && r.status === "pending"
+                );
+                if (!outgoingPending.length) return null;
+                return (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
+                        보낸 요청
+                      </p>
+                      <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+                        상대가 수락하면 목록에서 사라집니다. 여러 명에게 보낸 경우 모두 여기서 확인할 수 있습니다.
+                      </p>
+                    </div>
+                    <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
+                      {outgoingPending.map((r) => {
+                        const initial = r.addresseeLabel.trim().slice(0, 1) || "?";
+                        return (
+                          <div key={r.id} className="flex items-center gap-2 px-3 py-2.5">
+                            <div
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--messenger-primary-soft)] sam-text-body-secondary font-semibold"
+                              style={{ color: "var(--messenger-text-secondary)" }}
+                              aria-hidden
+                            >
+                              {initial}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+                                {r.addresseeLabel || "상대"}
+                              </p>
+                              <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+                                수락 대기 중
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onCancelOutgoingFriendRequest(r.id)}
+                              disabled={shouldDisableMessengerOutgoingFriendCancelButton(busyId, {
+                                requestId: r.id,
+                                addresseeUserId: r.addresseeId,
+                              })}
+                              className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1 sam-text-xxs font-medium disabled:opacity-40"
+                              style={{ color: "var(--messenger-text)" }}
+                            >
+                              {busyId === `request:${r.id}:cancel` ? "…" : MessengerFriendAddCtaLabels.cancel}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               <div>
                 <div className="flex justify-end sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
                   {searchKeyword.length}/20
@@ -221,6 +287,8 @@ export function MessengerFriendAddSheet({
                       onRequestFriend={onRequestFriend}
                       onCancelOutgoingFriendRequest={onCancelOutgoingFriendRequest}
                       onRespondIncomingFriendRequest={onRespondIncomingFriendRequest}
+                      cooldownUntilByPeerId={cooldownUntilByPeerId}
+                      cooldownNowMs={cooldownNowMs}
                     />
                   ))
                 )}
@@ -252,6 +320,8 @@ export function MessengerFriendAddSheet({
             </div>
           ) : null}
         </div>
+
+        </div>
       </div>
     </div>
   );
@@ -267,6 +337,8 @@ function SearchResultRow({
   onRequestFriend,
   onCancelOutgoingFriendRequest,
   onRespondIncomingFriendRequest,
+  cooldownUntilByPeerId,
+  cooldownNowMs,
 }: {
   user: CommunityMessengerProfileLite;
   viewerUserId: string | null;
@@ -277,11 +349,18 @@ function SearchResultRow({
   onRequestFriend: (userId: string) => void;
   onCancelOutgoingFriendRequest: (requestId: string) => void;
   onRespondIncomingFriendRequest: (requestId: string, action: "accept" | "reject") => void;
+  cooldownUntilByPeerId: Record<string, number>;
+  cooldownNowMs: number;
 }) {
   const prefetchOnceRef = useRef(false);
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.label.trim().slice(0, 1) || "?";
-  const cta = viewerUserId ? resolveMessengerFriendAddCta(user, viewerUserId, friendRequests) : { kind: "add" as const };
+  const cta = viewerUserId
+    ? resolveMessengerFriendAddCta(user, viewerUserId, friendRequests, {
+        cooldownUntilByPeerId,
+        nowMs: cooldownNowMs,
+      })
+    : { kind: "add" as const };
   const bAdd = isMessengerFriendRequestBusy(busyId, user.id);
 
   return (
@@ -344,7 +423,10 @@ function SearchResultRow({
                 e.stopPropagation();
                 onCancelOutgoingFriendRequest(cta.requestId);
               }}
-              disabled={Boolean(busyId)}
+              disabled={shouldDisableMessengerOutgoingFriendCancelButton(busyId, {
+                requestId: cta.requestId,
+                addresseeUserId: user.id,
+              })}
               className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
@@ -359,7 +441,7 @@ function SearchResultRow({
                 e.stopPropagation();
                 onRespondIncomingFriendRequest(cta.requestId, "reject");
               }}
-              disabled={Boolean(busyId)}
+              disabled={shouldDisableMessengerIncomingFriendActionButtons(busyId, cta.requestId)}
               className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
@@ -371,12 +453,24 @@ function SearchResultRow({
                 e.stopPropagation();
                 onRespondIncomingFriendRequest(cta.requestId, "accept");
               }}
-              disabled={Boolean(busyId)}
+              disabled={shouldDisableMessengerIncomingFriendActionButtons(busyId, cta.requestId)}
               className="rounded-full bg-[color:var(--messenger-primary)] px-2.5 py-1 sam-text-xxs font-semibold text-white disabled:opacity-40"
             >
               {MessengerFriendAddCtaLabels.accept}
             </button>
           </>
+        ) : cta.kind === "cooldown" ? (
+          <div className="flex max-w-[11rem] flex-col items-end gap-0.5 text-right">
+            <span
+              className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2 py-1 sam-text-xxs font-medium"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {MessengerFriendAddCtaLabels.cooldown}
+            </span>
+            <span className="sam-text-xxs tabular-nums leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+              {formatFriendRejectCooldownShort(cta.remainingMs)} 재요청
+            </span>
+          </div>
         ) : (
           <button
             type="button"
@@ -384,7 +478,7 @@ function SearchResultRow({
               e.stopPropagation();
               void onRequestFriend(user.id);
             }}
-            disabled={Boolean(busyId) || bAdd}
+            disabled={bAdd}
             className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40 active:opacity-90"
           >
             {bAdd ? "…" : MessengerFriendAddCtaLabels.add}

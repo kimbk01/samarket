@@ -26,6 +26,26 @@ function trimId(value: unknown): string {
 /**
  * 거절 쿨다운 등 — `retryAfterMs`(ms)를 사람이 읽기 쉬운 한국어로.
  */
+/** 검색 행·칩용 짧은 표기 (남은 시간 기준 ms) */
+export function formatFriendRejectCooldownShort(remainingMs: number): string {
+  const ms = Math.max(0, remainingMs);
+  const totalMin = Math.max(1, Math.ceil(ms / 60_000));
+  if (totalMin >= 60 * 24 * 7) {
+    const w = Math.floor(totalMin / (60 * 24 * 7));
+    return `${Math.max(1, w)}주 후`;
+  }
+  if (totalMin >= 60 * 24) {
+    const d = Math.ceil(totalMin / (60 * 24));
+    return `${d}일 후`;
+  }
+  if (totalMin >= 60) {
+    const h = Math.floor(totalMin / 60);
+    const mm = totalMin % 60;
+    return mm > 0 ? `${h}시간 ${mm}분 후` : `${h}시간 후`;
+  }
+  return `${totalMin}분 후`;
+}
+
 export function formatFriendRejectCooldownMessage(retryAfterMs: number): string {
   const m = Math.max(1, Math.ceil(retryAfterMs / 60_000));
   if (m >= 60 * 24) {
@@ -49,6 +69,73 @@ export function messengerFriendRequestBusyId(userId: string): string {
 
 export function isMessengerFriendRequestBusy(busyId: string | null, userId: string): boolean {
   return busyId === messengerFriendRequestBusyId(userId);
+}
+
+/**
+ * 친구 추가 검색 행·보낸 요청 목록의「요청 취소」.
+ * 전송 중(`friend:${addresseeId}`)에도 낙관적 취소가 가능해야 하므로 막지 않는다.
+ * 비활성: 동일 요청에 대한 취소 PATCH 진행 중(`request:${id}:cancel`)만.
+ */
+export function shouldDisableMessengerOutgoingFriendCancelButton(
+  busyId: string | null,
+  opts: { requestId: string; addresseeUserId?: string }
+): boolean {
+  if (!busyId) return false;
+  if (busyId === "user-search") return false;
+  const rid = String(opts.requestId ?? "").trim();
+  return Boolean(rid && busyId === `request:${rid}:cancel`);
+}
+
+/** 수락/거절 — 동일 request PATCH 진행 중일 때만 비활성(다른 행·검색 busy 와 무관) */
+export function shouldDisableMessengerIncomingFriendActionButtons(
+  busyId: string | null,
+  requestId: string
+): boolean {
+  if (!busyId) return false;
+  const rid = String(requestId ?? "").trim();
+  return Boolean(rid && busyId.startsWith(`request:${rid}:`));
+}
+
+const OPTIMISTIC_OUTGOING_PREFIX = "local:friend_request:";
+
+/** `local:friend_request:${viewerId}:${addresseeId}` — 취소 시 서버 id 확보 전에도 상대 UUID 를 알 수 있다. */
+export function parseOptimisticOutgoingFriendRequestId(
+  requestId: string
+): { viewerId: string; addresseeId: string } | null {
+  const id = trimId(requestId);
+  if (!id.startsWith(OPTIMISTIC_OUTGOING_PREFIX)) return null;
+  const rest = id.slice(OPTIMISTIC_OUTGOING_PREFIX.length);
+  const sep = rest.indexOf(":");
+  if (sep <= 0 || sep >= rest.length - 1) return null;
+  const viewerId = rest.slice(0, sep);
+  const addresseeId = rest.slice(sep + 1);
+  if (!viewerId || !addresseeId) return null;
+  return { viewerId, addresseeId };
+}
+
+export async function postCancelOutgoingCommunityMessengerFriendRequestApi(addresseeId: string): Promise<{
+  ok: boolean;
+  didCancel?: boolean;
+  error?: string;
+}> {
+  const target = trimId(addresseeId);
+  if (!target) return { ok: false, error: "bad_target" };
+  try {
+    const res = await fetch("/api/community-messenger/friend-requests/cancel-outgoing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addresseeId: target }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      didCancel?: boolean;
+      error?: string;
+    };
+    if (res.ok && json.ok) return { ok: true, didCancel: json.didCancel === true };
+    return { ok: false, error: typeof json.error === "string" ? json.error : undefined };
+  } catch {
+    return { ok: false, error: "network_error" };
+  }
 }
 
 /**

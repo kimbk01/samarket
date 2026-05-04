@@ -3936,6 +3936,46 @@ export async function respondCommunityMessengerFriendRequest(
   return directRoomId ? { ok: true, directRoomId } : { ok: true };
 }
 
+/**
+ * 낙관적 `local:friend_request:…` 구간에서도 취소할 수 있도록,
+ * `requester_id + addressee_id` 로 pending 행을 찾아 취소한다(행이 없으면 성공·`didCancel: false`).
+ */
+export async function cancelOutgoingCommunityMessengerFriendRequestByAddressee(
+  userId: string,
+  addresseeId: string
+): Promise<{ ok: boolean; error?: string; didCancel?: boolean }> {
+  const target = trimText(addresseeId);
+  if (!target || target === userId) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: row, error: selErr } = await (sb as any)
+      .from("community_friend_requests")
+      .select("id, requester_id, addressee_id, status")
+      .eq("requester_id", userId)
+      .eq("addressee_id", target)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (selErr && !isMissingTableError(selErr)) {
+      return { ok: false, error: String(selErr.message ?? "select_failed") };
+    }
+    if (!row) return { ok: true, didCancel: false };
+    const out = await respondCommunityMessengerFriendRequest(userId, String((row as RequestRow).id), "cancel");
+    return out.ok ? { ok: true, didCancel: true } : out;
+  }
+
+  const dev = getDevState();
+  const idx = dev.friendRequests.findIndex(
+    (r) => r.requester_id === userId && r.addressee_id === target && r.status === "pending"
+  );
+  if (idx < 0) return { ok: true, didCancel: false };
+  dev.friendRequests[idx] = {
+    ...dev.friendRequests[idx],
+    status: "cancelled",
+    responded_at: nowIso(),
+  };
+  return { ok: true, didCancel: true };
+}
+
 async function isFriend(userId: string, targetUserId: string): Promise<boolean> {
   const ids = await listAcceptedFriendIds(userId);
   return ids.includes(targetUserId);

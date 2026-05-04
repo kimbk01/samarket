@@ -7,14 +7,12 @@ import {
   recordMessengerBootstrapFullListRender,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
-import dynamic from "next/dynamic";
 import { useLayoutEffect, useRef } from "react";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type {
   CommunityMessengerBootstrap,
-  CommunityMessengerFriendRequest,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
@@ -27,14 +25,6 @@ import type {
   MessengerChatListContext,
   MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-
-const MessengerIncomingFriendRequestPopup = dynamic(
-  () =>
-    import("@/components/community-messenger/MessengerIncomingFriendRequestPopup").then(
-      (m) => m.MessengerIncomingFriendRequestPopup
-    ),
-  { ssr: false, loading: () => null }
-);
 
 type Props = {
   loading: boolean;
@@ -90,9 +80,6 @@ type Props = {
   openChatJoinedItems: UnifiedRoomListItem[];
   onOpenMeetingFindStable: () => void;
   incomingRequestCount: number;
-  incomingFriendRequestPopup: CommunityMessengerFriendRequest | null;
-  setIncomingFriendRequestPopup: (value: CommunityMessengerFriendRequest | null) => void;
-  respondRequest: (requestId: string, action: "accept" | "reject" | "cancel") => Promise<void>;
   pageError: string | null;
   loginRequiredText: string;
   retryText: string;
@@ -230,14 +217,6 @@ export function CommunityMessengerHomeListPane(props: Props) {
 
         {props.loading && !canRenderList ? <CommunityMessengerHomeShellSkeleton compact /> : null}
 
-        {props.incomingFriendRequestPopup ? (
-          <MessengerIncomingFriendRequestPopup
-            request={props.incomingFriendRequestPopup}
-            busyId={props.busyId}
-            onDismiss={() => props.setIncomingFriendRequestPopup(null)}
-            onRespond={(requestId, action) => void props.respondRequest(requestId, action)}
-          />
-        ) : null}
       </div>
 
       {props.actionError ? (
