@@ -31,6 +31,11 @@ export function syncNotificationSoundGateSnapshot(next: NotificationSoundGateSna
   gateSnapshot = next;
 }
 
+/** Realtime 콜백 등 Provider 바깥에서 현재 게이트 스냅샷 읽기 */
+export function getNotificationSoundGateSnapshot(): NotificationSoundGateSnapshot | null {
+  return gateSnapshot;
+}
+
 export function shouldPlayInAppSoundFromGate(
   snap: NotificationSoundGateSnapshot,
   domain: NotificationDomain,
@@ -77,6 +82,11 @@ export function shouldPlayGroupChatInAppSoundFromGate(
 export function routeNotificationInsertSound(row: Record<string, unknown>): boolean | void {
   const surface = gateSnapshot;
   if (!surface) return undefined;
+
+  /** `playIncomingFriendRequestInAppAlert` — `route` 와 이중 재생 방지 */
+  if ((row.meta as { kind?: string } | undefined)?.kind === "friend_request") {
+    return false;
+  }
 
   const domainRaw = row.domain;
   const refId = typeof row.ref_id === "string" ? row.ref_id : null;

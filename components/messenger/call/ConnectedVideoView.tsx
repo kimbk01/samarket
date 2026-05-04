@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Monitor } from "lucide-react";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
@@ -7,6 +8,8 @@ import { CallStatusText } from "./CallStatusText";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+
+const IDLE_HIDE_MS = 4200;
 
 export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const timer = useCallTimer({
@@ -17,11 +20,45 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
 
   const pipBindings = vm.videoPipLayout;
 
-  /**
-   * 원격 영상 전 풀블리드 로컬 레이어 위 상단 상태줄(텔레그램형).
-   * 수신은 `phase === "connecting"` 구간(수락 직후)까지 포함 — 가운데 `CallStatusText` 카드가 한 번 더 겹치지 않게 함.
-   * PiP(로컬 작은 타일)가 켜진 이원 레이아웃이면 솔로용 상단 브랜드줄을 쓰지 않음 — 원격 대기 중 이중 상단 문구 방지.
-   */
+  /** 통화 연결 후에만 자동 숨김 — 벨·연결 중에는 항상 표시 */
+  const autoHideControlsEnabled = vm.phase === "connected";
+
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const idleHideTimerRef = useRef<number | null>(null);
+
+  const clearIdleHideTimer = useCallback(() => {
+    if (idleHideTimerRef.current != null) {
+      clearTimeout(idleHideTimerRef.current);
+      idleHideTimerRef.current = null;
+    }
+  }, []);
+
+  const armIdleHideTimer = useCallback(() => {
+    clearIdleHideTimer();
+    if (!autoHideControlsEnabled) return;
+    const t = window.setTimeout(() => {
+      setControlsVisible(false);
+      idleHideTimerRef.current = null;
+    }, IDLE_HIDE_MS);
+    idleHideTimerRef.current = t;
+  }, [autoHideControlsEnabled, clearIdleHideTimer]);
+
+  useEffect(() => {
+    if (!autoHideControlsEnabled) {
+      clearIdleHideTimer();
+      setControlsVisible(true);
+      return;
+    }
+    setControlsVisible(true);
+    armIdleHideTimer();
+    return clearIdleHideTimer;
+  }, [autoHideControlsEnabled, vm.phase, armIdleHideTimer, clearIdleHideTimer]);
+
+  const revealControls = useCallback(() => {
+    setControlsVisible(true);
+    armIdleHideTimer();
+  }, [armIdleHideTimer]);
+
   const outgoingSoloVideoLayout =
     vm.mode === "video" &&
     !vm.showRemoteVideo &&
@@ -31,7 +68,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
-  /** 영상 수신 링·연결 직전: 하단 탭·홈 인디케이터와 겹침 방지 — 중하단 여유 */
   const liftIncomingRingingActions =
     vm.mode === "video" &&
     vm.direction === "incoming" &&
@@ -39,13 +75,20 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const actionBarPaddingBottom = liftIncomingRingingActions
     ? "pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+min(5.75rem,22dvh)))]"
     : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
-  const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-16";
+  const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-12";
+
+  const pipCornerExtra =
+    vm.showLocalVideo && pipBindings && !pipBindings.pipPixelStyle && autoHideControlsEnabled && !controlsVisible
+      ? "!bottom-5"
+      : "";
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
-      <div ref={pipBindings?.stageRef} className="relative min-h-0 flex-1">
-        {/* 비디오 레이어는 항상 뒤 — 로컬 풀프리뷰가 상태 문구를 덮지 않게 함 */}
-        <div className="absolute inset-0 z-0">{vm.mainVideoSlot}</div>
+    <div className="relative z-[2] min-h-0 w-full flex-1 overflow-hidden">
+      {/* 영상 전체 면 — 레이아웃 행으로 나뉘지 않고 뷰포트 높이만큼 채움 */}
+      <div ref={pipBindings?.stageRef} className="absolute inset-0 min-h-0">
+        <div className="absolute inset-0 z-0 min-h-full [&_video]:pointer-events-none [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover">
+          {vm.mainVideoSlot}
+        </div>
 
         {vm.showRemoteVideo ? (
           <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
@@ -93,7 +136,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {vm.showRemoteVideo ? (
-          <div className="absolute right-3 z-[4] top-[max(52px,calc(env(safe-area-inset-top)+40px))]">
+          <div className="absolute right-3 top-[max(52px,calc(env(safe-area-inset-top)+40px))] z-[8]">
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
@@ -126,12 +169,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 })()}
               </div>
             ) : null}
-            <CallStatusText
-              title={vm.peerLabel}
-              status={vm.statusText}
-              timer={timer}
-              detail={detailLine}
-            />
+            <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
           </div>
         ) : null}
         {vm.showLocalVideo && pipBindings ? (
@@ -141,6 +179,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             minimized
             useFreePosition={Boolean(pipBindings.pipPixelStyle)}
             style={pipBindings.pipPixelStyle ?? undefined}
+            className={pipCornerExtra}
             onPointerDown={pipBindings.onPipPointerDown}
             onPointerMove={pipBindings.onPipPointerMove}
             onPointerUp={pipBindings.onPipPointerUp}
@@ -149,7 +188,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             {vm.miniVideoSlot}
           </MiniLocalVideo>
         ) : vm.showLocalVideo ? (
-          <MiniLocalVideo label="나" minimized={vm.mediaState.localVideoMinimized}>
+          <MiniLocalVideo label="나" minimized={vm.mediaState.localVideoMinimized} className={pipCornerExtra}>
             {vm.miniVideoSlot}
           </MiniLocalVideo>
         ) : null}
@@ -158,17 +197,39 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             {vm.participantsSummary}
           </div>
         ) : null}
+
+        {/* 컨트롤 숨김 시 탭으로 복귀 — PiP(z-6)·헤더 버튼(z-8) 아래 레이어 */}
+        {autoHideControlsEnabled && !controlsVisible ? (
+          <button
+            type="button"
+            className="absolute inset-0 z-[5] bg-transparent"
+            aria-label="통화 버튼 표시"
+            onClick={() => revealControls()}
+          />
+        ) : null}
       </div>
 
-      <div
-        className={`relative z-[5] bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
-      >
-        <CallActionBar actions={vm.primaryActions} />
-        {vm.secondaryActions?.length ? (
-          <div className="mt-4">
-            <CallActionBar actions={vm.secondaryActions} compact />
+      {/* 하단 컨트롤 — 영상 위 오버레이 · 숨김 시 아래로 슬라이드(translate-y-full), 표시 시 아래에서 올라옴 */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] overflow-hidden">
+        <div
+          className={`transition-transform duration-300 ease-out will-change-transform ${
+            controlsVisible ? "pointer-events-auto translate-y-0" : "pointer-events-none translate-y-full"
+          }`}
+          onPointerDownCapture={() => {
+            if (autoHideControlsEnabled) armIdleHideTimer();
+          }}
+        >
+          <div
+            className={`bg-gradient-to-t from-black/95 via-black/55 to-transparent px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
+          >
+            <CallActionBar actions={vm.primaryActions} />
+            {vm.secondaryActions?.length ? (
+              <div className="mt-4">
+                <CallActionBar actions={vm.secondaryActions} compact />
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </div>
     </div>
   );

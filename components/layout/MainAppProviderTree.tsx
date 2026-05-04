@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -38,6 +39,14 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
+
+const GlobalIncomingFriendRequestHost = dynamic(
+  () =>
+    import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
+      (mod) => mod.GlobalIncomingFriendRequestHost
+    ),
+  { ssr: false }
+);
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
@@ -144,6 +153,7 @@ export function MainAppProviderTree({
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
+              <GlobalIncomingFriendRequestHost enabled />
               <MainShellMessengerParticipantBridge regionBarInLayout={true} />
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>

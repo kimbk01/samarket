@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 
 export type FriendRequestNotificationEvent =
   | {
@@ -53,6 +54,29 @@ function parseEvent(row: Record<string, unknown>): FriendRequestNotificationEven
   return null;
 }
 
+/** 알림 행 누락·지연 시에도 홈 `data.requests`·벨이 CFR INSERT 로 맞도록 */
+function parseIncomingFriendRequestRow(
+  row: Record<string, unknown>,
+  viewerUserId: string
+): FriendRequestNotificationEvent | null {
+  const id = trimString(row.id);
+  const status = trimString(row.status);
+  const requesterId = trimString(row.requester_id);
+  const addresseeId = trimString(row.addressee_id);
+  const createdAt =
+    typeof row.created_at === "string" && row.created_at.trim()
+      ? row.created_at
+      : new Date().toISOString();
+  if (!id || status !== "pending" || addresseeId !== viewerUserId || !requesterId) return null;
+  return {
+    kind: "friend_request",
+    requestId: id,
+    requesterUserId: requesterId,
+    requesterLabel: "",
+    createdAt,
+  };
+}
+
 export function useFriendRequestNotificationRealtime(
   userId: string | null,
   enabled: boolean,
@@ -67,33 +91,62 @@ export function useFriendRequestNotificationRealtime(
 
   useEffect(() => {
     if (!enabled || !userId) return;
+    seenRef.current.clear();
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    const channel = sb
-      .channel(`messenger:friend-requests-notif:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const row = (payload as { new?: Record<string, unknown> }).new ?? {};
-          const ev = parseEvent(row);
-          if (!ev) return;
-          const dedupeKey = `${ev.kind}:${ev.requestId}`;
-          if (seenRef.current.has(dedupeKey)) return;
-          seenRef.current.add(dedupeKey);
-          onEventRef.current(ev);
-        }
-      )
-      .subscribe();
+    let cancelled = false;
+
+    const emitDeduped = (ev: FriendRequestNotificationEvent) => {
+      const dedupeKey = `${ev.kind}:${ev.requestId}`;
+      if (seenRef.current.has(dedupeKey)) return;
+      seenRef.current.add(dedupeKey);
+      onEventRef.current(ev);
+    };
+
+    const sub = subscribeWithRetry({
+      sb,
+      name: `messenger:friend-requests-notif:${userId}`,
+      scope: `messenger:friend-requests-notif:${userId}`,
+      isCancelled: () => cancelled,
+      silentAfterMs: 18_000,
+      build: (channel) =>
+        channel
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+              const ev = parseEvent(row);
+              if (!ev) return;
+              emitDeduped(ev);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+              const ev = parseIncomingFriendRequestRow(row, userId);
+              if (!ev || ev.kind !== "friend_request") return;
+              emitDeduped(ev);
+            }
+          ),
+    });
 
     return () => {
-      void sb.removeChannel(channel);
+      cancelled = true;
+      sub.stop();
     };
   }, [enabled, userId]);
 }

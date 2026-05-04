@@ -5,8 +5,6 @@ import type { MessageNotificationBridgePlayback } from "@/lib/community-messenge
 export type MessagingGlobalChromePolicy = {
   /** `notifications` 테이블 Realtime — 메신저 참가자 브리지는 `MainShellMessengerParticipantBridge` 가 전역 단일로 담당 */
   mountNotificationsBadgeRealtimeBridge: boolean;
-  /** 수신 친구 요청 하단 팝업 — 메신저 홈 비마운트 경로에서도 동일 INSERT 로 표시 */
-  mountGlobalIncomingFriendRequestHost: boolean;
   mountGlobalOrderChatUnreadSound: boolean;
   communityMessengerParticipantPlayback: MessageNotificationBridgePlayback;
   mountNotificationSoundPrime: boolean;
@@ -35,13 +33,6 @@ export function resolveMessagingGlobalChromeFromPath(
   const mountMainShellNotificationsRealtime = !f.isCommunityMessengerCallPage;
 
   /**
-   * 수신 친구 요청 글로벌 팝업 — `notifications`·`community_friend_requests` Realtime.
-   * 통화 화면에서도 수신자에게 즉시 떠야 하므로 알림 벨 브리지와 분리해 항상 마운트한다.
-   * (벨/배지 부하는 `mountMainShellNotificationsRealtime` 가 통화 중에만 끈다.)
-   */
-  const mountGlobalIncomingFriendRequestHost = true;
-
-  /**
    * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
    * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`(인앱 사운드·배너·데스크톱 등).
    * - 방: `f.isCommunityMessengerRoom` → `hub_sync_only` — participants Realtime·`cm.room.bump`·배지 리싱크는 동일,
@@ -65,7 +56,6 @@ export function resolveMessagingGlobalChromeFromPath(
 
   const policy: MessagingGlobalChromePolicy = {
     mountNotificationsBadgeRealtimeBridge: mountMainShellNotificationsRealtime,
-    mountGlobalIncomingFriendRequestHost,
     mountGlobalOrderChatUnreadSound: f.mountGlobalRealtimeChrome,
     communityMessengerParticipantPlayback,
     mountNotificationSoundPrime: f.mountNotificationSoundPrime,

@@ -16,9 +16,8 @@ function rtStr(v: unknown): string {
 }
 
 /**
- * 전역(예: `/philife`)에서도 수신 친구 요청 하단 팝업.
- * 스토어는 `useIncomingFriendRequestPopup`(notifications + community_friend_requests) 및
- * `NotificationsBadgeRealtimeBridge` 의 동일 upsert 로 채워진다.
+ * `(main)` 전역 — 수신 친구 요청 하단 팝업.
+ * `useSupabaseNotificationsRealtime` 이 친구요청 알림 행을 스토어에 넣고, 이 훅은 CFR INSERT 만 보강한다.
  */
 export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -134,7 +133,7 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
 
   return createPortal(
     <div
-      className={`pointer-events-none fixed inset-x-0 z-[94] flex max-h-[min(46vh,380px)] flex-col-reverse gap-2 overflow-y-auto px-3 pb-1 pt-1 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
+      className={`pointer-events-none fixed inset-x-0 z-[118] flex max-h-[min(46vh,380px)] flex-col-reverse gap-2 overflow-y-auto px-3 pb-1 pt-1 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
       data-global-incoming-friend-request
     >
       {incomingList.map((req) => (

@@ -30,14 +30,6 @@ const MessengerInAppMessageBannerHost = dynamic(
     ),
   { ssr: false }
 );
-const GlobalIncomingFriendRequestHost = dynamic(
-  () =>
-    import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
-      (mod) => mod.GlobalIncomingFriendRequestHost
-    ),
-  { ssr: false }
-);
-
 /**
  * 알림 배지 Realtime·주문 허브 미읽음 사운드·인앱 배너·사운드 프라임.
  * 메신저 `community_messenger_participants` 구독은 `MainShellMessengerParticipantBridge`(전역 1개)가 담당.
@@ -60,7 +52,6 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
   if (
     !p.mountNotificationSoundPrime &&
     !p.mountNotificationsBadgeRealtimeBridge &&
-    !p.mountGlobalIncomingFriendRequestHost &&
     !p.mountGlobalOrderChatUnreadSound &&
     !p.mountMessengerInAppBannerHost
   ) {
@@ -71,7 +62,6 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     <>
       {p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
-      {p.mountGlobalIncomingFriendRequestHost ? <GlobalIncomingFriendRequestHost enabled /> : null}
       {p.mountGlobalOrderChatUnreadSound ? <GlobalOrderChatUnreadSound enabled /> : null}
       {p.mountMessengerInAppBannerHost ? <MessengerInAppMessageBannerHost /> : null}
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { playIncomingFriendRequestInAppAlert } from "@/lib/community-messenger/incoming-friend-request-inapp-alert";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
 function normalizeNotificationMeta(raw: unknown): Record<string, unknown> | null {
@@ -16,10 +17,7 @@ function normalizeNotificationMeta(raw: unknown): Record<string, unknown> | null
   return null;
 }
 
-/**
- * 앱 전역 `notifications` Realtime INSERT/UPDATE 의 `new` 레코드에서 호출.
- * `GlobalIncomingFriendRequestHost` 의 `community_friend_requests` 구독과 병행 가능(id 병합).
- */
+/** `useSupabaseNotificationsRealtime` 전용 — 친구요청(meta.kind) 행만 스토어 반영 */
 function coalesceStr(...vals: unknown[]): string {
   for (const v of vals) {
     if (v == null) continue;
@@ -44,7 +42,9 @@ export function upsertIncomingFriendRequestPopupFromNotificationInsertRow(row: R
   const requesterLabel = coalesceStr(meta.requester_label, (meta as { requesterLabel?: unknown }).requesterLabel);
   const createdAt = typeof row.created_at === "string" ? row.created_at : new Date().toISOString();
 
-  useIncomingFriendRequestPopupStore.getState().upsertIncoming({
+  const store = useIncomingFriendRequestPopupStore.getState();
+  const alreadyListed = store.incomingList.some((r) => r.id === requestId);
+  store.upsertIncoming({
     id: requestId,
     requesterId,
     requesterLabel: requesterLabel || "상대",
@@ -54,4 +54,5 @@ export function upsertIncomingFriendRequestPopupFromNotificationInsertRow(row: R
     direction: "incoming",
     createdAt,
   });
+  if (!alreadyListed) playIncomingFriendRequestInAppAlert(requestId);
 }
