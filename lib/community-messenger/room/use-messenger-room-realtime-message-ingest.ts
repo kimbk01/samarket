@@ -35,6 +35,11 @@ import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/n
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  cmReceiveLatencyKey,
+  cmReceiveLatencyMark,
+  cmReceiveLatencyNow,
+} from "@/lib/community-messenger/monitoring/cm-receive-latency";
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
@@ -123,6 +128,17 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
           cur = cur.filter((item) => item.id !== event.message.id);
         } else {
           const mapped = mapRealtimeRoomMessage(snap, roomMembersDisplayRef.current, event.message);
+          const ridForLatency = streamRoomId.trim();
+          const midForLatency = String(event.message.id ?? "").trim();
+          const createdAtForLatency = String(event.message.createdAt ?? "").trim();
+          const latencyKey = cmReceiveLatencyKey({ roomId: ridForLatency, messageId: midForLatency });
+          cmReceiveLatencyMark(latencyKey, {
+            realtime_event_received_ms: cmReceiveLatencyNow(),
+            realtime_payload_room_id: ridForLatency,
+            realtime_payload_message_id: midForLatency,
+            ...(createdAtForLatency ? { db_message_created_at: createdAtForLatency } : null),
+          });
+          cmReceiveLatencyMark(latencyKey, { receiver_store_apply_start_ms: cmReceiveLatencyNow() });
           applyIncomingMessageEvent({
             viewerUserId: snap.viewerUserId,
             roomId: streamRoomId.trim(),
@@ -138,6 +154,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               created_at: event.message.createdAt,
             },
           });
+          cmReceiveLatencyMark(latencyKey, { receiver_store_apply_done_ms: cmReceiveLatencyNow() });
           const isOwnInsert =
             event.eventType === "INSERT" &&
             Boolean(event.message.senderId) &&

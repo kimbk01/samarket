@@ -30,6 +30,11 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import {
+  cmReceiveLatencyKey,
+  cmReceiveLatencyMark,
+  cmReceiveLatencyNow,
+} from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
@@ -706,6 +711,12 @@ export function useMessengerRoomPhase2Controller() {
       const trimmed = content.trim();
       if (!trimmed || !snapshot) return;
       const clientMessageId = createCommunityMessengerClientMessageId();
+      const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
+      cmReceiveLatencyMark(latencyKey, {
+        sender_click_ms: cmReceiveLatencyNow(),
+        realtime_payload_room_id: streamRoomId,
+        realtime_payload_message_id: "",
+      });
       const tempId = `pending:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const rid = (replyToMessageId ?? "").trim();
       const replySnap =
@@ -738,6 +749,7 @@ export function useMessengerRoomPhase2Controller() {
       scrollMessengerToBottom();
       setBusy("send");
       try {
+        cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
         const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
         const replyId = rid;
         const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
@@ -749,11 +761,14 @@ export function useMessengerRoomPhase2Controller() {
             ...(replyId ? { replyToMessageId: replyId } : {}),
           }),
         });
+        cmReceiveLatencyMark(latencyKey, { send_api_done_ms: cmReceiveLatencyNow() });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
           message?: CommunityMessengerMessage;
         };
+        const createdAt = typeof json.message?.createdAt === "string" ? json.message.createdAt : "";
+        if (createdAt) cmReceiveLatencyMark(latencyKey, { db_message_created_at: createdAt });
         if (res.ok && json.ok) {
           const elapsed =
             typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);

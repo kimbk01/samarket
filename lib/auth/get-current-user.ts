@@ -66,10 +66,10 @@ export async function getCurrentUserIdForDb(): Promise<string | null> {
         resolvedUserId = user.id;
       }
     }
-    currentUserIdCache = {
-      userId: resolvedUserId,
-      expiresAt: Date.now() + CURRENT_USER_ID_CACHE_TTL_MS,
-    };
+    /** 세션 복원 레이스에서 첫 `getUser()` 가 빈 값이면 null 을 15초 캐시하면 INITIAL_SESSION 이후에도 ID가 영구히 안 붙을 수 있다 — 성공 시만 캐시한다. */
+    currentUserIdCache = resolvedUserId
+      ? { userId: resolvedUserId, expiresAt: Date.now() + CURRENT_USER_ID_CACHE_TTL_MS }
+      : null;
     return resolvedUserId;
   })().finally(() => {
     currentUserIdPromise = null;

@@ -193,6 +193,26 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     productTitle: tradeRowModel?.productTitle ?? "",
     productPriceText: tradeRowModel?.productPriceText,
   });
+  /**
+   * `unreadByRoomId`는 participant/mark_read/INSERT 경로에서 즉시 갱신된다.
+   * 부트스트랩 `room.unreadCount`는 home-sync·병합이 늦으면 남고, `Math.max(부트스트랩, 스토어)`는 **읽음(0) 후에도 큰 숫자가 남는** 버그가 된다.
+   * 키가 있으면 스토어를 단일 표시 소스로 쓴다.
+   */
+  const liveUnreadFromRealtimeStore = useMessengerRealtimeStore((s) => {
+    if (!Object.prototype.hasOwnProperty.call(s.unreadByRoomId, room.id)) return undefined;
+    const raw = s.unreadByRoomId[room.id];
+    return typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  });
+  const liveUnreadFromSummary = useMessengerRealtimeStore((s) => {
+    const summaryUnread = s.roomSummariesById[room.id]?.unreadCount;
+    return typeof summaryUnread === "number" && Number.isFinite(summaryUnread)
+      ? Math.max(0, Math.floor(summaryUnread))
+      : undefined;
+  });
+  const displayedUnreadCount =
+    liveUnreadFromRealtimeStore !== undefined
+      ? liveUnreadFromRealtimeStore
+      : Math.max(room.unreadCount, liveUnreadFromSummary ?? 0);
   const lastClientMessage = useMessengerRealtimeStore((s) => {
     if (!isTradeChatListVisual) return null;
     const arr = s.messagesByRoomId[room.id];
@@ -520,10 +540,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const swipeActionDisabled = useCallback(
     (kind: MessengerSwipeActionKind) => {
       if (kind === "archive") return archiveBusy;
-      if (kind === "read") return readBusy || room.unreadCount <= 0;
+      if (kind === "read") return readBusy || displayedUnreadCount <= 0;
       return leaveBusy;
     },
-    [archiveBusy, leaveBusy, readBusy, room.unreadCount]
+    [archiveBusy, displayedUnreadCount, leaveBusy, readBusy]
   );
 
   const avatarBlock =
@@ -564,9 +584,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               <MuteIcon />
             </span>
           ) : null}
-          {room.unreadCount > 0 ? (
+          {displayedUnreadCount > 0 ? (
             <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white">
-              {room.unreadCount > 999 ? "999+" : room.unreadCount}
+              {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
             </span>
           ) : null}
         </div>
@@ -595,7 +615,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         productPriceText={tradeListPreview.displayPriceText}
         previewLine={tradePreviewLine}
         listingOwnerLine={tradeRowModel.listingOwnerLine}
-        unread={room.unreadCount > 0}
+        unread={displayedUnreadCount > 0}
       />
     ) : (
       <MessengerListRow className={rowSurfaceClass} avatar={avatarBlock} trailing={trailingBlock}>
@@ -660,8 +680,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
           <p
-            className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${room.unreadCount > 0 ? "font-medium" : ""}`}
-            style={{ color: room.unreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+            className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${displayedUnreadCount > 0 ? "font-medium" : ""}`}
+            style={{
+              color: displayedUnreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)",
+            }}
           >
             {item.preview}
           </p>

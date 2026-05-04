@@ -31,6 +31,11 @@ import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesce
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import {
+  cmReceiveLatencyKey,
+  cmReceiveLatencyMark,
+  cmReceiveLatencyNow,
+} from "@/lib/community-messenger/monitoring/cm-receive-latency";
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -138,15 +143,26 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   const roomNorm = roomRaw.toLowerCase();
   const sender = typeof row.sender_id === "string" ? row.sender_id.trim() : "";
   const messageId = typeof row.id === "string" ? row.id.trim() : "";
+  const createdAt = typeof row.created_at === "string" ? row.created_at.trim() : "";
   const viewer = args.viewerUserId.trim();
   if (!roomNorm || !viewer) return;
   if (sender && sender === viewer) return;
 
+  const latencyKey = cmReceiveLatencyKey({ roomId: roomRaw, messageId });
+  cmReceiveLatencyMark(latencyKey, {
+    realtime_event_received_ms: cmReceiveLatencyNow(),
+    realtime_payload_room_id: roomRaw,
+    realtime_payload_message_id: messageId,
+    ...(createdAt ? { db_message_created_at: createdAt } : null),
+  });
+
+  cmReceiveLatencyMark(latencyKey, { receiver_store_apply_start_ms: cmReceiveLatencyNow() });
   applyIncomingMessageEvent({
     viewerUserId: viewer,
     roomId: roomRaw,
     messageRow: row,
   });
+  cmReceiveLatencyMark(latencyKey, { receiver_store_apply_done_ms: cmReceiveLatencyNow() });
   postCommunityMessengerBusEvent({
     type: "cm.room.incoming_message",
     roomId: roomRaw,

@@ -30,6 +30,11 @@ import {
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { applyRoomSummaryPatched } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import {
+  cmReceiveLatencyKey,
+  cmReceiveLatencyMark,
+  cmReceiveLatencyNow,
+} from "@/lib/community-messenger/monitoring/cm-receive-latency";
 
 /** `full`: 사운드·배너·데스크톱 알림. `hub_sync_only`: participants Realtime + 허브/뱃지/room bump 만(비메신저 표면). */
 export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
@@ -117,7 +122,9 @@ export function useMessageNotificationBridge(
     syncUser();
     const sb = getSupabaseClient();
     const authSub = sb?.auth.onAuthStateChange((event) => {
-      if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
+      // INITIAL_SESSION 직후에야 세션이 붙는 레이스에서, 첫 syncUser 가 null 이면 구독 effect 가 영구 미실행될 수 있다.
+      // TOKEN_REFRESHED 는 동일 user id 가정으로 중복 getUser 왕복만 줄인다.
+      if (event === "TOKEN_REFRESHED") return;
       syncUser();
     });
     return () => {
@@ -162,10 +169,23 @@ export function useMessageNotificationBridge(
           const nextUnread = getUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
           const prevUnread = getUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
           if (!nextRoomId) return;
+          const key = cmReceiveLatencyKey({ roomId: nextRoomId, messageId: null });
+          cmReceiveLatencyMark(key, {
+            realtime_event_received_ms: cmReceiveLatencyNow(),
+            realtime_payload_room_id: nextRoomId,
+            realtime_payload_message_id: "",
+            receiver_store_apply_start_ms: cmReceiveLatencyNow(),
+          });
           applyRoomSummaryPatched({
             viewerUserId: userId,
             roomId: nextRoomId,
             unreadCount: nextUnread,
+          });
+          cmReceiveLatencyMark(key, {
+            receiver_store_apply_done_ms: cmReceiveLatencyNow(),
+            unread_delta_applied_ms: cmReceiveLatencyNow(),
+            bottom_badge_updated_ms: cmReceiveLatencyNow(),
+            room_list_row_updated_ms: cmReceiveLatencyNow(),
           });
           postCommunityMessengerBusEvent({
             type: "cm.room.summary_patch",
@@ -238,6 +258,7 @@ export function useMessageNotificationBridge(
             ? useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(nextRoomId)
             : null;
 
+          cmReceiveLatencyMark(key, { notification_decision_ms: cmReceiveLatencyNow() });
           const { playInAppMessageSound, showAppLevelBanner, dedupeKey } =
             resolveParticipantUnreadDeltaInAppEffects({
               targetRoomId: nextRoomId,
@@ -255,6 +276,7 @@ export function useMessageNotificationBridge(
             playInAppMessageSound &&
             !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current);
           if (dedupeKey && allowSound) {
+            cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
             playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
           }
           if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
@@ -265,6 +287,7 @@ export function useMessageNotificationBridge(
               dedupeKey,
             });
           }
+          cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
           tryShowMessengerWebDesktopNotification({
             roomId: nextRoomId,
             title: "메신저",

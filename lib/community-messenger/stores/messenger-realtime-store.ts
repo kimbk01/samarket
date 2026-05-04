@@ -11,6 +11,12 @@ import type {
 } from "@/lib/community-messenger/types";
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
+  cmReceiveLatencyKey,
+  cmReceiveLatencyMark,
+  cmReceiveLatencyNow,
+} from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import {
   mergeMessageIntoRoomSnapshotCache,
   patchRoomReadStateInSnapshotCache,
@@ -75,14 +81,16 @@ function normalizeRoomId(roomId: string | null | undefined): string {
   return String(roomId ?? "").trim();
 }
 
-/**
- * 동일 방 실시간 수신 시 “안 읽은 처리” 분기용 — 탭만 보이면 충분.
- * `document.hasFocus()` 는 다른 브라우저 창·DevTools 포커스에서 거짓이라, 포커스만 다른 채 같은 방을 보고 있어도
- * unread 증가·읽음 PATCH 가 어긋날 수 있다 (`mark_read` 이펙트는 포커스를 쓰지 않음).
- */
-function activeRoomTabForeground(): boolean {
+function currentDocumentVisibleAndFocused(): boolean {
   if (typeof document === "undefined") return true;
-  return document.visibilityState === "visible";
+  if (document.visibilityState !== "visible") return false;
+  return typeof document.hasFocus !== "function" || document.hasFocus();
+}
+
+function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null): boolean {
+  if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;
+  const position = useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(roomId);
+  return position === "at-bottom" || position === "near-bottom";
 }
 
 function sortRoomOrder(roomSummariesById: Record<string, CommunityMessengerRoomSummary>): string[] {
@@ -335,6 +343,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     if (!rid) return;
     const viewerFromInput = input.viewerUserId?.trim() || null;
     set((state) => {
+      const tApply0 = cmReceiveLatencyNow();
       const viewer = viewerFromInput || state.viewerUserId;
       const currentSummary = input.roomSummary ?? state.roomSummariesById[rid] ?? null;
       const explicitMessage = input.message ?? null;
@@ -353,8 +362,8 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         explicitMessage?.senderId ??
         (typeof input.messageRow?.sender_id === "string" ? input.messageRow.sender_id.trim() : null);
       const isMine = Boolean(viewer && senderId && messengerUserIdsEqual(senderId, viewer));
-      const sameRoomVisible = state.activeRoomId === rid && activeRoomTabForeground();
-      const shouldIncrementUnread = !duplicate && !isMine && !sameRoomVisible;
+      const sameRoomReadable = activeRoomActuallyReadable(rid, state.activeRoomId);
+      const shouldIncrementUnread = !duplicate && !isMine && !sameRoomReadable;
       const baseUnread = Math.max(
         0,
         Number(currentSummary?.unreadCount ?? state.unreadByRoomId[rid] ?? 0) || 0
@@ -408,6 +417,17 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       }
       applyCommunityMessengerUnreadOptimistic(totalUnread);
 
+      const messageIdForLatency = incomingMessageId || "";
+      const latencyKey = cmReceiveLatencyKey({ roomId: rid, messageId: messageIdForLatency || null });
+      const tApply1 = cmReceiveLatencyNow();
+      cmReceiveLatencyMark(latencyKey, {
+        receiver_store_apply_start_ms: tApply0,
+        receiver_store_apply_done_ms: tApply1,
+        unread_delta_applied_ms: tApply1,
+        bottom_badge_updated_ms: tApply1,
+        ...(patchedSummary ? { room_list_row_updated_ms: tApply1 } : null),
+      });
+
       return {
         viewerUserId: viewer,
         roomSummariesById,
@@ -415,10 +435,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         messagesByRoomId,
         unreadByRoomId,
         totalUnread,
-        lastReadByRoomId:
-          sameRoomVisible && incomingMessageId
-            ? { ...state.lastReadByRoomId, [rid]: incomingMessageId }
-            : state.lastReadByRoomId,
+        lastReadByRoomId: state.lastReadByRoomId,
       };
     });
   },

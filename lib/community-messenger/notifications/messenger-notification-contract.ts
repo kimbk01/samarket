@@ -19,9 +19,8 @@
  * ---------------------------------------------------------------------------
  * 인앱 알림음 (`playCoalescedChatNotificationSound`)
  * ---------------------------------------------------------------------------
- * - 동일 방 + 포그라운드 + 창 포커스: **INSERT 경로 낙관 bump·즉시 톤 생략** (`notifyMessengerHomeRealtimeMessageInsert`).
- * - 동일 방 + 탭 포그라운드 + 최신 말풍선 가시(또는 하단 고정·DOM 지연): **즉시 mark_read** (`useMessengerRoomOpenMarkReadEffect`) — `document.hasFocus()` 미사용(모바일).
- * - 동일 방 + 포그라운드 + 포커스 + 스크롤 위: **무음** (방 UI “새 메시지 n개”·participant 톤 정책은 `resolveParticipantUnreadDeltaInAppEffects` + reader store).
+ * - 동일 방 + 포그라운드 + 창 포커스 + 하단/최신 말풍선 가시: `useMessengerRoomOpenMarkReadEffect` 가 300~500ms dwell 뒤 `mark_read`.
+ * - 동일 방 + 포그라운드 + 포커스 + 스크롤 위: unread 유지, 즉시 `mark_read` 금지 (방 UI “새 메시지 n개”·participant 톤 정책은 `resolveParticipantUnreadDeltaInAppEffects` + reader store).
  * - 동일 방 + 포그라운드 + **창 blur**: **톤 허용** (탭은 메신저이나 다른 창을 보는 경우).
  * - 백그라운드: **톤 허용** (뮤트·알림 설정 제외).
  * - 그 외 화면/다른 방: **톤 + 앱 레벨 배너**(rollout 시).
@@ -37,7 +36,7 @@
  * ---------------------------------------------------------------------------
  * 읽음 (`mark_read`)
  * ---------------------------------------------------------------------------
- * - 방 진입 즉시 읽음: `use-messenger-room-open-mark-read-effect` — 가시성 + **창 포커스** + 스티키 하단(동일 방 실시간 수신으로 `unreadCount` 가 0이어도 최신 말풍선이 바뀌면 `mark_read` 로 읽음 커서 진행).
+ * - 방 진입 자체는 읽음이 아니다. 가시성 + **창 포커스** + 메시지 DOM + 하단/최신 말풍선 가시 조건이 충족될 때만 `mark_read` 로 읽음 커서 진행.
  * - 데스크톱 알림 클릭: 방 이동만 수행. 읽음 해제는 방 안에서 가시 조건을 충족한 `useMessengerRoomOpenMarkReadEffect` 만 담당.
  *
  * @see messenger-message-notification-policy.ts
