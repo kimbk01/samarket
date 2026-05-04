@@ -9,7 +9,7 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useLayoutEffect, useRef } from "react";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
-import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
+import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type {
   CommunityMessengerBootstrap,
@@ -91,6 +91,7 @@ type Props = {
   pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   /** 인박스 진입 시점의 `?from=...` — 묶음 행이 서브 라우트로 진입할 때 보존. */
   entryOriginQuery?: string | null;
+  chatListVisual?: MessengerChatListVisual;
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
@@ -208,6 +209,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               incomingRequestCount={props.incomingRequestCount}
               pillarSummaries={props.pillarSummaries ?? null}
               entryOriginQuery={props.entryOriginQuery ?? null}
+              chatListVisual={props.chatListVisual ?? "default"}
             />
           </div>
         ) : null}

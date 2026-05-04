@@ -2,7 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import { memo, useMemo } from "react";
-import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
+import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
@@ -82,6 +82,8 @@ type Props = {
   pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   /** 인박스로 들어올 때 받은 `?from=...` — 묶음 행이 서브 라우트로 보낼 때 보존. */
   entryOriginQuery?: string | null;
+  /** 거래 서브라우트(`/trade-chats`) — `listVisual="trade"` */
+  chatListVisual?: MessengerChatListVisual;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -135,6 +137,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   incomingRequestCount,
   pillarSummaries = null,
   entryOriginQuery = null,
+  chatListVisual = "default",
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
   const swipeTabs = useMemo(
@@ -223,6 +226,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onListScrollStart={onListScrollStart}
             pillarSummaries={pillarSummaries}
             entryOriginQuery={entryOriginQuery}
+            chatListVisual={chatListVisual}
           />
         ) : null}
 

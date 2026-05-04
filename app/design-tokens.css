@@ -269,6 +269,11 @@
   --messenger-badge-trade-bg: var(--sam-success-soft);
   --messenger-badge-delivery-bg: var(--sam-warning-soft);
   --messenger-badge-openchat-bg: var(--sam-info-soft);
+  /* 거래: 목록 행 + 방 배경 틴트(판매 녹 / 구매 청) */
+  --messenger-trade-room-seller-page-bg: color-mix(in srgb, var(--sam-success) 8%, var(--messenger-bg));
+  --messenger-trade-room-buyer-page-bg: color-mix(in srgb, var(--sam-info) 9%, var(--messenger-bg));
+  --messenger-trade-list-seller-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-bg));
+  --messenger-trade-list-buyer-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-bg));
 }
 
 [data-cm-room] {
@@ -285,6 +290,16 @@
   --cm-room-bubble-outgoing: color-mix(in srgb, var(--sam-primary) 22%, var(--messenger-surface-muted));
   --cm-room-radius-bubble: 18px;
   --cm-room-radius-input: var(--sam-radius-sm);
+}
+
+[data-cm-room][data-trade-viewer-role="seller"] {
+  --cm-room-page-bg: var(--messenger-trade-room-seller-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-success) 6%, var(--messenger-surface));
+}
+
+[data-cm-room][data-trade-viewer-role="buyer"] {
+  --cm-room-page-bg: var(--messenger-trade-room-buyer-page-bg);
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-surface));
 }
 
 /**

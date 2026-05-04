@@ -8,12 +8,17 @@ import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/ty
 
 export function communityMessengerRoomIsTrade(room: CommunityMessengerRoomSummary): boolean {
   if (room.contextMeta?.kind === "trade") return true;
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return true;
   const title = `${room.title} ${room.summary} ${room.subtitle}`.toLowerCase();
   return title.includes("거래");
 }
 
 export function communityMessengerRoomIsDelivery(room: CommunityMessengerRoomSummary): boolean {
   if (room.contextMeta?.kind === "delivery") return true;
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
+  if (dk.startsWith("trade_order:")) return true;
   const title = `${room.title} ${room.summary} ${room.subtitle}`.toLowerCase();
   return title.includes("배달") || title.includes("주문");
 }

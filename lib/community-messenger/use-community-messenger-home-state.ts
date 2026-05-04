@@ -77,13 +77,21 @@ function summarizePillarItems(items: UnifiedRoomListItem[]): MessengerPillarSumm
   return { lastItem, unreadTotal, count: items.length };
 }
 
+/** 거래 방만 — 서버가 enrich 후 `thumbnailUrl`이 채워지면 정렬 캐시 키도 바뀌어야 한다(아니면 예전 Room 객체가 고착). */
+function messengerRoomTradeThumbKeyPart(room: CommunityMessengerRoomSummary): string {
+  const m = room.contextMeta;
+  if (m?.kind !== "trade") return "";
+  const u = m.thumbnailUrl;
+  return typeof u === "string" ? u : "";
+}
+
 /** `sortRooms` 비교에 쓰이는 필드만 — 동일 내용이면 정렬·카운터 재실행 생략 */
 function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
   if (rooms.length === 0) return "";
   return rooms
     .map(
       (r) =>
-        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}`
+        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}`
     )
     .join("\n");
 }
@@ -120,7 +128,7 @@ function visibleChatListInputKey(
     const rowSig = items
       .map(
         (i) =>
-          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
+          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
       )
       .join("\n");
     return `${items.length}|${inbox}|${kind}|${k}|${rowSig}`;
@@ -137,6 +145,7 @@ function visibleChatListInputKey(
         r.isPinned ? 1 : 0,
         r.roomType,
         r.contextMeta?.kind ?? "",
+        messengerRoomTradeThumbKeyPart(r),
         r.title,
         r.subtitle,
         r.summary,
@@ -460,6 +469,7 @@ export function formatConversationTimestamp(value: string): string {
 
 function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
   return (
+    messengerRoomTradeThumbKeyPart(a.room) === messengerRoomTradeThumbKeyPart(b.room) &&
     a.room === b.room &&
     a.preview === b.preview &&
     a.previewKind === b.previewKind &&

@@ -11,6 +11,7 @@ import {
   prefetchTradeChatEntry,
 } from "@/lib/chats/trade-chat-entry-navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
+import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
 
 interface ChatButtonProps {
   productId: string;
@@ -19,6 +20,8 @@ interface ChatButtonProps {
   existingRoomSource?: ChatRoomSource | null;
   /** 메신저 방 UUID — URL·prefetch 에만 사용, 부트스트랩은 `existingRoomId` */
   existingMessengerRoomId?: string | null;
+  /** 신규 채팅 진입 시 compose 즉시 표시용 — 없으면 compose 가 플레이스홀더 shell 만 표시 */
+  composePreview?: TradeChatComposePreviewFields;
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -34,6 +37,7 @@ export function ChatButton({
   existingRoomId,
   existingRoomSource,
   existingMessengerRoomId,
+  composePreview,
   disabled,
   className,
   children,
@@ -71,7 +75,7 @@ export function ChatButton({
         });
         return;
       }
-      openCreateTradeChat(router, { productId });
+      openCreateTradeChat(router, { productId, composePreview });
     })();
   };
 

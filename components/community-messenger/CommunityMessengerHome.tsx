@@ -68,6 +68,7 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
+import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
@@ -233,6 +234,12 @@ export function CommunityMessengerHome({
     homeRealtimeGateOpen,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
+  useTradeChatListMetaHydration({
+    enabled: pillar === "trade" && Boolean(data?.me?.id),
+    viewerUserId: data?.me?.id ?? null,
+    chats: data?.chats,
+    setData,
+  });
   useCommunityMessengerPresenceRuntime(data?.me?.id ?? null);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
@@ -366,7 +373,7 @@ export function CommunityMessengerHome({
       setMainSection,
       setChatInboxFilter,
       setChatKindFilter,
-      pillar,
+      pathname,
       messengerEntryOrigin: searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
     });
   const [actionError, setActionError] = useState<string | null>(null);
@@ -2382,6 +2389,7 @@ export function CommunityMessengerHome({
         onRetry={() => void refresh()}
         pillarSummaries={inboxPillarSummaries}
         entryOriginQuery={entryOriginQuery}
+        chatListVisual={pillar === "trade" ? "trade" : "default"}
       />
 
       <CommunityMessengerHomeBottomNav value={mainSection} onSelect={onPrimarySectionChange} />

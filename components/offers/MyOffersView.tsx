@@ -154,7 +154,17 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
                 {mode === "sent" && offer.status === "accepted" ? (
                   <button
                     type="button"
-                    onClick={() => openCreateTradeChat(router, { productId: offer.productId })}
+                    onClick={() =>
+                      openCreateTradeChat(router, {
+                        productId: offer.productId,
+                        composePreview: {
+                          productTitle: offer.productTitle.trim() || "상품",
+                          productThumbnail: offer.productThumbnailUrl?.trim() ?? "",
+                          priceText: formatPrice(offer.originalPrice, currency),
+                          sellerName: offer.sellerNickname?.trim() || "판매자",
+                        },
+                      })
+                    }
                     className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white"
                   >
                     채팅 이어가기

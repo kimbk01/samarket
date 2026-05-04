@@ -8,12 +8,12 @@ import { isMessengerDegradeMode } from "@/lib/community-messenger/degrade-mode";
 
 const MAX_QUEUE = 120;
 /** 리스트 진입 시 상단 N개 방을 큐에 넣어 MISS 를 줄인다 — 무제한 금지 */
-export const MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT = 20;
+export const MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT = 28;
 /**
- * `requestIdleCallback` 타임아웃 — 800~1000ms 대역 (과거 1600ms 급 지연 방지).
- * 네트워크 과부하 완화를 위해 idle 배치만 사용하고 동시 실행은 `MAX_CONCURRENCY` 로 제한.
+ * `requestIdleCallback` 타임아웃 — 너무 길면 첫 가시 행 프리패치·리스트 시드가 늦게 돌아가 방 탭이 “늦게 워밍”됨.
+ * 900ms → 400ms: idle 이 오래 안 와도 프리패치가 더 빨리 시작되도록(여전히 idle 스케줄·동시 2개 제한).
  */
-export const MESSENGER_ROOM_PREFETCH_IDLE_TIMEOUT_MS = 900;
+export const MESSENGER_ROOM_PREFETCH_IDLE_TIMEOUT_MS = 400;
 /** 동시에 실행되는 `prefetchCommunityMessengerRoomSnapshot` 최대 개수 — 초과 시 큐 대기 */
 export const MESSENGER_ROOM_PREFETCH_MAX_CONCURRENCY = 2;
 const MAX_CONCURRENCY = MESSENGER_ROOM_PREFETCH_MAX_CONCURRENCY;

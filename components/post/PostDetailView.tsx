@@ -1286,11 +1286,30 @@ export function PostDetailView({
       setChatError("다른 분과 예약이 진행 중인 상품입니다. 예약자가 아니면 새 채팅을 열 수 없어요.");
       return;
     }
-    openCreateTradeChat(router, { productId: post.id });
+    const thumbs = resolveTradePostDetailImageUrls(post);
+    const productThumbnail = thumbs[0] ?? "";
+    const productTitle = (post.title ?? "상품").trim();
+    const priceText = post.is_free_share
+      ? "무료나눔"
+      : post.price != null
+        ? formatPrice(post.price, defaultCurrency)
+        : "가격 문의";
+    const sellerName = author?.nickname?.trim() || "판매자";
+    openCreateTradeChat(router, {
+      productId: post.id,
+      composePreview: {
+        productTitle,
+        productThumbnail,
+        priceText,
+        sellerName,
+      },
+    });
   }, [
     post,
     post.id,
     router,
+    author,
+    defaultCurrency,
     existingTradeRoomId,
     existingTradeRoomSource,
     existingTradeMessengerId,

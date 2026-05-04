@@ -19,6 +19,7 @@ import {
 } from "@/lib/chats/trade-chat-room-resolved-event";
 import type { FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
 import { getAppSettings } from "@/lib/app-settings";
+import { formatPrice } from "@/lib/utils/format";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 
@@ -229,10 +230,37 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       setChatError("거래가 완료된 상품은 새 채팅을 열 수 없습니다.");
       return;
     }
-    openCreateTradeChat(router, { productId: post.id });
+    const defaultCurrency = getAppSettings().defaultCurrency || "KRW";
+    const imgArr = Array.isArray(post.images)
+      ? post.images.filter((s): s is string => typeof s === "string")
+      : [];
+    const productThumbnail =
+      typeof post.thumbnail_url === "string" && post.thumbnail_url.trim()
+        ? post.thumbnail_url.trim()
+        : imgArr[0] ?? "";
+    const productTitle = (post.title ?? "상품").trim();
+    const priceText = post.is_free_share
+      ? "무료나눔"
+      : post.price != null
+        ? formatPrice(post.price, defaultCurrency)
+        : "가격 문의";
+    const sellerName =
+      typeof post.author_nickname === "string" && post.author_nickname.trim()
+        ? post.author_nickname.trim()
+        : "판매자";
+    openCreateTradeChat(router, {
+      productId: post.id,
+      composePreview: {
+        productTitle,
+        productThumbnail,
+        priceText,
+        sellerName,
+      },
+    });
     })();
   }, [
     router,
+    post,
     post.id,
     post.type,
     existingRoomId,

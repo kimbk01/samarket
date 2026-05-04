@@ -61,6 +61,8 @@
 
 [`CommunityMessengerRoomClient`](../components/community-messenger/CommunityMessengerRoomClient.tsx)는 `roomReadyForRealtime`로 **HTTP 부트스트랩 성공 후** Realtime을 켠다. 별도 공통 훅으로 흡수하지 않아도 **동일 패턴**을 만족한다.
 
+**거래 채팅 목록 전용 계약**(`/community-messenger/trade-chats`, 썸네일·메타·폴백 순서): [community-messenger-trade-chat-list.md](./community-messenger-trade-chat-list.md).
+
 ---
 
 ## 6. 그룹 채팅 (100+ 멤버)

@@ -147,6 +147,11 @@ export type CommunityMessengerRoomSummary = {
   myIdentityMode?: CommunityMessengerIdentityMode;
   peerUserId?: string | null;
   /**
+   * `community_messenger_rooms.direct_key` — 거래 스레드(`trade_pc:`·`trade_item:`)·주문(`trade_order:`) 등
+   * 목록 pillar 분류에 사용(`summary` JSON 파싱 실패 시에도 동일 키로 거래 탭에 포함).
+   */
+  messengerDirectKey?: string | null;
+  /**
    * `community_messenger_participants.is_archived` — 내 목록에서만 숨김(보관함).
    * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
    */

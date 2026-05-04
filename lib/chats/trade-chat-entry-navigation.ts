@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * 거래 채팅 라우팅 계약 — 재발 방지
  *
@@ -15,6 +17,9 @@ import {
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
+import { setTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
 
 export type TradeChatRouterLike = {
   push: (href: string) => void;
@@ -43,6 +48,9 @@ export function openExistingTradeChat(
     sourceHint: input.sourceHint ?? null,
   });
   warmChatRoomEntryById(roomId, input.sourceHint ?? null);
+  if (input.messengerRoomId?.trim()) {
+    void prefetchCommunityMessengerRoomSnapshot(input.messengerRoomId.trim());
+  }
   router.push(tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null));
 }
 
@@ -54,10 +62,15 @@ export function openCreateTradeChat(
   router: TradeChatRouterLike,
   input: {
     productId: string;
+    /** 상세 등에서 넘기면 compose 에서 즉시 상품 shell 표시 */
+    composePreview?: TradeChatComposePreviewFields;
   }
 ): void {
   const productId = input.productId.trim();
   if (!productId) return;
+  if (input.composePreview) {
+    setTradeChatComposePreview(productId, input.composePreview);
+  }
   startTradeChatEntryMark({ mode: "create", productId });
   const composeHref = tradeHubChatComposeHref({ productId });
   void router.prefetch(composeHref);
@@ -87,6 +100,8 @@ export function prefetchTradeChatEntry(
     const navRoomId = input.existingMessengerRoomId?.trim() || existingRoomId;
     void router.prefetch(tradeHubChatRoomHref(navRoomId, input.existingRoomSource ?? null));
     warmChatRoomEntryById(existingRoomId, input.existingRoomSource ?? null);
+    const cmPrefetch = input.existingMessengerRoomId?.trim();
+    if (cmPrefetch) void prefetchCommunityMessengerRoomSnapshot(cmPrefetch);
     return;
   }
 

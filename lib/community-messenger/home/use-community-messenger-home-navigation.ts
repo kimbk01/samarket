@@ -2,11 +2,8 @@
 
 import { useCallback } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import {
-  communityMessengerRoomHref,
-  type MessengerRoomListSource,
-} from "@/lib/community-messenger/messenger-entry-origin";
-import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
+import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import { messengerRoomListSourceFromPathname } from "@/lib/community-messenger/messenger-entry-origin";
 import {
   chipToInboxKind,
   messengerChatFiltersToSearchParams,
@@ -16,12 +13,6 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
-function roomListSourceFromPillar(pillar: "trade" | "delivery" | null | undefined): MessengerRoomListSource {
-  if (pillar === "trade") return "trade";
-  if (pillar === "delivery") return "delivery";
-  return "inbox";
-}
-
 type Args = {
   router: AppRouterInstance;
   chatInboxFilter: MessengerChatInboxFilter;
@@ -30,8 +21,8 @@ type Args = {
   setMainSection: (next: MessengerMainSection) => void;
   setChatInboxFilter: (next: MessengerChatInboxFilter) => void;
   setChatKindFilter: (next: MessengerChatKindFilter) => void;
-  /** 거래/배달 전용 서브 라우트일 때 방 URL 에 `cm_list` 부착 */
-  pillar?: "trade" | "delivery" | null;
+  /** 현재 메신저 목록 URL — 거래·배달·인박스와 리스트 행의 `cm_list` 를 동일 규칙으로 맞춤 */
+  pathname: string;
   /** 방 진입 시 `?from=` 유지 */
   messengerEntryOrigin?: string | null;
 };
@@ -44,7 +35,7 @@ export function useCommunityMessengerHomeNavigation({
   setMainSection,
   setChatInboxFilter,
   setChatKindFilter,
-  pillar = null,
+  pathname,
   messengerEntryOrigin = null,
 }: Args) {
   const replaceMessengerSectionUrl = useCallback(
@@ -67,15 +58,15 @@ export function useCommunityMessengerHomeNavigation({
 
   const navigateToCommunityRoom = useCallback(
     (roomId: string) => {
-      const id = String(roomId ?? "").trim();
-      if (!id) return;
-      const listSource = roomListSourceFromPillar(pillar);
-      const dest = communityMessengerRoomHref(id, messengerEntryOrigin, listSource);
-      runMessengerViewTransition(() => {
-        router.push(dest);
-      }, "room-forward");
+      const listSource = messengerRoomListSourceFromPathname(pathname);
+      void runCommunityMessengerRoomForwardNavigation({
+        router,
+        roomId,
+        listSource,
+        fromEntryOrigin: messengerEntryOrigin,
+      });
     },
-    [router, pillar, messengerEntryOrigin]
+    [router, pathname, messengerEntryOrigin]
   );
 
   const onPrimarySectionChange = useCallback(

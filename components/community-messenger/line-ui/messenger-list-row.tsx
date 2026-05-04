@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 type Props = {
-  /** 48×48 권장 */
+  /** 48×48 권장 (거래 글 썸네일 행은 `avatarSlotClassName` 으로 56~64px 확대 가능) */
   avatar: ReactNode;
   /** 제목·미리보기 등 */
   children: ReactNode;
@@ -9,6 +9,8 @@ type Props = {
   trailing?: ReactNode;
   /** 행 높이 — 기본 68~72px 밀도 */
   className?: string;
+  /** 아바타 슬롯 래퍼 — 기본 `flex h-12 w-12 shrink-0 items-center justify-center` */
+  avatarSlotClassName?: string;
   /** 우측 열 정렬 (친구 즐겨찾기 버튼은 `justify-center`) */
   trailingLayout?: "top" | "center";
   /**
@@ -26,6 +28,7 @@ export function MessengerListRow({
   children,
   trailing,
   className = "",
+  avatarSlotClassName,
   trailingLayout = "top",
   centerWithAvatar = false,
 }: Props) {
@@ -42,7 +45,8 @@ export function MessengerListRow({
   const mainClass = centerWithAvatar
     ? "flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0.5"
     : "flex min-h-0 min-w-0 flex-1 flex-col justify-center self-stretch";
-  const avatarCellClass = "flex h-12 w-12 shrink-0 items-center justify-center";
+  const avatarCellClass =
+    avatarSlotClassName?.trim() || "flex h-12 w-12 shrink-0 items-center justify-center";
   return (
     <div className={rootClass} data-cm-messenger-list-row>
       <div className={avatarCellClass}>{avatar}</div>

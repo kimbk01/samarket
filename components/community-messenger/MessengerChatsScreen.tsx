@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
-import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
+import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
   type MessengerChatListContext,
@@ -55,6 +55,7 @@ type MessengerRoomRowsProps = {
   onOpenSwipeItem: (id: string | null) => void;
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
+  chatListVisual?: MessengerChatListVisual;
 };
 
 function MessengerVirtualRoomRowShell({
@@ -121,13 +122,15 @@ function MessengerRoomRows({
   onOpenSwipeItem,
   onCloseMenuItem,
   onResetTransientUi,
+  chatListVisual = "default",
 }: MessengerRoomRowsProps) {
+  const rowEstimatePx = chatListVisual === "trade" ? 78 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? items.length : 0,
     getItemKey: (index) => items[index]?.room.id ?? index,
     getScrollElement: () =>
       typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null,
-    estimateSize: () => MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX,
+    estimateSize: () => rowEstimatePx,
     overscan: 6,
   });
 
@@ -152,6 +155,7 @@ function MessengerRoomRows({
             onOpenSwipeItem={onOpenSwipeItem}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
+            listVisual={chatListVisual}
           />
         ))}
       </FlatListContainer>
@@ -187,6 +191,7 @@ function MessengerRoomRows({
               onOpenSwipeItem={onOpenSwipeItem}
               onCloseMenuItem={onCloseMenuItem}
               onResetTransientUi={onResetTransientUi}
+              listVisual={chatListVisual}
             />
           </MessengerVirtualRoomRowShell>
         );
@@ -241,6 +246,8 @@ type Props = {
    * 출처를 보존하기 위해 전달한다.
    */
   entryOriginQuery?: string | null;
+  /** `/community-messenger/trade-chats` — 거래 글 썸네일·상태 중심 행 */
+  chatListVisual?: MessengerChatListVisual;
 };
 
 export function MessengerChatsScreen({
@@ -266,6 +273,7 @@ export function MessengerChatsScreen({
   onListScrollStart,
   pillarSummaries = null,
   entryOriginQuery = null,
+  chatListVisual = "default",
 }: Props) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
@@ -370,6 +378,7 @@ export function MessengerChatsScreen({
           onOpenSwipeItem={onOpenSwipeItem}
           onCloseMenuItem={onCloseMenuItem}
           onResetTransientUi={onResetTransientUi}
+          chatListVisual={chatListVisual}
         />
       ) : (
         <div

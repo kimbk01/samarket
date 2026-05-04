@@ -3,6 +3,7 @@
  * GET /api/chat/room/[roomId] 에서 사용자별 `profiles` 단건 조회(N회) 대신 `.in("id", …)` 일괄 조회.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 
 export type PartnerDisplayFields = {
@@ -96,4 +97,20 @@ export function nicknameMapFromPartnerDisplayMap(map: Map<string, PartnerDisplay
     out.set(id, disp.partnerNickname);
   }
   return out;
+}
+
+/**
+ * `fetchPartnerDisplayFieldsMap` 결과로 작성자 닉을 붙인다.
+ * `nicknameMapFromPartnerDisplayMap` + `enrichPostWithAuthorNickname` 대비 Map 복제·전체 순회 1회 생략.
+ */
+export function enrichPostWithAuthorNicknameFromPartnerDisplayMap(
+  post: Record<string, unknown> | undefined,
+  partnerMap: Map<string, PartnerDisplayFields>
+): Record<string, unknown> | undefined {
+  if (!post) return undefined;
+  const existing = typeof post.author_nickname === "string" ? post.author_nickname.trim() : "";
+  if (existing) return post;
+  const aid = postAuthorUserId(post);
+  const n = aid ? partnerMap.get(aid)?.partnerNickname?.trim() : undefined;
+  return n ? { ...post, author_nickname: n } : post;
 }

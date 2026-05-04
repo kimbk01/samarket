@@ -20,6 +20,7 @@ import { formatPrice } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferRow, PriceOfferTransitionResult } from "@/lib/offers/types";
 import { enrichPriceOffersToListItems, mapPriceOfferRow } from "@/lib/offers/offers-map";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
+import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
 
 /** 읽기·쓰기 반환 공통 — `amount` 레거시 컬럼 미존재 DB 에서 select 실패 방지 */
 const PRICE_OFFER_SELECT_READ =
@@ -280,7 +281,9 @@ async function loadOfferRowById(
 
 async function ensureTradeChatRoomForOffer(
   sb: SupabaseClient,
-  args: { productId: string; sellerId: string; buyerId: string }
+  args: { productId: string; sellerId: string; buyerId: string },
+  /** insert unique 충돌 시 1회만 재진입(기존 방 SELECT) */
+  afterInsertRace = false
 ): Promise<EnsureTradeChatRoomResult> {
   const existingRes = await sb
     .from("chat_rooms")
@@ -355,6 +358,13 @@ async function ensureTradeChatRoomForOffer(
     .single();
 
   if (insertedRoomRes.error || !insertedRoomRes.data?.id) {
+    if (
+      !afterInsertRace &&
+      insertedRoomRes.error &&
+      isPostgresUniqueViolation(insertedRoomRes.error)
+    ) {
+      return ensureTradeChatRoomForOffer(sb, args, true);
+    }
     throw new Error(insertedRoomRes.error?.message ?? "채팅방 생성에 실패했습니다.");
   }
 

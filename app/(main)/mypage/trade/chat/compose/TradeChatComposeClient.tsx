@@ -2,12 +2,14 @@
 
 /**
  * 신규 거래 채팅: 상품 상세는 여기로만 온다 — `openCreateTradeChat` 가 방 생성을 기다리지 않음.
+ * resolve 전에 상품 shell 즉시 표시 → 백그라운드 room 확정 후 메신저 방으로 replace.
  * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
+import { TradeChatComposePreparingShell } from "@/components/chats/TradeChatComposePreparingShell";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
 import {
@@ -20,6 +22,8 @@ import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
+import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { readTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
 
 const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
@@ -34,6 +38,23 @@ export function TradeChatComposeClient({
   const [goingRoomId, setGoingRoomId] = useState<string | null>(null);
   const replaceStartedRef = useRef<string | null>(null);
   const shellLoggedRef = useRef(false);
+  const resolveLoggedRef = useRef(false);
+  const replaceLoggedRef = useRef(false);
+  const [resolveTick, setResolveTick] = useState(0);
+
+  const preview = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return readTradeChatComposePreview(productId);
+  }, [productId]);
+
+  useLayoutEffect(() => {
+    const mark = readTradeChatEntryMark();
+    const origin = mark?.startedAt ?? Date.now();
+    logClientPerf("trade_chat.metrics", {
+      trade_chat_compose_shell_visible_ms: Date.now() - origin,
+      productId,
+    });
+  }, [productId]);
 
   useEffect(() => {
     if (shellLoggedRef.current) return;
@@ -52,15 +73,39 @@ export function TradeChatComposeClient({
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     void (async () => {
       const result = await createOrGetChatRoom(productId);
       if (cancelled) return;
+
+      if (!resolveLoggedRef.current) {
+        resolveLoggedRef.current = true;
+        const mark0 = readTradeChatEntryMark();
+        const origin0 = mark0?.startedAt ?? Date.now();
+        logClientPerf("trade_chat.metrics", {
+          trade_chat_resolve_done_ms: Date.now() - origin0,
+          productId,
+        });
+      }
+
       if (result.ok && result.roomId) {
         if (replaceStartedRef.current === result.roomId) return;
         replaceStartedRef.current = result.roomId;
+        if (!replaceLoggedRef.current) {
+          replaceLoggedRef.current = true;
+          const mark1 = readTradeChatEntryMark();
+          const origin1 = mark1?.startedAt ?? Date.now();
+          logClientPerf("trade_chat.metrics", {
+            trade_chat_replace_start_ms: Date.now() - origin1,
+            productId,
+          });
+        }
         setGoingRoomId(result.roomId);
         warmChatRoomEntryById(result.roomId, result.roomSource);
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
+        if (result.messengerRoomId?.trim()) {
+          void prefetchCommunityMessengerRoomSnapshot(result.messengerRoomId.trim());
+        }
         const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
         void router.prefetch(dest);
         const mark = patchTradeChatEntryMark({
@@ -95,7 +140,15 @@ export function TradeChatComposeClient({
     return () => {
       cancelled = true;
     };
-  }, [productId, router]);
+  }, [productId, router, resolveTick]);
+
+  const handleRetry = () => {
+    resolveLoggedRef.current = false;
+    replaceLoggedRef.current = false;
+    replaceStartedRef.current = null;
+    setError(null);
+    setResolveTick((n) => n + 1);
+  };
 
   if (goingRoomId) {
     return (
@@ -109,24 +162,12 @@ export function TradeChatComposeClient({
 
   if (error) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 text-center">
-        <p className="text-sm text-red-600">{error}</p>
-        <button
-          type="button"
-          onClick={() => router.replace(LIST_HREF)}
-          className="mt-3 font-medium text-signature underline"
-        >
-          목록으로
-        </button>
-      </div>
+      <TradeChatComposePreparingShell
+        preview={preview}
+        errorBanner={{ message: error, onRetry: handleRetry }}
+      />
     );
   }
 
-  return (
-    <TradeChatLoadingShell
-      variant="creating"
-      label="거래 채팅 방 생성중"
-      description="연결되는 동안 잠시만 기다려 주세요."
-    />
-  );
+  return <TradeChatComposePreparingShell preview={preview} />;
 }

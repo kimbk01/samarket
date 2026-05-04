@@ -2,6 +2,10 @@ import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
 import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
+import {
+  COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
+  COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
+} from "@/lib/community-messenger/service";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
@@ -44,7 +48,8 @@ export async function GET(req: NextRequest) {
   const now = Date.now();
   pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, now, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
 
-  const cacheKey = `${auth.userId}:${tier}`;
+  /** 상한·스킵 enrich 변경 시 캐시 오염 방지 — cap 버전을 키에 포함 */
+  const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
   let bundle = !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
   if (!bundle) {
     bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier);

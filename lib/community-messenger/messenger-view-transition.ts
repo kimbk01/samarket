@@ -1,95 +1,38 @@
 /**
- * 메신저 라우트 전환용 View Transitions (`document.startViewTransition`).
- * `community-messenger/layout` 의 `.sam-messenger-vt-root` 에 `view-transition-name: messenger-surface` 가 있어야 한다.
+ * 메신저 라우트 전환 — `document.startViewTransition` 는 **사용하지 않는다**.
+ * (목록→방·인박스→거래·배달 채팅 등에서 VT 가 `router.push`/RSC 커밋을 감싸 체감 지연·브라우저 타임아웃을 유발했음.)
  *
- * 정책: **push(forward)만 VT**, `*-back`·`prefers-reduced-motion: reduce` 는 VT 생략(즉시 navigate).
+ * 스타일 후크는 `@/app/messenger-view-transitions.css` 에 남겨 두되,
+ * `html[data-sam-messenger-vt]` 는 더 이상 전환마다 설정하지 않는다.
+ *
+ * @see `MessengerPillarSummaryRow` · `MessengerChatListItem` — `runMessengerViewTransition(…, intent)` API 유지
  */
 
 export type MessengerNavTransitionIntent =
-  /** 인박스 → 거래/배달 묶음 */
   | "pillar-forward"
-  /** 거래/배달 묶음 → 인박스 */
   | "pillar-back"
-  /** 목록 → 방 */
   | "room-forward"
-  /** 방 → 목록 */
   | "room-back";
-
-function setHtmlIntent(intent: MessengerNavTransitionIntent | null): void {
-  if (typeof document === "undefined") return;
-  if (intent == null) {
-    delete document.documentElement.dataset.samMessengerVt;
-  } else {
-    document.documentElement.dataset.samMessengerVt = intent;
-  }
-}
 
 function scheduleClearIntent(): void {
   requestAnimationFrame(() => {
-    setHtmlIntent(null);
+    if (typeof document === "undefined") return;
+    delete document.documentElement.dataset.samMessengerVt;
   });
 }
 
-function isBackNavIntent(intent: MessengerNavTransitionIntent): boolean {
-  return intent === "pillar-back" || intent === "room-back";
-}
-
-function prefersReducedMotionCoarse(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * 지원 브라우저에서는 **forward(`pillar-forward`·`room-forward`)만** VT 로 감싼다.
- * pop/back·reduced-motion 은 VT 없이 즉시 `navigate()`.
+ * 메신저 내 `router.push` / `replace` — **즉시 실행** (의도는 로그·추적용으로만 보존).
  */
 export function runMessengerViewTransition(
   navigate: () => void | Promise<void>,
-  intent: MessengerNavTransitionIntent
+  _intent: MessengerNavTransitionIntent
 ): void {
   const finish = () => scheduleClearIntent();
-
-  if (isBackNavIntent(intent) || prefersReducedMotionCoarse()) {
-    try {
-      void navigate();
-    } finally {
-      finish();
-    }
-    return;
-  }
-
-  setHtmlIntent(intent);
-
-  const vtFn = typeof document !== "undefined" ? document.startViewTransition?.bind(document) : undefined;
-  if (!vtFn) {
-    try {
-      void navigate();
-    } finally {
-      finish();
-    }
-    return;
-  }
-
   try {
-    const vt = vtFn(async () => {
-      const maybePromise = navigate();
-      if (maybePromise && typeof (maybePromise as Promise<void>).then === "function") {
-        await maybePromise;
-      }
-      /** Next 라우터 커밋 직후 한 프레임만 양보 — 이중 rAF는 뒤로가기 체감 지연이 커서 단일로 축소 */
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    });
-    void vt.finished.finally(finish);
-  } catch {
-    try {
-      void navigate();
-    } finally {
-      finish();
-    }
+    void navigate();
+  } finally {
+    finish();
   }
 }
 

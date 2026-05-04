@@ -61,8 +61,14 @@ export async function GET(
   const hydration = req.nextUrl.searchParams.get("hydration")?.trim().toLowerCase() ?? "";
   const isInstant = mode === "instant" || hydration === "critical";
   const isSeedMode = mode === "lite" || mode === "seed";
-  /** instant/critical 은 항상 경량 티어 — 어떤 기본 분기도 full 로 덮어쓰지 않음 */
-  const snapshotTier: "critical" | "full" = isInstant ? "critical" : "full";
+  const snapshotTierParam = req.nextUrl.searchParams.get("snapshotTier")?.trim().toLowerCase() ?? "";
+  const wantsSnapshotFast = snapshotTierParam === "fast";
+  /** instant/critical 은 항상 경량 티어 — `snapshotTier=fast` 는 instant 가 아닐 때만(거래 카드만 스냅샷에서 제외) */
+  const snapshotTier: "critical" | "full" | "fast" = isInstant
+    ? "critical"
+    : wantsSnapshotFast
+      ? "fast"
+      : "full";
   const deferSnapshotSecondary = Boolean(isSeedMode || isInstant);
   let hydrateFullMemberList = mode === "expand" || memberHydration === "full";
   if (isInstant) {

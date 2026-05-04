@@ -131,12 +131,18 @@ export function isMissingPostRowChatProductTitle(title: string, postId: string):
   return t === `글 · ${pid.slice(0, 8)}…`;
 }
 
+export type ChatProductSummaryBuildOptions = {
+  /** 이미 `normalizeSellerListingState` 한 값 — `tradeStatus`와 동일 계산 1회로 */
+  precomputedSellerListingState?: string;
+};
+
 /**
  * posts 행 → 채팅 목록/방 상단 카드용 요약 (환전은 피드 카드와 동일 필드)
  */
 export function chatProductSummaryFromPostRow(
   post: Record<string, unknown> | undefined,
-  postId: string
+  postId: string,
+  buildOpts?: ChatProductSummaryBuildOptions
 ): ChatProductSummary {
   const meta = parsePostMetaField(post?.meta);
   const isEx = hasExchangeMeta(meta);
@@ -144,13 +150,20 @@ export function chatProductSummaryFromPostRow(
   const tradeTypeRaw = str(post?.trade_type).toLowerCase();
   const tradeType = tradeTypeRaw === "job" ? ("job" as const) : tradeTypeRaw === "product" ? ("product" as const) : undefined;
   const tradeChatCallPolicy = normalizeTradeChatCallPolicy(meta.trade_chat_call_policy);
-  const priceRaw = post?.price as number | string | null | undefined;
-  const priceNum =
+  const priceRaw = post?.price;
+  const priceOkForExchange =
     priceRaw != null && priceRaw !== ""
-      ? Number(priceRaw)
+      ? Number(
+          typeof priceRaw === "string"
+            ? String(priceRaw)
+                .replace(/,/g, "")
+                .trim()
+            : priceRaw
+        )
       : null;
+  const priceOk = priceOkForExchange != null && !Number.isNaN(priceOkForExchange) ? priceOkForExchange : null;
   const { phpAmount, rateLine } = isEx
-    ? getExchangeFeedLines(meta, priceNum)
+    ? getExchangeFeedLines(meta, priceOk)
     : { phpAmount: null, rateLine: null };
 
   const envC =
@@ -160,6 +173,8 @@ export function chatProductSummaryFromPostRow(
   const listPreview = buildPostListPreviewModel(post, {
     currency: (envC || DEFAULT_APP_SETTINGS.defaultCurrency || "PHP").toUpperCase(),
     locale: envL || DEFAULT_APP_SETTINGS.defaultLocale || "en-PH",
+    preParsedMeta: meta,
+    exchangeFeedPrecomputed: isEx ? { phpAmount, rateLine } : undefined,
   });
 
   return {
@@ -169,10 +184,9 @@ export function chatProductSummaryFromPostRow(
     price: numPrice(post),
     authorNickname: str(post?.author_nickname) || undefined,
     status: (post?.status as string) ?? "active",
-    sellerListingState: normalizeSellerListingState(
-      post?.seller_listing_state,
-      post?.status as string | undefined
-    ),
+    sellerListingState:
+      buildOpts?.precomputedSellerListingState ??
+      normalizeSellerListingState(post?.seller_listing_state, post?.status as string | undefined),
     regionLabel: buildPostRegionLabel(post),
     updatedAt:
       (post && typeof post.updated_at === "string" && post.updated_at) ||

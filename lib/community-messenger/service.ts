@@ -38,7 +38,9 @@ import {
   logHomeSyncBreakdown,
   logHomeSyncBreakdownSummary,
 } from "@/lib/community-messenger/home-sync-breakdown-log";
+import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-messenger/messenger-home-sync-perf-log";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
+import { extractPostThumbnailPathFromPostRow } from "@/lib/community-messenger/trade-chat-list/post-thumbnail-path";
 import {
   finalizeChatRoomDetailLoadDiagnostics,
   loadChatRoomDetailForUser,
@@ -189,6 +191,7 @@ type RoomRow = {
   last_message: string | null;
   last_message_at: string | null;
   last_message_type: string | null;
+  direct_key?: string | null;
 };
 
 type ParticipantRow = {
@@ -917,6 +920,20 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
 
 type ParticipantRowWithOptionalProfileEmbed = ParticipantRow & { profiles?: ProfileRow | null };
 
+/** capped participants 결과에 viewer 행이 이미 있으면 `myParticipant` 단건 조회 생략 */
+function participantQueryRowsIncludeViewer(data: unknown, viewerUserId: string): boolean {
+  const v = trimText(viewerUserId);
+  if (!v) return false;
+  const list = Array.isArray(data) ? data : data && typeof data === "object" ? [data] : [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as { user_id?: string; userId?: string };
+    const uid = trimText(r.user_id ?? r.userId);
+    if (uid === v) return true;
+  }
+  return false;
+}
+
 /** `profiles (…)` embed 가 붙은 participants 쿼리 결과에서 행을 평탄화하고 프로필 맵을 수집한다. */
 function embeddedProfilesFromParticipantQueryRows(data: unknown): { rows: ParticipantRow[]; profiles: Map<string, ProfileRow> } {
   const profiles = new Map<string, ProfileRow>();
@@ -1581,6 +1598,12 @@ function buildRoomSummaryFromHydratedMembers(
       : roomType === "open_group"
         ? `공개 그룹 · ${effectiveMemberCount}명 참여 중`
         : `${effectiveMemberCount}명 참여 중`;
+  const messengerDirectKey =
+    roomType === "direct"
+      ? isDbRoom
+        ? trimText((room as RoomRow).direct_key ?? "") || null
+        : trimText((room as DevRoom).directKey ?? "") || null
+      : null;
   return {
     id: roomId,
     roomType,
@@ -1620,6 +1643,7 @@ function buildRoomSummaryFromHydratedMembers(
     )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
     isArchivedByViewer,
+    messengerDirectKey,
     contextMeta: contextMeta ?? null,
   };
 }
@@ -1644,7 +1668,7 @@ function buildParticipantsByRoomMap(
  * - `getCommunityMessengerBootstrap`: 친구·차단·팔로우 ID, `fetchMyRoomsPayload`, (옵션) 탐색 raw, 통화 로그 행을 모은 뒤
  *   **단일** `hydrateProfiles` → `summarizeRoomsBatchWithProfileMap` + 통화 `roomSummaryMap` + `loadSessionMapsForCallLogs`.
  *   `skipDiscoverable` 이면 탐색 오픈그룹 쿼리를 생략하고 `discoverableGroups` 는 빈 배열(클라이언트가 `open-groups`로 후속 로드).
- * - `listCommunityMessengerMyChatsAndGroups`: **full** 은 **1회** `hydrateProfiles`; **`tier=critical`(home-sync)** 은 **1회** `hydrateProfilesLabelsOnly`(관계 3쿼리 생략). 단독 엔드포인트·`listDiscoverableOpenGroupRooms` / `listCommunityMessengerCallLogs` 는 각각 **1회** 하이드레이션 (부트스트랩과는 별 요청).
+ * - `listCommunityMessengerMyChatsAndGroups`: **full** 은 **1회** `hydrateProfiles`; **`tier=critical`(home-sync)** 은 **1회** `hydrateProfilesLabelsOnly`(관계 3쿼리 생략). home-sync 는 **RPC `p_limit`로 방 개수 상한**(critical 20 / full 30). **`homeSyncSkipHeavyEnrich`** 는 Philife 오픈그룹 라벨 보강만 생략; 거래 방 **`enrichTradeRoomContextMetaForBootstrap`**(썸네일·제목) 은 full tier 에서 항상 수행. `/api/community-messenger/rooms` 는 상한 미지정(500) 유지.
  * - 방 상세 `getCommunityMessengerRoomDetail`: 해당 방 멤버만 **1회** `hydrateProfilesWithProfileMap`.
  * - `listCommunityMessengerFriends` / `searchCommunityMessengerUsers`: 목록·검색 전용 **1회**.
  * - `loadCallSessionParticipants` / `resolveCommunityMessengerGroupTitle`: 해당 작업 범위 **1회** (세션/그룹 제목용).
@@ -1908,8 +1932,12 @@ export type CommunityMessengerBootstrapDiagnostics = {
 
 /** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
 const COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP = 500;
-/** 홈 silent `GET ...?tier=critical` — 최근 활동 방만 빠르게 동기화; `tier=full`에서 전체 보강 */
-export const COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP = 25;
+/** home-sync RPC·목록 상한 상단 캡 (critical/full 공통 최대) */
+export const COMMUNITY_MESSENGER_HOME_SYNC_ROOM_CAP_HARD_MAX = 30;
+/** 홈 silent `GET ...?tier=critical` — 최근 활동 방만 (카카오급: RPC 에서 LIMIT) */
+export const COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP = 20;
+/** 홈 silent `tier=full` 보강 — 500방 전부 금지, 최근 상위만 (미읽음·배지는 participant.unread_count 유지) */
+export const COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP = 30;
 /** `id in (…)` 메타 조회 시 PostgREST URL 부담을 줄이기 위한 청크 크기 */
 const COMMUNITY_MESSENGER_ROOM_IDS_META_CHUNK = 120;
 
@@ -1934,11 +1962,17 @@ type BootstrapRoomRowRpc = {
 
 async function fetchBootstrapRoomIdsViaRpc(
   sb: SupabaseLike,
-  userId: string
+  userId: string,
+  /** 미지정 시 부트스트랩 상한 500 — home-sync 는 20~30 등으로 줄여 DB 정렬·LIMIT 를 RPC 안에서 수행 */
+  rpcRoomLimit?: number
 ): Promise<{ roomIds: string[]; totalCount: number } | null> {
+  const pLimit =
+    typeof rpcRoomLimit === "number" && rpcRoomLimit > 0
+      ? Math.min(rpcRoomLimit, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP)
+      : COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP;
   const { data, error } = await (sb as any).rpc("community_messenger_bootstrap_my_room_ids", {
     p_user_id: userId,
-    p_limit: COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP,
+    p_limit: pLimit,
   });
   if (error) {
     if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
@@ -1954,6 +1988,27 @@ async function fetchBootstrapRoomIdsViaRpc(
   return { roomIds, totalCount };
 }
 
+async function attachDirectKeysToRoomRows(sb: SupabaseLike, rows: RoomRow[]): Promise<RoomRow[]> {
+  const ids = dedupeIds(rows.map((r) => trimText(r.id)).filter(Boolean));
+  if (!ids.length) return rows;
+  const { data, error } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("id, direct_key")
+    .in("id", ids);
+  if (error || !data) return rows;
+  const byId = new Map(
+    (data as Array<{ id?: unknown; direct_key?: unknown }>).map((x) => [
+      trimText(x.id),
+      (typeof x.direct_key === "string" ? x.direct_key.trim() : null) as string | null,
+    ])
+  );
+  return rows.map((r) => {
+    const dk = byId.get(trimText(r.id));
+    if (dk === undefined) return r;
+    return { ...r, direct_key: dk };
+  });
+}
+
 async function fetchBootstrapRoomsViaRpc(
   sb: SupabaseLike,
   roomIds: string[]
@@ -1965,7 +2020,7 @@ async function fetchBootstrapRoomsViaRpc(
     if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
     throw error;
   }
-  return ((data ?? []) as BootstrapRoomRowRpc[]).map((row) => ({
+  const mapped = ((data ?? []) as BootstrapRoomRowRpc[]).map((row) => ({
     id: String(row.id ?? ""),
     room_type: (row.room_type ?? "direct") as RoomRow["room_type"],
     room_status: (row.room_status ?? "active") as RoomRow["room_status"],
@@ -1978,6 +2033,7 @@ async function fetchBootstrapRoomsViaRpc(
     last_message_at: row.last_message_at ?? null,
     last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
   }));
+  return attachDirectKeysToRoomRows(sb, mapped);
 }
 
 async function fetchMyRoomsPayload(
@@ -1989,6 +2045,7 @@ async function fetchMyRoomsPayload(
     roomLimit?: number;
   }
 ): Promise<MessengerRoomsPayload> {
+  const tPayload0 = performance.now();
   const diagnostics = options?.diagnostics;
   const includeRoomProfiles = options?.includeRoomProfiles !== false;
   const sb = getSupabaseOrNull();
@@ -2002,7 +2059,7 @@ async function fetchMyRoomsPayload(
     const tRound1 = performance.now();
     let roomIds: string[] = [];
     const tRpcIds = performance.now();
-    const rpcRoomIds = await fetchBootstrapRoomIdsViaRpc(sb, userId);
+    const rpcRoomIds = await fetchBootstrapRoomIdsViaRpc(sb, userId, options?.roomLimit);
     if (homeSyncBreakdownEnabled() && diagnostics) {
       logHomeSyncBreakdown("my_rooms_rpc_bootstrap_my_room_ids_ms", performance.now() - tRpcIds, {
         ok: Boolean(rpcRoomIds),
@@ -2085,6 +2142,9 @@ async function fetchMyRoomsPayload(
     }
 
     diagnostics && (diagnostics.round1Ms = Math.round(performance.now() - tRound1));
+    if (messengerPerfStepsEnabled()) {
+      logMessengerPerfMs("room_ids_fetch", performance.now() - tRound1);
+    }
 
     if (roomIds.length) {
       diagnostics && (diagnostics.rounds += 1);
@@ -2099,7 +2159,7 @@ async function fetchMyRoomsPayload(
           (((await (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, is_readonly, title, summary, avatar_url, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type"
             )
             .in("id", roomIds)
             .order("last_message_at", { ascending: false })).data ?? []) as RoomRow[]);
@@ -2121,6 +2181,15 @@ async function fetchMyRoomsPayload(
       })();
       const [rooms, { data: participants }] = await Promise.all([roomsPromise, participantsPromise]);
       diagnostics && (diagnostics.round2Ms = Math.round(performance.now() - tRound2));
+      if (messengerPerfStepsEnabled()) {
+        const r2Wall = performance.now() - tRound2;
+        logMessengerPerfMs("round2_parallel_wall", r2Wall);
+        if (diagnostics) {
+          logMessengerPerfMs("rooms_meta_fetch", diagnostics.round2RoomsDbFetchMs);
+          logMessengerPerfMs("participants_join", diagnostics.round2ParticipantsMs);
+          logMessengerPerfMs("last_message_fetch", diagnostics.round2RoomsDbFetchMs);
+        }
+      }
       roomRows = rooms;
       participantRows = (participants ?? []) as ParticipantRow[];
       if (diagnostics) {
@@ -2148,6 +2217,12 @@ async function fetchMyRoomsPayload(
   const tPostprocess = performance.now();
   const byRoomId = buildParticipantsByRoomMap(participantRows);
   diagnostics && (diagnostics.postprocessMs = Math.round(performance.now() - tPostprocess));
+  if (messengerPerfStepsEnabled()) {
+    logMessengerPerfMs("final_map", performance.now() - tPostprocess);
+    logMessengerPerfMs("unread_calc", 0);
+    logMessengerPerfMs("peer_read_cursor", 0);
+    logMessengerPerfMs("trade_join", 0);
+  }
   if (includeRoomProfiles && roomRows.length && diagnostics) {
     diagnostics.rounds += 1;
     diagnostics.queryCount += 1;
@@ -2158,6 +2233,9 @@ async function fetchMyRoomsPayload(
     roomProfileMap = await fetchRoomProfilesByRoomIds(roomRows.map((room) => room.id));
     diagnostics && (diagnostics.round3Ms = Math.round(performance.now() - tRound3));
     diagnostics && (diagnostics.round3RoomProfileCount = roomProfileMap.size);
+  }
+  if (messengerPerfStepsEnabled()) {
+    logMessengerPerfMs("fetchMyRoomsPayload", performance.now() - tPayload0);
   }
   return { roomRows, participantRows, byRoomId, roomProfileMap };
 }
@@ -2182,7 +2260,7 @@ async function fetchRoomsPayloadByRoomIds(roomIds: string[]): Promise<MessengerR
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
         )
         .in("id", uniqueRoomIds),
       (sb as any)
@@ -2255,6 +2333,46 @@ export async function getCommunityMessengerSingleRoomSummaryForViewer(
     await enrichMessengerTradeUnreadWithLegacyTrade(sbUnread as any, viewerUserId, [summary]).catch(() => {});
   }
   return summary;
+}
+
+const TRADE_CHAT_LIST_META_BATCH_CAP = 40;
+
+/**
+ * 거래 채팅 목록 전용 — 부트스트랩에 썸네일이 비어 있을 때 클라가 배치로 재조립한다.
+ * `getCommunityMessengerSingleRoomSummaryForViewer` 와 동일한 요약 + `enrichTradeRoomContextMetaForBootstrap` 를 다방에 대해 1회만.
+ */
+export async function hydrateTradeChatListContextMetaForRoomIds(
+  viewerUserId: string,
+  roomIds: string[]
+): Promise<Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>> {
+  const ids = dedupeIds(roomIds.map((x) => trimText(x)).filter(Boolean)).slice(0, TRADE_CHAT_LIST_META_BATCH_CAP);
+  if (!ids.length) return [];
+  const payload = await fetchRoomsPayloadByRoomIds(ids);
+  if (!payload.roomRows.length) {
+    return ids.map((roomId) => ({ roomId, contextMeta: null }));
+  }
+  const viewerTrim = trimText(viewerUserId);
+  const allowedRows = payload.roomRows.filter((row) => {
+    const rid = trimText(row.id);
+    const parts = payload.byRoomId.get(rid) ?? [];
+    return parts.some((p) => participantRowUserId(p) === viewerTrim);
+  });
+  if (!allowedRows.length) {
+    return ids.map((roomId) => ({ roomId, contextMeta: null }));
+  }
+  const summaries = await summarizeRoomsBatch(
+    viewerUserId,
+    allowedRows,
+    payload.participantRows,
+    payload.roomProfileMap,
+    payload.byRoomId
+  );
+  await enrichTradeRoomContextMetaForBootstrap(viewerUserId, summaries);
+  const byId = new Map(summaries.map((s) => [s.id, s]));
+  return ids.map((roomId) => ({
+    roomId,
+    contextMeta: byId.get(roomId)?.contextMeta ?? null,
+  }));
 }
 
 type DiscoverableOpenGroupsRawState = MessengerRoomsPayload & { joinedRoomIds: Set<string> };
@@ -2658,7 +2776,17 @@ export async function listCommunityMessengerCallLogs(userId: string): Promise<Co
 /** `GET /api/community-messenger/rooms` 전용 — 부트스트랩 전체 없이 내 채팅·그룹 목록만 조립 */
 export async function listCommunityMessengerMyChatsAndGroups(
   userId: string,
-  options?: { tier?: "critical" | "full" }
+  options?: {
+    tier?: "critical" | "full";
+    /**
+     * `GET /api/community-messenger/home-sync` 전용 — RPC `p_limit`·폴백 메타 정렬 상한.
+     * 미설정이면 `tier=critical` 일 때만 기본 `COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP`.
+     * 비 home-sync 호출(`/api/community-messenger/rooms` 등)은 생략 → 부트스트랩 상한 500 유지.
+     */
+    roomListCap?: number;
+    /** home-sync: Philife 오픈그룹 라벨 보강만 생략(목록 속도). 거래 썸네일·`enrichTradeRoomContextMetaForBootstrap` 는 full tier 에서 수행. */
+    homeSyncSkipHeavyEnrich?: boolean;
+  }
 ): Promise<{
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];
@@ -2666,13 +2794,22 @@ export async function listCommunityMessengerMyChatsAndGroups(
   const tListTop = performance.now();
   const tier = options?.tier ?? "full";
   const isCritical = tier === "critical";
+  const skipHeavyEnrich = options?.homeSyncSkipHeavyEnrich === true;
+
+  const explicitCap = options?.roomListCap;
+  let effectiveRoomLimit: number | undefined;
+  if (typeof explicitCap === "number" && explicitCap > 0) {
+    effectiveRoomLimit = Math.min(Math.ceil(explicitCap), COMMUNITY_MESSENGER_HOME_SYNC_ROOM_CAP_HARD_MAX);
+  } else if (isCritical) {
+    effectiveRoomLimit = COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP;
+  }
 
   const criticalRoomsDiag = isCritical ? createEmptyBootstrapRoomsDiagnostics() : undefined;
   const roomsDiagForBreakdown =
     criticalRoomsDiag ?? (homeSyncBreakdownEnabled() ? createEmptyBootstrapRoomsDiagnostics() : undefined);
   const myPayloadRaw = await fetchMyRoomsPayload(userId, {
     includeRoomProfiles: !isCritical,
-    roomLimit: isCritical ? COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP : undefined,
+    roomLimit: effectiveRoomLimit,
     diagnostics: roomsDiagForBreakdown,
   });
 
@@ -2735,6 +2872,12 @@ export async function listCommunityMessengerMyChatsAndGroups(
       ms: performance.now() - tHydrate,
     });
   }
+  if (messengerPerfStepsEnabled()) {
+    logMessengerPerfMs(
+      isCritical ? "hydrate_profiles_labels_only_fetch" : "hydrate_profiles_full_with_relations",
+      performance.now() - tHydrate
+    );
+  }
   const tSummarize = performance.now();
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
@@ -2746,7 +2889,9 @@ export async function listCommunityMessengerMyChatsAndGroups(
   if (homeSyncBreakdownEnabled()) {
     phaseRows.push({ phase: "summarize_rooms_batch_cpu", ms: performance.now() - tSummarize });
   }
-  if (!isCritical) {
+  // home-sync critical tier 도 상위 20방이 먼저 병합되므로, 여기서 거래 썸네일 enrich 를 생략하면
+  // `mergeCriticalRoomPatchesIntoLists` 직후 수백 ms 동안 placeholder 만 보인다.
+  {
     const tTradeCtx = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
     if (homeSyncBreakdownEnabled()) {
@@ -2761,7 +2906,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
       phaseRows.push({ phase: "enrich_messenger_trade_unread_legacy", ms: performance.now() - tLeg });
     }
   }
-  if (!isCritical) {
+  if (!isCritical && !skipHeavyEnrich) {
     const tOpen = performance.now();
     const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
       "@/lib/community-messenger/philife-meeting-open-group-summaries"
@@ -2770,6 +2915,9 @@ export async function listCommunityMessengerMyChatsAndGroups(
     if (homeSyncBreakdownEnabled()) {
       phaseRows.push({ phase: "enrich_open_group_philife_meeting_labels", ms: performance.now() - tOpen });
     }
+  }
+  if (messengerPerfStepsEnabled()) {
+    logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
   }
   if (homeSyncBreakdownEnabled()) {
     phaseRows.push({ phase: "list_my_chats_and_groups_wall_total", ms: performance.now() - tListTop });
@@ -3422,7 +3570,9 @@ export async function getCommunityMessengerBootstrap(
   ]);
   diagnostics && (diagnostics.parallelInitialWallMs = Math.round(performance.now() - tParallelInitial));
   if (isMinimalLiteBootstrap && diagnostics) {
-    diagnostics.unreadAggregation = "community_messenger_participants.unread_count";
+    /** Lite 도 trade unread 병합·context enrich 를 쓰므로 full 과 동일 문구 */
+    diagnostics.unreadAggregation =
+      "community_messenger_participants.unread_count + trade legacy unread batch max merge";
   }
 
   const callRoomIds = dedupeIds(
@@ -3514,7 +3664,12 @@ export async function getCommunityMessengerBootstrap(
   const mySummaries = summarizeRoomsBatchWithProfileMap(userId, myPayload.roomRows, myPayload.roomProfileMap, myPayload.byRoomId, profileById);
   diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
   diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
-  if (!isMinimalLiteBootstrap) {
+  /**
+   * Lite 부트스트랩도 거래 채팅 목록 썸네일·제목에 `posts` 를 써야 한다 — 예전에는 이 블록 전체를 lite 에서 생략해
+   * 첫 GET(`?lite=1`)·세션 캐시에 썸네일 없는 채팅 배열만 남았다.
+   * Philife 오픈그룹 라벨 보강만 lite 에서 생략한다.
+   */
+  {
     const tTrade = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
     diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));
@@ -3524,6 +3679,8 @@ export async function getCommunityMessengerBootstrap(
       await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
       diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
     }
+  }
+  if (!isMinimalLiteBootstrap) {
     const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
       "@/lib/community-messenger/philife-meeting-open-group-summaries"
     );
@@ -3673,62 +3830,512 @@ export async function getCommunityMessengerBootstrap(
   return deferCallLog ? { ...base, deferredCallLog: true as const } : base;
 }
 
+function tradeMessengerListThumbnailMissing(summary: CommunityMessengerRoomSummary): boolean {
+  if (summary.contextMeta?.kind !== "trade") return true;
+  const t = summary.contextMeta.thumbnailUrl;
+  return !(typeof t === "string" && t.trim().length > 0);
+}
+
+/** `community_messenger_rooms.direct_key` — 거래 스레드 원장 키 (`trade_pc:` / `trade_item:`). */
+type ParsedTradeMessengerDirectKey =
+  | { kind: "trade_pc"; productChatId: string }
+  | { kind: "trade_item"; itemTradeChatRoomId: string };
+
+function parseTradeMessengerDirectKey(
+  directKey: string | null | undefined
+): ParsedTradeMessengerDirectKey | null {
+  const t = trimText(directKey);
+  if (!t) return null;
+  if (t.startsWith("trade_pc:")) {
+    const id = trimText(t.slice("trade_pc:".length));
+    return id ? { kind: "trade_pc", productChatId: id } : null;
+  }
+  if (t.startsWith("trade_item:")) {
+    const id = trimText(t.slice("trade_item:".length));
+    return id ? { kind: "trade_item", itemTradeChatRoomId: id } : null;
+  }
+  return null;
+}
+
+function isMessengerAuthoritativeTradeDirectKey(directKey: string | null | undefined): boolean {
+  return parseTradeMessengerDirectKey(directKey) != null;
+}
+
+/**
+ * 거래 메신저 방의 **원장 키(`direct_key`)** 로만 상품·썸네일을 맞춘다.
+ * 기존 Phase A(JSON의 productChatId)·Phase D(상대 peer 로만 추정) 가 다른 글의 썸네일을 섞어 쓰던 문제 방지.
+ */
+async function enrichTradeRoomContextMetaFromDirectKeys(
+  userId: string,
+  summaries: CommunityMessengerRoomSummary[]
+): Promise<void> {
+  const sb = getSupabaseOrNull();
+  if (!sb) return;
+
+  const targets = summaries.filter(
+    (s) => s.roomType === "direct" && parseTradeMessengerDirectKey(s.messengerDirectKey) != null
+  );
+  if (!targets.length) return;
+
+  const pcIdsFromKey: string[] = [];
+  const itemTradeRoomIds: string[] = [];
+  const roomToParsed = new Map<string, ParsedTradeMessengerDirectKey>();
+
+  for (const s of targets) {
+    const p = parseTradeMessengerDirectKey(s.messengerDirectKey);
+    if (!p) continue;
+    roomToParsed.set(s.id, p);
+    if (p.kind === "trade_pc") pcIdsFromKey.push(p.productChatId);
+    else itemTradeRoomIds.push(p.itemTradeChatRoomId);
+  }
+
+  const pcById = new Map<string, { post_id: string; seller_id: string; buyer_id: string }>();
+  if (pcIdsFromKey.length) {
+    const { data: pcs } = await (sb as any)
+      .from("product_chats")
+      .select("id, post_id, seller_id, buyer_id")
+      .in("id", dedupeIds(pcIdsFromKey));
+    for (const row of (pcs ?? []) as Array<Record<string, unknown>>) {
+      const id = trimText(row.id);
+      const postId = trimText(row.post_id);
+      const sellerId = trimText(row.seller_id);
+      const buyerId = trimText(row.buyer_id);
+      if (!id || !postId || !sellerId || !buyerId) continue;
+      pcById.set(id, { post_id: postId, seller_id: sellerId, buyer_id: buyerId });
+    }
+  }
+
+  const crById = new Map<string, { item_id: string; seller_id: string; buyer_id: string }>();
+  if (itemTradeRoomIds.length) {
+    const { data: crs } = await (sb as any)
+      .from("chat_rooms")
+      .select("id, item_id, seller_id, buyer_id")
+      .eq("room_type", "item_trade")
+      .in("id", dedupeIds(itemTradeRoomIds));
+    for (const row of (crs ?? []) as Array<Record<string, unknown>>) {
+      const id = trimText(row.id);
+      const itemId = trimText(row.item_id);
+      const sellerId = trimText(row.seller_id);
+      const buyerId = trimText(row.buyer_id);
+      if (!id || !itemId || !sellerId || !buyerId) continue;
+      crById.set(id, { item_id: itemId, seller_id: sellerId, buyer_id: buyerId });
+    }
+  }
+
+  const postIdsFromCr = dedupeIds([...crById.values()].map((v) => v.item_id).filter(Boolean));
+  const pcIdByTriple = new Map<string, string>();
+  if (postIdsFromCr.length) {
+    const { data: pcCandidates } = await (sb as any)
+      .from("product_chats")
+      .select("id, post_id, seller_id, buyer_id")
+      .in("post_id", postIdsFromCr);
+    for (const row of (pcCandidates ?? []) as Array<Record<string, unknown>>) {
+      const pid = trimText(row.post_id);
+      const sid = trimText(row.seller_id);
+      const bid = trimText(row.buyer_id);
+      const id = trimText(row.id);
+      if (!pid || !sid || !bid || !id) continue;
+      const k = `${pid}\t${sid}\t${bid}`;
+      if (!pcIdByTriple.has(k)) pcIdByTriple.set(k, id);
+    }
+  }
+
+  const allPostIds = dedupeIds([
+    ...[...pcById.values()].map((v) => v.post_id),
+    ...[...crById.values()].map((v) => v.item_id),
+  ].filter(Boolean));
+
+  if (!allPostIds.length) return;
+
+  const { data: posts } = await (sb as any)
+    .from(POSTS_TABLE_READ)
+    .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
+    .in("id", allPostIds);
+  const postById = new Map<string, Record<string, unknown>>(
+    ((posts ?? []) as Record<string, unknown>[]).map((p) => [trimText(p.id as string), p as Record<string, unknown>])
+  );
+
+  const applyForPost = (
+    summary: CommunityMessengerRoomSummary,
+    productChatIdForMeta: string,
+    postId: string,
+    sellerId: string,
+    buyerId: string
+  ) => {
+    const post = postById.get(postId);
+    const title = typeof post?.title === "string" ? post.title.trim() : "";
+    const priceRaw = post?.price;
+    const price =
+      typeof priceRaw === "number" && Number.isFinite(priceRaw)
+        ? priceRaw
+        : priceRaw != null
+          ? Number(priceRaw)
+          : null;
+    const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+    const role: "seller" | "buyer" = userId === sellerId ? "seller" : "buyer";
+    summary.contextMeta = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: productChatIdForMeta,
+      postId,
+      productTitle: title || "거래",
+      price: price != null && !Number.isNaN(price) ? price : null,
+      currency,
+      role,
+      sellerListingStateRaw: post?.seller_listing_state,
+      postStatus: (post?.status as string | undefined) ?? null,
+      thumbnailUrl: firstPostThumbnailForMessengerTradeList(post),
+    });
+  };
+
+  for (const s of targets) {
+    const parsed = roomToParsed.get(s.id);
+    if (!parsed) continue;
+    if (parsed.kind === "trade_pc") {
+      const pc = pcById.get(parsed.productChatId);
+      if (!pc?.post_id) continue;
+      applyForPost(s, parsed.productChatId, pc.post_id, pc.seller_id, pc.buyer_id);
+      continue;
+    }
+    const cr = crById.get(parsed.itemTradeChatRoomId);
+    if (!cr?.item_id) continue;
+    const tripleKey = `${cr.item_id}\t${cr.seller_id}\t${cr.buyer_id}`;
+    const resolvedPc = trimText(pcIdByTriple.get(tripleKey));
+    const pcidForMeta = resolvedPc || parsed.itemTradeChatRoomId;
+    applyForPost(s, pcidForMeta, cr.item_id, cr.seller_id, cr.buyer_id);
+  }
+}
+
 async function enrichTradeRoomContextMetaForBootstrap(
   userId: string,
   summaries: CommunityMessengerRoomSummary[]
 ): Promise<void> {
   const sb = getSupabaseOrNull();
   if (!sb) return;
-  const targets = summaries.filter(
-    (s) => s.contextMeta?.kind === "trade" && Boolean(s.contextMeta.productChatId?.trim())
+
+  await enrichTradeRoomContextMetaFromDirectKeys(userId, summaries);
+
+  /** Phase A: `summary` JSON(v1)에 `productChatId`가 있을 때 — 기존 경로 (direct_key 거래방은 제외: 원장은 Phase 0) */
+  const targetsFromSummaryMeta = summaries.filter(
+    (s) =>
+      s.contextMeta?.kind === "trade" &&
+      Boolean(s.contextMeta.productChatId?.trim()) &&
+      !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)
   );
-  if (!targets.length) return;
-  const productChatIds = dedupeIds(targets.map((s) => s.contextMeta?.productChatId?.trim() ?? "").filter(Boolean));
-  if (!productChatIds.length) return;
+  if (targetsFromSummaryMeta.length) {
+    const productChatIds = dedupeIds(
+      targetsFromSummaryMeta.map((s) => s.contextMeta?.productChatId?.trim() ?? "").filter(Boolean)
+    );
+    if (productChatIds.length) {
+      const { data: pcs } = await (sb as any)
+        .from("product_chats")
+        .select("id, post_id, seller_id, buyer_id")
+        .in("id", productChatIds);
+      const byPcId = new Map<string, { postId: string; sellerId: string; buyerId: string }>();
+      for (const row of (pcs ?? []) as Array<{ id?: unknown; post_id?: unknown; seller_id?: unknown; buyer_id?: unknown }>) {
+        const pcid = trimText(row.id);
+        const postId = trimText(row.post_id);
+        const sellerId = trimText(row.seller_id);
+        const buyerId = trimText(row.buyer_id);
+        if (!pcid || !postId || !sellerId || !buyerId) continue;
+        byPcId.set(pcid, { postId, sellerId, buyerId });
+      }
+      const postIds = dedupeIds([...byPcId.values()].map((v) => v.postId));
+      const { data: posts } = await (sb as any)
+        .from(POSTS_TABLE_READ)
+        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
+        .in("id", postIds);
+      const postById = new Map<string, any>(((posts ?? []) as any[]).map((p) => [trimText(p.id), p]));
 
-  const { data: pcs } = await (sb as any)
-    .from("product_chats")
-    .select("id, post_id, seller_id, buyer_id")
-    .in("id", productChatIds);
-  const byPcId = new Map<string, { postId: string; sellerId: string; buyerId: string }>();
-  for (const row of (pcs ?? []) as Array<{ id?: unknown; post_id?: unknown; seller_id?: unknown; buyer_id?: unknown }>) {
-    const pcid = trimText(row.id);
-    const postId = trimText(row.post_id);
-    const sellerId = trimText(row.seller_id);
-    const buyerId = trimText(row.buyer_id);
-    if (!pcid || !postId || !sellerId || !buyerId) continue;
-    byPcId.set(pcid, { postId, sellerId, buyerId });
+      for (const s of targetsFromSummaryMeta) {
+        const pcid = s.contextMeta?.productChatId?.trim() ?? "";
+        const pc = byPcId.get(pcid);
+        if (!pc) continue;
+        const post = postById.get(pc.postId);
+        const title = typeof post?.title === "string" ? post.title.trim() : "";
+        const priceRaw = post?.price;
+        const price =
+          typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+        const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+        const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+          productChatId: pcid,
+          postId: pc.postId,
+          productTitle: title || "거래",
+          price: price != null && !Number.isNaN(price) ? price : null,
+          currency,
+          role,
+          sellerListingStateRaw: post?.seller_listing_state,
+          postStatus: post?.status ?? null,
+          thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
+        });
+        s.contextMeta = meta;
+      }
+    }
   }
-  const postIds = dedupeIds([...byPcId.values()].map((v) => v.postId));
-  const { data: posts } = await (sb as any)
-    .from(POSTS_TABLE_READ)
-    .select("id, title, price, currency, images, status, seller_listing_state")
-    .in("id", postIds);
-  const postById = new Map<string, any>(((posts ?? []) as any[]).map((p) => [trimText(p.id), p]));
 
-  for (const s of targets) {
-    const pcid = s.contextMeta?.productChatId?.trim() ?? "";
-    const pc = byPcId.get(pcid);
-    if (!pc) continue;
-    const post = postById.get(pc.postId);
-    const title = typeof post?.title === "string" ? post.title.trim() : "";
-    const priceRaw = post?.price;
-    const price =
-      typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
-    const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
-    const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
-    const meta = buildMessengerContextMetaFromProductChatSnapshot({
-      productChatId: pcid,
-      postId: pc.postId,
-      productTitle: title || "거래",
-      price: price != null && !Number.isNaN(price) ? price : null,
-      currency,
-      role,
-      sellerListingStateRaw: post?.seller_listing_state,
-      postStatus: post?.status ?? null,
-      thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
-    });
-    s.contextMeta = meta;
+  /**
+   * Phase B: `product_chats.community_messenger_room_id` 로 연결된 CM 방 → posts 썸네일·제목.
+   */
+  const roomLinkedTargets = summaries.filter(
+    (s) => s.roomType === "direct" && tradeMessengerListThumbnailMissing(s)
+  );
+  const roomIdsForPcLookup = dedupeIds(roomLinkedTargets.map((s) => s.id));
+  const pcByMessengerRoomId = new Map<string, { pcid: string; postId: string; sellerId: string; buyerId: string }>();
+  if (roomIdsForPcLookup.length) {
+    const { data: pcRowsByRoom } = await (sb as any)
+      .from("product_chats")
+      .select("id, post_id, seller_id, buyer_id, community_messenger_room_id")
+      .in("community_messenger_room_id", roomIdsForPcLookup);
+
+    for (const row of (pcRowsByRoom ?? []) as Array<{
+      id?: unknown;
+      post_id?: unknown;
+      seller_id?: unknown;
+      buyer_id?: unknown;
+      community_messenger_room_id?: unknown;
+    }>) {
+      const rid = trimText(row.community_messenger_room_id);
+      const pcid = trimText(row.id);
+      const postId = trimText(row.post_id);
+      const sellerId = trimText(row.seller_id);
+      const buyerId = trimText(row.buyer_id);
+      if (!rid || !pcid || !postId || !sellerId || !buyerId) continue;
+      if (!pcByMessengerRoomId.has(rid)) {
+        pcByMessengerRoomId.set(rid, { pcid, postId, sellerId, buyerId });
+      }
+    }
+    if (pcByMessengerRoomId.size) {
+      const postIdsB = dedupeIds([...pcByMessengerRoomId.values()].map((v) => v.postId));
+      const { data: postsB } = await (sb as any)
+        .from(POSTS_TABLE_READ)
+        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
+        .in("id", postIdsB);
+      const postByIdB = new Map<string, any>(((postsB ?? []) as any[]).map((p) => [trimText(p.id), p]));
+
+      for (const s of summaries) {
+        const pc = pcByMessengerRoomId.get(s.id);
+        if (!pc) continue;
+        if (!tradeMessengerListThumbnailMissing(s)) continue;
+        const post = postByIdB.get(pc.postId);
+        const title = typeof post?.title === "string" ? post.title.trim() : "";
+        const priceRaw = post?.price;
+        const price =
+          typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+        const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+        const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+          productChatId: pc.pcid,
+          postId: pc.postId,
+          productTitle: title || "거래",
+          price: price != null && !Number.isNaN(price) ? price : null,
+          currency,
+          role,
+          sellerListingStateRaw: post?.seller_listing_state,
+          postStatus: post?.status ?? null,
+          thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
+        });
+        s.contextMeta = meta;
+      }
+    }
+  }
+
+  /**
+   * Phase C: `product_chats` 행이 없거나 CM id 미기입이어도 `chat_rooms`(item_trade) + `item_id` → `posts` 로 썸네일.
+   * (기존 Phase B 끝의 `return` 이 이 경로를 영구 차단하던 문제 수정)
+   */
+  /**
+   * Phase C: `chat_rooms`(item_trade) 의 `community_messenger_room_id` → posts 썸네일.
+   * (링크 행이 없어도 아래 Phase D 로 계속한다 — 예전 `return` 이 후속 보강을 막던 문제)
+   */
+  const stillNeedThumb = summaries.filter((s) => s.roomType === "direct" && tradeMessengerListThumbnailMissing(s));
+  const roomIdsLedger = dedupeIds(stillNeedThumb.map((s) => s.id));
+
+  if (roomIdsLedger.length) {
+    const { data: ledgerRows } = await (sb as any)
+      .from("chat_rooms")
+      .select("id, item_id, seller_id, buyer_id, community_messenger_room_id")
+      .eq("room_type", "item_trade")
+      .in("community_messenger_room_id", roomIdsLedger);
+
+    const crByRoomId = new Map<string, { crId: string; postId: string; sellerId: string; buyerId: string }>();
+    for (const row of (ledgerRows ?? []) as Array<Record<string, unknown>>) {
+      const rid = trimText(row.community_messenger_room_id);
+      const postId = trimText(row.item_id);
+      const sellerId = trimText(row.seller_id);
+      const buyerId = trimText(row.buyer_id);
+      const crId = trimText(row.id);
+      if (!rid || !postId || !sellerId || !buyerId || !crId) continue;
+      if (!crByRoomId.has(rid)) crByRoomId.set(rid, { crId, postId, sellerId, buyerId });
+    }
+
+    if (crByRoomId.size) {
+      const postIdsLedger = dedupeIds([...crByRoomId.values()].map((v) => v.postId));
+      const { data: postsLedger } = await (sb as any)
+        .from(POSTS_TABLE_READ)
+        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
+        .in("id", postIdsLedger);
+      const postLedgerById = new Map<string, any>(((postsLedger ?? []) as any[]).map((p) => [trimText(p.id), p]));
+
+      const uniquePostIdsForPc = dedupeIds([...crByRoomId.values()].map((v) => v.postId));
+      const pcIdByTriple = new Map<string, string>();
+      if (uniquePostIdsForPc.length) {
+        const { data: pcCandidates } = await (sb as any)
+          .from("product_chats")
+          .select("id, post_id, seller_id, buyer_id")
+          .in("post_id", uniquePostIdsForPc);
+        for (const row of (pcCandidates ?? []) as Array<Record<string, unknown>>) {
+          const pid = trimText(row.post_id);
+          const sid = trimText(row.seller_id);
+          const bid = trimText(row.buyer_id);
+          const id = trimText(row.id);
+          if (!pid || !sid || !bid || !id) continue;
+          const k = `${pid}\t${sid}\t${bid}`;
+          if (!pcIdByTriple.has(k)) pcIdByTriple.set(k, id);
+        }
+      }
+
+      for (const s of summaries) {
+        const cr = crByRoomId.get(s.id);
+        if (!cr) continue;
+        if (!tradeMessengerListThumbnailMissing(s)) continue;
+        const post = postLedgerById.get(cr.postId);
+        const tripleKey = `${cr.postId}\t${cr.sellerId}\t${cr.buyerId}`;
+        const resolvedPc = trimText(pcIdByTriple.get(tripleKey));
+        const pcidForMeta = resolvedPc || cr.crId;
+        const title = typeof post?.title === "string" ? post.title.trim() : "";
+        const priceRaw = post?.price;
+        const price =
+          typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+        const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+        const role: "seller" | "buyer" = userId === cr.sellerId ? "seller" : "buyer";
+        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+          productChatId: pcidForMeta,
+          postId: cr.postId,
+          productTitle: title || "거래",
+          price: price != null && !Number.isNaN(price) ? price : null,
+          currency,
+          role,
+          sellerListingStateRaw: post?.seller_listing_state,
+          postStatus: post?.status ?? null,
+          thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
+        });
+        s.contextMeta = meta;
+      }
+    }
+  }
+
+  /**
+   * Phase D: CM 방·ledger·product_chats.community_messenger_room_id 가 비어 있어도
+   * **판매자·구매자 쌍**으로 `product_chats` 를 찾아 목록 썸네일을 맞춘다.
+   * (방 입장은 `summary` 의 productChatId 로 상세를 타지만, 목록 enrich 만 실패하던 케이스)
+   */
+  const stillAfterC = summaries.filter(
+    (s) =>
+      s.roomType === "direct" &&
+      s.contextMeta?.kind !== "delivery" &&
+      tradeMessengerListThumbnailMissing(s) &&
+      !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)
+  );
+  const peersForPair = dedupeIds(
+    stillAfterC.map((s) => (typeof s.peerUserId === "string" ? s.peerUserId.trim() : "")).filter(Boolean)
+  );
+  if (peersForPair.length) {
+    type PcPairRow = {
+      id: string;
+      postId: string;
+      sellerId: string;
+      buyerId: string;
+      updatedAt: string;
+      cmRoomId: string;
+    };
+    const [{ data: pcSellerMe }, { data: pcBuyerMe }] = await Promise.all([
+      (sb as any)
+        .from("product_chats")
+        .select("id, post_id, seller_id, buyer_id, updated_at, community_messenger_room_id")
+        .eq("seller_id", userId)
+        .in("buyer_id", peersForPair),
+      (sb as any)
+        .from("product_chats")
+        .select("id, post_id, seller_id, buyer_id, updated_at, community_messenger_room_id")
+        .eq("buyer_id", userId)
+        .in("seller_id", peersForPair),
+    ]);
+    const byPeer = new Map<string, PcPairRow[]>();
+    const pushRow = (row: Record<string, unknown>) => {
+      const id = trimText(row.id);
+      const postId = trimText(row.post_id);
+      const sellerId = trimText(row.seller_id);
+      const buyerId = trimText(row.buyer_id);
+      if (!id || !postId || !sellerId || !buyerId) return;
+      const peer = userId === sellerId ? buyerId : userId === buyerId ? sellerId : "";
+      if (!peer || !peersForPair.includes(peer)) return;
+      const rec: PcPairRow = {
+        id,
+        postId,
+        sellerId,
+        buyerId,
+        updatedAt: trimText(row.updated_at) || "",
+        cmRoomId: trimText(row.community_messenger_room_id),
+      };
+      const list = byPeer.get(peer) ?? [];
+      list.push(rec);
+      byPeer.set(peer, list);
+    };
+    for (const row of (pcSellerMe ?? []) as Array<Record<string, unknown>>) pushRow(row);
+    for (const row of (pcBuyerMe ?? []) as Array<Record<string, unknown>>) pushRow(row);
+
+    const pickPcForRoom = (roomId: string, peer: string): PcPairRow | null => {
+      const list = byPeer.get(peer);
+      if (!list?.length) return null;
+      const linked = list.find((r) => r.cmRoomId && r.cmRoomId === roomId);
+      if (linked) return linked;
+      const sorted = [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return sorted[0] ?? null;
+    };
+
+    const postIdsPair = dedupeIds(
+      stillAfterC
+        .map((s) => {
+          const peer = trimText(s.peerUserId);
+          if (!peer) return "";
+          const pc = pickPcForRoom(s.id, peer);
+          return pc?.postId ?? "";
+        })
+        .filter(Boolean)
+    );
+
+    if (postIdsPair.length) {
+      const { data: postsPair } = await (sb as any)
+        .from(POSTS_TABLE_READ)
+        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
+        .in("id", postIdsPair);
+      const postPairById = new Map<string, any>(((postsPair ?? []) as any[]).map((p) => [trimText(p.id), p]));
+
+      for (const s of stillAfterC) {
+        if (!tradeMessengerListThumbnailMissing(s)) continue;
+        const peer = trimText(s.peerUserId);
+        if (!peer) continue;
+        const pc = pickPcForRoom(s.id, peer);
+        if (!pc) continue;
+        const post = postPairById.get(pc.postId);
+        const title = typeof post?.title === "string" ? post.title.trim() : "";
+        const priceRaw = post?.price;
+        const price =
+          typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+        const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
+        const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+        s.contextMeta = buildMessengerContextMetaFromProductChatSnapshot({
+          productChatId: pc.id,
+          postId: pc.postId,
+          productTitle: title || "거래",
+          price: price != null && !Number.isNaN(price) ? price : null,
+          currency,
+          role,
+          sellerListingStateRaw: post?.seller_listing_state,
+          postStatus: post?.status ?? null,
+          thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
+        });
+      }
+    }
   }
 }
 
@@ -4618,8 +5225,8 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
     ...(ledgerCrId ? { itemTradeChatRoomId: ledgerCrId } : {}),
   });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
-  /** 요약 하이드레이션은 부트스트랩·목록 보강에서도 됨 — `item/start` 응답 RTT 에서 제외 */
-  void hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId, pc).catch(() => {});
+  /** `rooms.summary` 거래 메타 — 목록 썸네일·방 카드 productChatId 일치. 실패 시 목록만 비므로 완료까지 대기 */
+  await hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId, pc).catch(() => {});
   const sbPersist = getSupabaseOrNull();
   /** item_trade 행이 있으면 `chat_rooms` FK만 고정 — 없으면 레거시로 PC 에 메신저 id 기록 */
   if (sbPersist && ledgerCrId) {
@@ -5907,16 +6514,8 @@ export async function upsertCommunityMessengerPresenceSnapshot(input: {
 
 const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX = 100;
 
-function firstPostThumbnailForTradeMeta(images: unknown): string | null {
-  if (images == null) return null;
-  if (Array.isArray(images) && images.length > 0) {
-    const x = images[0];
-    if (typeof x === "string" && x.trim()) return x.trim();
-    if (x && typeof x === "object" && "url" in x && typeof (x as { url?: unknown }).url === "string") {
-      return String((x as { url: string }).url).trim() || null;
-    }
-  }
-  return null;
+function firstPostThumbnailForMessengerTradeList(post: Record<string, unknown> | null | undefined): string | null {
+  return extractPostThumbnailPathFromPostRow(post ?? null);
 }
 
 /** product_chats → CM 방 연결 직후 `summary` 에 거래 메타를 넣어 목록·방 UI(`productChatId`)가 맞도록 한다. */
@@ -5936,7 +6535,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
   const postId = String(pc.post_id ?? "").trim();
   const { data: post } = await (sb as any)
     .from(POSTS_TABLE_READ)
-    .select("title, price, currency, images, status, seller_listing_state")
+    .select("title, price, currency, images, thumbnail_url, status, seller_listing_state")
     .eq("id", postId)
     .maybeSingle();
   const title = typeof post?.title === "string" ? post.title.trim() : "";
@@ -5960,7 +6559,7 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
     sellerListingStateRaw: (post as any)?.seller_listing_state,
     postStatus: (post as any)?.status ?? null,
     tradeFlowStatus: String(pc.trade_flow_status ?? "chatting"),
-    thumbnailUrl: firstPostThumbnailForTradeMeta(post?.images),
+    thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown> | null | undefined),
   });
   await updateCommunityMessengerRoomContextMeta({
     userId,
@@ -5983,8 +6582,8 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 첫 스냅샷에 포함하고, 통화·presence·enrich 는 후속 부트스트랩으로 합류한다.
    */
   deferSnapshotSecondary?: boolean;
-  /** `critical`: 첫 페인트용 경량 스냅샷(후속 보강 필수). `full`: 기존 전체 스냅샷. */
-  snapshotTier?: "critical" | "full";
+  /** `critical`: 첫 페인트용 경량 스냅샷(후속 보강 필수). `full`: 기존 전체 스냅샷. `fast`: full 에 가깝되 `tradeChatRoomDetail` 로드만 스냅샷에서 제외(비차단). */
+  snapshotTier?: "critical" | "full" | "fast";
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
   /** 비프로덕션 — `x-samarket-e2e-room-diag` 로 활성화된 E2E 방 스냅샷 계측 */
   e2eRoomSnapshotDiag?: boolean;
@@ -6090,7 +6689,7 @@ function messengerRoomSnapshotCacheKey(
   messageLimit: number,
   hydrateFullMemberList: boolean,
   deferSnapshotSecondary: boolean,
-  snapshotTier: "critical" | "full"
+  snapshotTier: "critical" | "full" | "fast"
 ): string {
   return `${trimText(userId)}\0${trimText(roomId).toLowerCase()}\0${messageLimit}\0${hydrateFullMemberList ? "1" : "0"}\0${
     deferSnapshotSecondary ? "1" : "0"
@@ -6236,7 +6835,12 @@ export async function getCommunityMessengerRoomSnapshot(
   const messageLimit = effectiveSnapshotMessageLimitForCache(options);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
-  const snapshotTier = options?.snapshotTier === "critical" ? "critical" : "full";
+  const snapshotTier: "critical" | "full" | "fast" =
+    options?.snapshotTier === "critical"
+      ? "critical"
+      : options?.snapshotTier === "fast"
+        ? "fast"
+        : "full";
   const id = trimText(roomId);
   if (!id) return null;
   /**
@@ -6289,6 +6893,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const tBootstrap0 = performance.now();
   const isCriticalTier = options?.snapshotTier === "critical";
+  const isFastTier = options?.snapshotTier === "fast";
   const messageLimit = effectiveSnapshotMessageLimitForCache(options);
   let hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   if (isCriticalTier) {
@@ -6334,11 +6939,14 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   if (sb) {
     const participantSelectCols =
       "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
-    /** defer seed: `fetchProfilesByIds` RTT 를 줄이기 위해 participants 와 profiles 를 한 번에 embed (첫 Promise.all 안). */
-    const participantProfileEmbedSelect =
-      (deferSecondaryRequested || isCriticalTier) && !hydrateFullMemberList
-        ? ", profiles!community_messenger_participants_user_id_fkey ( id, nickname, username, avatar_url, bio )"
-        : "";
+    /**
+     * 멤버 전원 로드(`hydrateFullMemberList`)가 아닐 때만 embed — 행 수가 캡으로 한정되어 페이로드가 폭증하지 않음.
+     * defer/critical 에 한정하지 않고 기본 full 부트스트랩에도 적용해 `hydrateProfilesLabelsOnlyWithMap` 의 `fetchProfilesByIds` 왕복을 줄인다.
+     */
+    /** minimal 멤버 경로: 필요 컬럼만 embed — `hydrateProfilesLabelsOnlyWithMap` 에서 bio 없으면 null */
+    const participantProfileEmbedSelect = !hydrateFullMemberList
+      ? ", profiles!community_messenger_participants_user_id_fkey ( id, nickname, username, avatar_url )"
+      : "";
     const participantSelectForBootstrap = participantSelectCols + participantProfileEmbedSelect;
     const participantsQuery = hydrateFullMemberList
       ? (sb as any)
@@ -6374,7 +6982,14 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       .maybeSingle();
     const participantsFetch = (async () => {
       const tParticipants0 = performance.now();
-      const [participantRes, myParticipantRes] = await Promise.all([participantsQuery, myParticipantQuery]);
+      const participantRes = await participantsQuery;
+      let myParticipantData: unknown = null;
+      if (!hydrateFullMemberList) {
+        if (!participantQueryRowsIncludeViewer(participantRes.data, userId)) {
+          const myRes = await myParticipantQuery;
+          myParticipantData = myRes.data;
+        }
+      }
       const dtPart = performance.now() - tParticipants0;
       participantsProfilesFetchMs += dtPart;
       if (diagnostics) {
@@ -6382,7 +6997,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       }
       return {
         participantData: participantRes.data,
-        myParticipantData: myParticipantRes.data,
+        myParticipantData,
       };
     })();
     /** defer seed RSC: 첫 paint 전 row 수·metadata 페이로드를 줄이기 위해 최근 메시지 fetch 상한만 별도 캡(컬럼 shape 동일). */
@@ -6606,8 +7221,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const t0 = performance.now();
     const r = await hydrateProfilesLabelsOnlyWithMap(userId, hydrationUserIds, {
       includeSelf: true,
+      /** participants embed 로 이미 맵이 채워졌으면 `fetchProfilesByIds` 왕복 생략(멤버는 캡으로 한정됨) */
       prefetchedProfiles:
-        (deferSecondaryRequested || isCriticalTier) && !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
+        !hydrateFullMemberList && embeddedProfilesFromParticipantRows.size > 0
           ? embeddedProfilesFromParticipantRows
           : undefined,
     });
@@ -6618,7 +7234,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   })();
   /** defer seed: 거래 방 상품 카드만 프로필과 동시에 로드(통화·presence·enrich 는 여전히 후속 부트스트랩) */
   const tradeDetailParallelForDeferSeed =
-    deferSecondary && room && !isCriticalTier
+    deferSecondary && room && !isCriticalTier && !isFastTier
       ? (async () => {
           const t0 = performance.now();
           const r = await tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad);
@@ -6708,16 +7324,6 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       }
       return r;
     });
-    const tTradeDetailNorm0 = performance.now();
-    const pTrade = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then(
-      (r) => {
-        if (diagnostics) {
-          diagnostics.tradeChatRoomDetailNormalizePhaseMs = Math.round(performance.now() - tTradeDetailNorm0);
-          diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
-        }
-        return r;
-      }
-    );
     const pTradeExitSnapshot = tradeExitSnapshotPromise;
     const pPresence = (presenceIds.length > 0
       ? getCommunityMessengerPresenceSnapshotsByUserIds(presenceIds)
@@ -6728,33 +7334,78 @@ async function loadCommunityMessengerRoomSnapshotUncached(
       }
       return r;
     });
-    const [, phase2] = await Promise.all([enrichPromise, Promise.all([pCall, pTrade, pPresence, pTradeExitSnapshot])]);
-    activeCall = phase2[0] as CommunityMessengerCallSession | null;
-    tradeChatRoomDetail = phase2[1] as ChatRoom | null;
-    presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
-    tradeProductChatExitForSnapshot = phase2[3] as Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>>;
-    if (diagnostics) {
-      diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
-      const s = diagnostics.normalizeTimelineSummaryEndMs ?? diagnostics.snapshotNormalizeStartMs ?? 0;
-      const cands: Array<[string, number | undefined]> = [
-        ["enrichTradeRoomContextMetaForBootstrap_chain", diagnostics.normalizeTimelineEnrichPathEndMs],
-        ["getActiveCallSessionForRoom", diagnostics.normalizeTimelineActiveCallEndMs],
-        ["tradeChatRoomDetailPromiseFromMessengerRoomRow", diagnostics.normalizeTimelineTradeDetailEndMs],
-        ["fetchPresenceSnapshotsByUserIds", diagnostics.normalizeTimelinePresenceEndMs],
-      ];
-      let maxN = "";
-      let maxMs = -1;
-      for (const [n, end] of cands) {
-        if (end == null) continue;
-        const d = end - s;
-        if (d > maxMs) {
-          maxMs = d;
-          maxN = n;
+    if (isFastTier) {
+      tradeChatRoomDetail = null;
+      const [, phase2] = await Promise.all([
+        enrichPromise,
+        Promise.all([pCall, pPresence, pTradeExitSnapshot]),
+      ]);
+      activeCall = phase2[0] as CommunityMessengerCallSession | null;
+      presenceMap = phase2[1] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
+      tradeProductChatExitForSnapshot = phase2[2] as Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>>;
+      if (diagnostics) {
+        diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
+        diagnostics.tradeChatRoomDetailNormalizePhaseMs = 0;
+        const s = diagnostics.normalizeTimelineSummaryEndMs ?? diagnostics.snapshotNormalizeStartMs ?? 0;
+        const cands: Array<[string, number | undefined]> = [
+          ["enrichTradeRoomContextMetaForBootstrap_chain", diagnostics.normalizeTimelineEnrichPathEndMs],
+          ["getActiveCallSessionForRoom", diagnostics.normalizeTimelineActiveCallEndMs],
+          ["fetchPresenceSnapshotsByUserIds", diagnostics.normalizeTimelinePresenceEndMs],
+        ];
+        let maxN = "";
+        let maxMs = -1;
+        for (const [n, end] of cands) {
+          if (end == null) continue;
+          const d = end - s;
+          if (d > maxMs) {
+            maxMs = d;
+            maxN = n;
+          }
+        }
+        if (maxMs >= 0 && maxN) {
+          diagnostics.normalizeSlowestNormalizeSubstepName = maxN;
+          diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs);
         }
       }
-      if (maxMs >= 0 && maxN) {
-        diagnostics.normalizeSlowestNormalizeSubstepName = maxN;
-        diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs);
+    } else {
+      const tTradeDetailNorm0 = performance.now();
+      const pTrade = tradeChatRoomDetailPromiseFromMessengerRoomRow(room, userId, diagnostics?.chatRoomDetailLoad).then(
+        (r) => {
+          if (diagnostics) {
+            diagnostics.tradeChatRoomDetailNormalizePhaseMs = Math.round(performance.now() - tTradeDetailNorm0);
+            diagnostics.normalizeTimelineTradeDetailEndMs = Math.round(performance.now() - tBootstrap0);
+          }
+          return r;
+        }
+      );
+      const [, phase2] = await Promise.all([enrichPromise, Promise.all([pCall, pTrade, pPresence, pTradeExitSnapshot])]);
+      activeCall = phase2[0] as CommunityMessengerCallSession | null;
+      tradeChatRoomDetail = phase2[1] as ChatRoom | null;
+      presenceMap = phase2[2] as Map<string, CommunityMessengerPeerPresenceSnapshot>;
+      tradeProductChatExitForSnapshot = phase2[3] as Awaited<ReturnType<typeof loadTradeProductChatExitSnapshotForMessengerRoom>>;
+      if (diagnostics) {
+        diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);
+        const s = diagnostics.normalizeTimelineSummaryEndMs ?? diagnostics.snapshotNormalizeStartMs ?? 0;
+        const cands: Array<[string, number | undefined]> = [
+          ["enrichTradeRoomContextMetaForBootstrap_chain", diagnostics.normalizeTimelineEnrichPathEndMs],
+          ["getActiveCallSessionForRoom", diagnostics.normalizeTimelineActiveCallEndMs],
+          ["tradeChatRoomDetailPromiseFromMessengerRoomRow", diagnostics.normalizeTimelineTradeDetailEndMs],
+          ["fetchPresenceSnapshotsByUserIds", diagnostics.normalizeTimelinePresenceEndMs],
+        ];
+        let maxN = "";
+        let maxMs = -1;
+        for (const [n, end] of cands) {
+          if (end == null) continue;
+          const d = end - s;
+          if (d > maxMs) {
+            maxMs = d;
+            maxN = n;
+          }
+        }
+        if (maxMs >= 0 && maxN) {
+          diagnostics.normalizeSlowestNormalizeSubstepName = maxN;
+          diagnostics.normalizeSlowestNormalizeSubstepFromSummaryMs = Math.round(maxMs);
+        }
       }
     }
   } else if (room && !isCriticalTier) {

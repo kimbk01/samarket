@@ -35,6 +35,8 @@ import {
 import { useSearchParams } from "next/navigation";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -80,6 +82,10 @@ function CommunityMessengerRoomClientPhase2Main({
     ...room,
     snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
   };
+  const tradeViewerRole = useMemo(
+    () => messengerTradeViewerRoleFromContextMeta(view.snapshot.room.contextMeta ?? undefined),
+    [view.snapshot.room.contextMeta]
+  );
   const headerView = useMemo(
     () => ({
       snapshot: view.snapshot,
@@ -279,6 +285,7 @@ function CommunityMessengerRoomClientPhase2Main({
           ref={setMessengerShellRef}
           data-messenger-shell
           data-cm-room
+          data-trade-viewer-role={tradeViewerRole ?? undefined}
           className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
           style={
             narrowViewport
@@ -319,6 +326,7 @@ export function CommunityMessengerRoomClientPhase2() {
     peerUserId: room.snapshot?.room.peerUserId ?? null,
   });
   const isNarrowViewport = useMatchMaxWidthMd();
+  const requestAnimatedBack = useMessengerRoomAnimatedBack();
   /** 모바일 셸이 vv 변수로 높이를 잡으므로 하단 탭·별도 키보드 inset 이중 보정 억제 */
   const keyboardOverlapSuppressed = Boolean(isNarrowViewport);
 
@@ -340,6 +348,10 @@ export function CommunityMessengerRoomClientPhase2() {
         <button
           type="button"
           onClick={() => {
+            if (requestAnimatedBack) {
+              requestAnimatedBack();
+              return;
+            }
             const fallback = buildMessengerRoomListBackHref(searchParams);
             runHistoryBackWithFallback(room.router, fallback);
           }}

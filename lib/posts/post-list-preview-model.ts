@@ -298,14 +298,25 @@ function realEstateListingHeadline(
 
 export function buildPostListPreviewModel(
   post: Record<string, unknown> | undefined,
-  opts: { currency: string; locale: string; skinKey?: string }
+  opts: {
+    currency: string;
+    locale: string;
+    skinKey?: string;
+    /** `parsePostMetaField(post?.meta)` 와 동일 메타 — 문자열 JSON·빈 케이스와 `post.meta` 직접 읽기 불일치 방지 */
+    preParsedMeta?: Record<string, unknown>;
+    /** 채팅 카드에서 이미 `getExchangeFeedLines` 한 결과 — 환전 블록 이중 계산 제거 */
+    exchangeFeedPrecomputed?: { phpAmount: number | null; rateLine: string | null } | null;
+  }
 ): PostListPreviewModel | null {
   if (!post) return null;
 
   const skinKey = opts.skinKey;
-  const meta = (post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
-    ? (post.meta as Record<string, unknown>)
-    : {}) as Record<string, unknown>;
+  const meta =
+    opts.preParsedMeta !== undefined
+      ? opts.preParsedMeta
+      : ((post.meta && typeof post.meta === "object" && !Array.isArray(post.meta)
+          ? (post.meta as Record<string, unknown>)
+          : {}) as Record<string, unknown>);
 
   const region = str(post.region);
   const city = str(post.city);
@@ -557,7 +568,8 @@ export function buildPostListPreviewModel(
   }
 
   if (isExchange) {
-    const { phpAmount, rateLine } = getExchangeFeedLines(meta, priceOk);
+    const { phpAmount, rateLine } =
+      opts.exchangeFeedPrecomputed ?? getExchangeFeedLines(meta, priceOk);
     const phpText =
       phpAmount != null && !Number.isNaN(phpAmount)
         ? `${CURRENCY_SYMBOLS.PHP} ${phpAmount.toLocaleString()}`

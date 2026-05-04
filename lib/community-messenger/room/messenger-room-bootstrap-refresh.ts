@@ -74,6 +74,8 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
   forgetSingleFlight(
     `cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block`
   );
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?snapshotTier=fast&cmReqSrc=room_silent`);
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent`);
 }
 
 /**
@@ -179,14 +181,14 @@ export function createMessengerRoomBootstrapRefresh(
         reqSrc = "room_client_block";
       } else if (silent) {
         reqSrc = "room_silent";
-        /** 보강: tier full — `mode=instant` 없음. force 시 coalesce 키 분리 */
+        /** 보강: 스냅샷에서 거래 상품 카드 로드 제외(`snapshotTier=fast`) — 클라가 `fetchChatRoomDetailApi` 로 합류 */
         bootstrapQueryWithSrc = opts?.forceSilentNetwork
           ? deferredMemberBootstrapRef.current
-            ? "?memberHydration=minimal&cmReqSrc=room_silent"
-            : "?cmReqSrc=room_silent"
+            ? "?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent"
+            : "?snapshotTier=fast&cmReqSrc=room_silent"
           : deferredMemberBootstrapRef.current
-            ? "?memberHydration=minimal&cmReqSrc=room_silent"
-            : "?cmReqSrc=room_silent";
+            ? "?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent"
+            : "?snapshotTier=fast&cmReqSrc=room_silent";
       } else {
         reqSrc = "room_client_legacy";
         bootstrapQueryWithSrc = INSTANT_LEGACY_Q;

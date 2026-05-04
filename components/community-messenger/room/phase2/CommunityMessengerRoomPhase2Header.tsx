@@ -15,10 +15,12 @@ import { MessengerHeader } from "@/components/community-messenger/line-ui";
 import { Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 
 export function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2HeaderView();
   const searchParams = useSearchParams();
+  const requestAnimatedBack = useMessengerRoomAnimatedBack();
   const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
   /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
   const typingPeerCount = useMessengerTypingStore((state) => {
@@ -76,6 +78,10 @@ export function CommunityMessengerRoomPhase2Header() {
           <button
             type="button"
             onClick={() => {
+              if (requestAnimatedBack) {
+                requestAnimatedBack();
+                return;
+              }
               markCommunityMessengerHomeReturn();
               if (vm.snapshot.room.roomType === "open_group") {
                 vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });

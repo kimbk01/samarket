@@ -22,6 +22,11 @@ import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesce
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import {
+  MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
+  messengerRoomListSourceFromPathname,
+} from "@/lib/community-messenger/messenger-entry-origin";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { applyRoomSummaryPatched } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
@@ -74,11 +79,26 @@ export function useMessageNotificationBridge(
     surfaceRef.current = surface;
   }, [pathname, playback, router, surface]);
 
-  const navigateToCommunityRoom = useCallback((roomId: string) => {
-    const id = String(roomId ?? "").trim();
-    if (!id) return;
-    routerRef.current.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
-  }, []);
+  const navigateToCommunityRoom = useCallback(
+    (roomId: string) => {
+      const pathNow = pathname ?? "";
+      let fromQs: string | null = null;
+      if (typeof window !== "undefined") {
+        try {
+          fromQs = new URLSearchParams(window.location.search).get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
+        } catch {
+          fromQs = null;
+        }
+      }
+      void runCommunityMessengerRoomForwardNavigation({
+        router: routerRef.current,
+        roomId,
+        listSource: messengerRoomListSourceFromPathname(pathNow),
+        fromEntryOrigin: fromQs,
+      });
+    },
+    [pathname]
+  );
 
   useLayoutEffect(() => {
     if (!enabled) return;

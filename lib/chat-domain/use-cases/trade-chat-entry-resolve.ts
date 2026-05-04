@@ -1,17 +1,12 @@
-import type { NextRequest } from "next/server";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { resolveLegacyProductChatCreateOrGet } from "./legacy-product-chat-create-or-get";
+import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
+import { runItemTradeChatStartCore } from "@/lib/trade/item-trade-chat-start-core";
+import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
 
-type UpstreamPayload = {
+type LegacyErrPayload = {
   ok?: boolean;
-  roomId?: string;
-  messengerRoomId?: string;
   error?: string;
-};
-
-type UpstreamResult = {
-  status: number;
-  payload: UpstreamPayload;
 };
 
 export type ResolveTradeChatEntryResult =
@@ -24,73 +19,67 @@ function pickString(v: unknown): string | undefined {
   return t || undefined;
 }
 
-function isProductNotFound(status: number, payload: UpstreamPayload): boolean {
+function isProductNotFound(status: number, payload: LegacyErrPayload): boolean {
   const error = pickString(payload.error) ?? "";
   return status === 404 || error.includes("상품을 찾을 수 없습니다");
 }
 
-async function postUpstream(
-  req: NextRequest,
-  path: string,
-  body: Record<string, unknown>
-): Promise<UpstreamResult> {
-  const url = new URL(path, req.url);
-  const cookie = req.headers.get("cookie");
-  const res = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(cookie ? { cookie } : {}),
-    },
-    cache: "no-store",
-    body: JSON.stringify(body),
-  });
-
-  const payload = (await res.json().catch(() => ({}))) as UpstreamPayload;
-  return {
-    status: res.status,
-    payload,
-  };
-}
-
 export async function resolveTradeChatEntry(
-  req: NextRequest,
   userId: string,
-  productId: string
+  productId: string,
+  perf?: TradeEntryPerfTrace | null
 ): Promise<ResolveTradeChatEntryResult> {
-  const itemStart = await postUpstream(req, "/api/chat/item/start", {
+  perf?.mark("resolve_service_sb");
+  const sb = resolveServiceSupabaseForApi();
+  if (!sb) {
+    return { ok: false, error: "서버 설정이 필요합니다.", status: 500 };
+  }
+
+  perf?.mark("resolve_item_core_start");
+  const core = await runItemTradeChatStartCore({
+    buyerId: userId,
     itemId: productId,
+    sb: sb as never,
+    perf,
   });
-  const itemRoomId = pickString(itemStart.payload.roomId);
-  const itemMessengerId = pickString(itemStart.payload.messengerRoomId);
-  if (itemStart.payload.ok && itemRoomId) {
+  perf?.mark("resolve_item_core_end");
+
+  if (core.ok) {
+    const b = core.body;
+    perf?.mark("resolve_response_chat_room");
     return {
       ok: true,
-      roomId: itemRoomId,
+      roomId: b.roomId,
       roomSource: "chat_room",
-      ...(itemMessengerId ? { messengerRoomId: itemMessengerId } : {}),
+      ...(b.messengerRoomId ? { messengerRoomId: b.messengerRoomId } : {}),
     };
   }
 
-  if (!isProductNotFound(itemStart.status, itemStart.payload)) {
+  const status = core.httpStatus;
+  const payload = core.body as LegacyErrPayload;
+  if (!isProductNotFound(status, payload)) {
+    perf?.mark("resolve_fail_non_404");
     return {
       ok: false,
-      error: pickString(itemStart.payload.error) ?? "채팅방 생성에 실패했습니다.",
-      status: itemStart.status >= 400 ? itemStart.status : 400,
+      error: pickString(payload.error) ?? "채팅방 생성에 실패했습니다.",
+      status: status >= 400 ? status : 400,
     };
   }
 
+  perf?.mark("resolve_legacy_start");
   const legacy = await resolveLegacyProductChatCreateOrGet({ userId, productId });
+  perf?.mark("resolve_legacy_end");
   if (legacy.ok) {
     const legacyRoomId = pickString(legacy.messengerRoomId) ?? pickString(legacy.roomId);
     if (legacyRoomId) {
+      perf?.mark("resolve_response_product_chat");
       return { ok: true, roomId: legacyRoomId, roomSource: "product_chat" };
     }
   }
 
   return {
     ok: false,
-    error: (legacy.ok ? undefined : legacy.error) ?? pickString(itemStart.payload.error) ?? "채팅방 생성에 실패했습니다.",
+    error: (legacy.ok ? undefined : legacy.error) ?? pickString(payload.error) ?? "채팅방 생성에 실패했습니다.",
     status: legacy.ok ? 500 : legacy.status,
   };
 }

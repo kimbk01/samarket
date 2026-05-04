@@ -6,8 +6,8 @@ import {
   postAuthorUserId,
 } from "@/lib/chats/resolve-author-nickname";
 import {
+  enrichPostWithAuthorNicknameFromPartnerDisplayMap,
   fetchPartnerDisplayFieldsMap,
-  nicknameMapFromPartnerDisplayMap,
   partnerDisplayFromMap,
 } from "@/lib/chats/fetch-partner-display";
 import {
@@ -438,11 +438,9 @@ export async function loadChatRoomDetailForUser(input: {
           unreadCount,
           tradeStatus: listing,
           product: chatProductSummaryFromPostRow(
-            enrichPostWithAuthorNickname(
-              post2Resolved ?? undefined,
-              nicknameMapFromPartnerDisplayMap(partnerMapCr)
-            ),
-            String((post2Resolved as { id?: string } | null)?.id ?? postIdForCard)
+            enrichPostWithAuthorNicknameFromPartnerDisplayMap(post2Resolved ?? undefined, partnerMapCr),
+            String((post2Resolved as { id?: string } | null)?.id ?? postIdForCard),
+            { precomputedSellerListingState: listing }
           ),
           source: "chat_room",
           chatDomain: "trade",
@@ -564,8 +562,9 @@ export async function loadChatRoomDetailForUser(input: {
       lastMessageAt: (row.last_message_at as string) ?? r.created_at,
       unreadCount: Number(unreadCount),
       product: chatProductSummaryFromPostRow(
-        enrichPostWithAuthorNickname(post ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapPc)),
-        resolvedProductId
+        enrichPostWithAuthorNicknameFromPartnerDisplayMap(post ?? undefined, partnerMapPc),
+        resolvedProductId,
+        { precomputedSellerListingState: listing }
       ),
       source: "product_chat",
       chatDomain: "trade",
@@ -934,8 +933,9 @@ export async function loadChatRoomDetailForUser(input: {
     unreadCount,
     tradeStatus: listing,
     product: chatProductSummaryFromPostRow(
-      enrichPostWithAuthorNickname(post2 ?? undefined, nicknameMapFromPartnerDisplayMap(partnerMapTrade)),
-      resolvedTradePostId
+      enrichPostWithAuthorNicknameFromPartnerDisplayMap(post2 ?? undefined, partnerMapTrade),
+      resolvedTradePostId,
+      { precomputedSellerListingState: listing }
     ),
     source: "chat_room",
     chatDomain: "trade",
