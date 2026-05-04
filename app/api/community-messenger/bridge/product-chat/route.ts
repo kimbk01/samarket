@@ -1,14 +1,10 @@
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { buildCommunityMessengerRoomUrlWithContext } from "@/lib/community-messenger/cm-ctx-url";
-import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
-import {
-  ensureCommunityMessengerDirectRoomFromProductChat,
-  updateCommunityMessengerRoomContextMeta,
-} from "@/lib/community-messenger/service";
+import { ensureCommunityMessengerDirectRoomFromProductChat } from "@/lib/community-messenger/service";
+import { persistProductChatMessengerRoomIdIfNull } from "@/lib/trade/persist-trade-messenger-room-link";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -20,18 +16,6 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function firstPostThumbnail(images: unknown): string | null {
-  if (images == null) return null;
-  if (Array.isArray(images) && images.length > 0) {
-    const x = images[0];
-    if (typeof x === "string" && x.trim()) return x.trim();
-    if (x && typeof x === "object" && "url" in x && typeof (x as { url?: unknown }).url === "string") {
-      return String((x as { url: string }).url).trim() || null;
-    }
-  }
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -69,6 +53,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 절대 조건: product_chats.community_messenger_room_id 는 NULL 이면 안 된다(목록/메타 enrich 실패 원인).
+  // 브리지는 productChatId 입력이므로, ensure 성공 시 원장 FK 를 한 번 더 고정해 둔다.
+  await persistProductChatMessengerRoomIdIfNull(sb as never, roomIdInput, ensured.roomId);
+
   const resolved = await resolveProductChat(sb as never, roomIdInput);
   if (!resolved) {
     return jsonOk({
@@ -76,50 +64,28 @@ export async function POST(req: NextRequest) {
       href: buildCommunityMessengerRoomUrlWithContext(ensured.roomId, {
         v: 1,
         kind: "trade",
-        headline: "거래",
+        headline: "제목 없음",
       }),
     });
   }
 
-  const pc = resolved.productChat;
-  const postId = String(pc.post_id ?? "").trim();
-  const { data: post } = await sb
-    .from(POSTS_TABLE_READ)
-    .select("title, price, currency, images, status, seller_listing_state")
-    .eq("id", postId)
+  /**
+   * `ensureCommunityMessengerDirectRoomFromProductChat` 가 이미 `hydrateTradeMessengerRoomSummaryFromProductChat` 로
+   * summary JSON(제목·카테고리·postId)을 채운다. 여기서 카테고리 없는 스냅샷으로 덮어쓰면 목록이 "중고거래/거래"로 고착된다.
+   */
+  const { data: roomRow } = await sb
+    .from("community_messenger_rooms")
+    .select("summary")
+    .eq("id", ensured.roomId)
     .maybeSingle();
-
-  const title = typeof post?.title === "string" ? post.title.trim() : "";
-  const priceRaw = post?.price;
-  const price =
-    typeof priceRaw === "number" && Number.isFinite(priceRaw)
-      ? priceRaw
-      : priceRaw != null
-        ? Number(priceRaw)
-        : null;
-  const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
-
-  const sellerId = String(pc.seller_id ?? "").trim();
-  const role: "seller" | "buyer" = auth.userId === sellerId ? "seller" : "buyer";
-
-  const meta = buildMessengerContextMetaFromProductChatSnapshot({
-    productChatId: resolved.productChatId,
-    postId: postId || undefined,
-    productTitle: title || "거래",
-    price: price != null && !Number.isNaN(price) ? price : null,
-    currency,
-    role,
-    sellerListingStateRaw: (post as { seller_listing_state?: unknown } | null)?.seller_listing_state,
-    postStatus: typeof post?.status === "string" ? post.status : null,
-    tradeFlowStatus: String(pc.trade_flow_status ?? "chatting"),
-    thumbnailUrl: firstPostThumbnail(post?.images),
-  });
-
-  await updateCommunityMessengerRoomContextMeta({
-    userId: auth.userId,
-    roomId: ensured.roomId,
-    contextMeta: meta,
-  });
+  const summaryStr = typeof roomRow?.summary === "string" ? roomRow.summary.trim() : "";
+  const meta =
+    parseCommunityMessengerRoomContextMeta(summaryStr) ?? {
+      v: 1 as const,
+      kind: "trade" as const,
+      productChatId: resolved.productChatId,
+      headline: "제목 없음",
+    };
 
   const href = buildCommunityMessengerRoomUrlWithContext(ensured.roomId, meta);
   return jsonOk({ roomId: ensured.roomId, href });

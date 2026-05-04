@@ -44,4 +44,27 @@ describe("buildMessengerContextMetaFromProductChatSnapshot", () => {
     });
     expect(m.tradeFlowStatus).toBe("buyer_confirmed");
   });
+
+  it("includes categoryMenuLabel when provided", () => {
+    const m = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: "pc3",
+      productTitle: "Z",
+      price: 10,
+      role: "buyer",
+      categoryMenuLabel: "중고차",
+    });
+    expect(m.categoryMenuLabel).toBe("중고차");
+  });
+
+  it("includes productCategoryLabel when provided", () => {
+    const m = buildMessengerContextMetaFromProductChatSnapshot({
+      productChatId: "pc4",
+      productTitle: "Z",
+      price: 10,
+      role: "buyer",
+      categoryMenuLabel: "중고거래",
+      productCategoryLabel: "디지털/가전",
+    });
+    expect(m.productCategoryLabel).toBe("디지털/가전");
+  });
 });

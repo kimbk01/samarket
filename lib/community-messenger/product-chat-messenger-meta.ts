@@ -17,6 +17,12 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   thumbnailUrl?: string | null;
   /** `product_chats.trade_flow_status` */
   tradeFlowStatus?: string | null;
+  /** `/market` 홈칩과 정합한 거래 대메뉴 라벨 */
+  categoryMenuLabel?: string | null;
+  /** `categories`/`trade_categories` 의 leaf 표시명 — 목록 1행 칩 우선 */
+  productCategoryLabel?: string | null;
+  /** 목록 4행 — 판매자/작성자 프로필 표시명(서버 enrich) */
+  sellerDisplayName?: string | null;
 }): CommunityMessengerRoomContextMetaV1 {
   const headline = input.productTitle.trim() || "거래";
   const meta: CommunityMessengerRoomContextMetaV1 = {
@@ -40,5 +46,11 @@ export function buildMessengerContextMetaFromProductChatSnapshot(input: {
   }
   const flow = String(input.tradeFlowStatus ?? "").trim();
   if (flow) meta.tradeFlowStatus = flow;
+  const categoryMenuLabel = String(input.categoryMenuLabel ?? "").trim();
+  if (categoryMenuLabel) meta.categoryMenuLabel = categoryMenuLabel;
+  const productCategoryLabel = String(input.productCategoryLabel ?? "").trim();
+  if (productCategoryLabel) meta.productCategoryLabel = productCategoryLabel;
+  const sellerDisplayName = String(input.sellerDisplayName ?? "").trim();
+  if (sellerDisplayName) meta.sellerDisplayName = sellerDisplayName;
   return meta;
 }

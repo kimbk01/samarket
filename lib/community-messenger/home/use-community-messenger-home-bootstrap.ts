@@ -27,7 +27,9 @@ import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
   CommunityMessengerFriendRequest,
+  CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -38,12 +40,17 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 
-/** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 */
-function mergeCriticalRoomPatchesIntoLists<T extends { id: string }>(baseList: T[], incoming: T[]): T[] {
+/** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 + 거래 `contextMeta` 역행 방지 */
+function mergeCriticalRoomPatchesIntoLists(
+  baseList: CommunityMessengerRoomSummary[],
+  incoming: CommunityMessengerRoomSummary[]
+): CommunityMessengerRoomSummary[] {
   if (!incoming.length) return baseList;
+  const baseById = new Map(baseList.map((r) => [r.id, r]));
   const incomingIds = new Set(incoming.map((r) => r.id));
+  const head = incoming.map((inc) => mergeMessengerRoomSummaryForHomeSyncCriticalPatch(baseById.get(inc.id), inc));
   const tail = baseList.filter((r) => !incomingIds.has(r.id));
-  return [...incoming, ...tail];
+  return [...head, ...tail];
 }
 
 /**

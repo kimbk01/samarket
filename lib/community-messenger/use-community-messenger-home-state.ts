@@ -85,13 +85,33 @@ function messengerRoomTradeThumbKeyPart(room: CommunityMessengerRoomSummary): st
   return typeof u === "string" ? u : "";
 }
 
+/**
+ * 거래 목록 행에 영향을 주는 `contextMeta` 요약.
+ * `sortRoomsWithStableOutput` 캐시 키·`visibleChatListInputKey`·행 동결에 넣지 않으면
+ * `productCategoryLabel`/`headline`만 바뀐 뒤에도 **옛 `CommunityMessengerRoomSummary` 참조**가 캐시 히트로 남는다.
+ */
+function messengerRoomTradeListMetaSig(room: CommunityMessengerRoomSummary): string {
+  const m = room.contextMeta;
+  if (m?.kind !== "trade") return "";
+  return [
+    m.headline ?? "",
+    m.productCategoryLabel ?? "",
+    m.categoryMenuLabel ?? "",
+    m.priceLabel ?? "",
+    m.itemStateLabel ?? "",
+    m.postId ?? "",
+    m.productChatId ?? "",
+    m.sellerDisplayName ?? "",
+  ].join("\x1f");
+}
+
 /** `sortRooms` 비교에 쓰이는 필드만 — 동일 내용이면 정렬·카운터 재실행 생략 */
 function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
   if (rooms.length === 0) return "";
   return rooms
     .map(
       (r) =>
-        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}`
+        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}`
     )
     .join("\n");
 }
@@ -128,7 +148,7 @@ function visibleChatListInputKey(
     const rowSig = items
       .map(
         (i) =>
-          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
+          `${i.room.id}\t${i.room.unreadCount}\t${i.room.isPinned ? 1 : 0}\t${i.room.roomType}\t${messengerRoomTradeThumbKeyPart(i.room)}\t${messengerRoomTradeListMetaSig(i.room)}\t${i.preview}\t${i.room.title}\t${i.room.subtitle}\t${i.room.summary}\t${i.room.philifeMeetingMemberLabel ?? ""}`
       )
       .join("\n");
     return `${items.length}|${inbox}|${kind}|${k}|${rowSig}`;
@@ -146,6 +166,7 @@ function visibleChatListInputKey(
         r.roomType,
         r.contextMeta?.kind ?? "",
         messengerRoomTradeThumbKeyPart(r),
+        messengerRoomTradeListMetaSig(r),
         r.title,
         r.subtitle,
         r.summary,
@@ -470,6 +491,7 @@ export function formatConversationTimestamp(value: string): string {
 function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
   return (
     messengerRoomTradeThumbKeyPart(a.room) === messengerRoomTradeThumbKeyPart(b.room) &&
+    messengerRoomTradeListMetaSig(a.room) === messengerRoomTradeListMetaSig(b.room) &&
     a.room === b.room &&
     a.preview === b.preview &&
     a.previewKind === b.previewKind &&

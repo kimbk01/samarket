@@ -42,6 +42,15 @@ import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-m
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { extractPostThumbnailPathFromPostRow } from "@/lib/community-messenger/trade-chat-list/post-thumbnail-path";
 import {
+  resolveTradeChatCategoryLabelForList,
+  type TradeChatCategoryMetaLike,
+} from "@/lib/community-messenger/trade-chat-list/category-menu-label";
+import {
+  tradeChatProductCategoryDisplayName,
+  tradePostCategoryId,
+  tradePostHeadlineForMessengerList,
+} from "@/lib/community-messenger/trade-chat-list/trade-post-row-fields";
+import {
   finalizeChatRoomDetailLoadDiagnostics,
   loadChatRoomDetailForUser,
 } from "@/lib/chats/server/load-chat-room-detail";
@@ -3836,6 +3845,18 @@ function tradeMessengerListThumbnailMissing(summary: CommunityMessengerRoomSumma
   return !(typeof t === "string" && t.trim().length > 0);
 }
 
+/** 썸네일은 있는데 제목·postId·PC id·대메뉴 라벨이 비어 있으면 `product_chats`→`posts` 재조인이 필요하다. */
+function tradeMessengerTradeListMetaNeedsPcHydration(summary: CommunityMessengerRoomSummary): boolean {
+  const m = summary.contextMeta;
+  if (!m || m.kind !== "trade") return false;
+  const headline = trimText(m.headline);
+  // "거래"는 레거시 placeholder, "제목 없음"은 최후 fallback 이므로 둘 다 약한 값으로 본다.
+  const weakHeadline = !headline || headline === "거래" || headline === "제목 없음";
+  const missingPostId = !trimText(m.postId);
+  const missingPc = !trimText(m.productChatId);
+  return weakHeadline || missingPostId || missingPc;
+}
+
 /** `community_messenger_rooms.direct_key` — 거래 스레드 원장 키 (`trade_pc:` / `trade_item:`). */
 type ParsedTradeMessengerDirectKey =
   | { kind: "trade_pc"; productChatId: string }
@@ -3947,13 +3968,8 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
 
   if (!allPostIds.length) return;
 
-  const { data: posts } = await (sb as any)
-    .from(POSTS_TABLE_READ)
-    .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
-    .in("id", allPostIds);
-  const postById = new Map<string, Record<string, unknown>>(
-    ((posts ?? []) as Record<string, unknown>[]).map((p) => [trimText(p.id as string), p as Record<string, unknown>])
-  );
+  const postById = await fetchTradeChatListPostRowsByIds(sb, allPostIds);
+  const categoryById = await loadTradeChatCategoryMetaByPostRows(sb, postById.values());
 
   const applyForPost = (
     summary: CommunityMessengerRoomSummary,
@@ -3963,7 +3979,6 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     buyerId: string
   ) => {
     const post = postById.get(postId);
-    const title = typeof post?.title === "string" ? post.title.trim() : "";
     const priceRaw = post?.price;
     const price =
       typeof priceRaw === "number" && Number.isFinite(priceRaw)
@@ -3973,13 +3988,14 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
           : null;
     const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
     const role: "seller" | "buyer" = userId === sellerId ? "seller" : "buyer";
-    summary.contextMeta = buildMessengerContextMetaFromProductChatSnapshot({
+    summary.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
       productChatId: productChatIdForMeta,
       postId,
-      productTitle: title || "거래",
+      post: post as Record<string, unknown> | null | undefined,
       price: price != null && !Number.isNaN(price) ? price : null,
       currency,
       role,
+      categoryById,
       sellerListingStateRaw: post?.seller_listing_state,
       postStatus: (post?.status as string | undefined) ?? null,
       thumbnailUrl: firstPostThumbnailForMessengerTradeList(post),
@@ -4001,6 +4017,78 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     const resolvedPc = trimText(pcIdByTriple.get(tripleKey));
     const pcidForMeta = resolvedPc || parsed.itemTradeChatRoomId;
     applyForPost(s, pcidForMeta, cr.item_id, cr.seller_id, cr.buyer_id);
+  }
+}
+
+/**
+ * 거래 탭 목록 4행 — `product_chats.seller_id` 우선, 없으면 `posts.user_id` 로 프로필 라벨을 배치 조회해 `contextMeta.sellerDisplayName` 에 넣는다.
+ * tier·unread·입장 경로는 바꾸지 않고 `enrichTradeRoomContextMetaForBootstrap` 마지막에만 실행한다.
+ */
+async function hydrateTradeListSellerDisplayNamesForSummaries(
+  sb: unknown,
+  summaries: CommunityMessengerRoomSummary[]
+): Promise<void> {
+  const tradeRows = summaries.filter((s) => s.contextMeta?.kind === "trade");
+  if (!tradeRows.length) return;
+
+  const productChatIds = dedupeIds(
+    tradeRows.map((s) => trimText(s.contextMeta?.productChatId)).filter(Boolean)
+  );
+  const pcById = new Map<string, { seller_id: string; post_id: string }>();
+  if (productChatIds.length) {
+    const { data: pcs } = await (sb as any)
+      .from("product_chats")
+      .select("id, seller_id, post_id")
+      .in("id", productChatIds);
+    for (const row of (pcs ?? []) as Array<{ id?: unknown; seller_id?: unknown; post_id?: unknown }>) {
+      const id = trimText(row.id);
+      const seller_id = trimText(row.seller_id);
+      const post_id = trimText(row.post_id);
+      if (!id || !seller_id) continue;
+      pcById.set(id, { seller_id, post_id });
+    }
+  }
+
+  const postIdsNeedingAuthor = dedupeIds([
+    ...tradeRows.map((s) => trimText(s.contextMeta?.postId)).filter(Boolean),
+    ...[...pcById.values()].map((v) => v.post_id).filter(Boolean),
+  ]);
+  const postById =
+    postIdsNeedingAuthor.length > 0 ? await fetchTradeChatListPostRowsByIds(sb, postIdsNeedingAuthor) : new Map();
+
+  const roomToSellerId = new Map<string, string>();
+  const sellerIds = new Set<string>();
+  for (const s of tradeRows) {
+    const meta = s.contextMeta;
+    if (!meta || meta.kind !== "trade") continue;
+    const pcid = trimText(meta.productChatId);
+    const postId = trimText(meta.postId);
+    let sellerUid = "";
+    if (pcid) {
+      const pc = pcById.get(pcid);
+      if (pc?.seller_id) sellerUid = pc.seller_id;
+    }
+    if (!sellerUid && postId) {
+      const post = postById.get(postId);
+      sellerUid = trimText((post as { user_id?: unknown } | undefined)?.user_id);
+    }
+    if (sellerUid) {
+      roomToSellerId.set(s.id, sellerUid);
+      sellerIds.add(sellerUid);
+    }
+  }
+  if (!sellerIds.size) return;
+
+  const labelByUserId = await fetchProfilesByIds([...sellerIds]);
+
+  for (const s of tradeRows) {
+    const sellerUid = roomToSellerId.get(s.id);
+    if (!sellerUid) continue;
+    const prev = s.contextMeta;
+    if (!prev || prev.kind !== "trade") continue;
+    const label = profileLabel(labelByUserId.get(sellerUid), sellerUid).trim();
+    if (!label) continue;
+    s.contextMeta = { ...prev, sellerDisplayName: label };
   }
 }
 
@@ -4039,44 +4127,43 @@ async function enrichTradeRoomContextMetaForBootstrap(
         byPcId.set(pcid, { postId, sellerId, buyerId });
       }
       const postIds = dedupeIds([...byPcId.values()].map((v) => v.postId));
-      const { data: posts } = await (sb as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
-        .in("id", postIds);
-      const postById = new Map<string, any>(((posts ?? []) as any[]).map((p) => [trimText(p.id), p]));
+      const postById = await fetchTradeChatListPostRowsByIds(sb, postIds);
+      const categoryById = await loadTradeChatCategoryMetaByPostRows(sb, postById.values());
 
       for (const s of targetsFromSummaryMeta) {
         const pcid = s.contextMeta?.productChatId?.trim() ?? "";
         const pc = byPcId.get(pcid);
         if (!pc) continue;
         const post = postById.get(pc.postId);
-        const title = typeof post?.title === "string" ? post.title.trim() : "";
         const priceRaw = post?.price;
         const price =
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
         const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
-        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+        s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pcid,
           postId: pc.postId,
-          productTitle: title || "거래",
+          post: post as Record<string, unknown> | null | undefined,
           price: price != null && !Number.isNaN(price) ? price : null,
           currency,
           role,
+          categoryById,
           sellerListingStateRaw: post?.seller_listing_state,
-          postStatus: post?.status ?? null,
+          postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
         });
-        s.contextMeta = meta;
       }
     }
   }
 
   /**
-   * Phase B: `product_chats.community_messenger_room_id` 로 연결된 CM 방 → posts 썸네일·제목.
+   * Phase B: `product_chats.community_messenger_room_id` 로 연결된 CM 방 → posts 썸네일·제목·카테고리.
+   * 썸네일만 있고 headline 이 "거래"·postId 비어 있음 등이면(브리지 덮어쓰기·구 summary) 동일 경로로 재보강한다.
    */
   const roomLinkedTargets = summaries.filter(
-    (s) => s.roomType === "direct" && tradeMessengerListThumbnailMissing(s)
+    (s) =>
+      s.roomType === "direct" &&
+      (tradeMessengerListThumbnailMissing(s) || tradeMessengerTradeListMetaNeedsPcHydration(s))
   );
   const roomIdsForPcLookup = dedupeIds(roomLinkedTargets.map((s) => s.id));
   const pcByMessengerRoomId = new Map<string, { pcid: string; postId: string; sellerId: string; buyerId: string }>();
@@ -4105,35 +4192,57 @@ async function enrichTradeRoomContextMetaForBootstrap(
     }
     if (pcByMessengerRoomId.size) {
       const postIdsB = dedupeIds([...pcByMessengerRoomId.values()].map((v) => v.postId));
-      const { data: postsB } = await (sb as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
-        .in("id", postIdsB);
-      const postByIdB = new Map<string, any>(((postsB ?? []) as any[]).map((p) => [trimText(p.id), p]));
+      const postByIdB = await fetchTradeChatListPostRowsByIds(sb, postIdsB);
+      const categoryByIdB = await loadTradeChatCategoryMetaByPostRows(sb, postByIdB.values());
 
+      let hydrateCheckLoggedOnce = false;
       for (const s of summaries) {
         const pc = pcByMessengerRoomId.get(s.id);
         if (!pc) continue;
-        if (!tradeMessengerListThumbnailMissing(s)) continue;
+        if (!tradeMessengerListThumbnailMissing(s) && !tradeMessengerTradeListMetaNeedsPcHydration(s)) continue;
         const post = postByIdB.get(pc.postId);
-        const title = typeof post?.title === "string" ? post.title.trim() : "";
         const priceRaw = post?.price;
         const price =
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
         const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
-        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+        const nextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pc.pcid,
           postId: pc.postId,
-          productTitle: title || "거래",
+          post: post as Record<string, unknown> | null | undefined,
           price: price != null && !Number.isNaN(price) ? price : null,
           currency,
           role,
+          categoryById: categoryByIdB,
           sellerListingStateRaw: post?.seller_listing_state,
-          postStatus: post?.status ?? null,
+          postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
         });
-        s.contextMeta = meta;
+        s.contextMeta = nextMeta;
+
+        if (
+          typeof process !== "undefined" &&
+          process.env.NODE_ENV === "development" &&
+          hydrateCheckLoggedOnce === false
+        ) {
+          hydrateCheckLoggedOnce = true;
+          console.info("[trade-list-hydrate-check]", {
+            roomId: s.id,
+            productChatId: pc.pcid,
+            productChatRoomId: s.id,
+            postId: pc.postId,
+            postFound: Boolean(post),
+            postTitle: typeof (post as any)?.title === "string" ? String((post as any).title) : null,
+            postPrice: (post as any)?.price ?? null,
+            postCategory: (post as any)?.category ?? null,
+            postCategoryKey: (post as any)?.category_key ?? null,
+            postTradeType: (post as any)?.trade_type ?? null,
+            postListingType: (post as any)?.listing_type ?? null,
+            finalCategoryMenuLabel: (nextMeta as any)?.categoryMenuLabel ?? null,
+            finalHeadline: (nextMeta as any)?.headline ?? null,
+            finalPriceText: (nextMeta as any)?.priceLabel ?? null,
+          });
+        }
       }
     }
   }
@@ -4169,11 +4278,8 @@ async function enrichTradeRoomContextMetaForBootstrap(
 
     if (crByRoomId.size) {
       const postIdsLedger = dedupeIds([...crByRoomId.values()].map((v) => v.postId));
-      const { data: postsLedger } = await (sb as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
-        .in("id", postIdsLedger);
-      const postLedgerById = new Map<string, any>(((postsLedger ?? []) as any[]).map((p) => [trimText(p.id), p]));
+      const postLedgerById = await fetchTradeChatListPostRowsByIds(sb, postIdsLedger);
+      const categoryLedgerById = await loadTradeChatCategoryMetaByPostRows(sb, postLedgerById.values());
 
       const uniquePostIdsForPc = dedupeIds([...crByRoomId.values()].map((v) => v.postId));
       const pcIdByTriple = new Map<string, string>();
@@ -4201,24 +4307,23 @@ async function enrichTradeRoomContextMetaForBootstrap(
         const tripleKey = `${cr.postId}\t${cr.sellerId}\t${cr.buyerId}`;
         const resolvedPc = trimText(pcIdByTriple.get(tripleKey));
         const pcidForMeta = resolvedPc || cr.crId;
-        const title = typeof post?.title === "string" ? post.title.trim() : "";
         const priceRaw = post?.price;
         const price =
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
         const role: "seller" | "buyer" = userId === cr.sellerId ? "seller" : "buyer";
-        const meta = buildMessengerContextMetaFromProductChatSnapshot({
+        s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pcidForMeta,
           postId: cr.postId,
-          productTitle: title || "거래",
+          post: post as Record<string, unknown> | null | undefined,
           price: price != null && !Number.isNaN(price) ? price : null,
           currency,
           role,
+          categoryById: categoryLedgerById,
           sellerListingStateRaw: post?.seller_listing_state,
-          postStatus: post?.status ?? null,
+          postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
         });
-        s.contextMeta = meta;
       }
     }
   }
@@ -4304,11 +4409,8 @@ async function enrichTradeRoomContextMetaForBootstrap(
     );
 
     if (postIdsPair.length) {
-      const { data: postsPair } = await (sb as any)
-        .from(POSTS_TABLE_READ)
-        .select("id, title, price, currency, images, thumbnail_url, status, seller_listing_state")
-        .in("id", postIdsPair);
-      const postPairById = new Map<string, any>(((postsPair ?? []) as any[]).map((p) => [trimText(p.id), p]));
+      const postPairById = await fetchTradeChatListPostRowsByIds(sb, postIdsPair);
+      const categoryPairById = await loadTradeChatCategoryMetaByPostRows(sb, postPairById.values());
 
       for (const s of stillAfterC) {
         if (!tradeMessengerListThumbnailMissing(s)) continue;
@@ -4317,26 +4419,28 @@ async function enrichTradeRoomContextMetaForBootstrap(
         const pc = pickPcForRoom(s.id, peer);
         if (!pc) continue;
         const post = postPairById.get(pc.postId);
-        const title = typeof post?.title === "string" ? post.title.trim() : "";
         const priceRaw = post?.price;
         const price =
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
         const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
-        s.contextMeta = buildMessengerContextMetaFromProductChatSnapshot({
+        s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pc.id,
           postId: pc.postId,
-          productTitle: title || "거래",
+          post: post as Record<string, unknown> | null | undefined,
           price: price != null && !Number.isNaN(price) ? price : null,
           currency,
           role,
+          categoryById: categoryPairById,
           sellerListingStateRaw: post?.seller_listing_state,
-          postStatus: post?.status ?? null,
+          postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
         });
       }
     }
   }
+
+  await hydrateTradeListSellerDisplayNamesForSummaries(sb, summaries);
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
@@ -5231,7 +5335,9 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
   /** item_trade 행이 있으면 `chat_rooms` FK만 고정 — 없으면 레거시로 PC 에 메신저 id 기록 */
   if (sbPersist && ledgerCrId) {
     await syncChatRoomMessengerLink(sbPersist as never, ledgerCrId, out.roomId);
-  } else if (sbPersist) {
+  }
+  /** item_trade 여부와 무관하게 `product_chats` 원장에 CM 방 id 고정 — 목록 enrich Phase B 조인에 필수 */
+  if (sbPersist) {
     await persistProductChatMessengerRoomId(sbPersist as never, productChatId, out.roomId);
   }
   return { ok: true, roomId: out.roomId, peerUserId: peer };
@@ -6514,6 +6620,166 @@ export async function upsertCommunityMessengerPresenceSnapshot(input: {
 
 const COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX = 100;
 
+/**
+ * 거래 채팅 목록 enrich 전용 posts select.
+ *
+ * 운영 DB에서 `currency` 컬럼이 없을 수 있어(레거시 스키마), **currency 포함/미포함**을 순차로 시도한다.
+ * currency 는 없으면 "PHP"로 폴백한다(표시용 라벨만 필요).
+ */
+// 최대한 많은 거래 분류 힌트를 같이 로드한다(부동산/중고차/환전/일자리/중고).
+// 단, 운영 스키마에 없는 컬럼이 있을 수 있으므로 아래에서 단계적으로 폴백한다.
+const TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITH_CURRENCY =
+  "id, title, price, currency, images, thumbnail_url, status, seller_listing_state, trade_category_id, category_id, category, category_key, listing_type, listing_kind, meta, trade_type, user_id";
+const TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE_WITH_CURRENCY =
+  "id, title, price, currency, images, thumbnail_url, status, seller_listing_state, trade_category_id, category_id, category, category_key, listing_type, listing_kind, meta, user_id";
+const TRADE_CHAT_LIST_POST_SELECT_LEGACY_WITH_CURRENCY =
+  "id, title, price, currency, images, thumbnail_url, status, seller_listing_state";
+
+const TRADE_CHAT_LIST_POST_SELECT_EXTENDED =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, category_id, category, category_key, listing_type, listing_kind, meta, trade_type, user_id";
+const TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, category_id, category, category_key, listing_type, listing_kind, meta, user_id";
+const TRADE_CHAT_LIST_POST_SELECT =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, meta, trade_type, user_id";
+const TRADE_CHAT_LIST_POST_SELECT_WITHOUT_TRADE_TYPE =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, meta, user_id";
+const TRADE_CHAT_LIST_POST_SELECT_LEGACY =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state";
+
+async function fetchTradeChatListPostRowsByIds(
+  sb: any,
+  postIds: string[]
+): Promise<Map<string, Record<string, unknown>>> {
+  const ids = dedupeIds(postIds);
+  if (!ids.length) return new Map();
+  // Prefer currency if available; fall back to legacy schema without it.
+  let res = await (sb as any)
+    .from(POSTS_TABLE_READ)
+    .select(TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITH_CURRENCY)
+    .in("id", ids);
+  if (res.error && res.data == null) {
+    res = await (sb as any)
+      .from(POSTS_TABLE_READ)
+      .select(TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE_WITH_CURRENCY)
+      .in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any)
+      .from(POSTS_TABLE_READ)
+      .select(TRADE_CHAT_LIST_POST_SELECT_LEGACY_WITH_CURRENCY)
+      .in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any).from(POSTS_TABLE_READ).select(TRADE_CHAT_LIST_POST_SELECT_EXTENDED).in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any)
+      .from(POSTS_TABLE_READ)
+      .select(TRADE_CHAT_LIST_POST_SELECT_EXTENDED_WITHOUT_TRADE_TYPE)
+      .in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any).from(POSTS_TABLE_READ).select(TRADE_CHAT_LIST_POST_SELECT).in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any)
+      .from(POSTS_TABLE_READ)
+      .select(TRADE_CHAT_LIST_POST_SELECT_WITHOUT_TRADE_TYPE)
+      .in("id", ids);
+  }
+  if (res.error && res.data == null) {
+    res = await (sb as any).from(POSTS_TABLE_READ).select(TRADE_CHAT_LIST_POST_SELECT_LEGACY).in("id", ids);
+  }
+  return new Map<string, Record<string, unknown>>(
+    ((res.data ?? []) as Record<string, unknown>[]).map((p) => [trimText(p.id), p])
+  );
+}
+
+function buildTradeMessengerListContextMetaFromLoadedPost(args: {
+  productChatId: string;
+  postId: string;
+  post: Record<string, unknown> | null | undefined;
+  price: number | null;
+  currency: string;
+  role: "seller" | "buyer";
+  categoryById: Map<string, TradeChatCategoryMetaLike>;
+  sellerListingStateRaw?: unknown;
+  postStatus?: string | null;
+  thumbnailUrl?: string | null;
+  tradeFlowStatus?: string | null;
+  sellerDisplayName?: string | null;
+}): CommunityMessengerRoomContextMetaV1 {
+  const post = args.post;
+  const pcl = tradeChatProductCategoryDisplayName(post, args.categoryById);
+  return buildMessengerContextMetaFromProductChatSnapshot({
+    productChatId: args.productChatId,
+    postId: args.postId,
+    productTitle: tradePostHeadlineForMessengerList(post) || "제목 없음",
+    price: args.price,
+    currency: args.currency,
+    role: args.role,
+    sellerListingStateRaw: args.sellerListingStateRaw,
+    postStatus: args.postStatus ?? null,
+    thumbnailUrl: args.thumbnailUrl,
+    tradeFlowStatus: args.tradeFlowStatus,
+    categoryMenuLabel: tradeChatCategoryMenuLabelForPost(post, args.categoryById),
+    productCategoryLabel: pcl ?? undefined,
+    sellerDisplayName: args.sellerDisplayName,
+  });
+}
+
+async function loadTradeChatCategoryMetaByPostRows(
+  sb: any,
+  posts: Iterable<Record<string, unknown>>
+): Promise<Map<string, TradeChatCategoryMetaLike>> {
+  const categoryIds = dedupeIds([...posts].map((post) => tradePostCategoryId(post)));
+  const categoryById = new Map<string, TradeChatCategoryMetaLike>();
+  if (!categoryIds.length) return categoryById;
+
+  const mergeRows = (rows: unknown) => {
+    if (!Array.isArray(rows)) return;
+    for (const row of rows as Record<string, unknown>[]) {
+      const id = trimText(row.id);
+      if (!id) continue;
+      const prev = categoryById.get(id) ?? {};
+      categoryById.set(id, {
+        ...prev,
+        name: trimText(row.name) || prev.name,
+        label: trimText((row as any).label) || (prev as any).label,
+        key: trimText((row as any).key) || (prev as any).key,
+        slug: trimText(row.slug) || prev.slug,
+        icon_key: trimText(row.icon_key) || trimText(row.icon) || prev.icon_key,
+        icon: trimText(row.icon) || prev.icon,
+      });
+    }
+  };
+
+  const fetchTable = async (table: "categories" | "trade_categories") => {
+    // name/label/key/slug 중 무엇이든 운영 스키마에 있을 수 있어 폴백한다.
+    let res = await (sb as any)
+      .from(table)
+      .select("id, name, label, key, slug, icon_key")
+      .in("id", categoryIds);
+    if (res.error && res.data == null) {
+      res = await (sb as any).from(table).select("id, name, label, key, slug, icon").in("id", categoryIds);
+    }
+    if (res.error && res.data == null) return;
+    mergeRows(res.data);
+  };
+
+  await fetchTable("categories");
+  await fetchTable("trade_categories");
+  return categoryById;
+}
+
+function tradeChatCategoryMenuLabelForPost(
+  post: Record<string, unknown> | null | undefined,
+  categoryById: Map<string, TradeChatCategoryMetaLike>
+): string {
+  const category = categoryById.get(tradePostCategoryId(post));
+  return resolveTradeChatCategoryLabelForList(post, category);
+}
+
 function firstPostThumbnailForMessengerTradeList(post: Record<string, unknown> | null | undefined): string | null {
   return extractPostThumbnailPathFromPostRow(post ?? null);
 }
@@ -6533,12 +6799,9 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
       : (await resolveProductChat(sb as never, productChatId))?.productChat;
   if (!pc) return;
   const postId = String(pc.post_id ?? "").trim();
-  const { data: post } = await (sb as any)
-    .from(POSTS_TABLE_READ)
-    .select("title, price, currency, images, thumbnail_url, status, seller_listing_state")
-    .eq("id", postId)
-    .maybeSingle();
-  const title = typeof post?.title === "string" ? post.title.trim() : "";
+  const postById = await fetchTradeChatListPostRowsByIds(sb, [postId]);
+  const categoryById = await loadTradeChatCategoryMetaByPostRows(sb, postById.values());
+  const post = postById.get(postId) ?? null;
   const priceRaw = post?.price;
   const price =
     typeof priceRaw === "number" && Number.isFinite(priceRaw)
@@ -6549,17 +6812,26 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
   const currency = typeof post?.currency === "string" && post.currency.trim() ? post.currency.trim() : "PHP";
   const seller = trimText((pc as { seller_id?: unknown }).seller_id);
   const role: "seller" | "buyer" = userId === seller ? "seller" : "buyer";
-  const meta = buildMessengerContextMetaFromProductChatSnapshot({
+  const sellerUidForList = seller || trimText((post as { user_id?: unknown } | null)?.user_id);
+  let sellerDisplayName: string | undefined;
+  if (sellerUidForList) {
+    const pm = await fetchProfilesByIds([sellerUidForList]);
+    const lbl = profileLabel(pm.get(sellerUidForList), sellerUidForList).trim();
+    if (lbl) sellerDisplayName = lbl;
+  }
+  const meta = buildTradeMessengerListContextMetaFromLoadedPost({
     productChatId: productChatId.trim(),
-    postId: postId || undefined,
-    productTitle: title || "거래",
+    postId,
+    post: post as Record<string, unknown> | null | undefined,
     price: price != null && !Number.isNaN(price) ? price : null,
     currency,
     role,
+    categoryById,
     sellerListingStateRaw: (post as any)?.seller_listing_state,
     postStatus: (post as any)?.status ?? null,
     tradeFlowStatus: String(pc.trade_flow_status ?? "chatting"),
     thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown> | null | undefined),
+    sellerDisplayName: sellerDisplayName ?? null,
   });
   await updateCommunityMessengerRoomContextMeta({
     userId,

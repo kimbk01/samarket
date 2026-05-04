@@ -32,30 +32,25 @@ function trimMessengerCol(raw: unknown): string {
   return t || "";
 }
 
-function schedulePostItemTradeRoomSideEffects(
+/** 메신저·`product_chats` 연결은 요청 경로에서 동기 처리 — 여기서는 감사 로그만 비동기 */
+function schedulePostItemTradeRoomEventLog(
   sbAny: Parameters<typeof ensureMessengerRoomIdForItemTrade>[0],
   buyerId: string,
   itemId: string,
-  sellerId: string,
   chatRoomId: string,
   eventType: "room_reopened" | "room_created"
 ): void {
   after(async () => {
-    await Promise.all([
-      ensureMessengerRoomIdForItemTrade(sbAny, buyerId, itemId, sellerId, chatRoomId).catch(() => undefined),
-      (async () => {
-        try {
-          await sbAny.from("chat_event_logs").insert({
-            room_id: chatRoomId,
-            event_type: eventType,
-            actor_user_id: buyerId,
-            metadata: eventType === "room_created" ? { item_id: itemId } : {},
-          });
-        } catch {
-          /* ignore */
-        }
-      })(),
-    ]);
+    try {
+      await sbAny.from("chat_event_logs").insert({
+        room_id: chatRoomId,
+        event_type: eventType,
+        actor_user_id: buyerId,
+        metadata: eventType === "room_created" ? { item_id: itemId } : {},
+      });
+    } catch {
+      /* ignore */
+    }
   });
 }
 
@@ -112,8 +107,17 @@ async function buildJsonForExistingItemTradeRoom(
     (linkQuick as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id
   );
 
+  perf?.mark("messenger_room_ensure_sync");
+  const messengerRoomIdResolved = await ensureMessengerRoomIdForItemTrade(
+    sbAny,
+    buyerId,
+    itemId,
+    sellerId,
+    existingRoomId
+  ).catch(() => undefined);
+  const messengerOut = trimMessengerCol(messengerRoomIdResolved) || quickMessengerId;
   perf?.mark("messenger_room_schedule_after");
-  schedulePostItemTradeRoomSideEffects(sbAny, buyerId, itemId, sellerId, existingRoomId, "room_reopened");
+  schedulePostItemTradeRoomEventLog(sbAny, buyerId, itemId, existingRoomId, "room_reopened");
 
   const metaEx = parsePostMetaField(postRow.meta);
   const tradeChatKind =
@@ -126,7 +130,7 @@ async function buildJsonForExistingItemTradeRoom(
     body: {
       ok: true,
       roomId: existingRoomId,
-      ...(quickMessengerId ? { messengerRoomId: quickMessengerId } : {}),
+      ...(messengerOut ? { messengerRoomId: messengerOut } : {}),
       ...(tradeChatKind ? { tradeChatKind } : {}),
     },
   };
@@ -289,8 +293,16 @@ export async function runItemTradeChatStartCore(args: {
     };
   }
 
+  perf?.mark("messenger_ensure_sync_new_room");
+  const messengerRoomIdNew = await ensureMessengerRoomIdForItemTrade(
+    sbAny,
+    buyerId,
+    itemId,
+    sellerId,
+    roomId
+  ).catch(() => undefined);
   perf?.mark("messenger_schedule_after_new_room");
-  schedulePostItemTradeRoomSideEffects(sbAny, buyerId, itemId, sellerId, roomId, "room_created");
+  schedulePostItemTradeRoomEventLog(sbAny, buyerId, itemId, roomId, "room_created");
 
   const metaNew = parsePostMetaField(row.meta);
   const tradeChatKind =
@@ -303,6 +315,7 @@ export async function runItemTradeChatStartCore(args: {
     body: {
       ok: true,
       roomId,
+      ...(trimMessengerCol(messengerRoomIdNew) ? { messengerRoomId: trimMessengerCol(messengerRoomIdNew) } : {}),
       ...(tradeChatKind ? { tradeChatKind } : {}),
     },
   };

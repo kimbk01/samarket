@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ensureCommunityMessengerDirectRoomFromProductChat } from "@/lib/community-messenger/service";
 import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
-import { syncChatRoomMessengerLink } from "@/lib/trade/persist-trade-messenger-room-link";
+import {
+  persistProductChatMessengerRoomIdIfNull,
+  syncChatRoomMessengerLink,
+} from "@/lib/trade/persist-trade-messenger-room-link";
 import type { ProductChatRow } from "@/lib/trade/resolve-product-chat";
 
 function trimMid(raw: unknown): string | undefined {
@@ -38,7 +41,11 @@ export async function ensureMessengerRoomIdForItemTrade(
       pc = pcRow as ProductChatRow | null;
       if (!pc?.id) return undefined;
       const onCr = trimMid((crRes.data as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id);
-      if (onCr) return onCr;
+      if (onCr) {
+        /** `chat_rooms` 만 연결된 레거시 — `product_chats` 쪽 FK 가 비면 목록 enrich 가 실패한다 */
+        await persistProductChatMessengerRoomIdIfNull(sb, pc.id, onCr);
+        return onCr;
+      }
     } else {
       pc = (await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId)) as ProductChatRow | null;
       if (!pc?.id) return undefined;
@@ -58,6 +65,15 @@ export async function ensureMessengerRoomIdForItemTrade(
       prefetchedProductChat: pc,
     });
     if (!out.ok || !out.roomId) return undefined;
+
+    /**
+     * 절대 조건: 거래 채팅은 `product_chats.community_messenger_room_id` 가 NULL 이면 실패.
+     * ensure 성공 직후 원장 FK 를 반드시 고정한다.
+     *
+     * - item_trade(chat_rooms 경유)인 경우에도 목록 enrich 를 위해 product_chats 를 소스로 쓴다.
+     * - 운영 데이터 보호: 이미 값이 있으면 덮어쓰지 않는다(불일치 케이스는 별도 보정 대상).
+     */
+    await persistProductChatMessengerRoomIdIfNull(sb, pc.id, out.roomId);
 
     if (crId) {
       await syncChatRoomMessengerLink(sb, crId, out.roomId);

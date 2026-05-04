@@ -103,10 +103,16 @@ export type CommunityMessengerRoomContextMetaV1 = {
   roleLabel?: string;
   /** 거래: 상품 상태(판매중/예약중/거래완료/숨김/삭제됨) */
   itemStateLabel?: string;
+  /** 거래: 목록 1행 — `/admin/menus/trade` 홈칩과 정합한 대메뉴 라벨(거래 탭 리스트 칩은 이 값만 사용) */
+  categoryMenuLabel?: string;
+  /** 거래: leaf 표시명 — 방 헤더·기타와 정합. 리스트 1행 칩은 `categoryMenuLabel` 단일 소스 */
+  productCategoryLabel?: string;
   /** 중고 거래채팅(`product_chats`)과 연결된 경우 */
   productChatId?: string;
   /** `posts.id` — 목록에서 `posts` Realtime으로 `itemStateLabel` 동기화용 */
   postId?: string;
+  /** 목록 4행 — `product_chats.seller_id` 우선, 없으면 `posts.user_id` 작성자 표시명(프로필 라벨). UI에서 「판매자:」/「작성자:」 접두만 붙인다. */
+  sellerDisplayName?: string;
   /** Mirrors `product_chats.trade_flow_status` for list/header sync. */
   tradeFlowStatus?: string;
 };

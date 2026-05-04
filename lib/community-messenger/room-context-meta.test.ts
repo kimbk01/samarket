@@ -66,4 +66,27 @@ describe("parseCommunityMessengerRoomContextMeta", () => {
     const meta = parseCommunityMessengerRoomContextMeta(raw);
     expect(meta?.tradeFlowStatus).toBe("buyer_confirmed");
   });
+
+  it("preserves categoryMenuLabel", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      kind: "trade",
+      headline: "매물",
+      categoryMenuLabel: "부동산",
+    });
+    const meta = parseCommunityMessengerRoomContextMeta(raw);
+    expect(meta?.categoryMenuLabel).toBe("부동산");
+  });
+
+  it("preserves productCategoryLabel", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      kind: "trade",
+      headline: "청소기",
+      categoryMenuLabel: "중고거래",
+      productCategoryLabel: "생활가전",
+    });
+    const meta = parseCommunityMessengerRoomContextMeta(raw);
+    expect(meta?.productCategoryLabel).toBe("생활가전");
+  });
 });

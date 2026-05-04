@@ -5,7 +5,7 @@ import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messen
  * 백엔드가 채우지 않으면 null — 목록은 기존 휴리스틱(제목/요약 키워드)만 사용.
  *
  * 예:
- * `{"v":1,"kind":"trade","headline":"상품명","priceLabel":"29,000원","thumbnailUrl":"https://…","roleLabel":"구매자","itemStateLabel":"판매중"}`
+ * `{"v":1,"kind":"trade","headline":"상품명","priceLabel":"29,000원","thumbnailUrl":"https://…","roleLabel":"구매자","itemStateLabel":"판매중","categoryMenuLabel":"중고거래","productCategoryLabel":"생활가전","sellerDisplayName":"닉네임"}`
  */
 export function parseCommunityMessengerRoomContextMeta(raw: string | null | undefined): CommunityMessengerRoomContextMetaV1 | null {
   const s = typeof raw === "string" ? raw.trim() : "";
@@ -27,8 +27,17 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     if (typeof o.stepLabel === "string" && o.stepLabel.trim()) out.stepLabel = o.stepLabel.trim();
     if (typeof o.roleLabel === "string" && o.roleLabel.trim()) out.roleLabel = o.roleLabel.trim();
     if (typeof o.itemStateLabel === "string" && o.itemStateLabel.trim()) out.itemStateLabel = o.itemStateLabel.trim();
+    if (typeof o.categoryMenuLabel === "string" && o.categoryMenuLabel.trim()) {
+      out.categoryMenuLabel = o.categoryMenuLabel.trim();
+    }
+    if (typeof o.productCategoryLabel === "string" && o.productCategoryLabel.trim()) {
+      out.productCategoryLabel = o.productCategoryLabel.trim();
+    }
     if (typeof o.productChatId === "string" && o.productChatId.trim()) out.productChatId = o.productChatId.trim();
     if (typeof o.postId === "string" && o.postId.trim()) out.postId = o.postId.trim();
+    if (typeof o.sellerDisplayName === "string" && o.sellerDisplayName.trim()) {
+      out.sellerDisplayName = o.sellerDisplayName.trim();
+    }
     if (typeof o.tradeFlowStatus === "string" && o.tradeFlowStatus.trim()) {
       out.tradeFlowStatus = o.tradeFlowStatus.trim();
     }

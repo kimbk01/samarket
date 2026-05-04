@@ -1,21 +1,40 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 
-function tradeChatListSummaryNeedsMetaHydration(room: CommunityMessengerRoomSummary): boolean {
+/**
+ * 거래 탭에서 `trade-chat-list-meta` 를 부를지 — 썸네일이 이미 있어도
+ * `productCategoryLabel` 이 비어 있으면(구 부트스트랩·캐시) **방당 1회** 보강을 시도한다.
+ */
+function tradeChatListSummaryNeedsMetaHydration(
+  room: CommunityMessengerRoomSummary,
+  attemptedRoomIds: ReadonlySet<string>
+): boolean {
   if (room.roomType !== "direct") return false;
+  if (!communityMessengerRoomIsTrade(room)) return false;
   const ctx = room.contextMeta;
   if (ctx?.kind === "delivery") return false;
-  const thumb =
+
+  const thumbOk =
     ctx?.kind === "trade" && typeof ctx.thumbnailUrl === "string" && ctx.thumbnailUrl.trim().length > 0;
-  return !thumb;
+  if (!thumbOk) return true;
+
+  const postId = ctx?.kind === "trade" && typeof ctx.postId === "string" ? ctx.postId.trim() : "";
+  const hasLeaf =
+    ctx?.kind === "trade" &&
+    typeof ctx.productCategoryLabel === "string" &&
+    ctx.productCategoryLabel.trim().length > 0;
+  if (postId && !hasLeaf && !attemptedRoomIds.has(room.id)) return true;
+
+  return false;
 }
 
 function mergeTradeChatContextPatches(
@@ -39,8 +58,8 @@ function mergeTradeChatContextPatches(
 }
 
 /**
- * `/community-messenger/trade-chats` — 서버 부트스트랩만으로 `contextMeta.thumbnailUrl` 이 비는 경우
- * 동일 서버 보강 로직을 배치 호출로 한 번 더 적용한다.
+ * `/community-messenger/trade-chats` — 부트스트랩·캐시만으로 거래 `contextMeta` 가 부족할 때
+ * 서버 `hydrateTradeChatListContextMetaForRoomIds` 와 동일 보강을 **배치**로 한 번 더 적용한다.
  */
 export function useTradeChatListMetaHydration(args: {
   enabled: boolean;
@@ -49,10 +68,11 @@ export function useTradeChatListMetaHydration(args: {
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
 }): void {
   const { enabled, viewerUserId, chats, setData } = args;
+  const tradeMetaFetchAttemptedRef = useRef(new Set<string>());
   const missingKey =
     chats?.length && enabled && viewerUserId
       ? chats
-          .filter(tradeChatListSummaryNeedsMetaHydration)
+          .filter((r) => tradeChatListSummaryNeedsMetaHydration(r, tradeMetaFetchAttemptedRef.current))
           .map((r) => r.id)
           .sort()
           .join(",")
@@ -77,6 +97,7 @@ export function useTradeChatListMetaHydration(args: {
           patches?: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>;
         };
         if (cancelled || !res.ok || !json.ok || !Array.isArray(json.patches)) return;
+        for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
         const toApply = json.patches.filter((p) => p.contextMeta != null);
         if (toApply.length === 0) return;
         setData((prev) => {

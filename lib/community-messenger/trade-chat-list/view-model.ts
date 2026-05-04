@@ -11,12 +11,18 @@ import {
   serializeCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import { resolvePostImagePublicUrl } from "@/lib/posts/resolve-post-image-public-url";
+import { DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL } from "@/lib/community-messenger/trade-chat-list/category-menu-label";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 
+let tradeChatListDevMissingPostIdWarned = false;
+let tradeChatListDebugInfoOnce = false;
+
 export type TradeChatListRowModel = {
+  /** 1행 칩 — 대메뉴 5분류 `categoryMenuLabel` 단일 소스(부트스트랩 enrich) */
+  categoryChipLabel: string;
   productTitle: string;
   productPriceText: string | null;
   productThumbnailUrl: string | null;
@@ -24,6 +30,8 @@ export type TradeChatListRowModel = {
   peerName: string;
   /** 썸네일 경로가 비었을 때 `/api/community-messenger/trade-post-thumbnail` 폴백용 */
   postId: string | null;
+  /** 4행 — `contextMeta.sellerDisplayName` + 「판매자:」/「일자리」일 때 「작성자:」 */
+  listingOwnerLine: string | null;
 };
 
 export function resolveTradeChatListThumbnailDisplayUrl(raw: string | null | undefined): string | null {
@@ -36,8 +44,11 @@ function looseSkimTradeSummaryJson(raw: string | null | undefined): {
   headline?: string;
   priceLabel?: string;
   itemStateLabel?: string;
+  categoryMenuLabel?: string;
+  productCategoryLabel?: string;
   thumbnailCandidate?: string;
   postId?: string;
+  sellerDisplayName?: string;
 } {
   const s = typeof raw === "string" ? raw.trim() : "";
   if (!s || s[0] !== "{") return {};
@@ -46,7 +57,13 @@ function looseSkimTradeSummaryJson(raw: string | null | undefined): {
     const headline = typeof o.headline === "string" && o.headline.trim() ? o.headline.trim() : undefined;
     const priceLabel = typeof o.priceLabel === "string" && o.priceLabel.trim() ? o.priceLabel.trim() : undefined;
     const itemStateLabel = typeof o.itemStateLabel === "string" && o.itemStateLabel.trim() ? o.itemStateLabel.trim() : undefined;
+    const categoryMenuLabel =
+      typeof o.categoryMenuLabel === "string" && o.categoryMenuLabel.trim() ? o.categoryMenuLabel.trim() : undefined;
+    const productCategoryLabel =
+      typeof o.productCategoryLabel === "string" && o.productCategoryLabel.trim() ? o.productCategoryLabel.trim() : undefined;
     const postId = typeof o.postId === "string" && o.postId.trim() ? o.postId.trim() : undefined;
+    const sellerDisplayName =
+      typeof o.sellerDisplayName === "string" && o.sellerDisplayName.trim() ? o.sellerDisplayName.trim() : undefined;
     let thumbnailCandidate: string | undefined;
     if (typeof o.thumbnailUrl === "string" && o.thumbnailUrl.trim()) {
       thumbnailCandidate = o.thumbnailUrl.trim();
@@ -59,7 +76,16 @@ function looseSkimTradeSummaryJson(raw: string | null | undefined): {
         thumbnailCandidate = String((x as { url: string }).url).trim();
       }
     }
-    return { headline, priceLabel, itemStateLabel, thumbnailCandidate, postId };
+    return {
+      headline,
+      priceLabel,
+      itemStateLabel,
+      categoryMenuLabel,
+      productCategoryLabel,
+      thumbnailCandidate,
+      postId,
+      sellerDisplayName,
+    };
   } catch {
     return {};
   }
@@ -81,16 +107,34 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
   const ctx = room.contextMeta?.kind === "trade" ? room.contextMeta : null;
   const par = parsedStrict?.kind === "trade" ? parsedStrict : null;
 
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !tradeChatListDebugInfoOnce) {
+    tradeChatListDebugInfoOnce = true;
+    const m = room.contextMeta?.kind === "trade" ? room.contextMeta : null;
+    console.info("[trade-chat-list-debug]", {
+      sampleRoomId: room.id,
+      postId: m?.postId ?? null,
+      headline: m?.headline ?? null,
+      categoryMenuLabel: m?.categoryMenuLabel ?? null,
+      sellerDisplayName: m?.sellerDisplayName ?? null,
+    });
+  }
+
   const peerName = room.title.trim() || "상대";
   const productTitle =
     ctx?.headline?.trim() ||
     par?.headline?.trim() ||
     loose.headline?.trim() ||
-    `${peerName}님과 거래`;
+    "제목 없음";
   const productPriceText =
     ctx?.priceLabel?.trim() || par?.priceLabel?.trim() || loose.priceLabel?.trim() || null;
   const productStatusText =
     ctx?.itemStateLabel?.trim() || par?.itemStateLabel?.trim() || loose.itemStateLabel?.trim() || null;
+  const categoryChipLabel =
+    ctx?.productCategoryLabel?.trim() ||
+    ctx?.categoryMenuLabel?.trim() ||
+    par?.categoryMenuLabel?.trim() ||
+    loose.categoryMenuLabel?.trim() ||
+    DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL;
 
   const thumbCandidates = [ctx?.thumbnailUrl, par?.thumbnailUrl, loose.thumbnailCandidate];
   let thumb: string | null = null;
@@ -105,13 +149,27 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
   const postId =
     ctx?.postId?.trim() || par?.postId?.trim() || loose.postId?.trim() || null;
 
+  if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !postId && !tradeChatListDevMissingPostIdWarned) {
+    tradeChatListDevMissingPostIdWarned = true;
+    console.warn(
+      "[trade-chat-list] missing postId on a trade list row — check enrich/summary or critical_patch merge",
+      { roomId: room.id, messengerDirectKey: room.messengerDirectKey ?? null }
+    );
+  }
+
+  const sellerName =
+    ctx?.sellerDisplayName?.trim() || par?.sellerDisplayName?.trim() || loose.sellerDisplayName?.trim() || "알 수 없음";
+  const listingOwnerLine = `${categoryChipLabel === "일자리" ? "작성자" : "판매자"}: ${sellerName}`;
+
   return {
+    categoryChipLabel,
     productTitle,
     productPriceText,
     productThumbnailUrl: thumb,
     productStatusText,
     peerName,
     postId,
+    listingOwnerLine,
   };
 }
 

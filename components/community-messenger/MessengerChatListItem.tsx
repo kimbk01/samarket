@@ -46,6 +46,7 @@ import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messeng
 import { TradeChatListRowContent } from "@/components/community-messenger/trade-chat-list/TradeChatListRowContent";
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
+import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
 import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 const ACTION_W = 78;
@@ -187,6 +188,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     () => (isTradeChatListVisual ? buildTradeChatListRowModel(room) : null),
     [isTradeChatListVisual, room]
   );
+  const tradeListPreview = useTradeChatListPostPreviewFields({
+    postId: tradeRowModel?.postId,
+    productTitle: tradeRowModel?.productTitle ?? "",
+    productPriceText: tradeRowModel?.productPriceText,
+  });
   const lastClientMessage = useMessengerRealtimeStore((s) => {
     if (!isTradeChatListVisual) return null;
     const arr = s.messagesByRoomId[room.id];
@@ -201,6 +207,36 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       lastClientMessage,
     });
   }, [isTradeChatListVisual, tradeRowModel, item.preview, lastClientMessage]);
+
+  useEffect(() => {
+    if (!isTradeChatListVisual || process.env.NODE_ENV !== "development") return;
+    const m = commerceMeta?.kind === "trade" ? commerceMeta : null;
+    const postId = tradeRowModel?.postId ?? null;
+    const titleFromMeta = tradeRowModel?.productTitle?.trim() ?? "";
+    const weakTitle = !titleFromMeta || titleFromMeta === "거래";
+    console.info("[trade-chat-link-debug]", {
+      roomId: room.id,
+      directKey: room.messengerDirectKey ?? null,
+      productChatId: m?.productChatId ?? null,
+      productChatRoomId: room.id,
+      postId,
+      postFound: Boolean(postId),
+      postTitle: tradeListPreview.displayTitle,
+      postCategory: m?.categoryMenuLabel ?? null,
+      finalCategoryMenuLabel: tradeRowModel?.categoryChipLabel ?? null,
+      finalHeadline: tradeListPreview.displayTitle,
+      weakMetaHeadline: weakTitle,
+    });
+  }, [
+    isTradeChatListVisual,
+    room.id,
+    room.messengerDirectKey,
+    commerceMeta,
+    tradeRowModel?.postId,
+    tradeRowModel?.productTitle,
+    tradeRowModel?.categoryChipLabel,
+    tradeListPreview.displayTitle,
+  ]);
 
   const secondaryHint =
     item.previewKind === "call" && item.callStatus === "missed"
@@ -554,9 +590,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        productTitle={tradeRowModel.productTitle}
-        productPriceText={tradeRowModel.productPriceText}
+        categoryChipLabel={tradeRowModel.categoryChipLabel}
+        productTitle={tradeListPreview.displayTitle}
+        productPriceText={tradeListPreview.displayPriceText}
         previewLine={tradePreviewLine}
+        listingOwnerLine={tradeRowModel.listingOwnerLine}
         unread={room.unreadCount > 0}
       />
     ) : (
