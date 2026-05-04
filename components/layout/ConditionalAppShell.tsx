@@ -77,7 +77,12 @@ export function ConditionalAppShell({
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
   return (
-    <div className={`${f.appShellRootClass} min-h-dvh bg-sam-app`}>
+    /**
+     * `app-shell` (`app/app-shell.css`): `min-height: var(--app-height)` + flex column + overflow-x: clip.
+     * `min-h-dvh` 는 호환을 위해 같이 둔다 — 동일 의미라 우선 순위 충돌 없음.
+     * 메신저 방 분기(`f.isChatRoomDetail`)는 `useChatViewportResize` 가 셸 높이를 별도로 책임.
+     */
+    <div className={`${f.appShellRootClass} app-shell min-h-dvh bg-sam-app`}>
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CallIncomingChrome />

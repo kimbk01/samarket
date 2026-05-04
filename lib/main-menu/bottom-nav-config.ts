@@ -93,15 +93,21 @@ export function areBottomNavItemConfigsEqual(
   return true;
 }
 
-/** 바 전체 — 바깥 래퍼(고정·safe-area) + 안쪽 캡슐(진한 배경·하단만 라운드) */
+/**
+ * 바 전체 — 바깥 래퍼(고정·safe-area) + 안쪽 캡슐(진한 배경·하단만 라운드).
+ *
+ * 단일 소스: `app/app-shell.css` 의 `--app-bottom-nav-height: 4rem`.
+ * `heightClass` 의 `min-h-[4rem]` 과 반드시 같은 값을 유지한다 — 바뀔 때 두 곳을 같이 수정.
+ * outer 의 `pb-[env(safe-area-inset-bottom,0px)]` 는 홈 인디케이터(iOS) 회피용. 제거 금지.
+ */
 export const BOTTOM_NAV_SHELL = {
-  /** 기기 좌우 끝까지 — 가로 패딩 없음 */
+  /** 기기 좌우 끝까지 — 가로 패딩 없음, 하단 safe-area 는 외곽에서만 책임 */
   outerClassName:
     "fixed bottom-0 left-0 right-0 z-30 w-full pb-[env(safe-area-inset-bottom,0px)] pt-0 pointer-events-none",
   /** 정보형 하단 탭 — 밝은 서피스, 얇은 보더, 과장 없는 그림자 */
   innerBarClassName:
     "pointer-events-auto flex w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-surface/95 text-sam-fg antialiased shadow-[0_-4px_18px_rgba(15,23,42,0.08)] backdrop-blur-[16px]",
-  /** 탭 한 줄 최소 높이 */
+  /** 탭 한 줄 최소 높이 — `--app-bottom-nav-height` (4rem) 와 동기 */
   heightClass: "min-h-[4rem]",
 } as const;
 

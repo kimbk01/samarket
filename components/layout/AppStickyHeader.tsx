@@ -42,7 +42,11 @@ export function AppStickyHeader() {
   return (
     <div
       data-app-sticky-header
-      className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]"
+      /**
+       * `pt-[env(safe-area-inset-top,0px)]`: iOS PWA / `viewport-fit=cover` 에서 노치·상태바 영역 회피.
+       * 일반 브라우저(env() = 0)에서는 영향 없음. 동일 의미를 가진 공통 토큰: `--safe-top` (`app/app-shell.css`).
+       */
+      className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-[10px]"
     >
       {categorySticky ? (
           <div className="border-b border-sam-border bg-sam-surface/95">

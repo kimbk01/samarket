@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import type { CategoryWithSettings } from "@/lib/types/category";
+import { useAppViewportSize } from "@/lib/ui/use-app-viewport-size";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
 
@@ -31,6 +32,8 @@ export default function WritePageClient() {
   const exitInFlightRef = useRef(false);
   const tryCloseFromFlowRef = useRef<() => void>(() => {});
   const categoryParam = searchParams.get("category")?.trim() ?? "";
+  /** 공통 뷰포트 훅 — 주소창·회전·visualViewport 변화 시 스티키 헤더 bottom 재측정 */
+  const appVp = useAppViewportSize();
 
   const measure = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -67,16 +70,18 @@ export default function WritePageClient() {
     measure();
   }, [measure, categoryParam, pathname]);
 
+  /** `useAppViewportSize`가 resize·orientation·visualViewport 를 rAF 합쳐 주므로 `window.resize` 는 중복 제거 */
   useLayoutEffect(() => {
-    const onResize = () => measure();
+    measure();
+  }, [measure, appVp.width, appVp.height, appVp.visualHeight]);
+
+  useLayoutEffect(() => {
     const onScroll = () => measure();
-    window.addEventListener("resize", onResize);
     window.addEventListener("scroll", onScroll, true);
     const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
     if (el && ro) ro.observe(el);
     return () => {
-      window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onScroll, true);
       ro?.disconnect();
     };

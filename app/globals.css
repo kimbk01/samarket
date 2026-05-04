@@ -1,5 +1,6 @@
-/* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css 에만 정의) */
+/* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css·app-shell.css 에서만 정의) */
 @import "./design-tokens.css";
+@import "./app-shell.css";
 @import "../node_modules/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 @import "../node_modules/tailwindcss";
 @import "./samarket-components.css";
