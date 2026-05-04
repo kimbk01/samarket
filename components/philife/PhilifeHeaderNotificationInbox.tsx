@@ -33,6 +33,7 @@ import {
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { Tier1HeaderBellGlyph, Tier1HeaderBellMutedGlyph } from "@/lib/ui/tier1-header-glyphs";
 
 type Row = {
   id: string;
@@ -47,26 +48,7 @@ type Row = {
 };
 
 function BellGlyph({ muted }: { muted?: boolean }) {
-  return muted ? <BellMutedGlyph /> : <BellOnGlyph />;
-}
-
-function BellOnGlyph() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function BellMutedGlyph() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
-      <path d="M4 4l16 16" strokeLinecap="round" />
-    </svg>
-  );
+  return muted ? <Tier1HeaderBellMutedGlyph /> : <Tier1HeaderBellGlyph />;
 }
 
 function SettingsGearIcon() {

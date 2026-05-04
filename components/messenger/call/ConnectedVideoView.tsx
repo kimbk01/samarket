@@ -59,13 +59,30 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     armIdleHideTimer();
   }, [armIdleHideTimer]);
 
+  /**
+   * 솔로 상단 상태줄 — PiP(`showLocalVideo`) 유무와 무관해야 함.
+   * 예전에는 `!showLocalVideo` 때문에 PiP 켜진 순간 레이아웃이 꺼져 검은 화면+중앙 카드로 떨어졌다.
+   */
   const outgoingSoloVideoLayout =
     vm.mode === "video" &&
     !vm.showRemoteVideo &&
-    !vm.showLocalVideo &&
     (vm.direction === "outgoing" ||
       (vm.direction === "incoming" &&
         (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
+
+  /** 발신 영상은 `CallHeader` 없음 — 오버레이만 safe-area 에 맞춤 */
+  const outgoingVideoCompactTop = vm.mode === "video" && vm.direction === "outgoing";
+  const topOverlayPad = outgoingVideoCompactTop
+    ? "pt-[max(8px,calc(env(safe-area-inset-top)+12px))]"
+    : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
+
+  /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — 항상 카메라·영상 레이어 유지 */
+  const showAvatarCenterCard =
+    !(vm.mode === "video" && vm.direction === "outgoing") &&
+    !vm.showRemoteVideo &&
+    !outgoingSoloVideoLayout &&
+    !vm.showLocalVideo;
+
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
   const liftIncomingRingingActions =
@@ -91,7 +108,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         </div>
 
         {vm.showRemoteVideo ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
               <div className="sam-text-page-title font-semibold tracking-tight text-white">{vm.peerLabel}</div>
               <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
@@ -103,7 +120,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {outgoingSoloVideoLayout ? (
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 pt-[max(8px,calc(env(safe-area-inset-top)+48px))]">
+          <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
               {vm.hideOutgoingVideoBrandRow ? null : (
                 <div className="flex items-center justify-center gap-2 text-white/95">
@@ -136,7 +153,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {vm.showRemoteVideo ? (
-          <div className="absolute right-3 top-[max(52px,calc(env(safe-area-inset-top)+40px))] z-[8]">
+          <div
+            className={`absolute right-3 z-[8] ${
+              outgoingVideoCompactTop
+                ? "top-[max(10px,calc(env(safe-area-inset-top)+6px))]"
+                : "top-[max(52px,calc(env(safe-area-inset-top)+40px))]"
+            }`}
+          >
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
@@ -148,7 +171,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
 
-        {!vm.showRemoteVideo && !outgoingSoloVideoLayout && !vm.showLocalVideo ? (
+        {showAvatarCenterCard ? (
           <div className="absolute inset-0 z-[4] flex flex-col items-center justify-center px-8">
             {vm.mode === "video" && vm.peerAvatarUrl ? (
               <img

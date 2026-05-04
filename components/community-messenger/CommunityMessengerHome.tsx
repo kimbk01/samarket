@@ -31,6 +31,7 @@ import {
   MessengerSearchSheet,
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   resolveImportantRoomHighlightReason,
@@ -561,7 +562,7 @@ export function CommunityMessengerHome({
 
   const headerActionsNode = useMemo(
     () => (
-      <div data-messenger-shell className="flex items-center">
+      <div className={`${samTier1HeaderRightColumn} max-w-[min(100vw-120px,240px)]`}>
         <CommunityMessengerHeaderActions
           incomingRequestCount={incomingRequestCount}
           onOpenSearch={() => openHomeOverlay("search")}

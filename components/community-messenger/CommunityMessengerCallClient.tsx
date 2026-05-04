@@ -21,7 +21,10 @@ import {
 } from "react";
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
 
-/** Agora 번들은 수 MB — 정적 import 시 통화 페이지 첫 페인트·파싱이 지연된다. 조인 직전에만 로드한다. */
+/**
+ * Agora 번들은 수 MB — 정적 import 시 통화 페이지 첫 페인트·파싱이 지연된다.
+ * 링/연결 중 prefetch effect 와 조인 시 `fetchConnection` 과 병렬 로드로 체감 지연을 줄인다.
+ */
 async function loadCommunityMessengerCallProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
@@ -1132,6 +1135,7 @@ export function CommunityMessengerCallClient({
       return;
     }
     let cancelled = false;
+    void loadCommunityMessengerCallProvider().catch(() => {});
     void fetchConnection()
       .then((connection) => {
         if (!cancelled) prefetchedConnectionRef.current = connection;
@@ -1545,15 +1549,19 @@ export function CommunityMessengerCallClient({
           callKind: targetSession.callKind,
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
         });
+        const prefetchedConn = prefetchedConnectionRef.current;
+        prefetchedConnectionRef.current = null;
+        const connectionPromise = prefetchedConn ? Promise.resolve(prefetchedConn) : fetchConnection();
+        const [provider, connection] = await Promise.all([
+          loadCommunityMessengerCallProvider(),
+          connectionPromise,
+        ]);
         const {
           createCommunityMessengerAgoraClient,
           createCommunityMessengerAgoraLocalTracks,
           joinCommunityMessengerAgoraChannel,
           publishCommunityMessengerAgoraTracks,
-        } = await loadCommunityMessengerCallProvider();
-        const prefetched = prefetchedConnectionRef.current;
-        prefetchedConnectionRef.current = null;
-        const connection = prefetched ?? (await fetchConnection());
+        } = provider;
         const client = createCommunityMessengerAgoraClient();
         clientRef.current = client;
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {

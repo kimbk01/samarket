@@ -67,7 +67,7 @@ export const MESSENGER_ROOM_REALTIME_RESUBSCRIBE_RESYNC_DEBOUNCE_MS = readPublic
 /** 수신 통화: postgres_changes 연속 시 GET 합류 방지 — 너무 길면 벨 지연 체감 */
 export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_RT_DEBOUNCE_MS",
-  40,
+  22,
   0,
   2000
 );
@@ -78,7 +78,7 @@ export const MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
  */
 export const MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_RT_OK_MS",
-  2800,
+  2400,
   1200,
   20_000
 );
@@ -86,7 +86,7 @@ export const MESSENGER_INCOMING_CALL_POLL_WHEN_REALTIME_OK_MS = readPublicEnvMs(
 /** 수신 측에 ringing 이 떠 있는 동안 백업 GET 주기(실시간 구독 중) — 종료·동기화 체감 개선 */
 export const MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_POLL_RING_MS",
-  600,
+  420,
   400,
   5000
 );
@@ -108,7 +108,7 @@ export const MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS = readPublicEnvMs(
  */
 export const MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_WAKE_TRAIL_MS",
-  480,
+  320,
   200,
   2500
 );
@@ -116,7 +116,7 @@ export const MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS = readPublicEnvMs(
 /** 수신 목록 GET 레이트 (연속 Realtime·포커스) — 폴링이 force 로 우회하므로 상한만 완화 */
 export const MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_INCOMING_REFRESH_COOLDOWN_MS",
-  450,
+  280,
   200,
   10_000
 );
@@ -160,7 +160,7 @@ export function getIncomingCallPollIntervalMs(
 /** `/calls/:sessionId` 클라: 세션 row `postgres_changes` 묶음 — 연속 이벤트당 GET 1회 */
 export const MESSENGER_CALL_SESSION_REALTIME_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_DEBOUNCE_MS",
-  55,
+  42,
   40,
   2000
 );
@@ -186,7 +186,7 @@ export const MESSENGER_CALL_SESSION_SILENT_GAP_POLL_MS = readPublicEnvMs(
 
 export const MESSENGER_CALL_SESSION_SILENT_GAP_REALTIME_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_CALL_SESSION_RT_GAP_MS",
-  350,
+  260,
   100,
   5000
 );
@@ -230,13 +230,13 @@ export function getCallSessionClientPollIntervalMs(
      * (caller가 reject/end를 늦게 받는 문제 방지)
      */
     /** ringing → active 전환을 상대 수락 직후 빨리 반영(Realtime 페이로드 지연 보완) */
-    if (status === "ringing") return tier === "production" ? 650 : 550;
+    if (status === "ringing") return tier === "production" ? 480 : 400;
     if (status === "active") return tier === "production" ? 2200 : 1800;
     return tier === "production" ? 2600 : 2200;
   }
 
   /** SUBSCRIBE 지연 시 백업 GET 로도 빨리 active 반영 */
-  if (status === "ringing") return tier === "production" ? 700 : 600;
+  if (status === "ringing") return tier === "production" ? 520 : 440;
   if (status === "active" && joined && remoteJoined) return tier === "production" ? 5000 : 4000;
   if (status === "active" && joined) return tier === "production" ? 1400 : 1200;
   if (status === "active") return tier === "production" ? 1500 : 1300;

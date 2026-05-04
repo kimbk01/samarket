@@ -33,13 +33,18 @@ export function CallScreen({
   /** 음성 수신 벨만 텔레그램형 단색 셸 — 영상 수신 링은 발신과 동일 풀스크린(`ConnectedVideoView`) */
   const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
-  /** 발신 영상 솔로(로컬 풀프리뷰) — 배경 레이어가 카메라를 가리지 않게 함 */
-  const isOutgoingVideoSolo =
-    vm.mode === "video" && vm.direction === "outgoing" && !vm.showRemoteVideo;
   const telegramCallSurface = "bg-[#8B5E2E]";
   const useTelegramSolidShell = isIncomingRinging;
-  /** 발신 음성 벨·권한 화면은 전용 그라데이션만 — 뒤쪽 보라 `CallBackground`가 비쳐 이전 화면처럼 보이지 않게 함 */
-  const hideCallBackground = useTelegramSolidShell || isOutgoingVoiceRinging || isOutgoingVideoSolo;
+  /**
+   * 발신 영상은 항상 `ConnectedVideoView` 단일 레이어(중복 `CallBackground`·그라데이션 없음).
+   * 원격 연결 후에도 첨부1처럼 카메라/영상 면이 끊기지 않게 한다.
+   */
+  const hideCallBackground =
+    useTelegramSolidShell || isOutgoingVoiceRinging || (vm.mode === "video" && vm.direction === "outgoing");
+  /** 발신 영상 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
+  const showCallHeader =
+    !(vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") &&
+    !(vm.mode === "video" && vm.direction === "outgoing");
 
   return (
     <CallScreenShell
@@ -62,7 +67,7 @@ export function CallScreen({
         />
       )}
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
-        {!(vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") ? (
+        {showCallHeader ? (
           <CallHeader
             onBack={vm.onBack}
             topLabel={vm.topLabel}

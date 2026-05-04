@@ -2,10 +2,26 @@
 
 import Link from "next/link";
 import { Phone } from "lucide-react";
+import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
+  samTier1HeaderIconBadge,
+  samTier1HeaderIconCluster,
+  samTier1HeaderIconMicro,
+} from "@/lib/ui/tier1-header-icon";
+import {
+  Tier1HeaderBellGlyph,
+  Tier1HeaderSearchGlyph,
+  Tier1HeaderSettingsGlyph,
+} from "@/lib/ui/tier1-header-glyphs";
 
 /**
  * 메신저 홈 상단 우측 액션: 검색 / 통화 기록 / 알림 / 설정.
  * 새 대화는 하단 FAB 한 곳만 사용(중복 CTA 제거).
+ *
+ * 거래·필라이프 1단 우측과 동일 타입: `sam-header-action` + 40×40 히트, 글리프 `h-6 w-6`,
+ * 클러스터 간격 `samTier1HeaderIconCluster` — 원형 배경 셸 없음.
  */
 export function CommunityMessengerHeaderActions({
   incomingRequestCount,
@@ -18,64 +34,32 @@ export function CommunityMessengerHeaderActions({
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
 }) {
-  const iconBtn =
-    "flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] text-[color:var(--messenger-icon)] active:bg-[color:var(--messenger-surface-muted)]";
+  const iconBtn = `${Sam.headerAction} relative h-10 w-10 shrink-0 text-sam-fg ${samTier1HeaderIconMicro}`;
 
   return (
-    <div className="flex max-w-[min(100vw-120px,240px)] shrink-0 items-center justify-end gap-1">
+    <div className={samTier1HeaderIconCluster}>
       <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label="메신저 검색">
-        <SearchIcon />
+        <Tier1HeaderSearchGlyph />
       </button>
       <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label="통화 기록">
-        <Phone className="h-5 w-5" aria-hidden />
+        <Phone className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH} aria-hidden />
       </Link>
       <button
         type="button"
         onClick={onOpenRequestList}
-        className={`relative ${iconBtn}`}
+        className={iconBtn}
         aria-label={`알림${incomingRequestCount > 0 ? ` · 친구 요청 대기 ${incomingRequestCount}건` : ""}`}
       >
-        <BellListIcon />
+        <Tier1HeaderBellGlyph />
         {incomingRequestCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--messenger-primary)] px-1 sam-text-xxs font-bold leading-none text-white">
+          <span className={samTier1HeaderIconBadge}>
             {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
           </span>
         ) : null}
       </button>
       <button type="button" onClick={onOpenSettings} className={iconBtn} aria-label="메신저 설정">
-        <SettingsIconSolid />
+        <Tier1HeaderSettingsGlyph />
       </button>
     </div>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <circle cx="11" cy="11" r="6" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-4.2-4.2" />
-    </svg>
-  );
-}
-
-function BellListIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 21a2 2 0 004 0" />
-    </svg>
-  );
-}
-
-/** 단색 채움 스타일 (톱니 설정) */
-function SettingsIconSolid() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
-    </svg>
   );
 }
