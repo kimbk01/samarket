@@ -36,7 +36,46 @@ type Params = {
   chatKindFilter: MessengerChatKindFilter;
   roomSearchKeyword: string;
   openGroupSearch: string;
+  /**
+   * 거래/배달 전용 서브 라우트(`/community-messenger/trade-chats`, `/delivery-chats`)에서는
+   * 채팅 리스트를 해당 pillar 의 방으로 강제 한정한다(칩 필터·검색은 그 위에서 동작).
+   */
+  pillar?: MessengerPillarMode;
 };
+
+/** 거래/배달 묶음 행이 가리키는 도메인. */
+export type MessengerPillarMode = "trade" | "delivery" | null;
+
+export type MessengerPillarSummary = {
+  /** 미리보기·시간 표시에 사용할 가장 최근 방. 없으면 null. */
+  lastItem: UnifiedRoomListItem | null;
+  /** 해당 pillar 전체 미읽음 합. */
+  unreadTotal: number;
+  /** 해당 pillar 방 개수(헬퍼·디버그용). */
+  count: number;
+};
+
+const EMPTY_PILLAR_SUMMARY: MessengerPillarSummary = { lastItem: null, unreadTotal: 0, count: 0 };
+
+function summarizePillarItems(items: UnifiedRoomListItem[]): MessengerPillarSummary {
+  if (items.length === 0) return EMPTY_PILLAR_SUMMARY;
+  let lastItem: UnifiedRoomListItem | null = null;
+  let lastTime = Number.NEGATIVE_INFINITY;
+  let unreadTotal = 0;
+  for (const item of items) {
+    const ts = new Date(item.lastEventAt).getTime();
+    if (Number.isFinite(ts) && ts > lastTime) {
+      lastTime = ts;
+      lastItem = item;
+    }
+    unreadTotal += Math.max(0, item.room.unreadCount);
+  }
+  if (!lastItem) {
+    /** 시간 정합이 안 맞으면 첫 항목을 사용(이미 정렬 출력) */
+    lastItem = items[0] ?? null;
+  }
+  return { lastItem, unreadTotal, count: items.length };
+}
 
 /** `sortRooms` 비교에 쓰이는 필드만 — 동일 내용이면 정렬·카운터 재실행 생략 */
 function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummary[]): string {
@@ -116,6 +155,7 @@ export function useCommunityMessengerHomeState({
   chatKindFilter,
   roomSearchKeyword,
   openGroupSearch,
+  pillar = null,
 }: Params) {
   /** 렌더 중 Date.now() 금지(react-hooks/purity) — lazy init + 부트스트랩 갱신 시 시각 동기화 */
   const [friendSortEpochMs, setFriendSortEpochMs] = useState(() => Date.now());
@@ -281,6 +321,44 @@ export function useCommunityMessengerHomeState({
     return unifiedRooms.filter((item) => item.room.roomType !== "open_group" && !communityMessengerRoomIsInboxHidden(item.room));
   }, [unifiedRooms]);
 
+  /**
+   * 인박스(거래/배달 pillar 모드 아님)에서만 의미가 있는 묶음 행 요약값.
+   * 추가 fetch 없이 `unifiedRooms` 에서 파생 — 거래 가볍게 invariant 유지.
+   */
+  const tradePillarSummary = useMemo<MessengerPillarSummary>(
+    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room))),
+    [baseChatListItems]
+  );
+
+  const deliveryPillarSummary = useMemo<MessengerPillarSummary>(
+    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsDelivery(item.room))),
+    [baseChatListItems]
+  );
+
+  /**
+   * visibleChatListItems 필터 입력 원본.
+   * - 거래/배달 서브 라우트(`pillar`): 해당 도메인 방만.
+   * - 메신저 인박스(`pillar == null`)이면서 **대화 유형이 「전체」**일 때:
+   *   거래·배달 방은 상단 묶음 행(거래 채팅 / 배달 채팅)으로만 보이고,
+   *   이 목록에는 **1:1·그룹(비거래·비배달)만** 둔다.
+   * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 전체 base 를 쓴다(묶음 행은 UI 에서 숨김).
+   */
+  const pillarBaseChatListItems = useMemo(() => {
+    if (pillar === "trade") {
+      return baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room));
+    }
+    if (pillar === "delivery") {
+      return baseChatListItems.filter((item) => communityMessengerRoomIsDelivery(item.room));
+    }
+    if (chatKindFilter === "all") {
+      return baseChatListItems.filter(
+        (item) =>
+          !communityMessengerRoomIsTrade(item.room) && !communityMessengerRoomIsDelivery(item.room)
+      );
+    }
+    return baseChatListItems;
+  }, [baseChatListItems, pillar, chatKindFilter]);
+
   const archiveListItems = useMemo(
     () => unifiedRooms.filter((item) => communityMessengerRoomIsInboxHidden(item.room)),
     [unifiedRooms]
@@ -292,11 +370,11 @@ export function useCommunityMessengerHomeState({
 
   const visibleChatListItems = useMemo(() => {
     const keyword = roomSearchKeyword.trim().toLowerCase();
-    const cacheKey = visibleChatListInputKey(baseChatListItems, chatInboxFilter, chatKindFilter, keyword);
+    const cacheKey = visibleChatListInputKey(pillarBaseChatListItems, chatInboxFilter, chatKindFilter, keyword);
     const cached = visibleChatListByInputKey.get(cacheKey);
     if (cached) return cached;
     bumpMessengerRenderPerf("messenger_room_list_filter");
-    const out = baseChatListItems.filter((item) => {
+    const out = pillarBaseChatListItems.filter((item) => {
       const room = item.room;
       if (chatInboxFilter === "unread" && room.unreadCount < 1) return false;
       if (chatInboxFilter === "pinned" && !room.isPinned) return false;
@@ -313,7 +391,7 @@ export function useCommunityMessengerHomeState({
     if (visibleChatListByInputKey.size >= VISIBLE_CHAT_LIST_CACHE_MAX) visibleChatListByInputKey.clear();
     visibleChatListByInputKey.set(cacheKey, out);
     return out;
-  }, [baseChatListItems, chatInboxFilter, chatKindFilter, roomSearchKeyword]);
+  }, [pillarBaseChatListItems, chatInboxFilter, chatKindFilter, roomSearchKeyword]);
 
   const searchSheetRoomItems = useMemo(() => {
     const keyword = roomSearchKeyword.trim().toLowerCase();
@@ -349,6 +427,8 @@ export function useCommunityMessengerHomeState({
     searchSheetRoomItems,
     primaryListItems,
     friendStateModel,
+    tradePillarSummary,
+    deliveryPillarSummary,
   };
 }
 

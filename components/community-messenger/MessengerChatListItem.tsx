@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   enqueueRoomPrefetch,
@@ -12,6 +12,12 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
+import {
+  communityMessengerRoomHref,
+  MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
+  messengerRoomListSourceFromPathname,
+} from "@/lib/community-messenger/messenger-entry-origin";
+import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
@@ -111,6 +117,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const onLeaveRoom = onLeaveRoomProp ?? (() => {});
   bumpMessengerRenderPerf("messenger_room_row_render");
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const fromEntryOrigin = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
+  const roomListSource = useMemo(() => messengerRoomListSourceFromPathname(pathname), [pathname]);
   const room = item.room;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const roomPrefetchPriority = useMemo(
@@ -173,7 +183,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           ? "보관됨"
           : null;
 
-  const roomHref = `/community-messenger/rooms/${encodeURIComponent(room.id)}`;
+  const roomHref = useMemo(
+    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource),
+    [room.id, fromEntryOrigin, roomListSource]
+  );
 
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
     primeMessengerRoomEntrySnapshot({ viewerUserId, room });
@@ -187,7 +200,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       const id = String(rid ?? "").trim();
       if (!id) return;
       primeMessengerRoomEntrySnapshot({ viewerUserId, room });
-      beginRouteEntryPerf("messenger_room_entry", `/community-messenger/rooms/${encodeURIComponent(id)}`);
+      beginRouteEntryPerf(
+        "messenger_room_entry",
+        communityMessengerRoomHref(id, fromEntryOrigin, roomListSource)
+      );
 
       if (!isRoomSnapshotFresh(id, viewerUserId)) {
         const leadMs = messengerRoomNavSnapshotLeadMs();
@@ -198,9 +214,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       }
 
       recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
-      router.push(`/community-messenger/rooms/${encodeURIComponent(id)}`);
+      const dest = communityMessengerRoomHref(id, fromEntryOrigin, roomListSource);
+      runMessengerViewTransition(() => {
+        router.push(dest);
+      }, "room-forward");
     },
-    [room, router, viewerUserId]
+    [fromEntryOrigin, room, roomListSource, router, viewerUserId]
   );
 
   const closeSwipe = useCallback(() => {

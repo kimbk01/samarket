@@ -85,6 +85,10 @@ export const SAMARKET_ROUTES = {
     messengerHub: "/community-messenger?section=chats",
     /** 모임 허브 — Philife meetup 피드가 아닌 메신저 `open_chat` */
     messengerMeetingsHub: "/community-messenger?section=open_chat",
+    /** 메신저 받은메시지함의 「거래 채팅」 묶음 행 → 거래방만 모아 보기 */
+    messengerTradeChats: "/community-messenger/trade-chats",
+    /** 메신저 받은메시지함의 「배달 채팅」 묶음 행 → 배달·매장 주문방만 모아 보기 */
+    messengerDeliveryChats: "/community-messenger/delivery-chats",
     orderHub: "/my/store-orders",
     newChat: "/chats/new",
     /** 거래 1:1 — 메신저 방 URL(`tradeMessengerRoomHref` 와 동일, `source` 는 부트스트랩 힌트) */

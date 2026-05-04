@@ -16,7 +16,10 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import type {
+  MessengerPillarSummary,
+  UnifiedRoomListItem,
+} from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerArchiveSection,
@@ -84,6 +87,10 @@ type Props = {
   loginRequiredText: string;
   retryText: string;
   onRetry: () => void;
+  /** 인박스 묶음 행(거래·배달). pillar 모드에선 null. */
+  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
+  /** 인박스 진입 시점의 `?from=...` — 묶음 행이 서브 라우트로 진입할 때 보존. */
+  entryOriginQuery?: string | null;
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
@@ -199,6 +206,8 @@ export function CommunityMessengerHomeListPane(props: Props) {
               openChatJoinedItems={props.openChatJoinedItems}
               onOpenMeetingFind={props.onOpenMeetingFindStable}
               incomingRequestCount={props.incomingRequestCount}
+              pillarSummaries={props.pillarSummaries ?? null}
+              entryOriginQuery={props.entryOriginQuery ?? null}
             />
           </div>
         ) : null}

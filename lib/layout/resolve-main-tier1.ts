@@ -117,11 +117,40 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     });
   }
 
+  /**
+   * 메신저 「거래 채팅」/「배달 채팅」 묶음 전용 서브 라우트.
+   * 1단 헤더 제목·뒤로가기는 `useCommunityMessengerHomeShellEffects` 가 클라이언트에서
+   * `?from` 을 보존해 덮어쓴다. 여기서는 RegionBar 기본값(인박스로 복귀)만 둔다.
+   */
+  if (p === "/community-messenger/trade-chats") {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger?section=chats",
+      preferHistoryBack: false,
+      ariaLabel: "메신저로 돌아가기",
+      titleText: "거래 채팅",
+      showHubQuickActions: false,
+    };
+  }
+
+  if (p === "/community-messenger/delivery-chats") {
+    return {
+      ...DEFAULT,
+      backHref: "/community-messenger?section=chats",
+      preferHistoryBack: false,
+      ariaLabel: "메신저로 돌아가기",
+      titleText: "배달 채팅",
+      showHubQuickActions: false,
+    };
+  }
+
   if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) {
     return {
       ...DEFAULT,
       backHref: "/community-messenger?section=chats",
-      /** 히스토리(back)에 따라 홈·글 상세 등으로 튀지 않고 항상 메신저 채팅 탭으로 */
+      /**
+       * `RegionBar` 가 `buildMessengerRoomListBackHref`(`cm_list`·`from`)로 `backHref` 를 덮는다.
+       */
       preferHistoryBack: false,
       ariaLabel: "메신저로 돌아가기",
       titleText: "메신저 대화",

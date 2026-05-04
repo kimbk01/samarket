@@ -7,6 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** `/mypage/trade` 인덱스와 `/mypage/trade/purchases` 모두 구매 탭 활성 */
 function isPurchasesHubPath(norm: string): boolean {
@@ -60,7 +61,7 @@ export function TradeHubTopTabs() {
         {
           key: "chat",
           label: t("nav_trade_hub_chat"),
-          href: "/community-messenger?section=chats&kind=trade",
+          href: TRADE_CHAT_SURFACE.messengerListHref,
           matchPrefix: "/community-messenger",
         },
       ] as const,

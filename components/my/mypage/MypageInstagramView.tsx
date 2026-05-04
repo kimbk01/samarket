@@ -36,6 +36,7 @@ import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -579,7 +580,7 @@ function TradeSection({
           items={[
             { label: "구매", href: "/mypage/trade/purchases", value: formatCount(overviewCounts.purchases) },
             { label: "판매", href: "/mypage/trade/sales", value: formatCount(overviewCounts.sales) },
-            { label: "채팅", href: "/community-messenger?section=chats&kind=trade" },
+            { label: "채팅", href: TRADE_CHAT_SURFACE.messengerListHref },
             { label: "찜", href: MYPAGE_TRADE_FAVORITES_HREF, value: favoriteBadge ?? undefined },
             { label: "후기", href: "/mypage/trade/reviews" },
             { label: "내 상품", href: "/mypage/products" },

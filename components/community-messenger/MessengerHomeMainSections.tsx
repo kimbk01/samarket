@@ -18,7 +18,10 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
-import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import type {
+  MessengerPillarSummary,
+  UnifiedRoomListItem,
+} from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 
@@ -75,6 +78,10 @@ type Props = {
   openChatJoinedItems: UnifiedRoomListItem[];
   onOpenMeetingFind: () => void;
   incomingRequestCount: number;
+  /** 인박스 상단 「거래 채팅」/「배달 채팅」 묶음 행. pillar 모드에선 null. */
+  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
+  /** 인박스로 들어올 때 받은 `?from=...` — 묶음 행이 서브 라우트로 보낼 때 보존. */
+  entryOriginQuery?: string | null;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -126,6 +133,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   openChatJoinedItems,
   onOpenMeetingFind,
   incomingRequestCount,
+  pillarSummaries = null,
+  entryOriginQuery = null,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
   const swipeTabs = useMemo(
@@ -212,6 +221,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
+            pillarSummaries={pillarSummaries}
+            entryOriginQuery={entryOriginQuery}
           />
         ) : null}
 

@@ -112,6 +112,10 @@ import {
   prefetchCommunityMessengerRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  communityMessengerRoomHref,
+  MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
+} from "@/lib/community-messenger/messenger-entry-origin";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
@@ -190,6 +194,13 @@ export function CommunityMessengerHome({
   initialServerBootstrap = null,
   /** `/philife` 헤더 메신저 푸시 스택(하단 탭과 별도) */
   fromPhilifeHeaderStack = false,
+  /**
+   * 거래/배달 전용 서브 라우트(`/community-messenger/trade-chats`, `/delivery-chats`).
+   * - 채팅 목록을 해당 pillar 의 방으로 강제 한정.
+   * - 상단 묶음 행·기타 main section(친구/모임/보관함) 은 표시하지 않음.
+   * - 1단 헤더 제목은 「거래 채팅」/「배달 채팅」 으로 표기.
+   */
+  pillar = null,
 }: {
   initialTab?: string;
   initialSection?: string;
@@ -197,6 +208,7 @@ export function CommunityMessengerHome({
   initialKind?: string;
   initialServerBootstrap?: CommunityMessengerBootstrap | null;
   fromPhilifeHeaderStack?: boolean;
+  pillar?: "trade" | "delivery" | null;
 }) {
   bumpMessengerRenderPerf("messenger_home_render");
   const { t } = useI18n();
@@ -236,7 +248,7 @@ export function CommunityMessengerHome({
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
-    resolveMessengerSection(initialSection, initialTab)
+    pillar ? "chats" : resolveMessengerSection(initialSection, initialTab)
   );
   const [chatInboxFilter, setChatInboxFilter] = useState<MessengerChatInboxFilter>(() => {
     const { inbox } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
@@ -596,6 +608,7 @@ export function CommunityMessengerHome({
     data,
     fromPhilifeHeaderStack,
     mainSection,
+    pillar,
   });
 
   /**
@@ -893,7 +906,13 @@ export function CommunityMessengerHome({
           /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
           if (result.mergedFromIncoming && typeof result.directRoomId === "string" && result.directRoomId.trim()) {
             const rid = result.directRoomId.trim();
-          router.push(`/community-messenger/rooms/${encodeURIComponent(rid)}`);
+            router.push(
+              communityMessengerRoomHref(
+                rid,
+                searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
+              )
+            );
           }
           return;
         }
@@ -915,7 +934,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.me?.label, refresh, router, searchResults, searchUsers, setData]
+    [data?.me?.id, data?.me?.label, pillar, refresh, router, searchParams, searchResults, searchUsers, setData]
   );
 
   const respondRequest = useCallback(
@@ -1048,7 +1067,13 @@ export function CommunityMessengerHome({
           void refresh(true);
           if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
             const rid = json.directRoomId.trim();
-            router.push(`/community-messenger/rooms/${encodeURIComponent(rid)}`);
+            router.push(
+              communityMessengerRoomHref(
+                rid,
+                searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
+              )
+            );
           }
         } else {
           // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
@@ -1058,7 +1083,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.requests, refresh, router, setData]
+    [data?.me?.id, data?.requests, pillar, refresh, router, searchParams, setData]
   );
 
   const onFriendRequestNotif = useCallback(
@@ -1603,6 +1628,8 @@ export function CommunityMessengerHome({
     searchSheetRoomItems,
     primaryListItems,
     friendStateModel,
+    tradePillarSummary,
+    deliveryPillarSummary,
   } = useCommunityMessengerHomeState({
     data,
     mainSection,
@@ -1610,7 +1637,20 @@ export function CommunityMessengerHome({
     chatKindFilter,
     roomSearchKeyword,
     openGroupSearch,
+    pillar,
   });
+
+  /** pillar 서브 라우트에선 인박스 묶음 행을 보이지 않는다. */
+  const inboxPillarSummaries = useMemo(
+    () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
+    [pillar, tradePillarSummary, deliveryPillarSummary]
+  );
+
+  /** 인박스 진입 시점의 `?from=...` 을 묶음 행으로 전달(서브 라우트에서 출처 보존). */
+  const entryOriginQuery = useMemo(() => {
+    if (pillar) return null;
+    return searchParams?.get("from") ?? null;
+  }, [pillar, searchParams]);
 
   const listPrefetchSeedSig = useMemo(() => {
     if (mainSection !== "chats" && mainSection !== "open_chat" && mainSection !== "archive") return "";
@@ -2338,6 +2378,8 @@ export function CommunityMessengerHome({
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
         onRetry={() => void refresh()}
+        pillarSummaries={inboxPillarSummaries}
+        entryOriginQuery={entryOriginQuery}
       />
 
       <CommunityMessengerHomeBottomNav value={mainSection} onSelect={onPrimarySectionChange} />
@@ -2473,7 +2515,12 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                  const base = communityMessengerRoomHref(
+                    id,
+                    searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                    pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
+                  );
+                  router.push(`${base}${base.includes("?") ? "&" : "?"}sheet=info`);
                 }
               : undefined
           }
@@ -2482,7 +2529,12 @@ export function CommunityMessengerHome({
               ? () => {
                   const id = roomActionSheet.item.room.id;
                   setRoomActionSheet(null);
-                  router.push(`/community-messenger/rooms/${encodeURIComponent(id)}?sheet=info`);
+                  const base = communityMessengerRoomHref(
+                    id,
+                    searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                    pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
+                  );
+                  router.push(`${base}${base.includes("?") ? "&" : "?"}sheet=info`);
                 }
               : undefined
           }

@@ -15,6 +15,10 @@ import {
 } from "@/lib/auth/phone-verification-gate-client";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { resolveMessengerTabTotalUnreadBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
+import {
+  inferMessengerEntryOriginFromPath,
+  withMessengerEntryOrigin,
+} from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
  * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
@@ -27,9 +31,14 @@ export function PhilifeHeaderMessengerButton() {
   const pathname = usePathname() ?? "";
   const stack = usePhilifeHeaderMessengerStack();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const href = useMemo(
+  const baseMessengerHref = useMemo(
     () => BOTTOM_NAV_ITEMS.find((i) => i.id === "chat")?.href ?? "/community-messenger?section=chats",
     []
+  );
+  /** 커뮤니티·거래·배달 상단 헤더에서 풀 경로로 갈 때 `?from=` — 뒤로가기가 해당 탭과 맞음 */
+  const href = useMemo(
+    () => withMessengerEntryOrigin(baseMessengerHref, inferMessengerEntryOriginFromPath(pathname)),
+    [baseMessengerHref, pathname]
   );
   const label = t("nav_bottom_messenger");
   const useStack = isMessengerFromHeaderStackSurface(pathname);
@@ -41,11 +50,11 @@ export function PhilifeHeaderMessengerButton() {
     if (!guardBeforeNavigate()) return;
     const user = getCurrentUser();
     if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
-      openPhoneVerificationRequiredDialog({ next: href });
+      openPhoneVerificationRequiredDialog({ next: baseMessengerHref });
       return;
     }
     stack.open();
-  }, [stack, guardBeforeNavigate, href]);
+  }, [stack, guardBeforeNavigate, baseMessengerHref]);
 
   if (useStack) {
     return (
@@ -82,7 +91,7 @@ export function PhilifeHeaderMessengerButton() {
           const user = getCurrentUser();
           if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
             e.preventDefault();
-            openPhoneVerificationRequiredDialog({ next: href });
+            openPhoneVerificationRequiredDialog({ next: baseMessengerHref });
           }
         }}
       >

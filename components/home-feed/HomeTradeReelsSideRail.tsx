@@ -8,6 +8,7 @@ import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** 하단 탭(3.5rem+safe) + 본문과 동일 2pt 간격 */
 const RAIL_BOTTOM = "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 2pt)";
@@ -59,7 +60,7 @@ const TRADE_HUB_RAIL_LINKS: readonly {
   {
     key: "chat",
     label: "거래채팅",
-    href: "/community-messenger?section=chats&kind=trade",
+    href: TRADE_CHAT_SURFACE.messengerListHref,
     fabClass: `${FAB_BASE} bg-violet-600`,
     Icon: ChatBubbleIcon,
   },

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
+import { ORDER_CHAT_SURFACE } from "@/lib/chats/surfaces/order-chat-surface";
 
 type Item = {
   id: string;
@@ -27,9 +29,9 @@ export function MessengerServiceStrip({
       id: "trade",
       label: "거래",
       emoji: "💬",
-      href: "/community-messenger?section=chats&kind=trade",
+      href: TRADE_CHAT_SURFACE.messengerListHref,
     },
-    { id: "order", label: "주문", emoji: "🛒", href: "/my/store-orders" },
+    { id: "order", label: "주문", emoji: "🛒", href: ORDER_CHAT_SURFACE.messengerDeliveryListHref },
   ];
 
   return (

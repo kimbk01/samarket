@@ -28,6 +28,11 @@ export type MainTier1Partial = {
   alignTier1TitleStart?: boolean;
   /** 있으면 좌측 뒤로 버튼 대체(글쓰기 취소 확인 등) */
   leftSlot?: ReactNode;
+  /**
+   * 메신저 View Transition 방향(`document.startViewTransition`).
+   * 거래/배달 묶음 서브 라우트에서 인박스로 돌아갈 때 `pillar-back`.
+   */
+  messengerNavIntent?: "pillar-back" | "room-back";
 };
 
 export type MainTier1ExtrasState = {
@@ -53,7 +58,8 @@ function sameMainTier1Partial(a: MainTier1Partial | undefined, b: MainTier1Parti
     a.hideTier1BottomBorder === b.hideTier1BottomBorder &&
     a.alignTier1TitleStart === b.alignTier1TitleStart &&
     a.rightSlot === b.rightSlot &&
-    a.leftSlot === b.leftSlot
+    a.leftSlot === b.leftSlot &&
+    a.messengerNavIntent === b.messengerNavIntent
   );
 }
 

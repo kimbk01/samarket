@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
@@ -10,6 +10,7 @@ import {
   isTradeFloatingMenuSurface,
   type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
+import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -91,6 +92,7 @@ export function RegionBar({
 }) {
   const { tt, t } = useI18n();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
   const ruleSet = useMemo(
     () => tier1RuleSetProp ?? getMobileTopTier1RuleSet(pathname),
@@ -178,7 +180,8 @@ export function RegionBar({
               <Tier1ExplorationTitleRow segmentTitle={t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY)} />
             </h1>
           </div>
-          <div className="flex shrink-0 items-center self-stretch">
+          <div className="ml-auto flex h-full min-w-0 max-w-[200px] shrink-0 items-center justify-end gap-0.5 pr-0.5">
+            <PhilifeHeaderMessengerButton />
             <StoresRootTier1Right />
           </div>
         </div>
@@ -193,8 +196,18 @@ export function RegionBar({
 
   const o = extras?.tier1;
   const hideBack = o?.hideBack ?? base.hideBack ?? false;
-  const backHref = o?.backHref ?? base.backHref;
-  const preferHistoryBack = o?.preferHistoryBack ?? base.preferHistoryBack;
+  const isMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
+  /**
+   * 메신저 채팅방 뒤로가기: 방 URL 의 `cm_list`·`from` 으로 목록을 확정
+   * (거래 목록 / 배달 목록 / 인박스 전체) — 3→2→1 스택이 히스토리와 무관하게 유지.
+   * `preferHistoryBack: false` 로 고정 `href` + View Transition(`room-back`).
+   */
+  const backHref = isMessengerRoom
+    ? buildMessengerRoomListBackHref(searchParams)
+    : o?.backHref ?? base.backHref;
+  const preferHistoryBack = isMessengerRoom ? false : o?.preferHistoryBack ?? base.preferHistoryBack;
+  const messengerNavIntent =
+    o?.messengerNavIntent ?? (isMessengerRoom ? ("room-back" as const) : undefined);
   const ariaLabel = tt(o?.ariaLabel ?? base.ariaLabel);
   const subtitleRaw = o?.subtitle ?? base.subtitle;
   const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;
@@ -259,6 +272,7 @@ export function RegionBar({
               preferHistoryBack={preferHistoryBack}
               backHref={backHref}
               ariaLabel={ariaLabel}
+              messengerNavIntent={messengerNavIntent}
             />
           )}
         </div>

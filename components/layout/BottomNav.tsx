@@ -68,6 +68,7 @@ import {
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -176,6 +177,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       .join(" ");
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
+  /** 메신저 탭: 현재 표면(커뮤니티·거래·배달)에 맞춰 `?from=` 부착 — 상단 헤더 진입과 동일 출처 규칙 */
+  const effectiveHref = useMemo(
+    () => (tab.id === "chat" ? bottomNavMessengerHrefWithOrigin(tab.href, pathname) : tab.href),
+    [tab.id, tab.href, pathname]
+  );
+
   const className = [
     "group relative flex min-h-0 flex-1 flex-col items-center justify-center",
     "gap-1 border-t-2 px-1 pb-2 pt-2",
@@ -208,9 +215,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   return (
     <Link
-      href={tab.href}
+      href={effectiveHref}
       prefetch={shouldEnableNextLinkPrefetchOnMainNav()}
-      replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
+      replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
       aria-label={ariaLbl}
@@ -218,12 +225,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onPointerEnter={() => {
         if (!isActive) {
           try {
-            void router.prefetch(tab.href);
+            void router.prefetch(effectiveHref);
           } catch {
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
             /* noop */
           }
@@ -232,12 +239,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onFocus={() => {
         if (!isActive) {
           try {
-            void router.prefetch(tab.href);
+            void router.prefetch(effectiveHref);
           } catch {
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
             /* noop */
           }
@@ -246,12 +253,12 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onTouchStart={() => {
         if (!isActive) {
           try {
-            void router.prefetch(tab.href);
+            void router.prefetch(effectiveHref);
           } catch {
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
             /* noop */
           }
@@ -262,13 +269,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
           try {
-            void router.prefetch(tab.href);
+            void router.prefetch(effectiveHref);
           } catch {
             /* noop */
           }
           /** RSC 프리페치와 별도로 클라 데이터 캐시도 함께 데워 첫 진입 즉시 렌더 */
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
             /* noop */
           }
@@ -277,23 +284,23 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
         if (e.key === "Enter" || e.key === " ") {
           if (
-            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-            !guardBeforeNavigate(tab.href)
+            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, effectiveHref) &&
+            !guardBeforeNavigate(effectiveHref)
           ) {
             e.preventDefault();
             return;
           }
           triggerLightTapFeedback();
-          beginMenuNavigation(tab.href);
+          beginMenuNavigation(effectiveHref);
           onNavigationIntent(tab.id);
           if (!isActive) {
             try {
-              void router.prefetch(tab.href);
+              void router.prefetch(effectiveHref);
             } catch {
               /* noop */
             }
             try {
-              prewarmBottomNavTapTargetClientCache(tab.href);
+              prewarmBottomNavTapTargetClientCache(effectiveHref);
             } catch {
               /* noop */
             }
@@ -301,17 +308,17 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         }
       }}
       onClick={(e) => {
-        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href)) {
-          onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, effectiveHref)) {
+          onBottomNavTabActivate(pathname, navSearch, effectiveHref, e);
           return;
         }
-        if (!guardBeforeNavigate(tab.href)) {
+        if (!guardBeforeNavigate(effectiveHref)) {
           e.preventDefault();
           return;
         }
-        beginMenuNavigation(tab.href);
+        beginMenuNavigation(effectiveHref);
         onNavigationIntent(tab.id);
-        onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+        onBottomNavTabActivate(pathname, navSearch, effectiveHref, e);
       }}
     >
       {inner}
@@ -822,12 +829,14 @@ export function BottomNav({
         <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
           {tabs.map((tab) => {
             const guardNav = () => {
-              if (!guardBeforeNavigate(tab.href)) return false;
+              const targetHref =
+                tab.id === "chat" ? bottomNavMessengerHrefWithOrigin(tab.href, pathname) : tab.href;
+              if (!guardBeforeNavigate(targetHref)) return false;
               if (!tab.href.includes("/community-messenger")) return true;
               const user = getCurrentUser();
               if (!user?.id) return true;
               if (clientHasVerifiedContactForInteractive(user)) return true;
-              openPhoneVerificationRequiredDialog({ next: tab.href });
+              openPhoneVerificationRequiredDialog({ next: targetHref });
               return false;
             };
             return tab.icon === "stores" ? (

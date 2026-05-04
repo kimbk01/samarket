@@ -11,11 +11,15 @@ import {
   messengerChatListChipLabel,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import type {
+  MessengerPillarSummary,
+  UnifiedRoomListItem,
+} from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
+import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
 
 /** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
 const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
@@ -224,6 +228,19 @@ type Props = {
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
+  /**
+   * 인박스 상단 묶음 행(거래·배달). 거래/배달 서브 라우트(`pillar` 모드)나
+   * `chatListChip !== "all"` 일 때는 숨긴다.
+   */
+  pillarSummaries?: {
+    trade: MessengerPillarSummary;
+    delivery: MessengerPillarSummary;
+  } | null;
+  /**
+   * 인박스로 들어올 때 받은 `?from=...`. 묶음 행을 통해 서브 라우트로 갈 때
+   * 출처를 보존하기 위해 전달한다.
+   */
+  entryOriginQuery?: string | null;
 };
 
 export function MessengerChatsScreen({
@@ -247,6 +264,8 @@ export function MessengerChatsScreen({
   onCloseMenuItem,
   onResetTransientUi,
   onListScrollStart,
+  pillarSummaries = null,
+  entryOriginQuery = null,
 }: Props) {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
@@ -317,6 +336,21 @@ export function MessengerChatsScreen({
           onChatListChipChange(next);
         }}
       />
+
+      {pillarSummaries && chatListChip === "all" && listContext === "default" ? (
+        <div className="space-y-px border-b border-[color:var(--messenger-divider)] pb-1">
+          <MessengerPillarSummaryRow
+            variant="trade"
+            summary={pillarSummaries.trade}
+            entryOriginQuery={entryOriginQuery}
+          />
+          <MessengerPillarSummaryRow
+            variant="delivery"
+            summary={pillarSummaries.delivery}
+            entryOriginQuery={entryOriginQuery}
+          />
+        </div>
+      ) : null}
 
       {items.length ? (
         <MessengerRoomRows

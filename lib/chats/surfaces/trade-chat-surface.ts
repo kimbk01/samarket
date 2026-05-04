@@ -18,8 +18,13 @@ function appendTradeHubRoomSourceQuery(
  * - **compose**: `composePath` (거래 허브 하위).
  */
 
-/** 거래 채팅 목록 단일 진입 — 메신저 */
-export const TRADE_CHAT_MESSENGER_LIST_HREF = "/community-messenger?section=chats&kind=trade";
+/**
+ * 거래 채팅 목록 단일 진입 — 메신저 거래 전용 서브 라우트.
+ *
+ * 메신저 받은메시지함은 「거래 채팅」 묶음 행을 통해 이 경로로 이동한다.
+ * `?kind=trade` 칩 URL 도 호환을 위해 유지되지만, 신규 진입은 모두 이 라우트를 우선한다.
+ */
+export const TRADE_CHAT_MESSENGER_LIST_HREF = "/community-messenger/trade-chats";
 
 /** 거래 1:1 방 — 메신저 앱 라우트 (`/community-messenger/rooms/[roomId]`) */
 export const TRADE_CHAT_MESSENGER_ROOM_BASE = "/community-messenger/rooms";
