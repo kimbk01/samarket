@@ -17,7 +17,6 @@ import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
-import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { beginRouteEntryPerf, bumpMessengerRenderPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
@@ -48,9 +47,9 @@ const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
 const LONG_PRESS_THRESHOLD_MS = 560;
 
-/** 클릭~라우팅 사이 스냅샷 GET(`runSingleFlight`)이 붙을 시간 — 상한만 두고 이미 fresh면 대기 없음 */
-const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 100;
-const ROOM_NAV_SNAPSHOT_LEAD_MS_MAX = 150;
+/** 클릭~라우팅 사이 스냅샷 GET 상한 — 카톡급 체감을 위해 짧게(포인터 프리패치와 중복) */
+const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 0;
+const ROOM_NAV_SNAPSHOT_LEAD_MS_MAX = 48;
 
 function messengerRoomNavSnapshotLeadMs(): number {
   return (
@@ -215,9 +214,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
       recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
       const dest = communityMessengerRoomHref(id, fromEntryOrigin, roomListSource);
-      runMessengerViewTransition(() => {
-        router.push(dest);
-      }, "room-forward");
+      /** View Transition 생략 — 진입 지연·추가 프레임 비용 제거(헤더 뒤로가기는 `AppBackButton` 에서만 VT) */
+      router.push(dest);
     },
     [fromEntryOrigin, room, roomListSource, router, viewerUserId]
   );

@@ -54,12 +54,8 @@ export function runMessengerViewTransition(
       if (maybePromise && typeof (maybePromise as Promise<void>).then === "function") {
         await maybePromise;
       }
-      /** Next.js 라우터 커밋 후 스냅샷을 잡기 위한 짧은 지연 */
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve());
-        });
-      });
+      /** Next 라우터 커밋 직후 한 프레임만 양보 — 이중 rAF는 뒤로가기 체감 지연이 커서 단일로 축소 */
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     });
     void vt.finished.finally(finish);
   } catch {
