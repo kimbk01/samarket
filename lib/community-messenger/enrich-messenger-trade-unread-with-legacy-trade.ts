@@ -13,6 +13,7 @@
  * 연결 레코드가 없을 때만 PC 컬럼 등 레거시 힌트를 쓴다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function t(value: unknown): string {
@@ -45,11 +46,17 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
   if (!cmRoomIds.length) return;
 
+  const tChatRooms = performance.now();
   const { data: itemTradeRows, error: itErr } = await sbAny
     .from("chat_rooms")
     .select("id, community_messenger_room_id")
     .eq("room_type", "item_trade")
     .in("community_messenger_room_id", cmRoomIds);
+  logHomeSyncBreakdown("legacy_trade_query_chat_rooms", performance.now() - tChatRooms, {
+    table: "chat_rooms",
+    roomIdInCount: cmRoomIds.length,
+    err: itErr ? String((itErr as { message?: unknown }).message ?? itErr) : null,
+  });
 
   if (itErr) return;
 
@@ -68,12 +75,19 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)
   );
 
+  const tProductChats = performance.now();
   const { data: pcRows } = productChatIds.length
     ? await sbAny
         .from("product_chats")
         .select("id, seller_id, buyer_id, unread_count_seller, unread_count_buyer")
         .in("id", productChatIds)
     : { data: [] as unknown[] };
+  if (productChatIds.length) {
+    logHomeSyncBreakdown("legacy_trade_query_product_chats", performance.now() - tProductChats, {
+      table: "product_chats",
+      idInCount: productChatIds.length,
+    });
+  }
 
   const pcById = new Map<
     string,

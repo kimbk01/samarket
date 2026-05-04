@@ -33,6 +33,11 @@ import {
 } from "@/lib/community-messenger/call-stub-message-label";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichMessengerTradeUnreadWithLegacyTrade } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
+import {
+  homeSyncBreakdownEnabled,
+  logHomeSyncBreakdown,
+  logHomeSyncBreakdownSummary,
+} from "@/lib/community-messenger/home-sync-breakdown-log";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import {
   finalizeChatRoomDetailLoadDiagnostics,
@@ -1996,7 +2001,13 @@ async function fetchMyRoomsPayload(
     diagnostics && (diagnostics.queryCount += 1);
     const tRound1 = performance.now();
     let roomIds: string[] = [];
+    const tRpcIds = performance.now();
     const rpcRoomIds = await fetchBootstrapRoomIdsViaRpc(sb, userId);
+    if (homeSyncBreakdownEnabled() && diagnostics) {
+      logHomeSyncBreakdown("my_rooms_rpc_bootstrap_my_room_ids_ms", performance.now() - tRpcIds, {
+        ok: Boolean(rpcRoomIds),
+      });
+    }
     if (rpcRoomIds) {
       roomIdResolution = "rpc";
       roomIds = rpcRoomIds.roomIds;
@@ -2006,10 +2017,14 @@ async function fetchMyRoomsPayload(
         diagnostics.roomIdsAfterCap = roomIds.length;
       }
     } else {
+      const tFallbackP = performance.now();
       const { data: myParticipants, error: myParticipantsError } = await (sb as any)
         .from("community_messenger_participants")
         .select("room_id")
         .eq("user_id", userId);
+      if (homeSyncBreakdownEnabled() && diagnostics) {
+        logHomeSyncBreakdown("my_rooms_fallback_participants_room_ids_ms", performance.now() - tFallbackP, {});
+      }
       if (!myParticipantsError || !isMissingTableError(myParticipantsError)) {
         roomIds = dedupeIds(
           ((myParticipants ?? []) as Array<{ room_id?: string | null }>).map((row) => String(row.room_id ?? ""))
@@ -2037,6 +2052,11 @@ async function fetchMyRoomsPayload(
                 .in("id", chunk)
             )
           );
+          if (homeSyncBreakdownEnabled() && diagnostics) {
+            logHomeSyncBreakdown("my_rooms_meta_chunks_parallel_wall_ms", performance.now() - tTransform, {
+              chunkCount: chunks.length,
+            });
+          }
           for (const { data: metaRows } of metaChunks) {
             for (const row of (metaRows ?? []) as Array<{ id?: string; last_message_at?: string | null }>) {
               const id = trimText(row.id);
@@ -2643,14 +2663,17 @@ export async function listCommunityMessengerMyChatsAndGroups(
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];
 }> {
+  const tListTop = performance.now();
   const tier = options?.tier ?? "full";
   const isCritical = tier === "critical";
 
   const criticalRoomsDiag = isCritical ? createEmptyBootstrapRoomsDiagnostics() : undefined;
+  const roomsDiagForBreakdown =
+    criticalRoomsDiag ?? (homeSyncBreakdownEnabled() ? createEmptyBootstrapRoomsDiagnostics() : undefined);
   const myPayloadRaw = await fetchMyRoomsPayload(userId, {
     includeRoomProfiles: !isCritical,
     roomLimit: isCritical ? COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP : undefined,
-    diagnostics: criticalRoomsDiag,
+    diagnostics: roomsDiagForBreakdown,
   });
 
   if (isCritical && criticalRoomsDiag) {
@@ -2678,7 +2701,27 @@ export async function listCommunityMessengerMyChatsAndGroups(
     ? sliceMessengerRoomsPayloadForHomeSyncCritical(myPayloadRaw, COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP)
     : myPayloadRaw;
 
+  const phaseRows: Array<{ phase: string; ms: number }> = [];
+  if (homeSyncBreakdownEnabled() && roomsDiagForBreakdown) {
+    phaseRows.push({ phase: "my_rooms_round1_wall", ms: roomsDiagForBreakdown.round1Ms });
+    phaseRows.push({
+      phase: "my_rooms_round2_parallel_bottleneck_max_rooms_or_participants",
+      ms: Math.max(
+        roomsDiagForBreakdown.round2RoomsDbFetchMs,
+        roomsDiagForBreakdown.round2ParticipantsMs
+      ),
+    });
+    if (roomsDiagForBreakdown.round3Ms > 0) {
+      phaseRows.push({ phase: "my_rooms_round3_room_profiles_table", ms: roomsDiagForBreakdown.round3Ms });
+    }
+    logHomeSyncBreakdown("my_rooms_fetch_query_roundtrips_estimate", 0, {
+      queryCount: roomsDiagForBreakdown.queryCount,
+      metaChunkCount: roomsDiagForBreakdown.metaChunkCount,
+    });
+  }
+
   const allIds = dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)]);
+  const tHydrate = performance.now();
   const profileById = new Map(
     (
       isCritical
@@ -2686,6 +2729,13 @@ export async function listCommunityMessengerMyChatsAndGroups(
         : await hydrateProfiles(userId, allIds, { includeSelf: true })
     ).map((p) => [p.id, p])
   );
+  if (homeSyncBreakdownEnabled()) {
+    phaseRows.push({
+      phase: isCritical ? "hydrate_profiles_labels_only_fetch" : "hydrate_profiles_full_with_relations",
+      ms: performance.now() - tHydrate,
+    });
+  }
+  const tSummarize = performance.now();
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
     myPayload.roomRows,
@@ -2693,18 +2743,45 @@ export async function listCommunityMessengerMyChatsAndGroups(
     myPayload.byRoomId,
     profileById
   );
+  if (homeSyncBreakdownEnabled()) {
+    phaseRows.push({ phase: "summarize_rooms_batch_cpu", ms: performance.now() - tSummarize });
+  }
   if (!isCritical) {
+    const tTradeCtx = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+    if (homeSyncBreakdownEnabled()) {
+      phaseRows.push({ phase: "enrich_trade_room_context_meta_bootstrap", ms: performance.now() - tTradeCtx });
+    }
   }
   const sbList = getSupabaseOrNull();
   if (sbList) {
+    const tLeg = performance.now();
     await enrichMessengerTradeUnreadWithLegacyTrade(sbList as any, userId, mySummaries).catch(() => {});
+    if (homeSyncBreakdownEnabled()) {
+      phaseRows.push({ phase: "enrich_messenger_trade_unread_legacy", ms: performance.now() - tLeg });
+    }
   }
   if (!isCritical) {
+    const tOpen = performance.now();
     const { enrichOpenGroupSummariesWithPhilifeMeetingLabels } = await import(
       "@/lib/community-messenger/philife-meeting-open-group-summaries"
     );
     await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
+    if (homeSyncBreakdownEnabled()) {
+      phaseRows.push({ phase: "enrich_open_group_philife_meeting_labels", ms: performance.now() - tOpen });
+    }
+  }
+  if (homeSyncBreakdownEnabled()) {
+    phaseRows.push({ phase: "list_my_chats_and_groups_wall_total", ms: performance.now() - tListTop });
+    let dbEstimate = roomsDiagForBreakdown?.queryCount ?? 0;
+    dbEstimate += 1;
+    logHomeSyncBreakdownSummary({
+      tier,
+      rows: phaseRows,
+      dbQueryCountEstimate: dbEstimate,
+      notes:
+        "queryCount는 fetchMyRoomsPayload 내부 추정. hydrate는 profiles.in 일반 1RTT(+캐시 히트 시 0). round2 rooms/participants 병렬→parallel_bottleneck=max. enrichLegacy 내부 0~2쿼리는 enrich 파일 로그 참고.",
+    });
   }
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));

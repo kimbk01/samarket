@@ -6,7 +6,11 @@
  * 정책 표: `docs/messenger-realtime-policy.md`
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { recordMessengerHomeHomeSyncNetworkFetch } from "@/lib/runtime/samarket-runtime-debug";
+import { messengerMonitorHomeSyncClientPhases } from "@/lib/community-messenger/monitoring/client";
+import {
+  recordMessengerHomeHomeSyncNetworkFetch,
+  samarketMessengerHomeDebugEvent,
+} from "@/lib/runtime/samarket-runtime-debug";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerProfileLite,
@@ -50,12 +54,29 @@ export function fetchCommunityMessengerHomeSilentLists(
 
   return runSingleFlight(flightKey, async () => {
     recordMessengerHomeHomeSyncNetworkFetch();
+    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
     const res = await fetch(url, {
       cache: "default",
       credentials: "include",
       signal: opts.signal,
     });
+    const t1 = typeof performance !== "undefined" ? performance.now() : 0;
     const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
+    const t2 = typeof performance !== "undefined" ? performance.now() : 0;
+    if (typeof performance !== "undefined") {
+      const networkMs = Math.round(t1 - t0);
+      const jsonParseMs = Math.round(t2 - t1);
+      messengerMonitorHomeSyncClientPhases(networkMs, jsonParseMs, { tier });
+      samarketMessengerHomeDebugEvent("messenger_home_sync_silent_fetch", {
+        tier,
+        url,
+        ok: res.ok,
+        status: res.status,
+        networkMs,
+        jsonParseMs,
+        totalMs: Math.round(t2 - t0),
+      });
+    }
     return { res, json };
   });
 }

@@ -266,6 +266,31 @@ export function messengerMonitorHomeSyncFetchMs(latencyMs: number): void {
   });
 }
 
+/**
+ * `home_sync_fetch_ms` 분해 — `shouldAlertLatency` 미등록이라 콘솔 임계 알림은 나지 않고 큐·서버 집계만.
+ * (원인: RTT vs 큰 JSON 파싱 vs 서버 TTFB)
+ */
+export function messengerMonitorHomeSyncClientPhases(
+  networkMs: number,
+  jsonParseMs: number,
+  labels: { tier: "critical" | "full" }
+): void {
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "home_sync_client_network_ms",
+    value: networkMs,
+    unit: "ms",
+    labels: { scope: "home_bootstrap", tier: labels.tier },
+  });
+  messengerMonitorRecord({
+    category: "chat.unread_sync",
+    metric: "home_sync_client_json_ms",
+    value: jsonParseMs,
+    unit: "ms",
+    labels: { scope: "home_bootstrap", tier: labels.tier },
+  });
+}
+
 /** silent home-sync 실패 후 `fetchCommunityMessengerBootstrapClient("fresh")` 왕복 */
 export function messengerMonitorSilentFailFallbackBootstrapMs(latencyMs: number): void {
   messengerMonitorRecord({

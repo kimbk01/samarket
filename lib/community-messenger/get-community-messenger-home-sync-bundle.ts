@@ -8,6 +8,7 @@ import {
   listCommunityMessengerFriends,
   listCommunityMessengerMyChatsAndGroups,
 } from "@/lib/community-messenger/service";
+import { homeSyncBreakdownEnabled, logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
 
 /**
  * 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 전용.
@@ -22,8 +23,14 @@ export async function getCommunityMessengerHomeSyncBundle(
   requests: CommunityMessengerFriendRequest[];
   friends: CommunityMessengerProfileLite[];
 }> {
+  const tBundle = performance.now();
   if (tier === "critical") {
     const roomsBlock = await listCommunityMessengerMyChatsAndGroups(userId, { tier: "critical" });
+    if (homeSyncBreakdownEnabled()) {
+      logHomeSyncBreakdown("get_home_sync_bundle_critical_wall_ms", performance.now() - tBundle, {
+        tier: "critical",
+      });
+    }
     return {
       chats: roomsBlock.chats,
       groups: roomsBlock.groups,
@@ -31,11 +38,21 @@ export async function getCommunityMessengerHomeSyncBundle(
       friends: [],
     };
   }
+  const tPar = performance.now();
   const [roomsBlock, requests, friends] = await Promise.all([
     listCommunityMessengerMyChatsAndGroups(userId, { tier: "full" }),
     listCommunityMessengerFriendRequests(userId),
     listCommunityMessengerFriends(userId),
   ]);
+  if (homeSyncBreakdownEnabled()) {
+    logHomeSyncBreakdown("get_home_sync_bundle_full_parallel_wall_ms", performance.now() - tPar, {
+      tier: "full",
+      paths: "roomsBlock + friendRequests + friends",
+    });
+    logHomeSyncBreakdown("get_home_sync_bundle_full_total_wall_ms", performance.now() - tBundle, {
+      tier: "full",
+    });
+  }
   return {
     chats: roomsBlock.chats,
     groups: roomsBlock.groups,

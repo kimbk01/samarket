@@ -35,7 +35,9 @@ export type MessengerHomeDebugEvent =
   | "messenger_home_badge_resync"
   | "messenger_home_subscribe_create"
   | "messenger_home_subscribe_cleanup"
-  | "messenger_home_visibility_resume";
+  | "messenger_home_visibility_resume"
+  /** `GET /api/community-messenger/home-sync` 팩토리 1회 완료(네트워크·json 파싱 분해) */
+  | "messenger_home_sync_silent_fetch";
 
 const messengerHomeDebugCounts: Partial<Record<MessengerHomeDebugEvent, number>> = {};
 
