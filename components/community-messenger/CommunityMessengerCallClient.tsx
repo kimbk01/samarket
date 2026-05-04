@@ -30,6 +30,7 @@ import {
   hasCommunityMessengerMediaTrustedMark,
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
+  peekPrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   shouldSkipCallerMediaGateOverlay,
   shouldSkipCallerMediaGateOverlaySync,
@@ -138,14 +139,6 @@ function defaultSpeakerEnabledForCallKind(kind: CommunityMessengerCallKind): boo
     /* ignore */
   }
   return false;
-}
-
-/**
- * 조인 전 플레이스홀더 — 마운트 시 `getUserMedia` 호출 금지(제스처·DiBaY 정책).
- * 실제 영상은 Agora/프라임 스트림이 연결되면 상위 레이어에서 표시된다.
- */
-function OutgoingCallPreJoinLocalCameraPreview() {
-  return <div className="h-full w-full bg-black" aria-hidden />;
 }
 
 /** 종료 PATCH/Realtime 후 stale 세션 GET 이 `ringing` 으로 되돌아와 링백이 다시 도는 윈도 — 수신 전역 tombstone(120s)과 동급 */
@@ -354,6 +347,8 @@ export function CommunityMessengerCallClient({
   const [localVideoReady, setLocalVideoReady] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
+  /** PiP 드래그 시 스테이지 기준 px; null이면 우하단 CSS */
+  const [pipFreePos, setPipFreePos] = useState<{ left: number; top: number } | null>(null);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
@@ -384,8 +379,19 @@ export function CommunityMessengerCallClient({
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
   const pipWrapRef = useRef<HTMLDivElement | null>(null);
-  /** PiP는 우하단 고정 — 탭만 메인↔PiP 스왑(드래그 이동 없음) */
-  const pipTapRef = useRef<{ pointerId: number; startClientX: number; startClientY: number } | null>(null);
+  type PipGesture = {
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    originLeft: number;
+    originTop: number;
+  };
+  const pipGestureRef = useRef<PipGesture | null>(null);
+  const pipDragMovedRef = useRef(false);
+  /** PiP 드래그 직후 sessionStorage 저장용(비동기 setState 이전 좌표) */
+  const pipFreePosLatestRef = useRef<{ left: number; top: number } | null>(null);
+  /** 발신 링 단계: 프라임된 getUserMedia 스트림 HTML 미리보기(조인 시 Agora 소비 전 해제) */
+  const ringPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
   const cmCallVideoLogOnceRef = useRef({
     localReady: false,
     remoteReady: false,
@@ -1398,35 +1404,112 @@ export function CommunityMessengerCallClient({
   const onPipPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     e.preventDefault();
-    pipTapRef.current = {
+    const stage = videoStageRef.current;
+    const pipEl = pipWrapRef.current;
+    if (!stage || !pipEl) return;
+    const sr = stage.getBoundingClientRect();
+    const pr = pipEl.getBoundingClientRect();
+    pipDragMovedRef.current = false;
+    pipGestureRef.current = {
       pointerId: e.pointerId,
       startClientX: e.clientX,
       startClientY: e.clientY,
+      originLeft: pr.left - sr.left,
+      originTop: pr.top - sr.top,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
+  const onPipPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const g = pipGestureRef.current;
+    if (!g || e.pointerId !== g.pointerId) return;
+    const dx = e.clientX - g.startClientX;
+    const dy = e.clientY - g.startClientY;
+    if (Math.hypot(dx, dy) > 10) pipDragMovedRef.current = true;
+    if (Math.hypot(dx, dy) <= 4) return;
+    const stage = videoStageRef.current;
+    const pipEl = pipWrapRef.current;
+    if (!stage || !pipEl) return;
+    const sw = stage.clientWidth;
+    const sh = stage.clientHeight;
+    const pw = pipEl.offsetWidth;
+    const ph = pipEl.offsetHeight;
+    const margin = 8;
+    const maxL = Math.max(margin, sw - pw - margin);
+    const maxT = Math.max(margin, sh - ph - margin);
+    const nextL = g.originLeft + dx;
+    const nextT = g.originTop + dy;
+    const nextPos = {
+      left: Math.min(Math.max(margin, nextL), maxL),
+      top: Math.min(Math.max(margin, nextT), maxT),
+    };
+    pipFreePosLatestRef.current = nextPos;
+    setPipFreePos(nextPos);
+  }, []);
+
   const onPipPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = pipTapRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    const moved = Math.hypot(e.clientX - d.startClientX, e.clientY - d.startClientY);
-    pipTapRef.current = null;
+    const g = pipGestureRef.current;
+    if (!g || e.pointerId !== g.pointerId) return;
+    const moved = pipDragMovedRef.current;
+    pipGestureRef.current = null;
+    pipDragMovedRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* noop */
     }
-    const TAP_PX = 14;
-    if (moved < TAP_PX) {
+    if (moved) {
+      const sid = sessionRef.current?.id?.trim();
+      const pos = pipFreePosLatestRef.current;
+      if (sid && pos) {
+        try {
+          sessionStorage.setItem(`cm_call_pip_pos:${sid}`, JSON.stringify(pos));
+        } catch {
+          /* noop */
+        }
+      }
+    } else {
       setLayoutSwapped((prev) => !prev);
     }
   }, []);
 
   const onPipPointerCancel = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const d = pipTapRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    pipTapRef.current = null;
+    const g = pipGestureRef.current;
+    if (!g || e.pointerId !== g.pointerId) return;
+    pipGestureRef.current = null;
+    pipDragMovedRef.current = false;
   }, []);
+
+  useEffect(() => {
+    const sid = session?.id?.trim();
+    if (!sid) {
+      setPipFreePos(null);
+      pipFreePosLatestRef.current = null;
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem(`cm_call_pip_pos:${sid}`);
+      if (!raw) {
+        setPipFreePos(null);
+        pipFreePosLatestRef.current = null;
+        return;
+      }
+      const j = JSON.parse(raw) as { left?: unknown; top?: unknown };
+      const left = typeof j.left === "number" ? j.left : Number.NaN;
+      const top = typeof j.top === "number" ? j.top : Number.NaN;
+      if (!Number.isFinite(left) || !Number.isFinite(top)) {
+        setPipFreePos(null);
+        pipFreePosLatestRef.current = null;
+        return;
+      }
+      const pos = { left, top };
+      pipFreePosLatestRef.current = pos;
+      setPipFreePos(pos);
+    } catch {
+      setPipFreePos(null);
+      pipFreePosLatestRef.current = null;
+    }
+  }, [session?.id]);
 
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
@@ -1562,6 +1645,13 @@ export function CommunityMessengerCallClient({
             await c.enableDualStream?.();
           } catch {
             /* 일부 환경 미지원 */
+          }
+        }
+        if (targetSession.callKind === "video" && ringPreviewVideoRef.current) {
+          try {
+            ringPreviewVideoRef.current.srcObject = null;
+          } catch {
+            /* noop */
           }
         }
         const tracks = await createCommunityMessengerAgoraLocalTracks(targetSession.callKind);
@@ -2759,8 +2849,8 @@ export function CommunityMessengerCallClient({
         },
       ],
       mainVideoSlot: (
-        <div className="absolute inset-0 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
-          <OutgoingCallPreJoinLocalCameraPreview />
+        <div className="absolute inset-0 flex items-center justify-center bg-black">
+          <span className="sam-text-body-secondary text-white/40">불러오는 중…</span>
         </div>
       ),
       showRemoteVideo: false,
@@ -3177,6 +3267,30 @@ export function CommunityMessengerCallClient({
   /** PiP·탭 바인딩은 원격 비디오 트랙 준비(`remoteVideoReady`)와 무관 — 상대 채널 참가(`remoteJoined`)·로컬 트랙만으로 켬 */
   const videoPipChromeActive = Boolean(videoCall && joined && remoteJoined && localVideoReady);
 
+  /** 발신 영상 링: 권한 프라임 직후·조인 전 프라임 스트림으로 로컬 미리보기(프라임 소비 전 해제) */
+  const ringPrimedPreviewStream = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    if (!session || session.callKind !== "video" || !session.isMineInitiator) return null;
+    if (session.status !== "ringing" || joined || !callerMediaConsentDone) return null;
+    return peekPrimedCommunityMessengerDeviceStream("video");
+  }, [callerMediaConsentDone, joined, session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
+
+  useLayoutEffect(() => {
+    const detach = () => {
+      const v = ringPreviewVideoRef.current;
+      if (v) v.srcObject = null;
+    };
+    if (!ringPrimedPreviewStream) {
+      detach();
+      return;
+    }
+    const el = ringPreviewVideoRef.current;
+    if (!el) return;
+    el.srcObject = ringPrimedPreviewStream;
+    void el.play().catch(() => {});
+    return detach;
+  }, [ringPrimedPreviewStream]);
+
   const callVm: CallScreenViewModel = {
     mode: videoCall ? "video" : "voice",
     direction: session.isMineInitiator ? "outgoing" : "incoming",
@@ -3218,13 +3332,29 @@ export function CommunityMessengerCallClient({
     primaryActions,
     secondaryActions,
     mainVideoSlot: videoCall ? (
-      <div className="absolute inset-0 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
-        {(session.isMineInitiator || (calleeAcceptBridgeLayout && videoCall)) && (!joined || !localVideoReady) ? (
-          <div className="absolute inset-0 z-0">
-            <OutgoingCallPreJoinLocalCameraPreview />
+      <div className="absolute inset-0 min-h-0 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
+        <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
+        {ringPrimedPreviewStream ? (
+          <video
+            ref={ringPreviewVideoRef}
+            className="absolute inset-0 z-[2] h-full w-full object-cover"
+            muted
+            playsInline
+            autoPlay
+          />
+        ) : null}
+        {(session.isMineInitiator || (calleeAcceptBridgeLayout && videoCall)) &&
+        (!joined || !localVideoReady) &&
+        !ringPrimedPreviewStream ? (
+          <div
+            className="absolute inset-0 z-[2] flex items-center justify-center bg-black pointer-events-none"
+            aria-hidden
+          >
+            <span className="sam-text-body-secondary text-center text-white/50">
+              {!joined ? "카메라·연결 준비 중…" : "영상 표시 준비 중…"}
+            </span>
           </div>
         ) : null}
-        <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full w-full" />
       </div>
     ) : undefined,
     miniVideoSlot: videoCall ? (
@@ -3244,9 +3374,11 @@ export function CommunityMessengerCallClient({
             stageRef: videoStageRef,
             pipRef: pipWrapRef,
             onPipPointerDown,
+            onPipPointerMove,
             onPipPointerUp,
             onPipPointerCancel,
             pipLabel: layoutSwapped ? session.peerLabel : "나",
+            pipPixelStyle: pipFreePos ? { left: pipFreePos.left, top: pipFreePos.top } : null,
           }
         : null,
     participantsSummary: null,
@@ -3280,7 +3412,7 @@ export function CommunityMessengerCallClient({
     directPhase === "ringing";
 
   return (
-    <div className="relative min-h-[100dvh]">
+    <div className="relative h-[100dvh] max-h-[100dvh] min-h-[100dvh] overflow-hidden supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh] supports-[height:100svh]:min-h-[100svh]">
       <CallScreen vm={callVm} variant="page" />
       {showCallerInsecureGateOverlay ? (
         <CallerMediaGateOverlay

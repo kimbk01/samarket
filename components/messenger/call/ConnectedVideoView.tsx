@@ -31,6 +31,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
+  /** 영상 수신 링·연결 직전: 하단 탭·홈 인디케이터와 겹침 방지 — 중하단 여유 */
+  const liftIncomingRingingActions =
+    vm.mode === "video" &&
+    vm.direction === "incoming" &&
+    (vm.phase === "ringing" || vm.phase === "connecting");
+  const actionBarPaddingBottom = liftIncomingRingingActions
+    ? "pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+min(5.75rem,22dvh)))]"
+    : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
+  const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-16";
+
   return (
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col">
       <div ref={pipBindings?.stageRef} className="relative min-h-0 flex-1">
@@ -129,8 +139,10 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             ref={pipBindings.pipRef}
             label={pipBindings.pipLabel}
             minimized
-            useFreePosition={false}
+            useFreePosition={Boolean(pipBindings.pipPixelStyle)}
+            style={pipBindings.pipPixelStyle ?? undefined}
             onPointerDown={pipBindings.onPipPointerDown}
+            onPointerMove={pipBindings.onPipPointerMove}
             onPointerUp={pipBindings.onPipPointerUp}
             onPointerCancel={pipBindings.onPipPointerCancel}
           >
@@ -148,7 +160,9 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
       </div>
 
-      <div className="relative z-[5] bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-16">
+      <div
+        className={`relative z-[5] bg-gradient-to-t from-black/90 via-black/40 to-transparent px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
+      >
         <CallActionBar actions={vm.primaryActions} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">

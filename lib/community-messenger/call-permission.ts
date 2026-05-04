@@ -239,6 +239,16 @@ export async function primeCommunityMessengerDevicePermission(kind: CommunityMes
   await primeCommunityMessengerDevicePermissionFromUserGesture(kind);
 }
 
+/**
+ * 프라임된 스트림을 소비하지 않고 참조만 한다(링 단계 HTML 미리보기 등).
+ * `consumePrimedCommunityMessengerDevicePermission` 직전에 같은 트랙을 화면에 붙였다면 조인 직전 `srcObject` 해제 권장.
+ */
+export function peekPrimedCommunityMessengerDeviceStream(kind: CommunityMessengerCallKind): MediaStream | null {
+  if (typeof window === "undefined" || !primedDeviceStreamState) return null;
+  if (primedDeviceStreamState.kind !== kind) return null;
+  return primedDeviceStreamState.stream;
+}
+
 export function consumePrimedCommunityMessengerDevicePermission(
   kind: CommunityMessengerCallKind
 ): MediaStream | null {

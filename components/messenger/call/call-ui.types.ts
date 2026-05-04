@@ -1,14 +1,17 @@
-import type { PointerEventHandler, ReactNode, RefObject } from "react";
+import type { CSSProperties, PointerEventHandler, ReactNode, RefObject } from "react";
 
-/** 카카오톡식 영상통화: PiP는 CSS 우하단 고정, 탭으로 메인↔PiP만 스왑(1:1 `CommunityMessengerCallClient`) */
+/** 카카오톡식 영상통화: PiP 우하단 기본, 드래그로 이동, 짧은 탭으로 메인↔PiP 스왑 */
 export type VideoCallPipLayoutBindings = {
   stageRef: RefObject<HTMLDivElement | null>;
   pipRef: RefObject<HTMLDivElement | null>;
   onPipPointerDown: PointerEventHandler<HTMLDivElement>;
+  onPipPointerMove?: PointerEventHandler<HTMLDivElement>;
   onPipPointerUp: PointerEventHandler<HTMLDivElement>;
   onPipPointerCancel: PointerEventHandler<HTMLDivElement>;
   /** PiP 안에 표시되는 사람(작은 쪽이 나/상대) */
   pipLabel: string;
+  /** 스테이지 기준 `left`/`top`(px); 없으면 우하단 CSS */
+  pipPixelStyle?: CSSProperties | null;
 };
 
 export type CallMode = "voice" | "video";
@@ -82,7 +85,7 @@ export type CallScreenViewModel = {
   showRemoteVideo?: boolean;
   /** PiP(작은 타일) 표시 — 양쪽 영상이 모두 있을 때 */
   showLocalVideo?: boolean;
-  /** PiP 우하단 고정·탭 교체 */
+  /** PiP 우하단·드래그·탭 교체 */
   videoPipLayout?: VideoCallPipLayoutBindings | null;
   participantsSummary?: string | null;
   autoCloseMs?: number | null;

@@ -988,7 +988,21 @@ export function CommunityMessengerHome({
         const peerId = ev.addresseeUserId?.trim?.() ? ev.addresseeUserId.trim() : "";
         setData((prev) => {
           if (!prev) return prev;
-          const nextRequests = (prev.requests ?? []).filter((r) => r.id !== ev.requestId);
+          const meId = prev.me?.id ?? "";
+          const nextRequests = (prev.requests ?? []).filter((r) => {
+            if (r.id === ev.requestId) return false;
+            if (
+              peerId &&
+              r.status === "pending" &&
+              r.direction === "outgoing" &&
+              meId &&
+              r.requesterId === meId &&
+              r.addresseeId === peerId
+            ) {
+              return false;
+            }
+            return true;
+          });
           let next: typeof prev = { ...prev, requests: nextRequests };
           if (ev.kind === "friend_accepted" && peerId) {
             const exists = (prev.friends ?? []).some((f) => f.id === peerId);
@@ -1026,12 +1040,27 @@ export function CommunityMessengerHome({
             : `${ev.addresseeLabel || "상대"}님이 친구 요청을 거절했습니다.`,
           { variant: ev.kind === "friend_accepted" ? "success" : "error" }
         );
+        if (!peerId) {
+          void refresh(true);
+        }
       }
     },
-    [data?.me?.id, setData]
+    [data?.me?.id, refresh, setData]
   );
 
   useFriendRequestNotificationRealtime(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), onFriendRequestNotif);
+
+  /** 알림 센터 등 다른 경로로 수락·거절되어 목록에서 빠졌을 때 하단 팝업 정리 */
+  useEffect(() => {
+    setIncomingFriendRequestPopup((prev) => {
+      if (!prev) return prev;
+      const requests = data?.requests ?? [];
+      const stillIncomingPending = requests.some(
+        (r) => r.id === prev.id && r.direction === "incoming" && r.status === "pending"
+      );
+      return stillIncomingPending ? prev : null;
+    });
+  }, [data?.requests]);
 
   const toggleFavoriteFriend = useCallback(
     async (friendUserId: string) => {
