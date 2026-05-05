@@ -9,7 +9,11 @@ import {
   CM_CLUSTER_GAP_MS,
   MESSENGER_TIMELINE_MESSAGES_CAP,
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { communityMessengerMemberAvatar, formatRoomCallStatus } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  communityMessengerMemberAvatar,
+  formatRoomCallStatus,
+  formatTime,
+} from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
   getCallStubTimelineStatusLine,
   inferResolvedEventFromStoredCallStatus,
@@ -27,6 +31,18 @@ import {
   sampleMessengerScrollFrameBudget,
 } from "@/lib/community-messenger/monitoring/messenger-frame-budget-trace";
 import { MessageReactionRosterSheet } from "@/components/community-messenger/room/message/MessageReactionRosterSheet";
+
+function messengerTimelineCalendarDayKey(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function messengerTimelineDayDividerLabel(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+}
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
@@ -239,9 +255,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       avatarBySenderId.set(senderId, v);
       return v;
     };
-    const myRowAvatar = communityMessengerMemberAvatar(vm.roomMembersDisplay, vm.snapshot.viewerUserId);
-    return { peerAvatarFor, myRowAvatar };
-  }, [vm.roomMembersDisplay, vm.snapshot.viewerUserId]);
+    return { peerAvatarFor };
+  }, [vm.roomMembersDisplay]);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -254,7 +269,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         }}
         onScroll={scheduleScroll}
       >
-        <main className="space-y-2.5 px-3 py-3 pb-3 sm:px-3.5">
+        <main className="mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 pb-[76px] sm:px-4">
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.roomStatus === "blocked"
@@ -316,6 +331,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const item = vm.displayRoomMessages[index];
                 if (!item) return null;
                 const prev = index > 0 ? vm.displayRoomMessages[index - 1] : null;
+                const next = index < vm.displayRoomMessages.length - 1 ? vm.displayRoomMessages[index + 1] : null;
                 const gapMs =
                   prev && prev.messageType !== "system" && item.messageType !== "system"
                     ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
@@ -326,13 +342,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   !!prev &&
                   prev.messageType !== "system" &&
                   (prev.senderId ?? "") !== (item.senderId ?? "");
-                const mySenderChanged =
-                  vm.isGroupRoom &&
-                  !!prev &&
-                  prev.messageType !== "system" &&
-                  (prev.senderId ?? "") !== (item.senderId ?? "");
-
-                const showPeerAvatar =
+                const showPeerName =
                   !item.isMine &&
                   item.messageType !== "system" &&
                   (!prev ||
@@ -340,17 +350,61 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     prev.isMine ||
                     peerSenderChanged ||
                     isNewClusterFromTime);
+                const nextGapMs =
+                  next && next.messageType !== "system" && item.messageType !== "system"
+                    ? Math.max(0, new Date(next.createdAt).getTime() - new Date(item.createdAt).getTime())
+                    : 0;
+                const isClusterEndFromTime = nextGapMs > CM_CLUSTER_GAP_MS;
+                const nextSenderChanged =
+                  !!next &&
+                  next.messageType !== "system" &&
+                  item.messageType !== "system" &&
+                  (next.isMine !== item.isMine ||
+                    (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")));
+                const showPeerAvatar =
+                  !item.isMine &&
+                  item.messageType !== "system" &&
+                  showPeerName;
                 const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
-                const showMyAvatar =
+                const showMineClusterStart =
                   item.isMine &&
                   item.messageType !== "system" &&
                   (!prev ||
                     prev.messageType === "system" ||
                     !prev.isMine ||
-                    mySenderChanged ||
-                    isNewClusterFromTime);
-                const showBubbleTail = item.isMine ? showMyAvatar : showPeerAvatar;
-                const myAvatar = item.isMine ? messageRowPreamble.myRowAvatar : null;
+                    isNewClusterFromTime ||
+                    (vm.isGroupRoom && (prev.senderId ?? "") !== (item.senderId ?? "")));
+                const showMineClusterEnd =
+                  item.isMine &&
+                  item.messageType !== "system" &&
+                  (!next || next.messageType === "system" || nextSenderChanged || isClusterEndFromTime);
+                const showBubbleTail = item.isMine ? showMineClusterStart : showPeerName;
+                const isDayBoundary =
+                  !prev ||
+                  messengerTimelineCalendarDayKey(prev.createdAt) !== messengerTimelineCalendarDayKey(item.createdAt);
+                const dayDividerLabel = isDayBoundary ? messengerTimelineDayDividerLabel(item.createdAt) : null;
+                const sameSenderCluster =
+                  !!prev &&
+                  prev.messageType !== "system" &&
+                  item.messageType !== "system" &&
+                  prev.isMine === item.isMine &&
+                  (!vm.isGroupRoom || (prev.senderId ?? "") === (item.senderId ?? ""));
+                const rowPaddingTopClass = isDayBoundary
+                  ? "pt-4"
+                  : showPeerName
+                    ? "pt-[14px]"
+                    : prev
+                      ? sameSenderCluster
+                        ? "pt-[3px]"
+                        : "pt-3"
+                      : "";
+                const showMessageTime =
+                  item.messageType !== "system" &&
+                  (!next ||
+                    next.messageType === "system" ||
+                    next.isMine !== item.isMine ||
+                    (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
+                    formatTime(next.createdAt) !== formatTime(item.createdAt));
 
                 const stubBusy =
                   item.messageType === "call_stub" &&
@@ -367,12 +421,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}
                     measureElement={vm.chatVirtualizer.measureElement}
+                    rowPaddingTopClass={rowPaddingTopClass}
+                    showPeerName={showPeerName}
                     showPeerAvatar={showPeerAvatar}
-                    showMyAvatar={showMyAvatar}
                     showBubbleTail={showBubbleTail}
+                    showMessageTime={showMessageTime}
+                    dayDividerLabel={dayDividerLabel}
                     peerAvatar={peerAvatar}
-                    myAvatar={myAvatar}
-                    isGroupRoom={vm.isGroupRoom}
                     streamRoomId={vm.streamRoomId}
                     latestReadableMineMessageId={latestReadableMineMessageId}
                     peerHasReadMyLatestMessage={peerHasReadMyLatestMessage}

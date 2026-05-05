@@ -74,13 +74,13 @@ export function MyPageSidebar({
                       onClick={() => navigate(tab.id, section.id)}
                       className={`flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors sm:px-4 ${MYPAGE_TYPO.navItem} ${
                         isActive
-                          ? "bg-blue-50 font-semibold text-blue-800"
+                          ? "bg-sam-primary-soft font-semibold text-sam-primary"
                           : "text-sam-fg hover:bg-sam-app"
                       }`}
                     >
                       <span className="min-w-0 flex-1">{section.label}</span>
                       <ChevronIcon
-                        className={isActive ? "text-blue-600" : "text-sam-meta"}
+                        className={isActive ? "text-sam-primary" : "text-sam-meta"}
                       />
                     </button>
                   </li>

@@ -3,6 +3,7 @@ import { abortSignalForTimeout } from "@/lib/http/abort-signal-timeout";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 
 const FETCH_MS = 12_000;
+const BRAND_PRIMARY_HEX = "#1C8DB8";
 
 function truncate(s: string, max: number): string {
   const t = s.trim();
@@ -28,7 +29,7 @@ function buildNotificationEmailHtml(out: NotificationSideEffectPayloadOut): stri
   const link = (out.link_url_absolute ?? out.link_url ?? "").trim();
   const linkSafe = escapeHtml(link);
   const linkHtml = link
-    ? `<p style="margin:24px 0 0;"><a href="${linkSafe}" style="color:#2563eb;text-decoration:underline;">앱에서 보기</a></p>`
+    ? `<p style="margin:24px 0 0;"><a href="${linkSafe}" style="color:${BRAND_PRIMARY_HEX};text-decoration:underline;">앱에서 보기</a></p>`
     : "";
   return `<!DOCTYPE html><html><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">

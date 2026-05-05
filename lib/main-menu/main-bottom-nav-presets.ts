@@ -22,7 +22,7 @@ export const MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS: { value: string; label:
   { value: "font-medium text-gray-900", label: "검정·중간" },
   { value: "font-semibold text-gray-900", label: "검정·굵게" },
   { value: "font-medium text-emerald-600", label: "초록·중간" },
-  { value: "font-medium text-blue-600", label: "파랑·중간" },
+  { value: "font-medium text-sam-primary", label: "브랜드(Primary)·중간" },
   { value: "font-medium text-rose-600", label: "빨강·중간" },
 ];
 
@@ -41,7 +41,7 @@ export const MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS: { value: string; label: 
   { value: "text-signature", label: "브랜드 보라" },
   { value: "text-gray-900", label: "검정" },
   { value: "text-emerald-600", label: "초록" },
-  { value: "text-blue-600", label: "파랑" },
+  { value: "text-sam-primary", label: "브랜드(Primary)" },
 ];
 
 /** 아이콘 비활성 색 */

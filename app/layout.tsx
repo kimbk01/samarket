@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   description: "dibaY marketplace",
   applicationName: "dibaY",
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],
   },
   appleWebApp: {
     capable: true,
@@ -47,8 +47,8 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#3f6fd9" },
-    { media: "(prefers-color-scheme: dark)", color: "#7ea6ff" },
+    { media: "(prefers-color-scheme: light)", color: "#1C8DB8" },
+    { media: "(prefers-color-scheme: dark)", color: "#1C8DB8" },
   ],
 };
 

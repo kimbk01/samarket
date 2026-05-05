@@ -10,8 +10,8 @@ export function QnaDetailSkin({
 }: BoardDetailSkinProps) {
   return (
     <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
-      <div className="p-4 border-l-4 border-blue-500 bg-blue-50/50">
-        <span className="text-xs font-semibold text-blue-700 uppercase">Question</span>
+      <div className="border-l-4 border-sam-primary bg-sam-primary-soft/50 p-4">
+        <span className="text-xs font-semibold text-sam-primary uppercase">Question</span>
         <h1 className="text-xl font-semibold text-sam-fg mt-1">{post.title}</h1>
         <div className="flex items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}

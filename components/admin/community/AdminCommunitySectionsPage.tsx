@@ -151,7 +151,10 @@ export function AdminCommunitySectionsPage({
       <AdminCard titleKey="admin_sections_card_philife_title">
         <p className="mb-3 sam-text-body-secondary text-sam-muted">
           {tr("admin_sections_intro_a")}
-          <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
+          <a
+            href="/admin/philife/topics"
+            className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
+          >
             {tr("admin_sections_intro_link_topics")}
           </a>
           {tr("admin_sections_intro_b")}
@@ -296,7 +299,7 @@ export function AdminCommunitySectionsPage({
                         <button
                           type="button"
                           disabled={busy}
-                          className="mr-2 text-blue-600 hover:underline disabled:opacity-50"
+                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline disabled:opacity-50"
                           onClick={saveEdit}
                         >
                           {tr("common_save")}
@@ -315,7 +318,7 @@ export function AdminCommunitySectionsPage({
                       <td className="py-2">
                         <button
                           type="button"
-                          className="mr-2 text-blue-600 hover:underline"
+                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline"
                           onClick={() => setEdit({ ...s })}
                         >
                           {tr("admin_topics_btn_edit")}
@@ -336,11 +339,17 @@ export function AdminCommunitySectionsPage({
           </div>
         )}
         <p className="mt-4 sam-text-body-secondary">
-          <a href="/admin/philife/topics" className="font-medium text-blue-600 hover:underline">
+          <a
+            href="/admin/philife/topics"
+            className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
+          >
             {tr("admin_sections_footer_topics")}
           </a>{" "}
           ·{" "}
-          <a href="/admin/philife/settings" className="font-medium text-blue-600 hover:underline">
+          <a
+            href="/admin/philife/settings"
+            className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
+          >
             {tr("admin_sections_footer_feed_settings")}
           </a>
         </p>

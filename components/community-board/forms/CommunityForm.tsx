@@ -97,7 +97,7 @@ export function CommunityForm({
           required
           maxLength={200}
           placeholder="제목을 입력하세요"
-          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
       </div>
@@ -112,7 +112,7 @@ export function CommunityForm({
           required
           rows={8}
           placeholder="내용을 입력하세요"
-          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
+          className="w-full resize-y rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
       </div>
@@ -120,7 +120,7 @@ export function CommunityForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-ui-rect hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-ui-rect bg-sam-primary px-4 py-2 text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:text-white disabled:opacity-100"
         >
           {isSubmitting ? "등록 중…" : "등록"}
         </button>

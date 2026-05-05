@@ -32,9 +32,11 @@
   /* 전역 Samarket 토큰 — 신규 화면은 `bg-sam-app`, `text-sam-primary` 등 권장 */
   --color-sam-primary: var(--sam-primary);
   --color-sam-primary-hover: var(--sam-primary-hover);
+  --color-sam-primary-active: var(--sam-primary-active);
   --color-sam-primary-soft: var(--sam-primary-soft);
   --color-sam-primary-soft-2: var(--sam-primary-soft-2);
   --color-sam-primary-border: var(--sam-primary-border);
+  --color-sam-primary-disabled: var(--sam-primary-disabled);
   --color-sam-app: var(--sam-bg-app);
   --color-sam-surface: var(--sam-bg-surface);
   --color-sam-surface-muted: var(--sam-bg-surface-muted);

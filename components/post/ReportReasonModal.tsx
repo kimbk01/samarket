@@ -77,7 +77,7 @@ export function ReportReasonModal({
                 disabled={submitting}
                 onClick={() => handleSelect(r.label, r.code)}
                 className={`flex w-full items-center justify-between gap-2 py-4 text-left disabled:opacity-50 ${
-                  r.isAuthor ? "text-blue-600" : "text-sam-fg"
+                  r.isAuthor ? "text-sam-primary" : "text-sam-fg"
                 }`}
               >
                 <div className="min-w-0 flex-1">

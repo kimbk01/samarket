@@ -247,7 +247,7 @@ export function AdminTradePostAdsPage() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void runAction(r, "verify")}
-                className="mr-2 rounded-ui-rect bg-blue-600 px-2 py-1 sam-text-helper text-white disabled:opacity-50"
+                className="mr-2 rounded-ui-rect bg-sam-primary px-2 py-1 sam-text-helper text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:opacity-100"
               >
                 확인완료
               </button>

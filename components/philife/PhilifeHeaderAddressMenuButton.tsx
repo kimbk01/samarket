@@ -346,7 +346,7 @@ export function PhilifeHeaderAddressMenuButton({
                         >
                           <span
                             className={`mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border ${
-                              isActive ? "border-blue-600 bg-blue-600" : "border-neutral-300 bg-white"
+                              isActive ? "border-sam-primary bg-sam-primary" : "border-neutral-300 bg-white"
                             }`}
                             aria-hidden
                           >
@@ -358,7 +358,7 @@ export function PhilifeHeaderAddressMenuButton({
                                 {row.nickname?.trim() || ADDRESS_LABEL_KO[row.labelType]}
                               </span>
                               {isActive ? (
-                                <span className="rounded-full bg-blue-50 px-1.5 py-[1px] text-[11px] font-medium text-blue-700">
+                                <span className="rounded-full bg-sam-primary-soft px-1.5 py-[1px] text-[11px] font-medium text-sam-primary">
                                   현재
                                 </span>
                               ) : null}

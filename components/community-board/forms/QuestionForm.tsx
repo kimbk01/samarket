@@ -57,8 +57,8 @@ export function QuestionForm({
           </select>
         </div>
       )}
-      <div className="p-3 rounded-ui-rect bg-blue-50 border border-blue-100">
-        <span className="text-sm font-medium text-blue-800">질문하기</span>
+      <div className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft p-3">
+        <span className="text-sm font-medium text-sam-primary">질문하기</span>
       </div>
       <div>
         <label htmlFor="q-title" className="block text-sm font-medium text-sam-fg mb-1">
@@ -72,7 +72,7 @@ export function QuestionForm({
           required
           maxLength={200}
           placeholder="질문을 한 줄로 요약해 주세요"
-          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
       </div>
@@ -87,7 +87,7 @@ export function QuestionForm({
           required
           rows={6}
           placeholder="질문 내용을 자세히 적어 주세요"
-          className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-blue-500 resize-y"
+          className="w-full resize-y rounded-ui-rect border border-sam-border px-3 py-2 focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
       </div>
@@ -95,7 +95,7 @@ export function QuestionForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-4 py-2 bg-blue-600 text-white rounded-ui-rect hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-ui-rect bg-sam-primary px-4 py-2 text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:text-white disabled:opacity-100"
         >
           {isSubmitting ? "등록 중…" : "질문 등록"}
         </button>

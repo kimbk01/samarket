@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 const BUBBLE_MAX =
-  "mx-auto w-full min-w-[140px] max-w-[min(72vw,280px)] sm:max-w-[min(72vw,300px)] md:max-w-[min(72vw,360px)]";
+  "mx-auto w-full min-w-[140px] max-w-[min(62vw,280px)] sm:max-w-[min(62vw,320px)] md:max-w-[min(62vw,360px)]";
 
 function clampAspectRatio(n: number): number {
   return Math.min(1.5, Math.max(0.75, n));
@@ -38,7 +38,7 @@ export function MessengerChatImageBubble(props: {
 
   if (album) {
     return (
-      <div className={`${BUBBLE_MAX} max-h-[360px]`}>
+      <div className={`${BUBBLE_MAX} max-h-[360px] bg-transparent`}>
         <AlbumLayout urls={album} pending={pending} onOpenCell={openFrom} />
         {pending ? (
           <p
@@ -87,42 +87,42 @@ function AlbumLayout({
 
   if (n === 2) {
     return (
-      <div className="grid aspect-[4/3] max-h-[360px] w-full grid-cols-2 gap-1 overflow-hidden rounded-2xl border border-black/[0.06] bg-black/[0.04] p-1">
-        {cell(urls[0]!, 0, "rounded-lg")}
-        {cell(urls[1]!, 1, "rounded-lg")}
+      <div className="grid aspect-[4/3] max-h-[360px] w-full grid-cols-2 gap-[3px] overflow-hidden rounded-[16px] bg-transparent">
+        {cell(urls[0]!, 0, "")}
+        {cell(urls[1]!, 1, "")}
       </div>
     );
   }
 
   if (n === 3) {
     return (
-      <div className="grid max-h-[360px] w-full grid-cols-2 grid-rows-2 gap-1 overflow-hidden rounded-2xl border border-black/[0.06] bg-black/[0.04] p-1">
-        {cell(urls[0]!, 0, "row-span-2 h-full min-h-0 rounded-lg")}
-        {cell(urls[1]!, 1, "rounded-lg")}
-        {cell(urls[2]!, 2, "rounded-lg")}
+      <div className="grid max-h-[360px] w-full grid-cols-2 grid-rows-2 gap-[3px] overflow-hidden rounded-[16px] bg-transparent">
+        {cell(urls[0]!, 0, "row-span-2 h-full min-h-0")}
+        {cell(urls[1]!, 1, "")}
+        {cell(urls[2]!, 2, "")}
       </div>
     );
   }
 
   if (n === 4) {
     return (
-      <div className="aspect-square max-h-[360px] w-full overflow-hidden rounded-2xl border border-black/[0.06] bg-black/[0.04] p-1">
-        <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
-          {urls.slice(0, 4).map((src, i) => cell(src, i, "rounded-lg"))}
+      <div className="aspect-square max-h-[360px] w-full overflow-hidden rounded-[16px] bg-transparent">
+        <div className="grid h-full grid-cols-2 grid-rows-2 gap-[3px]">
+          {urls.slice(0, 4).map((src, i) => cell(src, i, ""))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="aspect-square max-h-[360px] w-full overflow-hidden rounded-2xl border border-black/[0.06] bg-black/[0.04] p-1">
-      <div className="grid h-full grid-cols-2 grid-rows-2 gap-1">
-        {cell(urls[0]!, 0, "rounded-lg")}
-        {cell(urls[1]!, 1, "rounded-lg")}
-        {cell(urls[2]!, 2, "rounded-lg")}
+    <div className="aspect-square max-h-[360px] w-full overflow-hidden rounded-[16px] bg-transparent">
+      <div className="grid h-full grid-cols-2 grid-rows-2 gap-[3px]">
+        {cell(urls[0]!, 0, "")}
+        {cell(urls[1]!, 1, "")}
+        {cell(urls[2]!, 2, "")}
         <button
           type="button"
-          className="relative overflow-hidden rounded-lg bg-black/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
+          className="relative overflow-hidden bg-black/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
           onClick={() => onOpenCell(4)}
           aria-label={`외 ${restCount}장 보기`}
         >
@@ -164,7 +164,7 @@ function SingleChatImage({
       <button
         type="button"
         onClick={onOpen}
-        className="relative block w-full overflow-hidden rounded-2xl border border-black/[0.06] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
+        className="relative block w-full overflow-hidden rounded-[16px] border-0 bg-transparent text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
         aria-label="사진 크게 보기"
       >
         <div className="relative max-h-[360px] w-full overflow-hidden" style={{ aspectRatio: ratio }}>

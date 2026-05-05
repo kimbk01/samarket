@@ -13,7 +13,7 @@ export function MessengerInputBar({ children, className = "" }: Props) {
   return (
     <div
       data-cm-messenger-input-bar
-      className={`grid min-h-[44px] min-w-0 grid-cols-[2rem_minmax(0,1fr)_2rem_2rem] items-stretch gap-1 ${className}`.trim()}
+      className={`grid min-h-[54px] min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_2.375rem] items-center gap-1.5 ${className}`.trim()}
     >
       {children}
     </div>

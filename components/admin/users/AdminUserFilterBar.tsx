@@ -47,7 +47,7 @@ export function AdminUserFilterBar({
         placeholder={searchPlaceholder}
         value={searchQuery}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="min-w-[240px] max-w-[min(100%,340px)] shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-medium text-[#101828] outline-none placeholder:text-[#667085] focus:border-[#1877f2] focus:bg-white"
+        className="min-w-[240px] max-w-[min(100%,340px)] shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-medium text-[#101828] outline-none placeholder:text-[#667085] focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       />
       <select
         value={filters.authProvider}
@@ -57,7 +57,7 @@ export function AdminUserFilterBar({
             authProvider: e.target.value as AdminUserFilters["authProvider"],
           })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         {AUTH_PROVIDER_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -73,7 +73,7 @@ export function AdminUserFilterBar({
             phoneVerified: e.target.value as AdminUserFilters["phoneVerified"],
           })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         {PHONE_VERIFIED_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -89,7 +89,7 @@ export function AdminUserFilterBar({
             moderationStatus: e.target.value as AdminUserFilters["moderationStatus"],
           })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         {MODERATION_STATUS_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -105,7 +105,7 @@ export function AdminUserFilterBar({
             memberType: e.target.value as AdminUser["memberType"] | "",
           })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         {MEMBER_TYPE_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
@@ -118,13 +118,13 @@ export function AdminUserFilterBar({
         placeholder={t("common_region")}
         value={filters.location}
         onChange={(e) => onFiltersChange({ ...filters, location: e.target.value })}
-        className="min-w-[130px] shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-medium text-[#101828] outline-none placeholder:text-[#667085] focus:border-[#1877f2] focus:bg-white"
+        className="min-w-[130px] shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-medium text-[#101828] outline-none placeholder:text-[#667085] focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       />
       {onShowMemberUuidChange ? (
         <label className="flex shrink-0 cursor-pointer select-none items-center gap-2 whitespace-nowrap rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828]">
           <input
             type="checkbox"
-            className="h-4 w-4 shrink-0 rounded border-[#dadde1] text-[#1877f2] focus:ring-[#1877f2]"
+            className="h-4 w-4 shrink-0 rounded border-[#dadde1] text-sam-primary focus:ring-sam-primary"
             checked={showMemberUuid}
             onChange={(e) => onShowMemberUuidChange(e.target.checked)}
           />
@@ -141,7 +141,7 @@ export function AdminUserFilterBar({
                 sortKey: e.target.value as AdminUserSortKey,
               })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         {SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
@@ -159,7 +159,7 @@ export function AdminUserFilterBar({
                 sortOrder: e.target.value as AdminUserSortOrder,
               })
         }
-        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-[#1877f2] focus:bg-white"
+        className="shrink-0 rounded-lg border border-[#d0d7e2] bg-[#f8fafc] px-3 py-2 text-[13px] font-semibold text-[#101828] outline-none focus:border-sam-primary focus:bg-white focus:ring-2 focus:ring-sam-primary"
       >
         <option value="desc">{t("admin_user_sort_desc")}</option>
         <option value="asc">{t("admin_user_sort_asc")}</option>

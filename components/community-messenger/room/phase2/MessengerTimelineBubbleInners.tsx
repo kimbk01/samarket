@@ -1,11 +1,11 @@
 "use client";
 
 import { memo } from "react";
+import { FileText } from "lucide-react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import {
   communityMessengerVoiceAudioSrc,
   extractHttpUrls,
-  FileIcon,
   formatFileMeta,
   VideoCallIcon,
   VoiceCallIcon,
@@ -82,20 +82,20 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
   mediaAutoSaveEnabled: boolean;
 }) {
   return (
-    <div className="min-w-[200px]">
+    <div className="min-w-[200px] max-w-full">
       <div className="flex items-start gap-3">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${
-            item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-sam-surface-muted text-sam-fg"
+            item.isMine ? "bg-white/20 text-white" : "bg-[#dbeafe] text-[#1f2937]"
           }`}
         >
-          <FileIcon className="h-5 w-5" />
+          <FileText className="h-5 w-5" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className={`truncate font-semibold ${item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"}`}>
+          <p className={`truncate text-[14px] font-semibold leading-snug ${item.isMine ? "text-white" : "text-[#050505]"}`}>
             {item.fileName?.trim() || "첨부 파일"}
           </p>
-          <p className={`mt-1 sam-text-helper ${item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}>
+          <p className={`mt-1 text-[12px] leading-snug ${item.isMine ? "text-white/80" : "text-[#6b7280]"}`}>
             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
           </p>
         </div>
@@ -111,7 +111,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
             download={mediaAutoSaveEnabled ? item.fileName?.trim() || "community-messenger-file" : undefined}
             className={`inline-flex rounded-[10px] border px-3 py-1.5 sam-text-helper font-semibold ${
               item.isMine
-                ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
+                ? "border-white/35 bg-white/15 text-white"
                 : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
             }`}
           >
@@ -194,15 +194,15 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
     <div className="flex w-max max-w-full flex-col gap-2">
       <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
         <p
-          className={`inline-block w-fit max-w-full sam-text-body leading-snug break-keep [overflow-wrap:break-word] ${
-            mineLight ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
+          className={`inline-block w-fit max-w-full whitespace-pre-wrap break-words text-[14px] leading-[1.35] break-keep [overflow-wrap:break-word] ${
+            mineLight ? "text-inherit" : "text-[color:var(--cm-room-bubble-incoming-fg,#050505)]"
           }`}
         >
           {item.content}
         </p>
         {item.pending ? (
           <span
-            className={`shrink-0 sam-text-xxs ${mineLight ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"}`}
+            className={`shrink-0 text-[11px] ${mineLight ? "text-white/75" : "text-[color:var(--cm-room-text-muted)]"}`}
           >
             {sendingLabel}
           </span>
@@ -218,9 +218,9 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 sam-text-xxs ${
+                className={`inline-flex max-w-[220px] truncate rounded-[10px] border px-2.5 py-1 text-[12px] leading-snug ${
                   mineLight
-                    ? "border-sam-primary-border bg-sam-surface/70 text-sam-fg"
+                    ? "border-white/35 bg-white/15 text-white"
                     : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text-muted)]"
                 }`}
               >

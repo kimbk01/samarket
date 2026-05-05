@@ -95,7 +95,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
                   href={`/philife/${row.target_id}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-medium text-blue-600 hover:underline"
+                  className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
                 >
                   {row.post_title}
                 </Link>
@@ -162,7 +162,7 @@ export function AdminCommunityReportDetailClient({ initialRow }: { initialRow: C
           ))}
         </div>
         <p className="mt-4 sam-text-body-secondary">
-          <Link href="/admin/philife/reports" className="text-blue-600 hover:underline">
+          <Link href="/admin/philife/reports" className="text-sam-primary hover:text-sam-primary-hover hover:underline">
             {tr("admin_feed_report_back_list")}
           </Link>
         </p>

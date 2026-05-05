@@ -447,7 +447,10 @@ export function AdminCommunityTopicsPage({
         {sections.length === 0 ? (
           <p className="mb-3 sam-text-body-secondary text-amber-800">
             {tr("admin_topics_no_sections_before")}
-            <a href="/admin/philife/sections" className="font-medium text-blue-600 hover:underline">
+            <a
+              href="/admin/philife/sections"
+              className="font-medium text-sam-primary hover:text-sam-primary-hover hover:underline"
+            >
               {tr("admin_topics_no_sections_link")}
             </a>
             {tr("admin_topics_no_sections_after")}
@@ -705,7 +708,7 @@ export function AdminCommunityTopicsPage({
                         <button
                           type="button"
                           disabled={busy}
-                          className="mr-2 text-blue-600 hover:underline disabled:opacity-50"
+                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline disabled:opacity-50"
                           onClick={saveEdit}
                         >
                           {tr("common_save")}
@@ -738,7 +741,7 @@ export function AdminCommunityTopicsPage({
                       <td className="py-2.5">
                         <button
                           type="button"
-                          className="mr-2 text-blue-600 hover:underline"
+                          className="mr-2 text-sam-primary hover:text-sam-primary-hover hover:underline"
                           onClick={() => setEdit({ ...topic })}
                         >
                           {tr("admin_topics_btn_edit")}

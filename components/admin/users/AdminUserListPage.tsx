@@ -56,7 +56,7 @@ const PROVIDER_SUMMARY_ORDER: AdminAuthProvider[] = [
 const PROVIDER_SUMMARY_META: Record<AdminAuthProvider, { shortLabel: string; className: string }> = {
   google: {
     shortLabel: "G",
-    className: "border-[#d7e3ff] bg-white text-[#1877f2]",
+    className: "border-sam-primary-border bg-white text-sam-primary",
   },
   kakao: {
     shortLabel: "K",
@@ -72,11 +72,11 @@ const PROVIDER_SUMMARY_META: Record<AdminAuthProvider, { shortLabel: string; cla
   },
   facebook: {
     shortLabel: "f",
-    className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
+    className: "border-sam-primary-border bg-sam-primary-soft text-sam-primary",
   },
   email: {
     shortLabel: "@",
-    className: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
+    className: "border-sam-primary-border bg-sam-primary-soft text-sam-primary",
   },
   manual: {
     shortLabel: "M",
@@ -280,14 +280,14 @@ export function AdminUserListPage() {
           <button
             type="button"
             onClick={() => setTab("members")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "members" ? "bg-[#1877f2] text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "members" ? "bg-sam-primary text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
           >
             {t("admin_users_tab_members")}
           </button>
           <button
             type="button"
             onClick={() => setTab("staff")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "staff" ? "bg-[#1877f2] text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "staff" ? "bg-sam-primary text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
           >
             {t("admin_users_tab_staff")}
           </button>
@@ -298,7 +298,7 @@ export function AdminUserListPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
-                className="rounded-full bg-[#1877f2] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#166fe5]"
+                className="rounded-full bg-sam-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sam-primary-hover active:bg-sam-primary-active"
               >
                 {t("admin_users_manual_create")}
               </button>
@@ -318,7 +318,7 @@ export function AdminUserListPage() {
             <button
               type="button"
               onClick={() => setShowCreateAdmin(true)}
-              className="rounded-full bg-[#1877f2] px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#166fe5]"
+              className="rounded-full bg-sam-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sam-primary-hover active:bg-sam-primary-active"
             >
               {t("admin_users_create_admin")}
             </button>
@@ -336,11 +336,14 @@ export function AdminUserListPage() {
                 {t("admin_users_manual_email_pattern", { domain: MANUAL_MEMBER_EMAIL_DOMAIN })}
               </code>
               {t("admin_users_member_list_help_b")}
-              <Link href="/login" className="font-bold text-[#1877f2] underline">
+              <Link href="/login" className="font-bold text-sam-primary underline hover:text-sam-primary-hover">
                 /login
               </Link>
               {t("admin_users_member_list_help_c")}
-              <a href="/api/system/supabase-project" className="font-bold text-[#1877f2] underline">
+              <a
+                href="/api/system/supabase-project"
+                className="font-bold text-sam-primary underline hover:text-sam-primary-hover"
+              >
                 /api/system/supabase-project
               </a>
               {t("admin_users_member_list_help_d")}
@@ -358,8 +361,8 @@ export function AdminUserListPage() {
                   })}
                 </p>
               </div>
-              <div className="rounded-lg border border-[#d7e3ff] bg-[#eef4ff] px-3 py-2 text-right">
-                <p className="text-xs font-bold text-[#1877f2]">{t("admin_users_member_summary_visible_label")}</p>
+              <div className="rounded-lg border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-right">
+                <p className="text-xs font-bold text-sam-primary">{t("admin_users_member_summary_visible_label")}</p>
                 <p className="text-lg font-black tabular-nums text-[#101828]">
                   {t("admin_users_member_summary_visible_count", {
                     count: memberSummary.visible.toLocaleString(countLocale),

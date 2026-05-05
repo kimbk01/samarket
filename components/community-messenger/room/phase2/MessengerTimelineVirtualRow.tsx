@@ -44,12 +44,13 @@ export type MessengerTimelineVirtualRowProps = {
   virtualStart: number;
   virtualIndex: number;
   measureElement: (el: HTMLElement | null) => void;
+  rowPaddingTopClass: string;
+  showPeerName: boolean;
   showPeerAvatar: boolean;
-  showMyAvatar: boolean;
   showBubbleTail: boolean;
+  showMessageTime: boolean;
+  dayDividerLabel: string | null;
   peerAvatar: ReturnType<typeof communityMessengerMemberAvatar> | null;
-  myAvatar: ReturnType<typeof communityMessengerMemberAvatar> | null;
-  isGroupRoom: boolean;
   streamRoomId: string;
   latestReadableMineMessageId: string | null;
   peerHasReadMyLatestMessage: boolean;
@@ -90,12 +91,13 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.virtualStart === b.virtualStart &&
     a.virtualIndex === b.virtualIndex &&
     a.measureElement === b.measureElement &&
+    a.rowPaddingTopClass === b.rowPaddingTopClass &&
+    a.showPeerName === b.showPeerName &&
     a.showPeerAvatar === b.showPeerAvatar &&
-    a.showMyAvatar === b.showMyAvatar &&
     a.showBubbleTail === b.showBubbleTail &&
+    a.showMessageTime === b.showMessageTime &&
+    a.dayDividerLabel === b.dayDividerLabel &&
     a.peerAvatar === b.peerAvatar &&
-    a.myAvatar === b.myAvatar &&
-    a.isGroupRoom === b.isGroupRoom &&
     a.streamRoomId === b.streamRoomId &&
     a.latestReadableMineMessageId === b.latestReadableMineMessageId &&
     a.peerHasReadMyLatestMessage === b.peerHasReadMyLatestMessage &&
@@ -128,12 +130,13 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   virtualStart,
   virtualIndex,
   measureElement,
+  rowPaddingTopClass,
+  showPeerName,
   showPeerAvatar,
-  showMyAvatar,
   showBubbleTail,
+  showMessageTime,
+  dayDividerLabel,
   peerAvatar,
-  myAvatar,
-  isGroupRoom,
   streamRoomId,
   latestReadableMineMessageId,
   peerHasReadMyLatestMessage,
@@ -246,7 +249,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         type="button"
         className={`w-full min-w-0 max-w-full shrink-0 border-b text-left transition active:opacity-90 ${
           mine
-            ? "border-sam-primary-border bg-sam-surface/55 px-3 py-1.5"
+            ? "border-white/25 bg-white/15 px-3 py-1.5"
             : "border-[color:var(--cm-room-divider)] bg-black/[0.04] px-3 py-1.5"
         }`}
         style={{
@@ -260,13 +263,13 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         aria-label={`원본 메시지로 이동: ${replyQuote.senderLabel}`}
       >
         <p
-          className={`sam-text-xxs font-bold leading-snug ${mine ? "text-sam-fg" : "text-[color:var(--cm-room-primary)]"}`}
+          className={`sam-text-xxs font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
         >
           {formatReplyQuoteKakaoHeader(tt(replyQuote.senderLabel))}
         </p>
         <p
           className={`mt-0.5 line-clamp-2 sam-text-xxs leading-snug ${
-            mine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
+            mine ? "text-white/85" : "text-[color:var(--cm-room-text-muted)]"
           }`}
         >
           {replyQuote.previewText}
@@ -297,7 +300,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 key={`${item.id}:${r.reactionKey}`}
                 type="button"
                 className={`inline-flex items-center gap-0.5 border-0 bg-transparent px-0.5 py-0 sam-text-xxs font-medium transition active:opacity-75 ${
-                  item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
+                  item.isMine ? "text-[color:var(--cm-room-bubble-outgoing-fg,#fff)]" : "text-[color:var(--cm-room-text)]"
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -351,7 +354,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         {item.messageType === "image" || item.messageType === "sticker" ? (
           viberInnerBody
         ) : (
-          <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-3 py-2"}>{viberInnerBody}</div>
+          <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-[12px] py-2"}>{viberInnerBody}</div>
         )}
       </div>
     </ViberChatBubble>
@@ -362,8 +365,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-index={virtualIndex}
       ref={measureElement}
       id={`cm-room-msg-${item.id}`}
-      className={`absolute left-0 top-0 w-full pb-2.5 flex scroll-mt-24 ${
-        item.messageType === "system" ? "justify-center" : item.isMine ? "justify-end" : "justify-start"
+      className={`absolute left-0 top-0 flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
+        item.messageType === "system" ? "items-center" : ""
       } ${
         timelineHighlightMessageId === item.id
           ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"
@@ -373,6 +376,13 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         transform: `translateY(${virtualStart}px)`,
       }}
     >
+      {dayDividerLabel ? (
+        <div className="flex w-full justify-center pb-2 pt-0.5">
+          <span className="rounded-full bg-[#e4e6eb] px-2.5 py-1 text-center text-[12px] leading-tight text-[#65676b]">
+            {dayDividerLabel}
+          </span>
+        </div>
+      ) : null}
       {item.messageType === "system" ? (
         <div className="max-w-[92%] px-2">
           <div className={systemBubbleClass}>
@@ -381,10 +391,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         </div>
       ) : (
         <div
-          className={`flex w-full min-w-0 max-w-full items-end gap-3 ${item.isMine ? "justify-end" : "justify-start"}`}
+          className={`flex w-full min-w-0 max-w-full gap-2 ${item.isMine ? "items-end justify-end" : "items-start justify-start"}`}
         >
           {!item.isMine ? (
-            <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
+            <div className="relative z-[1] w-[34px] shrink-0 pt-[2px]">
               {showPeerAvatar ? (
                 peerAvatar?.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -393,76 +403,55 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                     alt=""
                     loading="lazy"
                     decoding="async"
-                    className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
+                    className="h-[30px] w-[30px] rounded-full border border-sam-fg/10 object-cover shadow-sm"
                   />
                 ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
+                  <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-blue-100 bg-[#dbeafe] text-center text-[13px] font-semibold leading-none text-[#1f2937] shadow-sm">
                     {peerAvatar?.initials?.slice(0, 1) ?? "?"}
                   </div>
                 )
               ) : (
-                <div className="h-9 w-9" aria-hidden />
+                <div className="h-[30px] w-[34px]" aria-hidden />
               )}
             </div>
           ) : null}
 
           <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${item.isMine ? "items-end" : "items-start"}`}>
-            {isGroupRoom && !item.isMine && showPeerAvatar ? (
-              <p className="mb-0.5 max-w-full pl-0.5 sam-text-helper font-semibold text-[color:var(--cm-room-primary)]">
+            {!item.isMine && showPeerName ? (
+              <p className="mb-[3px] max-w-full pl-0.5 text-[12px] font-medium leading-snug text-[#4b5563]">
                 {senderLabelDisplay}
               </p>
             ) : null}
 
             <div
-              className={`flex w-full min-w-0 max-w-[min(85vw,70%)] shrink-0 items-end gap-1.5 ${
+              className={`flex w-full min-w-0 max-w-[min(76vw,520px)] shrink-0 items-center gap-1.5 ${
                 item.isMine ? "flex-row justify-end" : "flex-row justify-start"
               }`}
             >
               {item.isMine ? (
                 <>
-                  <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
-                    {formatTime(item.createdAt)}
-                  </span>
-                  {latestReadableMineMessageId === item.id && !peerHasReadMyLatestMessage ? (
-                    <span className="shrink-0 self-end pb-1 sam-text-xxs leading-none text-[color:var(--cm-room-text-muted)]">
-                      안읽음
+                  {showMessageTime ? (
+                    <span className="shrink-0 self-end pb-1 text-[11px] tabular-nums leading-none text-[#65676b]">
+                      {formatTime(item.createdAt)}
                     </span>
+                  ) : null}
+                  {latestReadableMineMessageId === item.id && !peerHasReadMyLatestMessage ? (
+                    <span className="shrink-0 self-end pb-1 text-[11px] leading-none text-[#65676b]">안읽음</span>
                   ) : null}
                   {renderBubbleStack(viberBubble)}
                 </>
               ) : (
                 <>
                   {renderBubbleStack(viberBubble)}
-                  <span className="shrink-0 self-end pb-1 sam-text-xxs tabular-nums leading-none text-[color:var(--cm-room-text-muted)]">
-                    {formatTime(item.createdAt)}
-                  </span>
+                  {showMessageTime ? (
+                    <span className="shrink-0 self-end pb-1 text-[11px] tabular-nums leading-none text-[#65676b]">
+                      {formatTime(item.createdAt)}
+                    </span>
+                  ) : null}
                 </>
               )}
             </div>
           </div>
-
-          {item.isMine ? (
-            <div className="relative z-[1] w-9 shrink-0 self-end pb-0.5">
-              {showMyAvatar ? (
-                myAvatar?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={myAvatar.avatarUrl}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="h-9 w-9 rounded-full border border-sam-fg/10 object-cover shadow-sm"
-                  />
-                ) : (
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-sam-fg/10 bg-sam-surface text-center sam-text-body font-semibold leading-none text-sam-muted shadow-sm">
-                    {myAvatar?.initials?.slice(0, 1) ?? "나"}
-                  </div>
-                )
-              ) : (
-                <div className="h-9 w-9" aria-hidden />
-              )}
-            </div>
-          ) : null}
         </div>
       )}
     </div>

@@ -38,7 +38,7 @@ const PROVIDER_BADGE_CLASS: Record<string, string> = {
   kakao: "border-[#f4d35e] bg-[#fff8d8] text-[#2b2118]",
   naver: "border-[#bdecc8] bg-[#ecf8ef] text-[#128a3a]",
   apple: "border-[#dadde1] bg-white text-[#050505]",
-  facebook: "border-[#d7e3ff] bg-[#eef4ff] text-[#1877f2]",
+  facebook: "border-sam-primary-border bg-sam-primary-soft text-sam-primary",
   email: "border-[#d7e3ff] bg-[#eef4ff] text-[#1c1e21]",
   manual: "border-[#cfd6df] bg-[#f8fafc] text-[#475467]",
   unknown: "border-[#dadde1] bg-[#f7f8fa] text-[#65676b]",
@@ -47,7 +47,7 @@ const PROVIDER_BADGE_CLASS: Record<string, string> = {
 function GoogleProviderIcon() {
   return (
     <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-[13px] font-black shadow-sm">
-      <span className="text-[#4285f4]">G</span>
+      <span className="text-sam-primary">G</span>
     </span>
   );
 }
@@ -64,7 +64,7 @@ function KakaoProviderIcon() {
 
 function EmailProviderIcon() {
   return (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#1877f2] shadow-sm">
+    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sam-primary shadow-sm">
       <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-none stroke-white stroke-2">
         <path d="M4 6.5h16v11H4z" />
         <path d="m4.5 7 7.5 6 7.5-6" />
@@ -151,10 +151,10 @@ function SortHeader({
       <button
         type="button"
         onClick={() => onSortChange(sortId)}
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition hover:bg-white hover:text-[#1877f2] ${align === "right" ? "justify-end" : ""}`}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition hover:bg-white hover:text-sam-primary ${align === "right" ? "justify-end" : ""}`}
       >
         <span>{label}</span>
-        <span className={active ? "text-[#1877f2]" : "text-[#8a8d91]"}>{active ? (sortOrder === "asc" ? "▲" : "▼") : "↕"}</span>
+        <span className={active ? "text-sam-primary" : "text-[#8a8d91]"}>{active ? (sortOrder === "asc" ? "▲" : "▼") : "↕"}</span>
       </button>
     </th>
   );
@@ -196,7 +196,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         {u.loginIdentifier || u.loginUsername ?
           <button
             type="button"
-            className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
+            className="ml-2 align-baseline text-xs font-semibold text-sam-primary hover:text-sam-primary-hover hover:underline"
             onClick={handleCopyLogin}
           >
             {t("admin_users_action_copy")}
@@ -208,7 +208,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         {!showMemberUuid ?
           <Link
             href={`/admin/users/${u.id}`}
-            className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
+            className="ml-2 align-baseline text-xs font-semibold text-sam-primary hover:text-sam-primary-hover hover:underline"
           >
             {t("admin_users_action_detail")}
           </Link>
@@ -216,7 +216,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         {showMemberUuid ? (
           <button
             type="button"
-            className="ml-2 align-baseline text-xs font-semibold text-[#1877f2] hover:underline"
+            className="ml-2 align-baseline text-xs font-semibold text-sam-primary hover:text-sam-primary-hover hover:underline"
             onClick={handleCopyUuid}
           >
             {t("admin_users_action_copy_uuid")}
@@ -229,7 +229,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">
         <span
           className={`rounded-full px-2.5 py-1 font-bold ${
-            u.phoneVerified ? "bg-[#e7f3ff] text-[#1877f2]" : "bg-[#f0f2f5] text-[#65676b]"
+            u.phoneVerified ? "bg-sam-primary-soft text-sam-primary" : "bg-[#f0f2f5] text-[#65676b]"
           }`}
         >
           {u.phoneVerified
@@ -243,7 +243,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         <span
           className={`rounded-full px-2.5 py-1 font-bold ${
             u.phoneVerified && String(u.memberStatus ?? "").toLowerCase() === "active"
-              ? "bg-[#e7f3ff] text-[#1877f2]"
+              ? "bg-sam-primary-soft text-sam-primary"
               : String(u.memberStatus ?? "").toLowerCase() === "pending"
                 ? "bg-[#fff3e8] text-[#b54708]"
                 : "bg-[#f0f2f5] text-[#65676b]"
@@ -266,10 +266,10 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         {u.location?.trim() ? u.location : emptyCell}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-right">
-        <p className="font-bold text-[#1877f2]">{(u.pointBalance ?? 0).toLocaleString()}P</p>
+        <p className="font-bold text-sam-primary">{(u.pointBalance ?? 0).toLocaleString()}P</p>
         <Link
           href={`/admin/users/${u.id}?tab=points`}
-          className="text-[11px] text-[#65676b] hover:text-[#1877f2] hover:underline"
+          className="text-[11px] text-[#65676b] hover:text-sam-primary hover:underline"
         >
           {t("admin_users_points_link")}
         </Link>
@@ -287,7 +287,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="whitespace-nowrap px-3 py-3 align-top">
         <button
           type="button"
-          className="rounded-full border border-[#dbe7ff] bg-[#e7f3ff] px-3 py-1 text-xs font-bold text-[#1877f2] shadow-sm transition hover:bg-[#dbe7ff]"
+          className="rounded-full border border-sam-primary-border bg-sam-primary-soft px-3 py-1 text-xs font-bold text-sam-primary shadow-sm transition hover:bg-sam-primary-soft-2"
           onClick={handleEdit}
         >
           {t("admin_users_action_edit")}

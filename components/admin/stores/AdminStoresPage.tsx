@@ -71,8 +71,8 @@ const ctaWarning = `${ctaBase} border border-amber-200 bg-amber-50 text-amber-95
 const ctaDanger = `${ctaBase} border border-red-200 bg-sam-surface text-red-800 hover:bg-red-50 active:bg-red-100/80`;
 const ctaDangerSolid = `${ctaBase} border border-red-300 bg-red-600 text-white hover:bg-red-700 active:bg-red-800`;
 const ctaAccent = `${ctaBase} border border-signature/35 bg-signature/10 text-signature hover:bg-signature/15 active:bg-signature/20`;
-const ctaSales = `${ctaBase} border border-blue-200 bg-blue-600 text-white shadow-sm hover:bg-blue-700 active:bg-blue-800`;
-const ctaSalesOutline = `${ctaBase} border border-blue-200 bg-blue-50 text-blue-950 hover:bg-blue-100/90`;
+const ctaSales = `${ctaBase} border border-sam-primary-border bg-sam-primary text-white shadow-sm hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled`;
+const ctaSalesOutline = `${ctaBase} border border-sam-primary-border bg-sam-primary-soft text-sam-primary hover:bg-sam-primary-soft-2`;
 const ctaOrange = `${ctaBase} border border-orange-200 bg-orange-50 text-orange-950 hover:bg-orange-100/80`;
 
 export function AdminStoresPage() {

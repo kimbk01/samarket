@@ -118,7 +118,7 @@ export function AdminCommunityReportsPage({
                           href={`/philife/${r.target_id}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-blue-600 hover:underline"
+                          className="text-sam-primary hover:text-sam-primary-hover hover:underline"
                         >
                           {r.post_title}
                         </Link>
