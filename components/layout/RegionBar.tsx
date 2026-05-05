@@ -45,13 +45,20 @@ function StoresRootTier1Right() {
   }, [commerceCart]);
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
+    <>
       <Link
         href="/search"
         className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label={t("nav_search_aria")}
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+        <svg
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2.2}
+          aria-hidden
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -64,14 +71,14 @@ function StoresRootTier1Right() {
         className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg"
         aria-label={cartLineKindCount > 0 ? t("nav_cart_aria") : t("common_delivery")}
       >
-        <StoreCommerceCartStrokeIcon className="h-5 w-5" />
+        <StoreCommerceCartStrokeIcon className="h-6 w-6" />
         {cartLineKindCount > 0 ? (
           <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
             {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
           </span>
         ) : null}
       </Link>
-    </div>
+    </>
   );
 }
 
@@ -167,6 +174,7 @@ export function RegionBar({
   }
 
   if (pathNoQuery === "/stores") {
+    const segmentTitle = t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY);
     return (
       <UnifiedTier1Shell>
         <div
@@ -177,12 +185,15 @@ export function RegionBar({
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden px-1 text-center">
             <h1 className="flex min-h-0 min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
-              <Tier1ExplorationTitleRow segmentTitle={t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY)} />
+              <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
             </h1>
           </div>
           <div className="ml-auto flex h-full min-w-0 max-w-[200px] shrink-0 items-center justify-end gap-0.5 pr-0.5">
-            <PhilifeHeaderMessengerButton />
-            <StoresRootTier1Right />
+            <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
+              <StoresRootTier1Right />
+              <PhilifeHeaderMessengerButton />
+              <PhilifeHeaderAddressMenuButton />
+            </div>
           </div>
         </div>
       </UnifiedTier1Shell>

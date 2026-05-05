@@ -10,6 +10,23 @@ import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-br
 import { storesBrowsePath, storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
+const FOOD_CATEGORIES: readonly { name: string; icon: string; subSlug?: string }[] = [
+  { name: "전체", icon: "/icons/food/icon_0_0.png" },
+  { name: "한식", icon: "/icons/food/icon_0_1.png", subSlug: "korean" },
+  { name: "치킨·고기", icon: "/icons/food/icon_0_2.png", subSlug: "chicken" },
+  { name: "면·국물", icon: "/icons/food/icon_0_3.png", subSlug: "snack" },
+
+  { name: "중식", icon: "/icons/food/icon_1_0.png", subSlug: "chinese" },
+  { name: "일식", icon: "/icons/food/icon_1_1.png", subSlug: "japanese" },
+  { name: "피자·양식", icon: "/icons/food/icon_1_2.png", subSlug: "pizza" },
+  { name: "분식", icon: "/icons/food/icon_1_3.png", subSlug: "snack" },
+
+  { name: "도시락", icon: "/icons/food/icon_2_0.png", subSlug: "lunchbox" },
+  { name: "현지식", icon: "/icons/food/icon_2_1.png", subSlug: "local" },
+  { name: "카페·디저트", icon: "/icons/food/icon_2_2.png", subSlug: "dessert" },
+  { name: "야식", icon: "/icons/food/icon_2_3.png", subSlug: "late_night" },
+] as const;
+
 /**
  * 매장 홈 — 배달 플랫폼형: 대분류 탭(한 줄) + 선택 업종의 세부만 그리드로 노출.
  * 긴 세로 반복 카드·이중 칩 스크롤 제거로 모바일 스크롤 부담 감소.
@@ -37,6 +54,7 @@ export function StoreCategoryExploreSection({
 
   const activePrimary = primaries.find((p) => p.slug === activeSlug);
   const subs = useMemo(() => listBrowseSubIndustries(activeSlug), [activeSlug, industryVersion]);
+  const isRestaurant = activeSlug === "restaurant";
 
   return (
     <section id="store-industry-explore" className="scroll-mt-4">
@@ -91,26 +109,55 @@ export function StoreCategoryExploreSection({
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 p-4 sm:grid-cols-4">
-          <Link
-            href={storesBrowsePrimaryPath(activeSlug)}
-            className="flex min-h-[56px] flex-col items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
-          >
-            <span className="sam-text-xxs font-semibold text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
-            <span className="mt-0.5 sam-text-body-secondary font-bold text-sam-fg dark:text-[#E4E6EB]">전체</span>
-          </Link>
-          {subs.map((s) => (
+        {isRestaurant ? (
+          <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
+            {FOOD_CATEGORIES.map((cat) => {
+              const href =
+                cat.name === "전체" || !cat.subSlug
+                  ? storesBrowsePrimaryPath(activeSlug)
+                  : storesBrowsePath(activeSlug, cat.subSlug);
+              return (
+                <Link
+                  key={cat.name}
+                  href={href}
+                  className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={cat.icon}
+                    alt={cat.name}
+                    className="mb-1 h-12 w-12 object-contain"
+                    loading="lazy"
+                  />
+                  <span className="text-[13px] font-medium leading-none text-gray-700 dark:text-[#E4E6EB]">
+                    {cat.name}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 p-4 sm:grid-cols-4">
             <Link
-              key={s.id}
-              href={storesBrowsePath(activeSlug, s.slug)}
-              className="flex min-h-[56px] items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
+              href={storesBrowsePrimaryPath(activeSlug)}
+              className="flex min-h-[56px] flex-col items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
             >
-              <span className="text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg dark:text-[#E4E6EB]">
-                {s.nameKo}
-              </span>
+              <span className="sam-text-xxs font-semibold text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
+              <span className="mt-0.5 sam-text-body-secondary font-bold text-sam-fg dark:text-[#E4E6EB]">전체</span>
             </Link>
-          ))}
-        </div>
+            {subs.map((s) => (
+              <Link
+                key={s.id}
+                href={storesBrowsePath(activeSlug, s.slug)}
+                className="flex min-h-[56px] items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
+              >
+                <span className="text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg dark:text-[#E4E6EB]">
+                  {s.nameKo}
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

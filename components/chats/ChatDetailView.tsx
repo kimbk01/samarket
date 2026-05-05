@@ -2268,6 +2268,15 @@ export function ChatDetailView({
                   currentUserId={currentUserId}
                   effectiveProductChatId={effectiveProductChatId}
                   onActionDone={() => onRoomReload?.()}
+                  onSellerCompleteOptimistic={() => {
+                    if (!amISeller || !postId) return;
+                    setPinnedListing("completed");
+                    setPinnedForProductId(postId);
+                    setPostStatusFromRealtime("sold");
+                    setListingFromPostRealtime("completed");
+                    lastPostSellerListingDbSigRef.current = "";
+                    void hardRefreshMessagesAfterSellerListingWrite();
+                  }}
                   onOpenReview={() => setReviewSheetOpen(true)}
                   canOpenReviewSheet={canOpenReviewSheet}
                   displayListing={displayListing}

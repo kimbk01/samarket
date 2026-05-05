@@ -13,6 +13,8 @@ interface TradeFlowBannerProps {
   currentUserId: string;
   effectiveProductChatId: string;
   onActionDone: () => void;
+  /** `seller-complete` 성공 직후 UI를 즉시 완료로 반영(Realtime 누락 대비) */
+  onSellerCompleteOptimistic?: () => void;
   onOpenReview?: () => void;
   canOpenReviewSheet?: boolean;
   /** 상품 카드·배너와 동일한 판매 노출 상태 (낙관적 반영 포함) */
@@ -35,6 +37,7 @@ export function TradeFlowBanner({
   currentUserId,
   effectiveProductChatId,
   onActionDone,
+  onSellerCompleteOptimistic,
   onOpenReview,
   canOpenReviewSheet = false,
   displayListing,
@@ -92,6 +95,9 @@ export function TradeFlowBanner({
       if (!res.ok || !data.ok) {
         setMsg(data.error ?? "처리하지 못했습니다.");
         return;
+      }
+      if (path.includes("/seller-complete")) {
+        onSellerCompleteOptimistic?.();
       }
       onActionDone();
       if (path.includes("/buyer-confirm") && amBuyer && onOpenReview && canOpenReviewSheet) {

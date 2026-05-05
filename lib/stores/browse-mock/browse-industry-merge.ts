@@ -6,6 +6,12 @@ const STORAGE_KEY = "kasama-browse-industry-overrides-v1";
 export type BrowseIndustryOverridesPayload = {
   addedPrimaries: BrowsePrimaryIndustry[];
   addedSubs: BrowseSubIndustry[];
+  /** 기본(코드) 업종 수정 오버라이드 */
+  patchedPrimaries?: Partial<BrowsePrimaryIndustry & { id: string }>[];
+  patchedSubs?: Partial<BrowseSubIndustry & { id: string }>[];
+  /** 기본(코드) 업종 숨김(삭제) 오버라이드 */
+  removedPrimaryIds?: string[];
+  removedSubIds?: string[];
 };
 
 const EMPTY: BrowseIndustryOverridesPayload = { addedPrimaries: [], addedSubs: [] };
@@ -17,6 +23,10 @@ function parsePayload(raw: string | null): BrowseIndustryOverridesPayload {
     return {
       addedPrimaries: Array.isArray(p.addedPrimaries) ? p.addedPrimaries : [],
       addedSubs: Array.isArray(p.addedSubs) ? p.addedSubs : [],
+      patchedPrimaries: Array.isArray(p.patchedPrimaries) ? p.patchedPrimaries : [],
+      patchedSubs: Array.isArray(p.patchedSubs) ? p.patchedSubs : [],
+      removedPrimaryIds: Array.isArray(p.removedPrimaryIds) ? p.removedPrimaryIds : [],
+      removedSubIds: Array.isArray(p.removedSubIds) ? p.removedSubIds : [],
     };
   } catch {
     return { ...EMPTY, addedPrimaries: [], addedSubs: [] };
@@ -52,7 +62,14 @@ function notifyBrowseIndustryListeners(): void {
 }
 
 export function clearBrowseIndustryOverrides(): void {
-  persistBrowseIndustryOverrides({ addedPrimaries: [], addedSubs: [] });
+  persistBrowseIndustryOverrides({
+    addedPrimaries: [],
+    addedSubs: [],
+    patchedPrimaries: [],
+    patchedSubs: [],
+    removedPrimaryIds: [],
+    removedSubIds: [],
+  });
 }
 
 const seedPrimaryIds = new Set(BROWSE_PRIMARY_INDUSTRIES.map((p) => p.id));
@@ -67,17 +84,36 @@ export function isSeedSubIndustry(id: string): boolean {
 }
 
 export function listMergedBrowsePrimaryIndustries(): BrowsePrimaryIndustry[] {
-  const { addedPrimaries } = getBrowseIndustryOverrides();
-  return [...BROWSE_PRIMARY_INDUSTRIES, ...addedPrimaries].sort(
-    (a, b) => a.sortOrder - b.sortOrder
-  );
+  const o = getBrowseIndustryOverrides();
+  const removed = new Set((o.removedPrimaryIds ?? []).filter((x) => typeof x === "string"));
+  const patched = new Map<string, Partial<BrowsePrimaryIndustry & { id: string }>>();
+  for (const row of o.patchedPrimaries ?? []) {
+    if (!row || typeof (row as any).id !== "string") continue;
+    patched.set((row as any).id, row);
+  }
+  const base = BROWSE_PRIMARY_INDUSTRIES
+    .filter((p) => !removed.has(p.id))
+    .map((p) => ({ ...p, ...(patched.get(p.id) ?? {}) }))
+    // slug를 패치로 비우는 실수 방지
+    .map((p) => ({ ...p, slug: String(p.slug ?? "").trim() || p.slug }));
+  return [...base, ...(o.addedPrimaries ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export function listMergedBrowseSubIndustries(primarySlug: string): BrowseSubIndustry[] {
   const slug = primarySlug.trim();
-  const { addedSubs } = getBrowseIndustryOverrides();
-  const base = BROWSE_SUB_INDUSTRIES.filter((s) => s.primarySlug === slug);
-  const extra = addedSubs.filter((s) => s.primarySlug === slug);
+  const o = getBrowseIndustryOverrides();
+  const removed = new Set((o.removedSubIds ?? []).filter((x) => typeof x === "string"));
+  const patched = new Map<string, Partial<BrowseSubIndustry & { id: string }>>();
+  for (const row of o.patchedSubs ?? []) {
+    if (!row || typeof (row as any).id !== "string") continue;
+    patched.set((row as any).id, row);
+  }
+  const base = BROWSE_SUB_INDUSTRIES
+    .filter((s) => s.primarySlug === slug)
+    .filter((s) => !removed.has(s.id))
+    .map((s) => ({ ...s, ...(patched.get(s.id) ?? {}) }))
+    .map((s) => ({ ...s, slug: String(s.slug ?? "").trim() || s.slug }));
+  const extra = (o.addedSubs ?? []).filter((s) => s.primarySlug === slug);
   return [...base, ...extra].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
