@@ -118,6 +118,11 @@ import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import {
+  buildCommunityMessengerMarkReadPatchBody,
+  communityMessengerMarkReadFetchInitBase,
+  parseCommunityMessengerMarkReadResponse,
+} from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
@@ -171,7 +176,14 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { philifeAppPaths } from "@domain/philife/paths";
 import {
+  cmReadBadgeLog,
+  refreshLocalReadGuardServerAck,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
+import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
+import {
   applyRoomReadEvent,
+  getMessengerRealtimeRoomSummary,
   seedMessengerRealtimeFromBootstrap,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
@@ -1929,18 +1941,37 @@ export function CommunityMessengerHome({
       const actionKey = `room-read:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
+      const summary = getMessengerRealtimeRoomSummary(roomId);
+      setLocalReadGuard({
+        roomId,
+        referenceLastMessageAt: String(summary?.lastMessageAt ?? ""),
+        source: "manual",
+      });
       const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+      cmReadBadgeLog("mark_read_patch_start", { roomId, flushOpen: true, path: "home_mark_read" });
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "mark_read" }),
+          ...communityMessengerMarkReadFetchInitBase,
+          body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (!res.ok || !json.ok) {
+        const parsed = await parseCommunityMessengerMarkReadResponse(res);
+        const json = parsed.json;
+        if (!parsed.okHttp || json.ok !== true) {
+          cmReadBadgeLog("mark_read_patch_fail", {
+            roomId,
+            path: "home_mark_read",
+            status: parsed.status,
+            networkError: false,
+            okHttp: parsed.okHttp,
+            jsonOk: json.ok,
+            apiError: json.error ?? null,
+            responseBody: parsed.rawPreview,
+          });
           setActionError(getMessengerActionErrorMessage(json.error ?? "room_read_failed"));
           return;
         }
+        refreshLocalReadGuardServerAck(roomId);
+        cmReadBadgeLog("mark_read_patch_done", { roomId, path: "home_mark_read" });
         applyRoomReadEvent({
           viewerUserId: data?.me?.id ?? null,
           roomId,
@@ -1953,10 +1984,27 @@ export function CommunityMessengerHome({
           at: Date.now(),
           lastReadMessageId: null,
         });
+        cmReadBadgeLog("read_bus_emit", { roomId, source: "home_mark_read" });
         updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: 0 }));
+        if (data?.me?.id?.trim()) {
+          applyCmReadUiBadgeZero({
+            roomId,
+            viewerUserId: data.me.id.trim(),
+            phase: "patch_done",
+            reason: "home_mark_read",
+          });
+        }
         if (typeof performance !== "undefined") {
           messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
         }
+      } catch (err) {
+        cmReadBadgeLog("mark_read_patch_fail", {
+          roomId,
+          path: "home_mark_read",
+          networkError: true,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        setActionError(getMessengerActionErrorMessage("room_read_failed"));
       } finally {
         setBusyId(null);
       }

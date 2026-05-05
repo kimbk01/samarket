@@ -284,6 +284,10 @@ async function measureChatRoomEntry(page: import("@playwright/test").Page, origi
   );
   const roomClientReqs = bootstrapReqs.filter((r) => isRoomClientBootstrapFamilyUrl(r.url));
   const roomSilentReqs = bootstrapReqs.filter((r) => messengerRoomBootstrapCmReqSrcBucket(r.url) === "room_silent");
+  for (const r of roomSilentReqs) {
+    expect(r.url, `room_silent bootstrap must use silent_delta: ${r.url}`).toContain("snapshotTier=silent_delta");
+    expect(r.url, `room_silent must not use legacy fast tier: ${r.url}`).not.toContain("snapshotTier=fast");
+  }
   const firstRoomClientBlockBootstrapAt = roomClientBlockReqs.length > 0 ? roomClientBlockReqs[0]!.ts : null;
   const firstRoomClientPrimedFollowupBootstrapAt =
     roomClientPrimedReqs.length > 0 ? roomClientPrimedReqs[0]!.ts : null;

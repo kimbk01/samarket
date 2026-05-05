@@ -3,6 +3,11 @@
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
+  buildCommunityMessengerMarkReadPatchBody,
+  communityMessengerMarkReadFetchInitBase,
+  parseCommunityMessengerMarkReadResponse,
+} from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
+import {
   CM_MARK_READ_SCROLL_DEBOUNCE_MS,
   CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX,
   CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
@@ -12,7 +17,17 @@ import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/r
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import { applyRoomReadEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  cmReadBadgeLog,
+  refreshLocalReadGuardServerAck,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
+import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import {
+  applyRoomReadEvent,
+  applyRoomSummaryPatched,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import type {
   CommunityMessengerMessage,
@@ -70,7 +85,8 @@ export type RoomOpenAlignTraceExtra = {
   rerender_hint?: string;
 };
 
-const CM_MARK_READ_SERVER_TIMEOUT_MS = 1500;
+/** RPC·레거시 폴백이 1.5s 를 넘기면 Abort 로 실패하던 케이스 완화 */
+const CM_MARK_READ_SERVER_TIMEOUT_MS = 12_000;
 
 type RoomReadAckReason =
   | "initial-render"
@@ -165,8 +181,11 @@ function isRoomActuallyReadableState(args: {
   const routeMatches = currentRouteMatchesRoom(args.roomId, snapshotRoomId);
   const rendered = args.roomMessages.length > 0 || Boolean(args.snapshot?.messages?.length);
   const blocked = args.roomLoading || args.overlayBlocked || isMessengerRoomReadGateExtraBlocked();
+  /** 분할 창 등: 탭은 보이나 `document.hasFocus()` 가 false 인 경우에도 읽음 커서 진행 허용 */
+  const readable =
+    Boolean(args.snapshot) && visible && routeMatches && rendered && !blocked;
   return {
-    readable: Boolean(args.snapshot) && visible && focused && routeMatches && rendered && !blocked,
+    readable,
     visible,
     focused,
     routeMatches,
@@ -194,7 +213,7 @@ function getLastVisibleUnreadMessage(root: HTMLElement | null, messageId: string
 
 function debugRoomReadAck(payload: {
   roomId: string;
-  reason: RoomReadAckReason;
+  reason: RoomReadAckReason | "blur" | "visibility-hidden" | "rollback";
   visible: boolean;
   focused: boolean;
   rendered: boolean;
@@ -205,6 +224,8 @@ function debugRoomReadAck(payload: {
   nextReadCursor: string | null;
   debounceMs: number;
   optimisticApplied: boolean;
+  /** 리스트 배지 낙관적 제거(스토어·bus 적용)까지 걸린 ms — 서버 PATCH 와 무관 */
+  optimistic_clear_ms?: number;
   serverOk?: boolean;
   elapsedMs?: number;
 }): void {
@@ -253,6 +274,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   const readMarkEffectEndRecordedRoomRef = useRef<string | null>(null);
   const readMarkEffectCountRef = useRef(0);
   const lastSeenReadGateMessageIdRef = useRef<string | null>(null);
+  /** 동일 lastReadMessageId 에 대해 리스트 낙관적 0 중복 적용 방지 */
+  const earlyOptimisticMessageIdRef = useRef<string | null>(null);
+  /** 낙관적 제거 직전 스냅샷 unread — 스크롤 업·blur 등으로 PATCH 전 조건 이탈 시 복원 */
+  const preOptimisticUnreadRef = useRef<number | null>(null);
 
   useEffect(() => {
     const id = roomId?.trim();
@@ -272,11 +297,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     if (roomOpenMarkReadRef.current.roomId !== id) {
       roomOpenMarkReadRef.current = { roomId: id, phase: "idle" };
       lastSeenReadGateMessageIdRef.current = null;
+      earlyOptimisticMessageIdRef.current = null;
+      preOptimisticUnreadRef.current = null;
     }
 
     let cancelled = false;
     let readAckDebounceTimer: ReturnType<typeof setTimeout> | null = null;
     let readAckRafId: number | null = null;
+    let immediateOpenFlushDoneThisMount = false;
 
     const clearScheduledReadAck = () => {
       if (readAckDebounceTimer != null) {
@@ -289,7 +317,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }
     };
 
-    const applyOptimisticRoomRead = (snap: CommunityMessengerRoomSnapshot, lastReadMessageId: string) => {
+    const applyOptimisticRoomRead = (snap: CommunityMessengerRoomSnapshot, lastReadMessageId: string | null) => {
       const tAlign0 = typeof performance !== "undefined" ? performance.now() : Date.now();
       applyRoomReadEvent({
         viewerUserId: snap.viewerUserId,
@@ -300,9 +328,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         type: "cm.room.read",
         roomId: id,
         viewerUserId: snap.viewerUserId,
-        lastReadMessageId,
+        ...(lastReadMessageId ? { lastReadMessageId } : {}),
         at: Date.now(),
       });
+      cmReadBadgeLog("read_bus_emit", { roomId: id, lastReadMessageId: lastReadMessageId ?? null });
       postCommunityMessengerBusEvent({
         type: "cm.room.local_unread",
         roomId: id,
@@ -310,7 +339,79 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         unreadCount: 0,
         at: Date.now(),
       });
+      applyCmReadUiBadgeZero({
+        roomId: id,
+        viewerUserId: snap.viewerUserId,
+        phase: "optimistic",
+        reason: "applyOptimisticRoomRead",
+      });
       return typeof performance !== "undefined" ? Math.round(performance.now() - tAlign0) : 0;
+    };
+
+    const runImmediateOpenFlushOnce = () => {
+      if (cancelled || immediateOpenFlushDoneThisMount) return;
+      const snap = snapshotRef.current;
+      const viewer = snap?.viewerUserId?.trim();
+      if (!snap || String(snap.room.id) !== String(id) || !viewer) return;
+      immediateOpenFlushDoneThisMount = true;
+      const refLm = String(snap.room.lastMessageAt ?? "");
+      setLocalReadGuard({ roomId: id, referenceLastMessageAt: refLm, source: "room_enter" });
+      const tailId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+      cmReadBadgeLog("room_enter_optimistic_zero", { roomId: id, hasTail: Boolean(tailId) });
+      const alignMs = applyOptimisticRoomRead(snap, tailId);
+      if (typeof performance !== "undefined") {
+        messengerMonitorUnreadListSync(id, alignMs, "mark_read");
+        if (unreadReadSyncRecordedRoomRef.current !== id) {
+          unreadReadSyncRecordedRoomRef.current = id;
+          recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+        }
+      }
+      cmReadBadgeLog("mark_read_patch_start", { roomId: id, flushOpen: true, path: "immediate_open" });
+      void (async () => {
+        const ac = new AbortController();
+        const timeout = setTimeout(() => ac.abort(), CM_MARK_READ_SERVER_TIMEOUT_MS);
+        try {
+          const res = await fetch(communityMessengerRoomResourcePath(id), {
+            ...communityMessengerMarkReadFetchInitBase,
+            signal: ac.signal,
+            body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody()),
+          });
+          const parsed = await parseCommunityMessengerMarkReadResponse(res);
+          if (parsed.okHttp && parsed.json.ok === true) {
+            refreshLocalReadGuardServerAck(id);
+            const snapViewer = snapshotRef.current?.viewerUserId?.trim();
+            if (snapViewer) {
+              applyCmReadUiBadgeZero({
+                roomId: id,
+                viewerUserId: snapViewer,
+                phase: "patch_done",
+                reason: "immediate_open_patch",
+              });
+            }
+            cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "immediate_open" });
+          } else {
+            cmReadBadgeLog("mark_read_patch_fail", {
+              roomId: id,
+              path: "immediate_open",
+              status: parsed.status,
+              networkError: false,
+              okHttp: parsed.okHttp,
+              jsonOk: parsed.json.ok,
+              apiError: parsed.json.error ?? null,
+              responseBody: parsed.rawPreview,
+            });
+          }
+        } catch (err) {
+          cmReadBadgeLog("mark_read_patch_fail", {
+            roomId: id,
+            path: "immediate_open",
+            networkError: true,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+      })();
     };
 
     const reconcileUnreadFromServer = () => {
@@ -321,30 +422,125 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }
     };
 
+    const tryEarlyOptimisticListBadgeClear = (
+      reason: RoomReadAckReason,
+      candidate: string,
+      readableSnapshot: CommunityMessengerRoomSnapshot
+    ) => {
+      if (earlyOptimisticMessageIdRef.current === candidate) return;
+      if (preOptimisticUnreadRef.current === null) {
+        const u = readableSnapshot.room.unreadCount;
+        preOptimisticUnreadRef.current = typeof u === "number" && Number.isFinite(u) ? Math.max(0, Math.floor(u)) : null;
+      }
+      const alignMs = applyOptimisticRoomRead(readableSnapshot, candidate);
+      earlyOptimisticMessageIdRef.current = candidate;
+      if (typeof performance !== "undefined") {
+        messengerMonitorUnreadListSync(id, alignMs, "mark_read");
+        if (unreadReadSyncRecordedRoomRef.current !== id) {
+          unreadReadSyncRecordedRoomRef.current = id;
+          recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+        }
+      }
+      const vp = messagesViewportRef.current;
+      const lastId = lastMarkableMessageId(roomMessagesRef.current, readableSnapshot.messages);
+      const lastVis = getLastVisibleUnreadMessage(vp, lastId);
+      debugRoomReadAck({
+        roomId: id,
+        reason,
+        visible: documentIsVisible(),
+        focused: windowIsFocused(),
+        rendered: true,
+        hasDom: lastVis.domExists,
+        nearBottom: isNearBottom(vp),
+        lastVisibleMessageId: lastVis.visible ? lastVis.id : null,
+        previousReadCursor: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+        nextReadCursor: candidate,
+        debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+        optimisticApplied: true,
+        optimistic_clear_ms: alignMs,
+      });
+    };
+
+    const maybeRollbackEarlyOptimisticBadge = (
+      reason: RoomReadAckReason | "blur" | "visibility-hidden" | "rollback"
+    ) => {
+      if (!earlyOptimisticMessageIdRef.current) return;
+      if (roomOpenMarkReadRef.current.phase !== "idle") return;
+      const snap = snapshotRef.current;
+      const restoreUnread = preOptimisticUnreadRef.current;
+      earlyOptimisticMessageIdRef.current = null;
+      preOptimisticUnreadRef.current = null;
+      if (!snap || String(snap.room.id) !== String(id) || restoreUnread == null || restoreUnread < 1) {
+        reconcileUnreadFromServer();
+        return;
+      }
+      applyRoomSummaryPatched({
+        viewerUserId: snap.viewerUserId,
+        roomId: id,
+        unreadCount: restoreUnread,
+      });
+      postCommunityMessengerBusEvent({
+        type: "cm.room.local_unread",
+        roomId: id,
+        viewerUserId: snap.viewerUserId,
+        unreadCount: restoreUnread,
+        at: Date.now(),
+      });
+      if (snap.room.contextMeta?.kind === "trade") {
+        dispatchTradeChatUnreadUpdated({
+          source: "community-messenger-room-read-rollback",
+          key: snap.room.contextMeta.postId ?? id,
+          dedupeMs: 0,
+        });
+      }
+      debugRoomReadAck({
+        roomId: id,
+        reason,
+        visible: documentIsVisible(),
+        focused: windowIsFocused(),
+        rendered: true,
+        hasDom: (() => {
+          const lid = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+          return lid ? Boolean(document.getElementById(`cm-room-msg-${lid}`)) : false;
+        })(),
+        nearBottom: isNearBottom(messagesViewportRef.current),
+        lastVisibleMessageId: null,
+        previousReadCursor: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
+        nextReadCursor: null,
+        debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+        optimisticApplied: false,
+      });
+    };
+
     const flushRoomReadAck = (reason: RoomReadAckReason, lastReadMessageId: string) => {
       const snap = snapshotRef.current;
       if (!snap || String(snap.room.id) !== String(id)) return;
       if (roomOpenMarkReadRef.current.phase !== "idle") return;
       if (!lastReadMessageId || roomOpenMarkReadRef.current.lastMarkedMessageId === lastReadMessageId) return;
 
+      const optimisticAlreadyApplied = earlyOptimisticMessageIdRef.current === lastReadMessageId;
+
       roomOpenMarkReadRef.current.phase = "in_flight";
       const tAnchor = typeof performance !== "undefined" ? performance.now() : Date.now();
       const previousReadCursor = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
-      const alignMs = applyOptimisticRoomRead(snap, lastReadMessageId);
-      if (ROOM_OPEN_ALIGN_TRACE) {
-        traceRoomOpenAlignChain("patchMarkRead_sync", id, alignMs, tAnchor, {
-          phase: "patchMarkRead_sync",
-          store_updates_count: 1,
-          bus_events_count: 2,
-          rerender_hint: "messenger_store+hub_snapshot_tab(chat)+home_list_if_open",
-        });
-      }
+      let alignMs = 0;
+      if (!optimisticAlreadyApplied) {
+        alignMs = applyOptimisticRoomRead(snap, lastReadMessageId);
+        if (ROOM_OPEN_ALIGN_TRACE) {
+          traceRoomOpenAlignChain("patchMarkRead_sync", id, alignMs, tAnchor, {
+            phase: "patchMarkRead_sync",
+            store_updates_count: 1,
+            bus_events_count: 2,
+            rerender_hint: "messenger_store+hub_snapshot_tab(chat)+home_list_if_open",
+          });
+        }
 
-      if (typeof performance !== "undefined") {
-        messengerMonitorUnreadListSync(id, alignMs, "mark_read");
-        if (unreadReadSyncRecordedRoomRef.current !== id) {
-          unreadReadSyncRecordedRoomRef.current = id;
-          recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+        if (typeof performance !== "undefined") {
+          messengerMonitorUnreadListSync(id, alignMs, "mark_read");
+          if (unreadReadSyncRecordedRoomRef.current !== id) {
+            unreadReadSyncRecordedRoomRef.current = id;
+            recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+          }
         }
       }
 
@@ -361,32 +557,43 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         nextReadCursor: lastReadMessageId,
         debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
         optimisticApplied: true,
+        optimistic_clear_ms: optimisticAlreadyApplied ? undefined : alignMs,
       });
 
+      cmReadBadgeLog("mark_read_patch_start", { roomId: id, path: "scroll_ack", lastReadMessageId });
       void (async () => {
         const ac = new AbortController();
         const timeout = setTimeout(() => ac.abort(), CM_MARK_READ_SERVER_TIMEOUT_MS);
         try {
           const res = await fetch(communityMessengerRoomResourcePath(id), {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
+            ...communityMessengerMarkReadFetchInitBase,
             signal: ac.signal,
-            body: JSON.stringify({ action: "mark_read", lastReadMessageId }),
+            body: JSON.stringify(buildCommunityMessengerMarkReadPatchBody(lastReadMessageId)),
           });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            lastReadMessageId?: string | null;
-          };
+          const parsed = await parseCommunityMessengerMarkReadResponse(res);
+          const json = parsed.json;
           const serverLastId =
             typeof json.lastReadMessageId === "string" && json.lastReadMessageId.trim()
               ? json.lastReadMessageId.trim()
               : lastReadMessageId;
 
-          if (res.ok && json.ok) {
+          if (parsed.okHttp && json.ok === true) {
+            refreshLocalReadGuardServerAck(id);
+            const sv = snapshotRef.current?.viewerUserId?.trim();
+            if (sv) {
+              applyCmReadUiBadgeZero({
+                roomId: id,
+                viewerUserId: sv,
+                phase: "patch_done",
+                reason: "scroll_ack_patch",
+              });
+            }
+            cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "scroll_ack" });
             if (peerTailMarkReadHintRef?.current && peerTailMarkReadHintRef.current === lastReadMessageId) {
               peerTailMarkReadHintRef.current = null;
             }
+            earlyOptimisticMessageIdRef.current = null;
+            preOptimisticUnreadRef.current = null;
             roomOpenMarkReadRef.current = {
               roomId: id,
               phase: "done",
@@ -420,6 +627,19 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
               elapsedMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - tAnchor),
             });
           } else {
+            cmReadBadgeLog("mark_read_patch_fail", {
+              roomId: id,
+              path: "scroll_ack",
+              status: parsed.status,
+              networkError: false,
+              okHttp: parsed.okHttp,
+              jsonOk: json.ok,
+              apiError: json.error ?? null,
+              responseBody: parsed.rawPreview,
+              lastReadMessageId,
+            });
+            earlyOptimisticMessageIdRef.current = null;
+            preOptimisticUnreadRef.current = null;
             const cur = roomOpenMarkReadRef.current;
             roomOpenMarkReadRef.current = {
               roomId: id,
@@ -444,7 +664,16 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
               elapsedMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - tAnchor),
             });
           }
-        } catch {
+        } catch (err) {
+          cmReadBadgeLog("mark_read_patch_fail", {
+            roomId: id,
+            path: "scroll_ack",
+            networkError: true,
+            error: err instanceof Error ? err.message : String(err),
+            lastReadMessageId,
+          });
+          earlyOptimisticMessageIdRef.current = null;
+          preOptimisticUnreadRef.current = null;
           const cur = roomOpenMarkReadRef.current;
           roomOpenMarkReadRef.current = {
             roomId: id,
@@ -517,6 +746,18 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         (nearBottom || stickToBottomRef.current);
       const viewportOk = lastVisible.domExists && (nearBottom || lastVisible.visible || peerTailViewportBypass);
       if (!state.readable || !viewportOk) {
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: id,
+          viewerUserId: snap.viewerUserId,
+          ignoredReason: !state.readable ? "room_not_readable_state" : "viewport_not_ok",
+          visible: state.visible,
+          focused: state.focused,
+          routeMatches: state.routeMatches,
+          rendered: state.rendered,
+          blocked: state.blocked,
+          nearBottom,
+          viewportOk,
+        });
         debugRoomReadAck({
           roomId: id,
           reason,
@@ -548,12 +789,22 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         readAckRafId = null;
         if (cancelled) return;
         const candidate = resolveReadCandidate(reason);
-        if (!candidate) return;
+        if (!candidate) {
+          maybeRollbackEarlyOptimisticBadge(reason);
+          return;
+        }
+        const snapEarly = snapshotRef.current;
+        if (snapEarly && String(snapEarly.room.id) === String(id)) {
+          tryEarlyOptimisticListBadgeClear(reason, candidate, snapEarly);
+        }
         readAckDebounceTimer = setTimeout(() => {
           readAckDebounceTimer = null;
           if (cancelled) return;
           const candidateAfterDwell = resolveReadCandidate(reason);
-          if (!candidateAfterDwell) return;
+          if (!candidateAfterDwell) {
+            maybeRollbackEarlyOptimisticBadge("rollback");
+            return;
+          }
           flushRoomReadAck(reason, candidateAfterDwell);
         }, CM_MARK_READ_SCROLL_DEBOUNCE_MS);
       };
@@ -566,10 +817,16 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 
     const onVisibility = () => {
       if (documentIsVisible()) scheduleRoomReadAck("visibility-return");
-      else clearScheduledReadAck();
+      else {
+        clearScheduledReadAck();
+        maybeRollbackEarlyOptimisticBadge("visibility-hidden");
+      }
     };
     const onFocus = () => scheduleRoomReadAck("focus-return");
-    const onBlur = () => clearScheduledReadAck();
+    const onBlur = () => {
+      clearScheduledReadAck();
+      maybeRollbackEarlyOptimisticBadge("blur");
+    };
     const onResize = () => scheduleRoomReadAck("resize");
     const onViewportScroll = () => scheduleRoomReadAck("near-bottom");
     const viewport = messagesViewportRef.current;
@@ -607,11 +864,13 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         ? "incoming-visible"
         : "initial-render";
 
-    /** 첫 메시지 렌더 뒤에만 읽음 후보를 잡는다. 방 진입 자체는 read 가 아니다. */
+    /** 진입 직후 가드+낙관+flushOpen 1회 — 스크롤 게이트는 커서 정합용 보조. */
     queueMicrotask(() => {
+      runImmediateOpenFlushOnce();
       scheduleRoomReadAck(firstScheduleReason);
       if (typeof requestAnimationFrame === "function") {
         requestAnimationFrame(() => {
+          runImmediateOpenFlushOnce();
           scheduleRoomReadAck(firstScheduleReason);
         });
       }
@@ -619,6 +878,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     return () => {
       cancelled = true;
       clearScheduledReadAck();
+      if (earlyOptimisticMessageIdRef.current && roomOpenMarkReadRef.current.phase === "idle") {
+        reconcileUnreadFromServer();
+      }
+      earlyOptimisticMessageIdRef.current = null;
+      preOptimisticUnreadRef.current = null;
       if (mutationDebounce != null) clearTimeout(mutationDebounce);
       mutationObserver?.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);

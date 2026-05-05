@@ -16,10 +16,7 @@ import {
   communityMessengerRoomBootstrapApiTimingRouteKey,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { recordMessengerApiTiming, recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
-import {
-  getCachedRoomBootstrap,
-  setCachedRoomBootstrap,
-} from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { getCachedRoomBootstrap, setCachedRoomBootstrap } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getOrCreateRequestId } from "@/lib/http/api-route";
@@ -59,18 +56,145 @@ export async function GET(
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase() ?? "";
   const hydration = req.nextUrl.searchParams.get("hydration")?.trim().toLowerCase() ?? "";
+  const snapshotTierParam = req.nextUrl.searchParams.get("snapshotTier")?.trim().toLowerCase() ?? "";
+  const wantsSilentDelta = mode === "silent_delta" || snapshotTierParam === "silent_delta";
+  const cmReqSrcRaw = req.nextUrl.searchParams.get("cmReqSrc");
+  const cmReqSrcBucket = classifyCommunityMessengerRoomBootstrapCmReqSrc(cmReqSrcRaw);
+
+  const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
+  const tierLog = trace || process.env.NODE_ENV === "development";
+
+  const readPort = createSupabaseCommunityMessengerReadPort();
+  const t0 = performance.now();
+
+  let snapshot: Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>> | null = null;
+  let snapshotTier: "critical" | "full" | "fast" | "silent_delta" = "full";
+  let hydrateFullMemberList = false;
+  let diagnostics: CommunityMessengerRoomSnapshotDiagnostics = {};
+  let cacheHit = false;
+  let bootstrapTierHeader: string | undefined;
+
+  if (wantsSilentDelta) {
+    snapshotTier = "silent_delta";
+    hydrateFullMemberList = false;
+    bootstrapTierHeader = "silent_delta";
+    diagnostics = {};
+    const silentOpts: CommunityMessengerRoomSnapshotOptions = {
+      initialMessageLimit: 0,
+      hydrateFullMemberList: false,
+      deferSnapshotSecondary: true,
+      snapshotTier: "silent_delta",
+      diagnostics,
+    };
+    const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:silent_delta:minimal:silent_delta:0`;
+    const cached = getCachedRoomBootstrap(cacheKey);
+    cacheHit = Boolean(cached);
+    const tSnap0 = performance.now();
+    snapshot = cached
+      ? (cached as Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>>)
+      : await runSingleFlight(cacheKey, async () => {
+          const snap = await loadCommunityMessengerRoomBootstrap(readPort, auth.userId, roomKey, silentOpts);
+          setCachedRoomBootstrap(cacheKey, snap);
+          return snap;
+        });
+    const snapMs = Math.round(performance.now() - tSnap0);
+    const ms = Math.round(performance.now() - t0);
+
+    if (tierLog) {
+      const payload = {
+        roomId: roomKey,
+        cmReqSrc: cmReqSrcBucket,
+        snapshotTier: "silent_delta",
+        mode: mode || "(absent)",
+        includePresence: false,
+        includeActiveCall: false,
+        includeTradeMeta: false,
+        includeProfiles: false,
+        includeExitSnapshot: false,
+        durationMs: ms,
+        snapFetchMs: snapMs,
+        cacheHit,
+      };
+      console.info("[cm-bootstrap-tier]", JSON.stringify(payload));
+      if (cmReqSrcBucket === "room_silent") {
+        const violated = Object.entries(payload).some(
+          ([k, v]) =>
+            k.startsWith("include") && v === true
+        );
+        if (violated) {
+          console.warn("[cm-bootstrap-tier] room_silent invariant violated", payload);
+        }
+      }
+    }
+
+    recordMessengerApiTiming(communityMessengerRoomBootstrapApiTimingRouteKey(cmReqSrcRaw), ms, snapshot ? 200 : 404);
+    if (trace || snapMs >= 450) {
+      recordMessengerMonitoringEvent({
+        ts: Date.now(),
+        category: "api.community_messenger",
+        metric: "room_bootstrap_snapshot_ms",
+        source: "server",
+        value: snapMs,
+        unit: "ms",
+        labels: {
+          route: "GET /api/community-messenger/rooms/[roomId]/bootstrap",
+          cmReqSrc: cmReqSrcBucket,
+          hydration: "minimal",
+          snapshotTier: "silent_delta",
+          status: String(snapshot ? 200 : 404),
+        },
+      });
+    }
+    if (!snapshot) {
+      return jsonErrorWithRequest(req, "not_found", 404);
+    }
+
+    const requestId = getOrCreateRequestId(req);
+    const body = {
+      ok: true,
+      requestId,
+      v: 1,
+      domain: "community" as const,
+      bootstrap: true,
+      viewerUnreadCount: snapshot.room.unreadCount,
+      unread: { count: snapshot.room.unreadCount },
+      ...snapshot,
+    };
+    const responseSizeBytes = new TextEncoder().encode(JSON.stringify(body)).length;
+    const headers = new Headers({
+      ...messengerApiEdgeCacheHeaders(),
+      [SAMARKET_REQUEST_ID_HEADER]: requestId,
+      "x-samarket-route-total-ms": String(ms),
+      "x-samarket-response-size-bytes": String(responseSizeBytes),
+      "x-samarket-bootstrap-tier": bootstrapTierHeader ?? "silent_delta",
+      "x-samarket-bootstrap-cache-hit": cacheHit ? "1" : "0",
+      "x-samarket-room-bootstrap-fetch-ms": String(diagnostics.roomBootstrapFetchMs ?? snapMs),
+      "x-samarket-messages-fetch-ms": "0",
+      "x-samarket-messages-hide-reactions-parallel-ms": "0",
+      "x-samarket-participants-profiles-fetch-ms": "0",
+      "x-samarket-participants-sql-ms": "0",
+      "x-samarket-room-profiles-map-ms": "0",
+      "x-samarket-hydrate-labels-ms": "0",
+      "x-samarket-trade-detail-bootstrap-parallel-ms": "0",
+      "x-samarket-trade-exit-snapshot-parallel-ms": "0",
+      "x-samarket-peer-read-cursor-ms": "0",
+      "x-samarket-trade-detail-normalize-ms": "0",
+      "x-samarket-summary-build-ms": "0",
+      "x-samarket-members-map-ms": "0",
+      "x-samarket-messages-pipeline-prep-ms": "0",
+      "x-samarket-messages-map-cpu-ms": "0",
+      "x-samarket-normalize-merge-ms": "0",
+    });
+    return NextResponse.json(body, { headers });
+  }
+
   const isInstant = mode === "instant" || hydration === "critical";
   const isSeedMode = mode === "lite" || mode === "seed";
-  const snapshotTierParam = req.nextUrl.searchParams.get("snapshotTier")?.trim().toLowerCase() ?? "";
   const wantsSnapshotFast = snapshotTierParam === "fast";
-  /** instant/critical 은 항상 경량 티어 — `snapshotTier=fast` 는 instant 가 아닐 때만(거래 카드만 스냅샷에서 제외) */
-  const snapshotTier: "critical" | "full" | "fast" = isInstant
-    ? "critical"
-    : wantsSnapshotFast
-      ? "fast"
-      : "full";
+  /** instant/critical 은 항상 경량 티어 — `snapshotTier=fast` 는 instant 가 아닐 때만(거래 카드만 스냅샷에서 제외, 실질 full 근접) */
+  snapshotTier = isInstant ? "critical" : wantsSnapshotFast ? "fast" : "full";
   const deferSnapshotSecondary = Boolean(isSeedMode || isInstant);
-  let hydrateFullMemberList = mode === "expand" || memberHydration === "full";
+  hydrateFullMemberList = mode === "expand" || memberHydration === "full";
   if (isInstant) {
     hydrateFullMemberList = false;
   }
@@ -81,7 +205,7 @@ export async function GET(
           COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
           COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT
         );
-  const diagnostics: CommunityMessengerRoomSnapshotDiagnostics = {};
+  diagnostics = {};
   const opts: CommunityMessengerRoomSnapshotOptions = {
     initialMessageLimit:
       rawLimit != null && rawLimit !== ""
@@ -93,25 +217,53 @@ export async function GET(
     diagnostics,
   };
 
-  const t0 = performance.now();
-  const readPort = createSupabaseCommunityMessengerReadPort();
   const cacheKeyMode = isInstant ? "instant" : mode || "default";
   const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${cacheKeyMode}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
   const cached = getCachedRoomBootstrap(cacheKey);
-  const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
+  cacheHit = Boolean(cached);
   const tSnap0 = performance.now();
-  const snapshot = cached
+  snapshot = cached
     ? (cached as Awaited<ReturnType<typeof loadCommunityMessengerRoomBootstrap>>)
     : await runSingleFlight(cacheKey, async () => {
         const snap = await loadCommunityMessengerRoomBootstrap(readPort, auth.userId, roomKey, opts);
-        // null 도 캐시해두면 동일 방 연타 404/권한 에러 폭주를 줄임(짧은 TTL).
         setCachedRoomBootstrap(cacheKey, snap);
         return snap;
       });
   const snapMs = Math.round(performance.now() - tSnap0);
   const ms = Math.round(performance.now() - t0);
-  const cmReqSrcRaw = req.nextUrl.searchParams.get("cmReqSrc");
-  const cmReqSrcBucket = classifyCommunityMessengerRoomBootstrapCmReqSrc(cmReqSrcRaw);
+
+  if (tierLog && snapshot) {
+    const d = diagnostics;
+    const includeProfiles =
+      (d.fetchRoomProfilesByRoomIdsMs ?? 0) > 0 ||
+      (d.hydrateProfilesLabelsOnlyWithMapMs ?? 0) > 0 ||
+      (d.participantsProfilesFetchMs ?? 0) > 0;
+    const includeTradeMeta =
+      (d.tradeChatRoomDetailBootstrapParallelMs ?? 0) > 0 ||
+      (d.tradeChatRoomDetailNormalizePhaseMs ?? 0) > 0 ||
+      (d.normalizeTimelineEnrichPathEndMs ?? 0) > 0;
+    const includeExitSnapshot = (d.tradeExitSnapshotBootstrapParallelMs ?? 0) > 0;
+    const includeActiveCall = (d.normalizeTimelineActiveCallEndMs ?? 0) > 0;
+    const includePresence = (d.normalizeTimelinePresenceEndMs ?? 0) > 0;
+    console.info(
+      "[cm-bootstrap-tier]",
+      JSON.stringify({
+        roomId: roomKey,
+        cmReqSrc: cmReqSrcBucket,
+        snapshotTier,
+        mode: mode || "(absent)",
+        includePresence,
+        includeActiveCall,
+        includeTradeMeta,
+        includeProfiles,
+        includeExitSnapshot,
+        durationMs: ms,
+        snapFetchMs: snapMs,
+        cacheHit,
+      })
+    );
+  }
+
   recordMessengerApiTiming(communityMessengerRoomBootstrapApiTimingRouteKey(cmReqSrcRaw), ms, snapshot ? 200 : 404);
   if (trace || snapMs >= 450) {
     recordMessengerMonitoringEvent({
@@ -151,6 +303,8 @@ export async function GET(
     [SAMARKET_REQUEST_ID_HEADER]: requestId,
     "x-samarket-route-total-ms": String(ms),
     "x-samarket-response-size-bytes": String(responseSizeBytes),
+    "x-samarket-bootstrap-cache-hit": cacheHit ? "1" : "0",
+    ...(snapshotTier === "fast" ? { "x-samarket-bootstrap-tier": "fast_full_without_trade_card" } : {}),
     "x-samarket-room-bootstrap-fetch-ms": String(d.roomBootstrapFetchMs ?? 0),
     "x-samarket-messages-fetch-ms": String(d.messagesFetchMs ?? 0),
     "x-samarket-messages-hide-reactions-parallel-ms": String(d.messagesPostParallelFetchMs ?? 0),

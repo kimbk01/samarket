@@ -123,13 +123,19 @@ export async function PATCH(
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }
   if (body.action === "mark_read") {
-    const result = await markCommunityMessengerRoomAsRead({
-      userId: auth.userId,
-      roomId,
-      lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
-      flushOpen: body.flushOpen === true,
-    });
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    try {
+      const result = await markCommunityMessengerRoomAsRead({
+        userId: auth.userId,
+        roomId,
+        lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
+        flushOpen: body.flushOpen === true,
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error("[mark_read_error]", e);
+      return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    }
   }
   if (body.action === "archive") {
     const result = await updateCommunityMessengerRoomArchiveState({

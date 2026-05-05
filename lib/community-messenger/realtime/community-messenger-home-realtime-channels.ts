@@ -7,6 +7,7 @@ import type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
@@ -53,6 +54,18 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                 const unreadCount = Math.max(0, Number(row.unread_count ?? 0) || 0);
                 const lastReadAt = typeof row.last_read_at === "string" ? row.last_read_at : null;
                 const lastReadMessageId = typeof row.last_read_message_id === "string" ? row.last_read_message_id : null;
+                const participantUserId =
+                  typeof row.user_id === "string" ? row.user_id.trim() : String(row.user_id ?? "").trim() || null;
+                cmRtReadSyncLog("participant_update_received", {
+                  channelScope: "home_meta_self",
+                  roomId,
+                  participantUserId,
+                  unreadCount,
+                  lastReadAt,
+                  lastReadMessageId,
+                  viewerUserId: args.userId,
+                  isPeer: false,
+                });
                 args.participantUnreadDeltaRef.current?.({
                   roomId,
                   unreadCount,
@@ -143,6 +156,11 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
   }
   channels.push(meta);
+  cmRtReadSyncLog("subscribe_participants_channel", {
+    channelScope: "home_meta_self",
+    viewerUserId: args.userId,
+    filter: `community_messenger_participants.user_id=eq.${args.userId}`,
+  });
 
   for (let offset = 0; offset < roomIds.length; offset += COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX) {
     if (cancelled()) break;
@@ -183,7 +201,18 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               if (!cancelled() && payload.eventType === "INSERT" && payload.new) {
                 const row = payload.new as Record<string, unknown>;
                 const rid = typeof row.room_id === "string" ? row.room_id.trim() : "";
-                if (rid) args.messageInsertHintRef.current?.({ roomId: rid, newRecord: row });
+                const mid = typeof row.id === "string" ? row.id.trim() : "";
+                const sid = typeof row.sender_id === "string" ? row.sender_id.trim() : "";
+                if (rid) {
+                  cmRtReadSyncLog("message_insert_received", {
+                    channelScope: "home_rooms_in",
+                    roomId: rid,
+                    messageId: mid || null,
+                    senderId: sid || null,
+                    viewerUserId: args.userId,
+                  });
+                  args.messageInsertHintRef.current?.({ roomId: rid, newRecord: row });
+                }
                 return;
               }
               if (!cancelled()) refreshScheduler.schedule();
@@ -195,6 +224,13 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       break;
     }
     channels.push(roomBundle);
+    cmRtReadSyncLog("subscribe_messages_channel", {
+      channelScope: "home_rooms_in",
+      viewerUserId: args.userId,
+      chunkOffset: offset,
+      chunkRoomCount: chunk.length,
+      messagesFilter: messagesFilter,
+    });
   }
 
   return { channels, cancelSchedulers: () => refreshScheduler.cancel() };

@@ -29,7 +29,12 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
-import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import {
+  applyIncomingMessageEvent,
+  useMessengerRealtimeStore,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import {
   cmReceiveLatencyKey,
@@ -146,7 +151,40 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   const createdAt = typeof row.created_at === "string" ? row.created_at.trim() : "";
   const viewer = args.viewerUserId.trim();
   if (!roomNorm || !viewer) return;
-  if (sender && sender === viewer) return;
+
+  const routeRoomId =
+    typeof window !== "undefined"
+      ? window.location.pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/)?.[1]?.trim().toLowerCase() ?? null
+      : null;
+  const activeRoomId = useMessengerRealtimeStore.getState().activeRoomId;
+  const isSelf = Boolean(sender && sender === viewer);
+  cmReceiveBadgeLog("realtime_message_received", {
+    roomId: roomRaw,
+    messageId: messageId || null,
+    senderId: sender || null,
+    myUserId: viewer,
+    activeRoomId,
+    routeRoomId,
+    isSelf,
+    beforeUnread: null,
+    afterUnread: null,
+    source: "realtime",
+  });
+  if (isSelf) {
+    cmReceiveBadgeLog("realtime_message_ignored_self", {
+      roomId: roomRaw,
+      messageId: messageId || null,
+      senderId: sender || null,
+      myUserId: viewer,
+      activeRoomId,
+      routeRoomId,
+      isSelf: true,
+      beforeUnread: null,
+      afterUnread: null,
+      source: "realtime",
+    });
+    return;
+  }
 
   const latencyKey = cmReceiveLatencyKey({ roomId: roomRaw, messageId });
   cmReceiveLatencyMark(latencyKey, {
@@ -163,6 +201,14 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
     messageRow: row,
   });
   cmReceiveLatencyMark(latencyKey, { receiver_store_apply_done_ms: cmReceiveLatencyNow() });
+  cmRtReadSyncLog("message_insert_apply_to_list", {
+    roomId: roomRaw,
+    messageId: messageId || null,
+    senderId: sender || null,
+    viewerUserId: viewer,
+    routeRoomId,
+    activeRoomId,
+  });
   postCommunityMessengerBusEvent({
     type: "cm.room.incoming_message",
     roomId: roomRaw,

@@ -18,6 +18,7 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
+import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
 
 const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
@@ -74,8 +75,8 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
   forgetSingleFlight(
     `cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block`
   );
-  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?snapshotTier=fast&cmReqSrc=room_silent`);
-  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent`);
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?snapshotTier=silent_delta&cmReqSrc=room_silent`);
+  forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?memberHydration=minimal&snapshotTier=silent_delta&cmReqSrc=room_silent`);
 }
 
 /**
@@ -181,14 +182,14 @@ export function createMessengerRoomBootstrapRefresh(
         reqSrc = "room_client_block";
       } else if (silent) {
         reqSrc = "room_silent";
-        /** 보강: 스냅샷에서 거래 상품 카드 로드 제외(`snapshotTier=fast`) — 클라가 `fetchChatRoomDetailApi` 로 합류 */
+        /** 사일런트: `silent_delta` — 방·내 참가자 포인터만; 프로필·통화·presence·trade enrich 없음. 거래 카드는 `fetchChatRoomDetailApi` 등으로 후속. */
         bootstrapQueryWithSrc = opts?.forceSilentNetwork
           ? deferredMemberBootstrapRef.current
-            ? "?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent"
-            : "?snapshotTier=fast&cmReqSrc=room_silent"
+            ? "?memberHydration=minimal&snapshotTier=silent_delta&cmReqSrc=room_silent"
+            : "?snapshotTier=silent_delta&cmReqSrc=room_silent"
           : deferredMemberBootstrapRef.current
-            ? "?memberHydration=minimal&snapshotTier=fast&cmReqSrc=room_silent"
-            : "?snapshotTier=fast&cmReqSrc=room_silent";
+            ? "?memberHydration=minimal&snapshotTier=silent_delta&cmReqSrc=room_silent"
+            : "?snapshotTier=silent_delta&cmReqSrc=room_silent";
       } else {
         reqSrc = "room_client_legacy";
         bootstrapQueryWithSrc = INSTANT_LEGACY_Q;
@@ -314,8 +315,19 @@ export function createMessengerRoomBootstrapRefresh(
       const roomRes = flightResult.roomRes;
       const snap = flightResult.snap;
       const clientTimings = flightResult.clientTimings;
+      const bootstrapTierHdr = roomRes.headers.get("x-samarket-bootstrap-tier") ?? "";
       if (roomRes.ok && snap) {
-        setSnapshot(snap);
+        if (silent && bootstrapTierHdr === "silent_delta") {
+          setSnapshot((prev) => {
+            if (prev) return mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, snap);
+            if (typeof console !== "undefined") {
+              console.warn("[cm-room-bootstrap] silent_delta applied without prior snapshot");
+            }
+            return snap;
+          });
+        } else {
+          setSnapshot(snap);
+        }
         const usedMinimalMemberHydration =
           shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
         if (usedMinimalMemberHydration) {

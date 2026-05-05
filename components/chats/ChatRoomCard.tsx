@@ -19,6 +19,10 @@ import {
   shouldWarmChatRoute,
 } from "@/lib/chats/prewarm-chat-room-route";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
+import {
+  normalizeMessengerRealtimeRoomId,
+  useMessengerRealtimeStore,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -47,6 +51,21 @@ function exchangeSubtitleLegacy(
 
 export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, onSelectRoom }: ChatRoomCardProps) {
   const { t } = useI18n();
+  const cmLinkedId = room.communityMessengerRoomId?.trim() ?? "";
+  const cmListUnread = useMessengerRealtimeStore((s) => {
+    if (!cmLinkedId) return undefined;
+    const nid = normalizeMessengerRealtimeRoomId(cmLinkedId);
+    if (Object.prototype.hasOwnProperty.call(s.unreadByRoomId, nid)) {
+      return Math.max(0, Math.floor(Number(s.unreadByRoomId[nid]) || 0));
+    }
+    if (Object.prototype.hasOwnProperty.call(s.roomSummariesById, nid)) {
+      const u = s.roomSummariesById[nid]?.unreadCount;
+      return typeof u === "number" && Number.isFinite(u) ? Math.max(0, Math.floor(u)) : 0;
+    }
+    return undefined;
+  });
+  const displayedUnreadCount =
+    cmLinkedId && cmListUnread !== undefined ? cmListUnread : Math.max(0, Math.floor(Number(room.unreadCount) || 0));
   const amISeller = !!currentUserId && room.sellerId === currentUserId;
   const product = room.product;
   const productTitle = product?.title || t("nav_trade_product_fallback");
@@ -55,7 +74,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const isExchangeLegacy = product?.isExchangePost === true && !rowPreview;
   const isExchangeThumb =
     rowPreview?.thumbnailMode === "exchange" || (isExchangeLegacy && !!product?.isExchangePost);
-  const isNewOrUnread = !room.lastMessage?.trim() || room.unreadCount > 0;
+  const isNewOrUnread = !room.lastMessage?.trim() || displayedUnreadCount > 0;
   const sellerPreview = amISeller && isNewOrUnread
     ? t("nav_trade_new_chat_on_product", { nickname: room.partnerNickname, product: productTitle })
     : null;
@@ -130,12 +149,12 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
             </div>
           )}
         </div>
-        {room.unreadCount > 0 && (
+        {displayedUnreadCount > 0 && (
           <span
             className="pointer-events-none absolute right-0 top-0 z-[2] flex h-5 min-w-[20px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold leading-none text-white shadow-md ring-2 ring-sam-surface"
-            aria-label={t("nav_trade_unread_messages", { count: room.unreadCount > 99 ? "99+" : room.unreadCount })}
+            aria-label={t("nav_trade_unread_messages", { count: displayedUnreadCount > 99 ? "99+" : displayedUnreadCount })}
           >
-            {room.unreadCount > 99 ? "99+" : room.unreadCount}
+            {displayedUnreadCount > 99 ? "99+" : displayedUnreadCount}
           </span>
         )}
       </div>

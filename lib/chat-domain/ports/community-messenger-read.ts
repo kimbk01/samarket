@@ -14,8 +14,13 @@ export type CommunityMessengerRoomSnapshotOptions = {
    * 통화·거래 도크·presence·방별 프로필 오버레이·trade 후처리는 생략(`bootstrapEnrichmentPending`).
    */
   deferSnapshotSecondary?: boolean;
-  /** `critical`: 경량 첫 스냅샷(보강 필수). `fast`: 통화·presence·enrich 유지하되 거래 상품 카드(`tradeChatRoomDetail`)만 스냅샷에서 생략 — 클라가 `fetchChatRoomDetailApi` 로 보강. */
-  snapshotTier?: "critical" | "full" | "fast";
+  /**
+   * `critical`: 경량 첫 스냅샷(보강 필수).
+   * `full`: 전체 스냅샷.
+   * `fast`: 사실상 full 에 가깝되 거래 상품 카드만 제외(`fast_full_without_trade_card`).
+   * `silent_delta`: 방+내 참가자 행만 — `room_silent` 전용.
+   */
+  snapshotTier?: "critical" | "full" | "fast" | "silent_delta";
   /** route 계측용 서버 분해 숫자 기록 */
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
   /**

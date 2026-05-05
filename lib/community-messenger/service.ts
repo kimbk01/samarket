@@ -91,6 +91,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerMissedCall } from "@/lib/push/send-community-messenger-missed-call-push";
+import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
   messengerImageClientFieldsFromMetadata,
   peekMessengerImageMetaDiagnosticsCounts,
@@ -6428,17 +6429,22 @@ export async function markCommunityMessengerRoomAsRead(input: {
       if (typeof rawAt === "string" && rawAt.trim()) readAt = rawAt.trim();
       else if (rawAt instanceof Date && !Number.isNaN(rawAt.getTime())) readAt = rawAt.toISOString();
       if (!readAt) readAt = nowIso();
-      await syncItemTradeReadWithMessengerRoomMark(sb as any, {
-        userId: input.userId,
-        communityMessengerRoomId: roomId,
-        communityMessengerLastReadMessageId: cursorId,
-      });
+      try {
+        await syncItemTradeReadWithMessengerRoomMark(sb as any, {
+          userId: input.userId,
+          communityMessengerRoomId: roomId,
+          communityMessengerLastReadMessageId: cursorId,
+        });
+      } catch (tradeSyncErr) {
+        console.error("[mark_read_trade_sync_error]", { roomId, userId: input.userId, err: tradeSyncErr });
+      }
       invalidateOwnerHubBadgeCache(input.userId);
       return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
     }
 
     if (!rpcError && rpcPayload?.ok === false) {
       const reason = typeof rpcPayload.error === "string" ? rpcPayload.error.trim() : "";
+      console.error("[mark_read_rpc_denied]", { roomId, userId: input.userId, rpcMode, error: reason || rpcPayload.error });
       return { ok: false, error: reason || "room_read_failed" };
     }
 
@@ -6450,7 +6456,18 @@ export async function markCommunityMessengerRoomAsRead(input: {
         rpcErrMsg.toLowerCase().includes("schema cache"));
 
     if (rpcError && !useLegacyParticipantUpdate) {
+      console.error("[mark_read_rpc_error]", {
+        roomId,
+        userId: input.userId,
+        rpcMode,
+        message: rpcErrMsg,
+        code: (rpcError as { code?: string })?.code,
+      });
       return { ok: false, error: rpcErrMsg || "room_read_failed" };
+    }
+
+    if (rpcError && useLegacyParticipantUpdate) {
+      console.error("[mark_read_rpc_fallback_legacy]", { roomId, userId: input.userId, message: rpcErrMsg });
     }
 
     const [{ data: participant, error: participantError }, latestMessageResult] = await Promise.all([
@@ -6488,11 +6505,15 @@ export async function markCommunityMessengerRoomAsRead(input: {
         .eq("room_id", roomId)
         .eq("user_id", input.userId);
       if (!error) {
-        await syncItemTradeReadWithMessengerRoomMark(sb as any, {
-          userId: input.userId,
-          communityMessengerRoomId: roomId,
-          communityMessengerLastReadMessageId: cursorId,
-        });
+        try {
+          await syncItemTradeReadWithMessengerRoomMark(sb as any, {
+            userId: input.userId,
+            communityMessengerRoomId: roomId,
+            communityMessengerLastReadMessageId: cursorId,
+          });
+        } catch (tradeSyncErr) {
+          console.error("[mark_read_trade_sync_error]", { roomId, userId: input.userId, err: tradeSyncErr });
+        }
         invalidateOwnerHubBadgeCache(input.userId);
         return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId };
       }
@@ -6854,8 +6875,13 @@ export type GetCommunityMessengerRoomSnapshotOptions = {
    * 첫 스냅샷에 포함하고, 통화·presence·enrich 는 후속 부트스트랩으로 합류한다.
    */
   deferSnapshotSecondary?: boolean;
-  /** `critical`: 첫 페인트용 경량 스냅샷(후속 보강 필수). `full`: 기존 전체 스냅샷. `fast`: full 에 가깝되 `tradeChatRoomDetail` 로드만 스냅샷에서 제외(비차단). */
-  snapshotTier?: "critical" | "full" | "fast";
+  /**
+   * `critical`: 첫 페인트용 경량 스냅샷(후속 보강 필수).
+   * `full`: 기존 전체 스냅샷.
+   * `fast`: full 에 가깝되 `tradeChatRoomDetail` 만 스냅샷에서 제외(`fast_full_without_trade_card`).
+   * `silent_delta`: `room_silent` 전용 — DB 2쿼리(방+내 참가자)만.
+   */
+  snapshotTier?: "critical" | "full" | "fast" | "silent_delta";
   diagnostics?: CommunityMessengerRoomSnapshotDiagnostics;
   /** 비프로덕션 — `x-samarket-e2e-room-diag` 로 활성화된 E2E 방 스냅샷 계측 */
   e2eRoomSnapshotDiag?: boolean;
@@ -6913,6 +6939,7 @@ const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN = 8;
 const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX = 12;
 
 function effectiveSnapshotMessageLimitForCache(options?: GetCommunityMessengerRoomSnapshotOptions): number {
+  if (options?.snapshotTier === "silent_delta") return 0;
   const raw = clampCommunityMessengerSnapshotMessageLimit(options?.initialMessageLimit);
   if (options?.snapshotTier === "critical") {
     return Math.min(
@@ -6961,7 +6988,7 @@ function messengerRoomSnapshotCacheKey(
   messageLimit: number,
   hydrateFullMemberList: boolean,
   deferSnapshotSecondary: boolean,
-  snapshotTier: "critical" | "full" | "fast"
+  snapshotTier: "critical" | "full" | "fast" | "silent_delta"
 ): string {
   return `${trimText(userId)}\0${trimText(roomId).toLowerCase()}\0${messageLimit}\0${hydrateFullMemberList ? "1" : "0"}\0${
     deferSnapshotSecondary ? "1" : "0"
@@ -7104,6 +7131,35 @@ export async function getCommunityMessengerRoomSnapshot(
   roomId: string,
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
+  const id = trimText(roomId);
+  if (!id) return null;
+
+  if (options?.snapshotTier === "silent_delta") {
+    const cacheKey = messengerRoomSnapshotCacheKey(userId, id, 0, false, true, "silent_delta");
+    const existing = roomSnapshotInflight.get(cacheKey);
+    if (existing) {
+      if (options?.diagnostics) {
+        existing.diagReplicaRefs.add(options.diagnostics);
+      }
+      return existing.promise;
+    }
+    const diagSink: CommunityMessengerRoomSnapshotDiagnostics = {};
+    const diagReplicaRefs = new Set<CommunityMessengerRoomSnapshotDiagnostics>();
+    if (options?.diagnostics) {
+      diagReplicaRefs.add(options.diagnostics);
+    }
+    const promise = loadCommunityMessengerRoomSilentDeltaSnapshot(userId, id)
+      .then((snap) => {
+        replicateRoomSnapshotDiagnosticsToTargets(diagSink, diagReplicaRefs);
+        return snap;
+      })
+      .finally(() => {
+        roomSnapshotInflight.delete(cacheKey);
+      });
+    roomSnapshotInflight.set(cacheKey, { promise, diagSink, diagReplicaRefs });
+    return promise;
+  }
+
   const messageLimit = effectiveSnapshotMessageLimitForCache(options);
   const hydrateFullMemberList = options?.hydrateFullMemberList !== false;
   const deferSnapshotSecondary = options?.deferSnapshotSecondary === true;
@@ -7113,8 +7169,6 @@ export async function getCommunityMessengerRoomSnapshot(
       : options?.snapshotTier === "fast"
         ? "fast"
         : "full";
-  const id = trimText(roomId);
-  if (!id) return null;
   /**
    * 계측 ref 가 있어도 inflight 는 유지한다. `load*` 는 공용 `diagSink` 만 갱신하고,
    * 완료 시점에 각 호출자 `options.diagnostics` 로 동일 내용을 복제한다(동시 요청 1회 페치).
@@ -7163,6 +7217,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   roomId: string,
   options?: GetCommunityMessengerRoomSnapshotOptions
 ): Promise<CommunityMessengerRoomSnapshot | null> {
+  if (options?.snapshotTier === "silent_delta") return null;
   const tBootstrap0 = performance.now();
   const isCriticalTier = options?.snapshotTier === "critical";
   const isFastTier = options?.snapshotTier === "fast";
@@ -7684,7 +7739,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     /**
      * seed(lite) / RSC 첫 응답: 통화·presence·trade context enrich 은 첫 응답에서 await 하지 않는다.
      * 거래 방 상품 카드(`tradeChatRoomDetail`)는 위에서 프로필과 병렬 로드되어 스냅샷에 포함된다.
-     * `bootstrapEnrichmentPending` + 클라 silent `GET .../bootstrap` 이 나머지를 합류한다.
+     * `bootstrapEnrichmentPending` + 클라 `snapshotTier=silent_delta` 사일런트 GET 이 포인터·unread 만 합류한다.
      */
     if (diagnostics) {
       diagnostics.normalizeTimelineParallelOuterEndMs = Math.round(performance.now() - tBootstrap0);

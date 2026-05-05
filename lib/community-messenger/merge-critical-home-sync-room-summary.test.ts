@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
   mergeTradeRoomContextMetaPreferLocalDetail,
 } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import {
+  clearLocalReadGuardsForTests,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function room(partial: Partial<CommunityMessengerRoomSummary> & Pick<CommunityMessengerRoomSummary, "id">): CommunityMessengerRoomSummary {
@@ -69,6 +73,10 @@ describe("mergeTradeRoomContextMetaPreferLocalDetail", () => {
 });
 
 describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
+  beforeEach(() => {
+    clearLocalReadGuardsForTests();
+  });
+
   it("preserves prev contextMeta when incoming dropped it", () => {
     const prev = room({
       id: "r1",
@@ -79,5 +87,34 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
     expect(out.unreadCount).toBe(3);
     expect(out.contextMeta?.kind).toBe("trade");
     expect(out.contextMeta?.headline).toBe("상품 A");
+  });
+
+  it("when local read guard is active, ignores stale positive unread for same lastMessageAt", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
+    const prev = room({
+      id: "r1",
+      lastMessageAt: ts,
+      unreadCount: 0,
+    });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const out = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming);
+    expect(out.unreadCount).toBe(0);
+  });
+
+  it("when guard active but lastMessageAt advances, allows server unread", () => {
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: "2026-01-02T00:00:00.000Z", source: "manual" });
+    const prev = room({
+      id: "r1",
+      lastMessageAt: "2026-01-03T00:00:00.000Z",
+      unreadCount: 0,
+    });
+    const incoming = room({
+      id: "r1",
+      lastMessageAt: "2026-01-03T01:00:00.000Z",
+      unreadCount: 2,
+    });
+    const out = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming);
+    expect(out.unreadCount).toBe(2);
   });
 });

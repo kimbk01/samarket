@@ -46,6 +46,8 @@ import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/mes
 import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
 import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { shouldAdvancePeerReadReceiptCursor } from "@/lib/community-messenger/room/messenger-peer-read-cursor-guard";
 import {
   createMessengerRoomBootstrapRefresh,
@@ -101,6 +103,8 @@ import {
   applyRoomSummaryPatched,
   getMessengerRealtimeRoomMessages,
   getMessengerRealtimeRoomSummary,
+  normalizeMessengerRealtimeRoomId,
+  useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   BackIcon,
@@ -300,10 +304,13 @@ export function useMessengerRoomClientPhase1({
     if (!viewerId) return;
     const rid = String(roomId ?? "").trim();
     if (!rid) return;
+    const ridNorm = normalizeMessengerRealtimeRoomId(rid);
     return onCommunityMessengerBusEvent((ev) => {
       if ("viewerUserId" in ev && String(ev.viewerUserId) !== viewerId) return;
+      const evRoomRaw = "roomId" in ev && typeof (ev as { roomId?: unknown }).roomId === "string" ? (ev as { roomId: string }).roomId : "";
+      const evRoomNorm = normalizeMessengerRealtimeRoomId(evRoomRaw);
+      if (evRoomNorm !== ridNorm) return;
       if (ev.type === "cm.room.incoming_message") {
-        if (ev.roomId !== rid) return;
         applyIncomingMessageEvent({
           viewerUserId: viewerId,
           roomId: rid,
@@ -311,14 +318,12 @@ export function useMessengerRoomClientPhase1({
           roomSummary: snapshotRef.current?.room ?? initialServerSnapshot?.room ?? undefined,
         });
       } else if (ev.type === "cm.room.read") {
-        if (ev.roomId !== rid) return;
         applyRoomReadEvent({
           viewerUserId: viewerId,
           roomId: rid,
           lastReadMessageId: ev.lastReadMessageId,
         });
       } else if (ev.type === "cm.room.summary_patch") {
-        if (ev.roomId !== rid) return;
         applyRoomSummaryPatched({
           viewerUserId: viewerId,
           roomId: rid,
@@ -326,7 +331,6 @@ export function useMessengerRoomClientPhase1({
           lastReadMessageId: ev.lastReadMessageId,
         });
       } else if (ev.type === "cm.room.local_unread") {
-        if (ev.roomId !== rid) return;
         applyRoomSummaryPatched({
           viewerUserId: viewerId,
           roomId: rid,
@@ -670,19 +674,75 @@ export function useMessengerRoomClientPhase1({
     }) => {
       const evRoom = payload.roomId.trim();
       const ledgerRoomId = streamRoomId.trim();
-      if (!evRoom || !ledgerRoomId || evRoom.toLowerCase() !== ledgerRoomId.toLowerCase()) return;
+      const routeRoomId =
+        typeof window !== "undefined"
+          ? window.location.pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/)?.[1]?.trim().toLowerCase() ?? null
+          : null;
+      const activeRoomId = useMessengerRealtimeStore.getState().activeRoomId;
+      if (!evRoom || !ledgerRoomId || evRoom.toLowerCase() !== ledgerRoomId.toLowerCase()) {
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: ledgerRoomId,
+          ignoredReason: "participant_room_id_mismatch",
+          payloadRoomId: evRoom || null,
+          streamRoomId: ledgerRoomId,
+          routeRoomId,
+          activeRoomId,
+        });
+        return;
+      }
       if (payload.eventType === "DELETE") return;
       const row = payload.newRecord;
       if (!row) return;
       const peerUid = String(row.user_id ?? "").trim();
       const snap = snapshotRef.current;
-      if (!snap || snap.room.roomType !== "direct" || !snap.readReceipt) return;
-      if (!peerUid || messengerUserIdsEqual(peerUid, snap.viewerUserId)) return;
+      if (!snap || snap.room.roomType !== "direct" || !snap.readReceipt) {
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap?.viewerUserId ?? null,
+          ignoredReason: !snap ? "no_snapshot" : snap.room.roomType !== "direct" ? "not_direct_room" : "no_read_receipt",
+          routeRoomId,
+          activeRoomId,
+        });
+        return;
+      }
+      if (!peerUid || messengerUserIdsEqual(peerUid, snap.viewerUserId)) {
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap.viewerUserId,
+          participantUserId: peerUid || null,
+          ignoredReason: "own_participant_row",
+          isSelf: true,
+          routeRoomId,
+          activeRoomId,
+        });
+        return;
+      }
       const lrmRaw = row.last_read_message_id;
       const lrmStr = typeof lrmRaw === "string" && lrmRaw.trim() ? lrmRaw.trim() : null;
       const lraRaw = row.last_read_at;
       const lraStr = typeof lraRaw === "string" && lraRaw.trim() ? lraRaw.trim() : null;
-      if (!lrmStr && !lraStr) return;
+      if (!lrmStr && !lraStr) {
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap.viewerUserId,
+          participantUserId: peerUid,
+          ignoredReason: "no_last_read_fields",
+          routeRoomId,
+          activeRoomId,
+        });
+        return;
+      }
+
+      cmRtReadSyncLog("participant_update_is_peer_read", {
+        roomId: ledgerRoomId,
+        viewerUserId: snap.viewerUserId,
+        participantUserId: peerUid,
+        lastReadMessageId: lrmStr,
+        lastReadAt: lraStr,
+        isPeer: true,
+        routeRoomId,
+        activeRoomId,
+      });
 
       const messageCreatedAtById = new Map<string, string>();
       for (const m of roomMessagesRef.current) {
@@ -706,6 +766,33 @@ export function useMessengerRoomClientPhase1({
           messageCreatedAtById,
         })
       ) {
+        cmRtReadSyncLog("peer_read_pointer_before_after", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap.viewerUserId,
+          participantUserId: peerUid,
+          before: {
+            lastReadMessageId: snap.readReceipt?.lastReadMessageId ?? null,
+            lastReadAt: snap.readReceipt?.lastReadAt ?? null,
+          },
+          after: { lastReadMessageId: lrmStr, lastReadAt: lraStr },
+          ignoredReason: "shouldAdvancePeerReadReceiptCursor_false",
+        });
+        cmReadUiLog("peer_read_pointer_blocked", {
+          roomId: ledgerRoomId,
+          source: "realtime",
+          peerUserId: peerUid,
+          nextLastReadMessageId: lrmStr,
+          nextLastReadAt: lraStr,
+          prevLastReadMessageId: snap.readReceipt?.lastReadMessageId ?? null,
+          reason: "shouldAdvancePeerReadReceiptCursor_false",
+        });
+        cmRtReadSyncLog("event_ignored_reason", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap.viewerUserId,
+          ignoredReason: "peer_read_cursor_not_advanced",
+          routeRoomId,
+          activeRoomId,
+        });
         return;
       }
 
@@ -728,6 +815,33 @@ export function useMessengerRoomClientPhase1({
             ...(createdAtForCursor != null ? { lastReadMessageCreatedAt: createdAtForCursor } : {}),
           },
         };
+      });
+      cmRtReadSyncLog("read_receipt_patch_apply", {
+        roomId: ledgerRoomId,
+        viewerUserId: snap.viewerUserId,
+        participantUserId: peerUid,
+        lastReadMessageId: lrmStr,
+        lastReadAt: lraStr,
+        routeRoomId,
+        activeRoomId,
+      });
+      cmRtReadSyncLog("bubble_unread_recomputed", {
+        roomId: ledgerRoomId,
+        viewerUserId: snap.viewerUserId,
+        lastReadMessageId: lrmStr,
+      });
+      cmReadUiLog("peer_read_pointer_update", {
+        roomId: ledgerRoomId,
+        source: "realtime",
+        peerUserId: peerUid,
+        lastReadMessageId: lrmStr,
+        lastReadAt: lraStr,
+        reason: "participant_postgres_update",
+      });
+      cmReadUiLog("room_bubble_read_state_patch", {
+        roomId: ledgerRoomId,
+        source: "realtime",
+        reason: "readReceipt_snapshot_merge",
       });
       const uid = snap.viewerUserId.trim();
       if (uid) {

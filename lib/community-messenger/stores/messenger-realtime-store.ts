@@ -30,6 +30,12 @@ import {
   pruneTrackedRoomMaps,
 } from "@/lib/community-messenger/stores/messenger-realtime-prune";
 import { sessionKeysMatchMessage } from "@/lib/community-messenger/call-event-message";
+import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
+import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
+import {
+  cmReadBadgeLog,
+  resolveUnreadWithLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
 
 type IncomingMessageEventInput = {
   viewerUserId?: string | null;
@@ -77,9 +83,14 @@ type MessengerRealtimeState = {
 
 const seenIncomingMessageIdsByRoom = new Map<string, Set<string>>();
 
+/** Realtime·DB room_id 와 부트스트랩 room.id 의 UUID 대소문자 차이로 스토어 키가 갈라지지 않게 한다 */
 function normalizeRoomId(roomId: string | null | undefined): string {
-  return String(roomId ?? "").trim();
+  return String(roomId ?? "")
+    .trim()
+    .toLowerCase();
 }
+
+export { normalizeRoomId as normalizeMessengerRealtimeRoomId };
 
 function currentDocumentVisibleAndFocused(): boolean {
   if (typeof document === "undefined") return true;
@@ -87,7 +98,17 @@ function currentDocumentVisibleAndFocused(): boolean {
   return typeof document.hasFocus !== "function" || document.hasFocus();
 }
 
+/** 실제로 커뮤니티 메신저 방 라우트를 보고 있을 때만 “방 안에서 읽는 중” 판정에 사용 */
+function messengerRoomRouteRoomIdNormFromPathname(): string | null {
+  if (typeof window === "undefined") return null;
+  const m = window.location.pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/);
+  const seg = m?.[1]?.trim().toLowerCase() ?? "";
+  return seg || null;
+}
+
 function activeRoomActuallyReadable(roomId: string, activeRoomId: string | null): boolean {
+  const routeRoom = messengerRoomRouteRoomIdNormFromPathname();
+  if (!routeRoom || routeRoom !== roomId) return false;
   if (activeRoomId !== roomId || !currentDocumentVisibleAndFocused()) return false;
   const position = useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(roomId);
   return position === "at-bottom" || position === "near-bottom";
@@ -260,13 +281,37 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     if (!bootstrap) return;
     const nextSummaries: Record<string, CommunityMessengerRoomSummary> = {};
     const nextUnreadByRoomId: Record<string, number> = {};
+    const canonicalIds = new Set<string>();
     for (const room of [...(bootstrap.chats ?? []), ...(bootstrap.groups ?? [])]) {
-      nextSummaries[room.id] = room;
-      nextUnreadByRoomId[room.id] = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+      const rid = normalizeRoomId(room.id);
+      if (!rid) continue;
+      canonicalIds.add(rid);
+      const rawUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+      const unreadResolved = resolveUnreadWithLocalReadGuard({
+        roomId: room.id,
+        incomingUnread: rawUnread,
+        incomingLastMessageAt: String(room.lastMessageAt ?? ""),
+      });
+      if (unreadResolved.suppressed) {
+        cmReadBadgeLog("stale_unread_ignored_seed", { roomId: rid, phase: "bootstrap" });
+      }
+      nextSummaries[rid] =
+        unreadResolved.unreadCount !== rawUnread ? { ...room, unreadCount: unreadResolved.unreadCount } : room;
+      nextUnreadByRoomId[rid] = unreadResolved.unreadCount;
     }
     set((state) => {
-      let roomSummariesById = { ...state.roomSummariesById, ...nextSummaries };
-      let unreadByRoomId = { ...state.unreadByRoomId, ...nextUnreadByRoomId };
+      let roomSummariesById = { ...state.roomSummariesById };
+      let unreadByRoomId = { ...state.unreadByRoomId };
+      for (const k of Object.keys(roomSummariesById)) {
+        const nk = normalizeRoomId(k);
+        if (canonicalIds.has(nk) && nk !== k) delete roomSummariesById[k];
+      }
+      for (const k of Object.keys(unreadByRoomId)) {
+        const nk = normalizeRoomId(k);
+        if (canonicalIds.has(nk) && nk !== k) delete unreadByRoomId[k];
+      }
+      roomSummariesById = { ...roomSummariesById, ...nextSummaries };
+      unreadByRoomId = { ...unreadByRoomId, ...nextUnreadByRoomId };
       let messagesByRoomId = state.messagesByRoomId;
       let lastReadByRoomId = state.lastReadByRoomId;
       const pr = maybePruneWhenOverCap({
@@ -298,14 +343,27 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     const rid = normalizeRoomId(snapshot.room.id);
     if (!rid) return;
     set((state) => {
-      let roomSummariesById = { ...state.roomSummariesById, [rid]: snapshot.room };
+      const rawUnread = Math.max(0, Math.floor(Number(snapshot.room.unreadCount) || 0));
+      const unreadResolved = resolveUnreadWithLocalReadGuard({
+        roomId: snapshot.room.id,
+        incomingUnread: rawUnread,
+        incomingLastMessageAt: String(snapshot.room.lastMessageAt ?? ""),
+      });
+      if (unreadResolved.suppressed) {
+        cmReadBadgeLog("stale_unread_ignored_seed", { roomId: rid, phase: "room_snapshot" });
+      }
+      const roomRow =
+        unreadResolved.unreadCount !== rawUnread
+          ? { ...snapshot.room, unreadCount: unreadResolved.unreadCount }
+          : snapshot.room;
+      let roomSummariesById = { ...state.roomSummariesById, [rid]: roomRow };
       let messagesByRoomId = {
         ...state.messagesByRoomId,
         [rid]: snapshot.messages ?? state.messagesByRoomId[rid] ?? [],
       };
       let unreadByRoomId = {
         ...state.unreadByRoomId,
-        [rid]: Math.max(0, Math.floor(Number(snapshot.room.unreadCount) || 0)),
+        [rid]: unreadResolved.unreadCount,
       };
       let lastReadByRoomId = {
         ...state.lastReadByRoomId,
@@ -362,6 +420,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         explicitMessage?.senderId ??
         (typeof input.messageRow?.sender_id === "string" ? input.messageRow.sender_id.trim() : null);
       const isMine = Boolean(viewer && senderId && messengerUserIdsEqual(senderId, viewer));
+      const routeRoomNorm = messengerRoomRouteRoomIdNormFromPathname();
       const sameRoomReadable = activeRoomActuallyReadable(rid, state.activeRoomId);
       const shouldIncrementUnread = !duplicate && !isMine && !sameRoomReadable;
       const baseUnread = Math.max(
@@ -369,6 +428,54 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         Number(currentSummary?.unreadCount ?? state.unreadByRoomId[rid] ?? 0) || 0
       );
       const nextUnread = shouldIncrementUnread ? baseUnread + 1 : baseUnread;
+
+      const badgeBasePayload = {
+        roomId: rid,
+        messageId: incomingMessageId || null,
+        senderId: senderId ?? null,
+        myUserId: viewer ?? null,
+        activeRoomId: state.activeRoomId,
+        routeRoomId: routeRoomNorm,
+        isSelf: isMine,
+        isActiveRoom: sameRoomReadable,
+        source: "realtime" as const,
+      };
+      cmReceiveBadgeLog("sender_check", { ...badgeBasePayload, beforeUnread: null, afterUnread: null });
+      cmReceiveBadgeLog("active_room_check", { ...badgeBasePayload, beforeUnread: null, afterUnread: null });
+
+      if (!duplicate && !isMine && sameRoomReadable) {
+        cmReceiveBadgeLog("realtime_message_ignored_active_room", {
+          ...badgeBasePayload,
+          beforeUnread: baseUnread,
+          afterUnread: baseUnread,
+        });
+      }
+
+      if (shouldIncrementUnread) {
+        cmReceiveBadgeLog("realtime_message_badge_increment_start", {
+          ...badgeBasePayload,
+          beforeUnread: baseUnread,
+          afterUnread: nextUnread,
+        });
+        cmReadUiLog("receive_message_badge_increment", {
+          roomId: rid,
+          source: "realtime",
+          beforeUnread: baseUnread,
+          afterUnread: nextUnread,
+          reason: "applyIncomingMessageEvent_inactive_or_background_room",
+        });
+        cmReceiveBadgeLog("realtime_message_badge_increment_done", {
+          ...badgeBasePayload,
+          beforeUnread: baseUnread,
+          afterUnread: nextUnread,
+        });
+      }
+
+      cmReceiveBadgeLog("unread_store_before_after", {
+        ...badgeBasePayload,
+        beforeUnread: baseUnread,
+        afterUnread: nextUnread,
+      });
 
       const patchedSummary = currentSummary
         ? patchSummaryFromPreview(currentSummary, preview, nextUnread)
@@ -446,10 +553,39 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     set((state) => {
       const viewer = viewerFromInput || state.viewerUserId;
       const current = state.roomSummariesById[rid];
-      const nextUnread =
+      let nextUnread =
         typeof input.unreadCount === "number" && Number.isFinite(input.unreadCount)
           ? Math.max(0, Math.floor(input.unreadCount))
           : Math.max(0, Math.floor(Number(state.unreadByRoomId[rid] ?? current?.unreadCount ?? 0) || 0));
+      if (typeof input.unreadCount === "number" && Number.isFinite(input.unreadCount)) {
+        const floorIn = Math.max(0, Math.floor(input.unreadCount));
+        if (floorIn > 0) {
+          const incomingLm = String(input.summaryPatch?.lastMessageAt ?? current?.lastMessageAt ?? "");
+          const resolved = resolveUnreadWithLocalReadGuard({
+            roomId: rid,
+            incomingUnread: floorIn,
+            incomingLastMessageAt: incomingLm,
+          });
+          nextUnread = resolved.unreadCount;
+          if (resolved.suppressed) {
+            cmReadBadgeLog("stale_unread_ignored_summary_patch", { roomId: rid });
+            if (current?.contextMeta?.kind === "trade") {
+              const m = current.contextMeta;
+              cmReadUiLog("stale_trade_unread_ignored", {
+                roomId: rid,
+                postId: typeof m.postId === "string" ? m.postId : null,
+                productChatId: typeof m.productChatId === "string" ? m.productChatId : null,
+                source: "realtime",
+                beforeUnread: floorIn,
+                afterUnread: nextUnread,
+                reason: "local_read_guard_summary_patch",
+              });
+            }
+          } else if (resolved.allowedNewMessage && floorIn > 0) {
+            cmReadBadgeLog("unread_allowed_new_message", { roomId: rid, source: "realtime_summary_patch" });
+          }
+        }
+      }
       if (!current) {
         const unreadByRoomId = { ...state.unreadByRoomId, [rid]: nextUnread };
         const totalUnread = recomputeTotalUnread(unreadByRoomId);

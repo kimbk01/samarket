@@ -40,6 +40,7 @@ import {
   cmReceiveLatencyMark,
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
@@ -189,6 +190,17 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
       return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
     });
+    const inserted = batch.filter((e) => e.eventType === "INSERT");
+    if (inserted.length > 0 && snap) {
+      const lastIns = inserted[inserted.length - 1]!;
+      cmRtReadSyncLog("message_insert_apply_to_room", {
+        roomId: streamRoomId.trim(),
+        routeRoomId: routeRoomId.trim(),
+        viewerUserId: snap.viewerUserId,
+        messageId: String(lastIns.message.id ?? "").trim() || null,
+        batchInsertCount: inserted.length,
+      });
+    }
     if (insertFromOthers > 0 && rid) {
       useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
     }

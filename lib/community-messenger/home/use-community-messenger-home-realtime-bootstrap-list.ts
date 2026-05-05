@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
@@ -14,11 +15,13 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
+import { cmReadBadgeLog, setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
 import {
   applyIncomingMessageEvent,
   applyRoomReadEvent,
   applyRoomSummaryPatched,
   getMessengerRealtimeRoomSummary,
+  normalizeMessengerRealtimeRoomId,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   type CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -203,6 +206,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   const applyParticipantUnreadDelta = useCallback(
     (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => {
       const rid = String(hint.roomId ?? "").trim();
+      cmRtReadSyncLog("list_unread_increment_apply", {
+        roomId: rid,
+        viewerUserId: String(userId ?? "").trim() || null,
+        unreadCount: hint.unreadCount,
+        lastReadMessageId: hint.lastReadMessageId ?? null,
+        lastReadAt: hint.lastReadAt ?? null,
+        channelScope: "home_meta_self_delta",
+      });
       applyRoomSummaryPatched({
         viewerUserId: String(userId ?? "").trim() || null,
         roomId: rid,
@@ -212,7 +223,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       const latestSummary = rid ? getMessengerRealtimeRoomSummary(rid) : null;
       setData((prev) => {
         if (!prev) return prev;
-        const existing = [...prev.chats, ...prev.groups].find((r) => r.id === hint.roomId);
+        const hintNorm = normalizeMessengerRealtimeRoomId(hint.roomId);
+        const existing = [...prev.chats, ...prev.groups].find(
+          (r) => normalizeMessengerRealtimeRoomId(r.id) === hintNorm
+        );
         const summary = latestSummary;
         if (!summary) {
           queueMicrotask(() => {
@@ -271,9 +285,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         setData((prev) => {
           if (!prev) return prev;
           let hit = false;
+          const evRoomNorm = normalizeMessengerRealtimeRoomId(ev.roomId);
           const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
             rooms.map((room) => {
-              if (room.id !== ev.roomId) return room;
+              if (normalizeMessengerRealtimeRoomId(room.id) !== evRoomNorm) return room;
               hit = true;
               if (communityMessengerRoomIsTrade(room)) tradeRoomForLegacyUnreadResync = room.id;
               return { ...room, unreadCount: ev.unreadCount };
@@ -340,6 +355,13 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
       if (ev.type === "cm.room.read") {
         if (String(ev.viewerUserId) !== me) return;
+        const summaryBefore = getMessengerRealtimeRoomSummary(ev.roomId);
+        setLocalReadGuard({
+          roomId: ev.roomId,
+          referenceLastMessageAt: String(summaryBefore?.lastMessageAt ?? ""),
+          source: "bus_sync",
+        });
+        cmReadBadgeLog("read_bus_receive", { roomId: ev.roomId });
         applyRoomReadEvent({
           viewerUserId: me,
           roomId: ev.roomId,

@@ -12,6 +12,11 @@ function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** `messenger-realtime-store.normalizeRoomId` 와 동일 — 목록 행 id 와 INSERT `room_id` 대소문자 불일치 방지 */
+function normalizeCmListRoomId(roomId: string): string {
+  return String(roomId ?? "").trim().toLowerCase();
+}
+
 function normalizeMessageType(raw: string): CommunityMessengerMessageType {
   if (
     raw === "image" ||
@@ -74,7 +79,8 @@ function patchRoomInList(
   roomId: string,
   patch: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
 ): CommunityMessengerRoomSummary[] {
-  const idx = rooms.findIndex((r) => String(r.id) === String(roomId));
+  const target = normalizeCmListRoomId(roomId);
+  const idx = rooms.findIndex((r) => normalizeCmListRoomId(String(r.id)) === target);
   if (idx < 0) return rooms;
   const cur = rooms[idx]!;
   const samePreview =
@@ -104,8 +110,9 @@ function bumpRoomUnreadIfNeeded(
 ): CommunityMessengerRoomSummary[] {
   if (!boost) return rooms;
   let hit = false;
+  const target = normalizeCmListRoomId(roomId);
   const next = rooms.map((r) => {
-    if (String(r.id) !== String(roomId)) return r;
+    if (normalizeCmListRoomId(String(r.id)) !== target) return r;
     hit = true;
     return { ...r, unreadCount: Math.max(0, (r.unreadCount ?? 0) + 1) };
   });
@@ -160,17 +167,19 @@ export function patchBootstrapRoomListForSenderLocalEcho(
     const pc = patchRoomInList(chats0, rid, preview);
     const pg = patchRoomInList(groups0, rid, preview);
     if (pc === chats0 && pg === groups0) return data;
-    nextChats = pc.map((r) => (String(r.id) === rid ? { ...r, unreadCount: 0 } : r));
-    nextGroups = pg.map((r) => (String(r.id) === rid ? { ...r, unreadCount: 0 } : r));
+    const ridNorm = normalizeCmListRoomId(rid);
+    nextChats = pc.map((r) => (normalizeCmListRoomId(String(r.id)) === ridNorm ? { ...r, unreadCount: 0 } : r));
+    nextGroups = pg.map((r) => (normalizeCmListRoomId(String(r.id)) === ridNorm ? { ...r, unreadCount: 0 } : r));
   } else {
     let hit = false;
+    const ridNorm = normalizeCmListRoomId(rid);
     nextChats = chats0.map((r) => {
-      if (String(r.id) !== rid) return r;
+      if (normalizeCmListRoomId(String(r.id)) !== ridNorm) return r;
       hit = true;
       return { ...r, unreadCount: 0 };
     });
     nextGroups = groups0.map((r) => {
-      if (String(r.id) !== rid) return r;
+      if (normalizeCmListRoomId(String(r.id)) !== ridNorm) return r;
       hit = true;
       return { ...r, unreadCount: 0 };
     });

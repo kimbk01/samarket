@@ -83,8 +83,15 @@ function mergeLegacyProductChatIntoItemTradeRow(
   /** 통합 `chat_room` 행이 있으면 미읽음은 커서 힌트(0/1)만 쓴다 — 레거시 `product_chats` 카운터와 max 하면 배지가 부풀어 오름 */
   const mergedUnread =
     cr.source === "chat_room" ? (cr.unreadCount ?? 0) : Math.max(cr.unreadCount ?? 0, pc.unreadCount ?? 0);
+  const cmLink =
+    typeof cr.communityMessengerRoomId === "string" && cr.communityMessengerRoomId.trim()
+      ? cr.communityMessengerRoomId.trim()
+      : typeof pc.communityMessengerRoomId === "string" && pc.communityMessengerRoomId.trim()
+        ? pc.communityMessengerRoomId.trim()
+        : undefined;
   return {
     ...cr,
+    ...(cmLink ? { communityMessengerRoomId: cmLink } : null),
     lastMessageAt: newer.lastMessageAt,
     lastMessage: newer.lastMessage,
     unreadCount: mergedUnread,
@@ -148,7 +155,7 @@ function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRow[] {
 }
 
 const CHAT_ROOMS_LIST_SELECT =
-  "id, room_type, item_id, seller_id, buyer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id";
+  "id, room_type, item_id, seller_id, buyer_id, meeting_id, last_message_id, last_message_at, last_message_preview, created_at, trade_status, initiator_id, peer_id, related_post_id, related_comment_id, related_group_id, related_business_id, context_type, store_order_id, community_messenger_room_id";
 
 async function fetchParticipantChatRoomsChunked(
   sbAny: import("@supabase/supabase-js").SupabaseClient<any>,
@@ -214,7 +221,8 @@ export async function GET(req: NextRequest) {
       unread_count_buyer,
       created_at,
       seller_completed_at,
-      buyer_confirmed_at
+      buyer_confirmed_at,
+      community_messenger_room_id
     `;
 
   const [pcRes, partRes] = await Promise.all([
@@ -259,6 +267,7 @@ export async function GET(req: NextRequest) {
     post_id: string;
     seller_id: string;
     buyer_id: string;
+    community_messenger_room_id?: string | null;
     last_message_at: string | null;
     last_message_preview: string | null;
     unread_count_seller: number;
@@ -290,6 +299,7 @@ export async function GET(req: NextRequest) {
     last_message_preview: string | null;
     created_at: string;
     trade_status?: string;
+    community_messenger_room_id?: string | null;
   }[];
 
   const soRoomRows = allCrRows.filter((r) => String(r.room_type) === "store_order") as {
@@ -404,6 +414,9 @@ export async function GET(req: NextRequest) {
       chatDomain: "trade",
       roomTitle: partnerNickname,
       roomSubtitle: amISeller ? "상대방 · 구매자" : "상대방 · 판매자",
+      ...(typeof r.community_messenger_room_id === "string" && r.community_messenger_room_id.trim()
+        ? { communityMessengerRoomId: r.community_messenger_room_id.trim() }
+        : null),
     };
   });
 
@@ -443,6 +456,9 @@ export async function GET(req: NextRequest) {
       chatDomain: "trade",
       roomTitle: nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8),
       roomSubtitle: amISeller ? "상대방 · 구매자" : "상대방 · 판매자",
+      ...(typeof r.community_messenger_room_id === "string" && r.community_messenger_room_id.trim()
+        ? { communityMessengerRoomId: r.community_messenger_room_id.trim() }
+        : null),
     };
   });
 

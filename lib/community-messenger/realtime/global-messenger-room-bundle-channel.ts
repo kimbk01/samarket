@@ -31,6 +31,7 @@ import {
 } from "@/lib/community-messenger/messenger-latency-config";
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { recordMessengerGlobalBundleSupabaseChannelGaugeDelta } from "@/lib/runtime/samarket-runtime-debug";
+import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 
 /** Supabase postgres_changes `in` 필터 값 한도 — Realtime 채널 수와 WAL 부하 균형 */
 const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
@@ -272,8 +273,33 @@ export function createGlobalMessengerRoomBundleEntry(args: {
         const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
         const rid = typeof row?.room_id === "string" ? row.room_id.trim() : "";
         const roomKey = normalizeRoomKey(rid);
-        if (!roomKey || !entry.listenersByRoom.has(roomKey)) return;
+        if (!roomKey || !entry.listenersByRoom.has(roomKey)) {
+          cmRtReadSyncLog("event_ignored_reason", {
+            roomId: rid || null,
+            channelScope: "room_bundle",
+            ignoredReason: !roomKey ? "no_room_id_in_row" : "no_listeners_for_room_key",
+          });
+          return;
+        }
         if (!cancelled) {
+          const newR = payload.new && typeof payload.new === "object" ? (payload.new as Record<string, unknown>) : null;
+          const uid =
+            newR && typeof newR.user_id === "string" ? newR.user_id.trim() : String(newR?.user_id ?? "").trim() || null;
+          const lrm = newR && typeof newR.last_read_message_id === "string" ? newR.last_read_message_id.trim() : null;
+          const lra = newR && typeof newR.last_read_at === "string" ? newR.last_read_at.trim() : null;
+          const unc =
+            newR && typeof newR.unread_count !== "undefined"
+              ? Math.max(0, Number(newR.unread_count ?? 0) || 0)
+              : null;
+          cmRtReadSyncLog("participant_update_received", {
+            channelScope: "room_bundle",
+            roomId: rid,
+            participantUserId: uid,
+            lastReadMessageId: lrm,
+            lastReadAt: lra,
+            unreadCount: unc,
+            eventType: payload.eventType,
+          });
           getOrCreateRoomSchedulers(entry, roomKey).meta.schedule();
           emitRoomParticipantPostgresForRoom(entry, rid, {
             eventType: payload.eventType,

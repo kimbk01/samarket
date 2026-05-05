@@ -16,6 +16,8 @@ import {
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
+import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
+import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
@@ -47,7 +49,10 @@ import { TradeChatListRowContent } from "@/components/community-messenger/trade-
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
-import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  normalizeMessengerRealtimeRoomId,
+  useMessengerRealtimeStore,
+} from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 const ACTION_W = 78;
 const DRAG_START_X = 16;
@@ -184,6 +189,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const deliveryStepLabel = commerceMeta?.kind === "delivery" ? commerceMeta.stepLabel?.trim() || null : null;
 
   const isTradeChatListVisual = listVisual === "trade";
+  const roomStoreId = useMemo(() => normalizeMessengerRealtimeRoomId(room.id), [room.id]);
   const tradeRowModel = useMemo(
     () => (isTradeChatListVisual ? buildTradeChatListRowModel(room) : null),
     [isTradeChatListVisual, room]
@@ -194,28 +200,82 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     productPriceText: tradeRowModel?.productPriceText,
   });
   /**
-   * `unreadByRoomId`는 participant/mark_read/INSERT 경로에서 즉시 갱신된다.
-   * 부트스트랩 `room.unreadCount`는 home-sync·병합이 늦으면 남고, `Math.max(부트스트랩, 스토어)`는 **읽음(0) 후에도 큰 숫자가 남는** 버그가 된다.
-   * 키가 있으면 스토어를 단일 표시 소스로 쓴다.
+   * 우선순위: `unreadByRoomId` → `roomSummariesById`(존재 시 unread만) → 부트스트략 행.
+   * `Math.max(부트스트략, 스토어요약)` 금지 — 읽음 0 후 스토어 0이 부트스트략 숫자에 덮였던 버그 방지.
    */
   const liveUnreadFromRealtimeStore = useMessengerRealtimeStore((s) => {
-    if (!Object.prototype.hasOwnProperty.call(s.unreadByRoomId, room.id)) return undefined;
-    const raw = s.unreadByRoomId[room.id];
+    if (!Object.prototype.hasOwnProperty.call(s.unreadByRoomId, roomStoreId)) return undefined;
+    const raw = s.unreadByRoomId[roomStoreId];
     return typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
   });
-  const liveUnreadFromSummary = useMessengerRealtimeStore((s) => {
-    const summaryUnread = s.roomSummariesById[room.id]?.unreadCount;
+  const liveUnreadFromSummaryOnly = useMessengerRealtimeStore((s) => {
+    if (!Object.prototype.hasOwnProperty.call(s.roomSummariesById, roomStoreId)) return undefined;
+    const summaryUnread = s.roomSummariesById[roomStoreId]?.unreadCount;
     return typeof summaryUnread === "number" && Number.isFinite(summaryUnread)
       ? Math.max(0, Math.floor(summaryUnread))
-      : undefined;
+      : 0;
   });
   const displayedUnreadCount =
     liveUnreadFromRealtimeStore !== undefined
       ? liveUnreadFromRealtimeStore
-      : Math.max(room.unreadCount, liveUnreadFromSummary ?? 0);
+      : liveUnreadFromSummaryOnly !== undefined
+        ? liveUnreadFromSummaryOnly
+        : Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+
+  const unreadDisplayTier =
+    liveUnreadFromRealtimeStore !== undefined
+      ? "cm-unreadByRoomId"
+      : liveUnreadFromSummaryOnly !== undefined
+        ? "cm-roomSummariesById"
+        : "bootstrap-room";
+
+  const unreadTierLoggedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const sig = `${roomStoreId}:${unreadDisplayTier}:${displayedUnreadCount}`;
+    if (unreadTierLoggedRef.current === sig) return;
+    unreadTierLoggedRef.current = sig;
+    cmReadUiLog("unread_source_selected", {
+      roomId: room.id,
+      postId: commerceMeta?.kind === "trade" ? commerceMeta.postId ?? null : null,
+      productChatId: commerceMeta?.kind === "trade" ? commerceMeta.productChatId ?? null : null,
+      source: unreadDisplayTier === "bootstrap-room" ? "local" : "cm",
+      tier: unreadDisplayTier,
+      beforeUnread: null,
+      afterUnread: displayedUnreadCount,
+      reason: "list_row_render",
+    });
+  }, [commerceMeta, displayedUnreadCount, room.id, roomStoreId, unreadDisplayTier]);
+
+  const tradeUnreadBadgeLoggedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isTradeChatListVisual) return;
+    const sig = `${roomStoreId}:${unreadDisplayTier}:${displayedUnreadCount}`;
+    if (tradeUnreadBadgeLoggedRef.current === sig) return;
+    tradeUnreadBadgeLoggedRef.current = sig;
+    const routeRoomId =
+      typeof window !== "undefined"
+        ? window.location.pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/)?.[1]?.trim().toLowerCase() ?? null
+        : null;
+    const unreadSource: "realtime" | "home-sync" | "silent_delta" | "manual" =
+      unreadDisplayTier === "bootstrap-room" ? "home-sync" : "realtime";
+    cmReceiveBadgeLog("trade_list_row_unread_render", {
+      roomId: room.id,
+      messageId: null,
+      senderId: null,
+      myUserId: viewerUserId ?? null,
+      activeRoomId: useMessengerRealtimeStore.getState().activeRoomId,
+      routeRoomId,
+      isSelf: false,
+      isActiveRoom: false,
+      tier: unreadDisplayTier,
+      beforeUnread: null,
+      afterUnread: displayedUnreadCount,
+      source: unreadSource,
+    });
+  }, [displayedUnreadCount, isTradeChatListVisual, room.id, roomStoreId, unreadDisplayTier, viewerUserId]);
   const lastClientMessage = useMessengerRealtimeStore((s) => {
     if (!isTradeChatListVisual) return null;
-    const arr = s.messagesByRoomId[room.id];
+    const arr = s.messagesByRoomId[roomStoreId];
     if (!arr?.length) return null;
     return arr[arr.length - 1] ?? null;
   });
