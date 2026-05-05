@@ -228,7 +228,10 @@ export function useMessageNotificationBridge(
               return;
             }
             if (!shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current)) {
-              playCoalescedChatNotificationSound(`community-messenger:${nextRoomId}:${nextUnread}`, "community_direct_chat");
+              playCoalescedChatNotificationSound(
+                `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
+                "community_direct_chat"
+              );
             }
             tryShowMessengerWebDesktopNotification({
               roomId: nextRoomId,

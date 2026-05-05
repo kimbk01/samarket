@@ -12,6 +12,7 @@ import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
@@ -28,8 +29,10 @@ import {
   type CommunityMessengerHomeRealtimeParticipantUnreadHint,
   useCommunityMessengerHomeRealtime,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
+import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
+let cmHomeRealtimeRefreshScheduleOrdinal = 0;
 
 /**
  * Phase1 가 연속으로 `cm.room.read` → `cm.room.local_unread`(0) 를 보낼 때
@@ -62,7 +65,10 @@ function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string):
 
 export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   userId: string | null | undefined;
+  /** 부트스트랩 홈 방 id + 라우트 오픈 방 — fingerprint 안정 분리 */
   roomIds: string[];
+  /** 거래·배달 채팅 리스트 visible 행 방 id 만 (`roomIds` 와 합쳐 INSERT 필터) */
+  extraRoomIds?: string[];
   homeRealtimeGateOpen: boolean;
   refresh: (silent?: boolean) => Promise<void>;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
@@ -75,6 +81,7 @@ export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
 export function useCommunityMessengerHomeRealtimeBootstrapList({
   userId,
   roomIds,
+  extraRoomIds,
   homeRealtimeGateOpen,
   refresh,
   setData,
@@ -98,6 +105,11 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   }, []);
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
+    cmHomeRealtimeRefreshScheduleOrdinal += 1;
+    cmRtStableSubLog("home_realtime_refresh_schedule", {
+      scheduleOrdinal: cmHomeRealtimeRefreshScheduleOrdinal,
+      atMs: Date.now(),
+    });
     const now = Date.now();
     const elapsed = now - homeRealtimeRefreshLastAtRef.current;
     const minGapMs = 280;
@@ -185,7 +197,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             cur = mergeBootstrapRoomSummaryIntoLists(cur, summary);
             continue;
           }
-          const next = patchBootstrapRoomListForRealtimeMessageInsert(cur, hint.roomId, hint.newRecord);
+          const senderRaw =
+            hint.newRecord && typeof hint.newRecord.sender_id === "string"
+              ? hint.newRecord.sender_id.trim()
+              : "";
+          const isMine = Boolean(me && senderRaw && messengerUserIdsEqual(senderRaw, me));
+          const next = patchBootstrapRoomListForRealtimeMessageInsert(cur, hint.roomId, hint.newRecord, {
+            boostUnreadCount: !isMine,
+          });
           if (next === cur) {
             if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
           } else {
@@ -407,6 +426,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   useCommunityMessengerHomeRealtime({
     userId: userId ?? null,
     roomIds,
+    extraRoomIds,
     enabled: Boolean(userId) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
     onRealtimeMessageInsertBatch: applyRealtimeMessageListBatch,

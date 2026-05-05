@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import { publishCommunityMessengerReadAckFromServer } from "@/lib/community-messenger/realtime/read-ack-broadcast-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,6 +131,14 @@ export async function PATCH(
         lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
         flushOpen: body.flushOpen === true,
       });
+      if (result.ok) {
+        void publishCommunityMessengerReadAckFromServer({
+          roomId,
+          readerUserId: auth.userId,
+          lastReadMessageId: result.lastReadMessageId ?? null,
+          lastReadAt: result.lastReadAt ?? null,
+        });
+      }
       return NextResponse.json(result, { status: result.ok ? 200 : 400 });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

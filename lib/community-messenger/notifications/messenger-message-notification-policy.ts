@@ -221,7 +221,11 @@ export function resolveParticipantUnreadDeltaInAppEffects(input: {
     return { playInAppMessageSound: false, showAppLevelBanner: false, dedupeKey: "" };
   }
 
-  const dedupe = buildMessengerMessageDedupeKey(input.targetRoomId, input.nextUnread);
+  /**
+   * 참가자 Realtime 은 message id 가 없다. `nextUnread` 단독 키는 읽음 후 동일 숫자로 다시 올 때
+   * `coalesced-chat-alert-sound` 세션 영구 dedupe 에 영구히 막히므로 전이·시각을 포함한다.
+   */
+  const dedupe = `messenger-participant:${input.targetRoomId}:${input.prevUnread}->${input.nextUnread}:${Date.now()}`;
 
   const soundOff =
     input.roomMuted === true ||

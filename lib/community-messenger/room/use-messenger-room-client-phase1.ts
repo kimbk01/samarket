@@ -77,6 +77,7 @@ import {
   recordRouteEntryElapsedMetricOnce,
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
 import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
 import { useMessengerRoomLocalIndexedDbSnapshot } from "@/lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot";
@@ -355,6 +356,12 @@ export function useMessengerRoomClientPhase1({
   const [loading, setLoading] = useState(false);
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
+
+  useEffect(() => {
+    const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
+    if (!viewerId || !roomReadyForRealtime) return;
+    return acquireCommunityMessengerReadAckBroadcast(viewerId);
+  }, [snapshot?.viewerUserId, initialServerSnapshot?.viewerUserId, roomReadyForRealtime]);
   const [busy, setBusy] = useState<string | null>(null);
   const [messageActionItem, setMessageActionItem] = useState<CommunityMessengerMessageActionOpenState | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
@@ -666,12 +673,15 @@ export function useMessengerRoomClientPhase1({
    * `refresh(true)` 만 기다리면 silent 부트스트랩 220ms coalesce 등으로 라벨이 늦거나 유실될 수 있다.
    */
   const onParticipantPostgresForPeerRead = useCallback(
-    (payload: {
-      eventType: string;
-      roomId: string;
-      newRecord: Record<string, unknown> | null;
-      oldRecord: Record<string, unknown> | null;
-    }) => {
+    (
+      payload: {
+        eventType: string;
+        roomId: string;
+        newRecord: Record<string, unknown> | null;
+        oldRecord: Record<string, unknown> | null;
+      },
+      applySource: "participant_pg" | "read_ack_broadcast" = "participant_pg"
+    ) => {
       const evRoom = payload.roomId.trim();
       const ledgerRoomId = streamRoomId.trim();
       const routeRoomId =
@@ -742,6 +752,7 @@ export function useMessengerRoomClientPhase1({
         isPeer: true,
         routeRoomId,
         activeRoomId,
+        channelScope: applySource,
       });
 
       const messageCreatedAtById = new Map<string, string>();
@@ -824,19 +835,37 @@ export function useMessengerRoomClientPhase1({
         lastReadAt: lraStr,
         routeRoomId,
         activeRoomId,
+        channelScope: applySource,
+      });
+      cmRtReadSyncLog("peer_read_pointer_update", {
+        roomId: ledgerRoomId,
+        viewerUserId: snap.viewerUserId,
+        participantUserId: peerUid,
+        lastReadMessageId: lrmStr,
+        lastReadAt: lraStr,
+        channelScope: applySource,
       });
       cmRtReadSyncLog("bubble_unread_recomputed", {
         roomId: ledgerRoomId,
         viewerUserId: snap.viewerUserId,
         lastReadMessageId: lrmStr,
+        channelScope: applySource,
       });
+      if (applySource === "read_ack_broadcast") {
+        cmRtReadSyncLog("bubble_unread_removed", {
+          roomId: ledgerRoomId,
+          viewerUserId: snap.viewerUserId,
+          lastReadMessageId: lrmStr,
+          channelScope: applySource,
+        });
+      }
       cmReadUiLog("peer_read_pointer_update", {
         roomId: ledgerRoomId,
-        source: "realtime",
+        source: applySource === "read_ack_broadcast" ? "read_ack_broadcast" : "realtime",
         peerUserId: peerUid,
         lastReadMessageId: lrmStr,
         lastReadAt: lraStr,
-        reason: "participant_postgres_update",
+        reason: applySource === "read_ack_broadcast" ? "read_ack_broadcast" : "participant_postgres_update",
       });
       cmReadUiLog("room_bubble_read_state_patch", {
         roomId: ledgerRoomId,
@@ -865,6 +894,34 @@ export function useMessengerRoomClientPhase1({
     },
     [streamRoomId, refresh]
   );
+
+  useEffect(() => {
+    const viewerId = snapshotRef.current?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
+    if (!viewerId) return;
+    const rid = String(roomId ?? "").trim();
+    const ridNorm = normalizeMessengerRealtimeRoomId(rid);
+    const ledgerNorm = normalizeMessengerRealtimeRoomId(String(streamRoomId ?? "").trim());
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.type !== "cm.room.peer_read_ack") return;
+      const evRoomNorm = normalizeMessengerRealtimeRoomId(ev.roomId);
+      if (evRoomNorm !== ledgerNorm && evRoomNorm !== ridNorm) return;
+      if (messengerUserIdsEqual(ev.readerUserId, viewerId)) return;
+      onParticipantPostgresForPeerRead(
+        {
+          eventType: "UPDATE",
+          roomId: ev.roomId,
+          newRecord: {
+            user_id: ev.readerUserId,
+            room_id: ev.roomId,
+            last_read_message_id: ev.lastReadMessageId,
+            last_read_at: ev.lastReadAt,
+          },
+          oldRecord: null,
+        },
+        "read_ack_broadcast"
+      );
+    });
+  }, [initialServerSnapshot?.viewerUserId, onParticipantPostgresForPeerRead, roomId, streamRoomId]);
 
   useMessengerRoomRealtimeMessageIngest({
     routeRoomId: String(roomId ?? "").trim(),

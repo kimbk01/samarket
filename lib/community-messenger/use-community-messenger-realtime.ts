@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-messenger/realtime/community-messenger-home-realtime-channels";
 import { createRealtimeAuthBridge } from "@/lib/community-messenger/realtime/community-messenger-realtime-auth-bridge";
 import {
@@ -41,6 +41,18 @@ import {
   cmReceiveLatencyMark,
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
+import {
+  cmRtRoomSubLog,
+  messengerRealtimeIsRoomSubscribedForMessages,
+  messengerRealtimeGetHomeChannelPhysicalBindCount,
+  normalizeCmRealtimeSubscribeRoomId,
+} from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
+import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
+import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+
+function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): string {
+  return [...new Set((ids ?? []).map((id) => normalizeCmRealtimeSubscribeRoomId(String(id))).filter(Boolean))].sort().join("\0");
+}
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
@@ -145,7 +157,7 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
 }): void {
   const row = args.hint.newRecord;
   const roomRaw = String(args.hint.roomId ?? "").trim();
-  const roomNorm = roomRaw.toLowerCase();
+  const roomNorm = normalizeCmRealtimeSubscribeRoomId(roomRaw);
   const sender = typeof row.sender_id === "string" ? row.sender_id.trim() : "";
   const messageId = typeof row.id === "string" ? row.id.trim() : "";
   const createdAt = typeof row.created_at === "string" ? row.created_at.trim() : "";
@@ -158,6 +170,15 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
       : null;
   const activeRoomId = useMessengerRealtimeStore.getState().activeRoomId;
   const isSelf = Boolean(sender && sender === viewer);
+  if (!isSelf && !messengerRealtimeIsRoomSubscribedForMessages(roomNorm)) {
+    cmRtRoomSubLog("realtime_message_not_subscribed", {
+      roomId: roomRaw,
+      messageId: messageId || null,
+      senderId: sender || null,
+      viewerUserId: viewer,
+      note: "hint_received_but_room_not_in_last_subscribed_snapshot",
+    });
+  }
   cmReceiveBadgeLog("realtime_message_received", {
     roomId: roomRaw,
     messageId: messageId || null,
@@ -249,6 +270,7 @@ function createHomeRealtimeEntry(args: {
   key: string;
   userId: string;
   roomIdsFingerprint: string;
+  visibleTradeRoomCount?: number;
 }): HomeRealtimeEntry {
   const sb = getSupabaseClient();
   const entry: HomeRealtimeEntry = {
@@ -264,15 +286,18 @@ function createHomeRealtimeEntry(args: {
   let cancelSchedulers: (() => void) | null = null;
   let authBridgeCleanup: (() => void) | null = null;
   let homeBound = false;
+  let releaseReadAckBroadcast: (() => void) | null = null;
 
   const bindHomeChannels = () => {
     if (cancelled || homeBound) return;
     homeBound = true;
+    releaseReadAckBroadcast = acquireCommunityMessengerReadAckBroadcast(args.userId);
     const { channels: next, cancelSchedulers: cancel } = bindCommunityMessengerHomeRealtimeChannels({
       sb,
       userId: args.userId,
       isCancelled: () => cancelled,
       roomIdsFingerprint: args.roomIdsFingerprint,
+      visibleTradeRoomCount: args.visibleTradeRoomCount,
       messageInsertHintRef: {
         current: (hint) => {
           notifyMessengerHomeRealtimeMessageInsert({ viewerUserId: args.userId, hint });
@@ -304,6 +329,8 @@ function createHomeRealtimeEntry(args: {
     authBridgeCleanup = null;
     cancelSchedulers?.();
     cancelSchedulers = null;
+    releaseReadAckBroadcast?.();
+    releaseReadAckBroadcast = null;
     const chLen = channels.length;
     if (chLen > 0) {
       recordMessengerHomeSupabaseHomeChannelGaugeDelta(-chLen);
@@ -319,7 +346,10 @@ function createHomeRealtimeEntry(args: {
 
 export function useCommunityMessengerHomeRealtime(args: {
   userId: string | null;
+  /** 부트스트랩 홈 방 id + URL 라우트 방 — fingerprint 안정 분리용 */
   roomIds?: string[];
+  /** 거래·배달 채팅 리스트 visible 행 방 id 만 — `roomIds` 와 합쳐 INSERT 필터 구성 */
+  extraRoomIds?: string[];
   enabled: boolean;
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
@@ -332,7 +362,54 @@ export function useCommunityMessengerHomeRealtime(args: {
     onRealtimeMessageInsertBatch: args.onRealtimeMessageInsertBatch,
     onParticipantUnreadDelta: args.onParticipantUnreadDelta,
   });
-  const roomIdsFingerprint = [...new Set((args.roomIds ?? []).filter(Boolean))].sort().join("\0");
+  const roomIdsContentKey = messengerHomeRealtimeRoomIdsContentKey(args.roomIds);
+  const extraRoomIdsContentKey = messengerHomeRealtimeRoomIdsContentKey(args.extraRoomIds);
+  const mergedNormalizedRoomIds = useMemo(() => {
+    const set = new Set<string>();
+    const add = (id: string | null | undefined) => {
+      const n = normalizeCmRealtimeSubscribeRoomId(id);
+      if (n) set.add(n);
+    };
+    for (const id of args.roomIds ?? []) add(id);
+    for (const id of args.extraRoomIds ?? []) add(id);
+    return [...set].sort();
+  }, [roomIdsContentKey, extraRoomIdsContentKey]);
+  const roomIdsFingerprint = mergedNormalizedRoomIds.join("\0");
+  const visibleTradeRoomCountForBind =
+    extraRoomIdsContentKey.length > 0 ? extraRoomIdsContentKey.split("\0").filter(Boolean).length : 0;
+
+  const prevFingerprintRef = useRef<string | null>(null);
+  const prevRoomKeyRef = useRef<string>("");
+  const prevExtraKeyRef = useRef<string>("");
+  useEffect(() => {
+    const prev = prevFingerprintRef.current;
+    const rk = roomIdsContentKey;
+    const ek = extraRoomIdsContentKey;
+    if (prev === null) {
+      prevFingerprintRef.current = roomIdsFingerprint;
+      prevRoomKeyRef.current = rk;
+      prevExtraKeyRef.current = ek;
+      return;
+    }
+    if (prev !== roomIdsFingerprint) {
+      const roomChanged = prevRoomKeyRef.current !== rk;
+      const extraChanged = prevExtraKeyRef.current !== ek;
+      let changedReason: "home_or_route_room_ids" | "visible_trade_room_ids" | "both" = "visible_trade_room_ids";
+      if (roomChanged && extraChanged) changedReason = "both";
+      else if (roomChanged) changedReason = "home_or_route_room_ids";
+      else changedReason = "visible_trade_room_ids";
+      prevRoomKeyRef.current = rk;
+      prevExtraKeyRef.current = ek;
+      prevFingerprintRef.current = roomIdsFingerprint;
+      cmRtStableSubLog("fingerprint_changed", {
+        prevFingerprintLength: prev.length,
+        nextFingerprintLength: roomIdsFingerprint.length,
+        changedReason,
+        rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+        visible_trade_room_count: ek.length ? ek.split("\0").filter(Boolean).length : 0,
+      });
+    }
+  }, [roomIdsFingerprint, roomIdsContentKey, extraRoomIdsContentKey]);
 
   useEffect(() => {
     listenerRef.current.onRefresh = args.onRefresh;
@@ -355,6 +432,7 @@ export function useCommunityMessengerHomeRealtime(args: {
         key,
         userId: args.userId,
         roomIdsFingerprint,
+        visibleTradeRoomCount: visibleTradeRoomCountForBind,
       });
       homeRealtimeEntries.set(key, entry);
     }

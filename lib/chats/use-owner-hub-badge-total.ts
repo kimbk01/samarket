@@ -6,9 +6,9 @@ import {
   getOwnerHubBadgeSnapshot,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
-import { useMessengerRealtimeStore } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   resolveBottomNavTradeTabBadgeCount,
+  resolveMessengerTabTotalUnreadBadgeCount,
 } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -29,9 +29,11 @@ export function useOwnerHubBadgeTotal(): number {
   return total;
 }
 
-function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
-  const s = getOwnerHubBadgeSnapshot();
+function tabUnreadFromBreakdown(icon: BottomNavIconKey, s: OwnerHubBadgeBreakdown): number {
   switch (icon) {
+    case "chat":
+      /** 필라이프 헤더 종 아이콘과 동일 — `applyCommunityMessengerUnreadOptimistic` 로 CM 즉시 반영 + 레거시 chatUnread */
+      return resolveMessengerTabTotalUnreadBadgeCount(s);
     case "trade":
       return resolveBottomNavTradeTabBadgeCount(s);
     case "community":
@@ -46,12 +48,16 @@ function tabUnreadFromSnapshot(icon: BottomNavIconKey): number {
 /**
  * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더.
  * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
+ *
+ * 메신저(`chat`) 탭은 Zustand 와 별도 소스를 쓰지 않고 **허브 스냅샷 단일 경로**만 사용한다.
+ * (`applyCommunityMessengerUnreadOptimistic` 가 CM 미읽음 방 개수를 즉시 패치 — 헤더 종과 교차 일치)
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
-  const messengerUnreadRooms = useMessengerRealtimeStore((state) => state.totalUnread);
-  const readSnapshotUnread = useCallback(() => tabUnreadFromSnapshot(icon), [icon]);
-  const snapshotUnread = useSyncExternalStore(subscribeOwnerHubBadge, readSnapshotUnread, () => 0);
-  const raw = icon === "chat" ? messengerUnreadRooms : snapshotUnread;
+  const readTabUnread = useCallback(
+    () => tabUnreadFromBreakdown(icon, getOwnerHubBadgeSnapshot()),
+    [icon]
+  );
+  const raw = useSyncExternalStore(subscribeOwnerHubBadge, readTabUnread, () => 0);
   const lastBumpRef = useRef<{ icon: BottomNavIconKey; n: number } | null>(null);
   useEffect(() => {
     const lb = lastBumpRef.current;

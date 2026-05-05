@@ -408,11 +408,11 @@ a,
   }
 }
 
-/* 메인 하단 탭: 탭 순서 기준 전환 — 본문 전폭 슬라이드(좌측 탭=우→좌 rtl, 우측 탭=좌→우 ltr) */
-@keyframes main-shell-tab-enter-ltr {
+/* 메인 셸 canonical 라우트 전환 — translate3d 만, forward 240ms / back 220ms */
+@keyframes main-shell-route-enter-ltr-kf {
   from {
-    transform: translate3d(-100%, 0, 0);
-    opacity: 0.97;
+    transform: translate3d(-18%, 0, 0);
+    opacity: 0.98;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -420,10 +420,10 @@ a,
   }
 }
 
-@keyframes main-shell-tab-enter-rtl {
+@keyframes main-shell-route-enter-rtl-kf {
   from {
     transform: translate3d(100%, 0, 0);
-    opacity: 0.97;
+    opacity: 0.98;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -431,21 +431,51 @@ a,
   }
 }
 
-.main-shell-tab-enter-ltr {
-  backface-visibility: hidden;
-  will-change: transform;
-  animation: main-shell-tab-enter-ltr 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+@keyframes main-shell-route-enter-subtle-kf {
+  from {
+    opacity: 0.98;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-.main-shell-tab-enter-rtl {
+.main-shell-route-enter-ltr-forward {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-tab-enter-rtl 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-ltr-kf 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.main-shell-route-enter-rtl-forward {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-enter-rtl-kf 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.main-shell-route-enter-ltr-back {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-enter-ltr-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.main-shell-route-enter-rtl-back {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-enter-rtl-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.main-shell-route-enter-subtle {
+  backface-visibility: hidden;
+  will-change: opacity;
+  animation: main-shell-route-enter-subtle-kf 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .main-shell-tab-enter-ltr,
-  .main-shell-tab-enter-rtl {
+  .main-shell-route-enter-ltr-forward,
+  .main-shell-route-enter-rtl-forward,
+  .main-shell-route-enter-ltr-back,
+  .main-shell-route-enter-rtl-back,
+  .main-shell-route-enter-subtle {
     animation: none;
     opacity: 1;
     transform: none;

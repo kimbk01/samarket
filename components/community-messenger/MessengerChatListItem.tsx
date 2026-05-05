@@ -49,6 +49,7 @@ import { TradeChatListRowContent } from "@/components/community-messenger/trade-
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
+import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 import {
   normalizeMessengerRealtimeRoomId,
   useMessengerRealtimeStore,
@@ -199,35 +200,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     productTitle: tradeRowModel?.productTitle ?? "",
     productPriceText: tradeRowModel?.productPriceText,
   });
-  /**
-   * 우선순위: `unreadByRoomId` → `roomSummariesById`(존재 시 unread만) → 부트스트략 행.
-   * `Math.max(부트스트략, 스토어요약)` 금지 — 읽음 0 후 스토어 0이 부트스트략 숫자에 덮였던 버그 방지.
-   */
-  const liveUnreadFromRealtimeStore = useMessengerRealtimeStore((s) => {
-    if (!Object.prototype.hasOwnProperty.call(s.unreadByRoomId, roomStoreId)) return undefined;
-    const raw = s.unreadByRoomId[roomStoreId];
-    return typeof raw === "number" && Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
-  });
-  const liveUnreadFromSummaryOnly = useMessengerRealtimeStore((s) => {
-    if (!Object.prototype.hasOwnProperty.call(s.roomSummariesById, roomStoreId)) return undefined;
-    const summaryUnread = s.roomSummariesById[roomStoreId]?.unreadCount;
-    return typeof summaryUnread === "number" && Number.isFinite(summaryUnread)
-      ? Math.max(0, Math.floor(summaryUnread))
-      : 0;
-  });
-  const displayedUnreadCount =
-    liveUnreadFromRealtimeStore !== undefined
-      ? liveUnreadFromRealtimeStore
-      : liveUnreadFromSummaryOnly !== undefined
-        ? liveUnreadFromSummaryOnly
-        : Math.max(0, Math.floor(Number(room.unreadCount) || 0));
-
-  const unreadDisplayTier =
-    liveUnreadFromRealtimeStore !== undefined
-      ? "cm-unreadByRoomId"
-      : liveUnreadFromSummaryOnly !== undefined
-        ? "cm-roomSummariesById"
-        : "bootstrap-room";
+  const bootstrapUnreadFloor = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+  const { count: displayedUnreadCount, tier: unreadDisplayTier } = useMessengerChatListUnread(room.id, bootstrapUnreadFloor);
 
   const unreadTierLoggedRef = useRef<string | null>(null);
   useEffect(() => {

@@ -55,11 +55,7 @@ import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-s
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-import {
-  isBottomNavTabActive,
-  pickMainBottomNavPrefetchHrefs,
-  resolveActiveMainBottomNavTabIndex,
-} from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import { isBottomNavTabActive, pickMainBottomNavPrefetchHrefs } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -600,19 +596,12 @@ export function BottomNav({
     },
     [clearPendingActiveReset]
   );
-  /** 탭 바 순서로 좌↔우 슬라이드 방향 고정 — `MainShellTabContentTransition` 및 `globals.css` 와 맞춤 */
+  /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */
   const beginBottomNavNavigation = useCallback(
     (href: string) => {
-      const list = tabsRef.current;
-      const fromIdx = resolveActiveMainBottomNavTabIndex(pathname ?? null, list);
-      const toIdx = list.findIndex((t) => t.href === href);
-      const slide =
-        fromIdx >= 0 && toIdx >= 0 && fromIdx !== toIdx
-          ? (toIdx > fromIdx ? "ltr" : "rtl")
-          : undefined;
-      beginMenuNavigation(href, "bottom-nav", slide ? { mainShellTabSlide: slide } : undefined);
+      beginMenuNavigation(href, "bottom-nav");
     },
-    [beginMenuNavigation, pathname]
+    [beginMenuNavigation]
   );
 
   const applyMainBottomNavItems = useCallback(async (force: boolean) => {

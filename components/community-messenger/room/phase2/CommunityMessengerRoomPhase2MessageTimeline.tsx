@@ -78,6 +78,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
    * 역순 1회로 mine id 확정 후, 읽음 판별에 필요한 두 id만 단일 순방향 스캔으로 찾는다.
+   *
+   * `readReceipt.lastReadMessageId`(및 created_at 비교)는 Postgres participant 행 외에
+   * 서버 broadcast `read_ack` → 부모 스냅샷 패치로도 갱신된다 — 동일 커서로 「안읽음/1」 제거.
    */
   const { latestReadableMineMessageId, peerHasReadMyLatestMessage } = useMemo(() => {
     /** 1:1만 말풍선 옆 읽음/안읽음 — 그룹은 커서 스냅샷이 없어 오표시 방지 */

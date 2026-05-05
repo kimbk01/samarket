@@ -64,7 +64,7 @@ type RoomReadEventInput = {
   lastReadMessageId?: string | null;
 };
 
-type MessengerRealtimeState = {
+export type MessengerRealtimeState = {
   viewerUserId: string | null;
   roomSummariesById: Record<string, CommunityMessengerRoomSummary>;
   roomOrder: string[];

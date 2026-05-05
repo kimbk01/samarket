@@ -77,6 +77,15 @@ export type MessengerBusEvent =
       callKind?: "voice" | "video" | null;
       status: string;
       at: number;
+    }
+  | {
+      /** 서버 Realtime broadcast `read_ack` — peer 읽음 커서(안읽음/1 제거) */
+      type: "cm.room.peer_read_ack";
+      roomId: string;
+      readerUserId: string;
+      lastReadMessageId: string | null;
+      lastReadAt: string | null;
+      at: number;
     };
 
 const CHANNEL = "samarket:community-messenger";
@@ -144,9 +153,16 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       d.type !== "cm.home.merge_room_summary" &&
       d.type !== "cm.room.incoming_message" &&
       d.type !== "cm.room.read" &&
-      d.type !== "cm.room.summary_patch"
+      d.type !== "cm.room.summary_patch" &&
+      d.type !== "cm.room.peer_read_ack"
     )
       return;
+    if (d.type === "cm.room.peer_read_ack") {
+      if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
+      if (typeof d.readerUserId !== "string" || !d.readerUserId.trim()) return;
+      handler(d as MessengerBusEvent);
+      return;
+    }
     if (d.type !== "cm.home.merge_room_summary") {
       if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
     }

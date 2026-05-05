@@ -186,6 +186,13 @@ import {
   getMessengerRealtimeRoomSummary,
   seedMessengerRealtimeFromBootstrap,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  cmRtRoomSubLog,
+  messengerRealtimeGetSubscribedMessageRoomIds,
+  normalizeCmRealtimeSubscribeRoomId,
+} from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
+import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+import { resolveCommunityMessengerRoomIdFromChatRow } from "@/lib/community-messenger/realtime/resolve-community-messenger-room-id-from-chat-row";
 
 type CommunityMessengerHomeOverlayKind =
   | "composer"
@@ -630,18 +637,6 @@ export function CommunityMessengerHome({
     fromPhilifeHeaderStack,
     mainSection,
     pillar,
-  });
-
-  /**
-   * 메시지 INSERT Realtime → `patchBootstrapRoomListForRealtimeMessageInsert`(프리뷰·최근순 정렬·낙관 unread) +
-   * `use-community-messenger-realtime` 의 `notifyMessengerHomeRealtimeMessageInsert`(배지 resync·탭 숨김 톤).
-   */
-  useCommunityMessengerHomeRealtimeBootstrapList({
-    userId: data?.me?.id,
-    roomIds: homeRoomIds,
-    homeRealtimeGateOpen,
-    refresh,
-    setData,
   });
 
   useCommunityMessengerTradePostListingRealtime({
@@ -1661,6 +1656,129 @@ export function CommunityMessengerHome({
     pillar,
   });
 
+  const routeOpenMessengerRoomIdNorm = useMemo(() => {
+    const m = pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/);
+    return m?.[1] ? normalizeCmRealtimeSubscribeRoomId(m[1]) : null;
+  }, [pathname]);
+
+  /** A+B: 부트스트랩 홈 방 + URL 라우트 방 — `roomOrder`·리스트 행과 분리해 fingerprint 안정 */
+  const homeRouteRealtimeRoomIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const id of homeRoomIds) {
+      const n = normalizeCmRealtimeSubscribeRoomId(id);
+      if (n) set.add(n);
+    }
+    if (routeOpenMessengerRoomIdNorm) set.add(routeOpenMessengerRoomIdNorm);
+    return [...set].sort();
+  }, [homeRoomIds, routeOpenMessengerRoomIdNorm]);
+
+  const visiblePillarChatRoomIdsFingerprintRef = useRef<string>("");
+  const [visiblePillarChatRoomIds, setVisiblePillarChatRoomIds] = useState<string[]>([]);
+
+  /** C: 거래·배달 채팅 탭 visible 행만 — 목록 fingerprint 가 같으면 setState 생략(재구독 방지) */
+  useEffect(() => {
+    const pillarHasVisibleRows = pillar === "trade" || pillar === "delivery";
+    if (!pillarHasVisibleRows || mainSection !== "chats") {
+      if (visiblePillarChatRoomIdsFingerprintRef.current !== "") {
+        visiblePillarChatRoomIdsFingerprintRef.current = "";
+        setVisiblePillarChatRoomIds([]);
+      }
+      return;
+    }
+    const ids = primaryListItems
+      .map((row) => {
+        const raw = resolveCommunityMessengerRoomIdFromChatRow(row);
+        return raw ? normalizeCmRealtimeSubscribeRoomId(raw) : "";
+      })
+      .filter(Boolean);
+    const sortedUnique = [...new Set(ids)].sort();
+    const fp = sortedUnique.join("\0");
+    if (fp === visiblePillarChatRoomIdsFingerprintRef.current) return;
+    visiblePillarChatRoomIdsFingerprintRef.current = fp;
+    setVisiblePillarChatRoomIds(sortedUnique);
+  }, [pillar, mainSection, primaryListItems]);
+
+  const messengerRealtimeSubscribeMergedRoomIds = useMemo(
+    () => [...new Set([...homeRouteRealtimeRoomIds, ...visiblePillarChatRoomIds])].sort(),
+    [homeRouteRealtimeRoomIds, visiblePillarChatRoomIds]
+  );
+
+  /**
+   * 메시지 INSERT Realtime → `patchBootstrapRoomListForRealtimeMessageInsert`(프리뷰·최근순 정렬·낙관 unread) +
+   * `use-community-messenger-realtime` 의 `notifyMessengerHomeRealtimeMessageInsert`(배지 resync·탭 숨김 톤).
+   */
+  useCommunityMessengerHomeRealtimeBootstrapList({
+    userId: data?.me?.id,
+    roomIds: homeRouteRealtimeRoomIds,
+    extraRoomIds: visiblePillarChatRoomIds,
+    homeRealtimeGateOpen,
+    refresh,
+    setData,
+  });
+
+  useEffect(() => {
+    if (pillar !== "trade" && pillar !== "delivery") return;
+    const rows = primaryListItems.map((item) => {
+      const r = item.room;
+      const tradeMeta = r.contextMeta?.kind === "trade" ? r.contextMeta : null;
+      const deliveryMeta = r.contextMeta?.kind === "delivery" ? r.contextMeta : null;
+      const resolved = resolveCommunityMessengerRoomIdFromChatRow(item);
+      return {
+        communityMessengerRoomId: r.id,
+        resolvedMessengerRoomId: resolved ? normalizeCmRealtimeSubscribeRoomId(resolved) : "",
+        rowTitle: typeof r.title === "string" ? r.title : "",
+        contextKind: tradeMeta ? ("trade" as const) : deliveryMeta ? ("delivery" as const) : null,
+        postId: tradeMeta?.postId ?? null,
+        productChatId: tradeMeta?.productChatId ?? null,
+        directKey: r.messengerDirectKey ?? null,
+      };
+    });
+    cmRtRoomSubLog("trade_list_room_ids", { pillar, rows, rowCount: rows.length });
+    const subscribedActual = messengerRealtimeGetSubscribedMessageRoomIds();
+    cmRtRoomSubLog("subscribed_message_room_ids", {
+      roomIds: subscribedActual,
+      roomCount: subscribedActual.length,
+      source: "home_diag_snapshot",
+    });
+    const subscribedNorm = new Set(subscribedActual.map((x) => normalizeCmRealtimeSubscribeRoomId(x)));
+    const missingRows = rows.filter((row) => {
+      const key =
+        (row.resolvedMessengerRoomId && normalizeCmRealtimeSubscribeRoomId(row.resolvedMessengerRoomId)) ||
+        normalizeCmRealtimeSubscribeRoomId(row.communityMessengerRoomId);
+      return Boolean(key) && !subscribedNorm.has(key);
+    });
+    cmRtRoomSubLog("missing_subscription_room_ids", {
+      roomIds: missingRows.map(
+        (row) =>
+          row.resolvedMessengerRoomId || normalizeCmRealtimeSubscribeRoomId(row.communityMessengerRoomId) || ""
+      ),
+      missingRowTitles: missingRows.map((row) => row.rowTitle || null),
+      listRowCount: rows.length,
+      tradeRowCount: rows.length,
+      subscribedRoomCount: subscribedActual.length,
+      subscribeMergedRoomIds: messengerRealtimeSubscribeMergedRoomIds,
+    });
+    if (mainSection === "chats") {
+      const subscribedNormSet = new Set(subscribedActual.map((x) => normalizeCmRealtimeSubscribeRoomId(x)));
+      const missingVisible = visiblePillarChatRoomIds.filter((id) =>
+        !subscribedNormSet.has(normalizeCmRealtimeSubscribeRoomId(id))
+      );
+      cmRtStableSubLog("missing_visible_trade_room_ids", {
+        pillar,
+        visible_trade_room_count: visiblePillarChatRoomIds.length,
+        missing_visible_trade_room_ids: missingVisible,
+        subscribed_room_count: subscribedActual.length,
+        subscribed_room_ids: [...subscribedActual],
+      });
+    }
+  }, [
+    pillar,
+    mainSection,
+    primaryListItems,
+    messengerRealtimeSubscribeMergedRoomIds,
+    visiblePillarChatRoomIds,
+  ]);
+
   /** pillar 서브 라우트에선 인박스 묶음 행을 보이지 않는다. */
   const inboxPillarSummaries = useMemo(
     () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
@@ -1997,6 +2115,8 @@ export function CommunityMessengerHome({
         if (typeof performance !== "undefined") {
           messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
         }
+        /** 허브 종·하단 탭은 동일 스냅샷 — 서버 집계와 즉시 재맞춤(낙관 이후 교차 해제·레거시 chatUnread 동기화) */
+        queueMicrotask(() => requestMessengerHubBadgeResync("room_open_mark_read"));
       } catch (err) {
         cmReadBadgeLog("mark_read_patch_fail", {
           roomId,

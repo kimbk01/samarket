@@ -22,11 +22,11 @@ export type MenuNavigationSource =
 
 export type MenuPendingShellKind = "feed" | "messenger" | null;
 
-/** 메인 셸 본문 슬라이드 — 우측 탭(인덱스 증가)=ltr, 좌측 탭=rtl (`globals.css` 키프레임과 대응) */
+/** 레거시 타입 — 본문 슬라이드 방향은 `route-transition-config`(pathname canonical 인덱스) 단일 소스 */
 export type MainShellTabSlide = "ltr" | "rtl";
 
 export interface BeginMenuNavigationOptions {
-  /** 하단 탭 등에서 탭 순서 기준 전환 방향을 고정할 때 */
+  /** 선택 필드(레거시) — 현재 메인 본문 전환은 사용하지 않음 */
   mainShellTabSlide?: MainShellTabSlide;
 }
 
@@ -37,6 +37,7 @@ export interface MenuNavigationIntent {
   search: string;
   source: MenuNavigationSource;
   startedAt: number;
+  /** 레거시 — 디버그·향후 용도; 슬라이드 적용에는 미사용 */
   mainShellTabSlide?: MainShellTabSlide;
 }
 

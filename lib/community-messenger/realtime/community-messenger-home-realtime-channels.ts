@@ -8,6 +8,14 @@ import type {
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import {
+  cmRtRoomSubLog,
+  messengerRealtimeBumpHomeChannelPhysicalBindCount,
+  messengerRealtimeGetHomeChannelPhysicalBindCount,
+  messengerRealtimeRecordSubscribedMessageRoomIds,
+  normalizeCmRealtimeSubscribeRoomId,
+} from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
+import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
@@ -17,6 +25,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   userId: string;
   isCancelled: () => boolean;
   roomIdsFingerprint: string;
+  /** `extraRoomIds`(거래·배달 리스트 visible) 개수 — 구독 집합 진단용 */
+  visibleTradeRoomCount?: number;
   messageInsertHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void) | undefined>;
   participantUnreadDeltaRef: MutableRefObject<
     ((hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void) | undefined
@@ -26,7 +36,21 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   const channels: Array<{ stop: () => void }> = [];
   const refreshScheduler = createRefreshScheduler(args.onRefreshRef, MESSENGER_HOME_META_DEBOUNCE_MS);
   const cancelled = args.isCancelled;
-  const roomIds = args.roomIdsFingerprint.length ? args.roomIdsFingerprint.split("\0").filter(Boolean) : [];
+  cmRtStableSubLog("channel_rebind_start", {
+    viewerUserId: args.userId,
+    fingerprintLength: args.roomIdsFingerprint.length,
+    rebindCountBefore: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+  });
+  const roomIds = args.roomIdsFingerprint.length
+    ? [...new Set(args.roomIdsFingerprint.split("\0").map((id) => normalizeCmRealtimeSubscribeRoomId(id)).filter(Boolean))].sort()
+    : [];
+  const bindOrdinal = messengerRealtimeBumpHomeChannelPhysicalBindCount();
+  messengerRealtimeRecordSubscribedMessageRoomIds(roomIds);
+  cmRtRoomSubLog("subscribed_message_room_ids", {
+    viewerUserId: args.userId,
+    roomIds,
+    roomCount: roomIds.length,
+  });
 
   const meta = subscribeWithRetry({
     sb: args.sb,
@@ -211,6 +235,12 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                     senderId: sid || null,
                     viewerUserId: args.userId,
                   });
+                  cmRtRoomSubLog("realtime_message_received", {
+                    roomId: rid,
+                    messageId: mid || null,
+                    senderId: sid || null,
+                    viewerUserId: args.userId,
+                  });
                   args.messageInsertHintRef.current?.({ roomId: rid, newRecord: row });
                 }
                 return;
@@ -232,6 +262,16 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       messagesFilter: messagesFilter,
     });
   }
+
+  cmRtStableSubLog("channel_rebind_done", {
+    viewerUserId: args.userId,
+    bindOrdinal,
+    rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+    subscribed_room_count: roomIds.length,
+    subscribed_room_ids: roomIds,
+    visible_trade_room_count: args.visibleTradeRoomCount ?? 0,
+    supabaseChannelInstances: channels.length,
+  });
 
   return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
 }

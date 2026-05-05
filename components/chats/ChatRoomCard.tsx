@@ -19,10 +19,7 @@ import {
   shouldWarmChatRoute,
 } from "@/lib/chats/prewarm-chat-room-route";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
-import {
-  normalizeMessengerRealtimeRoomId,
-  useMessengerRealtimeStore,
-} from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -52,20 +49,10 @@ function exchangeSubtitleLegacy(
 export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, onSelectRoom }: ChatRoomCardProps) {
   const { t } = useI18n();
   const cmLinkedId = room.communityMessengerRoomId?.trim() ?? "";
-  const cmListUnread = useMessengerRealtimeStore((s) => {
-    if (!cmLinkedId) return undefined;
-    const nid = normalizeMessengerRealtimeRoomId(cmLinkedId);
-    if (Object.prototype.hasOwnProperty.call(s.unreadByRoomId, nid)) {
-      return Math.max(0, Math.floor(Number(s.unreadByRoomId[nid]) || 0));
-    }
-    if (Object.prototype.hasOwnProperty.call(s.roomSummariesById, nid)) {
-      const u = s.roomSummariesById[nid]?.unreadCount;
-      return typeof u === "number" && Number.isFinite(u) ? Math.max(0, Math.floor(u)) : 0;
-    }
-    return undefined;
-  });
-  const displayedUnreadCount =
-    cmLinkedId && cmListUnread !== undefined ? cmListUnread : Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+  const { count: displayedUnreadCount } = useMessengerChatListUnread(
+    cmLinkedId || null,
+    Math.max(0, Math.floor(Number(room.unreadCount) || 0))
+  );
   const amISeller = !!currentUserId && room.sellerId === currentUserId;
   const product = room.product;
   const productTitle = product?.title || t("nav_trade_product_fallback");

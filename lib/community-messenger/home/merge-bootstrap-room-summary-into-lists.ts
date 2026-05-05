@@ -5,6 +5,15 @@ import type {
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
+/** `messenger-realtime-store.normalizeRoomId` 와 동일 — 스토어 모듈 의존 없이 목록 병합만 유지 */
+function normCmRoomId(id: string): string {
+  return String(id ?? "").trim().toLowerCase();
+}
+
+function sameMessengerListRoomId(a: string, b: string): boolean {
+  return normCmRoomId(a) === normCmRoomId(b);
+}
+
 /** `merge` 가 쓰던 `lastMessageAt` 내림차순 비교와 동일 */
 function compareLastMessageAtDesc(a: CommunityMessengerRoomSummary, b: CommunityMessengerRoomSummary): number {
   return String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? ""));
@@ -62,8 +71,8 @@ export function mergeBootstrapRoomSummaryIntoLists(
   const targetKey = isGroup ? "groups" : "chats";
   const otherKey = isGroup ? "chats" : "groups";
   const target0 = data[targetKey] ?? [];
-  const sameIndex = target0.findIndex((r) => r.id === summary.id);
-  const existsInOther = (data[otherKey] ?? []).some((r) => r.id === summary.id);
+  const sameIndex = target0.findIndex((r) => sameMessengerListRoomId(r.id, summary.id));
+  const existsInOther = (data[otherKey] ?? []).some((r) => sameMessengerListRoomId(r.id, summary.id));
   if (!existsInOther && sameIndex >= 0) {
     const same = target0[sameIndex]!;
     const prev = sameIndex > 0 ? target0[sameIndex - 1] : null;
@@ -76,8 +85,8 @@ export function mergeBootstrapRoomSummaryIntoLists(
       return data;
     }
   }
-  const other = (data[otherKey] ?? []).filter((r) => r.id !== summary.id);
-  const target = (data[targetKey] ?? []).filter((r) => r.id !== summary.id);
+  const other = (data[otherKey] ?? []).filter((r) => !sameMessengerListRoomId(r.id, summary.id));
+  const target = (data[targetKey] ?? []).filter((r) => !sameMessengerListRoomId(r.id, summary.id));
   let mergedTarget: CommunityMessengerRoomSummary[];
   if (isBucketSortedDescByLastMessageAt(target)) {
     mergedTarget = mergeSummaryIntoDescSortedBucket(target, summary);

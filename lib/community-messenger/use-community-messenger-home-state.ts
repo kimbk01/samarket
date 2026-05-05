@@ -451,6 +451,8 @@ export function useCommunityMessengerHomeState({
     filteredDiscoverableGroups,
     unifiedRooms,
     baseChatListItems,
+    /** pillar 서브 라우트(거래/배달)에서 필터·칩 적용 전 해당 pillar 방 목록 — realtime 구독 합집합용 */
+    pillarBaseChatListItems,
     archiveListItems,
     openChatJoinedItems,
     visibleChatListItems,
