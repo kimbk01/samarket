@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
@@ -12,6 +12,8 @@ import {
   storeCategoryPillClass,
 } from "@/components/stores/store-category-pill-styles";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
 
 function pillClass(active: boolean): string {
   return `${storeCategoryPillClass(active)} inline-flex items-center gap-1`;
@@ -31,7 +33,45 @@ export function StorePrimaryIndustrySwitcher({
 }) {
   const industryVersion = useBrowseIndustryDatasetVersion();
   const pathname = usePathname();
-  const primaries = useMemo(() => listBrowsePrimaryIndustries(), [industryVersion]);
+  const [taxonomyCats, setTaxonomyCats] = useState<StoreTaxonomyCategory[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
+        const j = jRaw as { ok?: boolean; categories?: unknown };
+        if (cancelled) return;
+        if (j?.ok && Array.isArray(j.categories)) {
+          setTaxonomyCats(j.categories as StoreTaxonomyCategory[]);
+        } else {
+          setTaxonomyCats(null);
+        }
+      } catch {
+        if (!cancelled) setTaxonomyCats(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const primaries = useMemo(() => {
+    if (!taxonomyCats || taxonomyCats.length === 0) return listBrowsePrimaryIndustries();
+    // DB taxonomy에는 symbol이 없으므로, 기존 목록에서 slug 매칭으로 symbol/표시명 보강
+    const fallback = listBrowsePrimaryIndustries();
+    const bySlug = new Map(fallback.map((p) => [p.slug, p]));
+    return taxonomyCats.map((c) => {
+      const fb = bySlug.get(c.slug);
+      return {
+        id: c.id,
+        slug: c.slug,
+        nameKo: c.name,
+        sortOrder: c.sort_order,
+        symbol: fb?.symbol ?? "🏷️",
+      };
+    });
+  }, [taxonomyCats, industryVersion]);
 
   const activeSlug = useMemo(() => {
     const fromProp = embeddedPrimarySlug?.trim().toLowerCase();

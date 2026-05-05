@@ -42,14 +42,70 @@ export function persistBrowseIndustryOverrides(payload: BrowseIndustryOverridesP
   if (typeof window === "undefined") return;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   notifyBrowseIndustryListeners();
+  try {
+    ensureChannel()?.postMessage({ t: Date.now() });
+  } catch {
+    // ignore
+  }
 }
 
 let listenerVersion = 0;
 const listeners = new Set<() => void>();
+let storageListenerAttached = false;
+let channelListenerAttached = false;
+let channel: BroadcastChannel | null = null;
+
+function handleStorageEvent(e: StorageEvent): void {
+  try {
+    if (e.key !== STORAGE_KEY) return;
+    notifyBrowseIndustryListeners();
+  } catch {
+    // ignore
+  }
+}
+
+function ensureChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined") return null;
+  try {
+    if (channel) return channel;
+    channel = new BroadcastChannel("kasama-browse-industry-overrides");
+    return channel;
+  } catch {
+    return null;
+  }
+}
+
+function handleChannelMessage(): void {
+  notifyBrowseIndustryListeners();
+}
 
 export function subscribeBrowseIndustryListeners(onStoreChange: () => void): () => void {
   listeners.add(onStoreChange);
-  return () => listeners.delete(onStoreChange);
+  if (typeof window !== "undefined" && !storageListenerAttached) {
+    storageListenerAttached = true;
+    window.addEventListener("storage", handleStorageEvent);
+  }
+  if (typeof window !== "undefined" && !channelListenerAttached) {
+    const ch = ensureChannel();
+    if (ch) {
+      channelListenerAttached = true;
+      ch.addEventListener("message", handleChannelMessage);
+    }
+  }
+  return () => {
+    listeners.delete(onStoreChange);
+    if (listeners.size === 0 && storageListenerAttached && typeof window !== "undefined") {
+      storageListenerAttached = false;
+      window.removeEventListener("storage", handleStorageEvent);
+    }
+    if (listeners.size === 0 && channelListenerAttached) {
+      const ch = ensureChannel();
+      if (ch) {
+        channelListenerAttached = false;
+        ch.removeEventListener("message", handleChannelMessage);
+      }
+    }
+  };
 }
 
 export function getBrowseIndustryListenerVersion(): number {

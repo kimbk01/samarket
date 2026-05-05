@@ -43,7 +43,8 @@ import {
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StorePrimaryIndustrySwitcher } from "@/components/stores/home/StorePrimaryIndustrySwitcher";
-import { fetchStoresBrowseDeduped } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 
 function sortBrowseStores(
   rows: BrowseStoreListItem[],
@@ -135,20 +136,61 @@ export function StoresBrowsePrimaryView({
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
+  const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
+    null
+  );
   /** undefined = 아직 첫 응답 전 */
   const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(undefined);
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
 
-  const primary = useMemo(
-    () => getBrowsePrimaryBySlug(primarySlug),
-    [primarySlug, industryVersion]
-  );
-  const subs = useMemo(
-    () => listBrowseSubIndustries(primarySlug),
-    [primarySlug, industryVersion]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
+        const j = jRaw as { ok?: boolean; categories?: unknown; topics?: unknown };
+        if (cancelled) return;
+        if (j?.ok && Array.isArray(j.categories) && Array.isArray(j.topics)) {
+          setTaxonomy({
+            categories: j.categories as StoreTaxonomyCategory[],
+            topics: j.topics as StoreTaxonomyTopic[],
+          });
+        } else {
+          setTaxonomy(null);
+        }
+      } catch {
+        if (!cancelled) setTaxonomy(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const primary = useMemo(() => {
+    if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
+    const c = taxonomy.categories.find((x) => x.slug === primarySlug);
+    if (!c) return null;
+    const fb = getBrowsePrimaryBySlug(primarySlug);
+    return {
+      id: c.id,
+      slug: c.slug,
+      nameKo: c.name,
+      sortOrder: c.sort_order,
+      symbol: fb?.symbol ?? "🏷️",
+    };
+  }, [primarySlug, taxonomy, industryVersion]);
+
+  const subs = useMemo(() => {
+    if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(primarySlug);
+    const c = taxonomy.categories.find((x) => x.slug === primarySlug);
+    if (!c) return [];
+    return taxonomy.topics
+      .filter((t) => t.store_category_id === c.id)
+      .map((t) => ({ id: t.id, slug: t.slug, nameKo: t.name, primarySlug, sortOrder: t.sort_order }));
+  }, [primarySlug, taxonomy, industryVersion]);
 
   const activeSub = useMemo(() => {
     if (initialSubSlug && subs.some((s) => s.slug === initialSubSlug)) return initialSubSlug;

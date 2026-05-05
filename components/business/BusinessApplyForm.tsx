@@ -21,6 +21,8 @@ import {
 } from "@/lib/business/owner-store-stack";
 import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
 import { STORE_LOCATION_SECTION_HINT_APPLY } from "@/lib/stores/store-address-form-ui";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
 export type BusinessApplyProfileSeed = {
@@ -91,7 +93,46 @@ export function BusinessApplyForm({
   profileSeed = null,
 }: BusinessApplyFormProps) {
   const industryVersion = useBrowseIndustryDatasetVersion();
-  const primaries = useMemo(() => listBrowsePrimaryIndustries(), [industryVersion]);
+  const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
+    null
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
+        const j = jRaw as { ok?: boolean; categories?: unknown; topics?: unknown };
+        if (cancelled) return;
+        if (j?.ok && Array.isArray(j.categories) && Array.isArray(j.topics)) {
+          setTaxonomy({
+            categories: j.categories as StoreTaxonomyCategory[],
+            topics: j.topics as StoreTaxonomyTopic[],
+          });
+        } else {
+          setTaxonomy(null);
+        }
+      } catch {
+        if (!cancelled) setTaxonomy(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const primaries = useMemo(() => {
+    // DB taxonomy가 비어있으면 기존 목록으로 폴백
+    if (!taxonomy || taxonomy.categories.length === 0) return listBrowsePrimaryIndustries();
+    // DB는 symbol/nameKo가 없으므로 select 표시용으로 최소 변환
+    return taxonomy.categories.map((c) => ({
+      id: c.id,
+      slug: c.slug,
+      nameKo: c.name,
+      sortOrder: c.sort_order,
+      symbol: "🏷️",
+    }));
+  }, [taxonomy, industryVersion]);
   const [values, setValues] = useState<BusinessApplyFormValues>(() => ({
     ...DEFAULT_VALUES,
     ...initialCategorySlugs(),
@@ -122,23 +163,44 @@ export function BusinessApplyForm({
   }, [profileSeed]);
 
   const subOptions = useMemo(
-    () => listBrowseSubIndustries(values.categoryPrimarySlug),
-    [values.categoryPrimarySlug, industryVersion]
+    () => {
+      // DB taxonomy가 없으면 기존 목록으로 폴백
+      if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(values.categoryPrimarySlug);
+      const cat = taxonomy.categories.find((c) => c.slug === values.categoryPrimarySlug);
+      if (!cat) return [];
+      return taxonomy.topics
+        .filter((t) => t.store_category_id === cat.id)
+        .map((t) => ({
+          id: t.id,
+          slug: t.slug,
+          nameKo: t.name,
+          primarySlug: values.categoryPrimarySlug,
+          sortOrder: t.sort_order,
+        }));
+    },
+    [values.categoryPrimarySlug, taxonomy, industryVersion]
   );
 
   useEffect(() => {
-    const prim = listBrowsePrimaryIndustries();
+    const prim = primaries;
     if (prim.length === 0) return;
     setValues((v) => {
       const pOk = prim.some((p) => p.slug === v.categoryPrimarySlug);
       const primarySlug = pOk ? v.categoryPrimarySlug : prim[0]!.slug;
-      const subs = listBrowseSubIndustries(primarySlug);
+      const subs =
+        taxonomy && taxonomy.categories.length > 0
+          ? (() => {
+              const cat = taxonomy.categories.find((c) => c.slug === primarySlug);
+              if (!cat) return [];
+              return taxonomy.topics.filter((t) => t.store_category_id === cat.id).map((t) => ({ slug: t.slug }));
+            })()
+          : listBrowseSubIndustries(primarySlug);
       const sOk = subs.some((s) => s.slug === v.categorySubSlug);
       const subSlug = sOk ? v.categorySubSlug : subs[0]?.slug ?? "";
       if (primarySlug === v.categoryPrimarySlug && subSlug === v.categorySubSlug) return v;
       return { ...v, categoryPrimarySlug: primarySlug, categorySubSlug: subSlug };
     });
-  }, [industryVersion]);
+  }, [industryVersion, primaries, taxonomy]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -277,7 +339,14 @@ export function BusinessApplyForm({
               value={values.categoryPrimarySlug}
               onChange={(e) => {
                 const slug = e.target.value;
-                const subs = listBrowseSubIndustries(slug);
+                const subs =
+                  taxonomy && taxonomy.categories.length > 0
+                    ? (() => {
+                        const cat = taxonomy.categories.find((c) => c.slug === slug);
+                        if (!cat) return [];
+                        return taxonomy.topics.filter((t) => t.store_category_id === cat.id).map((t) => ({ slug: t.slug }));
+                      })()
+                    : listBrowseSubIndustries(slug);
                 setValues((v) => ({
                   ...v,
                   categoryPrimarySlug: slug,
