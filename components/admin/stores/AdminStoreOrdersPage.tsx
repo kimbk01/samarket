@@ -297,7 +297,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       <AdminPageHeader title="매장 주문" />
       <nav className="flex flex-wrap gap-2 sam-text-helper">
         <Link
-          href="/admin/delivery-orders"
+          href="/admin/stores/orders"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
           배달·포장 주문(표·KPI)
@@ -323,7 +323,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       </nav>
       <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
         이 화면과{" "}
-        <Link href="/admin/delivery-orders" className="font-medium text-signature underline">
+        <Link href="/admin/stores/orders" className="font-medium text-signature underline">
           배달·포장 주문(표)
         </Link>
         는 <strong>같은 Supabase 테이블</strong>(
@@ -492,7 +492,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                   <td className="space-y-1 px-3 py-2 align-top">
                     <div className="flex flex-col gap-1 sam-text-helper">
                       <Link
-                        href={`/admin/delivery-orders/${encodeURIComponent(r.id)}/chat`}
+                        href={`/admin/stores/orders/${encodeURIComponent(r.id)}/chat`}
                         className="font-medium text-signature underline"
                       >
                         주문 채팅
@@ -504,7 +504,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         메신저(구매자 id)
                       </Link>
                       <Link
-                        href={`/admin/delivery-orders/${encodeURIComponent(r.id)}`}
+                        href={`/admin/stores/orders/${encodeURIComponent(r.id)}`}
                         className="text-sam-muted underline"
                       >
                         배달 주문 상세

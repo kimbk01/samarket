@@ -60,7 +60,7 @@ export function DeliverySettlementsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="정산 관리" backHref="/admin/delivery-orders" />
+      <AdminPageHeader title="정산 관리" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
         주문 단위 정산 스냅샷은 원장 매핑 기준이며, 실제 지급·보류는{" "}
         <Link href="/admin/store-settlements" className="text-signature underline">

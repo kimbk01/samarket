@@ -42,7 +42,7 @@ export function DeliveryCancellationsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="취소 주문" backHref="/admin/delivery-orders" />
+      <AdminPageHeader title="취소 주문" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
         DB 스키마상 취소 단계는{" "}
         <code className="rounded bg-sam-app px-1 sam-text-helper">cancelled</code> 로 확정된 건만 조회합니다. 추가

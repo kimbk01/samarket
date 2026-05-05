@@ -177,15 +177,15 @@ export function DeliveryOrdersDashboardClient() {
   }, [selectedIds]);
 
   const sub = [
-    { href: "/admin/delivery-orders", label: "주문 목록" },
+    { href: "/admin/stores/orders", label: "주문 목록" },
     { href: "/admin/store-orders", label: "매장 주문(액션)" },
     { href: "/admin/order-chats", label: "주문 채팅" },
     { href: "/admin/order-notifications", label: "운영 알림" },
-    { href: "/admin/delivery-orders/cancellations", label: "취소" },
-    { href: "/admin/delivery-orders/refunds", label: "환불" },
-    { href: "/admin/delivery-orders/settlements", label: "정산" },
-    { href: "/admin/delivery-orders/reports", label: "신고·분쟁" },
-    { href: "/admin/delivery-orders/logs", label: "로그" },
+    { href: "/admin/stores/orders/cancellations", label: "취소" },
+    { href: "/admin/stores/orders/refunds", label: "환불" },
+    { href: "/admin/stores/orders/settlements", label: "정산" },
+    { href: "/admin/stores/orders/reports", label: "신고·분쟁" },
+    { href: "/admin/stores/orders/logs", label: "로그" },
   ];
 
   return (

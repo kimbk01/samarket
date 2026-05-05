@@ -1,4 +1,4 @@
-import { DeliveryOrdersByBuyerClient } from "@/components/admin/delivery-orders/DeliveryOrdersByBuyerClient";
+import { permanentRedirect } from "next/navigation";
 
 export default async function AdminDeliveryOrdersByBuyerPage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminDeliveryOrdersByBuyerPage({
   params: Promise<{ buyerUserId: string }>;
 }) {
   const { buyerUserId } = await params;
-  return <DeliveryOrdersByBuyerClient buyerUserId={buyerUserId} />;
+  permanentRedirect(`/admin/stores/orders/by-buyer/${encodeURIComponent(buyerUserId)}`);
 }

@@ -81,7 +81,7 @@ export function DeliveryRefundsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="환불 요청" backHref="/admin/delivery-orders" />
+      <AdminPageHeader title="환불 요청" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
         <code className="rounded bg-sam-app px-1 sam-text-helper">order_status = refund_requested</code> 원장만
         표시합니다. 승인은 DB API로 처리하고, 거절·기타 조정은{" "}

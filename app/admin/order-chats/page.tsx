@@ -31,14 +31,14 @@ export default function AdminOrderChatsHubPage() {
               <code className="rounded bg-sam-app px-1 sam-text-xxs">?order_id=UUID</code>
             </li>
             <li>
-              <Link className="text-signature underline" href="/admin/delivery-orders">
+              <Link className="text-signature underline" href="/admin/stores/orders">
                 {t("admin_order_chats_link_delivery_kpi")}
               </Link>
             </li>
             <li>
               <span className="text-sam-fg">{t("admin_order_chats_order_chat_ui_label")}</span>
               <code className="rounded bg-sam-app px-1 sam-text-xxs">
-                /admin/delivery-orders/{"{"}주문UUID{"}"}/chat
+                /admin/stores/orders/{"{"}주문UUID{"}"}/chat
               </code>
             </li>
           </ul>
@@ -76,7 +76,7 @@ export default function AdminOrderChatsHubPage() {
         {t("admin_order_chats_foot_2")}
         <code className="rounded bg-sam-app px-1">/api/order-chat/…</code>
         {t("admin_order_chats_foot_3")}
-        <code className="rounded bg-sam-app px-1">/admin/delivery-orders/{"{"}주문UUID{"}"}/chat</code>
+        <code className="rounded bg-sam-app px-1">/admin/stores/orders/{"{"}주문UUID{"}"}/chat</code>
         {t("admin_order_chats_foot_4")}
         <code className="rounded bg-sam-app px-1">/api/admin/order-chat/…</code>
         {t("admin_order_chats_foot_5")}

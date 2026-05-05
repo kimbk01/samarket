@@ -55,7 +55,7 @@ export function DeliveryReportsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="신고·분쟁" backHref="/admin/delivery-orders" />
+      <AdminPageHeader title="신고·분쟁" backHref="/admin/stores/orders" />
       <p className="mb-3 sam-text-body-secondary leading-relaxed text-sam-muted">
         <code className="rounded bg-sam-app px-1 sam-text-helper">store_reports</code> 실데이터입니다. 상태 변경·메모·기각은{" "}
         <Link href="/admin/store-reports" className="font-medium text-signature underline">

@@ -1,4 +1,4 @@
-import { AdminDeliveryOrderChatDbClient } from "@/components/admin/delivery-orders/AdminDeliveryOrderChatDbClient";
+import { permanentRedirect } from "next/navigation";
 
 export default async function AdminDeliveryOrderChatPage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminDeliveryOrderChatPage({
   params: Promise<{ orderId: string }>;
 }) {
   const { orderId } = await params;
-  return <AdminDeliveryOrderChatDbClient orderId={orderId} />;
+  permanentRedirect(`/admin/stores/orders/${encodeURIComponent(orderId)}/chat`);
 }

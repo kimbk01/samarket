@@ -69,6 +69,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "delivery-orders-settlement": "admin_menu_delivery_settlement",
   "delivery-orders-reports": "admin_menu_delivery_reports",
   "delivery-orders-logs": "admin_menu_delivery_logs",
+  "delivery-bottom-nav": "admin_menu_delivery",
   "store-inquiries-admin": "admin_menu_store_inquiries",
   "store-reviews-admin": "admin_menu_store_reviews",
   "store-reports-admin": "admin_menu_store_reports",
@@ -248,6 +249,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
         path: "/admin/business",
         children: [
           {
+            key: "delivery-bottom-nav",
+            title: "배달 하단 메뉴",
+            path: "/admin/stores/bottom-nav",
+            status: "done",
+          },
+          {
             key: "store-application-settings",
             title: "배달 입점 설정",
             path: "/admin/stores/application-settings",
@@ -274,42 +281,42 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
           {
             key: "delivery-orders-console",
             title: "배달 주문 운영",
-            path: "/admin/delivery-orders",
+            path: "/admin/stores/orders",
             children: [
               {
                 key: "delivery-orders-list",
                 title: "주문목록",
-                path: "/admin/delivery-orders",
+                path: "/admin/stores/orders",
                 status: "done",
               },
               {
                 key: "delivery-orders-cancel",
                 title: "취소 요청",
-                path: "/admin/delivery-orders/cancellations",
+                path: "/admin/stores/orders/cancellations",
                 status: "done",
               },
               {
                 key: "delivery-orders-refund",
                 title: "환불 요청",
-                path: "/admin/delivery-orders/refunds",
+                path: "/admin/stores/orders/refunds",
                 status: "done",
               },
               {
                 key: "delivery-orders-settlement",
                 title: "정산",
-                path: "/admin/delivery-orders/settlements",
+                path: "/admin/stores/orders/settlements",
                 status: "done",
               },
               {
                 key: "delivery-orders-reports",
                 title: "신고·분쟁",
-                path: "/admin/delivery-orders/reports",
+                path: "/admin/stores/orders/reports",
                 status: "done",
               },
               {
                 key: "delivery-orders-logs",
                 title: "감사 로그",
-                path: "/admin/delivery-orders/logs",
+                path: "/admin/stores/orders/logs",
                 status: "done",
               },
             ],

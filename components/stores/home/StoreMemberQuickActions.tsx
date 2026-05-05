@@ -44,12 +44,12 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
       className={`grid grid-cols-4 divide-x divide-[#E4E6EB] overflow-hidden rounded-ui-rect border border-[#E4E6EB] bg-sam-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:divide-[#3E4042] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.06]`}
     >
       <Link
-        href="/search"
+        href="/stores/search"
         className={itemClass}
         aria-label="검색"
-        onPointerEnter={() => prefetchHref("/search")}
-        onFocus={() => prefetchHref("/search")}
-        onTouchStart={() => prefetchHref("/search")}
+        onPointerEnter={() => prefetchHref("/stores/search")}
+        onFocus={() => prefetchHref("/stores/search")}
+        onTouchStart={() => prefetchHref("/stores/search")}
       >
         <svg className="h-[22px] w-[22px] text-[#1877F2]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

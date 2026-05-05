@@ -128,7 +128,7 @@ export function AdminDeliveryOrderChatDbClient({ orderId }: Props) {
           매장 주문(액션)에서 열기
         </Link>
         <span className="text-sam-muted">·</span>
-        <Link href={`/admin/delivery-orders/${encodeURIComponent(orderId)}`} className="text-sam-muted underline">
+        <Link href={`/admin/stores/orders/${encodeURIComponent(orderId)}`} className="text-sam-muted underline">
           배달 주문 상세(표)
         </Link>
       </div>

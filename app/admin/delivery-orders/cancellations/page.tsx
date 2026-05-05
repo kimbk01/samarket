@@ -1,5 +1,5 @@
-import { DeliveryCancellationsClient } from "@/components/admin/delivery-orders/DeliveryCancellationsClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminDeliveryCancellationsPage() {
-  return <DeliveryCancellationsClient />;
+  permanentRedirect("/admin/stores/orders/cancellations");
 }

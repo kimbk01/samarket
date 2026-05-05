@@ -39,7 +39,7 @@ export function DeliveryAuditLogTable({
               </td>
               <td className="px-2 py-2">
                 <Link
-                  href={`/admin/delivery-orders/${encodeURIComponent(l.orderId)}`}
+                  href={`/admin/stores/orders/${encodeURIComponent(l.orderId)}`}
                   className="font-mono text-signature underline"
                 >
                   {orderNoById[l.orderId] ?? l.orderId}

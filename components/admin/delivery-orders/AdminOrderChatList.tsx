@@ -95,7 +95,7 @@ export function AdminOrderChatList() {
       {rows.map((r) => (
         <Link
           key={r.id}
-          href={`/admin/delivery-orders/${encodeURIComponent(r.order_id)}/chat`}
+          href={`/admin/stores/orders/${encodeURIComponent(r.order_id)}/chat`}
           className="flex items-start justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm hover:border-signature"
         >
           <div className="min-w-0">

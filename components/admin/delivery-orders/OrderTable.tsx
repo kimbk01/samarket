@@ -96,7 +96,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
             const detailHref =
               src === "store_db"
                 ? `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`
-                : `/admin/delivery-orders/${encodeURIComponent(o.id)}`;
+                : `/admin/stores/orders/${encodeURIComponent(o.id)}`;
             return (
               <tr key={`${src}-${o.id}`} className="border-b border-sam-border-soft align-top hover:bg-sam-app/80">
                 {selection ? (

@@ -46,7 +46,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   if (loading) {
     return (
       <div className="p-6">
-        <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
+        <AdminPageHeader title="주문 상세" backHref="/admin/stores/orders" />
         <p className="text-sm text-sam-muted">원장 불러오는 중…</p>
       </div>
     );
@@ -55,7 +55,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   if (!order) {
     return (
       <div className="p-6">
-        <AdminPageHeader title="주문 상세" backHref="/admin/delivery-orders" />
+        <AdminPageHeader title="주문 상세" backHref="/admin/stores/orders" />
         <p className="text-sm text-sam-muted">주문을 찾을 수 없습니다.</p>
         <p className="mt-2 sam-text-body-secondary text-sam-muted">
           <Link href={`/admin/store-orders?order_id=${encodeURIComponent(orderId)}`} className="text-signature underline">
@@ -90,7 +90,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
 
   return (
     <div className="space-y-4 p-4 md:p-6">
-      <AdminPageHeader title={`주문 ${order.orderNo}`} backHref="/admin/delivery-orders" />
+      <AdminPageHeader title={`주문 ${order.orderNo}`} backHref="/admin/stores/orders" />
       <p className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 px-3 py-2 sam-text-body-secondary text-emerald-950">
         Supabase <code className="rounded bg-white/80 px-1 sam-text-helper">store_orders</code> 원장 · 품목 스냅샷
       </p>
@@ -104,7 +104,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
 
       <p className="text-sm">
         <Link
-          href={`/admin/delivery-orders/${encodeURIComponent(order.id)}/chat`}
+          href={`/admin/stores/orders/${encodeURIComponent(order.id)}/chat`}
           className="font-semibold text-signature underline"
         >
           주문 채팅
@@ -222,7 +222,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             </p>
           ) : null}
           <p className="mt-2 text-xs">
-            <Link href="/admin/delivery-orders/reports" className="text-signature underline">
+            <Link href="/admin/stores/orders/reports" className="text-signature underline">
               신고·분쟁 콘솔로 이동
             </Link>
           </p>
@@ -241,7 +241,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
             매장 주문(액션) 열기
           </Link>
           <Link
-            href={`/admin/delivery-orders/${encodeURIComponent(order.id)}/chat`}
+            href={`/admin/stores/orders/${encodeURIComponent(order.id)}/chat`}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm text-sam-fg"
           >
             주문 채팅

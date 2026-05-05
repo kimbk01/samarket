@@ -61,7 +61,6 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
   if (p.startsWith("/shop/")) return CANONICAL_NAV_INDICES.market;
 
   if (p === "/stores" || p.startsWith("/stores/")) return CANONICAL_NAV_INDICES.delivery;
-  if (p === "/delivery" || p.startsWith("/delivery/")) return CANONICAL_NAV_INDICES.delivery;
   if (p === "/orders" || p.startsWith("/orders/")) return CANONICAL_NAV_INDICES.delivery;
 
   if (p.startsWith("/chats")) return CANONICAL_NAV_INDICES.messenger;

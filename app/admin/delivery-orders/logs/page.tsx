@@ -1,5 +1,5 @@
-import { DeliveryAuditLogsClient } from "@/components/admin/delivery-orders/DeliveryAuditLogsClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminDeliveryAuditLogsPage() {
-  return <DeliveryAuditLogsClient />;
+  permanentRedirect("/admin/stores/orders/logs");
 }

@@ -112,14 +112,6 @@ export function StoreCategoryExploreSection({
   return (
     <section id="store-industry-explore" className="scroll-mt-4">
       <div className={`overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface shadow-sam-elevated dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.08]`}>
-        <div className={`flex items-start justify-between gap-2 border-b border-sam-border px-4 py-4 dark:border-[#3E4042]`}>
-          <div className="min-w-0">
-            <h2 className={FB.name}>업종 선택</h2>
-            <p className={`mt-0.5 ${FB.metaSm}`}>탭으로 대분류를 고른 뒤, 세부만 골라 들어가요.</p>
-          </div>
-          {headerTrailing ? <div className="shrink-0 pt-0.5">{headerTrailing}</div> : null}
-        </div>
-
         <div
           role="tablist"
           aria-label="대분류 업종"
@@ -135,7 +127,7 @@ export function StoreCategoryExploreSection({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
-                className={`flex w-[68px] shrink-0 snap-start flex-col items-center justify-center gap-0 rounded-sam-md px-1 py-1.5 transition-[transform,background-color,color] duration-150 will-change-transform active:scale-[0.97] ${
+                className={`flex w-[66px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-sam-md px-1 py-1.5 transition-[transform,background-color,color] duration-150 will-change-transform active:scale-[0.97] ${
                   on
                     ? "bg-sam-surface-muted text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
                     : "text-sam-muted active:bg-sam-surface-muted dark:text-[#B0B3B8] dark:active:bg-[#4E4F50]"
@@ -147,7 +139,7 @@ export function StoreCategoryExploreSection({
                     src={icon}
                     alt=""
                     aria-hidden
-                    className={`h-9 w-9 object-contain ${on ? "opacity-100" : "opacity-90"}`}
+                    className={`h-12 w-12 object-contain ${on ? "opacity-100" : "opacity-90"}`}
                     loading="lazy"
                   />
                 ) : (

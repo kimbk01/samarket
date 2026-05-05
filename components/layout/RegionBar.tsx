@@ -47,7 +47,7 @@ function StoresRootTier1Right() {
   return (
     <>
       <Link
-        href="/search"
+        href="/stores/search"
         className="sam-header-action h-10 w-10 text-sam-fg"
         aria-label={t("nav_search_aria")}
       >

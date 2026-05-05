@@ -98,6 +98,8 @@ export function resolveConditionalAppShellFlags(
   const isProductDetail = Boolean(pathname?.match(/^\/products\/[^/]+$/));
   const isStoreProductDetail = Boolean(pathname?.match(/^\/stores\/[^/]+\/p\/[^/]+$/));
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
+  /** 배달(/stores) 전용 하단 네비는 별도 — 전역 BottomNav와 중복 방지용 */
+  const isDeliveryStoresSurface = isStoreSection;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -165,6 +167,7 @@ export function resolveConditionalAppShellFlags(
     !hideBarAndFloat &&
     !isWritePage &&
     !suppressBottomNavForChatDetail &&
+    !isDeliveryStoresSurface &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail &&

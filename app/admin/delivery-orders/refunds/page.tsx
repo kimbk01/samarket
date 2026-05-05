@@ -1,5 +1,5 @@
-import { DeliveryRefundsClient } from "@/components/admin/delivery-orders/DeliveryRefundsClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminDeliveryRefundsPage() {
-  return <DeliveryRefundsClient />;
+  permanentRedirect("/admin/stores/orders/refunds");
 }

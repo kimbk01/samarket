@@ -45,7 +45,7 @@ export function RefundRequestTable({
               <td className="px-2 py-2">
                 <div className="flex flex-wrap gap-1">
                   <Link
-                    href={`/admin/delivery-orders/${encodeURIComponent(o.id)}`}
+                    href={`/admin/stores/orders/${encodeURIComponent(o.id)}`}
                     className="text-xs font-medium text-signature underline"
                   >
                     상세

@@ -32,7 +32,7 @@ function adminOrderHref(r: Row): string {
   if (oid) return `/admin/store-orders?order_id=${encodeURIComponent(oid)}`;
   const u = r.link_url?.trim();
   if (u && u.startsWith("/")) return u;
-  return "/admin/delivery-orders";
+  return "/admin/stores/orders";
 }
 
 function localeForAdmin(language: string): string {

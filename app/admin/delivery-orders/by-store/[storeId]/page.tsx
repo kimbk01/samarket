@@ -1,4 +1,4 @@
-import { DeliveryOrdersByStoreClient } from "@/components/admin/delivery-orders/DeliveryOrdersByStoreClient";
+import { permanentRedirect } from "next/navigation";
 
 export default async function AdminDeliveryOrdersByStorePage({
   params,
@@ -6,5 +6,5 @@ export default async function AdminDeliveryOrdersByStorePage({
   params: Promise<{ storeId: string }>;
 }) {
   const { storeId } = await params;
-  return <DeliveryOrdersByStoreClient storeId={storeId} />;
+  permanentRedirect(`/admin/stores/orders/by-store/${encodeURIComponent(storeId)}`);
 }

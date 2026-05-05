@@ -1,5 +1,5 @@
-import { DeliveryOrdersDashboardClient } from "@/components/admin/delivery-orders/DeliveryOrdersDashboardClient";
+import { permanentRedirect } from "next/navigation";
 
 export default function AdminDeliveryOrdersPage() {
-  return <DeliveryOrdersDashboardClient />;
+  permanentRedirect("/admin/stores/orders");
 }

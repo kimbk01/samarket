@@ -46,7 +46,7 @@ export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
                 </td>
                 <td className="px-2 py-2">
                   <Link
-                    href={`/admin/delivery-orders/${encodeURIComponent(o.id)}`}
+                    href={`/admin/stores/orders/${encodeURIComponent(o.id)}`}
                     className="font-medium text-signature underline"
                   >
                     주문

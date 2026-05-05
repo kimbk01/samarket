@@ -195,8 +195,6 @@ export function StoresHub() {
 
   return (
     <div className={`min-h-[50vh] space-y-3 ${FB.canvas}`}>
-      <StoreHubSearchStrip value={searchInput} onChange={setSearchInput} />
-
       <StoreMemberQuickActions activeStoreOrderCount={activeStoreOrderBadge} />
 
       <StoreMyBusinessHubBanner loading={ownerStoresLoading} ownerStores={ownerStores} />
