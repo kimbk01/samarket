@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { dvDeliveryLatencyLog, dvDeliveryLatencyValue } from "@/lib/perf/dv-delivery-latency";
 
 export type StoreOrdersRealtimeHandlers = {
   debounceMs?: number;
@@ -34,8 +33,6 @@ export function useSupabaseStoreOrdersRealtime(
     let ch: RealtimeChannel | null = null;
     let cancelled = false;
     let debTimer: ReturnType<typeof setTimeout> | null = null;
-    let lastSig = "";
-    let lastSigAt = 0;
 
     const clearDebounce = () => {
       if (debTimer) {
@@ -68,39 +65,6 @@ export function useSupabaseStoreOrdersRealtime(
             filter: `store_id=eq.${sid}`,
           },
           (payload) => {
-            try {
-              const commitTs = (payload as any)?.commit_timestamp;
-              const sig = `${String(payload.eventType)}:${String(commitTs ?? "")}`;
-              const now = Date.now();
-              if (sig && sig === lastSig && now - lastSigAt < 1500) {
-                dvDeliveryLatencyLog("duplicate_realtime_event_ms", {
-                  table: "store_orders",
-                  scope: "owner_store",
-                  eventType: payload.eventType,
-                  commit_timestamp: commitTs,
-                  store_id: sid,
-                });
-              }
-              lastSig = sig;
-              lastSigAt = now;
-              const commitMs = typeof commitTs === "string" ? new Date(commitTs).getTime() : NaN;
-              if (Number.isFinite(commitMs)) {
-                dvDeliveryLatencyValue("owner_realtime_received_ms", Date.now() - commitMs, {
-                  table: "store_orders",
-                  eventType: payload.eventType,
-                  commit_timestamp: commitTs,
-                  store_id: sid,
-                });
-              } else {
-                dvDeliveryLatencyLog("owner_realtime_received_ms", {
-                  table: "store_orders",
-                  eventType: payload.eventType,
-                  store_id: sid,
-                });
-              }
-            } catch {
-              /* ignore */
-            }
             const eventType = payload.eventType;
             if (eventType === "INSERT") {
               const row = payload.new as Record<string, unknown> | null;

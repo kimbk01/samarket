@@ -8,7 +8,6 @@ import {
   type DeliveryOperationsPayload,
 } from "@/lib/admin-delivery-ops/delivery-operations-payload";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
-import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 type OpsConsoleSummary = {
   ok?: boolean;
@@ -296,8 +295,6 @@ export function AdminOpsConsolePage() {
   const [riderOptionsErr, setRiderOptionsErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const start = dvNow();
-    dvDeliveryLatencyLog("admin_ops_request_start_ms");
     setErr(null);
     const r = await fetch("/api/admin/ops-console/summary?days=7", { cache: "no-store" });
     const j = (await r.json()) as OpsConsoleSummary;
@@ -305,13 +302,11 @@ export function AdminOpsConsolePage() {
       setSummary(j);
       setOps(null);
       setErr(j.error ?? "load_failed");
-      dvDeliveryLatencyMeasure("admin_ops_refresh_ms", start, dvNow(), { ok: false, status: r.status });
       return;
     }
     setSummary(j);
     const parsed = parseDeliveryOperationsPayload(j.deliveryOps);
     setOps(parsed);
-    dvDeliveryLatencyMeasure("admin_ops_refresh_ms", start, dvNow(), { ok: true, status: r.status });
   }, []);
 
   useEffect(() => {
@@ -422,17 +417,13 @@ export function AdminOpsConsolePage() {
 
   const execAction = async (key: string, fn: () => Promise<void>) => {
     if (actionBusyKey) return;
-    const start = dvNow();
-    dvDeliveryLatencyLog("admin_action_click_ms", { key });
     setActionBusyKey(key);
     setErr(null);
     try {
       await fn();
       setToast("처리 완료");
-      dvDeliveryLatencyMeasure("admin_action_done_ms", start, dvNow(), { key, ok: true });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "action_failed");
-      dvDeliveryLatencyMeasure("admin_action_done_ms", start, dvNow(), { key, ok: false });
     } finally {
       setActionBusyKey(null);
     }

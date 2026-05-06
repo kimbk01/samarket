@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -382,8 +381,6 @@ async function augmentQueuesWithIds(
 }
 
 export async function GET(req: NextRequest) {
-  const dvReqStart = dvNow();
-  dvDeliveryLatencyLog("request_start_ms", { route: "GET /api/admin/ops-console/summary" });
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
@@ -413,10 +410,6 @@ export async function GET(req: NextRequest) {
     }),
     sbAny.rpc("admin_delivery_operations_health"),
   ]);
-  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
-    route: "GET /api/admin/ops-console/summary",
-    step: "rpc_dashboard_health",
-  });
 
   const dashErr = dashRes.error as { message?: string } | null;
   if (dashErr) {
@@ -459,10 +452,6 @@ export async function GET(req: NextRequest) {
 
   // 1.5) Ops 콘솔 액션용 ID 보강 (event_id/settlement_id/rider_id/store_id 등)
   const deliveryOpsAugmented = await augmentQueuesWithIds(sbAny, deliveryOps);
-  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
-    route: "GET /api/admin/ops-console/summary",
-    step: "augment_queues",
-  });
 
   // 2) Auto actions counts (fast KPI)
   const [{ count: failedAutoActions }, { count: pendingApprovals }] = await Promise.all([
@@ -475,18 +464,10 @@ export async function GET(req: NextRequest) {
       .select("id", { head: true, count: "exact" })
       .eq("action_status", "pending_approval"),
   ]);
-  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
-    route: "GET /api/admin/ops-console/summary",
-    step: "kpi_auto_actions_counts",
-  });
 
   // 3) Runtime health (capabilities detect + settings)
   const capRes = await sbAny.rpc("detect_platform_runtime_capabilities", { p_force: false });
   const capabilities = (capRes.data ?? null) as CapabilitiesRow | null;
-  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
-    route: "GET /api/admin/ops-console/summary",
-    step: "rpc_detect_capabilities",
-  });
 
   const setRes = await sbAny
     .from("platform_runtime_settings")
@@ -495,10 +476,6 @@ export async function GET(req: NextRequest) {
     )
     .eq("singleton", 1)
     .maybeSingle();
-  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
-    route: "GET /api/admin/ops-console/summary",
-    step: "load_runtime_settings",
-  });
 
   const settings =
     (setRes.data as RuntimeSettingsRow | null) ?? ({
