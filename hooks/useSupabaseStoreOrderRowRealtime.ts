@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { StoreOrdersRealtimeHandlers } from "@/hooks/useSupabaseStoreOrdersRealtime";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyValue } from "@/lib/perf/dv-delivery-latency";
 
 /**
  * 단일 주문 행 `store_orders` 변경 구독 — 구매자 상세·관리자 상세 등.
@@ -26,6 +27,8 @@ export function useSupabaseStoreOrderRowRealtime(
     let ch: RealtimeChannel | null = null;
     let cancelled = false;
     let debTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastSig = "";
+    let lastSigAt = 0;
 
     const clearDebounce = () => {
       if (debTimer) {
@@ -58,6 +61,39 @@ export function useSupabaseStoreOrderRowRealtime(
             filter: `id=eq.${oid}`,
           },
           (payload) => {
+            try {
+              const commitTs = (payload as any)?.commit_timestamp;
+              const sig = `${String(payload.eventType)}:${String(commitTs ?? "")}`;
+              const now = Date.now();
+              if (sig && sig === lastSig && now - lastSigAt < 1500) {
+                dvDeliveryLatencyLog("duplicate_realtime_event_ms", {
+                  table: "store_orders",
+                  scope: "order_row",
+                  eventType: payload.eventType,
+                  commit_timestamp: commitTs,
+                  order_id: oid,
+                });
+              }
+              lastSig = sig;
+              lastSigAt = now;
+              const commitMs = typeof commitTs === "string" ? new Date(commitTs).getTime() : NaN;
+              if (Number.isFinite(commitMs)) {
+                dvDeliveryLatencyValue("order_row_realtime_received_ms", Date.now() - commitMs, {
+                  table: "store_orders",
+                  eventType: payload.eventType,
+                  commit_timestamp: commitTs,
+                  order_id: oid,
+                });
+              } else {
+                dvDeliveryLatencyLog("order_row_realtime_received_ms", {
+                  table: "store_orders",
+                  eventType: payload.eventType,
+                  order_id: oid,
+                });
+              }
+            } catch {
+              /* ignore */
+            }
             const eventType = payload.eventType;
             if (eventType === "INSERT" || eventType === "UPDATE" || eventType === "DELETE") {
               scheduleChange();

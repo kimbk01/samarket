@@ -17,6 +17,7 @@ import {
 } from "@/lib/order-chat/service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,6 +118,8 @@ export async function GET(
   _req: Request,
   context: { params: Promise<{ orderId: string }> }
 ) {
+  const dvReqStart = dvNow();
+  dvDeliveryLatencyLog("request_start_ms", { route: "GET /api/me/store-orders/[orderId]" });
   const buyerId = await getRouteUserId();
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -143,6 +146,10 @@ export async function GET(
     .eq("id", oid)
     .eq("buyer_user_id", buyerId)
     .maybeSingle();
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "GET /api/me/store-orders/[orderId]",
+    step: "load_order",
+  });
 
   if (oErr || !order) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -184,6 +191,10 @@ export async function GET(
     })(),
     loadDeliverySnapshot(sbAny, oid),
   ]);
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "GET /api/me/store-orders/[orderId]",
+    step: "load_related_parallel",
+  });
 
   const { data: items, error: iErr } = itemsRes;
   if (iErr) {

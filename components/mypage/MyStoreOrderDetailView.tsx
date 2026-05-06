@@ -31,6 +31,7 @@ import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/communit
 import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+import { dvDeliveryLatencyMeasure, dvDeliveryLatencyLog, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 type ItemRow = {
   id: string;
@@ -304,6 +305,32 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   useEffect(() => {
     void load();
   }, [load]);
+
+  // render visible (buyer) + E2E from last checkout click if available
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    const oid = String(state.order?.id ?? "").trim();
+    if (!oid) return;
+    const markVisible = () => {
+      dvDeliveryLatencyLog("buyer_order_detail_visible_ms", { order_id: oid });
+      try {
+        const w = window as any;
+        if (w?.__dv_last_order_id && String(w.__dv_last_order_id) === oid && w.__dv_last_order_click) {
+          dvDeliveryLatencyMeasure("buyer_order_click_to_detail_visible_ms", w.__dv_last_order_click, dvNow(), {
+            order_id: oid,
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    const raf1 = window.requestAnimationFrame(() => {
+      const raf2 = window.requestAnimationFrame(markVisible);
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      return () => window.cancelAnimationFrame(raf2);
+    });
+    return () => window.cancelAnimationFrame(raf1);
+  }, [state]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 

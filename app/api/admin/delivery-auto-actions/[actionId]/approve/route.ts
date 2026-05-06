@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, ctx: { params: Promise<{ actionId: string }> }) {
+  const dvReqStart = dvNow();
+  dvDeliveryLatencyLog("request_start_ms", { route: "POST /api/admin/delivery-auto-actions/[actionId]/approve" });
   const admin = await requireAdminApiUser();
   if (!admin.ok) return admin.response;
 
@@ -32,6 +35,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ actionId: stri
     p_action_id: id,
     p_actor: admin.userId,
     p_note: note || null,
+  });
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "POST /api/admin/delivery-auto-actions/[actionId]/approve",
   });
 
   if (error) {

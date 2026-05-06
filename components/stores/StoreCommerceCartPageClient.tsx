@@ -28,6 +28,7 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import { fetchStorePublicBySlugDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   clearLastCheckoutOrderId,
@@ -592,6 +593,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
 
   async function submitOrder() {
+    const clickStart = dvNow();
+    dvDeliveryLatencyLog("buyer_order_click_ms", {
+      store_slug: storeSlug,
+      fulfillment_type: fulfillment,
+      line_count: lines.length,
+    });
     if (!store || lines.length === 0) return;
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
       setErr(
@@ -670,6 +677,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     setLastOrderId(null);
     setBusy(true);
     try {
+      dvDeliveryLatencyLog("buyer_order_request_start_ms", {
+        store_id: store.id,
+        store_slug: storeSlug,
+        fulfillment_type: fulfillment,
+      });
       const { status, json } = await postMeStoreOrder({
         store_id: store.id,
         items: lines.map((l) => {
@@ -727,6 +739,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         return;
       }
       const oid = typeof orderJson.order?.id === "string" ? orderJson.order.id : null;
+      dvDeliveryLatencyMeasure("buyer_order_api_done_ms", clickStart, undefined, {
+        store_id: store.id,
+        store_slug: storeSlug,
+        order_id: oid,
+      });
+      if (typeof window !== "undefined") {
+        (window as any).__dv_last_order_click = clickStart;
+        (window as any).__dv_last_order_id = oid;
+      }
       /* Context 비우기와 동시에 리렌더되면 lines===0이 lastOrderId보다 먼저 적용될 수 있음 → id 먼저 동기 반영 */
       flushSync(() => {
         setLastOrderId(oid);

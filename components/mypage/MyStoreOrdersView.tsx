@@ -24,6 +24,7 @@ import {
   patchMeStoreOrder,
 } from "@/lib/stores/store-delivery-api-client";
 import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerStoreOrdersRealtime";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 type ItemRow = {
   id: string;
@@ -486,6 +487,30 @@ export function MyStoreOrdersView({
     return [...state.orders].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }, [state]);
+
+  // render visible (buyer orders list) + E2E from last checkout click if available
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    const w = typeof window !== "undefined" ? (window as any) : null;
+    const lastId = w?.__dv_last_order_id ? String(w.__dv_last_order_id) : "";
+    if (!lastId) return;
+    const exists = state.orders.some((o) => String(o.id) === lastId);
+    if (!exists) return;
+    const markVisible = () => {
+      dvDeliveryLatencyLog("buyer_order_list_visible_ms", { order_id: lastId });
+      if (w?.__dv_last_order_click) {
+        dvDeliveryLatencyMeasure("buyer_order_click_to_list_visible_ms", w.__dv_last_order_click, dvNow(), {
+          order_id: lastId,
+        });
+      }
+    };
+    const raf1 = window.requestAnimationFrame(() => {
+      const raf2 = window.requestAnimationFrame(markVisible);
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      return () => window.cancelAnimationFrame(raf2);
+    });
+    return () => window.cancelAnimationFrame(raf1);
   }, [state]);
 
   const counts = useMemo(() => tabCounts(allSorted), [allSorted]);

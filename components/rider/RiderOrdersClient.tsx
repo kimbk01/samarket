@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyValue } from "@/lib/perf/dv-delivery-latency";
 
 type DeliveryRow = {
   order_id: string;
@@ -25,6 +26,7 @@ export function RiderOrdersClient() {
   const [rows, setRows] = useState<{ delivery: DeliveryRow; order: OrderRow }[]>([]);
 
   const load = useCallback(async () => {
+    dvDeliveryLatencyLog("rider_orders_api_request_start_ms");
     setErr(null);
     const r = await fetch("/api/me/rider/orders", { cache: "no-store" });
     const j = (await r.json()) as {
@@ -37,6 +39,7 @@ export function RiderOrdersClient() {
       setErr(j.error ?? "목록 실패");
       return;
     }
+    dvDeliveryLatencyLog("rider_orders_api_done_ms", { rider_id: j.rider?.id ?? null });
     setRiderId(j.rider?.id ?? null);
     setRows(Array.isArray(j.orders) ? j.orders : []);
   }, []);
@@ -59,6 +62,8 @@ export function RiderOrdersClient() {
     if (!riderId) return;
     const sb = getSupabaseClient();
     if (!sb) return;
+    let lastSig = "";
+    let lastSigAt = 0;
     const ch = sb
       .channel(`rider_orders_${riderId}`)
       .on(
@@ -69,7 +74,38 @@ export function RiderOrdersClient() {
           table: "store_order_deliveries",
           filter: `rider_id=eq.${riderId}`,
         },
-        () => void load()
+        (payload) => {
+          try {
+            const commitTs = (payload as any)?.commit_timestamp;
+            const sig = `${String((payload as any)?.eventType ?? "")}:${String(commitTs ?? "")}`;
+            const now = Date.now();
+            if (sig && sig === lastSig && now - lastSigAt < 1500) {
+              dvDeliveryLatencyLog("duplicate_realtime_event_ms", {
+                table: "store_order_deliveries",
+                scope: "rider",
+                eventType: (payload as any)?.eventType,
+                commit_timestamp: commitTs,
+                rider_id: riderId,
+              });
+            }
+            lastSig = sig;
+            lastSigAt = now;
+            const commitMs = typeof commitTs === "string" ? new Date(commitTs).getTime() : NaN;
+            if (Number.isFinite(commitMs)) {
+              dvDeliveryLatencyValue("rider_realtime_received_ms", Date.now() - commitMs, {
+                table: "store_order_deliveries",
+                eventType: (payload as any)?.eventType,
+                commit_timestamp: commitTs,
+                rider_id: riderId,
+              });
+            } else {
+              dvDeliveryLatencyLog("rider_realtime_received_ms", { rider_id: riderId });
+            }
+          } catch {
+            /* ignore */
+          }
+          void load();
+        }
       )
       .subscribe();
     return () => {

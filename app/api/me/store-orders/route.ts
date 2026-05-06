@@ -37,6 +37,7 @@ import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-or
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
+import { dvDeliveryLatencyLog, dvDeliveryLatencyMeasure, dvNow } from "@/lib/perf/dv-delivery-latency";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,8 @@ function normalizeOrderLineItem(
 
 /** 구매자: 매장 주문 목록 — `?limit=` (1~100, 기본 100) 로 홈 미리보기 등 부분 로드 */
 export async function GET(req: NextRequest) {
+  const dvReqStart = dvNow();
+  dvDeliveryLatencyLog("request_start_ms", { route: "GET /api/me/store-orders" });
   const buyerId = await getRouteUserId();
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -129,6 +132,10 @@ export async function GET(req: NextRequest) {
     .eq("buyer_user_id", buyerId)
     .order("created_at", { ascending: false })
     .limit(rowLimit);
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "GET /api/me/store-orders",
+    step: "load_orders",
+  });
 
   if (error) {
     console.error("[GET store-orders]", error);
@@ -156,6 +163,10 @@ export async function GET(req: NextRequest) {
       .in("order_id", rawOrderIds),
     sb.from("store_reviews").select("order_id").in("order_id", rawOrderIds),
   ]);
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "GET /api/me/store-orders",
+    step: "load_hidden_items_reviews",
+  });
 
   let list = rawList;
   const { data: hiddenRows, error: hiddenErr } = hiddenRes;
@@ -216,6 +227,10 @@ export async function GET(req: NextRequest) {
       : Promise.resolve({ data: [] as const, error: null as null }),
     getBuyerOrderChatUnreadMap(sb as SupabaseClient<any>, buyerId, orderIdsForChat),
   ]);
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "GET /api/me/store-orders",
+    step: "load_stores_unread",
+  });
 
   const names: Record<string, string> = {};
   const profileImages: Record<string, string | null> = {};
@@ -274,6 +289,8 @@ type PostBody = {
  * - 재고 차감 후 주문 저장; 주문 실패 시 재고 복구 시도
  */
 export async function POST(req: NextRequest) {
+  const dvReqStart = dvNow();
+  dvDeliveryLatencyLog("request_start_ms", { route: "POST /api/me/store-orders" });
   const buyerId = await getRouteUserId();
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -297,6 +314,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
+  dvDeliveryLatencyMeasure("request_body_parsed_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+  });
 
   const storeId = String(body.store_id ?? "").trim();
   const items = Array.isArray(body.items) ? body.items : [];
@@ -317,6 +337,10 @@ export async function POST(req: NextRequest) {
     )
     .eq("id", storeId)
     .maybeSingle();
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+    step: "load_store",
+  });
 
   if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
     return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
@@ -370,6 +394,10 @@ export async function POST(req: NextRequest) {
       "id, store_id, title, price, discount_price, stock_qty, track_inventory, product_status, min_order_qty, max_order_qty, pickup_available, local_delivery_available, shipping_available, options_json"
     )
     .in("id", productIds);
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+    step: "load_products",
+  });
 
   if (pErr || !products?.length || products.length !== productIds.length) {
     return NextResponse.json({ ok: false, error: "products_not_found" }, { status: 400 });
@@ -517,6 +545,10 @@ export async function POST(req: NextRequest) {
     }
     stockRollback.push({ id: line.product_id, delta: line.qty });
   }
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+    step: "stock_decrement_done",
+  });
 
   const orderNo = makeOrderNo();
   const buyer_note = String(body.buyer_note ?? "").trim() || null;
@@ -575,6 +607,9 @@ export async function POST(req: NextRequest) {
     })
     .select("id")
     .maybeSingle();
+  dvDeliveryLatencyMeasure("order_created_db_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+  });
 
   if (oErr || !orderRow) {
     await restoreDecrementedStock(sb, stockRollback);
@@ -625,6 +660,10 @@ export async function POST(req: NextRequest) {
     }
     await persistStoreOrderItemOptions(sb, itemRow.id as string, line.options_snapshot);
   }
+  dvDeliveryLatencyMeasure("db_query_done_ms", dvReqStart, undefined, {
+    route: "POST /api/me/store-orders",
+    step: "order_items_done",
+  });
 
   const rm = getAuditRequestMeta(req);
   void appendAuditLog(sb, {
