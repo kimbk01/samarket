@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
+import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import {
@@ -60,13 +61,95 @@ type OrderRow = {
   delivery_address_summary?: string | null;
   delivery_address_detail?: string | null;
   created_at: string;
+  updated_at?: string | null;
   auto_complete_at?: string | null;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
+  accepted_at?: string | null;
+  admin_locked?: boolean | null;
+  admin_flagged?: boolean | null;
+  dispute_status?: string | null;
+  admin_note?: string | null;
+  sla_warning_level?: string | null;
+  sla_warning_reason?: string | null;
+  sla_warning_at?: string | null;
+  needs_admin_attention?: boolean | null;
+  delivery?: {
+    order_id: string;
+    rider_id: string | null;
+    delivery_status: string;
+    assigned_at: string | null;
+    picked_up_at: string | null;
+    delivered_at: string | null;
+    rider_accepted_at?: string | null;
+    customer_arrived_at?: string | null;
+    rider_failure_reported_at?: string | null;
+    rider_failure_report_reason?: string | null;
+    updated_at: string | null;
+    admin_note?: string | null;
+  } | null;
   items: ItemRow[];
 };
 
 function formatBuyerPhoneDisplay(raw: string | null | undefined): string | null {
   const s = typeof raw === "string" ? raw.trim() : "";
   return s.length ? s : null;
+}
+
+function formatPrepClockKo(iso: string | null | undefined): string | null {
+  const s = typeof iso === "string" ? iso.trim() : "";
+  if (!s) return null;
+  const t = new Date(s).getTime();
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function ownerOrderPrepDelayed(order: OrderRow): boolean {
+  const raw = order.estimated_ready_at;
+  if (!raw || typeof raw !== "string") return false;
+  const ts = new Date(raw.trim()).getTime();
+  if (!Number.isFinite(ts)) return false;
+  const term = new Set(["completed", "cancelled", "refunded"]);
+  if (term.has(order.order_status)) return false;
+  return ts < Date.now();
+}
+
+function deliveryStatusLabel(s: string | null | undefined): string | null {
+  const t = typeof s === "string" ? s.trim() : "";
+  if (!t) return null;
+  switch (t) {
+    case "waiting_rider":
+      return "배차 대기";
+    case "rider_assigned":
+      return "라이더 배정";
+    case "pickup_in_progress":
+      return "픽업중";
+    case "delivering":
+      return "배달중";
+    case "delivered":
+      return "배달완료";
+    case "delivery_failed":
+      return "배송실패";
+    default:
+      return t;
+  }
+}
+
+function ownerSlaBadgeLabel(o: OrderRow): string | null {
+  const r = typeof o.sla_warning_reason === "string" ? o.sla_warning_reason.trim() : "";
+  if (r === "pending_over_5m") return "주문 방치";
+  if (r === "eta_overdue") return "ETA 초과";
+  if (r === "delivery_over_60m") return "장기 배송";
+  if (r === "unassigned_over_10m") return "미배차";
+  if (r === "refund_overdue") return "환불 지연";
+  if (o.needs_admin_attention === true) return "운영 확인중";
+  const lvl = typeof o.sla_warning_level === "string" ? o.sla_warning_level.trim() : "";
+  if (lvl) return `SLA ${lvl}`;
+  return null;
 }
 
 function OwnerOrderBuyerFields({ order }: { order: OrderRow }) {
@@ -185,12 +268,129 @@ function OwnerOrderCard({
         결제 {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
+        {order.admin_locked === true ? (
+          <span className="rounded bg-violet-200 px-2 py-0.5 sam-text-xxs font-semibold text-violet-950">
+            플랫폼 잠금
+          </span>
+        ) : null}
+        {ownerSlaBadgeLabel(order) ? (
+          <span className="rounded bg-rose-200 px-2 py-0.5 sam-text-xxs font-semibold text-rose-950">
+            {ownerSlaBadgeLabel(order)}
+          </span>
+        ) : null}
+        {ownerOrderPrepDelayed(order) ? (
+          <span className="rounded bg-rose-200 px-2 py-0.5 sam-text-xxs font-semibold text-rose-950">
+            준비 지연
+          </span>
+        ) : null}
         {order.order_status === "refund_requested" ? (
           <span className="rounded bg-amber-200 px-2 py-0.5 sam-text-xxs font-semibold text-amber-950">
             환불 요청
           </span>
         ) : null}
+        {deliveryStatusLabel(order.delivery?.delivery_status) ? (
+          <span className="rounded bg-slate-200 px-2 py-0.5 sam-text-xxs font-semibold text-slate-900">
+            {deliveryStatusLabel(order.delivery?.delivery_status)}
+          </span>
+        ) : null}
       </div>
+      <dl className="mt-2 grid gap-1 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-2 sam-text-xxs text-sam-muted">
+        <div className="flex justify-between gap-2">
+          <dt>주문 접수</dt>
+          <dd className="text-right font-medium text-sam-fg tabular-nums">
+            {new Date(order.created_at).toLocaleString("ko-KR")}
+          </dd>
+        </div>
+        {order.accepted_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>접수 확인</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.accepted_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.estimated_prep_minutes != null && Number(order.estimated_prep_minutes) > 0 ? (
+          <div className="flex justify-between gap-2">
+            <dt>예상 준비</dt>
+            <dd className="text-right font-medium text-sam-fg">약 {Math.floor(Number(order.estimated_prep_minutes))}분</dd>
+          </div>
+        ) : null}
+        {formatPrepClockKo(order.estimated_ready_at) ? (
+          <div className="flex justify-between gap-2">
+            <dt>예상 준비 완료</dt>
+            <dd className="text-right font-medium text-sam-fg">
+              {formatPrepClockKo(order.estimated_ready_at)}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.assigned_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>배차 시각</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.delivery.assigned_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.picked_up_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>픽업 완료</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.delivery.picked_up_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.rider_accepted_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>라이더 수락</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.delivery.rider_accepted_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.customer_arrived_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>고객 도착</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.delivery.customer_arrived_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.delivered_at ? (
+          <div className="flex justify-between gap-2">
+            <dt>배송 완료</dt>
+            <dd className="text-right font-medium text-sam-fg tabular-nums">
+              {new Date(order.delivery.delivered_at).toLocaleString("ko-KR")}
+            </dd>
+          </div>
+        ) : null}
+        {order.delivery?.rider_failure_reported_at &&
+        order.delivery.delivery_status !== "delivery_failed" ? (
+          <div className="flex justify-between gap-2">
+            <dt>라이더 실패 보고</dt>
+            <dd className="text-right text-sm text-amber-900">
+              접수{" "}
+              <span className="tabular-nums">
+                {new Date(order.delivery.rider_failure_reported_at).toLocaleString("ko-KR")}
+              </span>
+              {order.delivery.rider_failure_report_reason?.trim()
+                ? ` · ${order.delivery.rider_failure_report_reason.trim()}`
+                : ""}
+            </dd>
+          </div>
+        ) : null}
+        {order.dispute_status?.trim() ? (
+          <div className="flex justify-between gap-2">
+            <dt>운영 분쟁·긴급</dt>
+            <dd className="text-right font-medium text-amber-900">{order.dispute_status.trim()}</dd>
+          </div>
+        ) : null}
+        {order.admin_note?.trim() ? (
+          <div className="sm:col-span-2 border-t border-sam-border-soft pt-1">
+            <dt className="mb-0.5">플랫폼 메모</dt>
+            <dd className="whitespace-pre-wrap text-sam-fg">{order.admin_note.trim()}</dd>
+          </div>
+        ) : null}
+      </dl>
       {(order.order_status === "ready_for_pickup" ||
         order.order_status === "delivering" ||
         order.order_status === "arrived") &&
@@ -325,11 +525,6 @@ export function OwnerStoreOrdersView() {
     return () => document.removeEventListener("pointerdown", fn);
   }, []);
 
-  const onStoreOrderInsert = useCallback((row: Record<string, unknown>) => {
-    if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
-    playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
-  }, []);
-
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
     if (!silent) setState({ kind: "loading" });
@@ -440,7 +635,19 @@ export function OwnerStoreOrdersView() {
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   const pollStoreId = state.kind === "ok" ? state.storeId : null;
-  useSupabaseStoreOrdersRealtime(pollStoreId, onStoreOrderInsert);
+  useSupabaseStoreOrdersRealtime(pollStoreId, {
+    debounceMs: 400,
+    onChange: () => void load({ silent: true }),
+    onInsert: (row) => {
+      if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
+      playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
+    },
+  });
+
+  useSupabaseStoreOrderDeliveriesRealtime(
+    pollStoreId ? { kind: "store", storeId: pollStoreId } : null,
+    { debounceMs: 450, onChange: () => void load({ silent: true }) }
+  );
 
   useEffect(() => {
     if (!pollStoreId) return;
@@ -461,7 +668,7 @@ export function OwnerStoreOrdersView() {
     };
     const startPoll = () => {
       stopPoll();
-      intervalId = window.setInterval(safeSilentLoad, 25_000);
+      intervalId = window.setInterval(safeSilentLoad, 45_000);
     };
     const onVisibility = () => {
       if (typeof document === "undefined") return;

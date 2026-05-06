@@ -30,6 +30,19 @@ export type StoreOrderRow = {
   created_at: string;
   updated_at?: string;
   auto_complete_at?: string | null;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
+  accepted_at?: string | null;
+  admin_locked?: boolean | null;
+  admin_flagged?: boolean | null;
+  admin_note?: string | null;
+  refund_approved_at?: string | null;
+  refunded_at?: string | null;
+  dispute_status?: string | null;
+  sla_warning_level?: string | null;
+  sla_warning_reason?: string | null;
+  sla_warning_at?: string | null;
+  needs_admin_attention?: boolean | null;
 };
 
 export type StoreOrderItemRow = {
@@ -133,6 +146,20 @@ export function mapStoreOrderToAdminDelivery(p: {
     createdAt: o.created_at,
     updatedAt: o.updated_at ?? o.created_at,
     orderSource: "store_db",
+    acceptedAt: o.accepted_at ?? undefined,
+    estimatedPrepMinutes:
+      o.estimated_prep_minutes != null ? Math.floor(Number(o.estimated_prep_minutes)) : undefined,
+    estimatedReadyAt: o.estimated_ready_at ?? undefined,
+    adminLocked: o.admin_locked === true,
+    adminFlagged: o.admin_flagged === true,
+    adminNote: o.admin_note ?? undefined,
+    refundApprovedAt: o.refund_approved_at ?? undefined,
+    refundedAt: o.refunded_at ?? undefined,
+    disputeStatus: o.dispute_status ?? undefined,
+    slaWarningLevel: o.sla_warning_level ?? undefined,
+    slaWarningReason: o.sla_warning_reason ?? undefined,
+    slaWarningAt: o.sla_warning_at ?? undefined,
+    needsAdminAttention: o.needs_admin_attention === true,
     cancelRequest,
     refundRequest,
   };

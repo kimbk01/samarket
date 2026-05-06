@@ -91,10 +91,9 @@ export function BusinessAdminDashboard({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  useSupabaseStoreOrdersRealtime(row.id, onStoreOrderInsert);
-
-  const loadDashboard = useCallback(async () => {
-    setDashLoading(true);
+  const loadDashboard = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setDashLoading(true);
     try {
       const [oj, ir, sr] = await Promise.all([
         fetchStoreOrdersListDeduped(row.id),
@@ -138,9 +137,15 @@ export function BusinessAdminDashboard({
       setInquiries([]);
       setSettlements([]);
     } finally {
-      setDashLoading(false);
+      if (!silent) setDashLoading(false);
     }
   }, [row.id]);
+
+  useSupabaseStoreOrdersRealtime(row.id, {
+    debounceMs: 450,
+    onChange: () => void loadDashboard({ silent: true }),
+    onInsert: onStoreOrderInsert,
+  });
 
   useEffect(() => {
     void loadDashboard();
@@ -148,7 +153,7 @@ export function BusinessAdminDashboard({
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void loadDashboard();
+      if (typeof document !== "undefined" && document.visibilityState === "visible") void loadDashboard({ silent: true });
     }, 45_000);
     return () => window.clearInterval(id);
   }, [loadDashboard]);

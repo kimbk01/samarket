@@ -18,10 +18,19 @@ type Row = {
   gross_amount: number;
   fee_amount: number;
   settlement_amount: number;
+  platform_fee_amount?: number;
+  fixed_fee_amount?: number;
+  delivery_income_amount?: number;
+  refund_amount?: number;
+  net_settlement_amount?: number;
   settlement_status: string;
   settlement_due_date: string;
   paid_at: string | null;
   hold_reason: string | null;
+  payout_method?: string | null;
+  payout_reference?: string | null;
+  payout_confirmed_at?: string | null;
+  payout_note?: string | null;
   created_at: string;
 };
 
@@ -46,6 +55,26 @@ export function MyStoreSettlementsPage() {
     if (!storeIdFilter) return rows;
     return rows.filter((r) => r.store_id === storeIdFilter);
   }, [rows, storeIdFilter]);
+
+  const summary = useMemo(() => {
+    let gross = 0;
+    let platformFee = 0;
+    let deliveryIncome = 0;
+    let refund = 0;
+    let pendingNet = 0;
+    let paidNet = 0;
+    for (const r of displayRows) {
+      gross += Number(r.gross_amount) || 0;
+      platformFee += (Number(r.platform_fee_amount ?? 0) || 0) + (Number(r.fixed_fee_amount ?? 0) || 0);
+      deliveryIncome += Number(r.delivery_income_amount ?? 0) || 0;
+      refund += Number(r.refund_amount ?? 0) || 0;
+      const net = Number(r.net_settlement_amount ?? r.settlement_amount) || 0;
+      const st = String(r.settlement_status ?? "");
+      if (st === "paid") paidNet += net;
+      else if (st === "scheduled" || st === "processing" || st === "held") pendingNet += net;
+    }
+    return { gross, platformFee, deliveryIncome, refund, pendingNet, paidNet };
+  }, [displayRows]);
 
   const fmt = useCallback((n: number) => formatPrice(n, currency), [currency]);
 
@@ -90,7 +119,7 @@ export function MyStoreSettlementsPage() {
           <p className="text-sm text-sam-muted">불러오는 중…</p>
         ) : rows.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
-            아직 정산 내역이 없습니다. 주문이 결제 완료되면 예정 건이 표시됩니다.
+            아직 정산 내역이 없습니다. 주문이 완료(completed)되면 예정 건이 표시됩니다.
           </p>
         ) : displayRows.length === 0 ? (
           <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
@@ -98,6 +127,43 @@ export function MyStoreSettlementsPage() {
           </p>
         ) : (
           <ul className="space-y-2">
+            <li className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+              <p className="text-sm font-semibold text-sam-fg">정산 요약</p>
+              <p className="mt-1 sam-text-xxs text-sam-muted">
+                아래 금액은 표시 중인 매장 범위 기준입니다. 상세 지급 처리는 운영에서 진행되며, 업체 화면에서는 수정할 수
+                없습니다.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">총 매출</p>
+                  <p className="text-base font-semibold text-sam-fg">{fmt(summary.gross)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">플랫폼 수수료</p>
+                  <p className="text-base font-semibold text-sam-fg">{fmt(summary.platformFee)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">배달비 차감(플랫폼 배달수익)</p>
+                  <p className="text-base font-semibold text-sam-fg">{fmt(summary.deliveryIncome)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">환불 차감</p>
+                  <p className="text-base font-semibold text-sam-fg">{fmt(summary.refund)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">정산 예정금</p>
+                  <p className="text-base font-semibold text-sam-fg">{fmt(summary.pendingNet)}</p>
+                </div>
+                <div className="rounded-ui-rect border border-sam-border-soft px-3 py-2">
+                  <p className="sam-text-xxs text-sam-muted">정산 완료금</p>
+                  <p className="text-base font-semibold text-emerald-800">{fmt(summary.paidNet)}</p>
+                </div>
+              </div>
+              <p className="mt-2 sam-text-xxs text-sam-muted">
+                정산 예정·완료 합계는 각각 scheduled·processing·held / paid 상태만 포함합니다. cancelled 등은 건별 목록에서
+                확인하세요.
+              </p>
+            </li>
             {storeIdFilter ? (
               <li className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
                 이 매장 정산만 표시 중입니다.{" "}
@@ -121,13 +187,28 @@ export function MyStoreSettlementsPage() {
                   {fmt(Number(r.settlement_amount) || 0)}
                 </p>
                 <p className="sam-text-xxs text-sam-meta">
-                  매출 {fmt(Number(r.gross_amount) || 0)} · 수수료 {fmt(Number(r.fee_amount) || 0)}
+                  매출 {fmt(Number(r.gross_amount) || 0)} · 수수료 {fmt(Number(r.fee_amount) || 0)} · 환불{" "}
+                  {fmt(Number(r.refund_amount ?? 0) || 0)}
+                </p>
+                <p className="mt-1 sam-text-xxs text-sam-muted">
+                  - 플랫폼 {fmt(Number(r.platform_fee_amount ?? 0) || 0)} - 고정 {fmt(Number(r.fixed_fee_amount ?? 0) || 0)} - 배달수익{" "}
+                  {fmt(Number(r.delivery_income_amount ?? 0) || 0)} ={" "}
+                  <span className="font-medium text-sam-fg">
+                    {fmt(Number(r.net_settlement_amount ?? r.settlement_amount) || 0)}
+                  </span>
                 </p>
                 {r.hold_reason ? (
                   <p className="mt-2 text-xs text-amber-800">보류 사유: {r.hold_reason}</p>
                 ) : null}
                 {r.paid_at ? (
                   <p className="mt-1 text-xs text-green-700">지급일 {r.paid_at.slice(0, 10)}</p>
+                ) : null}
+                {r.payout_confirmed_at ? (
+                  <p className="mt-1 text-xs text-sam-muted">
+                    입금 확인 {r.payout_confirmed_at.slice(0, 10)}
+                    {r.payout_method ? ` · ${r.payout_method}` : ""}
+                    {r.payout_reference ? ` · ${r.payout_reference}` : ""}
+                  </p>
                 ) : null}
                 <Link
                   href={buildStoreOrdersHref({ storeId: r.store_id })}

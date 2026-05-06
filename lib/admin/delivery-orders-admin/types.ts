@@ -108,6 +108,20 @@ export interface AdminDeliveryOrder {
   refundRequest?: RefundRequest | null;
   /** 원장 출처 — 목록은 항상 DB */
   orderSource?: "store_db";
+  /** 매장 접수(accepted) 시 예상 조리 — 원장 컬럼 */
+  acceptedAt?: string | null;
+  estimatedPrepMinutes?: number | null;
+  estimatedReadyAt?: string | null;
+  adminLocked?: boolean;
+  adminFlagged?: boolean;
+  adminNote?: string | null;
+  refundApprovedAt?: string | null;
+  refundedAt?: string | null;
+  disputeStatus?: string | null;
+  slaWarningLevel?: string | null;
+  slaWarningReason?: string | null;
+  slaWarningAt?: string | null;
+  needsAdminAttention?: boolean;
 }
 
 export interface OrderStatusLog {

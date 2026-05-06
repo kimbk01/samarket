@@ -322,6 +322,48 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             ],
           },
           {
+            key: "delivery-ops-console",
+            title: "Ops Console",
+            path: "/admin/ops-console",
+            status: "done",
+          },
+          {
+            key: "delivery-operations-stats",
+            title: "배달 운영 통계",
+            path: "/admin/delivery-operations",
+            status: "done",
+          },
+          {
+            key: "delivery-riders-ops",
+            title: "라이더 운영센터",
+            path: "/admin/delivery-riders",
+            status: "done",
+          },
+          {
+            key: "delivery-operation-alerts",
+            title: "배달 운영 알림",
+            path: "/admin/delivery-alerts",
+            status: "done",
+          },
+          {
+            key: "delivery-auto-actions",
+            title: "배달 자동 액션",
+            path: "/admin/delivery-auto-actions",
+            status: "done",
+          },
+          {
+            key: "runtime-health",
+            title: "Runtime Health",
+            path: "/admin/runtime-health",
+            status: "done",
+          },
+          {
+            key: "delivery-release-gate",
+            title: "Delivery Release Gate",
+            path: "/admin/delivery-release-gate",
+            status: "done",
+          },
+          {
             key: "store-inquiries-admin",
             title: "배달 문의",
             path: "/admin/store-inquiries",
@@ -343,6 +385,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "store-settlements-admin",
             title: "배달 정산",
             path: "/admin/store-settlements",
+            status: "partial",
+          },
+          {
+            key: "store-fee-policies-admin",
+            title: "수수료 정책",
+            path: "/admin/store-fee-policies",
             status: "partial",
           },
           {

@@ -11,7 +11,30 @@ export const dynamic = "force-dynamic";
 type PatchBody = {
   settlement_status?: string;
   hold_reason?: string | null;
+  payout_method?: string | null;
+  payout_reference?: string | null;
+  payout_note?: string | null;
+  /** 입금·지급 확인 시각(미입력 시 현재 시각) */
+  payout_confirmed_at?: string | null;
+  /** 지급 완료 시각(미입력 시 payout_confirmed_at 또는 현재 시각) */
+  paid_at?: string | null;
 };
+
+function resolvePaidTimestamps(body: PatchBody): { paidAt: string; payoutConfirmedAt: string } {
+  const now = new Date().toISOString();
+  const rawPaid = typeof body.paid_at === "string" ? body.paid_at.trim() : "";
+  const rawConfirmed =
+    typeof body.payout_confirmed_at === "string" ? body.payout_confirmed_at.trim() : "";
+  const raw = rawPaid || rawConfirmed;
+  if (raw) {
+    const t = new Date(raw).getTime();
+    if (Number.isFinite(t)) {
+      const iso = new Date(t).toISOString();
+      return { paidAt: iso, payoutConfirmedAt: iso };
+    }
+  }
+  return { paidAt: now, payoutConfirmedAt: now };
+}
 
 /**
  * 관리자: 정산 지급 완료 / 보류
@@ -77,18 +100,31 @@ export async function PATCH(
     });
   };
 
-  const now = new Date().toISOString();
+  const payoutPatch: Record<string, unknown> = {};
+  if ("payout_method" in body) payoutPatch.payout_method = body.payout_method ?? null;
+  if ("payout_reference" in body) payoutPatch.payout_reference = body.payout_reference ?? null;
+  if ("payout_note" in body) {
+    const t = String(body.payout_note ?? "").trim();
+    payoutPatch.payout_note = t ? t.slice(0, 2000) : null;
+  }
+  if ("payout_confirmed_at" in body) payoutPatch.payout_confirmed_at = body.payout_confirmed_at ?? null;
 
   if (next === "paid") {
+    const { paidAt, payoutConfirmedAt } = resolvePaidTimestamps(body);
+    const payoutForPaid = { ...payoutPatch };
+    delete payoutForPaid.payout_confirmed_at;
+
     const { data: updated, error } = await sb
       .from("store_settlements")
       .update({
         settlement_status: "paid",
-        paid_at: now,
+        paid_at: paidAt,
         hold_reason: null,
+        payout_confirmed_at: payoutConfirmedAt,
+        ...payoutForPaid,
       })
       .eq("id", sid)
-      .in("settlement_status", ["scheduled", "processing"])
+      .in("settlement_status", ["scheduled", "processing", "held"])
       .select("id")
       .maybeSingle();
 
@@ -101,14 +137,14 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ ok: false, error: "invalid_state" }, { status: 409 });
     }
-    await logSettlement({ settlement_status: "paid", paid_at: now });
+    await logSettlement({ settlement_status: "paid", paid_at: paidAt, payout_confirmed_at: payoutConfirmedAt });
     return NextResponse.json({ ok: true, settlement_status: "paid" });
   }
 
   if (next === "processing") {
     const { data: updated, error } = await sb
       .from("store_settlements")
-      .update({ settlement_status: "processing" })
+      .update({ settlement_status: "processing", ...payoutPatch })
       .eq("id", sid)
       .eq("settlement_status", "scheduled")
       .select("id")
@@ -130,7 +166,7 @@ export async function PATCH(
 
   const { data: updated, error } = await sb
     .from("store_settlements")
-    .update({ settlement_status: "held", hold_reason: holdReason })
+    .update({ settlement_status: "held", hold_reason: holdReason, ...payoutPatch })
     .eq("id", sid)
     .eq("settlement_status", "scheduled")
     .select("id")

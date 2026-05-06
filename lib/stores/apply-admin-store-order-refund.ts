@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
+import { adjustStoreSettlementOnRefund } from "@/lib/stores/adjust-store-settlement-on-refund";
 import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 
 export type ApplyAdminRefundOk = {
@@ -66,10 +67,13 @@ export async function applyAdminStoreOrderRefund(
     }))
   );
 
+  const nowIso = new Date().toISOString();
   const updateRow: Record<string, unknown> = {
     order_status: "refunded",
     payment_status: "refunded",
     auto_complete_at: null,
+    refund_approved_at: nowIso,
+    refunded_at: nowIso,
   };
 
   let { error: uErr } = await sb.from("store_orders").update(updateRow).eq("id", oid);
@@ -80,6 +84,23 @@ export async function applyAdminStoreOrderRefund(
       .update({ order_status: "refunded", payment_status: "refunded" })
       .eq("id", oid);
     uErr = fb ?? null;
+  } else if (
+    uErr &&
+    /refund_approved_at|refunded_at/i.test(String(uErr.message)) &&
+    /does not exist/i.test(String(uErr.message))
+  ) {
+    const slim = { ...updateRow };
+    delete slim.refund_approved_at;
+    delete slim.refunded_at;
+    uErr = (await sb.from("store_orders").update(slim).eq("id", oid)).error;
+    if (uErr?.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
+      uErr = (
+        await sb
+          .from("store_orders")
+          .update({ order_status: "refunded", payment_status: "refunded" })
+          .eq("id", oid)
+      ).error;
+    }
   }
 
   if (uErr) {
@@ -98,6 +119,8 @@ export async function applyAdminStoreOrderRefund(
   }
 
   await cancelScheduledSettlementForOrder(sb, oid);
+  // 정산 원장(있다면)도 환불 반영. 지급 완료 상태면 held로 전환해 운영 확인 유도.
+  await adjustStoreSettlementOnRefund(sb, { orderId: oid, refundAmount: undefined, note: "admin_refund_completed" });
 
   return { ok: true };
 }

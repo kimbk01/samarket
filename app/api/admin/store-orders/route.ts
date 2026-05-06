@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   let q = sb
     .from("store_orders")
     .select(
-      "id, order_no, buyer_user_id, store_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at"
+      "id, order_no, buyer_user_id, store_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, admin_flagged, admin_note, refund_approved_at, refunded_at, dispute_status, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
     )
     .order("created_at", { ascending: false })
     .limit(limit);

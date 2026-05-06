@@ -11,6 +11,7 @@ import { storesBrowsePath, storesBrowsePrimaryPath } from "@/components/stores/b
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 
 const FOOD_CATEGORIES: readonly { name: string; icon: string; subSlug?: string }[] = [
   { name: "전체", icon: "/icons/food/icon_0_0.png" },
@@ -105,9 +106,12 @@ export function StoreCategoryExploreSection({
     if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(activeSlug);
     const catId = String(activePrimary.id ?? "").trim();
     if (!catId) return [];
-    return taxonomy.topics.filter((t) => t.store_category_id === catId);
+    return taxonomy.topics
+      .filter((t) => t.store_category_id === catId)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [taxonomy, activePrimary, activeSlug, industryVersion]);
   const isRestaurant = activeSlug === "restaurant";
+  const secondaryBrowseAllIconSrc = !isRestaurant ? storeSecondaryBrowseIconPath(activeSlug, 0) : null;
 
   return (
     <section id="store-industry-explore" className="scroll-mt-4">
@@ -223,25 +227,48 @@ export function StoreCategoryExploreSection({
             })}
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2 p-4 sm:grid-cols-4">
+          <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
             <Link
               href={storesBrowsePrimaryPath(activeSlug)}
-              className="flex min-h-[56px] flex-col items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
+              className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
             >
-              <span className="sam-text-xxs font-semibold text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
-              <span className="mt-0.5 sam-text-body-secondary font-bold text-sam-fg dark:text-[#E4E6EB]">전체</span>
+              {secondaryBrowseAllIconSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={secondaryBrowseAllIconSrc}
+                  alt=""
+                  aria-hidden
+                  className="mb-1 h-12 w-12 object-contain"
+                  loading="lazy"
+                />
+              ) : null}
+              <span className="sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
+              <span className="mt-0.5 text-[13px] font-bold leading-none text-gray-800 dark:text-[#E4E6EB]">
+                전체
+              </span>
             </Link>
-            {subs.map((s) => (
-              <Link
-                key={s.id}
-                href={storesBrowsePath(activeSlug, s.slug)}
-                className="flex min-h-[56px] items-center justify-center rounded-sam-md border border-sam-border bg-sam-surface-muted px-2 py-2 text-center active:bg-sam-app dark:bg-[#3A3B3C] dark:active:bg-[#4E4F50]"
-              >
-                <span className="text-center sam-text-body-secondary font-semibold leading-tight text-sam-fg dark:text-[#E4E6EB]">
-                  {(s as any).nameKo ?? (s as any).name ?? ""}
-                </span>
-              </Link>
-            ))}
+            {subs.map((s, idx) => {
+              const src = storeSecondaryBrowseIconPath(activeSlug, idx + 1);
+              const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
+              return (
+                <Link
+                  key={s.id}
+                  href={storesBrowsePath(activeSlug, s.slug)}
+                  className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
+                >
+                  {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={src}
+                      alt={label}
+                      className="mb-1 h-12 w-12 object-contain"
+                      loading="lazy"
+                    />
+                  ) : null}
+                  <span className="text-[13px] font-medium leading-none text-gray-700 dark:text-[#E4E6EB]">{label}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

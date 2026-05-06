@@ -14,6 +14,56 @@ export function OrderDetailCard({ order }: { order: AdminDeliveryOrder }) {
         <dt className="text-sam-muted">주문일시</dt>
         <dd>{formatKstDatetimeLong(order.createdAt)}</dd>
       </div>
+      {order.acceptedAt ? (
+        <div>
+          <dt className="text-sam-muted">접수 확인</dt>
+          <dd>{formatKstDatetimeLong(order.acceptedAt)}</dd>
+        </div>
+      ) : null}
+      {order.estimatedPrepMinutes != null && order.estimatedPrepMinutes > 0 ? (
+        <div>
+          <dt className="text-sam-muted">예상 준비(분)</dt>
+          <dd>{order.estimatedPrepMinutes}분</dd>
+        </div>
+      ) : null}
+      {order.estimatedReadyAt ? (
+        <div>
+          <dt className="text-sam-muted">예상 준비 완료</dt>
+          <dd>{formatKstDatetimeLong(order.estimatedReadyAt)}</dd>
+        </div>
+      ) : null}
+      <div>
+        <dt className="text-sam-muted">관리자 잠금</dt>
+        <dd>{order.adminLocked ? "예 (오너·구매자 상태 변경 차단)" : "아니오"}</dd>
+      </div>
+      <div>
+        <dt className="text-sam-muted">경고 플래그</dt>
+        <dd>{order.adminFlagged ? "예" : "아니오"}</dd>
+      </div>
+      {order.disputeStatus ? (
+        <div>
+          <dt className="text-sam-muted">분쟁·긴급 상태</dt>
+          <dd className="font-medium text-amber-900">{order.disputeStatus}</dd>
+        </div>
+      ) : null}
+      {order.adminNote?.trim() ? (
+        <div className="sm:col-span-2">
+          <dt className="text-sam-muted">운영 메모</dt>
+          <dd className="whitespace-pre-wrap">{order.adminNote.trim()}</dd>
+        </div>
+      ) : null}
+      {order.refundApprovedAt ? (
+        <div>
+          <dt className="text-sam-muted">환불 승인 시각</dt>
+          <dd>{formatKstDatetimeLong(order.refundApprovedAt)}</dd>
+        </div>
+      ) : null}
+      {order.refundedAt ? (
+        <div>
+          <dt className="text-sam-muted">환불 완료 시각</dt>
+          <dd>{formatKstDatetimeLong(order.refundedAt)}</dd>
+        </div>
+      ) : null}
       <div>
         <dt className="text-sam-muted">주문자</dt>
         <dd>

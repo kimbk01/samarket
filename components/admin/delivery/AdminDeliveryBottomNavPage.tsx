@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
 
 type Row = {
   id: string;
@@ -12,7 +13,6 @@ type Row = {
   sort_order: number;
   is_active: boolean;
   is_center: boolean;
-  requires_store_id: boolean;
   color: string;
   created_at?: string | null;
   updated_at?: string | null;
@@ -73,7 +73,6 @@ export function AdminDeliveryBottomNavPage() {
     sort_order: 0,
     is_active: true,
     is_center: false,
-    requires_store_id: false,
     color: "#1C8DB8",
   });
 
@@ -86,7 +85,8 @@ export function AdminDeliveryBottomNavPage() {
         setError(data.error ?? "load_failed");
         setRows([]);
       } else {
-        setRows((data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)));
+        const sorted = (data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        setRows(sorted.filter((r) => !isDeliveryBottomNavBuiltinOwnerStoreItem(r)));
       }
     } finally {
       setLoading(false);
@@ -192,7 +192,7 @@ export function AdminDeliveryBottomNavPage() {
                 className="sam-input"
                 value={draft.icon_key ?? ""}
                 onChange={(e) => setDraft((p) => ({ ...p, icon_key: e.target.value }))}
-                placeholder="orders | cart | home | store | user"
+                placeholder="orders | cart | home | user"
               />
             </label>
             <label className="grid gap-1 sm:col-span-2">
@@ -234,14 +234,6 @@ export function AdminDeliveryBottomNavPage() {
               <label className="inline-flex items-center gap-2 sam-text-body text-sam-fg">
                 <input
                   type="checkbox"
-                  checked={Boolean(draft.requires_store_id)}
-                  onChange={(e) => setDraft((p) => ({ ...p, requires_store_id: e.target.checked }))}
-                />
-                requires_store_id
-              </label>
-              <label className="inline-flex items-center gap-2 sam-text-body text-sam-fg">
-                <input
-                  type="checkbox"
                   checked={Boolean(draft.is_center)}
                   onChange={(e) => setDraft((p) => ({ ...p, is_center: e.target.checked }))}
                 />
@@ -275,7 +267,7 @@ export function AdminDeliveryBottomNavPage() {
             <div className="sam-text-body text-sam-muted">불러오는 중...</div>
           ) : (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-              <table className="w-full min-w-[980px] border-collapse sam-text-body">
+              <table className="w-full min-w-[820px] border-collapse sam-text-body">
                 <thead>
                   <tr className="border-b border-sam-border bg-sam-app">
                     <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
@@ -284,7 +276,6 @@ export function AdminDeliveryBottomNavPage() {
                     <th className="px-3 py-2 text-left font-medium text-sam-fg">링크</th>
                     <th className="px-3 py-2 text-center font-medium text-sam-fg">노출</th>
                     <th className="px-3 py-2 text-center font-medium text-sam-fg">센터</th>
-                    <th className="px-3 py-2 text-center font-medium text-sam-fg">store_id</th>
                     <th className="px-3 py-2 text-left font-medium text-sam-fg">색</th>
                     <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
                   </tr>
@@ -313,7 +304,7 @@ export function AdminDeliveryBottomNavPage() {
                               value={String(editDraft?.icon_key ?? "")}
                               onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), icon_key: e.target.value }))}
                             >
-                              {["orders", "cart", "home", "store", "user"].map((k) => (
+                              {["orders", "cart", "home", "user"].map((k) => (
                                 <option key={k} value={k}>
                                   {k}
                                 </option>
@@ -357,18 +348,6 @@ export function AdminDeliveryBottomNavPage() {
                             title="센터는 1개만 유지됩니다."
                           >
                             {r.is_center ? "센터" : "일반"}
-                          </button>
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => void apiUpdate(r.id, { requires_store_id: !r.requires_store_id }).then(load)}
-                            className={`rounded px-1.5 py-0.5 sam-text-helper ${
-                              r.requires_store_id ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
-                            }`}
-                            title="store_id 필요 여부"
-                          >
-                            {r.requires_store_id ? "필요" : "불필요"}
                           </button>
                         </td>
                         <td className="px-3 py-2">

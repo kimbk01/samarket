@@ -14,7 +14,50 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type PatchBody = { order_status?: string };
+type PatchBody = { order_status?: string; estimated_prep_minutes?: number };
+
+async function loadDeliverySnapshot(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  orderId: string
+): Promise<
+  | {
+      ok: true;
+      delivery: {
+        order_id: string;
+        rider_id: string | null;
+        delivery_status: string;
+        assigned_at: string | null;
+        picked_up_at: string | null;
+        delivered_at: string | null;
+        admin_note: string | null;
+        rider_accepted_at: string | null;
+        customer_arrived_at: string | null;
+        rider_decline_reason: string | null;
+        rider_failure_reported_at: string | null;
+        rider_failure_report_reason: string | null;
+        updated_at: string | null;
+      } | null;
+    }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await sb
+    .from("store_order_deliveries")
+    .select(
+      "order_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, admin_note, rider_accepted_at, customer_arrived_at, rider_decline_reason, rider_failure_reported_at, rider_failure_report_reason, updated_at"
+    )
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    if (/store_order_deliveries/i.test(String(error.message)) && /does not exist/i.test(String(error.message))) {
+      return { ok: true, delivery: null };
+    }
+    console.error("[GET owner store-order delivery]", error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, delivery: (data as any) ?? null };
+}
 
 /** 매장 오너: 단일 주문 + 라인 */
 export async function GET(
@@ -61,7 +104,7 @@ export async function GET(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, buyer_user_id, total_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, community_messenger_room_id"
+      "id, order_no, buyer_user_id, total_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
     )
     .eq("id", oid)
     .eq("store_id", sid)
@@ -82,6 +125,7 @@ export async function GET(
   }
 
   let order_chat_ready = false;
+  const deliverySnap = await loadDeliverySnapshot(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
   try {
     const ens = await ensureOrderChatRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
     if (ens.ok) order_chat_ready = true;
@@ -100,6 +144,7 @@ export async function GET(
       store_pickup_address_lines,
     },
     order: { ...order, items: items ?? [] },
+    delivery: deliverySnap.ok ? deliverySnap.delivery : null,
   });
 }
 
@@ -132,6 +177,11 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "invalid_order_status" }, { status: 400 });
   }
 
+  /** 구매자 PATCH·관리자 처리 전용 — 오너가 설정하면 안 되는 값 (허용 전이 밖이어도 명시 차단) */
+  if (nextStatus === "refund_requested" || nextStatus === "refunded") {
+    return NextResponse.json({ ok: false, error: "owner_cannot_set_order_status" }, { status: 400 });
+  }
+
   const sb = tryGetSupabaseForStores();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -144,7 +194,7 @@ export async function PATCH(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id")
+    .select("id, store_id, admin_locked")
     .eq("id", oid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -153,10 +203,16 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "order_not_found" }, { status: 404 });
   }
 
+  if ((order as { admin_locked?: boolean }).admin_locked === true) {
+    return NextResponse.json({ ok: false, error: "order_admin_locked" }, { status: 409 });
+  }
+
   const rm = getAuditRequestMeta(req);
   const applied = await applyStoreOrderStatusTransition(sb, {
     orderId: oid,
     nextStatus,
+    ownerAcceptPrepMinutes:
+      nextStatus === "accepted" ? body.estimated_prep_minutes ?? null : null,
     audit: {
       actor_type: "user",
       actor_id: userId,
@@ -170,7 +226,9 @@ export async function PATCH(
     const st =
       applied.error === "order_not_found"
         ? 404
-        : applied.error === "invalid_order_status" || applied.error === "invalid_transition"
+        : applied.error === "invalid_order_status" ||
+            applied.error === "invalid_transition" ||
+            applied.error === "prep_minutes_required"
           ? 400
           : applied.httpStatus;
     return NextResponse.json({ ok: false, error: applied.error }, { status: st });

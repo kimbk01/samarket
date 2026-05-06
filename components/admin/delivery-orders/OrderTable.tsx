@@ -36,6 +36,19 @@ function fulfillmentSummary(o: AdminDeliveryOrder): string {
   return o.pickupNote?.trim() ? `포장 메모: ${o.pickupNote}` : "포장";
 }
 
+function slaBadgeLabel(o: AdminDeliveryOrder): string | null {
+  const level = (o.slaWarningLevel ?? "").trim();
+  const reason = (o.slaWarningReason ?? "").trim();
+  if (!level && !reason && !o.needsAdminAttention) return null;
+  if (reason === "pending_over_5m") return "주문 방치";
+  if (reason === "eta_overdue") return "ETA 초과";
+  if (reason === "delivery_over_60m") return "장기 배송";
+  if (reason === "unassigned_over_10m") return "미배차";
+  if (reason === "refund_overdue") return "환불 지연";
+  if (o.needsAdminAttention) return "운영 필요";
+  return level ? `SLA ${level}` : "SLA";
+}
+
 export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; selection?: OrderTableSelection }) {
   const visibleIds = rows.map((r) => r.id);
   const allVisibleSelected =
@@ -97,6 +110,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
               src === "store_db"
                 ? `/admin/store-orders?order_id=${encodeURIComponent(o.id)}`
                 : `/admin/stores/orders/${encodeURIComponent(o.id)}`;
+            const sla = slaBadgeLabel(o);
             return (
               <tr key={`${src}-${o.id}`} className="border-b border-sam-border-soft align-top hover:bg-sam-app/80">
                 {selection ? (
@@ -113,6 +127,13 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                 <td className="px-2 py-2 font-mono sam-text-helper whitespace-nowrap">{o.orderNo}</td>
                 <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
                   {formatKstDatetimeLong(o.createdAt)}
+                  {sla ? (
+                    <div className="mt-1">
+                      <span className="inline-flex items-center rounded bg-rose-100 px-2 py-0.5 sam-text-xxs font-semibold text-rose-950">
+                        {sla}
+                      </span>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-2 py-2 text-sam-fg">
                   <div className="font-medium">{o.buyerName || "—"}</div>

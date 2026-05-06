@@ -37,6 +37,57 @@ export function AdminStoreApplicationSettingsPage() {
   const [newCategorySlug, setNewCategorySlug] = useState("");
   const [newTopicName, setNewTopicName] = useState("");
   const [newTopicSlug, setNewTopicSlug] = useState("");
+  const [riderLocationEnabled, setRiderLocationEnabled] = useState(false);
+  const [riderLocationLoading, setRiderLocationLoading] = useState(false);
+  const [riderLocationSaving, setRiderLocationSaving] = useState(false);
+  const [riderLocationError, setRiderLocationError] = useState<string | null>(null);
+
+  const loadRiderLocationSetting = useCallback(async () => {
+    setRiderLocationLoading(true);
+    setRiderLocationError(null);
+    try {
+      const res = await fetch("/api/admin/delivery/settings", { credentials: "include" });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; rider_location_enabled?: unknown };
+      if (!res.ok || !j?.ok) {
+        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        return;
+      }
+      setRiderLocationEnabled(j.rider_location_enabled === true);
+    } catch {
+      setRiderLocationError("network_error");
+    } finally {
+      setRiderLocationLoading(false);
+    }
+  }, []);
+
+  const saveRiderLocationSetting = useCallback(async (next: boolean) => {
+    setRiderLocationSaving(true);
+    setRiderLocationError(null);
+    try {
+      const res = await fetch("/api/admin/delivery/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rider_location_enabled: next }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; rider_location_enabled?: unknown };
+      if (!res.ok || !j?.ok) {
+        setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        return;
+      }
+      setRiderLocationEnabled(j.rider_location_enabled === true);
+      setMsg("저장했습니다.");
+      window.setTimeout(() => setMsg(null), 2800);
+    } catch {
+      setRiderLocationError("network_error");
+    } finally {
+      setRiderLocationSaving(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRiderLocationSetting();
+  }, [loadRiderLocationSetting]);
 
   useEffect(() => {
     if (activeMenu !== "stores") return;
@@ -308,6 +359,47 @@ export function AdminStoreApplicationSettingsPage() {
 
       {activeMenu === "alerts" ? (
         <>
+          <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <h2 className="sam-text-body font-semibold text-sam-fg">배송 추적 적용</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">
+              필리핀 배송 시스템이 별도 운영되는 경우를 위해, 라이더 위치 업데이트(외부 webhook)의 DB 반영을 on/off 할 수 있습니다.
+            </p>
+            <p className="mt-1 sam-text-xxs text-sam-meta">
+              <code className="rounded bg-sam-surface-muted px-1">admin_settings.delivery_rider_location_enabled</code>
+            </p>
+            {riderLocationError ? (
+              <p className="mt-2 sam-text-body-secondary text-red-700">({riderLocationError})</p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={riderLocationLoading || riderLocationSaving}
+                onClick={() => void saveRiderLocationSetting(!riderLocationEnabled)}
+                className={`rounded-ui-rect border px-4 py-2 sam-text-body-secondary font-semibold disabled:opacity-50 ${
+                  riderLocationEnabled
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                    : "border-sam-border bg-sam-app text-sam-fg"
+                }`}
+              >
+                {riderLocationLoading
+                  ? "불러오는 중…"
+                  : riderLocationSaving
+                    ? "저장 중…"
+                    : riderLocationEnabled
+                      ? "ON (위치 업데이트 적용)"
+                      : "OFF (위치 업데이트 미적용)"}
+              </button>
+              <button
+                type="button"
+                disabled={riderLocationLoading || riderLocationSaving}
+                onClick={() => void loadRiderLocationSetting()}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-fg disabled:opacity-50"
+              >
+                새로고침
+              </button>
+            </div>
+          </section>
+
           <AdminGlobalAlertSoundSection
             title="매장 알림음 (배달 신규 주문)"
             description={

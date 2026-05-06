@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { fetchAdminStoreOrderDetailDeduped } from "@/lib/admin/fetch-admin-store-order-detail";
@@ -17,31 +17,135 @@ import { OrderAmountCard } from "./OrderAmountCard";
 import { OrderDetailCard } from "./OrderDetailCard";
 import { OrderItemsTable } from "./OrderItemsTable";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+
+type AuditRow = {
+  id: string;
+  actor_type: string;
+  actor_id: string | null;
+  action: string;
+  created_at: string;
+  before_json: unknown;
+  after_json: unknown;
+};
 
 export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
   const [loading, setLoading] = useState(true);
   const [order, setOrder] = useState<AdminDeliveryOrder | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const { order: fromDb } = await fetchAdminStoreOrderDetailDeduped(orderId);
-        if (cancelled) return;
-        setOrder(fromDb ?? null);
-      } catch {
-        if (!cancelled) setOrder(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const reload = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    const id = orderId.trim();
+    if (!id) {
+      setOrder(null);
+      if (!silent) setLoading(false);
+      return;
+    }
+    if (!silent) setLoading(true);
+    try {
+      const { order: fromDb } = await fetchAdminStoreOrderDetailDeduped(id);
+      setOrder(fromDb ?? null);
+    } catch {
+      setOrder(null);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, [orderId]);
 
-  const logs = useMemo<OrderStatusLog[]>(() => [], []);
+  useSupabaseStoreOrderRowRealtime(orderId.trim() || null, {
+    debounceMs: 400,
+    onChange: () => void reload({ silent: true }),
+  });
+
+  useSupabaseStoreOrderDeliveriesRealtime(
+    orderId.trim() ? { kind: "order", orderId } : null,
+    { debounceMs: 450, onChange: () => void reload({ silent: true }) }
+  );
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const [opBusy, setOpBusy] = useState(false);
+  const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+
+  const loadAudit = useCallback(async () => {
+    const id = orderId.trim();
+    if (!id) return;
+    setAuditLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/audit-logs?target_type=store_order&target_id=${encodeURIComponent(id)}&limit=80`,
+        { credentials: "include" }
+      );
+      const j = (await res.json()) as {
+        ok?: boolean;
+        logs?: AuditRow[];
+      };
+      setAuditRows(Array.isArray(j.logs) ? j.logs : []);
+    } catch {
+      setAuditRows([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!order) return;
+    setNoteDraft(order.adminNote ?? "");
+  }, [order?.id, order?.adminNote]);
+
+  useEffect(() => {
+    if (!order?.id) return;
+    void loadAudit();
+  }, [order?.id, loadAudit]);
+
+  const runAdminPatch = useCallback(
+    async (body: Record<string, unknown>) => {
+      const id = orderId.trim();
+      if (!id) return;
+      setOpBusy(true);
+      try {
+        const res = await fetch(`/api/admin/store-orders/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = (await res.json()) as { ok?: boolean; error?: string };
+        if (!j?.ok) {
+          window.alert(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+          return;
+        }
+        await reload({ silent: true });
+        await loadAudit();
+      } finally {
+        setOpBusy(false);
+      }
+    },
+    [orderId, reload, loadAudit]
+  );
+
+  const timelineLogs = useMemo<OrderStatusLog[]>(
+    () =>
+      auditRows.map((r) => ({
+        id: r.id,
+        orderId: order?.id ?? orderId.trim(),
+        actorType:
+          r.actor_type === "admin"
+            ? "admin"
+            : r.actor_type === "system"
+              ? "system"
+              : "buyer",
+        actorId: r.actor_id ?? "—",
+        action: r.action,
+        createdAt: r.created_at,
+      })),
+    [auditRows, order?.id, orderId]
+  );
 
   if (loading) {
     return (
@@ -229,32 +333,134 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         </AdminCard>
       )}
 
-      <AdminCard title="운영 액션">
-        <p className="sam-text-body-secondary text-sam-fg">
-          환불 승인·상태 변경은 <strong>매장 주문(액션)</strong> 화면에서 동일 원장으로 진행합니다.
+      <AdminCard title="플랫폼 운영 조치">
+        <p className="sam-text-body-secondary text-sam-muted">
+          동일 <code className="rounded bg-sam-app px-1 sam-text-helper">store_orders</code> 원장을 직접 갱신합니다. 강제
+          처리 시 감사 로그가 남습니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => {
+              if (!confirm("주문을 강제 취소할까요? (완료·환불된 주문은 거절됩니다)")) return;
+              void runAdminPatch({ force_cancel: true });
+            }}
+            className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-900 disabled:opacity-50"
+          >
+            강제 취소
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => {
+              if (!confirm("환불 요청 상태로 올릴까요?")) return;
+              void runAdminPatch({ set_order_status: "refund_requested" });
+            }}
+            className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950 disabled:opacity-50"
+          >
+            환불 요청 처리
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => {
+              if (!confirm("환불 완료(원장·재고·정산 반영)를 진행할까요?")) return;
+              void runAdminPatch({ complete_refund: true });
+            }}
+            className="rounded-ui-rect bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            환불 완료
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => void runAdminPatch({ admin_locked: !order.adminLocked })}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm disabled:opacity-50"
+          >
+            잠금 {order.adminLocked ? "해제" : "설정"}
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => void runAdminPatch({ admin_flagged: !order.adminFlagged })}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm disabled:opacity-50"
+          >
+            경고 {order.adminFlagged ? "해제" : "설정"}
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => void runAdminPatch({ dispute_status: "urgent" })}
+            className="rounded-ui-rect border border-orange-200 bg-orange-50 px-3 py-2 text-sm text-orange-950 disabled:opacity-50"
+          >
+            긴급 플래그
+          </button>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => void runAdminPatch({ dispute_status: "" })}
+            className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
+          >
+            긴급 해제
+          </button>
+        </div>
+        <div className="mt-4 space-y-2">
+          <label className="block text-sm">
+            <span className="text-sam-muted">운영 메모</span>
+            <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              rows={3}
+              disabled={opBusy}
+              className="mt-1 w-full rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-body text-sam-fg"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={opBusy}
+            onClick={() => void runAdminPatch({ admin_note: noteDraft })}
+            className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            메모 저장
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-sam-border-soft pt-3">
           <Link
             href={`/admin/store-orders?order_id=${encodeURIComponent(order.id)}`}
-            className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
           >
-            매장 주문(액션) 열기
+            매장 주문(액션)
           </Link>
           <Link
             href={`/admin/stores/orders/${encodeURIComponent(order.id)}/chat`}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm text-sam-fg"
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm text-sam-fg"
           >
             주문 채팅
           </Link>
+          <button
+            type="button"
+            disabled={auditLoading}
+            onClick={() => void loadAudit()}
+            className="rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
+          >
+            감사 로그 새로고침
+          </button>
         </div>
       </AdminCard>
 
-      <AdminCard title="상태 로그">
+      <AdminCard title="상태·감사 로그">
         <p className="sam-text-body-secondary text-sam-muted">
-          상세 타임라인은 DB <code className="rounded bg-sam-app px-1 sam-text-helper">order_status_logs</code> 등과 연동 시
-          표시합니다. 현재는 원장 필드만 반영합니다.
+          <code className="rounded bg-sam-app px-1 sam-text-helper">audit_logs</code> ·{" "}
+          <code className="rounded bg-sam-app px-1 sam-text-helper">target_type=store_order</code>
         </p>
-        <AdminOrderTimeline logs={logs} />
+        {auditLoading ? (
+          <p className="mt-2 text-sm text-sam-muted">불러오는 중…</p>
+        ) : (
+          <div className="mt-2">
+            <AdminOrderTimeline logs={timelineLogs} />
+          </div>
+        )}
       </AdminCard>
 
       <div className="text-center text-sm">

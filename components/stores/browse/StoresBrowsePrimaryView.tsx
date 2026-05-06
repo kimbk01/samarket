@@ -46,6 +46,12 @@ import { StorePrimaryIndustrySwitcher } from "@/components/stores/home/StorePrim
 import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 
+function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
+  const bySlug = a.slug.localeCompare(b.slug);
+  if (bySlug !== 0) return bySlug;
+  return a.id.localeCompare(b.id);
+}
+
 function sortBrowseStores(
   rows: BrowseStoreListItem[],
   sort: StoreBrowseSortId,
@@ -54,9 +60,14 @@ function sortBrowseStores(
   const r = [...rows];
   switch (sort) {
     case "rating":
-      return r.sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+      return r.sort(
+        (a, b) =>
+          b.rating - a.rating ||
+          b.reviewCount - a.reviewCount ||
+          browseStableTieBreak(a, b)
+      );
     case "reviews":
-      return r.sort((a, b) => b.reviewCount - a.reviewCount);
+      return r.sort((a, b) => b.reviewCount - a.reviewCount || browseStableTieBreak(a, b));
     case "distance":
       if (!hasGeo) return r;
       return r.sort((a, b) => {
@@ -65,14 +76,15 @@ function sortBrowseStores(
         if (da != null && db != null && da !== db) return da - db;
         if (da != null && db == null) return -1;
         if (da == null && db != null) return 1;
-        return 0;
+        return browseStableTieBreak(a, b);
       });
     case "fast":
       return r.sort((a, b) => {
         const pa = a.deliveryAvailable ? 0 : 1;
         const pb = b.deliveryAvailable ? 0 : 1;
         if (pa !== pb) return pa - pb;
-        return a.estPrepLabel.localeCompare(b.estPrepLabel, "ko");
+        const prep = a.estPrepLabel.localeCompare(b.estPrepLabel, "ko");
+        return prep !== 0 ? prep : browseStableTieBreak(a, b);
       });
     default:
       return r;
@@ -171,7 +183,8 @@ export function StoresBrowsePrimaryView({
 
   const primary = useMemo(() => {
     if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
-    const c = taxonomy.categories.find((x) => x.slug === primarySlug);
+    const pk = primarySlug.trim().toLowerCase();
+    const c = taxonomy.categories.find((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
     if (!c) return null;
     const fb = getBrowsePrimaryBySlug(primarySlug);
     return {
@@ -185,17 +198,51 @@ export function StoresBrowsePrimaryView({
 
   const subs = useMemo(() => {
     if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(primarySlug);
-    const c = taxonomy.categories.find((x) => x.slug === primarySlug);
+    const pk = primarySlug.trim().toLowerCase();
+    const c = taxonomy.categories.find((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
     if (!c) return [];
-    return taxonomy.topics
+    const sorted = taxonomy.topics
       .filter((t) => t.store_category_id === c.id)
-      .map((t) => ({ id: t.id, slug: t.slug, nameKo: t.name, primarySlug, sortOrder: t.sort_order }));
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const seenSlug = new Set<string>();
+    const out: {
+      id: string;
+      slug: string;
+      nameKo: string;
+      primarySlug: string;
+      sortOrder: number;
+    }[] = [];
+    for (const t of sorted) {
+      const sk = String(t.slug ?? "").trim().toLowerCase();
+      if (!sk || seenSlug.has(sk)) continue;
+      seenSlug.add(sk);
+      out.push({
+        id: t.id,
+        slug: t.slug,
+        nameKo: t.name,
+        primarySlug,
+        sortOrder: t.sort_order,
+      });
+    }
+    return out;
   }, [primarySlug, taxonomy, industryVersion]);
 
-  const activeSub = useMemo(() => {
-    if (initialSubSlug && subs.some((s) => s.slug === initialSubSlug)) return initialSubSlug;
-    return subs[0]?.slug ?? "";
-  }, [initialSubSlug, subs]);
+  const trimmedBrowseSubParam = useMemo(
+    () => (typeof initialSubSlug === "string" ? initialSubSlug.trim().toLowerCase() : ""),
+    [initialSubSlug]
+  );
+
+  /** taxonomy 에 없는·비정상 sub 쿼리는 목록은 전체로 맞추고 칩도 「전체」와 일치시킴 */
+  const matchedTopicSlug = useMemo(() => {
+    const p = trimmedBrowseSubParam;
+    if (!p || p === "all") return null;
+    const hit = subs.find((s) => s.slug.toLowerCase() === p);
+    return hit ? hit.slug : null;
+  }, [trimmedBrowseSubParam, subs]);
+
+  const activeSub = matchedTopicSlug ?? "all";
+
+  const allSubChipActive = matchedTopicSlug == null;
 
   const browseQuerySuffix = useMemo(() => {
     const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
@@ -205,7 +252,7 @@ export function StoresBrowsePrimaryView({
         : "";
     const d = primaryRegion?.barangay?.trim() ?? "";
     const q = new URLSearchParams();
-    q.set("primary", primarySlug);
+    q.set("primary", primarySlug.trim().toLowerCase());
     q.set("sub", activeSub);
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
@@ -236,14 +283,6 @@ export function StoresBrowsePrimaryView({
   const loadRemote = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
-      if (!activeSub) {
-        if (!silent) {
-          setRemoteRows([]);
-          setFeedSource((prev) => (prev === null ? prev : null));
-          setRemoteLoading((prev) => (prev ? false : prev));
-        }
-        return;
-      }
       if (!silent) {
         setRemoteLoading((prev) => (prev ? prev : true));
         setRemoteRows(undefined);
@@ -359,8 +398,6 @@ export function StoresBrowsePrimaryView({
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
-  const allSubChipActive = initialSubSlug == null || initialSubSlug === "";
-
   const otherPrimaries = useMemo(
     () => listBrowsePrimaryIndustries().filter((p) => p.slug.toLowerCase() !== primarySlug.toLowerCase()),
     [primarySlug, industryVersion]
@@ -396,9 +433,7 @@ export function StoresBrowsePrimaryView({
               전체
             </Link>
             {subs.map((s) => {
-              const on =
-                !allSubChipActive &&
-                (initialSubSlug ?? "").toLowerCase() === s.slug.toLowerCase();
+              const on = matchedTopicSlug !== null && matchedTopicSlug === s.slug;
               return (
                 <Link
                   key={s.id}
@@ -417,7 +452,7 @@ export function StoresBrowsePrimaryView({
         </div>
       </div>
     ),
-    [browseSubtitle, subs, primarySlug, listSort, hasGeo, allSubChipActive, initialSubSlug]
+    [browseSubtitle, subs, primarySlug, listSort, hasGeo, allSubChipActive, matchedTopicSlug]
   );
 
   useLayoutEffect(() => {

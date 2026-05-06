@@ -29,6 +29,8 @@ import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReor
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 
 type ItemRow = {
   id: string;
@@ -66,6 +68,27 @@ type OrderDetail = {
   updated_at: string;
   auto_complete_at?: string | null;
   community_messenger_room_id?: string | null;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
+  accepted_at?: string | null;
+  admin_locked?: boolean | null;
+  delivery?: {
+    order_id: string;
+    rider_id: string | null;
+    delivery_status: string;
+    assigned_at: string | null;
+    picked_up_at: string | null;
+    delivered_at: string | null;
+    rider_accepted_at?: string | null;
+    customer_arrived_at?: string | null;
+    delivered_confirmed_at?: string | null;
+    delivered_receiver_hint?: string | null;
+    updated_at: string | null;
+  } | null;
+  sla_warning_level?: string | null;
+  sla_warning_reason?: string | null;
+  sla_warning_at?: string | null;
+  needs_admin_attention?: boolean | null;
 };
 
 
@@ -76,6 +99,94 @@ const FULFILL_LABEL: Record<string, string> = {
 };
 
 const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
+
+function formatPrepClockKo(iso: string | null | undefined): string | null {
+  const s = typeof iso === "string" ? iso.trim() : "";
+  if (!s) return null;
+  const t = new Date(s).getTime();
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).toLocaleTimeString("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function buyerStoreOrderProgressCopy(order: OrderDetail): { headline: string; lines: string[] } {
+  const clock = formatPrepClockKo(order.estimated_ready_at);
+  const n = Math.max(0, Math.floor(Number(order.estimated_prep_minutes) || 0));
+  const d = order.delivery;
+  const deliveryLine = (() => {
+    const s = d?.delivery_status?.trim?.() ? String(d.delivery_status).trim() : "";
+    if (!s) return null;
+    switch (s) {
+      case "waiting_rider":
+        return "배차 대기중";
+      case "rider_assigned":
+        return "라이더 배정됨";
+      case "pickup_in_progress":
+        return "픽업 진행중";
+      case "delivering":
+        return "배달중";
+      case "delivered":
+        return "배달 완료";
+      case "delivery_failed":
+        return "배송 실패(운영 확인중)";
+      default:
+        return `배송 상태: ${s}`;
+    }
+  })();
+
+  switch (order.order_status) {
+    case "pending":
+      return {
+        headline: "매장 접수 대기중",
+        lines: ["매장에서 주문을 확인하면 진행 안내를 바로 보여 드릴게요."],
+      };
+    case "accepted":
+      return {
+        headline: "매장이 주문을 확인했습니다",
+        lines: [
+          n > 0 ? `예상 준비시간: 약 ${n}분` : "예상 준비시간은 매장 안내를 참고해 주세요.",
+          clock ? `예상 준비완료: ${clock}` : "",
+        ].filter(Boolean),
+      };
+    case "preparing":
+      return {
+        headline: "조리중",
+        lines: clock ? [`예상 준비완료 ${clock}`] : ["매장에서 준비 중입니다."],
+      };
+    case "delivering":
+      return {
+        headline: "배달 출발",
+        lines:
+          [
+            deliveryLine,
+            typeof d?.customer_arrived_at === "string" && d.customer_arrived_at.trim()
+              ? "라이더가 배달지에 도착했습니다."
+              : null,
+            order.delivery_courier_label?.trim() ? `배달 정보: ${order.delivery_courier_label.trim()}` : null,
+          ].filter((x): x is string => typeof x === "string" && x.length > 0),
+      };
+    default: {
+      const lines: string[] = [];
+      if (order.order_status === "completed" && order.delivery?.delivery_status === "delivered") {
+        const dc =
+          typeof order.delivery.delivered_confirmed_at === "string" && order.delivery.delivered_confirmed_at.trim();
+        if (dc) lines.push("배달 완료 확인이 접수되었습니다.");
+        const hint =
+          typeof order.delivery.delivered_receiver_hint === "string" &&
+          order.delivery.delivered_receiver_hint.trim();
+        if (hint) lines.push(`수령 확인: ${hint}`);
+      }
+      if (deliveryLine) lines.push(deliveryLine);
+      return {
+        headline: ORDER_LABEL[order.order_status] ?? order.order_status,
+        lines,
+      };
+    }
+  }
+}
 
 function paymentMethodLabel(paymentStatus: string): string {
   switch (paymentStatus) {
@@ -179,6 +290,16 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       if (!silent) setState({ kind: "error", message: "network_error" });
     }
   }, [orderId]);
+
+  useSupabaseStoreOrderRowRealtime(orderId.trim() || null, {
+    debounceMs: 350,
+    onChange: () => void load({ silent: true }),
+  });
+
+  useSupabaseStoreOrderDeliveriesRealtime(
+    orderId.trim() ? { kind: "order", orderId } : null,
+    { debounceMs: 420, onChange: () => void load({ silent: true }) }
+  );
 
   useEffect(() => {
     void load();
@@ -323,6 +444,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
   const chatHref = `${orderBase}/chat`;
+  const buyerProg = buyerStoreOrderProgressCopy(order);
 
   return (
     <div className="space-y-4">
@@ -334,15 +456,36 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           <span className="text-xs text-sam-meta">{order.order_no}</span>
         </div>
         <div className="mt-3 rounded-ui-rect border border-sam-border bg-signature/5/80 px-3 py-3">
+          {order.admin_locked === true ? (
+            <p className="mb-3 rounded-ui-rect border border-violet-200 bg-violet-50 px-3 py-2 sam-text-helper leading-snug text-violet-950">
+              이 주문은 플랫폼 운영에서 일시적으로 보호 중입니다. 취소·환불 요청 변경은 운영 정책에 따라 처리됩니다.
+            </p>
+          ) : null}
+          {order.needs_admin_attention === true || (order.sla_warning_level ?? "").trim() ? (
+            <p className="mb-3 rounded-ui-rect border border-rose-200 bg-rose-50 px-3 py-2 sam-text-helper leading-snug text-rose-950">
+              배달 진행이 지연되고 있어요. 운영에서 확인 중입니다.
+              {order.sla_warning_reason?.trim() ? (
+                <span className="ml-1 text-sam-muted">(사유: {order.sla_warning_reason.trim()})</span>
+              ) : null}
+            </p>
+          ) : null}
           <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-signature">
             현재 주문 상태
           </p>
-          <p className="mt-1 sam-text-page-title font-bold text-sam-fg">
-            {ORDER_LABEL[order.order_status] ?? order.order_status}
+          <p className="mt-1 sam-text-page-title font-bold text-sam-fg">{buyerProg.headline}</p>
+          {buyerProg.lines.length ? (
+            <ul className="mt-2 list-inside list-disc space-y-1 sam-text-helper leading-relaxed text-sam-fg">
+              {buyerProg.lines.map((line, i) => (
+                <li key={`${i}:${line}`}>{line}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="mt-2 sam-text-helper leading-relaxed text-sam-muted">
+            표준 단계: {ORDER_LABEL[order.order_status] ?? order.order_status} · 결제{" "}
+            {paymentMethodLabel(order.payment_status)}
           </p>
-          <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-            결제 {paymentMethodLabel(order.payment_status)} · 주문 채팅은 매장과 소통용이며, 취소·환불 처리 상태는 이
-            화면에서 계속 확인하세요.
+          <p className="mt-1 sam-text-xxs leading-relaxed text-sam-muted">
+            주문 채팅은 매장과 소통용이며, 취소·환불 처리 상태는 이 화면에서 확인하세요.
           </p>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">

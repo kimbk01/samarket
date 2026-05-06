@@ -36,7 +36,7 @@ export async function GET() {
   const { data: rows, error } = await sb
     .from("store_settlements")
     .select(
-      "id, store_id, order_id, gross_amount, fee_amount, settlement_amount, settlement_status, settlement_due_date, paid_at, hold_reason, created_at"
+      "id, store_id, order_id, gross_amount, fee_amount, settlement_amount, settlement_status, settlement_due_date, paid_at, hold_reason, created_at, platform_fee_percent, platform_fee_amount, fixed_fee_amount, delivery_income_amount, discount_burden_amount, refund_amount, net_settlement_amount, payout_method, payout_reference, payout_confirmed_at, payout_note"
     )
     .in("store_id", storeIds)
     .order("created_at", { ascending: false })

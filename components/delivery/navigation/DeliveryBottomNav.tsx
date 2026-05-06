@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
-import type { DeliveryBottomNavItem } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
+import {
+  DELIVERY_BOTTOM_NAV_OWNER_STORE_ITEM,
+  isDeliveryBottomNavBuiltinOwnerStoreItem,
+  type DeliveryBottomNavItem,
+} from "@/lib/delivery/load-delivery-bottom-nav-items-server";
 import { DeliveryBottomNavIcon, DeliveryBottomNavItem as Item } from "./DeliveryBottomNavItem";
 import { useDeliveryBottomNavVisibility } from "./useDeliveryBottomNavVisibility";
 
@@ -27,9 +31,17 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
   }, []);
 
   const ordered = useMemo(() => {
-    const list = (initialItems ?? []).filter((i) => i && i.is_active);
-    return [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  }, [initialItems]);
+    const active = (initialItems ?? []).filter((i) => i && i.is_active);
+    /** DB에 예전 「내매장」 행이 있어도 일반 탭으로 노출되지 않게 제거 — 실제 탭은 아래에서만 합성 */
+    const payloadSansOwnerTab = active.filter((i) => !isDeliveryBottomNavBuiltinOwnerStoreItem(i));
+    const withoutLegacyRequiresStore = payloadSansOwnerTab.filter((i) => !i.requires_store_id || ownerStore != null);
+    const hasRequiresStoreRow = withoutLegacyRequiresStore.some((i) => i.requires_store_id);
+    const merged =
+      ownerStore && !hasRequiresStoreRow
+        ? [...withoutLegacyRequiresStore, { ...DELIVERY_BOTTOM_NAV_OWNER_STORE_ITEM }]
+        : withoutLegacyRequiresStore;
+    return [...merged].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }, [initialItems, ownerStore]);
 
   const centerItem = useMemo(() => ordered.find((i) => i.is_center) ?? null, [ordered]);
   const centerIdx = useMemo(() => ordered.findIndex((i) => i.is_center), [ordered]);

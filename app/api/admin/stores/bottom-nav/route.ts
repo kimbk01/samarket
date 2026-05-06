@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
     sort_order: typeof b.sort_order === "number" ? b.sort_order : 0,
     is_active: typeof b.is_active === "boolean" ? b.is_active : true,
     is_center: typeof b.is_center === "boolean" ? b.is_center : false,
-    requires_store_id: typeof b.requires_store_id === "boolean" ? b.requires_store_id : false,
+    /** 배달 하단의 「내매장」은 앱에서 소유 매장 유무로만 제어 — 어드민에서 분기하지 않음 */
+    requires_store_id: false,
     color: typeof b.color === "string" && b.color ? b.color : "#1C8DB8",
   };
 
@@ -122,16 +123,7 @@ export async function PUT(req: NextRequest) {
   if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
 
   const patch: Patch = {};
-  for (const k of [
-    "label",
-    "icon_key",
-    "href",
-    "sort_order",
-    "is_active",
-    "is_center",
-    "requires_store_id",
-    "color",
-  ] as const) {
+  for (const k of ["label", "icon_key", "href", "sort_order", "is_active", "is_center", "color"] as const) {
     if (b[k] !== undefined) (patch as any)[k] = b[k] as any;
   }
 
@@ -139,6 +131,8 @@ export async function PUT(req: NextRequest) {
     if (patch.is_center === true) {
       await sb.from("delivery_bottom_nav_items").update({ is_center: false }).eq("is_center", true).neq("id", id);
     }
+
+    (patch as Patch).requires_store_id = false;
 
     const { data, error } = await sb
       .from("delivery_bottom_nav_items")

@@ -18,6 +18,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const targetType = searchParams.get("target_type")?.trim().slice(0, 120) || null;
+  const targetId = searchParams.get("target_id")?.trim().slice(0, 120) || null;
   const limitRaw = parseInt(searchParams.get("limit") ?? "150", 10);
   const limit = Number.isFinite(limitRaw) ? Math.min(300, Math.max(1, limitRaw)) : 150;
 
@@ -30,6 +31,7 @@ export async function GET(req: Request) {
     .limit(limit);
 
   if (targetType) q = q.eq("target_type", targetType);
+  if (targetId) q = q.eq("target_id", targetId);
 
   const { data: rows, error } = await q;
 

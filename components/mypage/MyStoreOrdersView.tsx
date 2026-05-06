@@ -23,6 +23,7 @@ import {
   fetchMeStoreOrdersListDeduped,
   patchMeStoreOrder,
 } from "@/lib/stores/store-delivery-api-client";
+import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerStoreOrdersRealtime";
 
 type ItemRow = {
   id: string;
@@ -454,6 +455,12 @@ export function MyStoreOrdersView({
     },
     []
   );
+
+  useSupabaseBuyerStoreOrdersRealtime({
+    debounceMs: 400,
+    onChange: () => void load({ silent: true }),
+  });
+
   useEffect(() => {
     void load();
   }, [load]);

@@ -2,42 +2,37 @@
  * 매장 주문 프로세스 (사마켓: 앱 내 결제 없음 — 금액 수납은 고객·매장 직접 정산)
  *
  * - DB: store_orders.order_status 중심. payment_status 는 금액 확정·정산 호환용 메타에 가깝게 둠.
- * - 채팅: chat_rooms(room_type=store_order) + 시스템 메시지(appendStoreOrderChatStatusTransition 등)
- *
- * 흐름(통일 기준):
- * - 주문자: 주문하기 → 이후 매장 처리 단계는 아래 타임라인과 동일한 이름으로 안내
- * - 배달·택배: 주문확인 → 상품준비 → 픽업준비 → 배송중 → 배송지도착 → 주문완료
- * - 픽업·포장: 주문확인 → 상품준비 → 픽업준비 → 주문완료 (배송 단계 생략)
+ * - 구매자 화면 상태 문구는 단일 표준으로 고정 (뱃지·목록·상세·채팅 등 BUYER_ORDER_STATUS_LABEL 참조).
  */
 
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 
 /** 구매자 화면·알림용 상태 라벨 */
 export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "주문 확인 대기",
-  accepted: "주문확인",
-  preparing: "상품준비",
-  ready_for_pickup: "픽업준비",
-  delivering: "배송중",
-  arrived: "배송지도착",
-  completed: "주문완료",
-  cancelled: "주문 취소",
-  refund_requested: "환불 요청",
-  refunded: "환불 완료",
+  pending: "주문접수",
+  accepted: "접수확인",
+  preparing: "조리중",
+  ready_for_pickup: "포장완료",
+  delivering: "배달출발",
+  arrived: "도착",
+  completed: "배달완료",
+  cancelled: "주문취소",
+  refund_requested: "환불요청",
+  refunded: "환불완료",
 };
 
-/** 배달·택배 — 6단계 (주문하기 이후 매장·배송 처리) */
+/** 배달·택배 — 6단계 (진행 스테퍼 열 기준: 접수 → 준비 → 포장 → 배달 출발 → 도착; 완료는 completed 로 종결) */
 export const TIMELINE_DELIVERY_STEPS = [
-  "주문확인",
-  "상품준비",
-  "픽업준비",
-  "배송중",
-  "배송지도착",
-  "주문완료",
+  "주문접수",
+  "접수확인",
+  "조리중",
+  "포장완료",
+  "배달출발",
+  "도착",
 ] as const;
 
-/** 픽업·포장 — 4단계 (배송 단계 없음) */
-export const TIMELINE_PICKUP_STEPS = ["주문확인", "상품준비", "픽업준비", "주문완료"] as const;
+/** 픽업·포장 — 4단계 (배송 단계 없음; 마지막 이후 완료는 completed·타임라인 allDone) */
+export const TIMELINE_PICKUP_STEPS = ["주문접수", "접수확인", "조리중", "포장완료"] as const;
 
 /**
  * 사장님·비즈 콘솔: 현재 상태 → 다음 상태로 보낼 때 버튼 문구
@@ -47,12 +42,12 @@ export function labelForOwnerTransition(
   next: string,
   fulfillment: string
 ): string {
-  if (next === "accepted") return "주문확인";
-  if (next === "preparing") return "상품준비";
-  if (next === "ready_for_pickup") return "픽업준비";
-  if (next === "delivering") return "배송중";
-  if (next === "arrived") return "배송지도착";
-  if (next === "completed") return "주문완료";
+  if (next === "accepted") return "접수확인";
+  if (next === "preparing") return "조리중";
+  if (next === "ready_for_pickup") return "포장완료";
+  if (next === "delivering") return "배달출발";
+  if (next === "arrived") return "도착";
+  if (next === "completed") return "배달완료";
   if (next === "cancelled") {
     return current === "pending" ? "주문 거절" : "주문취소";
   }
@@ -61,8 +56,8 @@ export function labelForOwnerTransition(
 
 /**
  * 현재 진행 중인 타임라인 단계 인덱스 (0..n). completed면 n(=단계 수)과 같게 두고 UI에서 전체 완료 처리.
- * 배달 6단계: pending=0(주문확인 대기) … arrived=5(주문완료 대기), completed=6.
- * 픽업 4단계: pending=0 … ready_for_pickup=2(픽업준비 진행), completed=4(전체 완료는 UI에서 allDone 처리).
+ * 배달 6열: pending … arrived → 인덱스 0..5, completed=6.
+ * 픽업 4열: pending … ready_for_pickup → 인덱스 0..3, completed=4.
  */
 export function storeOrderTimelineCurrentStep(fulfillmentType: string, orderStatus: string): number {
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
@@ -82,7 +77,7 @@ export function storeOrderTimelineCurrentStep(fulfillmentType: string, orderStat
     pending: 0,
     accepted: 1,
     preparing: 2,
-    ready_for_pickup: 2,
+    ready_for_pickup: 3,
     completed: 4,
   };
   return m[orderStatus] ?? 0;

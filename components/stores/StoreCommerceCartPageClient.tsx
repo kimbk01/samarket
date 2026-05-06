@@ -130,6 +130,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("cod");
 
   useEffect(() => {
+    void router.prefetch("/orders");
     void router.prefetch("/my/store-orders");
   }, [router]);
 
@@ -733,11 +734,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (oid) setLastCheckoutOrderId(store.id, oid);
       cart.clearStoreCart(store.id);
       if (oid) {
-        void router.prefetch("/my/store-orders");
-        void router.prefetch(`/my/store-orders/${encodeURIComponent(oid)}`);
-        void router.prefetch(`/my/store-orders/${encodeURIComponent(oid)}/chat`);
+        void router.prefetch("/orders");
+        void router.prefetch(`/orders/store/${encodeURIComponent(oid)}`);
+        void router.prefetch(`/orders/store/${encodeURIComponent(oid)}/chat`);
         window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-        router.replace("/my/store-orders");
+        router.replace(`/orders/store/${encodeURIComponent(oid)}`);
       }
     } catch {
       setErr(t("common_network_error_generic"));
@@ -784,20 +785,17 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className="px-4 py-10 text-center">
           <p className="sam-text-body-lg font-semibold text-emerald-800">주문이 접수되었습니다.</p>
           <div className="mt-6 flex flex-col items-center gap-3">
-            <Link
-              href="/my/store-orders"
-              className="sam-text-body font-semibold text-signature underline"
-            >
+            <Link href="/orders" className="sam-text-body font-semibold text-signature underline">
               주문 내역 확인
             </Link>
             <Link
-              href={`/my/store-orders/${encodeURIComponent(lastOrderId)}`}
+              href={`/orders/store/${encodeURIComponent(lastOrderId)}`}
               className="sam-text-body text-sam-fg underline"
             >
               이 주문 진행 보기
             </Link>
             <Link
-              href={`/my/store-orders/${encodeURIComponent(lastOrderId)}/chat`}
+              href={`/orders/store/${encodeURIComponent(lastOrderId)}/chat`}
               className="sam-text-body text-sam-fg underline"
             >
               매장 문의 남기기

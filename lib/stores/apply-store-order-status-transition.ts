@@ -6,6 +6,7 @@ import {
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
+import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
 import {
   allowedOrderTransitions,
   isDeliveryFulfillment,
@@ -28,6 +29,8 @@ export async function applyStoreOrderStatusTransition(
   opts: {
     orderId: string;
     nextStatus: string;
+    /** pending→accepted 전용 — 분 단위, 서버에서 estimated_ready_at·accepted_at 계산 */
+    ownerAcceptPrepMinutes?: number | null;
     audit: {
       actor_type: "user" | "system";
       actor_id: string | null;
@@ -70,6 +73,14 @@ export async function applyStoreOrderStatusTransition(
     return { ok: false, error: "invalid_transition", httpStatus: 400 };
   }
 
+  if (current === "pending" && nextStatus === "accepted") {
+    const raw = opts.ownerAcceptPrepMinutes;
+    const mins = raw == null ? NaN : Math.floor(Number(raw));
+    if (!Number.isFinite(mins) || mins < 1 || mins > 180) {
+      return { ok: false, error: "prep_minutes_required", httpStatus: 400 };
+    }
+  }
+
   if (nextStatus === "cancelled" && shouldRestoreStockOnCancel(current)) {
     const { data: lines, error: iErr } = await sb
       .from("store_order_items")
@@ -91,6 +102,14 @@ export async function applyStoreOrderStatusTransition(
   const updatePayload: Record<string, unknown> = { order_status: nextStatus };
   const deliveryLike = isDeliveryFulfillment(fulfillment);
 
+  if (current === "pending" && nextStatus === "accepted") {
+    const mins = Math.floor(Number(opts.ownerAcceptPrepMinutes));
+    const serverNow = Date.now();
+    updatePayload.accepted_at = new Date(serverNow).toISOString();
+    updatePayload.estimated_prep_minutes = mins;
+    updatePayload.estimated_ready_at = new Date(serverNow + mins * 60_000).toISOString();
+  }
+
   if (nextStatus === "completed" || nextStatus === "cancelled") {
     updatePayload.auto_complete_at = null;
   } else if (nextStatus === "ready_for_pickup" && !deliveryLike) {
@@ -107,7 +126,21 @@ export async function applyStoreOrderStatusTransition(
     updatePayload.auto_complete_at = null;
   }
 
-  const { error: uErr } = await sb.from("store_orders").update(updatePayload).eq("id", oid);
+  let uErr = (await sb.from("store_orders").update(updatePayload).eq("id", oid)).error;
+
+  if (uErr) {
+    const missingEtaCol =
+      /estimated_prep_minutes|estimated_ready_at|accepted_at/i.test(String(uErr.message)) &&
+      /does not exist/i.test(String(uErr.message));
+    if (missingEtaCol) {
+      const fallbackPayload = { ...updatePayload };
+      delete fallbackPayload.estimated_prep_minutes;
+      delete fallbackPayload.estimated_ready_at;
+      delete fallbackPayload.accepted_at;
+      const retry = await sb.from("store_orders").update(fallbackPayload).eq("id", oid);
+      uErr = retry.error;
+    }
+  }
 
   if (uErr) {
     if (uErr.message?.includes("auto_complete_at") && uErr.message.includes("does not exist")) {
@@ -128,6 +161,9 @@ export async function applyStoreOrderStatusTransition(
   if (nextStatus === "cancelled") {
     await cancelScheduledSettlementForOrder(sb, oid);
   }
+  if (nextStatus === "completed") {
+    await ensureStoreSettlementForCompletedOrder(sb, oid);
+  }
 
   void appendAuditLog(sb, {
     actor_type: opts.audit.actor_type,
@@ -143,6 +179,13 @@ export async function applyStoreOrderStatusTransition(
     after_json: {
       order_status: nextStatus,
       store_id: sid,
+      ...(current === "pending" && nextStatus === "accepted"
+        ? {
+            estimated_prep_minutes: updatePayload.estimated_prep_minutes,
+            estimated_ready_at: updatePayload.estimated_ready_at,
+            accepted_at: updatePayload.accepted_at,
+          }
+        : {}),
     },
     ip: opts.audit.ip ?? null,
     user_agent: opts.audit.user_agent ?? null,

@@ -21,6 +21,49 @@ import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function loadDeliverySnapshot(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  orderId: string
+): Promise<
+  | {
+      ok: true;
+      delivery: Record<string, unknown> | null;
+    }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await sb
+    .from("store_order_deliveries")
+    .select(
+      "order_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, rider_accepted_at, customer_arrived_at, rider_decline_reason, delivered_confirmed_at, delivered_receiver_name, updated_at"
+    )
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (error) {
+    if (/store_order_deliveries/i.test(String(error.message)) && /does not exist/i.test(String(error.message))) {
+      return { ok: true, delivery: null };
+    }
+    console.error("[GET store-order delivery]", error);
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true, delivery: (data as Record<string, unknown>) ?? null };
+}
+
+/** 구매자 노출: 증빙 이미지 URL 제외·수령자 이름 마스킹 */
+function sanitizeBuyerDeliveryPublic(raw: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!raw) return null;
+  const name =
+    typeof raw.delivered_receiver_name === "string" ? raw.delivered_receiver_name.trim() : "";
+  const hint =
+    name.length === 0 ? null : name.length <= 2 ? `${name.slice(0, 1)}*` : `${name.slice(0, 1)}**`;
+  const { delivered_receiver_name: _drop, ...rest } = raw;
+  return {
+    ...rest,
+    delivered_receiver_hint: hint,
+  };
+}
+
 async function loadStoreOrderReviewMeta(
   sb: import("@supabase/supabase-js").SupabaseClient<any>,
   orderId: string
@@ -95,7 +138,7 @@ export async function GET(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, buyer_user_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, community_messenger_room_id"
+      "id, order_no, store_id, buyer_user_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, updated_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
     )
     .eq("id", oid)
     .eq("buyer_user_id", buyerId)
@@ -118,7 +161,7 @@ export async function GET(
   const storeId = order.store_id as string;
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
-  const [itemsRes, storeRes, reviewMeta, ens] = await Promise.all([
+  const [itemsRes, storeRes, reviewMeta, ens, deliverySnap] = await Promise.all([
     sb
       .from("store_order_items")
       .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
@@ -139,6 +182,7 @@ export async function GET(
         return { ok: false as const, error: "exception" };
       }
     })(),
+    loadDeliverySnapshot(sbAny, oid),
   ]);
 
   const { data: items, error: iErr } = itemsRes;
@@ -184,6 +228,7 @@ export async function GET(
       store_pickup_address_lines,
     },
     items: items ?? [],
+    delivery: deliverySnap.ok ? sanitizeBuyerDeliveryPublic(deliverySnap.delivery) : null,
     review: reviewId ? { id: reviewId, visible_to_public: reviewVisibleToPublic } : null,
     can_submit_review: canSubmitReview,
     order_chat_ready,
@@ -232,13 +277,17 @@ export async function PATCH(
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, order_status, payment_status, store_id, order_no")
+    .select("id, order_status, payment_status, store_id, order_no, admin_locked")
     .eq("id", oid)
     .eq("buyer_user_id", buyerId)
     .maybeSingle();
 
   if (oErr || !order) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  if ((order as { admin_locked?: boolean }).admin_locked === true) {
+    return NextResponse.json({ ok: false, error: "order_admin_locked" }, { status: 409 });
   }
 
   const rm = getAuditRequestMeta(req);

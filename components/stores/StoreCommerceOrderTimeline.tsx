@@ -22,7 +22,7 @@ function terminalStepperSuffix(orderStatus: string): {
   switch (orderStatus) {
     case "cancelled":
       return {
-        label: "주문 취소",
+        label: "주문취소",
         lineClass: "bg-rose-300",
         circleClass: "border-rose-500 bg-rose-500 text-white",
         labelClass: "font-semibold text-rose-600",
@@ -36,14 +36,14 @@ function terminalStepperSuffix(orderStatus: string): {
       };
     case "refund_requested":
       return {
-        label: "환불 요청",
+        label: "환불요청",
         lineClass: "bg-amber-200",
         circleClass: "border-amber-500 bg-amber-500 text-white",
         labelClass: "font-semibold text-amber-800",
       };
     case "refunded":
       return {
-        label: "환불 완료",
+        label: "환불완료",
         lineClass: "bg-amber-200",
         circleClass: "border-amber-600 bg-amber-600 text-white",
         labelClass: "font-semibold text-amber-800",

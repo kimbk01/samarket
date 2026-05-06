@@ -64,7 +64,7 @@ export function DeliveryOrdersDashboardClient() {
       void loadDbOrders();
     };
     document.addEventListener("visibilitychange", refetchIfVisible);
-    const id = window.setInterval(refetchIfVisible, 30_000);
+    const id = window.setInterval(refetchIfVisible, 15_000);
     return () => {
       document.removeEventListener("visibilitychange", refetchIfVisible);
       clearInterval(id);
@@ -75,6 +75,31 @@ export function DeliveryOrdersDashboardClient() {
     () => dbOrders.filter((o) => adminDeliveryOrderMatchesFilters(o, filters)),
     [dbOrders, filters]
   );
+
+  const urgentRows = useMemo(() => {
+    return filteredRows.filter((o) => o.needsAdminAttention === true || (o.slaWarningLevel ?? "") === "critical");
+  }, [filteredRows]);
+
+  const urgentBuckets = useMemo(() => {
+    const b: Record<string, number> = {
+      unassigned: 0,
+      eta: 0,
+      delivering: 0,
+      refund: 0,
+      pending: 0,
+      other: 0,
+    };
+    for (const o of urgentRows) {
+      const r = String(o.slaWarningReason ?? "").trim();
+      if (r === "unassigned_over_10m") b.unassigned++;
+      else if (r === "eta_overdue") b.eta++;
+      else if (r === "delivery_over_60m") b.delivering++;
+      else if (r === "refund_overdue") b.refund++;
+      else if (r === "pending_over_5m") b.pending++;
+      else b.other++;
+    }
+    return b;
+  }, [urgentRows]);
 
   const visibleRows = useMemo(
     () => filteredRows.filter((o) => !listHiddenIds.has(o.id)),
@@ -244,6 +269,41 @@ export function DeliveryOrdersDashboardClient() {
 
       <AdminCard title="KPI (현재 목록 기준 · 최대 500건)">
         <DeliveryOrdersKpiCards orders={dbOrders} />
+      </AdminCard>
+
+      <AdminCard title="긴급 운영 큐 (필터 적용 결과 기준)">
+        <p className="sam-text-helper text-sam-muted">
+          SLA 초과·방치·미배차·환불 지연 등 운영 우선 처리 대상입니다. (표에서 붉은 SLA 배지로 표시)
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">미배차</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.unassigned}건</p>
+          </div>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">ETA 초과</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.eta}건</p>
+          </div>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">장기 배송</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.delivering}건</p>
+          </div>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">환불 지연</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.refund}건</p>
+          </div>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">주문 방치</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.pending}건</p>
+          </div>
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
+            <p className="sam-text-helper font-semibold text-sam-fg">기타</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.other}건</p>
+          </div>
+        </div>
+        <p className="mt-3 sam-text-helper text-sam-muted">
+          총 <strong className="text-sam-fg">{urgentRows.length}</strong>건
+        </p>
       </AdminCard>
 
       <div className="mt-4">

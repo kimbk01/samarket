@@ -160,10 +160,20 @@ export function MyBusinessPage({
     alertStoreIdRef.current = orderCountsStoreId;
   }, [orderCountsStoreId]);
 
-  useSupabaseStoreOrdersRealtime(orderCountsStoreId, onStoreOrderInsert);
+  const tickOrderCountsRef = useRef<() => Promise<void>>(async () => {});
+
+  useSupabaseStoreOrdersRealtime(orderCountsStoreId, {
+    debounceMs: 450,
+    onChange: () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      void tickOrderCountsRef.current();
+    },
+    onInsert: onStoreOrderInsert,
+  });
 
   useEffect(() => {
     if (!orderCountsStoreId) {
+      tickOrderCountsRef.current = async () => {};
       setOrderAlertsBadge(0);
       prevPendingDeliveryRef.current = null;
       return;
@@ -202,6 +212,8 @@ export function MyBusinessPage({
         }
       }
     };
+
+    tickOrderCountsRef.current = tick;
 
     void tick();
     const id = window.setInterval(() => {

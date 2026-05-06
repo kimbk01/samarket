@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
   const { data: orders, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, total_amount, payment_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, auto_complete_at, community_messenger_room_id"
+      "id, order_no, store_id, total_amount, payment_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
     )
     .eq("buyer_user_id", buyerId)
     .order("created_at", { ascending: false })
